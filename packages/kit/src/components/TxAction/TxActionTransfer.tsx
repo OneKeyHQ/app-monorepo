@@ -20,6 +20,7 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  type IDecodedTx,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -47,11 +48,112 @@ type ITransferBlock = {
   direction: EDecodedTxDirection;
 };
 
+type IPrivateSendCreateTokenAccountFee = {
+  amount?: string;
+  symbol?: string;
+};
+
 function isSendLikeHistoryTxType(type?: EOnChainHistoryTxType) {
   return (
     type === EOnChainHistoryTxType.Send ||
     type === EOnChainHistoryTxType.PrivateSend
   );
+}
+
+function getPrivateSendCreateTokenAccountFee(decodedTx: IDecodedTx) {
+  const createTokenAccountFee = (
+    decodedTx.extraInfo as
+      | { createTokenAccountFee?: IPrivateSendCreateTokenAccountFee }
+      | null
+      | undefined
+  )?.createTokenAccountFee;
+  const feeAmountBN = new BigNumber(createTokenAccountFee?.amount ?? '');
+  if (
+    feeAmountBN.isNaN() ||
+    !feeAmountBN.isFinite() ||
+    !feeAmountBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+  return createTokenAccountFee;
+}
+
+function getPositiveNumberValue(value?: string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
+}
+
+function getPrivateSendNativePriceFromFee(decodedTx: IDecodedTx) {
+  const totalFeeInNativeBN = getPositiveNumberValue(decodedTx.totalFeeInNative);
+  const totalFeeFiatValueBN = getPositiveNumberValue(
+    decodedTx.totalFeeFiatValue,
+  );
+  if (!totalFeeInNativeBN || !totalFeeFiatValueBN) {
+    return undefined;
+  }
+
+  return totalFeeFiatValueBN.div(totalFeeInNativeBN).toFixed();
+}
+
+function hasPrivateSendCreateTokenAccountFeeTransfer({
+  transfers,
+  createTokenAccountFee,
+}: {
+  transfers: IDecodedTxTransferInfo[];
+  createTokenAccountFee: IPrivateSendCreateTokenAccountFee;
+}) {
+  return transfers.some((transfer) => {
+    const amountBN = new BigNumber(transfer.amount ?? '');
+    const feeAmountBN = new BigNumber(createTokenAccountFee.amount ?? '');
+    return (
+      transfer.isNative &&
+      !amountBN.isNaN() &&
+      !feeAmountBN.isNaN() &&
+      amountBN.isEqualTo(feeAmountBN)
+    );
+  });
+}
+
+function buildPrivateSendDisplaySends({
+  decodedTx,
+  sends,
+  networkLogoURI,
+}: {
+  decodedTx: IDecodedTx;
+  sends: IDecodedTxTransferInfo[];
+  networkLogoURI?: string;
+}) {
+  const createTokenAccountFee = getPrivateSendCreateTokenAccountFee(decodedTx);
+  if (!createTokenAccountFee) {
+    return sends;
+  }
+  if (
+    hasPrivateSendCreateTokenAccountFeeTransfer({
+      transfers: sends,
+      createTokenAccountFee,
+    })
+  ) {
+    return sends;
+  }
+  const nativePrice = getPrivateSendNativePriceFromFee(decodedTx);
+  return [
+    ...sends,
+    {
+      from: decodedTx.signer || decodedTx.owner,
+      to: '',
+      tokenIdOnNetwork: '',
+      icon: networkLogoURI ?? '',
+      name: createTokenAccountFee.symbol ?? '',
+      symbol: createTokenAccountFee.symbol ?? '',
+      amount: createTokenAccountFee.amount ?? '',
+      isNFT: false,
+      isNative: true,
+      networkId: decodedTx.networkId,
+      price: nativePrice,
+    },
+  ];
 }
 
 function getTxActionTransferInfo(
@@ -417,6 +519,13 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const privateSendDisplaySends = isPrivateSend
+    ? buildPrivateSendDisplaySends({
+        decodedTx,
+        sends,
+        networkLogoURI,
+      })
+    : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
   const descriptionTarget = isPrivateSend
     ? (payload?.privateSend?.originalRecipient ?? transferTarget)
@@ -446,7 +555,7 @@ function TxActionTransferListView(props: ITxActionProps) {
 
     if (isPrivateSend) {
       change = buildExpandedTransferView({
-        sends: groupTransfersByToken(sends),
+        sends: groupTransfersByToken(privateSendDisplaySends),
         hideValue,
         currencySymbol,
       });
@@ -531,7 +640,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     if (isPrivateSend) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
-        transfers: sends,
+        transfers: privateSendDisplaySends,
         intl,
       });
       change = changeInfo.change;

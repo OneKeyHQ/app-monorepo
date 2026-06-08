@@ -82,6 +82,7 @@ import {
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { upsertPerpsActiveAssetCtxColdCacheEntry } from '../hooks/usePerpsActiveAssetCtxDisplay';
+import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import {
   isTradeInstrumentBackedBySubscriptionState,
   planTradeSubscriptions,
@@ -1386,6 +1387,7 @@ function useHyperliquidInstrumentSwitchRequest() {
 }
 
 function PerpsGlobalEffectsView() {
+  usePrewarmPerpsTokenSelectorImages();
   useHydrateFavoritesBarMarketCache();
   useHyperliquidEventBusListener();
   useHyperliquidSession();

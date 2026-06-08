@@ -19,6 +19,10 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  CHART_WEBVIEW_MODE,
+  CHART_WEBVIEW_SCENE,
+} from '@onekeyhq/kit/src/components/TradingView/ChartWebView/constants';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -52,6 +56,7 @@ function MobileTradingViewTouchBridge({
   tokenAddress,
   networkId,
   tokenSymbol,
+  decimal,
   dataSource,
   pageWidth,
   onIndicatorsDialogOpenChange,
@@ -59,6 +64,7 @@ function MobileTradingViewTouchBridge({
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
+  decimal?: number;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
@@ -94,6 +100,7 @@ function MobileTradingViewTouchBridge({
       tokenAddress={tokenAddress}
       networkId={networkId}
       tokenSymbol={tokenSymbol}
+      decimal={decimal}
       dataSource={dataSource}
       pageWidth={pageWidth}
       onTouchScroll={handleTouchScrollWhenEnabled}
@@ -109,8 +116,10 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     tokenDetail,
     websocketConfig,
     isStockToken,
+    chartSymbol,
+    chartDecimal,
   } = useTokenDetail();
-  const tokenSymbol = tokenDetail?.symbol;
+  const tokenSymbol = chartSymbol;
   const intl = useIntl();
   const isBTCMainnet = networkUtils.isBTCMainnet(networkId);
 
@@ -318,10 +327,20 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                 if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
                   return (
                     <MobileTradingViewTouchBridge
-                      key={`${networkId}:${tokenAddress}:${tokenSymbol}`}
+                      // Unified pooled chart switches token in-place via
+                      // SYMBOL_CHANGE (no reload), so a stable key avoids the
+                      // per-token remount/skeleton-flash. Legacy WebView still
+                      // needs the per-token key to reload its URL.
+                      key={
+                        CHART_WEBVIEW_MODE !== 'legacy' &&
+                        CHART_WEBVIEW_SCENE === 'unified'
+                          ? 'unified-market-chart'
+                          : `${networkId}:${tokenAddress}:${tokenSymbol}`
+                      }
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenSymbol}
+                      decimal={chartDecimal}
                       dataSource={
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
@@ -337,6 +356,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                     tokenAddress={tokenAddress}
                     networkId={networkId}
                     tokenSymbol={tokenSymbol}
+                    decimal={chartDecimal}
                     dataSource={
                       websocketConfig?.kline ? 'websocket' : 'polling'
                     }
@@ -362,6 +382,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
       </YStack>
     );
   }, [
+    chartDecimal,
     effectivePageWidth,
     handleHeaderHorizontalSwipe,
     handleIndicatorsDialogOpenChange,

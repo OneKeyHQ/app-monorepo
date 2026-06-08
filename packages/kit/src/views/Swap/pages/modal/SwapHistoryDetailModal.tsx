@@ -60,6 +60,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
 import {
@@ -82,7 +83,7 @@ type ISwapHistoryDetailAssetItem = {
   icon: string;
   isNFT: boolean;
   isNative: boolean;
-  price: string;
+  price?: string;
   amount?: string;
 };
 
@@ -395,7 +396,65 @@ function PrivateSendProgress({
 function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
   return (
     item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-    item?.swapInfo.provider.provider === privateSendProvider
+    item?.swapInfo?.provider?.provider === privateSendProvider
+  );
+}
+
+type IPrivateSendHistoryCtx = {
+  privateSendDisplayTransfers?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPrivateSendDisplayTransfer(
+  value: unknown,
+): value is IDecodedTxTransferInfo {
+  return (
+    isRecord(value) &&
+    typeof value.amount === 'string' &&
+    typeof value.symbol === 'string'
+  );
+}
+
+function getPrivateSendDisplayTransfers(item?: ISwapTxHistory) {
+  const transfers = (item?.ctx as IPrivateSendHistoryCtx | undefined)
+    ?.privateSendDisplayTransfers;
+  return Array.isArray(transfers)
+    ? transfers.filter(isPrivateSendDisplayTransfer)
+    : [];
+}
+
+function normalizeTokenAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized ? normalized.toLowerCase() : '';
+}
+
+function isBasePrivateSendTransfer({
+  transfer,
+  txHistory,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  txHistory?: ISwapTxHistory;
+}) {
+  const fromToken = txHistory?.baseInfo.fromToken;
+  if (!fromToken) {
+    return false;
+  }
+  if (transfer.networkId && transfer.networkId !== fromToken.networkId) {
+    return false;
+  }
+
+  const transferTokenAddress = normalizeTokenAddress(transfer.tokenIdOnNetwork);
+  const fromTokenAddress = normalizeTokenAddress(fromToken.contractAddress);
+  if (transferTokenAddress && fromTokenAddress) {
+    return transferTokenAddress === fromTokenAddress;
+  }
+
+  return Boolean(
+    (transfer.isNative || !transferTokenAddress) &&
+    (fromToken.isNative || !fromTokenAddress),
   );
 }
 
@@ -410,6 +469,42 @@ function getPositiveTokenPrice(value?: number | string) {
   }
 
   return valueBN.toFixed();
+}
+
+function getNativeTokenPriceFromGasFee(item?: ISwapTxHistory) {
+  const gasFeeInNativeBN = new BigNumber(item?.txInfo.gasFeeInNative ?? '');
+  const gasFeeFiatValueBN = new BigNumber(item?.txInfo.gasFeeFiatValue ?? '');
+
+  if (
+    gasFeeInNativeBN.isNaN() ||
+    !gasFeeInNativeBN.isFinite() ||
+    !gasFeeInNativeBN.isGreaterThan(0) ||
+    gasFeeFiatValueBN.isNaN() ||
+    !gasFeeFiatValueBN.isFinite() ||
+    !gasFeeFiatValueBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+
+  return gasFeeFiatValueBN.div(gasFeeInNativeBN).toFixed();
+}
+
+function getPrivateSendTransferPrice({
+  transfer,
+  isBaseToken,
+  fromAssetPrice,
+  nativeTokenPrice,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  isBaseToken: boolean;
+  fromAssetPrice?: string;
+  nativeTokenPrice?: string;
+}) {
+  return (
+    getPositiveTokenPrice(transfer.price) ??
+    (isBaseToken ? getPositiveTokenPrice(fromAssetPrice) : undefined) ??
+    (transfer.isNative ? nativeTokenPrice : undefined)
+  );
 }
 
 function applyPrivateSendTokenPrice({
@@ -701,6 +796,68 @@ const SwapHistoryDetailModal = () => {
       });
     }
     if (isPrivateSendHistory) {
+      const privateSendDisplayTransfers =
+        getPrivateSendDisplayTransfers(txHistory);
+      if (privateSendDisplayTransfers.length) {
+        const nativeTokenPrice = getNativeTokenPriceFromGasFee(txHistory);
+        return (
+          <>
+            {privateSendDisplayTransfers.map((transfer, index) => {
+              const isBaseToken = isBasePrivateSendTransfer({
+                transfer,
+                txHistory,
+              });
+              const asset = {
+                name:
+                  transfer.name ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.name ?? '')
+                    : ''),
+                symbol:
+                  transfer.symbol ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.symbol ?? '')
+                    : ''),
+                icon:
+                  transfer.icon ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.logoURI ?? '')
+                    : ''),
+                isNFT: transfer.isNFT,
+                isNative: transfer.isNative,
+                price: getPrivateSendTransferPrice({
+                  transfer,
+                  isBaseToken,
+                  fromAssetPrice: fromAsset.price,
+                  nativeTokenPrice,
+                }),
+              };
+
+              return (
+                <AssetItem
+                  key={`${transfer.tokenIdOnNetwork || transfer.symbol}-${
+                    transfer.amount
+                  }-${index}`}
+                  index={index}
+                  direction={EDecodedTxDirection.OUT}
+                  asset={asset}
+                  isAllNetworks
+                  amount={transfer.amount}
+                  networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
+                  currencySymbol={
+                    txHistory?.currency ??
+                    settingsPersistAtom.currencyInfo.symbol
+                  }
+                  networkId={
+                    transfer.networkId ??
+                    txHistory?.baseInfo.fromNetwork?.networkId
+                  }
+                />
+              );
+            })}
+          </>
+        );
+      }
       return (
         <AssetItem
           index={0}

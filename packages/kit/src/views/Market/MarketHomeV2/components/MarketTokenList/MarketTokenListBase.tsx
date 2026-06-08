@@ -428,6 +428,7 @@ function MarketTokenListBase({
               tokenAddress: item.address,
               networkId: item.networkId,
               isNative: item.isNative,
+              decimals: item.decimals,
             });
           },
       onLongPress: onItemLongPressRef.current

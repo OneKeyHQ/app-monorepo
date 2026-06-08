@@ -204,7 +204,7 @@ const ManagePositionPage = () => {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header title={symbol} />
       <Page.Body>
         <ManagePositionContent

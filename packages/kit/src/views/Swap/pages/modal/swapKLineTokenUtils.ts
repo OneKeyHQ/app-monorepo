@@ -10,6 +10,12 @@ export type ISwapKLineToken = ISwapToken & {
   dappType?: ITokenDappType;
 };
 
+type ISwapKLineStableTokenIdentity = {
+  networkId?: string;
+  contractAddress?: string;
+  isNative?: boolean;
+};
+
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -20,7 +26,9 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
 }
 
-export function getSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
+export function getSwapKLineStableTokenAddress(
+  token?: ISwapKLineStableTokenIdentity,
+) {
   const address = token?.contractAddress?.trim();
   if (!token?.networkId || token.isNative || !address) {
     return undefined;
@@ -28,34 +36,56 @@ export function getSwapKLineStableTokenAddress(token?: ISwapKLineToken) {
   return address.startsWith('0x') ? address.toLowerCase() : address;
 }
 
+export function getSwapKLineStableTokenKey(
+  token?: ISwapKLineStableTokenIdentity,
+) {
+  const address = getSwapKLineStableTokenAddress(token);
+  return token?.networkId && address ? `${token.networkId}:${address}` : '';
+}
+
 export async function fetchSwapKLineTokenAddressesStableStatus(
-  stableTokenAddresses: (string | undefined)[],
+  stableTokens: (ISwapKLineStableTokenIdentity | undefined)[],
 ): Promise<Map<string, boolean>> {
-  const contractAddressesList = Array.from(
-    new Set(
-      stableTokenAddresses.filter((address): address is string =>
-        Boolean(address),
-      ),
-    ),
+  const tokensByNetwork = stableTokens.reduce<Record<string, Set<string>>>(
+    (acc, token) => {
+      const address = getSwapKLineStableTokenAddress(token);
+      if (token?.networkId && address) {
+        acc[token.networkId] ??= new Set<string>();
+        acc[token.networkId].add(address);
+      }
+      return acc;
+    },
+    {},
+  );
+  const list = Object.entries(tokensByNetwork).map(
+    ([networkId, contractAddressSet]) => ({
+      networkId,
+      contractAddressList: Array.from(contractAddressSet),
+    }),
   );
 
-  if (!contractAddressesList.length) {
+  if (!list.length) {
     return new Map();
   }
 
   try {
     const stableCoinsList =
       await backgroundApiProxy.serviceSwap.checkStableCoinsList({
-        contractAddressesList,
+        list,
       });
 
     return new Map(
-      stableCoinsList.map((item) => [
-        item.contractAddress.startsWith('0x')
-          ? item.contractAddress.toLowerCase()
-          : item.contractAddress,
-        item.isStableCoin,
-      ]),
+      stableCoinsList.flatMap((item) =>
+        item.results.map((result) => {
+          const contractAddress = result.contractAddress.startsWith('0x')
+            ? result.contractAddress.toLowerCase()
+            : result.contractAddress;
+          return [
+            `${item.networkId}:${contractAddress}`,
+            result.isStableCoin,
+          ] as const;
+        }),
+      ),
     );
   } catch {
     return new Map();
@@ -65,20 +95,18 @@ export async function fetchSwapKLineTokenAddressesStableStatus(
 export async function fetchSwapKLineTokensStableStatus(
   tokens: (ISwapKLineToken | undefined)[],
 ): Promise<Map<string, boolean>> {
-  return fetchSwapKLineTokenAddressesStableStatus(
-    tokens.map((token) => getSwapKLineStableTokenAddress(token)),
-  );
+  return fetchSwapKLineTokenAddressesStableStatus(tokens);
 }
 
 export function getSwapKLineStableTokenStatusFromMap({
   stableStatusMap,
-  stableTokenAddress,
+  stableTokenKey,
 }: {
   stableStatusMap: Map<string, boolean>;
-  stableTokenAddress?: string;
+  stableTokenKey?: string;
 }) {
-  return stableTokenAddress
-    ? (stableStatusMap.get(stableTokenAddress) ?? false)
+  return stableTokenKey
+    ? (stableStatusMap.get(stableTokenKey) ?? false)
     : false;
 }
 
@@ -91,7 +119,7 @@ export function getSwapKLineTokenStableStatusFromMap({
 }) {
   return getSwapKLineStableTokenStatusFromMap({
     stableStatusMap,
-    stableTokenAddress: getSwapKLineStableTokenAddress(token),
+    stableTokenKey: getSwapKLineStableTokenKey(token),
   });
 }
 

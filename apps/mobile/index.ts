@@ -51,7 +51,11 @@ try {
     _keys.onekey_jotai_context_atoms_snapshot,
   );
   if (_ctxRaw) {
-    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = JSON.parse(_ctxRaw);
+    const { normalizeSwapColdStartCacheSnapshot: _normalizeSwapSnapshot } =
+      require('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils') as typeof import('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils');
+    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = _normalizeSwapSnapshot(
+      JSON.parse(_ctxRaw),
+    );
     const { NativeLogger: _NL, LogLevel: _LL } =
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     _NL.write(
@@ -93,6 +97,10 @@ if ((globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__) {
   const { warmCriticalIcons } =
     require('@onekeyhq/components/src/primitives/Icon') as typeof import('@onekeyhq/components/src/primitives/Icon');
   warmCriticalIcons();
+
+  const { prewarmColdStartImagesFromSnapshot } =
+    require('@onekeyhq/kit/src/utils/coldStartImagePreload') as typeof import('@onekeyhq/kit/src/utils/coldStartImagePreload');
+  void prewarmColdStartImagesFromSnapshot();
 }
 
 // Install native error logger for Release mode debugging.

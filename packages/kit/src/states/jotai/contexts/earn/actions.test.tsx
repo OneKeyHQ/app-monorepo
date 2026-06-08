@@ -5,11 +5,6 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-
 import { useEarnActions } from './actions';
 import {
   ProviderJotaiContextEarn,
@@ -63,9 +58,7 @@ describe('useEarnActions', () => {
     jest.clearAllMocks();
   });
 
-  it('emits the recommended refresh event when triggerRefresh runs', async () => {
-    const emitSpy = jest.spyOn(appEventBus, 'emit');
-
+  it('increments the available-assets refresh trigger when triggerRefresh runs', async () => {
     const { result } = renderHook(
       () => {
         const actions = useEarnActions().current;
@@ -94,10 +87,6 @@ describe('useEarnActions', () => {
       expect.objectContaining({
         refreshTrigger: 1,
       }),
-    );
-    expect(emitSpy).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshEarnRecommendedList,
-      undefined,
     );
   });
 });

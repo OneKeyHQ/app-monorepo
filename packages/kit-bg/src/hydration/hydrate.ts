@@ -59,6 +59,7 @@ import {
   resetColdStartCache,
   writeColdStartMeta,
 } from '@onekeyhq/shared/src/storage/instance/webColdStartStorage';
+import { normalizeSwapColdStartCacheSnapshot } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { globalColdStartHydrationReadyHandler } from '../states/jotai/coldStartReady';
 
@@ -371,7 +372,9 @@ const promise: Promise<void> = (async () => {
   // didHydrate is driven by this — it is the only layer whose presence affects
   // first paint now that L1 is removed. L3 hits the primed map lazily and has
   // no observable mount-time signal.
-  const ctxSnapshot = parseL2CtxSnapshot(entries);
+  const ctxSnapshot = normalizeSwapColdStartCacheSnapshot(
+    parseL2CtxSnapshot(entries),
+  );
   setGlobal('__ONEKEY_CTX_ATOM_SNAPSHOT__', ctxSnapshot);
 
   // L3: swrCacheUtils.loadStore() lazily reads coldStartCacheStorage on first
