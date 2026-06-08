@@ -103,6 +103,9 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
+    status: 'VALID' | 'INVALID' | 'UNKNOWN';
+  };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
