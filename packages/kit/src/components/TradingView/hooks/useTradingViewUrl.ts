@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useCalendars } from 'expo-localization';
 
@@ -8,6 +8,7 @@ import {
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { DESKTOP_OFFLINE_CHART_ENTRY_URL } from '@onekeyhq/shared/src/consts/desktopChartConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -61,6 +62,26 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     localTradingViewUrl,
     desktopOfflineChartReady,
   ]);
+
+  // Desktop online-fallback diagnostic (see market.chart scene): when the asar
+  // shipped no offline bundle, baseUrl stays the remote URL and the legacy
+  // WebView renders, so ChartWebView/index.desktop.tsx never mounts to log it.
+  // The OFFLINE desktop case is logged there instead; this covers only the
+  // online fallback. Native is excluded — its baseUrl is always the online URL
+  // used merely as fallback (the real offline/online decision lives in
+  // ChartWebView/index.native.tsx), so logging it here would misreport "online".
+  useEffect(() => {
+    const isDesktopOffline = baseUrl === DESKTOP_OFFLINE_CHART_ENTRY_URL;
+    if (!platformEnv.isDesktop || isDesktopOffline) {
+      return;
+    }
+    defaultLogger.market.chart.chartSource({
+      platform: platformEnv.appPlatform ?? 'desktop',
+      mode: 'online',
+      sourceKind: 'online',
+      hasOnlineFallback: true,
+    });
+  }, [baseUrl]);
 
   // The full param set, shared by the online URL (query string) and the offline
   // chart-webview bundle (passed as paramsJson). Keeping a single source avoids
