@@ -35,6 +35,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
   ECloudSyncDataTimeSource,
   ELocalSystemTimeStatus,
+  type ICloudSyncCorrectedTime,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -177,11 +178,14 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private isCloudSyncDataTimeFuturePoisoned({
     dataTime,
+    correctedNow,
   }: {
     dataTime: number | undefined;
+    correctedNow?: ICloudSyncCorrectedTime;
   }) {
     return systemTimeUtils.isCloudSyncDataTimeFuturePoisoned({
       dataTime,
+      correctedNow,
       tolerance: CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
     });
   }
@@ -193,14 +197,18 @@ class ServicePrimeCloudSync extends ServiceBase {
     explicitHistoricalTime,
     allowHistoricalTime,
   }: ICloudSyncDataTimeParams = {}): Promise<number> {
+    let correctedNow: ICloudSyncCorrectedTime;
     if (!systemTimeUtils.hasFreshServerTimeInCurrentProcess()) {
-      try {
-        await systemTimeUtils.ensureFreshServerTime();
-      } catch (error) {
+      void systemTimeUtils.ensureFreshServerTime().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
-      }
+      });
+      correctedNow = {
+        time: Date.now(),
+        source: ECloudSyncDataTimeSource.LocalFallback,
+      };
+    } else {
+      correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
     }
-    const correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
 
     if (allowHistoricalTime && !isNil(explicitHistoricalTime)) {
       if (correctedNow.source === ECloudSyncDataTimeSource.AppBuild) {
@@ -216,9 +224,11 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     const existingFuturePoisoned = this.isCloudSyncDataTimeFuturePoisoned({
       dataTime: existingDataTime,
+      correctedNow,
     });
     const lastIssuedFuturePoisoned = this.isCloudSyncDataTimeFuturePoisoned({
       dataTime: lastIssued,
+      correctedNow,
     });
 
     const monotonicFloor = Math.max(

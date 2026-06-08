@@ -20,6 +20,7 @@ export enum ELocalSystemTimeStatus {
 export enum ECloudSyncDataTimeSource {
   Estimated = 'estimated',
   TrustedLocal = 'trusted-local',
+  LocalFallback = 'local-fallback',
   LastServer = 'last-server',
   AppBuild = 'app-build',
 }
@@ -43,6 +44,9 @@ const appBuildTime = Math.max(
 const intervalTimeout = timerUtils.getTimeDurationMs({
   // seconds: 5,
   minute: 5,
+});
+const refreshServerTimeTimeout = timerUtils.getTimeDurationMs({
+  seconds: 5,
 });
 const localServerTimeDiff = timerUtils.getTimeDurationMs({
   // OK-55438: tightened 30m -> 10m. Cross-device LWW ordering for cloud sync
@@ -211,6 +215,7 @@ class SystemTimeUtils {
         _: 'system_time_utils',
         timestamp: Date.now(),
       },
+      timeout: refreshServerTimeTimeout,
     });
     const headers = response.headers as
       | {
