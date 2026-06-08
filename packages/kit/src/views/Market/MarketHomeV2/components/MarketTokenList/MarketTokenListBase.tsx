@@ -78,6 +78,12 @@ const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
   v24hUSD: ESortWay.Volume,
 };
 
+const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
+  'marketCap',
+  'liquidity',
+  'turnover',
+]);
+
 export type IMarketTokenListResult = {
   data: IMarketToken[];
   isLoading: boolean | undefined;
@@ -359,6 +365,14 @@ function MarketTokenListBase({
         return undefined;
       }
 
+      if (
+        clientSort &&
+        useStockMetadataColumns &&
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+      ) {
+        return undefined;
+      }
+
       // Client sort mode uses all numeric columns,
       // watchlist mode uses restricted server-side sortable columns
       const columnsMap = clientSort
@@ -386,6 +400,7 @@ function MarketTokenListBase({
       clientSort,
       currentSortBy,
       currentSortType,
+      useStockMetadataColumns,
     ],
   );
 

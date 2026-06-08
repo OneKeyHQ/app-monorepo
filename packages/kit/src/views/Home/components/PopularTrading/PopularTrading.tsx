@@ -230,7 +230,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
     if (apiHomeTabs.length > 0) {
-      return apiHomeTabs
+      const configuredHomeCategories = apiHomeTabs
         .filter((tab) => tab.type !== HOME_PERPS_CATEGORY_ID)
         .map((tab) => {
           if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
@@ -246,15 +246,26 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             icon: tab.icon,
           };
         });
+      if (configuredHomeCategories.length > 0) {
+        return configuredHomeCategories;
+      }
     }
 
     return [favoritesCategory, ...marketCategories];
   }, [apiHomeTabs, favoritesCategory, marketCategories]);
 
+  const resolvedSelectedCategoryId = useMemo(() => {
+    if (homeCategories.some((category) => category.id === selectedCategoryId)) {
+      return selectedCategoryId;
+    }
+
+    return homeCategories[0]?.id ?? FAVORITES_CATEGORY_ID;
+  }, [homeCategories, selectedCategoryId]);
+
   const selectedMarketCategoryId =
-    selectedCategoryId === FAVORITES_CATEGORY_ID
+    resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
       ? undefined
-      : selectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
+      : resolvedSelectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
 
   const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
     minLiquidity,
@@ -1103,7 +1114,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         <YStack px={tableLayout ? '$pagePadding' : undefined}>
           <CategorySelector
             categories={homeCategories}
-            selectedCategoryId={selectedCategoryId}
+            selectedCategoryId={resolvedSelectedCategoryId}
             onSelectCategory={setSelectedCategoryId}
             showBorder={false}
             showHorizontalPadding={false}
@@ -1127,8 +1138,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,
-    selectedCategoryId,
     selectedMarketCategoryId,
+    resolvedSelectedCategoryId,
     tableLayout,
   ]);
 
