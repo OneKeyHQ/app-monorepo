@@ -303,17 +303,50 @@ function TwapEmptyState({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isMobile = !gtMd;
-  const buttonHeight = isMobile ? 32 : 28;
   const handleGuidePress = useCallback(() => {
     openGuideUrl(buildHelpUrl('articles/13988742'));
   }, []);
+
+  if (isMobile) {
+    return (
+      <YStack flex={1} alignItems="center" p="$6">
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({ id: titleId })}
+        </SizableText>
+        {description ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            mt="$2"
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        <SizableText
+          testID={PerpTestIDs.TwapEmptyGuideButton}
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          textDecorationLine="underline"
+          mt="$2"
+          onPress={handleGuidePress}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </YStack>
+    );
+  }
+
   const guideButton = (
     <Button
       testID={PerpTestIDs.TwapEmptyGuideButton}
       width={180}
       borderRadius="$full"
       size="small"
-      h={buttonHeight}
+      h={28}
       px="$3"
       variant="secondary"
       onPress={handleGuidePress}

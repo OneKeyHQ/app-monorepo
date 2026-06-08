@@ -3168,7 +3168,7 @@
   "perp_market_info_total_supply_tooltip__desc": "Total number of tokens currently issued.",
   "perp_market_liquidation__title": "市價清算",
   "perp_no__title": "No",
-  "perp_no_active_twap__title": "暫無當前分時委託",
+  "perp_no_active_twap__title": "暫無分時委託",
   "perp_no_twap_fill_history__title": "No TWAP fill history",
   "perp_no_twap_history__title": "No TWAP history",
   "perp_order_trigger_limit": "限價止盈止損",

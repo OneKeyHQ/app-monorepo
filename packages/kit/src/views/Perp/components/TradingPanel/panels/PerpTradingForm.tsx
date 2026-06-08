@@ -855,10 +855,7 @@ function PerpTradingForm({
       orderCount < SCALE_ORDER_MIN_COUNT ||
       orderCount > SCALE_ORDER_MAX_COUNT
     ) {
-      return {
-        text: `Enter ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
-        tone: 'error' as const,
-      };
+      return undefined;
     }
 
     const lowerPrice = new BigNumber(formData.scaleLowerPrice ?? 0);

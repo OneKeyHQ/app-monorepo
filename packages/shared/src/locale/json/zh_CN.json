@@ -3168,7 +3168,7 @@
   "perp_market_info_total_supply_tooltip__desc": "当前已发行的代币总量。",
   "perp_market_liquidation__title": "市价清算",
   "perp_no__title": "否",
-  "perp_no_active_twap__title": "暂无当前分时委托",
+  "perp_no_active_twap__title": "暂无分时委托",
   "perp_no_twap_fill_history__title": "暂无分时委托成交历史",
   "perp_no_twap_history__title": "暂无分时委托历史",
   "perp_order_trigger_limit": "限价止盈止损",
