@@ -211,6 +211,7 @@ export function DesktopLayout({
                   tabIntegrated
                   tabName={watchlistTabName}
                   listContainerProps={listContainerProps}
+                  enableWebSocket
                 />
               ) : null}
             </YStack>
@@ -227,6 +228,7 @@ export function DesktopLayout({
                   listContainerProps={listContainerProps}
                   toolbar={<MarketFilterBar {...filterBarProps} />}
                   hiddenDesktopColumns={hiddenSpotDesktopColumns}
+                  enableWebSocket
                 />
               ) : null}
             </YStack>

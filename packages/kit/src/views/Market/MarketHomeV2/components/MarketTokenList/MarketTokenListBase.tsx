@@ -28,15 +28,20 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
+import {
+  applyMarketTokenListLiveOverrides,
+  useMarketHomeTokenListWebSocket,
+} from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 import { shouldShowStockSubtitleForTokens } from './utils/tokenListHelpers';
+
+import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
 
 const SPINNER_HEIGHT = 52;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
@@ -90,22 +95,6 @@ export type IMarketTokenListResult = {
   currentSortType?: 'asc' | 'desc';
 };
 
-export type IMarketTokenListLiveOverride = Partial<
-  Pick<
-    IMarketToken,
-    | 'price'
-    | 'change24h'
-    | 'marketCap'
-    | 'liquidity'
-    | 'transactions'
-    | 'uniqueTraders'
-    | 'holders'
-    | 'turnover'
-    | 'walletInfo'
-  >
-> &
-  Pick<IMarketToken, 'networkId' | 'address'>;
-
 type IMarketTokenListBaseProps = {
   networkId?: string;
   onItemPress?: (item: IMarketToken) => void;
@@ -136,6 +125,7 @@ type IMarketTokenListBaseProps = {
   hiddenDesktopColumns?: readonly string[];
   change24hColumnTitle?: string;
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
 };
@@ -164,6 +154,7 @@ function MarketTokenListBase({
   hiddenDesktopColumns,
   change24hColumnTitle,
   liveTokenOverride,
+  enableWebSocket,
   rowBg,
   testID,
 }: IMarketTokenListBaseProps) {
@@ -171,6 +162,8 @@ function MarketTokenListBase({
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
 
   const {
     data: rawData,
@@ -186,6 +179,10 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+  const websocketData = useMarketHomeTokenListWebSocket({
+    tokens: rawData,
+    enabled: Boolean(enableWebSocket && isTabFocused),
+  });
 
   const hasStock = useMemo(
     () => rawData.some((item) => !!item.stock),
@@ -213,12 +210,12 @@ function MarketTokenListBase({
 
   // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
-    let nextData = rawData;
+    let nextData = websocketData;
 
     if (clientSort && currentSortBy && currentSortType) {
       const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
       if (field) {
-        nextData = [...rawData].toSorted((a, b) => {
+        nextData = [...websocketData].toSorted((a, b) => {
           const aVal = (a[field] as number) ?? 0;
           const bVal = (b[field] as number) ?? 0;
           return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
@@ -226,65 +223,21 @@ function MarketTokenListBase({
       }
     }
 
-    if (
-      !liveTokenOverride?.networkId ||
-      liveTokenOverride.address === undefined
-    ) {
+    if (!liveTokenOverride) {
       return nextData;
     }
 
-    let hasMatchedToken = false;
-    const dataWithLiveOverride = nextData.map((item) => {
-      const isMatchedToken = equalTokenNoCaseSensitive({
-        token1: {
-          networkId: item.networkId,
-          contractAddress: item.address,
-        },
-        token2: {
-          networkId: liveTokenOverride.networkId,
-          contractAddress: liveTokenOverride.address,
-        },
-      });
-
-      if (!isMatchedToken) {
-        return item;
-      }
-
-      hasMatchedToken = true;
-      return {
-        ...item,
-        ...(liveTokenOverride.price !== undefined && {
-          price: liveTokenOverride.price,
-        }),
-        ...(liveTokenOverride.change24h !== undefined && {
-          change24h: liveTokenOverride.change24h,
-        }),
-        ...(liveTokenOverride.marketCap !== undefined && {
-          marketCap: liveTokenOverride.marketCap,
-        }),
-        ...(liveTokenOverride.liquidity !== undefined && {
-          liquidity: liveTokenOverride.liquidity,
-        }),
-        ...(liveTokenOverride.transactions !== undefined && {
-          transactions: liveTokenOverride.transactions,
-        }),
-        ...(liveTokenOverride.uniqueTraders !== undefined && {
-          uniqueTraders: liveTokenOverride.uniqueTraders,
-        }),
-        ...(liveTokenOverride.holders !== undefined && {
-          holders: liveTokenOverride.holders,
-        }),
-        ...(liveTokenOverride.turnover !== undefined && {
-          turnover: liveTokenOverride.turnover,
-        }),
-        ...(liveTokenOverride.walletInfo !== undefined && {
-          walletInfo: liveTokenOverride.walletInfo,
-        }),
-      };
+    return applyMarketTokenListLiveOverrides({
+      tokens: nextData,
+      liveTokenOverrides: [liveTokenOverride],
     });
-
-    return hasMatchedToken ? dataWithLiveOverride : nextData;
-  }, [clientSort, rawData, currentSortBy, currentSortType, liveTokenOverride]);
+  }, [
+    clientSort,
+    websocketData,
+    currentSortBy,
+    currentSortType,
+    liveTokenOverride,
+  ]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -502,9 +455,7 @@ function MarketTokenListBase({
 
   // Desktop sticky header: portal the column header + toolbar into the
   // renderTabBar area so they stick when scrolling in the collapsible tab.
-  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
   const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
-  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
@@ -624,3 +575,4 @@ function MarketTokenListBase({
 }
 
 export { MarketTokenListBase };
+export type { IMarketTokenListLiveOverride };

@@ -22,6 +22,7 @@ type IMarketNormalTokenListProps = {
   };
   hiddenDesktopColumns?: readonly string[];
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  enableWebSocket?: boolean;
   pollingInterval?: number;
   rowBg?: string;
 };
@@ -39,6 +40,7 @@ function MarketNormalTokenList({
   listContainerProps,
   hiddenDesktopColumns,
   liveTokenOverride,
+  enableWebSocket,
   pollingInterval,
   rowBg,
 }: IMarketNormalTokenListProps) {
@@ -66,6 +68,7 @@ function MarketNormalTokenList({
       showStockSubtitle="auto"
       hiddenDesktopColumns={hiddenDesktopColumns}
       liveTokenOverride={liveTokenOverride}
+      enableWebSocket={enableWebSocket}
       rowBg={rowBg}
     />
   );
