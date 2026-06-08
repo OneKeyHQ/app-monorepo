@@ -6,6 +6,8 @@ export {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  getUpdateReminderActionLabelId,
+  isUpdateReminderRedundant,
   useAppChangeLog,
   useAppUpdateInfo,
   useDownloadPackage,

@@ -285,17 +285,21 @@ import { act, renderHook } from '@testing-library/react';
 
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   computeDownloadRetryDelayMs,
   extractUpdateErrorCode,
+  getUpdateReminderActionLabelId,
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
   isUnrecoverableDownloadError,
+  isUpdateReminderRedundant,
   runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
@@ -2923,5 +2927,90 @@ describe('onUpdateActionDirect', () => {
       'AppUpdateModal',
       expect.objectContaining({ screen: 'ManualInstall' }),
     );
+  });
+});
+
+// =========================================================================
+// D3. getUpdateReminderActionLabelId — toolbox reminder CTA label
+// A downloaded hot update (jsBundle @ ready) restarts on click → "Update now";
+// every other state opens a flow → generic "View".
+// =========================================================================
+describe('getUpdateReminderActionLabelId', () => {
+  test('jsBundle + ready → "Update now"', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.jsBundle,
+        updateStatus: EAppUpdateStatus.ready,
+      }),
+    ).toBe(ETranslations.update_update_now);
+  });
+
+  test('jsBundle + notify → "View" (not yet downloaded)', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.jsBundle,
+        updateStatus: EAppUpdateStatus.notify,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+
+  test('appShell + ready → "View" (opens install flow, not a restart)', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.appShell,
+        updateStatus: EAppUpdateStatus.ready,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+
+  test('appShell + notify → "View"', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.appShell,
+        updateStatus: EAppUpdateStatus.notify,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+});
+
+// =========================================================================
+// D4. isUpdateReminderRedundant — desktop hot-update has a header button, so
+// the Action Center reminder is a duplicate indicator and must be hidden.
+// =========================================================================
+describe('isUpdateReminderRedundant', () => {
+  test('desktop + jsBundle → redundant (hidden)', () => {
+    expect(
+      isUpdateReminderRedundant({
+        isDesktop: true,
+        fileType: EUpdateFileType.jsBundle,
+      }),
+    ).toBe(true);
+  });
+
+  test('desktop + appShell → not redundant (reminder shows download progress)', () => {
+    expect(
+      isUpdateReminderRedundant({
+        isDesktop: true,
+        fileType: EUpdateFileType.appShell,
+      }),
+    ).toBe(false);
+  });
+
+  test('non-desktop + jsBundle → not redundant (no header button on mobile)', () => {
+    expect(
+      isUpdateReminderRedundant({
+        isDesktop: false,
+        fileType: EUpdateFileType.jsBundle,
+      }),
+    ).toBe(false);
+  });
+
+  test('non-desktop + appShell → not redundant', () => {
+    expect(
+      isUpdateReminderRedundant({
+        isDesktop: false,
+        fileType: EUpdateFileType.appShell,
+      }),
+    ).toBe(false);
   });
 });

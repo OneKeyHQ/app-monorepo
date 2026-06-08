@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import {
   EAppUpdateStatus,
-  EUpdateFileType,
   displayAppUpdateVersion,
   getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -26,7 +25,12 @@ import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
+import {
+  getUpdateReminderActionLabelId,
+  isShowAppUpdateUIWhenUpdating,
+  isUpdateReminderRedundant,
+  useAppUpdateInfo,
+} from '../AppUpdate';
 
 import { DownloadProgress } from './DownloadProgress';
 
@@ -316,24 +320,39 @@ function BasicUpdateReminder() {
     });
   }, [appUpdateInfo.data.updateStrategy, data.status]);
 
+  const fileType = useMemo(
+    () =>
+      getUpdateFileType({
+        latestVersion: data.latestVersion,
+        jsBundleVersion: data.jsBundleVersion,
+      }),
+    [data.latestVersion, data.jsBundleVersion],
+  );
+
   // A downloaded hot update (jsBundle at `ready`) applies on click by
   // restarting, so the CTA reads "Update now" rather than the generic "View".
-  const actionLabelId = useMemo(() => {
-    const fileType = getUpdateFileType({
-      latestVersion: data.latestVersion,
-      jsBundleVersion: data.jsBundleVersion,
-    });
-    return fileType === EUpdateFileType.jsBundle &&
-      data.status === EAppUpdateStatus.ready
-      ? ETranslations.update_update_now
-      : ETranslations.global_view;
-  }, [data.latestVersion, data.jsBundleVersion, data.status]);
+  const actionLabelId = useMemo(
+    () =>
+      getUpdateReminderActionLabelId({ fileType, updateStatus: data.status }),
+    [fileType, data.status],
+  );
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
   }
 
   if (!showUpdateUI) {
+    return null;
+  }
+
+  // Desktop already shows a dedicated Update button in the header for hot
+  // updates; avoid a duplicate indicator inside the Action Center.
+  if (
+    isUpdateReminderRedundant({
+      isDesktop: !!platformEnv.isDesktop,
+      fileType,
+    })
+  ) {
     return null;
   }
 

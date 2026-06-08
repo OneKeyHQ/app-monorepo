@@ -266,6 +266,8 @@ export {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  getUpdateReminderActionLabelId,
+  isUpdateReminderRedundant,
 } from './updateStrategy';
 export { useDownloadPackage } from './useDownloadPackage';
 export {
