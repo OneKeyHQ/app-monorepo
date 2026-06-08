@@ -9,7 +9,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useDiscoveryMessageHandler } from '../../hooks/useDiscoveryMessageHandler';
-import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useShouldKeepWebViewAlive,
+  useWebTabDataById,
+} from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
 
 function MobileBrowserContent({
@@ -29,17 +33,30 @@ function MobileBrowserContent({
     [tab?.id, activeTabId],
   );
 
+  // Keep-alive LRU: tabs outside the window unmount their WebView to free
+  // memory. The active tab is always alive, so it stays mounted here.
+  const keepAlive = useShouldKeepWebViewAlive(tab?.id);
+
   const { customReceiveHandler } = useDiscoveryMessageHandler();
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
-      captureViewRefs[id] = $ref;
+      if ($ref) {
+        captureViewRefs[id] = $ref;
+      } else {
+        delete captureViewRefs[id];
+      }
     },
     [id],
   );
 
   const content = useMemo(() => {
     if (!tab || !tab?.id) {
+      return null;
+    }
+    // Evicted (cold) tab: render nothing. Inactive tabs are off-screen, and the
+    // tab switcher uses the persisted thumbnail (tab.thumbnail), not this view.
+    if (!keepAlive) {
       return null;
     }
     return (
@@ -69,7 +86,14 @@ function MobileBrowserContent({
       </>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab?.id, tab?.url, tab?.siteMode, isActive, customReceiveHandler]);
+  }, [
+    tab?.id,
+    tab?.url,
+    tab?.siteMode,
+    isActive,
+    keepAlive,
+    customReceiveHandler,
+  ]);
   return <>{content}</>;
 }
 

@@ -4,10 +4,12 @@ import { BigNumber } from 'bignumber.js';
 
 import type { IBBOPriceMode } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useBboAtom,
-  useTradingFormAtom,
+  useBboForOrderPrice,
+  useTradingFormOrderPriceParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getPerpsMarketDataLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import type { IPerpsActiveAssetCtxMidPriceSource } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getScaleOrderReferencePrice } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { getTriggerEffectivePrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -27,6 +29,10 @@ export interface IUseOrderPriceReturn {
   error: IOrderPriceError;
 }
 
+interface IUseOrderPriceOptions {
+  priceSource?: IPerpsActiveAssetCtxMidPriceSource;
+}
+
 /**
  * Calculate order price for different scenarios:
  * - Trigger order: uses trigger effective price (triggerPrice for market, executionPrice for limit)
@@ -41,10 +47,12 @@ export function calculateOrderPrice(
   bbo: HL.IWsBbo | null,
   midPriceBN: BigNumber,
   side?: 'long' | 'short',
-  orderMode?: 'standard' | 'trigger',
+  orderMode?: 'standard' | 'trigger' | 'scale' | 'twap',
   triggerOrderType?: ETriggerOrderType,
   triggerPrice?: string,
   executionPrice?: string,
+  scaleLowerPrice?: string,
+  scaleUpperPrice?: string,
   now = Date.now(),
 ): IUseOrderPriceReturn {
   // Trigger mode: use trigger effective price
@@ -61,6 +69,19 @@ export function calculateOrderPrice(
     const isValid = effectivePrice.isFinite() && effectivePrice.gt(0);
     return {
       price: effectivePrice,
+      isValid,
+      error: null,
+    };
+  }
+
+  if (orderMode === 'scale') {
+    const scalePrice = getScaleOrderReferencePrice({
+      lowerPrice: scaleLowerPrice,
+      upperPrice: scaleUpperPrice,
+    });
+    const isValid = scalePrice.isFinite() && scalePrice.gt(0);
+    return {
+      price: scalePrice,
       isValid,
       error: null,
     };
@@ -146,16 +167,18 @@ export function calculateOrderPrice(
   };
 }
 
-export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
-  const [formData] = useTradingFormAtom();
-  const [bbo] = useBboAtom();
-  const { midPriceBN } = useTradingPrice();
-  const [, refreshBboFreshness] = useState(0);
-  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
+function useOrderPriceWithMidPrice(
+  midPriceBN: BigNumber,
+  side?: 'long' | 'short',
+): IUseOrderPriceReturn {
+  const formData = useTradingFormOrderPriceParams();
   const shouldTrackBboFreshness =
     formData.type === 'limit' &&
     Boolean(formData.bboPriceMode) &&
     Boolean(side);
+  const bbo = useBboForOrderPrice(shouldTrackBboFreshness);
+  const [, refreshBboFreshness] = useState(0);
+  const bboReceivedAt = getPerpsMarketDataLocalReceivedAt(bbo);
 
   useEffect(() => {
     if (!shouldTrackBboFreshness) {
@@ -188,5 +211,15 @@ export function useOrderPrice(side?: 'long' | 'short'): IUseOrderPriceReturn {
     formData.triggerOrderType,
     formData.triggerPrice,
     formData.executionPrice,
+    formData.scaleLowerPrice,
+    formData.scaleUpperPrice,
   );
+}
+
+export function useOrderPrice(
+  side?: 'long' | 'short',
+  { priceSource = 'live' }: IUseOrderPriceOptions = {},
+): IUseOrderPriceReturn {
+  const { midPriceBN } = useTradingPrice({ source: priceSource });
+  return useOrderPriceWithMidPrice(midPriceBN, side);
 }

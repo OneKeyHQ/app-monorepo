@@ -2,13 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  AnimatePresence,
-  Image,
-  SizableText,
-  XStack,
-} from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
+import { Image, SizableText, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -18,6 +12,7 @@ import {
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
@@ -36,51 +31,38 @@ const SwapAccountAddressContainer = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
+    const token = type === ESwapDirectionType.FROM ? fromToken : toToken;
     const networkInfo = swapSupportAllNetwork.find(
-      (net) =>
-        net.networkId ===
-        (type === ESwapDirectionType.FROM
-          ? fromToken?.networkId
-          : toToken?.networkId),
+      (net) => net.networkId === token?.networkId,
     );
+    const localNetworkInfo = token?.networkId
+      ? networkUtils.getLocalNetworkInfo(token.networkId)
+      : undefined;
+    const networkName = networkInfo?.name ?? localNetworkInfo?.name;
+    const networkLogoURI =
+      networkInfo?.logoURI ??
+      token?.networkLogoURI ??
+      localNetworkInfo?.logoURI;
 
-    return (
-      <AnimatePresence>
-        {networkInfo ? (
-          <XStack
-            key="network-component"
-            animation="quick"
-            animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-            enterStyle={{
-              opacity: 0,
-              x: 8,
-            }}
-            exitStyle={{
-              opacity: 0,
-              x: 4,
-            }}
-            gap="$1"
-            alignItems="center"
-            cursor="pointer"
-            onPress={() => {
-              onClickNetwork?.(type);
-            }}
-          >
-            <Image w={16} h={16} source={{ uri: networkInfo.logoURI }} />
-            <SizableText size="$bodyMd" color="$text">
-              {networkInfo.name}
-            </SizableText>
-          </XStack>
+    return networkName ? (
+      <XStack
+        key="network-component"
+        gap="$1"
+        alignItems="center"
+        cursor="pointer"
+        onPress={() => {
+          onClickNetwork?.(type);
+        }}
+      >
+        {networkLogoURI ? (
+          <Image w={16} h={16} source={{ uri: networkLogoURI }} />
         ) : null}
-      </AnimatePresence>
-    );
-  }, [
-    swapSupportAllNetwork,
-    onClickNetwork,
-    type,
-    fromToken?.networkId,
-    toToken?.networkId,
-  ]);
+        <SizableText size="$bodyMd" color="$text">
+          {networkName}
+        </SizableText>
+      </XStack>
+    ) : null;
+  }, [swapSupportAllNetwork, onClickNetwork, type, fromToken, toToken]);
 
   return (
     <XStack alignItems="center" gap="$1">

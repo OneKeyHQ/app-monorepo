@@ -36,6 +36,7 @@ import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliqui
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
+  usePerpsActiveTwapOrdersAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
@@ -146,6 +147,7 @@ export function PerpMobileLayout() {
     setRefreshing(true);
     try {
       await actions.current.refreshAllPerpsData();
+      await actions.current.loadTwapData();
     } finally {
       setRefreshing(false);
     }
@@ -154,6 +156,7 @@ export function PerpMobileLayout() {
   const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
   const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
   const [positionsState] = usePerpsActivePositionAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
   const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
   const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -164,7 +167,7 @@ export function PerpMobileLayout() {
     abstractionMode,
     currentUser?.accountAddress,
   );
-  const currentUserAddress = accountScopedAddress?.toLowerCase();
+  const currentUserAddress = accountScopedAddress;
   const positionsLength = getPerpsAccountScopedListData({
     activeAccountAddress: currentUserAddress,
     dataAccountAddress: positionsState.accountAddress,
@@ -182,17 +185,22 @@ export function PerpMobileLayout() {
       activeAccountAddress: currentUserAddress,
       dataAccountAddress: spotOpenOrdersState.accountAddress,
       data: spotOpenOrdersState.openOrders,
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: twapOrdersState.accountAddress,
+      data: twapOrdersState.twapOrders,
     }).length;
   const shouldUseCachedSpotBalances =
     !isSpotBalancesLoaded &&
     Boolean(currentUserAddress) &&
-    cachedSpotBalances?.accountAddress?.toLowerCase() === currentUserAddress;
+    cachedSpotBalances?.accountAddress?.toLowerCase() ===
+      currentUserAddress?.toLowerCase();
   const displayBalances = shouldUseCachedSpotBalances
     ? (cachedSpotBalances?.balances ?? balances)
     : balances;
 
   const holdingsCount = useMemo(() => {
-    // Mirrors the USDC merge in SpotBalanceList.
     const nonUsdcSpotCount = displayBalances.filter(
       (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
     ).length;
@@ -328,15 +336,6 @@ export function PerpMobileLayout() {
         pb="$4"
         onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
       >
-        {/*
-          OK-55214 follow-up: use flex-grow ratio (35:65) instead of
-          flexBasis="35%" / "65%" — on iPad iOS the percentage-basis path
-          caches the parent width captured during a landscape → portrait
-          rotation transient (the SUB pane was briefly ~515.5pt), so the
-          children render at the old half-width even after the XStack
-          itself measures the full 1032pt parent. Switching to flex-grow
-          ratio bypasses the basis cache.
-        */}
         <YStack
           flex={35}
           minWidth={0}

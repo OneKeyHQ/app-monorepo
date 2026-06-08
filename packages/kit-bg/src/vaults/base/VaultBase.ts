@@ -753,6 +753,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         tokens,
         nfts,
       });
+      const isPrivateSendHistory =
+        onChainHistoryTx.isPrivateSend === true ||
+        onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
 
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
@@ -784,9 +787,16 @@ export abstract class VaultBase extends VaultBaseChainOnly {
           onChainHistoryTx,
         }),
         payload: {
-          type: onChainHistoryTx.type,
+          type: isPrivateSendHistory
+            ? EOnChainHistoryTxType.PrivateSend
+            : onChainHistoryTx.type,
           value: onChainHistoryTx.value,
-          label: onChainHistoryTx.label,
+          label: isPrivateSendHistory
+            ? EOnChainHistoryTxType.PrivateSend
+            : onChainHistoryTx.label,
+          ...(onChainHistoryTx.privateSend
+            ? { privateSend: onChainHistoryTx.privateSend }
+            : {}),
         },
       };
 
@@ -1078,6 +1088,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         isNFT: false,
         isNative: swapSendToken.isNative,
         networkId: swapInfo.sender.accountInfo.networkId,
+        price: swapSendToken.price,
       },
       {
         from: '',
@@ -1090,6 +1101,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         isNFT: false,
         isNative: swapReceiveToken.isNative,
         networkId: swapInfo.receiver.accountInfo.networkId,
+        price: swapReceiveToken.price,
       },
     ];
 
@@ -1111,6 +1123,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
             isNFT: false,
             isNative: feeInfo.token.isNative,
             networkId: swapInfo.sender.accountInfo.networkId,
+            price: feeInfo.token.price,
           });
         }
       });

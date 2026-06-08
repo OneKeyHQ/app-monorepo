@@ -21,7 +21,10 @@ import {
   Switch,
   XStack,
   YStack,
+  useInModalDialog,
+  useInTabDialog,
   useKeyboardHeight,
+  useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import {
@@ -49,6 +52,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -70,6 +74,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
+import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
@@ -490,6 +495,9 @@ const SwapHeaderRightActionContainer = ({
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const intl = useIntl();
+  const { gtLg } = useMedia();
+  const InTabDialog = useInTabDialog();
+  const InModalDialog = useInModalDialog();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
@@ -503,8 +511,9 @@ const SwapHeaderRightActionContainer = ({
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
-          i.status === ESwapTxHistoryStatus.PENDING ||
-          i.status === ESwapTxHistoryStatus.CANCELING,
+          !isPrivateSendSwapHistoryItem(i) &&
+          (i.status === ESwapTxHistoryStatus.PENDING ||
+            i.status === ESwapTxHistoryStatus.CANCELING),
       ),
     [swapHistoryPendingList],
   );
@@ -566,19 +575,65 @@ const SwapHeaderRightActionContainer = ({
     swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
     (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
   const isKLineDisabled = !fromToken && !toToken;
+  const showKLineAsDialog =
+    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
+  const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
       return;
     }
 
     dismissKeyboard();
+    if (showKLineAsDialog) {
+      void kLineDialogRef.current?.close();
+      let dialog: ReturnType<typeof Dialog.show> | null = null;
+      const dialogController =
+        pageType === EPageType.modal ? InModalDialog : InTabDialog;
+      dialog = dialogController.show({
+        testID: SwapTestIDs.kLineModal,
+        title: intl.formatMessage({
+          id: ETranslations.market_chart,
+        }),
+        estimatedContentHeight: 460,
+        contentContainerProps: {
+          px: '$0',
+          pb: '$0',
+        },
+        showFooter: false,
+        showCancelButton: false,
+        showConfirmButton: false,
+        onClose: () => {
+          if (kLineDialogRef.current === dialog) {
+            kLineDialogRef.current = null;
+          }
+        },
+        renderContent: (
+          <SwapKLineContentWithProvider
+            storeName={swapStoreName}
+            variant="dialog"
+          />
+        ),
+      });
+      kLineDialogRef.current = dialog;
+      return;
+    }
+
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapKLine,
       params: {
         storeName: swapStoreName,
       },
     });
-  }, [isKLineDisabled, navigation, swapStoreName]);
+  }, [
+    InModalDialog,
+    InTabDialog,
+    intl,
+    isKLineDisabled,
+    navigation,
+    pageType,
+    showKLineAsDialog,
+    swapStoreName,
+  ]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({

@@ -77,6 +77,7 @@ const SwapQuoteInput = ({
         onBalanceMaxPress={onBalanceMaxPress}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
+        balanceLoading={swapTokenDetailLoading.from}
       />
       <Stack
         borderRadius="$full"
@@ -123,6 +124,7 @@ const SwapQuoteInput = ({
         amountValue={toInputAmount.value}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
+        balanceLoading={swapTokenDetailLoading.to}
       />
     </YStack>
   );

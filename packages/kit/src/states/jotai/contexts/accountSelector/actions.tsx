@@ -1,9 +1,6 @@
 import { useRef } from 'react';
 
-import {
-  ORPHAN_ELIGIBLE_ERROR_CODES,
-  HardwareErrorCode as ThirdPartyHwErrorCode,
-} from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -12,6 +9,8 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
+import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { toastExistingWalletSwitch } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
@@ -40,10 +39,15 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
+  classifyThirdPartyHwCreateFailures,
+  filterThirdPartyHwCreateFailureToasts,
+} from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/ledgerApps';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -615,18 +619,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       const activeAccountInfo = this.getActiveAccount.call(set, { num });
 
-      // In dapp mode, if no wallet exists, conditionally show connect wallet options
+      // In dapp mode, show the connect-wallet options whenever there is no
+      // connected account. Key on the account (not the wallet record): a
+      // just-disconnected external/keyless wallet can briefly linger as a wallet
+      // with no account during the async reload, so matching DappHeader's
+      // account-based "connected" check keeps the Connect button and its tap
+      // target in sync — it always reopens the reconnect modal.
       const isWebDappMode = platformEnv.isWebDappMode;
-      const hasWallet = activeAccountInfo?.wallet?.id;
       const hasAccount =
         activeAccountInfo?.account || activeAccountInfo?.indexedAccount;
 
-      if (
-        isWebDappMode &&
-        !hasWallet &&
-        !hasAccount &&
-        showConnectWalletModalInDappMode
-      ) {
+      if (isWebDappMode && !hasAccount && showConnectWalletModalInDappMode) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.ConnectWalletOptions,
         });
@@ -824,6 +827,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
+      // Multi-network fill = wallet creation, or add-account on the all-network
+      // view. A specific-network (single) add keeps the per-app install prompt.
+      const isAutoCreateMultiNetwork =
+        !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
+      const customNetworks =
+        networkId && deriveType ? [{ networkId, deriveType }] : undefined;
+      let ledgerRequiredApps: ILedgerCoreAppName[] = [];
       let result: {
         addedAccounts: {
           networkId: string;
@@ -840,16 +850,44 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       };
 
       if (!params.wallet.isMocked) {
+        if (isAutoCreateMultiNetwork) {
+          const device =
+            await backgroundApiProxy.serviceAccount.getWalletDevice({
+              walletId: wallet.id,
+            });
+          if (device?.vendor === EHardwareVendor.ledger) {
+            ledgerRequiredApps =
+              await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
+                {
+                  walletId: wallet.id,
+                  customNetworks,
+                  isCreateWallet,
+                },
+              );
+            if (ledgerRequiredApps.length > 0) {
+              const ensureResult = await ensureLedgerCoreAppsReady({
+                walletId: wallet.id,
+                requiredApps: ledgerRequiredApps,
+              });
+              if (
+                !shouldContinueLedgerAutoCreateForCoreAppsCheckResult(
+                  ensureResult,
+                )
+              ) {
+                return;
+              }
+            }
+          }
+        }
+
         result =
           await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
             {
               walletId: wallet.id,
               indexedAccountId: indexedAccount?.id,
-              customNetworks:
-                networkId && deriveType
-                  ? [{ networkId, deriveType }]
-                  : undefined,
+              customNetworks,
               isCreateWallet,
+              isAutoCreateMultiNetwork,
               skipDeviceCancel,
               hideCheckingDeviceLoading,
               autoHandleExitError,
@@ -860,36 +898,61 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (autoHandleExitError) {
         void (async () => {
           let failedList = result?.failedAccounts || [];
+          let isThirdPartyHw = false;
 
-          // Third-party HW wallet-creation: filter out AppNotInstalled errors
-          if (isCreateWallet && failedList.length > 0) {
-            const isThirdPartyHw =
+          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; offer
+          // in-app core-app install when zero succeeded (bare device).
+          if (failedList.length > 0) {
+            isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
                 walletId: wallet.id,
               });
             if (isThirdPartyHw) {
-              const allAppNotInstalled =
-                result.addedAccounts.length === 0 &&
-                failedList.every(
-                  (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
-                );
-              if (allAppNotInstalled) {
-                Toast.error({
-                  // eslint-disable-next-line onekey/no-app-locale-main-thread
-                  title: appLocale.intl.formatMessage({
-                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
-                  }),
+              const { allAppNotInstalled, genuineFailures } =
+                classifyThirdPartyHwCreateFailures({
+                  addedCount: result.addedAccounts.length,
+                  failedAccounts: failedList,
                 });
-                return;
+              if (allAppNotInstalled && isAutoCreateMultiNetwork) {
+                const ensureResult = await ensureLedgerCoreAppsReady({
+                  walletId: wallet.id,
+                  requiredApps: ledgerRequiredApps.length
+                    ? ledgerRequiredApps
+                    : undefined,
+                });
+                if (!ensureResult.ok) return;
+                const retry =
+                  await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+                    {
+                      walletId: wallet.id,
+                      indexedAccountId: indexedAccount?.id,
+                      customNetworks,
+                      isCreateWallet,
+                      isAutoCreateMultiNetwork,
+                      skipDeviceCancel,
+                      hideCheckingDeviceLoading,
+                      autoHandleExitError: false,
+                    },
+                  );
+                failedList = retry?.failedAccounts || [];
+                if (failedList.length === 0) return;
+                const reClass = classifyThirdPartyHwCreateFailures({
+                  addedCount: retry.addedAccounts.length,
+                  failedAccounts: failedList,
+                });
+                if (reClass.allAppNotInstalled) return;
+                failedList = reClass.genuineFailures;
+              } else {
+                failedList = genuineFailures;
               }
-              // Strip AppNotInstalled errors, let other errors fall through
-              failedList = failedList.filter(
-                (f) => f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled,
-              );
             }
           }
 
-          for (const failedAccount of failedList) {
+          const failedListForToast =
+            isThirdPartyHw && failedList.length > 0
+              ? filterThirdPartyHwCreateFailureToasts(failedList)
+              : failedList;
+          for (const failedAccount of failedListForToast) {
             const network = await backgroundApiProxy.serviceNetwork.getNetwork({
               networkId: failedAccount.networkId,
             });
@@ -1515,12 +1578,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         const shouldSync =
-          (await serviceAccountSelector.shouldSyncWithHome({
-            sceneName,
-            sceneUrl,
-            num,
-          })) &&
-          (await serviceAccountSelector.shouldSyncWithHome(eventPayload));
+          await serviceAccountSelector.shouldSyncHomeAndSwapSelectedAccount({
+            sourceScene: eventPayload,
+            targetScene: {
+              sceneName,
+              sceneUrl,
+              num,
+            },
+          });
 
         if (shouldSync) {
           const current = this.getSelectedAccount.call(set, { num });
@@ -1799,7 +1864,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // **** also save to home scene SelectedAccount if sync needed
         if (
           sceneName !== EAccountSelectorSceneName.home &&
-          (await serviceAccountSelector.shouldSyncWithHome({
+          (await serviceAccountSelector.shouldSyncWithHomeSource({
             sceneName,
             sceneUrl,
             num,

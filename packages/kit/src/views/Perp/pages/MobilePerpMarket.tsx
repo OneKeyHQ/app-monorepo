@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -44,6 +45,7 @@ import {
 } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
+import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import {
@@ -52,6 +54,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const IOS_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
@@ -285,12 +288,24 @@ function MobilePerpMarket() {
     coin: activeTradeInstrument.coin,
     displayName: marketDetailDisplayName,
   });
+  const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
 
   const onPressTokenSelector = useCallback(() => {
+    void preloadPerpsMobileTokenSelectorPage();
+    void prewarmTokenSelectorImages();
+    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
+      currentToken: activeTradeInstrument.coin,
+      tradeMode: mode === 'spot' ? 'spot' : 'perp',
+    });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [navigation]);
+  }, [
+    activeTradeInstrument.coin,
+    mode,
+    navigation,
+    prewarmTokenSelectorImages,
+  ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
 

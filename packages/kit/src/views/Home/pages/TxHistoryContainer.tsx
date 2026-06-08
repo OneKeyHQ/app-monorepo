@@ -29,6 +29,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -46,6 +47,7 @@ import {
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
 import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
 
@@ -115,7 +117,7 @@ function TxHistoryListContainer(
 
         for (let i = 0; i < txs.length; i += 1) {
           const tx = txs[i];
-          if (tx.decodedTx.status !== EDecodedTxStatus.Pending) {
+          if (getHistoryTxDisplayStatus(tx) !== EDecodedTxStatus.Pending) {
             tempLimit += 1;
           }
           tempTxs.push(tx);
@@ -191,6 +193,16 @@ function TxHistoryListContainer(
         }
       }
 
+      const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
+        historyTx: history,
+        navigation,
+        accountId: history.decodedTx.accountId,
+        accountAddress: account.address,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+      if (openedPrivateSendHistory) return;
+
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.HistoryDetails,
         params: {
@@ -201,7 +213,7 @@ function TxHistoryListContainer(
         },
       });
     },
-    [account, navigation, network],
+    [account, navigation, network, settings.currencyInfo.symbol],
   );
 
   const isManualRefresh = useRef(false);

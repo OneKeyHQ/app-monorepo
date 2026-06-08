@@ -15,13 +15,16 @@ import { handleLayoutUpdate } from './layoutUpdateHandler';
 
 import type { IMarksTimeRange, IMessageHandlerContext } from './types';
 import type { IWebViewRef } from '../../../WebView/types';
+import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
+  ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
 } from '../types';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
+const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -32,10 +35,15 @@ interface IUseTradingViewMessageHandlerParams {
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
+  onCurrentKLineResolutionChange?: (resolution: string) => void;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -236,10 +244,15 @@ export function useTradingViewMessageHandler({
   tokenSymbol,
   marksTimeRange,
   currentKLineResolution,
+  onCurrentKLineResolutionChange,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
   forceEmptyKLineData,
   emptyKLineDataOnError,
+  kLineDataFallback,
+  primaryKLineDataUnavailable,
+  onPrimaryKLineDataUnavailable,
+  onPriceUpdate,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -261,8 +274,12 @@ export function useTradingViewMessageHandler({
         tokenSymbol,
         marksTimeRange,
         currentKLineResolution,
+        onCurrentKLineResolutionChange,
         forceEmptyKLineData,
         emptyKLineDataOnError,
+        kLineDataFallback,
+        primaryKLineDataUnavailable,
+        onPrimaryKLineDataUnavailable,
       };
 
       // Handle TradingView private API requests
@@ -299,6 +316,18 @@ export function useTradingViewMessageHandler({
           request: data.data as { symbol?: string; requestId?: string },
           webRef,
         });
+      }
+
+      if (
+        data.scope === '$private' &&
+        data.method === TRADINGVIEW_PRICE_UPDATE
+      ) {
+        const priceUpdateData = data.data as
+          | ITradingViewPriceUpdateData
+          | undefined;
+        if (priceUpdateData) {
+          onPriceUpdate?.(priceUpdateData);
+        }
       }
 
       if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
@@ -357,10 +386,15 @@ export function useTradingViewMessageHandler({
       tokenSymbol,
       marksTimeRange,
       currentKLineResolution,
+      onCurrentKLineResolutionChange,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
       forceEmptyKLineData,
       emptyKLineDataOnError,
+      kLineDataFallback,
+      primaryKLineDataUnavailable,
+      onPrimaryKLineDataUnavailable,
+      onPriceUpdate,
     ],
   );
 

@@ -4,6 +4,10 @@ import {
 } from '@onekeyhq/shared/types/qrCode';
 
 import { parseQRCode as parse } from './utils/parseQRCode';
+
+const QA_ERC681_TOKEN_TRANSFER_CONFLICTING_AMOUNT_URI =
+  'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48@1/transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1000000&value=999000000';
+
 // yarn jest packages/kit-bg/src/services/ServiceScanQRCode/index.test.ts
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
@@ -283,7 +287,41 @@ describe('useParseQRCode', () => {
         type: EQRCodeHandlerType.ETHEREUM,
         data: expect.objectContaining({
           address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          functionName: 'transfer',
           id: '5',
+          tokenAddress: '0x3dD3DfaAdA4d6765Ae19b8964E2BAC0139eeCb40',
+          uint256: '10000000',
+        }),
+      }),
+    );
+    expect(
+      await parse(QA_ERC681_TOKEN_TRANSFER_CONFLICTING_AMOUNT_URI),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          functionName: 'transfer',
+          id: '1',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          uint256: '1000000',
+          value: '999000000',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'ethereum:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48@1/Transfer?address=0x178e3e6c9f547A00E33150F7104427ea02cfc747&uint256=1000000',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.ETHEREUM,
+        data: expect.objectContaining({
+          address: '0x178e3e6c9f547A00E33150F7104427ea02cfc747',
+          functionName: 'Transfer',
+          id: '1',
+          tokenAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          uint256: '1000000',
         }),
       }),
     );

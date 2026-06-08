@@ -32,6 +32,7 @@ import localDb from '../../dbs/local/localDb';
 import {
   EHardwareUiStateAction,
   hardwareUiStateAtom,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -653,6 +654,7 @@ class ServiceHardwareUI extends ServiceBase {
         if (isThirdPartyVendor) {
           if (!skipCloseHardwareUiStateDialog) {
             void thirdPartyHardwareUiStateAtom.set(undefined);
+            void thirdPartyAppInstallAtom.set(undefined);
           }
         } else if (connectId) {
           if (!skipCloseHardwareUiStateDialog) {

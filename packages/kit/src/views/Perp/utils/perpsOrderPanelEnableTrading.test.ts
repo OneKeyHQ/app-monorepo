@@ -1,14 +1,59 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
+  getPerpsOrderPanelEnableTradingModeByAccount,
   getPerpsOrderPanelEnableTradingSignatureCount,
   getPerpsOrderPanelEnableTradingSteps,
   getPerpsOrderPanelPostEnableTradingResult,
   shouldBlockPerpsOrderPanelPreEnableTradingForMargin,
   shouldDisablePerpsOrderPanelTradingButton,
+  shouldDisablePerpsOrderPanelTradingButtonForAccountLoading,
+  shouldReservePerpsMobileEnableTradingLayout,
   shouldShowPerpsOrderPanelTradingButtons,
   shouldSkipPerpsOrderPanelComputedSizeValidation,
 } from './perpsOrderPanelEnableTrading';
+
+describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
+  it('lets cached software accounts auto-enable from the order panel', () => {
+    expect(
+      getPerpsOrderPanelEnableTradingModeByAccount({
+        accountId: "hd-1--m/44'/60'/0'/0/0",
+        indexedAccountId: 'hd-1--0',
+      }),
+    ).toEqual({
+      canAutoEnableInOrderPanel: true,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: false,
+    });
+  });
+
+  it('routes cached hardware accounts through the order-panel enable dialog', () => {
+    expect(
+      getPerpsOrderPanelEnableTradingModeByAccount({
+        accountId: "hw-1--m/44'/60'/0'/0/0",
+        indexedAccountId: 'hw-1--0',
+      }),
+    ).toEqual({
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
+    });
+  });
+
+  it('routes cached external accounts through explicit enable-trading confirmation', () => {
+    expect(
+      getPerpsOrderPanelEnableTradingModeByAccount({
+        accountId: 'external--60--injected--wallet',
+        indexedAccountId: null,
+      }),
+    ).toEqual({
+      canAutoEnableInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: true,
+    });
+  });
+});
 
 describe('shouldShowPerpsOrderPanelTradingButtons', () => {
   it('shows trading buttons for a hardware account that is not enabled yet', () => {
@@ -34,12 +79,13 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: false,
           requiresEnableTradingDialogInOrderPanel: true,
+          requiresExplicitEnableTrading: true,
         },
       }),
     ).toBe(true);
   });
 
-  it('keeps non-auto-enable accounts on the fallback CTA path', () => {
+  it('shows trading buttons for explicit-enable non-software accounts', () => {
     expect(
       shouldShowPerpsOrderPanelTradingButtons({
         canShowCachedTradingButtons: false,
@@ -62,9 +108,10 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: false,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: true,
         },
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('keeps the fallback button for unsupported or address-creation states', () => {
@@ -83,6 +130,7 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: true,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: false,
         },
       }),
     ).toBe(false);
@@ -102,7 +150,35 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: true,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: false,
         },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('shouldReservePerpsMobileEnableTradingLayout', () => {
+  it('keeps the mobile TP/SL row visible when cached trading buttons render', () => {
+    expect(
+      shouldReservePerpsMobileEnableTradingLayout({
+        isMobile: true,
+        canShowTradingButtons: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('reserves the mobile explicit-CTA layout only when trading buttons cannot render', () => {
+    expect(
+      shouldReservePerpsMobileEnableTradingLayout({
+        isMobile: true,
+        canShowTradingButtons: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldReservePerpsMobileEnableTradingLayout({
+        isMobile: false,
+        canShowTradingButtons: false,
       }),
     ).toBe(false);
   });
@@ -171,6 +247,81 @@ describe('getPerpsOrderPanelEnableTradingSteps', () => {
       {
         key: 'agent',
         labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(2);
+  });
+
+  it('skips abstraction step when live abstraction mode is already ready', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: false,
+        },
+      },
+      {
+        abstractionMode: {
+          accountAddress: '0xabc',
+          mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+          source: 'live',
+        },
+      },
+    );
+
+    expect(steps).toEqual([
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(1);
+  });
+
+  it('keeps abstraction step when only cached abstraction mode is available', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: false,
+        },
+      },
+      {
+        abstractionMode: {
+          accountAddress: '0xabc',
+          mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+          source: 'cache',
+        },
+      },
+    );
+
+    expect(steps).toEqual([
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+      {
+        key: 'abstraction',
+        labelId: ETranslations.perp_trade_button_enable_trading,
         requiresSignature: true,
       },
     ]);
@@ -269,14 +420,14 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
 });
 
 describe('shouldBlockPerpsOrderPanelPreEnableTradingForMargin', () => {
-  it('blocks enable side effects for known insufficient margin orders', () => {
+  it('keeps enable trading first when the current margin snapshot is insufficient', () => {
     expect(
       shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
         shouldEnableTradingBeforeOrder: true,
         isNoEnoughMargin: true,
         isDepositRequired: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('keeps deposit fallback reachable when the account is not activated', () => {
@@ -301,6 +452,90 @@ describe('shouldBlockPerpsOrderPanelPreEnableTradingForMargin', () => {
 });
 
 describe('shouldDisablePerpsOrderPanelTradingButton', () => {
+  it('does not disable cached cold-start buttons for the account-loading timer alone', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: true,
+        enableTradingLoading: false,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: false,
+        isLiveStatusPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps account loading blocking normal order submission after cold start', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: true,
+        enableTradingLoading: false,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: false,
+        isLiveStatusPending: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps cached cold-start buttons enabled while background status is still pending', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks normal order submission during passive status refresh', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not disable after passive status refresh lands before the loading timer clears', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: false,
+        enableTradingStatusPending: false,
+        isLiveStatusPending: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps user-triggered enable trading loading blocking duplicate presses', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: true,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps user-triggered enable trading loading blocking duplicate presses during live status pending', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButtonForAccountLoading({
+        selectAccountLoading: false,
+        enableTradingLoading: true,
+        enableTradingTriggered: true,
+        enableTradingStatusPending: true,
+        isLiveStatusPending: true,
+      }),
+    ).toBe(true);
+  });
+
   it('lets enable-trading accounts press the button when only BBO price is unavailable', () => {
     expect(
       shouldDisablePerpsOrderPanelTradingButton({

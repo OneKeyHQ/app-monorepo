@@ -54,7 +54,10 @@ export const thirdPartyHardwareAdapterRegistry = {
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger connector created',
     );
-    const hw = new HwkLedgerAdapter(connector);
+    // Auto-install a missing Ledger app in-flight: on AppNotInstalled the SDK
+    // prompts (REQUEST_INSTALL_APP), installs with progress, then retries.
+    // A specific call can opt out via commonParams.autoInstallApp = false.
+    const hw = new HwkLedgerAdapter(connector, { autoInstallApp: true });
     // Only native mobile (iOS/Android) has an app-level BLE permission.
     // Desktop/web/extension handle device permission at the OS/browser layer
     // (WebHID/WebUSB prompts, node-hid, system Bluetooth) — from this app's

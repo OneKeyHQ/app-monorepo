@@ -2,11 +2,39 @@ import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapte
 
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
 
-import type { IOneKeyHardwareErrorPayload } from '../types/errorTypes';
+import type {
+  IOneKeyError,
+  IOneKeyHardwareErrorPayload,
+} from '../types/errorTypes';
 
 interface IThirdPartyErrorContext {
   vendor?: string;
   chain?: string;
+}
+
+const LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG =
+  'InvalidGetFirmwareMetadataResponseError';
+
+export function normalizeThirdPartyDeviceErrorCode(payload: {
+  code: number | string | undefined;
+  _tag?: string;
+}): number | string | undefined {
+  const code =
+    typeof payload.code === 'string' ? Number(payload.code) : payload.code;
+  if (
+    code === ThirdPartyHwErrorCode.UnknownError &&
+    payload._tag === LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG
+  ) {
+    return ThirdPartyHwErrorCode.NetworkError;
+  }
+  return Number.isFinite(code) ? code : payload.code;
+}
+
+export function isThirdPartyInstallAppUserCancelCode(code: unknown): boolean {
+  return (
+    (typeof code === 'string' ? Number(code) : code) ===
+    ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE
+  );
 }
 
 /**
@@ -26,11 +54,13 @@ export function convertThirdPartyDeviceError(
     code: number;
     appName?: string;
     params?: IOneKeyHardwareErrorPayload['params'];
+    _tag?: string;
   },
   context?: IThirdPartyErrorContext,
 ) {
+  const normalizedCode = normalizeThirdPartyDeviceErrorCode(payload);
   const hwPayload: IOneKeyHardwareErrorPayload = {
-    code: payload.code,
+    code: normalizedCode,
     message: payload.error,
     params: payload.params,
   };
@@ -40,7 +70,7 @@ export function convertThirdPartyDeviceError(
     appName: payload.appName,
   };
 
-  switch (payload.code) {
+  switch (normalizedCode) {
     // EVM-specific (chain-specific copy, production-validated)
     case ThirdPartyHwErrorCode.EvmBlindSigningRequired:
       return new ThirdPartyErrors.ThirdPartyEvmBlindSigningRequired(props);
@@ -80,6 +110,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserAborted:
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
 
+    case ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE:
+      return new ThirdPartyErrors.ThirdPartyInstallAppUserCancelled(props);
+
     case ThirdPartyHwErrorCode.DevicePermissionDenied:
       return new ThirdPartyErrors.ThirdPartyDevicePermissionDenied({
         ...props,
@@ -88,6 +121,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.DeviceLocked:
       return new ThirdPartyErrors.ThirdPartyDeviceLocked(props);
+
+    case ThirdPartyHwErrorCode.DeviceOutOfMemory:
+      return new ThirdPartyErrors.ThirdPartyDeviceOutOfMemory(props);
+
+    case ThirdPartyHwErrorCode.NetworkError:
+      return new ThirdPartyErrors.ThirdPartyNetworkError(props);
 
     case ThirdPartyHwErrorCode.WrongApp:
       return new ThirdPartyErrors.ThirdPartyWrongApp(props);
@@ -131,4 +170,52 @@ export function convertThirdPartyDeviceError(
     default:
       return new ThirdPartyErrors.ThirdPartyUnknownError(props);
   }
+}
+
+// Classify a third-party HW batch address-create result. Shared by the auto
+// (AccountSelectorActions) and manual (useAccountSelectorCreateAddress) paths so
+// the bare-device AppNotInstalled rule lives in one place.
+// - allAppNotInstalled: zero chains succeeded and every failure is AppNotInstalled
+//   (the device has no app for these chains).
+// - genuineFailures: failures other than AppNotInstalled (surface these).
+export function classifyThirdPartyHwCreateFailures<
+  T extends { error: Pick<IOneKeyError, 'code'> },
+>(params: {
+  addedCount: number;
+  failedAccounts: T[];
+}): { allAppNotInstalled: boolean; genuineFailures: T[] } {
+  const { addedCount, failedAccounts } = params;
+  const allAppNotInstalled =
+    addedCount === 0 &&
+    failedAccounts.length > 0 &&
+    failedAccounts.every(
+      (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
+    );
+  const genuineFailures = failedAccounts.filter(
+    (f) =>
+      f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled &&
+      !isThirdPartyInstallAppUserCancelCode(f.error.code),
+  );
+  return { allAppNotInstalled, genuineFailures };
+}
+
+export function filterThirdPartyHwCreateFailureToasts<
+  T extends { error: Pick<IOneKeyError, 'autoToast' | 'code'> },
+>(failedAccounts: T[]): T[] {
+  let deviceOutOfMemoryShown = false;
+  return failedAccounts.filter((failedAccount) => {
+    if (isThirdPartyInstallAppUserCancelCode(failedAccount.error.code)) {
+      return false;
+    }
+    if (failedAccount.error.autoToast === false) {
+      return false;
+    }
+    if (failedAccount.error.code === ThirdPartyHwErrorCode.DeviceOutOfMemory) {
+      if (deviceOutOfMemoryShown) {
+        return false;
+      }
+      deviceOutOfMemoryShown = true;
+    }
+    return true;
+  });
 }

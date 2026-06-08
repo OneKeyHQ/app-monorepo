@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react';
+import type { MutableRefObject } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -50,6 +51,19 @@ const sharedButtonProps = {
   borderRadius: '$full',
 };
 
+const PerpTradingButtonMidPriceRef = memo(
+  ({ midPriceRef }: { midPriceRef: MutableRefObject<string | undefined> }) => {
+    const { midPrice } = useTradingPrice();
+
+    useLayoutEffect(() => {
+      midPriceRef.current = midPrice;
+    }, [midPrice, midPriceRef]);
+
+    return null;
+  },
+);
+PerpTradingButtonMidPriceRef.displayName = 'PerpTradingButtonMidPriceRef';
+
 export function PerpTradingButton({
   loading,
   handleShowConfirm,
@@ -77,7 +91,7 @@ export function PerpTradingButton({
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
   const [tradingMode] = useTradingModeAtom();
-  const { midPrice } = useTradingPrice();
+  const midPriceRef = useRef<string | undefined>(undefined);
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
@@ -231,7 +245,7 @@ export function PerpTradingButton({
     if (!formData.hasTpsl || !formData.price) return true;
 
     const entryPrice = new BigNumber(
-      formData.type === 'limit' ? formData.price : midPrice || '0',
+      formData.type === 'limit' ? formData.price : midPriceRef.current || '0',
     );
     if (!entryPrice.isFinite() || entryPrice.isZero()) {
       // entry price is invalid
@@ -275,7 +289,6 @@ export function PerpTradingButton({
     formData.type,
     formData.tpTriggerPx,
     formData.slTriggerPx,
-    midPrice,
     isLong,
     getTpslErrorMessage,
   ]);
@@ -412,28 +425,31 @@ export function PerpTradingButton({
   }
 
   return (
-    <Button
-      {...sharedButtonProps}
-      testID={PerpTestIDs.PlaceOrderButton}
-      bg={buttonStyles.bg}
-      hoverStyle={
-        !buttonDisabled && !isSubmitting
-          ? { bg: buttonStyles.hoverBg }
-          : undefined
-      }
-      pressStyle={
-        !buttonDisabled && !isSubmitting
-          ? { bg: buttonStyles.pressBg }
-          : undefined
-      }
-      loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
-      onPress={orderConfirm}
-      disabled={buttonDisabled}
-      childrenAsText={false}
-    >
-      <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
-        {buttonText}
-      </SizableText>
-    </Button>
+    <>
+      <PerpTradingButtonMidPriceRef midPriceRef={midPriceRef} />
+      <Button
+        {...sharedButtonProps}
+        testID={PerpTestIDs.PlaceOrderButton}
+        bg={buttonStyles.bg}
+        hoverStyle={
+          !buttonDisabled && !isSubmitting
+            ? { bg: buttonStyles.hoverBg }
+            : undefined
+        }
+        pressStyle={
+          !buttonDisabled && !isSubmitting
+            ? { bg: buttonStyles.pressBg }
+            : undefined
+        }
+        loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
+        onPress={orderConfirm}
+        disabled={buttonDisabled}
+        childrenAsText={false}
+      >
+        <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
+          {buttonText}
+        </SizableText>
+      </Button>
+    </>
   );
 }

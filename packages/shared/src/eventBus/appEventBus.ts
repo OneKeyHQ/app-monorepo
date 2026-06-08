@@ -72,20 +72,6 @@ export interface IHardwareErrorDialogPayload {
   errorMessage?: string; // Error message
 }
 
-export type IThirdPartyHardwareRecoveryAction = {
-  type: 'ledger_app_install_required';
-  vendor: EHardwareVendor;
-  connectId: string;
-  appName: string;
-  source?:
-    | 'batchCreateAccount'
-    | 'createAccount'
-    | 'sign'
-    | 'onboarding'
-    | 'unknown';
-  silent?: boolean;
-};
-
 export enum EFinalizeWalletSetupSteps {
   // Regular wallet steps
   CreatingWallet = 'CreatingWallet',
@@ -117,6 +103,9 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
+    status: 'VALID' | 'INVALID' | 'UNKNOWN';
+  };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
@@ -292,12 +281,23 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
+          // Stable across network switches for HD accounts; forwarded so a
+          // frozen token list (whose own `indexedAccount` closure may be
+          // stale) resolves aggregate hidden/custom tokens against the right
+          // indexed account. Undefined for Others (imported/watch-only).
+          indexedAccountId?: string;
         }[];
+        // When true, the home token list refreshes strictly against the
+        // provided account/network instead of its own active account. Used by
+        // emitters from a different home tab right after a network switch,
+        // when the (inactive) token list is frozen and its closures still
+        // point at the previous network.
+        refreshByProvidedAccounts?: boolean;
       };
-  [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
+  [EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -387,16 +387,6 @@ export interface IAppEventBusPayload {
     vendor: EHardwareVendor;
     reason: EThirdPartyDevicePermissionDeniedReason;
   };
-  [EAppEventBusNames.ThirdPartyHardwareAppInstallProgress]: {
-    vendor: EHardwareVendor;
-    connectId: string;
-    appName: string;
-    /** 0..1 install progress reported by DMK. */
-    progress: number;
-    /** DMK UserInteractionRequired (e.g. 'allow-secure-connection'). */
-    requiredUserInteraction?: string;
-  };
-  [EAppEventBusNames.ThirdPartyHardwareRecoveryAction]: IThirdPartyHardwareRecoveryAction;
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
   [EAppEventBusNames.EnabledNetworksChanged]: undefined;

@@ -145,6 +145,19 @@ let localDbCallDetails: {
 
 let globalRecentCalls: Array<[string, string, any[]] | [string, string]> = [];
 
+// Bounded push for globalRecentCalls. Previously the array was only trimmed
+// inside the IDBDatabase.transaction wrapper, so simpleDb/appStorage calls (and
+// localDb reads between transactions) accumulated unbounded — each logLocalDbCall
+// entry retains a full captured call stack. On account switches over large
+// wallet sets this leaked millions of stack-trace objects and froze the renderer
+// (GC thrash). Trim on every push with a little headroom to amortize the splice.
+function pushRecentCall(entry: [string, string, any[]] | [string, string]) {
+  globalRecentCalls.push(entry);
+  if (globalRecentCalls.length > maxRecentCallsSize + 512) {
+    globalRecentCalls.splice(0, globalRecentCalls.length - maxRecentCallsSize);
+  }
+}
+
 let indexedDBResult: {
   [key: string]: number;
 } = {};
@@ -367,7 +380,7 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
     }
     localDbCallDetails[method][table].total += 1;
 
-    globalRecentCalls.push([getNowString(), `${method}__${table}`, params]);
+    pushRecentCall([getNowString(), `${method}__${table}`, params]);
 
     if (
       shouldLocalDbDebuggerRule[`${method}__${table}`] &&
@@ -398,7 +411,7 @@ function logSimpleDbCall(method: string, entity: string) {
     simpleDbCallDetails[method].details[entity] += 1;
     simpleDbCallDetails[method].total += 1;
 
-    globalRecentCalls.push([getNowString(), `${method}__${entity}`]);
+    pushRecentCall([getNowString(), `${method}__${entity}`]);
   }
 }
 
@@ -418,7 +431,7 @@ function logAppStorageCall(method: string, key: string) {
     appStorageCallDetails[method].details[key] += 1;
     appStorageCallDetails[method].total += 1;
 
-    globalRecentCalls.push([getNowString(), `${method}__${key}`]);
+    pushRecentCall([getNowString(), `${method}__${key}`]);
 
     if (
       shouldLocalDbDebuggerRule[`${method}__${key}`] &&

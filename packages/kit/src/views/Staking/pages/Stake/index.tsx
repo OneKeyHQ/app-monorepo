@@ -527,7 +527,7 @@ function BasicStakePage() {
     0;
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled scrollProps={{ keyboardShouldPersistTaps: 'handled' }}>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_earn_token },

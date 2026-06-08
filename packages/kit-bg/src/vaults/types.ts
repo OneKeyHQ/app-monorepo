@@ -15,6 +15,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -74,6 +75,7 @@ import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';
 import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
 import type { HDNodeType } from '@onekeyfe/hd-transport';
+import type { ChainForFingerprint } from '@onekeyfe/hwk-adapter-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -368,7 +370,8 @@ export type IPrepareImportedAccountsParams = {
   name: string;
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
-};
+  debugCryptoProbeId?: string;
+} & IPbkdf2KdfParams;
 export type IPrepareHDOrHWAccountChainExtraParams = {
   receiveAddressPath?: string;
 };
@@ -400,6 +403,8 @@ export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
+  // Auto multi-network fill scene flag; HW auto-install is derived from it.
+  isAutoCreateMultiNetwork?: boolean;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -464,6 +469,8 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      chainFingerprint?: string;
+      chainFingerprintChain?: ChainForFingerprint;
 
       pub?: string;
       publicKey?: string; // cosmos, sui, aptos 缺
@@ -565,6 +572,16 @@ export type ITransferPayload = {
   amountToSend: string;
   isMaxSend: boolean;
   isNFT: boolean;
+  isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    payinAddress?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+  };
   originalRecipient: string;
   isToContract?: boolean;
   memo?: string;
@@ -675,6 +692,7 @@ export interface IBroadcastTransactionParams {
   rawTxType?: 'json' | 'hex';
   tronResourceRentalInfo?: ITronResourceRentalInfo;
   gasAccountUiState?: IGasAccountUiState;
+  isPrivateSend?: boolean;
   useDefaultRpc?: boolean;
 }
 

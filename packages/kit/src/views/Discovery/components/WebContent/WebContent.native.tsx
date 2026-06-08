@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -175,6 +175,18 @@ function WebContent({
       }
       return false;
     }, [canGoBack, id, isCurrent]),
+  );
+
+  // Release the WebView ref when this content unmounts. This fires both on tab
+  // close and on keep-alive LRU eviction, so a stale ref never points at a
+  // torn-down WebView (which pause/back-handler/bridge calls would touch).
+  useEffect(
+    () => () => {
+      if (id !== homeTab.id) {
+        delete webviewRefs[id];
+      }
+    },
+    [id],
   );
 
   const webview = useMemo(

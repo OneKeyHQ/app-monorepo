@@ -34,6 +34,7 @@ export enum EOnChainHistoryTxType {
   Send = 'Send',
   Receive = 'Receive',
   Approve = 'Approve',
+  PrivateSend = 'PrivateSend',
 }
 
 export type IOnChainHistoryTxApprove = {
@@ -121,6 +122,18 @@ export type IOnChainHistoryTx = {
   // TODO: on chain swap info
   swapInfo?: any;
 
+  isPrivateSend?: boolean;
+  privateSend?: {
+    orderId?: string;
+    rocketXOrderId?: string;
+    payinAddress?: string;
+    provider?: string;
+    providerName?: string;
+    providerLogo?: string;
+    supportUrl?: string;
+    originalRecipient?: string;
+  };
+
   // Lightning network attributes
   description?: string;
   preimage?: string;
@@ -158,6 +171,9 @@ export type IAccountHistoryTx = {
   key?: string;
 
   isLocalCreated?: boolean;
+
+  displayStatus?: EDecodedTxStatus;
+  displayStatusSource?: 'privateSendOrder';
 
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;

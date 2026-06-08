@@ -226,7 +226,9 @@ export function WalletActionBuy({
       onPress={handleBuyToken}
       disabled={isBuyAndSellDisabled}
       allowPressWhenDisabled={
-        isAddMoneyBlockedByBotWallet && !shouldOpenSellForBotWallet
+        isAddMoneyBlockedByBotWallet === true
+          ? !shouldOpenSellForBotWallet
+          : undefined
       }
     />
   );

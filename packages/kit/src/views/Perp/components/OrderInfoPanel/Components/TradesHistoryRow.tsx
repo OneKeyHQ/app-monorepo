@@ -425,14 +425,16 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
             >
-              <SizableText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                size="$bodySm"
-                color={directionInfo.directionColor}
-              >
-                {directionInfo.directionStr}
-              </SizableText>
+              <XStack gap="$1.5" alignItems="center">
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+              </XStack>
             </XStack>
 
             {/* Price */}

@@ -304,7 +304,7 @@ export const FavoriteButton = memo(
 
 FavoriteButton.displayName = 'FavoriteButton';
 
-const SubtitleBadge = memo(
+export const SubtitleBadge = memo(
   ({
     subtitle,
     maxWidth,

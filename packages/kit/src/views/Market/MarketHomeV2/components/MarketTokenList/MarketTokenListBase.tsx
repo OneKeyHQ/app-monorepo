@@ -370,6 +370,7 @@ function MarketTokenListBase({
               tokenAddress: item.address,
               networkId: item.networkId,
               isNative: item.isNative,
+              decimals: item.decimals,
             });
           },
       onLongPress: onItemLongPressRef.current
@@ -400,6 +401,14 @@ function MarketTokenListBase({
     );
   }, [isLoading, intl]);
 
+  const tabBarHeight = useScrollContentTabBarOffset();
+
+  // On web with tabIntegrated, disable FlatList's own scroll so the outer
+  // Tabs.Container handles scrolling (allows header to scroll away naturally).
+  // Use IntersectionObserver as a replacement for onEndReached.
+  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
+  const endSentinelRef = useRef<HTMLDivElement>(null);
+
   const TableFooterComponent = useMemo(() => {
     if (isLoadingMore) {
       return (
@@ -409,10 +418,11 @@ function MarketTokenListBase({
       );
     }
 
-    // End indicator is rendered outside the Table when draggable,
-    // so it doesn't participate in absolute positioning during drag.
+    // On native draggable lists the end indicator stays outside the Table so it
+    // doesn't participate in absolute positioning during drag. On web tab
+    // integration it must be inside the Table so height registration includes it.
     if (
-      !draggable &&
+      (!draggable || webTabIntegrated) &&
       showEndReachedIndicator &&
       !canLoadMore &&
       data.length > 0
@@ -420,21 +430,19 @@ function MarketTokenListBase({
       return <ListEndIndicator />;
     }
 
+    if (webTabIntegrated && canLoadMore) {
+      return <div ref={endSentinelRef} style={{ height: 1 }} />;
+    }
+
     return null;
   }, [
     isLoadingMore,
+    webTabIntegrated,
     showEndReachedIndicator,
     canLoadMore,
     data.length,
     draggable,
   ]);
-  const tabBarHeight = useScrollContentTabBarOffset();
-
-  // On web with tabIntegrated, disable FlatList's own scroll so the outer
-  // Tabs.Container handles scrolling (allows header to scroll away naturally).
-  // Use IntersectionObserver as a replacement for onEndReached.
-  const webTabIntegrated = tabIntegrated && !platformEnv.isNative;
-  const endSentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!webTabIntegrated) return;
@@ -484,6 +492,26 @@ function MarketTokenListBase({
     stableHandleHeaderRow,
   ]);
 
+  let integratedContentPaddingBottom = tabBarHeight;
+  if (platformEnv.isNativeAndroid) {
+    integratedContentPaddingBottom =
+      listContainerProps?.paddingBottom ?? SPINNER_HEIGHT * 2;
+  } else if (webTabIntegrated) {
+    integratedContentPaddingBottom =
+      listContainerProps?.paddingBottom ?? tabBarHeight;
+  }
+
+  const tableContentContainerStyle = tabIntegrated
+    ? {
+        paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
+        paddingBottom: integratedContentPaddingBottom,
+      }
+    : {
+        paddingBottom: platformEnv.isNativeAndroid
+          ? SPINNER_HEIGHT * 2
+          : tabBarHeight,
+      };
+
   return (
     <Stack flex={1} width="100%" testID={testID}>
       {portalContent}
@@ -523,21 +551,7 @@ function MarketTokenListBase({
             />
           ) : (
             <Table<IMarketToken>
-              contentContainerStyle={
-                tabIntegrated
-                  ? {
-                      paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? (listContainerProps?.paddingBottom ??
-                          SPINNER_HEIGHT * 2)
-                        : tabBarHeight,
-                    }
-                  : {
-                      paddingBottom: platformEnv.isNativeAndroid
-                        ? SPINNER_HEIGHT * 2
-                        : tabBarHeight,
-                    }
-              }
+              contentContainerStyle={tableContentContainerStyle}
               stickyHeader
               showHeader={showTableHeader ? !useDesktopPortal : false}
               scrollEnabled={!webTabIntegrated}
@@ -545,7 +559,7 @@ function MarketTokenListBase({
               tabIntegrated={tabIntegrated}
               onDragEnd={onDragEnd}
               columns={marketTokenColumns}
-              onEndReached={handleEndReached}
+              onEndReached={webTabIntegrated ? undefined : handleEndReached}
               dataSource={data}
               keyExtractor={(item) => item.id}
               extraData={networkId}
@@ -557,12 +571,10 @@ function MarketTokenListBase({
               {...(rowBg ? { rowProps: { bg: rowBg } } : undefined)}
             />
           )}
-          {webTabIntegrated ? (
-            <div ref={endSentinelRef} style={{ height: 1 }} />
-          ) : null}
           {/* Render end indicator outside the Table for draggable lists
               so it doesn't participate in absolute positioning during drag. */}
           {draggable &&
+          !webTabIntegrated &&
           showEndReachedIndicator &&
           !canLoadMore &&
           data.length > 0 ? (

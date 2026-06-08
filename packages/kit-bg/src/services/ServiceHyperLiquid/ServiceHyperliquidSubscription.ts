@@ -45,7 +45,10 @@ import type {
   IWsOpenOrders,
   IWsSpotAssetCtxs,
   IWsSpotState,
+  IWsTwapStates,
   IWsUserFills,
+  IWsUserTwapHistory,
+  IWsUserTwapSliceFills,
   IWsWebData2,
   IWsWebData3,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -1359,6 +1362,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ALL_DEXS_CLEARINGHOUSE_STATE,
         ESubscriptionType.OPEN_ORDERS,
         ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+        ESubscriptionType.TWAP_STATES,
+        ESubscriptionType.USER_TWAP_HISTORY,
+        ESubscriptionType.USER_TWAP_SLICE_FILLS,
         ESubscriptionType.USER_FILLS,
         ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
         ESubscriptionType.ACTIVE_SPOT_ASSET_CTX,
@@ -1650,14 +1656,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           return true;
         } catch (error) {
           const e = error as OneKeyError | undefined;
-          console.error(
-            `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,
-            error,
-          );
-          if (e?.message.includes('Already unsubscribed')) {
+          if (e?.message?.includes('Already unsubscribed')) {
             removeSubCache();
             return true;
           }
+          console.log(
+            `[HyperLiquid WebSocket] unsubscribe() failed for ${spec.key}:`,
+            error,
+          );
           return false;
         } finally {
           this._destroyingSubscriptionKeys.delete(spec.key);
@@ -1823,6 +1829,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return;
           }
 
+          await this.backgroundApi.serviceHyperliquid.updateSpotDustingOptOutStatus(
+            {
+              accountAddress: userAddress,
+              optOut: userState.optOutOfSpotDusting === true,
+              source: 'live',
+            },
+          );
+
           if (wsAbstraction) {
             // mode rarely changes, skip redundant atom set + recomputation
             const currentAbstraction = await perpsAbstractionModeAtom.get();
@@ -1915,6 +1929,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           subscriptionType,
           data as IWsOpenOrders,
         );
+      } else if (subscriptionType === ESubscriptionType.TWAP_STATES) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsTwapStates,
+        );
+      } else if (subscriptionType === ESubscriptionType.USER_TWAP_HISTORY) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsUserTwapHistory,
+        );
+      } else if (subscriptionType === ESubscriptionType.USER_TWAP_SLICE_FILLS) {
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data as IWsUserTwapSliceFills,
+        );
       } else if (subscriptionType === ESubscriptionType.ALL_DEXS_ASSET_CTXS) {
         this.backgroundApi.serviceHyperliquidCache.cacheAllDexsAssetCtxsSnapshot(
           data as IWsAllDexsAssetCtxs,
@@ -1937,21 +1966,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._emitHyperliquidDataUpdate(subscriptionType, data);
       }
 
-      // Restart ping loop if not running (e.g. after transport auto-reconnect
-      // where socketOpenHandler doesn't fire on the new internal socket)
-      if (!this._pingIntervalTimer) {
-        this._startPingLoop();
-      }
-
-      void perpsNetworkStatusAtom.set(
-        (prev): IPerpsNetworkStatus => ({
-          ...prev,
-          connected: true,
-          lastMessageAt: messageTimestamp,
-        }),
-      );
-
-      this._scheduleNetworkTimeout(messageTimestamp);
+      // Route default-case messages through the same liveness path used by
+      // ALL_MIDS / SPOT_STATE / SPOT_ASSET_CTXS etc. The throttled
+      // _updateNetworkLiveness() variant updates perpsNetworkStatusAtom at
+      // most once per 5 s — the prior unconditional set() here fired on
+      // every WS message (10+/s for high-frequency streams), generating a
+      // setAtomValue storm across the bg→ui bridge.
+      this._updateNetworkLiveness();
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${subscriptionType}:`,

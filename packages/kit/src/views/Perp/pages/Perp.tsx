@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -32,6 +32,7 @@ import { LazyPageContainer } from '../../../components/LazyPageContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useNativePerpFeatureGuard } from '../../../hooks/usePerpFeatureGuard';
 import { PerpGuidePopover } from '../components/Guide/PerpGuidePopover';
+import { PerpChartPrewarm } from '../components/PerpChartPrewarm';
 import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterAction';
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
@@ -48,6 +49,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
@@ -102,6 +104,12 @@ function PerpContent() {
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      void preloadPerpsMobileTokenSelectorPage();
+    }
+  }, []);
 
   const fallbackTabPageHeight = platformEnv.isNative
     ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT
@@ -196,6 +204,9 @@ function PerpContent() {
         <LazyPageContainer>
           <PerpBodyContent />
         </LazyPageContainer>
+        {/* Keep the shared chart WebView warm + pre-switched to the active pair
+            so opening the chart sub-page is instant (native, hidden offscreen). */}
+        <PerpChartPrewarm />
       </Page.Body>
     </Page>
   );

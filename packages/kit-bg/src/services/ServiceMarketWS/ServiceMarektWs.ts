@@ -392,7 +392,7 @@ class ServiceMarketWS extends ServiceBase {
   }) {
     // Check if already subscribed
     if (
-      this.subscriptionTracker.hasSubscription({
+      this.subscriptionTracker.hasExactSubscription({
         address: tokenAddress,
         type: EChannel.ohlcv,
         networkId,
@@ -525,7 +525,7 @@ class ServiceMarketWS extends ServiceBase {
 
     // Only unsubscribe from WebSocket if no more connections
     if (
-      !this.subscriptionTracker.hasSubscription({
+      !this.subscriptionTracker.hasExactSubscription({
         address: tokenAddress,
         type: EChannel.ohlcv,
         networkId,

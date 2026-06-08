@@ -1792,10 +1792,10 @@ class ServiceHardware extends ServiceBase {
   // as the generic IHardwareWallet; we cast to the Ledger-specific shape
   // because these methods aren't part of the cross-vendor contract.
   //
-  // Install progress is forwarded via appEventBus
-  // (`ThirdPartyHardwareAppInstallProgress`) from the adapter wrapper — it
-  // cannot ride through these @backgroundMethod return values because the
-  // function callback contract doesn't survive the IPC proxy.
+  // Install progress streams as SDK `ui-event` AppInstallProgress, surfaced to
+  // the UI via the thirdPartyAppInstallAtom (it cannot ride through these
+  // @backgroundMethod return values — the function callback contract doesn't
+  // survive the IPC proxy).
   // ---------------------------------------------------------------------------
 
   @backgroundMethod()
@@ -1838,6 +1838,26 @@ class ServiceHardware extends ServiceBase {
       ) => Promise<{ success: boolean; payload: unknown }>;
     };
     return hw.listInstalledApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledAppNames(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledNames: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledNames(params.connectId);
   }
 
   @backgroundMethod()

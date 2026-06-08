@@ -350,15 +350,13 @@ const SwapProContainer = ({
         title={swapProErrorAlert?.title}
         message={swapProErrorAlert?.message}
       />
-      {shouldRenderHeavyComponents ? (
-        <SwapProTabListContainer
-          onTokenPress={onTokenPressCallback}
-          onOpenOrdersClick={onOpenOrdersClick}
-          onSearchClick={onSearchClickCallback}
-          supportNetworksList={supportNetworksList}
-          disableDelayRender
-        />
-      ) : null}
+      <SwapProTabListContainer
+        onTokenPress={onTokenPressCallback}
+        onOpenOrdersClick={onOpenOrdersClick}
+        onSearchClick={onSearchClickCallback}
+        supportNetworksList={supportNetworksList}
+        disableDelayRender={shouldRenderHeavyComponents}
+      />
     </ScrollView>
   );
 };

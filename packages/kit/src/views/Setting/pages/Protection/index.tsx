@@ -28,6 +28,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
@@ -212,12 +213,25 @@ const SettingProtectionModal = () => {
             />
           </ListItem>
           <Divider my="$5" mx="$5" />
-          <SectionList.SectionHeader title="Receive risk monitoring" />
+          <SectionList.SectionHeader
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            })}
+          />
           <ListItem
-            title="Monitor incoming transfers"
-            subtitle="Check supported incoming token transfers for fund-source risk."
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__desc,
+            })}
             {...(!isPrimeSubscriptionActive && {
               onPress: () => {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.ReceiveRiskMonitoring,
+                  entryPoint: 'settingsPage',
+                  isPrimeActive: false,
+                });
                 navigation.pushModal(EModalRoutes.PrimeModal, {
                   screen: EPrimePages.PrimeDashboard,
                   params: {
@@ -258,8 +272,12 @@ const SettingProtectionModal = () => {
           </ListItem>
           <ListItem
             testID="setting-receive-risk-supported-assets"
-            title="Supported assets"
-            subtitle="View networks and tokens"
+            title={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__desc,
+            })}
             drillIn
             onPress={() => {
               navigation.push(

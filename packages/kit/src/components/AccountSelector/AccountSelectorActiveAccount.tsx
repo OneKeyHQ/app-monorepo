@@ -89,6 +89,7 @@ const AllNetworkAccountSelector = ({
       placement="bottom"
       renderTrigger={
         <XStack
+          testID="account-selector-copy-address-btn"
           gap="$2"
           p="$1"
           m="$-1"

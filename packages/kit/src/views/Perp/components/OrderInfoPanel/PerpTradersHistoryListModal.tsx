@@ -22,8 +22,27 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpAccountList } from './List/PerpAccountList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
+import { PerpTwapList } from './List/PerpTwapList';
 
-type ITabName = 'Trades' | 'Account';
+type ITabName = 'Trades' | 'Twap' | 'Account';
+
+const HISTORY_TABS: Array<{
+  name: ITabName;
+  labelId: ETranslations;
+}> = [
+  {
+    name: 'Trades',
+    labelId: ETranslations.perp_trades_history_title,
+  },
+  {
+    name: 'Twap',
+    labelId: ETranslations.perp_twap_order__title,
+  },
+  {
+    name: 'Account',
+    labelId: ETranslations.perp_account_history,
+  },
+];
 
 function TabHeader({
   activeTab,
@@ -40,31 +59,22 @@ function TabHeader({
       borderBottomWidth="$0.5"
       borderBottomColor="$borderSubdued"
     >
-      <XStack
-        py="$3"
-        ml="$5"
-        mr="$2"
-        borderBottomWidth={activeTab === 'Trades' ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
-        onPress={() => onTabChange('Trades')}
-        mb={-2}
-      >
-        <SizableText size="$headingXs">
-          {intl.formatMessage({ id: ETranslations.perp_trades_history_title })}
-        </SizableText>
-      </XStack>
-      <XStack
-        py="$3"
-        mx="$2"
-        borderBottomWidth={activeTab === 'Account' ? '$0.5' : '$0'}
-        borderBottomColor="$borderActive"
-        onPress={() => onTabChange('Account')}
-        mb={-2}
-      >
-        <SizableText size="$headingXs">
-          {intl.formatMessage({ id: ETranslations.perp_account_history })}
-        </SizableText>
-      </XStack>
+      {HISTORY_TABS.map((tab, index) => (
+        <XStack
+          key={tab.name}
+          py="$3"
+          ml={index === 0 ? '$5' : '$2'}
+          mr="$2"
+          borderBottomWidth={activeTab === tab.name ? '$0.5' : '$0'}
+          borderBottomColor="$borderActive"
+          onPress={() => onTabChange(tab.name)}
+          mb={-2}
+        >
+          <SizableText size="$headingXs">
+            {intl.formatMessage({ id: tab.labelId })}
+          </SizableText>
+        </XStack>
+      ))}
     </XStack>
   );
 }
@@ -112,7 +122,16 @@ export function PerpTradersHistoryListModal() {
           <YStack flex={1}>
             {activeTab === 'Trades' ? (
               <PerpTradesHistoryList isMobile useTabsList={false} />
-            ) : (
+            ) : null}
+            {activeTab === 'Twap' ? (
+              <PerpTwapList
+                isMobile
+                useTabsList={false}
+                initialTab="history"
+                enabledTabs={['history', 'fills']}
+              />
+            ) : null}
+            {activeTab === 'Account' ? (
               <PerpAccountList
                 isMobile
                 useTabsList={false}
@@ -122,7 +141,7 @@ export function PerpTradersHistoryListModal() {
                   </Stack>
                 }
               />
-            )}
+            ) : null}
           </YStack>
         </YStack>
       </PageBody>

@@ -276,6 +276,7 @@ function MobileMarketWatchlistFlatListImpl({
               tokenAddress: item.address,
               networkId: item.networkId,
               isNative: item.isNative,
+              decimals: item.decimals,
             });
           }}
           onPressIn={(event: GestureResponderEvent) => {

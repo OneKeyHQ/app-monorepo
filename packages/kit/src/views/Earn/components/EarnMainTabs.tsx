@@ -50,6 +50,7 @@ interface IEarnMainTabsProps {
   header?: React.ReactNode;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  isActive?: boolean;
 }
 
 const TabContentContainer = ({
@@ -98,6 +99,7 @@ const EarnMainTabsComponent = ({
   header,
   tabsRef: externalTabsRef,
   nestedPager = false,
+  isActive = true,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const theme = useTheme();
@@ -146,9 +148,13 @@ const EarnMainTabsComponent = ({
     });
     return map;
   }, [tabNames]);
+  const desktopFocusedTab = useSharedValue(initialTabName);
+  const [desktopTabName, setDesktopTabName] = useState(initialTabName);
+  const [currentTabName, setCurrentTabName] = useState(initialTabName);
 
   const handleTabChange = useCallback(
     ({ tabName }: { tabName: string }) => {
+      setCurrentTabName(tabName);
       const tabKey = tabKeyByName[tabName];
       if (tabKey) {
         rootNavigationRef.current?.setParams?.({
@@ -159,8 +165,9 @@ const EarnMainTabsComponent = ({
     [tabKeyByName],
   );
 
-  const desktopFocusedTab = useSharedValue(initialTabName);
-  const [desktopTabName, setDesktopTabName] = useState(initialTabName);
+  useEffect(() => {
+    setCurrentTabName(initialTabName);
+  }, [initialTabName]);
 
   const syncDesktopTabName = useCallback(
     (tabName: string) => {
@@ -226,8 +233,8 @@ const EarnMainTabsComponent = ({
     if (defaultTab) {
       const targetTabName = initialTabName;
       if (!useDesktopPageScrollTabs) {
-        const currentTabName = tabsRef.current?.getFocusedTab();
-        if (currentTabName !== targetTabName) {
+        const focusedTabName = tabsRef.current?.getFocusedTab();
+        if (focusedTabName !== targetTabName) {
           tabsRef.current?.jumpToTab(targetTabName);
         }
       } else if (desktopTabName !== targetTabName) {
@@ -357,6 +364,10 @@ const EarnMainTabsComponent = ({
       ),
     };
   }, [containerProps, header, theme.bgApp.val]);
+  const activeTabName = useDesktopPageScrollTabs
+    ? desktopTabName
+    : currentTabName;
+  const isAssetsTabActive = isActive && activeTabName === tabNames.assets;
 
   if (useDesktopPageScrollTabs) {
     return (
@@ -372,7 +383,7 @@ const EarnMainTabsComponent = ({
           pointerEvents={desktopTabName === tabNames.assets ? 'auto' : 'none'}
         >
           <TabContentContainer useTabsScrollView={false}>
-            <ProtocolsTabContent />
+            <ProtocolsTabContent isActive={isAssetsTabActive} />
           </TabContentContainer>
         </YStack>
         <YStack
@@ -419,7 +430,7 @@ const EarnMainTabsComponent = ({
     >
       <Tabs.Tab name={tabNames.assets}>
         <TabContentContainer>
-          <ProtocolsTabContent />
+          <ProtocolsTabContent isActive={isAssetsTabActive} />
         </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>

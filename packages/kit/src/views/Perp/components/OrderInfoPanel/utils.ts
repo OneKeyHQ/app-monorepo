@@ -2,6 +2,11 @@ import BigNumber from 'bignumber.js';
 
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  getSpotTokenDisplayName,
+  isSpotInstrument,
+  parseDexCoin,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 
@@ -39,6 +44,27 @@ export const getColumnStyle = (column: IColumnConfig) => {
     flexGrow: isFixedWidth ? undefined : column.flex || 1,
     flexBasis: isFixedWidth ? undefined : 0,
   };
+};
+
+export const getTwapAssetDisplayName = (
+  coin: string,
+  spotDisplayMap: Record<string, string>,
+) => {
+  if (!isSpotInstrument(coin)) {
+    return parseDexCoin(coin).displayName;
+  }
+
+  const displayName = spotDisplayMap[coin];
+  if (displayName) {
+    return displayName;
+  }
+
+  if (coin.includes('/')) {
+    const [baseName] = coin.split('/');
+    return spotDisplayMap[baseName] ?? getSpotTokenDisplayName(baseName);
+  }
+
+  return coin;
 };
 
 export const getPerpFillDirectionType = (

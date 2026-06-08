@@ -247,6 +247,22 @@ function getExactUrlVisitKey(url?: string) {
   return normalizeUrlLikeText(url);
 }
 
+function isSyntheticExactUrlDapp(dapp: IDApp) {
+  return Boolean(dapp.isExactUrl && dapp.dappId.startsWith('exact-url:'));
+}
+
+function isBareHostnameSearchKeyword(keyword: string) {
+  const trimmedKeyword = keyword.trim();
+  return Boolean(
+    trimmedKeyword &&
+    !/^https?:\/\//iu.test(trimmedKeyword) &&
+    !/[/?#]/u.test(trimmedKeyword) &&
+    !uriUtils.isLocalhostUrl(trimmedKeyword) &&
+    !uriUtils.isIpAddressUrl(trimmedKeyword) &&
+    uriUtils.isUrlWithoutProtocol(trimmedKeyword),
+  );
+}
+
 function isExactDappNameMatch({
   dapp,
   keyword,
@@ -1297,14 +1313,23 @@ export function mergeSearchResultsWithLocalData({
       keyword,
       localSupportCount: getLocalSupportCount(dapp),
     });
+  const shouldDeferExactUrlBehindLocal = (dapp: IDApp) =>
+    isSyntheticExactUrlDapp(dapp) &&
+    isBareHostnameSearchKeyword(keyword) &&
+    rankedLocalItems.length > 0;
 
-  const exactUrlResults: IDApp[] = [];
+  const leadingExactUrlResults: IDApp[] = [];
+  const deferredExactUrlResults: IDApp[] = [];
   const prioritizedRemoteResults: IDApp[] = [];
   const remainingRemoteResults: IDApp[] = [];
   let hasStartedRemainingRemoteResults = false;
   for (const item of rankedRemoteResults) {
     if (item.isExactUrl) {
-      exactUrlResults.push(item);
+      if (shouldDeferExactUrlBehindLocal(item)) {
+        deferredExactUrlResults.push(item);
+      } else {
+        leadingExactUrlResults.push(item);
+      }
     } else if (!hasStartedRemainingRemoteResults && shouldPrioritize(item)) {
       prioritizedRemoteResults.push(item);
     } else {
@@ -1326,7 +1351,7 @@ export function mergeSearchResultsWithLocalData({
   }
 
   appendDappSearchResults({
-    items: exactUrlResults,
+    items: leadingExactUrlResults,
     source: 'remote',
     keyword,
     mergedItems,
@@ -1399,6 +1424,19 @@ export function mergeSearchResultsWithLocalData({
       urlMatch: item.urlMatch,
       history: item,
     });
+  });
+
+  appendDappSearchResults({
+    items: deferredExactUrlResults.filter((item) => {
+      const urlKey = getExactUrlVisitKey(item.url);
+      return !urlKey || !urlDedupeKeySet.has(urlKey);
+    }),
+    source: 'remote',
+    keyword,
+    mergedItems,
+    originDedupeKeySet: dappOriginDedupeKeySet,
+    urlDedupeKeySet,
+    reserveLocalUrlKey: true,
   });
 
   appendDappSearchResults({

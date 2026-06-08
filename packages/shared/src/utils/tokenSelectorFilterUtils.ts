@@ -4,11 +4,13 @@ export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
 
 export function isTokenSelectorDappTokenFilterSupportedNetwork({
   network,
+  isDeFiEnabled,
 }: {
   network?: Pick<
     IServerNetwork,
     'id' | 'isAllNetworks' | 'backendIndex'
   > | null;
+  isDeFiEnabled?: boolean;
 }) {
   if (!TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED || !network) {
     return false;
@@ -16,7 +18,7 @@ export function isTokenSelectorDappTokenFilterSupportedNetwork({
   if (network.isAllNetworks) {
     return true;
   }
-  return network.backendIndex === true;
+  return network.backendIndex === true && isDeFiEnabled === true;
 }
 
 export function filterTokenSelectorTokensByBackendIndexedNetworks<

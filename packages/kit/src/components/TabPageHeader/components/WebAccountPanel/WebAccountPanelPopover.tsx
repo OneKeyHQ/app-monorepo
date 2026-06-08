@@ -35,6 +35,11 @@ export interface IWebAccountPanelPopoverProps {
 
 const PANEL_WIDTH = 352;
 
+// Stable identity so the memoized renderContent below doesn't hand
+// AccountSelectorProviderMirror a fresh array every call (which would re-run its
+// store-data memo and the mirror tracker effect on every content re-render).
+const PANEL_ENABLED_NUM = [0];
+
 const ANIMATE_ONLY_HEIGHT: string[] = ['height'];
 
 const FLOATING_PANEL_PROPS = {
@@ -234,6 +239,30 @@ export function WebAccountPanelPopover({
   connected = true,
 }: IWebAccountPanelPopoverProps) {
   const { config } = useAccountSelectorContextData();
+  // Popover renders `renderContent` as a component (<RenderContent/> in
+  // RawPopover), so React keys the whole panel subtree by this function's
+  // identity. An inline arrow would be a brand-new identity on every
+  // WebAccountPanelPopover re-render, remounting PanelContent + everything under
+  // it each time. On busy routes (DeFi/Earn) the header re-renders repeatedly
+  // while the panel is open, so the panel visibly vanished and reappeared
+  // several times. Memoizing keeps the identity (and the mounted subtree) stable
+  // across those re-renders.
+  const renderContent = useCallback(
+    ({ closePopover }: { isOpen?: boolean; closePopover: () => void }) =>
+      config ? (
+        <AccountSelectorProviderMirror
+          enabledNum={PANEL_ENABLED_NUM}
+          config={config}
+        >
+          <PanelContent
+            initialView={initialView}
+            connected={connected}
+            closePopover={closePopover}
+          />
+        </AccountSelectorProviderMirror>
+      ) : null,
+    [config, initialView, connected],
+  );
   return (
     <Popover
       title=""
@@ -242,17 +271,7 @@ export function WebAccountPanelPopover({
       offset={6}
       floatingPanelProps={FLOATING_PANEL_PROPS}
       renderTrigger={renderTrigger}
-      renderContent={({ closePopover }) =>
-        config ? (
-          <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <PanelContent
-              initialView={initialView}
-              connected={connected}
-              closePopover={closePopover}
-            />
-          </AccountSelectorProviderMirror>
-        ) : null
-      }
+      renderContent={renderContent}
     />
   );
 }

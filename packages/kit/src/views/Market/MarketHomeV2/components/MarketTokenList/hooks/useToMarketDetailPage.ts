@@ -9,6 +9,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import { chartPredictedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -26,6 +27,7 @@ interface IMarketToken {
   networkId: string;
   symbol: string;
   isNative?: boolean;
+  decimals?: number;
 }
 
 interface IUseToDetailPageOptions {
@@ -41,6 +43,8 @@ interface IUseToDetailPageOptions {
   from?: EEnterWay;
 }
 
+const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
+
 export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabMarketParamList>>();
@@ -49,6 +53,25 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     async (item: IMarketToken) => {
+      // Predict the chart symbol the moment the user taps. Native uses it to
+      // pre-switch the warm pooled chart during the navigation transition;
+      // desktop uses it to mount the detail chart immediately (its gate waits on
+      // tokenDetail.symbol otherwise — the white-screen cause). Read back in
+      // useTokenDetail (matched by address) so a stale prediction never leaks.
+      if (platformEnv.isNative || platformEnv.isDesktop) {
+        void chartPredictedSymbolAtom.set({
+          source: 'market',
+          symbol: item.symbol,
+          networkId: item.networkId,
+          address: item.tokenAddress,
+          // Carry the token's price decimals so the warm chart / pre-switch
+          // SYMBOL_CHANGE uses the correct per-symbol priceScale before
+          // tokenDetail arrives (otherwise micro-price tokens fall back to the
+          // chart's default decimal=8 and render the wrong scale).
+          decimal: item.decimals,
+        });
+      }
+
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -74,6 +97,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           ...params,
           from: params.from || enterSource,
         });
+        if (platformEnv.isExtensionUiPopup) {
+          // Keep the popup alive long enough for caller-side follow-up timers,
+          // such as recent-search persistence, to run before the page closes.
+          setTimeout(() => {
+            globalThis.close();
+          }, EXTENSION_POPUP_CLOSE_DELAY_MS);
+        }
       } else if (options?.switchToMarketTabFirst) {
         // Clear token detail before navigation
         tokenDetailActions.current.clearTokenDetail();

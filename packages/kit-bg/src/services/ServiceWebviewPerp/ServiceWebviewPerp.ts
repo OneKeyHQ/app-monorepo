@@ -3,7 +3,6 @@ import BigNumber from 'bignumber.js';
 import { isNumber, isString } from 'lodash';
 import pTimeout from 'p-timeout';
 
-import type { IAlertType } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
@@ -33,6 +32,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import type {
   IHyperLiquidErrorLocaleItem,
+  IPerpServerBannerConfig,
   IPerpsAssetMetaMap,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -207,16 +207,7 @@ export enum EPerpDefaultTabType {
   Native = 'native',
   Web = 'web',
 }
-export interface IPerpServerBannerConfig {
-  id: string;
-  alertType: IAlertType;
-  title: string;
-  description: string;
-  href?: string;
-  hrefType?: string;
-  useSystemBrowser?: boolean;
-  canClose?: boolean;
-}
+export type { IPerpServerBannerConfig };
 
 export interface IPerpServerDepositConfig {
   network: IPerpsDepositNetwork;

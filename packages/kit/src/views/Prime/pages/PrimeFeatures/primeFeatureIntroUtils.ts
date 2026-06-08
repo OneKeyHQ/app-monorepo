@@ -23,6 +23,7 @@ export type IPrimeFeatureIntroAction =
   | 'bulkRevoke'
   | 'bulkCopyAddresses'
   | 'notifications'
+  | 'receiveRiskMonitoring'
   | 'browser';
 
 export type IPrimeFeatureIntro = {
@@ -91,6 +92,25 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     ],
   },
   {
+    id: EPrimeFeatures.ReceiveRiskMonitoring,
+    listIcon: 'InboxOutline',
+    title: ETranslations.prime_feature_receive_risk_monitoring__title,
+    description: ETranslations.prime_feature_receive_risk_monitoring__desc,
+    media: {
+      type: 'video',
+      getSource: () =>
+        getPrimeFeatureVideoSource(
+          'prime-feature-receive-risk-monitoring-20260601.mp4',
+        ),
+      getPosterSource: () =>
+        require('@onekeyhq/kit/assets/prime/receive_risk_monitoring_poster.png') as ImageSourcePropType,
+    },
+    action: 'receiveRiskMonitoring',
+    actionLabel:
+      ETranslations.prime_feature_receive_risk_monitoring_cta__action,
+    details: [],
+  },
+  {
     id: EPrimeFeatures.BulkRevoke,
     listIcon: 'FlashOutline',
     title: ETranslations.global_bulk_revoke,
@@ -98,7 +118,7 @@ export const PRIME_FEATURE_INTROS: IPrimeFeatureIntro[] = [
     media: {
       type: 'video',
       getSource: () =>
-        getPrimeFeatureVideoSource('prime-feature-bulk-revoke-20260529.mp4'),
+        getPrimeFeatureVideoSource('prime-feature-bulk-revoke-20260604.mp4'),
       getPosterSource: () =>
         require('@onekeyhq/kit/assets/prime/bulk_revoke_poster.png') as ImageSourcePropType,
     },

@@ -202,6 +202,89 @@ export const {
 });
 // #endregion
 
+// #region Spot Dusting
+const SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS = 15_000;
+
+export type IPerpsSpotDustingAtom =
+  | {
+      accountAddress: IHex;
+      optOut: boolean;
+      source: 'live' | 'local';
+      updatedAt: number;
+      localMutation?: {
+        optOut: boolean;
+        updatedAt: number;
+        ignoreLiveUntil: number;
+      };
+    }
+  | undefined;
+
+export function getPerpsSpotDustingNextState({
+  prev,
+  accountAddress,
+  optOut,
+  source,
+  updatedAt,
+  liveReconcileGraceMs = SPOT_DUSTING_LIVE_RECONCILE_GRACE_MS,
+}: {
+  prev: IPerpsSpotDustingAtom;
+  accountAddress: IHex;
+  optOut: boolean;
+  source: 'live' | 'local';
+  updatedAt: number;
+  liveReconcileGraceMs?: number;
+}): IPerpsSpotDustingAtom {
+  const prevMatchesAccount =
+    prev?.accountAddress?.toLowerCase() === accountAddress.toLowerCase();
+  const prevLocalMutation = prevMatchesAccount
+    ? prev?.localMutation
+    : undefined;
+
+  if (
+    source === 'live' &&
+    prevLocalMutation &&
+    prevLocalMutation.optOut !== optOut &&
+    updatedAt < prevLocalMutation.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  const localMutation =
+    source === 'local'
+      ? {
+          optOut,
+          updatedAt,
+          ignoreLiveUntil: updatedAt + liveReconcileGraceMs,
+        }
+      : undefined;
+
+  if (
+    prevMatchesAccount &&
+    prev?.optOut === optOut &&
+    prev.source === source &&
+    prev.localMutation?.optOut === localMutation?.optOut &&
+    prev.localMutation?.updatedAt === localMutation?.updatedAt &&
+    prev.localMutation?.ignoreLiveUntil === localMutation?.ignoreLiveUntil
+  ) {
+    return prev;
+  }
+
+  return {
+    accountAddress,
+    optOut,
+    source,
+    updatedAt,
+    localMutation,
+  };
+}
+
+export const { target: perpsSpotDustingAtom, use: usePerpsSpotDustingAtom } =
+  globalAtom<IPerpsSpotDustingAtom>({
+    name: EAtomNames.perpsSpotDustingAtom,
+    initialValue: undefined,
+  });
+// #endregion
+
 // #region Spot Balances
 export interface ISpotBalanceItem {
   coin: string;
@@ -270,7 +353,7 @@ export const {
     if (isUnified) {
       // Unified/portfolio: all values from spotState
       // Per HL docs: "Individual perp dex user states are not meaningful"
-      if (!activeSpotData?.spotTotalUsd) {
+      if (activeSpotData?.spotTotalUsd === undefined) {
         // Spot data not yet loaded: return undefined for skeleton screen
         return {
           accountValue: undefined,
@@ -296,7 +379,7 @@ export const {
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
       withdrawable: activeSummary?.withdrawable,
-      isLoading: !activeSpotData?.spotTotalUsd,
+      isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
   },
 });
@@ -434,6 +517,8 @@ export const {
 export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
+  enableTradingTriggered: boolean;
+  enableTradingStatusPending: boolean;
 }
 export const {
   target: perpsAccountLoadingInfoAtom,
@@ -443,6 +528,8 @@ export const {
   initialValue: {
     selectAccountLoading: false,
     enableTradingLoading: false,
+    enableTradingTriggered: false,
+    enableTradingStatusPending: false,
   },
 });
 
@@ -458,11 +545,10 @@ export const {
 }>({
   read: (get) => {
     const account = get(perpsActiveAccountAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
 
     const accountId = account.accountId ?? account.indexedAccountId;
 
-    if (loading.selectAccountLoading || !accountId) {
+    if (!accountId) {
       return {
         isSoftwareAccount: false,
         isHardwareAccount: false,
@@ -493,18 +579,15 @@ export const {
 } = globalAtomComputedR<boolean>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusAtom.atom());
-    const loading = get(perpsAccountLoadingInfoAtom.atom());
     const enableTradingMode = get(
       perpsActiveAccountEnableTradingModeAtom.atom(),
     );
-    const isAccountLoading =
-      loading.enableTradingLoading || loading.selectAccountLoading;
 
-    if (isAccountLoading || !status?.accountAddress) {
+    if (!status?.accountAddress) {
       return true;
     }
 
-    if (status.accountNotSupport) {
+    if (status.accountNotSupport || status.canCreateAddress) {
       return true;
     }
 
@@ -604,6 +687,68 @@ export const {
   name: EAtomNames.perpsActiveAssetCtxAtom,
   initialValue: undefined,
 });
+
+export const {
+  target: perpsActiveAssetCtxDisplayAtom,
+  use: usePerpsActiveAssetCtxDisplayAtom,
+} = globalAtom<IPerpsActiveAssetCtxAtom>({
+  name: EAtomNames.perpsActiveAssetCtxDisplayAtom,
+  initialValue: undefined,
+});
+
+export const {
+  target: perpsActiveAssetCtxReadyAtom,
+  use: usePerpsActiveAssetCtxReadyAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => Boolean(get(perpsActiveAssetCtxAtom.atom())),
+});
+
+export const {
+  target: perpsActiveAssetCtxMidPriceAtom,
+  use: usePerpsActiveAssetCtxMidPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.midPrice,
+});
+
+export type IPerpsActiveAssetCtxMidPriceSource =
+  | 'live'
+  | 'display'
+  | 'disabled';
+
+export const perpsActiveAssetCtxMidPriceBySourceAtomCache = new Map<
+  IPerpsActiveAssetCtxMidPriceSource,
+  ReturnType<typeof globalAtomComputedR<string | undefined>>
+>();
+
+function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+) {
+  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(source);
+  if (!entry) {
+    entry = globalAtomComputedR<string | undefined>({
+      read: (get) => {
+        if (source === 'disabled') {
+          return undefined;
+        }
+        const assetCtx =
+          source === 'display'
+            ? get(perpsActiveAssetCtxDisplayAtom.atom())
+            : get(perpsActiveAssetCtxAtom.atom());
+        return assetCtx?.ctx?.midPrice;
+      },
+    });
+    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(source, entry);
+  }
+  return entry;
+}
+
+export function usePerpsActiveAssetCtxMidPriceBySource(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+): string | undefined {
+  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(source);
+  const [midPrice] = use();
+  return midPrice;
+}
 
 export type IPerpsActiveAssetDataAtom = IPerpsActiveAssetData | undefined;
 export const {
@@ -790,11 +935,14 @@ export const {
   },
 });
 
+export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
+
 export interface IPerpsCustomSettings {
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
   lastTriggerOrderType: ETriggerOrderType;
+  lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;
 }
 export const {
   target: perpsCustomSettingsAtom,
@@ -807,6 +955,7 @@ export const {
     showTradeMarks: true,
     showChartLines: true,
     lastTriggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+    lastAdvancedOrderType: ETriggerOrderType.TRIGGER_MARKET,
   },
 });
 

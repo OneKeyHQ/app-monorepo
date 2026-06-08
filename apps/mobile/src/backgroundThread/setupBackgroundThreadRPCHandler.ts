@@ -1,4 +1,7 @@
-import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
+import {
+  getSharedRPC,
+  getSharedStore,
+} from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -9,6 +12,8 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 
 import {
+  BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
+  BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
   type IBackgroundThreadAppEventRequest,
   type IBackgroundThreadBridgeCallRequest,
@@ -16,24 +21,29 @@ import {
   type IBackgroundThreadBridgeConnectRequest,
   type IBackgroundThreadBridgeSendPayload,
   type IBackgroundThreadBridgeStatePayload,
+  type IBackgroundThreadJotaiStateBroadcastBatchPayload,
   type IBackgroundThreadJotaiStateBroadcastPayload,
   type IBackgroundThreadRequest,
   type IBackgroundThreadServiceCallRequest,
   WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX,
   buildBackgroundThreadAppEventKey,
   buildBackgroundThreadBridgeSendKey,
+  buildBackgroundThreadJotaiStateBatchKey,
   buildBackgroundThreadJotaiStateKey,
   buildBackgroundThreadResponseKey,
   buildWebEmbedBridgeRequestKey,
   parseBackgroundThreadCallId,
+  parseBackgroundThreadMainCapabilitiesPayload,
   parseBackgroundThreadRequest,
   serializeBackgroundThreadAppEventBroadcastPayload,
   serializeBackgroundThreadBridgeSendPayload,
+  serializeBackgroundThreadJotaiStateBroadcastBatchPayload,
   serializeBackgroundThreadJotaiStateBroadcastPayload,
   serializeBackgroundThreadResponse,
 } from './rpcProtocol';
 import {
   BACKGROUND_THREAD_READY_KEY,
+  BACKGROUND_THREAD_READY_WAKE_KEY,
   buildBackgroundThreadFailedPayload,
   serializeBackgroundThreadRuntimePayload,
 } from './runtimeReady';
@@ -45,6 +55,15 @@ type IBackgroundRuntimeGlobal = typeof globalThis & {
     broadcastStateUpdateFromBgToUi: (
       payload: IBackgroundThreadJotaiStateBroadcastPayload,
     ) => boolean;
+    broadcastStateUpdateBatchFromBgToUi: (
+      payload: IBackgroundThreadJotaiStateBroadcastBatchPayload,
+    ) => boolean;
+    // Reported as `true` once the main runtime has written its
+    // capability advertisement to SharedRPC. `JotaiBgSync` consults this
+    // predicate before emitting on the new `onekey:bg:jotai-batch:` keys
+    // — otherwise a partial OTA / split-runtime mismatch (new bg + old
+    // main) would silently drop every batched update.
+    isMainBatchProtocolReady: () => boolean;
   };
   __onekeyNativeBackgroundThreadBridgeRelay?: {
     emitAppEventToUi: (payload: {
@@ -81,6 +100,12 @@ let handlerRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let handlerInstalled = false;
 let readySignalEmitted = false;
 let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+// Tracks the main runtime's current advertised support for the batched
+// jotai broadcast wire protocol. Mirrors whatever main last published so
+// an OTA rollback (new bg bundle + older main bundle that no longer
+// advertises batch support) flips us back to the legacy per-item path
+// instead of writing keys the main observer can't decode.
+let mainBatchProtocolReady = false;
 // Ring buffer size for broadcast sequences (#48).
 // If the producer wraps before the consumer reads a slot, the old message is lost.
 // 4096 slots gives ~4K messages of headroom before overwrite.
@@ -89,6 +114,7 @@ let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
 // from a legitimate broadcast.
 const BROADCAST_RING_SIZE = 4096;
 let jotaiStateBroadcastSequence = 0;
+let jotaiStateBroadcastBatchSequence = 0;
 let appEventBroadcastSequence = 0;
 let bridgeSendSequence = 0;
 
@@ -107,8 +133,8 @@ const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
 let handleWebEmbedBridgeResponse: (
-  sharedRPC: ReturnType<typeof getSharedRPC>,
   key: string,
+  value: string | number | boolean,
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
@@ -183,11 +209,16 @@ function emitBackgroundRuntimeSignal(
   }
 
   const sharedRPC = getSharedRPC();
-  if (!sharedRPC) {
+  const sharedStore = getSharedStore();
+  if (!sharedRPC || !sharedStore) {
     return false;
   }
 
-  sharedRPC.write(BACKGROUND_THREAD_READY_KEY, payload);
+  // Latch readiness in SharedStore (survives any number of main-side reads and
+  // persists across restart until the native invalidate path clears it), then
+  // fire a content-less wake ping so main re-reads it and flushes its queue.
+  sharedStore.set(BACKGROUND_THREAD_READY_KEY, payload);
+  sharedRPC.write(BACKGROUND_THREAD_READY_WAKE_KEY, '1');
   if (!allowRepeat) {
     readySignalEmitted = true;
   }
@@ -243,6 +274,37 @@ function broadcastJotaiStateUpdateFromBgToUi(
   sharedRPC.write(
     buildBackgroundThreadJotaiStateKey(`${jotaiStateBroadcastSequence}`),
     serializeBackgroundThreadJotaiStateBroadcastPayload(payload),
+  );
+  return true;
+}
+
+/**
+ * Batched jotai broadcast: writes a single SharedRPC slot containing N atom
+ * updates. Used by `JotaiBgSync` after coalescing same-microtask writes —
+ * 2395 setAtomValue → ~150 micro-batch flushes per OK-perp/swap cascade burst.
+ *
+ * Wire format mirrors the single-broadcast path; the main runtime listens
+ * for `BACKGROUND_THREAD_JOTAI_STATE_BATCH_KEY_PREFIX` keys and fan-out the
+ * batch via `jotaiUpdateFromUiByBgBroadcast` in insertion order.
+ */
+function broadcastJotaiStateUpdateBatchFromBgToUi(
+  payload: IBackgroundThreadJotaiStateBroadcastBatchPayload,
+) {
+  if (!payload.items || payload.items.length === 0) {
+    return true;
+  }
+  const sharedRPC = getSharedRPC();
+  if (!sharedRPC) {
+    return false;
+  }
+
+  jotaiStateBroadcastBatchSequence =
+    (jotaiStateBroadcastBatchSequence % BROADCAST_RING_SIZE) + 1;
+  sharedRPC.write(
+    buildBackgroundThreadJotaiStateBatchKey(
+      `${jotaiStateBroadcastBatchSequence}`,
+    ),
+    serializeBackgroundThreadJotaiStateBroadcastBatchPayload(payload),
   );
   return true;
 }
@@ -321,16 +383,14 @@ function handleBridgeConnectRequest(
   return true;
 }
 
-async function handleRequest(callId: string) {
+async function handleRequest(callId: string, value: string | number | boolean) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
     return;
   }
 
   const responseKey = buildBackgroundThreadResponseKey(callId);
-  const request = parseBackgroundThreadRequest(
-    sharedRPC.read(`${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`),
-  );
+  const request = parseBackgroundThreadRequest(value);
 
   if (!request) {
     sharedRPC.write(
@@ -461,6 +521,28 @@ async function handleRequest(callId: string) {
   }
 }
 
+function applyMainCapabilities() {
+  const sharedStore = getSharedStore();
+  if (!sharedStore) {
+    return;
+  }
+  try {
+    // Capabilities are latched in SharedStore (non-deleting `get`), woken via
+    // BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY. Re-reading is idempotent.
+    const raw = sharedStore.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
+    const payload = parseBackgroundThreadMainCapabilitiesPayload(raw);
+    // Reflect main's currently advertised capability (bidirectional). Don't
+    // latch — an OTA rollback can drop batch support and we must follow it
+    // back down to the legacy path on the very next capability read.
+    mainBatchProtocolReady = payload?.jotaiStateBatch === true;
+  } catch (error) {
+    logBgRpcTrace(
+      `failed to read main capabilities: ${(error as Error)?.message || String(error)}`,
+      'error',
+    );
+  }
+}
+
 function installBackgroundRequestHandler() {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
@@ -469,10 +551,19 @@ function installBackgroundRequestHandler() {
 
   if (!handlerInstalled) {
     handlerInstalled = true;
-    sharedRPC.onWrite((callId) => {
+    // Value-inline messaging: the native notify callback delivers `(callId,
+    // value)` directly, as typed by `ISharedRPC` in the paired native (3.0.45).
+    sharedRPC.onWrite((callId, value) => {
       // Handle webembed bridge responses from main thread
       if (callId.startsWith(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX)) {
-        handleWebEmbedBridgeResponse(sharedRPC, callId);
+        handleWebEmbedBridgeResponse(callId, value);
+        return;
+      }
+
+      // Main published new capabilities (+ "main is up") to SharedStore and
+      // woke us; re-read the latched value.
+      if (callId === BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY) {
+        applyMainCapabilities();
         return;
       }
 
@@ -484,8 +575,19 @@ function installBackgroundRequestHandler() {
         return;
       }
 
-      void handleRequest(requestCallId);
+      void handleRequest(requestCallId, value);
     });
+
+    // Restart freshness (§4.6): tell native which SharedStore key this (bg)
+    // runtime owns, so the native invalidate("background") path clears it on
+    // teardown and a restarted main never reads a prior-life bg-ready.
+    sharedRPC.registerReadinessKey(BACKGROUND_THREAD_READY_KEY);
+
+    // Catch the case where the main runtime advertised its capabilities
+    // before this handler was installed (handler retry path on bg startup,
+    // or main thread came up first). The onWrite hook covers future
+    // wake pings; this synchronous read covers the already-latched value.
+    applyMainCapabilities();
   }
 
   return true;
@@ -553,12 +655,9 @@ const pendingWebEmbedBridgeCalls = new Map<
 >();
 
 handleWebEmbedBridgeResponse = (
-  sharedRPC: ReturnType<typeof getSharedRPC>,
   key: string,
+  value: string | number | boolean,
 ) => {
-  if (!sharedRPC) {
-    return;
-  }
   const callId = key.slice(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX.length);
   const pending = pendingWebEmbedBridgeCalls.get(callId);
   if (!pending) {
@@ -568,8 +667,7 @@ handleWebEmbedBridgeResponse = (
   clearTimeout(pending.timer);
 
   try {
-    const raw = sharedRPC.read(key);
-    const response = typeof raw === 'string' ? JSON.parse(raw) : undefined;
+    const response = typeof value === 'string' ? JSON.parse(value) : undefined;
     if (response?.ok) {
       pending.resolve(response.result);
     } else {
@@ -622,6 +720,9 @@ export function setupBackgroundThreadRPCHandler() {
   };
   runtimeGlobal.__onekeyNativeBackgroundThreadJotaiBridge = {
     broadcastStateUpdateFromBgToUi: broadcastJotaiStateUpdateFromBgToUi,
+    broadcastStateUpdateBatchFromBgToUi:
+      broadcastJotaiStateUpdateBatchFromBgToUi,
+    isMainBatchProtocolReady: () => mainBatchProtocolReady,
   };
   runtimeGlobal.__onekeyNativeBackgroundThreadBridgeRelay = {
     emitAppEventToUi: emitAppEventFromBgToUi,
