@@ -27,6 +27,11 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
+import type {
+  IEnsureLedgerCoreAppsReadyResult,
+  IInstallCoreAppsResult,
+} from './ledgerCoreAppsReadyUtils';
+
 function InstallCoreAppsContent({
   apps = LEDGER_CORE_APPS,
   connectId,
@@ -37,7 +42,7 @@ function InstallCoreAppsContent({
   apps?: readonly ILedgerCoreAppName[];
   connectId: string;
   onClose: () => void;
-  onResult?: (installed: boolean, error?: unknown) => void;
+  onResult?: (result: IInstallCoreAppsResult) => void;
   installCtx?: { started: boolean };
 }) {
   const intl = useIntl();
@@ -102,7 +107,15 @@ function InstallCoreAppsContent({
     } finally {
       await thirdPartyAppInstallAtom.set(undefined);
       await thirdPartyBatchInstallAtom.set(undefined);
-      onResult?.(installedOk, installError);
+      onResult?.(
+        installedOk
+          ? { ok: true }
+          : {
+              ok: false,
+              reason: 'installNotCompleted',
+              error: installError instanceof Error ? installError : undefined,
+            },
+      );
       onClose();
     }
   };
@@ -149,7 +162,7 @@ export async function showLedgerInstallCoreAppsDialog(params: {
   walletId?: string;
   connectId?: string;
   requiredApps?: readonly ILedgerCoreAppName[];
-}): Promise<{ ok: boolean; error?: unknown }> {
+}): Promise<IInstallCoreAppsResult> {
   let connectId = params.connectId ?? '';
   if (!connectId && params.walletId) {
     const device = await backgroundApiProxy.serviceAccount.getWalletDevice({
@@ -159,19 +172,21 @@ export async function showLedgerInstallCoreAppsDialog(params: {
       device?.connectId || device?.usbConnectId || device?.bleConnectId || '';
   }
 
-  return new Promise<{ ok: boolean; error?: unknown }>((resolve) => {
+  return new Promise<IInstallCoreAppsResult>((resolve) => {
     let settled = false;
-    const settle = (ok: boolean, error?: unknown) => {
+    const settle = (result: IInstallCoreAppsResult) => {
       if (settled) return;
       settled = true;
-      resolve({ ok, error });
+      resolve(result);
     };
     const installCtx = { started: false };
     const holder: { instance?: IDialogInstance } = {};
     holder.instance = Dialog.show({
       showFooter: false,
       onClose: () => {
-        if (!installCtx.started) settle(false);
+        if (!installCtx.started) {
+          settle({ ok: false, reason: 'installNotCompleted' });
+        }
       },
       renderContent: (
         <InstallCoreAppsContent
@@ -192,7 +207,7 @@ export async function ensureLedgerCoreAppsReady(params: {
   walletId?: string;
   connectId?: string;
   requiredApps?: readonly ILedgerCoreAppName[];
-}): Promise<{ ok: boolean; error?: Error }> {
+}): Promise<IEnsureLedgerCoreAppsReadyResult> {
   let connectId = params.connectId ?? '';
   if (!connectId && params.walletId) {
     const device = await backgroundApiProxy.serviceAccount.getWalletDevice({
@@ -212,6 +227,7 @@ export async function ensureLedgerCoreAppsReady(params: {
   if (!probeRes?.success) {
     return {
       ok: false,
+      reason: 'probeFailed',
       error: convertThirdPartyDeviceError(
         probeRes.payload as { error: string; code: number },
         { vendor: EHardwareVendor.ledger },
@@ -234,8 +250,5 @@ export async function ensureLedgerCoreAppsReady(params: {
     connectId,
     requiredApps,
   });
-  return {
-    ok: dialogResult.ok,
-    error: dialogResult.error instanceof Error ? dialogResult.error : undefined,
-  };
+  return dialogResult;
 }
