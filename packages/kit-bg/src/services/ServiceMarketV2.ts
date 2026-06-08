@@ -642,7 +642,6 @@ class ServiceMarketV2 extends ServiceBase {
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem[]> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -652,7 +651,7 @@ class ServiceMarketV2 extends ServiceBase {
           return syncManagers.marketWatchList.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: watchListItem,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),

@@ -31,7 +31,6 @@ class ServiceCustomToken extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -41,7 +40,7 @@ class ServiceCustomToken extends ServiceBase {
           return syncManagers.customToken.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customToken,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),
@@ -55,7 +54,6 @@ class ServiceCustomToken extends ServiceBase {
     customTokens,
     isDeleted,
     skipSaveLocalSyncItem,
-    useServerDataTime,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     skipEventEmit,
   }: {
@@ -63,7 +61,6 @@ class ServiceCustomToken extends ServiceBase {
     customTokens: ICloudSyncCustomToken[];
     isDeleted: boolean;
     skipSaveLocalSyncItem?: boolean;
-    useServerDataTime?: boolean;
     skipEventEmit?: boolean;
   }) {
     let syncItems: IDBCloudSyncItem[] = [];
@@ -72,13 +69,6 @@ class ServiceCustomToken extends ServiceBase {
         customTokens,
         isDeleted,
       });
-    }
-    if (useServerDataTime) {
-      await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
-        items: syncItems,
-        fn,
-      });
-      return;
     }
     await this.backgroundApi.localDb.addAndUpdateSyncItems({
       items: syncItems,
@@ -100,7 +90,6 @@ class ServiceCustomToken extends ServiceBase {
       tokens: [token],
       skipSaveLocalSyncItem,
       skipEventEmit,
-      useServerDataTime: true,
     });
   }
 
@@ -109,12 +98,10 @@ class ServiceCustomToken extends ServiceBase {
     tokens,
     skipSaveLocalSyncItem,
     skipEventEmit,
-    useServerDataTime,
   }: {
     tokens: ICloudSyncCustomToken[];
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
-    useServerDataTime?: boolean;
   }) {
     return this.withCustomTokenCloudSync({
       fn: () =>
@@ -131,7 +118,6 @@ class ServiceCustomToken extends ServiceBase {
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      useServerDataTime,
     });
   }
 
@@ -160,7 +146,6 @@ class ServiceCustomToken extends ServiceBase {
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
-      useServerDataTime: true,
     });
   }
 

@@ -14,6 +14,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
+  ECloudSyncDataTimeSource,
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -88,6 +89,24 @@ class ServiceKeylessCloudSync extends ServiceBase {
     return ECloudSyncMode.None;
   }
 
+  private async getKeylessSignatureTimestamp(): Promise<number> {
+    if (!systemTimeUtils.hasFreshServerTimeInCurrentProcess()) {
+      try {
+        await systemTimeUtils.ensureFreshServerTime();
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+    }
+    const correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
+    if (
+      correctedNow.source === ECloudSyncDataTimeSource.Estimated ||
+      correctedNow.source === ECloudSyncDataTimeSource.TrustedLocal
+    ) {
+      return correctedNow.time;
+    }
+    return Date.now();
+  }
+
   async getKeylessSyncAuth<T extends Record<string, unknown>>({
     postData,
   }: {
@@ -108,10 +127,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     const fullPostData = { ...postData, pwdHash };
     const dataString = stringUtils.stableStringify(fullPostData);
     const dataHash = keylessCloudSyncUtils.computeDataHash(dataString);
+    const timestamp = await this.getKeylessSignatureTimestamp();
     const signatureHeader = keylessCloudSyncUtils.buildKeylessSignatureHeader({
       signingPrivateKey: keylessCredential.signingPrivateKey,
       signingPublicKey: keylessCredential.signingPublicKey,
       dataHash,
+      timestamp,
     });
     return {
       publicKey: keylessCredential.signingPublicKey,
@@ -297,7 +318,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
             key: item.id,
             rawDataJson,
             syncCredential: targetCredential,
-            dataTime: Date.now(),
+            dataTime:
+              await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime(
+                {
+                  syncItemKey: item.id,
+                  existingDataTime: item.dataTime,
+                },
+              ),
           });
 
         convertedItems.push({

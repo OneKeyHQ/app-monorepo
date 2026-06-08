@@ -833,16 +833,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isRemove?: boolean; // remove payload.data
         options?: { isInitFromStorage?: boolean };
         skipSaveLocalSyncItem?: boolean;
-        useServerDataTime?: boolean;
       },
     ) => {
-      const {
-        data,
-        isRemove,
-        options,
-        skipSaveLocalSyncItem,
-        useServerDataTime,
-      } = payload;
+      const { data, isRemove, options, skipSaveLocalSyncItem } = payload;
       const isReady = get(browserDataReadyAtom());
       // web always ready
       const isBrowserDataReady =
@@ -860,7 +853,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         bookmarks: data,
         isRemove,
         skipSaveLocalSyncItem,
-        useServerDataTime,
       });
     },
   );
@@ -879,7 +871,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmarks = [newBookmark];
       this.buildBookmarkData.call(set, {
         data: updatedBookmarks,
-        useServerDataTime: true,
       });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
@@ -900,7 +891,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.buildBookmarkData.call(set, {
       data: [removedBookmark],
       isRemove: true,
-      useServerDataTime: true,
     });
     this.syncBookmark.call(set, { url, isBookmark: false });
 
