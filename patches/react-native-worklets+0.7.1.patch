@@ -1,0 +1,57 @@
+diff --git a/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.cpp b/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.cpp
+index 74fcaa1..83de607 100644
+--- a/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.cpp
++++ b/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.cpp
+@@ -1,17 +1,28 @@
+ #include <worklets/Tools/FeatureFlags.h>
+ 
++#include <mutex>
+ #include <string>
+ #include <unordered_map>
+ 
+ namespace worklets {
+ 
+ std::unordered_map<std::string, bool> DynamicFeatureFlags::flags_;
++// flags_ is a process-global static map accessed concurrently from multiple
++// worklet/JS runtimes (OneKey: main + background JS runtimes + reanimated UI
++// worklet runtime). Without locking, concurrent setFlag() calls during startup
++// trigger simultaneous emplace/rehash on the same table and corrupt its
++// internal buckets, producing a SIGSEGV in
++// std::__hash_table::__emplace_unique_key_args. flagsMutex_ serializes all
++// reads/writes of flags_.
++std::mutex DynamicFeatureFlags::flagsMutex_;
+ 
+ bool DynamicFeatureFlags::getFlag(const std::string &name) {
++  std::lock_guard<std::mutex> lock(flagsMutex_);
+   return flags_.contains(name) && flags_[name];
+ }
+ 
+ void DynamicFeatureFlags::setFlag(const std::string &name, bool value) {
++  std::lock_guard<std::mutex> lock(flagsMutex_);
+   flags_[name] = value;
+ }
+ 
+diff --git a/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.h b/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.h
+index ccd02d9..0412349 100644
+--- a/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.h
++++ b/node_modules/react-native-worklets/Common/cpp/worklets/Tools/FeatureFlags.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <mutex>
+ #include <string>
+ #include <unordered_map>
+ 
+@@ -39,6 +40,13 @@ class DynamicFeatureFlags {
+ 
+  private:
+   static std::unordered_map<std::string, bool> flags_;
++  // flags_ is a process-global static map shared across every worklet/JS
++  // runtime (OneKey runs main + background JS runtimes plus the reanimated UI
++  // worklet runtime). Concurrent access during startup must be serialized,
++  // otherwise concurrent emplace/rehash corrupts the table internals and
++  // crashes with SIGSEGV in __emplace_unique_key_args. This mutex guards every
++  // read/write of flags_.
++  static std::mutex flagsMutex_;
+ };
+ 
+ } // namespace worklets
