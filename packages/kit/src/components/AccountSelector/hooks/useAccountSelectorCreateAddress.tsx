@@ -22,7 +22,10 @@ import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appCo
 import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
+  classifyThirdPartyHwCreateFailures,
+  filterThirdPartyHwCreateFailureToasts,
+} from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -182,7 +185,10 @@ export function useAccountSelectorCreateAddress() {
             }
             failedList = genuineFailures;
           }
-          for (const failedAccount of failedList) {
+          const failedListForToast = isThirdPartyHw
+            ? filterThirdPartyHwCreateFailureToasts(failedList)
+            : failedList;
+          for (const failedAccount of failedListForToast) {
             Toast.error({
               title: failedAccount.error.message || 'Unknown error',
             });

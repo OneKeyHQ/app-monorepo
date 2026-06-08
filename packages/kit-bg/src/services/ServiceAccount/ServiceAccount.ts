@@ -4856,8 +4856,16 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    // localDb.removeWallet handles events, unused devices, and indexed accounts.
+    // removeWallet does not emit the app-level wallet refresh event.
     await localDb.removeWallet({ walletId });
+    if (platformEnv.isNative) {
+      setTimeout(
+        () => appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined),
+        1500,
+      );
+    } else {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   async buildAccountXpubOrAddress({

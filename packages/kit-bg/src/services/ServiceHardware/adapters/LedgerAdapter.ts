@@ -35,6 +35,8 @@ export class LedgerAdapter
 {
   readonly vendor = EHardwareVendor.ledger;
 
+  readonly supportsAllNetworkGetAddress = true;
+
   readonly hw: IHardwareWallet;
 
   private readonly appInstallProgressLogState = new Map<
