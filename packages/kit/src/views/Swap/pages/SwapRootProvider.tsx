@@ -7,7 +7,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
@@ -24,10 +23,10 @@ import {
 } from '../utils/swapColdStartTokenCacheUtils';
 
 function SwapColdStartCacheSync() {
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [, setSwapFromToken] = useSwapSelectFromTokenAtom();
   const [, setSwapToToken] = useSwapSelectToTokenAtom();
-  const [initialSelectedTokensSynced] =
+  const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
@@ -37,13 +36,23 @@ function SwapColdStartCacheSync() {
   selectedTokensColdStartContextRef.current = selectedTokensColdStartContext;
   const initialSelectedTokensSyncedRef = useRef(initialSelectedTokensSynced);
   initialSelectedTokensSyncedRef.current = initialSelectedTokensSynced;
+  const swapTypeSwitchRef = useRef(swapTypeSwitch);
+  swapTypeSwitchRef.current = swapTypeSwitch;
 
   useEffect(() => {
+    const markInitialSelectedTokensSynced = () => {
+      if (initialSelectedTokensSyncedRef.current) {
+        return;
+      }
+      initialSelectedTokensSyncedRef.current = true;
+      setInitialSelectedTokensSynced(true);
+    };
+
     const clearSelectedTokens = () => {
       setSwapFromToken(undefined);
       setSwapToToken(undefined);
       setSelectedTokensColdStartContext(undefined);
-      setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+      markInitialSelectedTokensSynced();
     };
 
     const setDefaultSelectedTokensFromHomeAccount = (
@@ -51,6 +60,7 @@ function SwapColdStartCacheSync() {
     ) => {
       const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
         homeSelectedAccount: selectedAccount,
+        swapType: swapTypeSwitchRef.current,
       });
       if (!defaultTokens) {
         return false;
@@ -60,6 +70,7 @@ function SwapColdStartCacheSync() {
       setSwapToToken(defaultTokens.toToken);
       setSelectedTokensColdStartContext(defaultTokens.context);
       setSwapTypeSwitch(defaultTokens.swapType);
+      markInitialSelectedTokensSynced();
       return true;
     };
 
@@ -94,6 +105,7 @@ function SwapColdStartCacheSync() {
       );
     };
   }, [
+    setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
     setSwapToToken,

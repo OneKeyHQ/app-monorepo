@@ -62,7 +62,6 @@ import {
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
-  shouldHandleSwapColdStartHomeAccountUpdate,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
 import {
@@ -385,7 +384,16 @@ export function useSwapInit(params?: ISwapInitParams) {
         })
       ) {
         clearedSelectedTokens = true;
-        clearSelectedTokensColdStartCache({ resetSwapType: true });
+        const homeNetworkDefaultTokens = homeSelectedAccount.networkId
+          ? swapDefaultSetTokens[homeSelectedAccount.networkId]
+          : undefined;
+        const shouldPreserveLimitTabWithoutDefaultTokens =
+          swapTypeSwitchRef.current === ESwapTabSwitchType.LIMIT &&
+          !homeNetworkDefaultTokens?.limitFromToken &&
+          !homeNetworkDefaultTokens?.limitToToken;
+        clearSelectedTokensColdStartCache({
+          resetSwapType: !shouldPreserveLimitTabWithoutDefaultTokens,
+        });
       }
       await updateSelectedAccount({
         updateMeta: {
@@ -416,7 +424,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
       eventPayload: Parameters<
-        typeof shouldHandleSwapColdStartHomeAccountUpdate
+        typeof shouldSyncSwapSelectedAccountOnHomeAccountUpdate
       >[0]['eventPayload'],
     ) => {
       if (
@@ -425,15 +433,24 @@ export function useSwapInit(params?: ISwapInitParams) {
       ) {
         return;
       }
-      if (
-        shouldHandleSwapColdStartHomeAccountUpdate({
-          cachedContext: selectedTokensColdStartContextRef.current,
-          eventPayload,
-          initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
-        })
-      ) {
-        void syncSwapSelectedAccountFromHome(eventPayload.selectedAccount);
-      }
+      void syncSwapSelectedAccountFromHome(eventPayload.selectedAccount).then(
+        (result) => {
+          if (!result.synced) {
+            return;
+          }
+          const homeNetworkDefaultTokens = result.homeSelectedAccount.networkId
+            ? swapDefaultSetTokens[result.homeSelectedAccount.networkId]
+            : undefined;
+          if (
+            result.clearedSelectedTokens &&
+            swapTypeSwitchRef.current === ESwapTabSwitchType.LIMIT &&
+            !homeNetworkDefaultTokens?.limitFromToken &&
+            !homeNetworkDefaultTokens?.limitToToken
+          ) {
+            markInitialSelectedTokensSynced();
+          }
+        },
+      );
     };
 
     appEventBus.on(
@@ -446,7 +463,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         handleAccountSelectorSelectedAccountUpdate,
       );
     };
-  }, [syncSwapSelectedAccountFromHome]);
+  }, [markInitialSelectedTokensSynced, syncSwapSelectedAccountFromHome]);
 
   useEffect(() => {
     if (hasSyncedSwapSelectedAccountFromHomeStorageRef.current) {
