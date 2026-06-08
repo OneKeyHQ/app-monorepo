@@ -81,11 +81,12 @@ export const getUpdateReminderActionLabelId = ({
 
 /**
  * Desktop surfaces a dedicated "Update" button in the header for hot updates,
- * so the Action Center reminder bar would be a duplicate indicator. Treat the
- * desktop + jsBundle combination as redundant and hide the reminder there.
- * Native has no header button, so the reminder remains the only affordance.
+ * so the in-toolbox indicators (the Action Center reminder bar AND the
+ * more-actions dot, which would otherwise open an empty Action Center) are
+ * duplicates. Treat the desktop + jsBundle combination as redundant and hide
+ * both. Native has no header button, so they remain the only affordance.
  */
-export const isUpdateReminderRedundant = ({
+export const isToolboxUpdateIndicatorRedundant = ({
   isDesktop,
   fileType,
 }: {

@@ -299,7 +299,7 @@ import {
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
   isUnrecoverableDownloadError,
-  isUpdateReminderRedundant,
+  isToolboxUpdateIndicatorRedundant,
   runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
@@ -2974,13 +2974,14 @@ describe('getUpdateReminderActionLabelId', () => {
 });
 
 // =========================================================================
-// D4. isUpdateReminderRedundant — desktop hot-update has a header button, so
-// the Action Center reminder is a duplicate indicator and must be hidden.
+// D4. isToolboxUpdateIndicatorRedundant — desktop hot-update has a dedicated
+// header button, so the toolbox indicators (Action Center reminder AND the
+// more-actions dot) are duplicates and must be hidden.
 // =========================================================================
-describe('isUpdateReminderRedundant', () => {
-  test('desktop + jsBundle → redundant (hidden)', () => {
+describe('isToolboxUpdateIndicatorRedundant', () => {
+  test('desktop + jsBundle → redundant (dot + reminder hidden)', () => {
     expect(
-      isUpdateReminderRedundant({
+      isToolboxUpdateIndicatorRedundant({
         isDesktop: true,
         fileType: EUpdateFileType.jsBundle,
       }),
@@ -2989,7 +2990,7 @@ describe('isUpdateReminderRedundant', () => {
 
   test('desktop + appShell → not redundant (reminder shows download progress)', () => {
     expect(
-      isUpdateReminderRedundant({
+      isToolboxUpdateIndicatorRedundant({
         isDesktop: true,
         fileType: EUpdateFileType.appShell,
       }),
@@ -2998,7 +2999,7 @@ describe('isUpdateReminderRedundant', () => {
 
   test('non-desktop + jsBundle → not redundant (no header button on mobile)', () => {
     expect(
-      isUpdateReminderRedundant({
+      isToolboxUpdateIndicatorRedundant({
         isDesktop: false,
         fileType: EUpdateFileType.jsBundle,
       }),
@@ -3007,7 +3008,7 @@ describe('isUpdateReminderRedundant', () => {
 
   test('non-desktop + appShell → not redundant', () => {
     expect(
-      isUpdateReminderRedundant({
+      isToolboxUpdateIndicatorRedundant({
         isDesktop: false,
         fileType: EUpdateFileType.appShell,
       }),

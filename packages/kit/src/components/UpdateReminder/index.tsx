@@ -28,7 +28,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   getUpdateReminderActionLabelId,
   isShowAppUpdateUIWhenUpdating,
-  isUpdateReminderRedundant,
+  isToolboxUpdateIndicatorRedundant,
   useAppUpdateInfo,
 } from '../AppUpdate';
 
@@ -348,7 +348,7 @@ function BasicUpdateReminder() {
   // Desktop already shows a dedicated Update button in the header for hot
   // updates; avoid a duplicate indicator inside the Action Center.
   if (
-    isUpdateReminderRedundant({
+    isToolboxUpdateIndicatorRedundant({
       isDesktop: !!platformEnv.isDesktop,
       fileType,
     })
