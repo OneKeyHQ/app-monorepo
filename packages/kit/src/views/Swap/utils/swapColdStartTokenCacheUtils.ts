@@ -218,9 +218,11 @@ function getBridgeDefaultToTokenForFromToken(fromToken?: ISwapToken) {
 
 export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
+  swapType: preferredSwapType,
   now = Date.now(),
 }: {
   homeSelectedAccount?: ISwapHomeSelectedAccountForDefaults;
+  swapType?: ESwapTabSwitchType;
   now?: number;
 }) {
   const accountKey =
@@ -233,14 +235,21 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   }
 
   const defaultTokens = swapDefaultSetTokens[homeNetworkId];
-  const fromToken = defaultTokens?.fromToken;
-  const toToken =
-    defaultTokens?.toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
+  const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
+  const fromToken = useLimitDefaults
+    ? defaultTokens?.limitFromToken
+    : defaultTokens?.fromToken;
+  const toToken = useLimitDefaults
+    ? defaultTokens?.limitToToken
+    : (defaultTokens?.toToken ??
+      getBridgeDefaultToTokenForFromToken(fromToken));
   if (!fromToken && !toToken) {
     return undefined;
   }
 
-  const swapType = getDefaultSelectedTokensSwapType({ fromToken, toToken });
+  const swapType = useLimitDefaults
+    ? ESwapTabSwitchType.LIMIT
+    : getDefaultSelectedTokensSwapType({ fromToken, toToken });
   const contextNetworkId = getSwapSelectedTokensColdStartContextNetworkId({
     accountNetworkId: homeNetworkId,
     fromTokenNetworkId: fromToken?.networkId,

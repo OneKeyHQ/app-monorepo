@@ -283,9 +283,11 @@ export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
 
 export function useSwapColdStartDisplayTokens({
   fromToken,
+  initialSelectedTokensSynced = false,
   toToken,
 }: {
   fromToken?: ISwapToken;
+  initialSelectedTokensSynced?: boolean;
   toToken?: ISwapToken;
 }) {
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
@@ -299,6 +301,10 @@ export function useSwapColdStartDisplayTokens({
     hasResolvedFromTokenRef.current = true;
   }
   if (toToken?.symbol) {
+    hasResolvedToTokenRef.current = true;
+  }
+  if (initialSelectedTokensSynced) {
+    hasResolvedFromTokenRef.current = true;
     hasResolvedToTokenRef.current = true;
   }
 

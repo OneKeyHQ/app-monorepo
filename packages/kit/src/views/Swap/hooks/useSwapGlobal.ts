@@ -941,11 +941,30 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (netInfo && netId) {
       if (
         !isNil(swapDefaultSetTokens[netId]?.fromToken) ||
-        !isNil(swapDefaultSetTokens[netId]?.toToken)
+        !isNil(swapDefaultSetTokens[netId]?.toToken) ||
+        !isNil(swapDefaultSetTokens[netId]?.limitFromToken) ||
+        !isNil(swapDefaultSetTokens[netId]?.limitToToken)
       ) {
+        const shouldUseLimitDefaults =
+          (params?.swapTabSwitchType ?? swapTypeSwitchRef.current) ===
+          ESwapTabSwitchType.LIMIT;
+        if (shouldUseLimitDefaults && !netInfo.supportLimit) {
+          clearSelectedTokensColdStartCache();
+          markInitialSelectedTokensSynced();
+          return;
+        }
         let didSetDefaultSelectedTokens = false;
-        const defaultFromToken = swapDefaultSetTokens[netId]?.fromToken;
-        const defaultToToken = swapDefaultSetTokens[netId]?.toToken;
+        const defaultFromToken = shouldUseLimitDefaults
+          ? swapDefaultSetTokens[netId]?.limitFromToken
+          : swapDefaultSetTokens[netId]?.fromToken;
+        const defaultToToken = shouldUseLimitDefaults
+          ? swapDefaultSetTokens[netId]?.limitToToken
+          : swapDefaultSetTokens[netId]?.toToken;
+        if (shouldUseLimitDefaults && !defaultFromToken && !defaultToToken) {
+          clearSelectedTokensColdStartCache();
+          markInitialSelectedTokensSynced();
+          return;
+        }
         const defaultFromTokenWithLogo = defaultFromToken
           ? {
               ...defaultFromToken,

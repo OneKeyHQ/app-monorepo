@@ -324,6 +324,46 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('does not preselect Tron tokens when initializing Limit', () => {
+    expect(
+      buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount({
+          networkId: 'tron--0x2b6653dc',
+        }),
+        swapType: ESwapTabSwitchType.LIMIT,
+        now: 1,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('uses limit defaults when initializing a supported Limit network', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'evm--1',
+      }),
+      swapType: ESwapTabSwitchType.LIMIT,
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'WETH',
+      }),
+      toToken: expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'USDC',
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.LIMIT,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.LIMIT,
+    });
+  });
+
   it('handles home network changes only before the first swap token sync completes', () => {
     const cachedContext = buildSwapSelectedTokensColdStartContext({
       activeAccount: buildActiveAccount({

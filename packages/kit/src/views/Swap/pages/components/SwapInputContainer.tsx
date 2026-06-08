@@ -20,6 +20,7 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -169,6 +170,8 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [initialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
   const {
     displayFromToken,
     displayToToken,
@@ -176,6 +179,7 @@ const SwapInputContainer = ({
     isInitialToTokenSelectionPending,
   } = useSwapColdStartDisplayTokens({
     fromToken,
+    initialSelectedTokensSynced,
     toToken,
   });
   const tokenSelectorDisplayToken =
