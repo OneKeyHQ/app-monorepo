@@ -18,7 +18,9 @@ import {
 } from '@onekeyhq/components';
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   displayAppUpdateVersion,
+  getUpdateFileType,
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -216,7 +218,13 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   ) : null;
 }
 
-function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
+function UpdateAction({
+  onUpdateAction,
+  labelId,
+}: {
+  onUpdateAction: () => void;
+  labelId: ETranslations;
+}) {
   const intl = useIntl();
   return (
     <Button
@@ -226,7 +234,7 @@ function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
       onPress={onUpdateAction}
       borderRadius="$1"
     >
-      {intl.formatMessage({ id: ETranslations.global_view })}
+      {intl.formatMessage({ id: labelId })}
     </Button>
   );
 }
@@ -307,6 +315,19 @@ function BasicUpdateReminder() {
       updateStatus: data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, data.status]);
+
+  // A downloaded hot update (jsBundle at `ready`) applies on click by
+  // restarting, so the CTA reads "Update now" rather than the generic "View".
+  const actionLabelId = useMemo(() => {
+    const fileType = getUpdateFileType({
+      latestVersion: data.latestVersion,
+      jsBundleVersion: data.jsBundleVersion,
+    });
+    return fileType === EUpdateFileType.jsBundle &&
+      data.status === EAppUpdateStatus.ready
+      ? ETranslations.update_update_now
+      : ETranslations.global_view;
+  }, [data.latestVersion, data.jsBundleVersion, data.status]);
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
     return null;
@@ -330,7 +351,7 @@ function BasicUpdateReminder() {
       {...(style as IXStackProps)}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction onUpdateAction={handlePress} />
+      <UpdateAction onUpdateAction={handlePress} labelId={actionLabelId} />
     </XStack>
   );
 }
