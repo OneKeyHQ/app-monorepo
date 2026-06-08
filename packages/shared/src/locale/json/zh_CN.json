@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "保证金已更新",
   "perp_twap_active__title": "当前委托",
   "perp_twap_avg_filled_price__title": "成交均价",
+  "perp_twap_child_order_size__title": "每笔子订单金额",
   "perp_twap_duration__title": "执行时长",
   "perp_twap_duration_helper__desc": "分时委托会在所选时长内拆分市价委托提交。Hyperliquid 会控制分片时机，过小的分片可能被拒绝。",
   "perp_twap_duration_range__msg": "分时委托时长需为 {min}-{max} 分钟",

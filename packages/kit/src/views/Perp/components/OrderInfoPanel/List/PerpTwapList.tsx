@@ -50,7 +50,7 @@ import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import {
   calcCellAlign,
   getColumnStyle,
-  getPerpFillDirectionType,
+  getFillDirectionDisplayInfo,
   getTwapAssetDisplayName,
 } from '../utils';
 
@@ -288,25 +288,7 @@ function sortTwapSliceFills(fills: ITwapSliceFill[]) {
 }
 
 function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
-  let color = fill.side === 'B' ? '$green11' : '$red11';
-  const directionType = getPerpFillDirectionType(fill.dir);
-  let text = fill.dir;
-
-  if (directionType === 'openLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_long });
-  } else if (directionType === 'openShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_short });
-  } else if (directionType === 'closeLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
-  } else if (directionType === 'closeShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
-  }
-
-  if (fill.side === 'A') {
-    color = '$red11';
-  }
-
-  return { text, color };
+  return getFillDirectionDisplayInfo({ fill, intl });
 }
 
 function TwapEmptyState({

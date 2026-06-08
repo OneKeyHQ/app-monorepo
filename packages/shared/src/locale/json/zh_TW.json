@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "保证金已更新",
   "perp_twap_active__title": "進行中",
   "perp_twap_avg_filled_price__title": "平均成交價格",
+  "perp_twap_child_order_size__title": "每筆子訂單金額",
   "perp_twap_duration__title": "持續時間",
   "perp_twap_duration_helper__desc": "TWAP submits market slices over the selected duration. Hyperliquid controls slice timing and may reject very small slices.",
   "perp_twap_duration_range__msg": "TWAP duration must be {min}-{max} minutes",

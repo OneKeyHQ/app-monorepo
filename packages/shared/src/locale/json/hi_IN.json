@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "मार्जिन अपडेट किया गया",
   "perp_twap_active__title": "सक्रिय",
   "perp_twap_avg_filled_price__title": "औसत निष्पादन मूल्य",
+  "perp_twap_child_order_size__title": "प्रति चाइल्ड ऑर्डर आकार",
   "perp_twap_duration__title": "अवधि",
   "perp_twap_duration_helper__desc": "TWAP चयनित अवधि में मार्केट स्लाइस सबमिट करता है। Hyperliquid स्लाइस समय को नियंत्रित करता है और बहुत छोटे स्लाइस को अस्वीकार कर सकता है।",
   "perp_twap_duration_range__msg": "TWAP की अवधि {min}-{max} मिनट होनी चाहिए",

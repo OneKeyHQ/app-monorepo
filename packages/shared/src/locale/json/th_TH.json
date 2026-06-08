@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "อัปเดตมาร์จิ้นแล้ว",
   "perp_twap_active__title": "กำลังทำงาน",
   "perp_twap_avg_filled_price__title": "ราคาเฉลี่ยที่จับคู่",
+  "perp_twap_child_order_size__title": "ขนาดต่อคาสั่งย่อย",
   "perp_twap_duration__title": "ระยะเวลา",
   "perp_twap_duration_helper__desc": "TWAP ส่งชิ้นส่วนตลาดในระยะเวลาที่เลือก Hyperliquid ควบคุมเวลาชิ้นส่วนและอาจปฏิเสธชิ้นส่วนที่เล็กมาก",
   "perp_twap_duration_range__msg": "ระยะเวลา TWAP ต้องอยู่ระหว่าง {min}-{max} นาที",

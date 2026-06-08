@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Đã cập nhật biên lợi nhuận",
   "perp_twap_active__title": "Đang hoạt động",
   "perp_twap_avg_filled_price__title": "Giá khớp trung bình",
+  "perp_twap_child_order_size__title": "Kich thuoc moi lenh con",
   "perp_twap_duration__title": "Thời lượng",
   "perp_twap_duration_helper__desc": "TWAP gửi các phân đoạn thị trường trong thời gian đã chọn. Hyperliquid điều khiển thời gian phân đoạn và có thể từ chối các phân đoạn rất nhỏ.",
   "perp_twap_duration_range__msg": "Thời lượng TWAP phải là {min}-{max} phút",

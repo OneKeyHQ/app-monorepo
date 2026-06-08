@@ -2350,8 +2350,9 @@ function PerpTradingForm({
                   flex={1}
                   numberOfLines={1}
                 >
-                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
-                  Per child order size
+                  {intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__title,
+                  })}
                 </SizableText>
                 <SizableText
                   size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
