@@ -4115,10 +4115,14 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await resolveBotWalletSyncItemDataTime({
-            shouldUseCreateGenesisTime,
-            timeNow: () => this.backgroundApi.servicePrimeCloudSync.timeNow(),
-          }),
+          dataTime: shouldUseCreateGenesisTime
+            ? await resolveBotWalletSyncItemDataTime({
+                shouldUseCreateGenesisTime,
+                timeNow: () =>
+                  this.backgroundApi.servicePrimeCloudSync.timeNow(),
+              })
+            : undefined,
+          allowHistoricalTime: shouldUseCreateGenesisTime,
           isDeleted,
         },
       );
@@ -4136,8 +4140,7 @@ class ServiceAccount extends ServiceBase {
         if (!latestSyncItem) {
           return;
         }
-        // OK-55438: tombstone/create is a genuine "now" write; let the server
-        // stamp dataTime to serverNow.
+        // Upload the corrected client dataTime immediately after local write.
         await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
           localItems: [latestSyncItem],
           noDebounceUpload: true,
@@ -4226,7 +4229,7 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          dataTime: undefined,
           isDeleted: true,
         },
       );
@@ -4247,8 +4250,7 @@ class ServiceAccount extends ServiceBase {
       if (!latestSyncItem) {
         return;
       }
-      // OK-55438: deletion tombstone is a genuine "now" write; let the server
-      // stamp dataTime to serverNow.
+      // Upload the corrected client dataTime immediately after local write.
       await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
         localItems: [latestSyncItem],
         noDebounceUpload: true,
@@ -4856,8 +4858,16 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    // localDb.removeWallet handles events, unused devices, and indexed accounts.
+    // removeWallet does not emit the app-level wallet refresh event.
     await localDb.removeWallet({ walletId });
+    if (platformEnv.isNative) {
+      setTimeout(
+        () => appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined),
+        1500,
+      );
+    } else {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   async buildAccountXpubOrAddress({

@@ -9,6 +9,8 @@ import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { shouldContinueLedgerAutoCreateForCoreAppsCheckResult } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/ledgerCoreAppsReadyUtils';
+import { ensureLedgerCoreAppsReady } from '@onekeyhq/kit/src/provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { toastExistingWalletSwitch } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import qrHiddenCreateGuideDialog from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/qrHiddenCreateGuideDialog';
 import type {
@@ -36,12 +38,16 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { classifyThirdPartyHwCreateFailures } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
+  classifyThirdPartyHwCreateFailures,
+  filterThirdPartyHwCreateFailureToasts,
+} from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
   EFinalizeWalletSetupSteps,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { ILedgerCoreAppName } from '@onekeyhq/shared/src/hardware/ledgerApps';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -825,6 +831,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // view. A specific-network (single) add keeps the per-app install prompt.
       const isAutoCreateMultiNetwork =
         !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
+      const customNetworks =
+        networkId && deriveType ? [{ networkId, deriveType }] : undefined;
+      let ledgerRequiredApps: ILedgerCoreAppName[] = [];
       let result: {
         addedAccounts: {
           networkId: string;
@@ -841,15 +850,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       };
 
       if (!params.wallet.isMocked) {
+        if (isAutoCreateMultiNetwork) {
+          const device =
+            await backgroundApiProxy.serviceAccount.getWalletDevice({
+              walletId: wallet.id,
+            });
+          if (device?.vendor === EHardwareVendor.ledger) {
+            ledgerRequiredApps =
+              await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
+                {
+                  walletId: wallet.id,
+                  customNetworks,
+                  isCreateWallet,
+                },
+              );
+            if (ledgerRequiredApps.length > 0) {
+              const ensureResult = await ensureLedgerCoreAppsReady({
+                walletId: wallet.id,
+                requiredApps: ledgerRequiredApps,
+              });
+              if (
+                !shouldContinueLedgerAutoCreateForCoreAppsCheckResult(
+                  ensureResult,
+                )
+              ) {
+                return;
+              }
+            }
+          }
+        }
+
         result =
           await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
             {
               walletId: wallet.id,
               indexedAccountId: indexedAccount?.id,
-              customNetworks:
-                networkId && deriveType
-                  ? [{ networkId, deriveType }]
-                  : undefined,
+              customNetworks,
               isCreateWallet,
               isAutoCreateMultiNetwork,
               skipDeviceCancel,
@@ -862,11 +898,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       if (autoHandleExitError) {
         void (async () => {
           let failedList = result?.failedAccounts || [];
+          let isThirdPartyHw = false;
 
           // 3rd-party HW: drop AppNotInstalled when any chain succeeded; offer
           // in-app core-app install when zero succeeded (bare device).
           if (failedList.length > 0) {
-            const isThirdPartyHw =
+            isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
                 walletId: wallet.id,
               });
@@ -877,19 +914,45 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   failedAccounts: failedList,
                 });
               if (allAppNotInstalled && isAutoCreateMultiNetwork) {
-                // Bare device: offer in-app core-app install (not Ledger Live).
-                // Emit so the provider container shows the dialog — keeps this
-                // state layer decoupled from provider/Container UI.
-                appEventBus.emit(EAppEventBusNames.ShowLedgerInstallCoreApps, {
+                const ensureResult = await ensureLedgerCoreAppsReady({
                   walletId: wallet.id,
+                  requiredApps: ledgerRequiredApps.length
+                    ? ledgerRequiredApps
+                    : undefined,
                 });
-                return;
+                if (!ensureResult.ok) return;
+                const retry =
+                  await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+                    {
+                      walletId: wallet.id,
+                      indexedAccountId: indexedAccount?.id,
+                      customNetworks,
+                      isCreateWallet,
+                      isAutoCreateMultiNetwork,
+                      skipDeviceCancel,
+                      hideCheckingDeviceLoading,
+                      autoHandleExitError: false,
+                    },
+                  );
+                failedList = retry?.failedAccounts || [];
+                if (failedList.length === 0) return;
+                const reClass = classifyThirdPartyHwCreateFailures({
+                  addedCount: retry.addedAccounts.length,
+                  failedAccounts: failedList,
+                });
+                if (reClass.allAppNotInstalled) return;
+                failedList = reClass.genuineFailures;
+              } else {
+                failedList = genuineFailures;
               }
-              failedList = genuineFailures;
             }
           }
 
-          for (const failedAccount of failedList) {
+          const failedListForToast =
+            isThirdPartyHw && failedList.length > 0
+              ? filterThirdPartyHwCreateFailureToasts(failedList)
+              : failedList;
+          for (const failedAccount of failedListForToast) {
             const network = await backgroundApiProxy.serviceNetwork.getNetwork({
               networkId: failedAccount.networkId,
             });

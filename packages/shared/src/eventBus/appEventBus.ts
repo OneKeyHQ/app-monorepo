@@ -103,6 +103,9 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
+    status: 'VALID' | 'INVALID' | 'UNKNOWN';
+  };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
@@ -383,9 +386,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowThirdPartyHardwarePermissionDialog]: {
     vendor: EHardwareVendor;
     reason: EThirdPartyDevicePermissionDeniedReason;
-  };
-  [EAppEventBusNames.ShowLedgerInstallCoreApps]: {
-    walletId: string;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
   [EAppEventBusNames.RequestDeviceForSwitchFirmwareWebDevice]: undefined;
