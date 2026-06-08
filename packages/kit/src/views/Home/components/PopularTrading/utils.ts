@@ -30,13 +30,22 @@ function getDefaultMarketValue(value?: number) {
   return value ? value : EMPTY_MARKET_VALUE;
 }
 
+function getStockPreferredDisplayValue(
+  stockValue: string | undefined,
+  fallbackValue?: number,
+) {
+  return stockValue ?? getDefaultMarketValue(fallbackValue);
+}
+
 function getVolume24hValue(
   record: IFavoriteTokenDisplay,
   useStockMetadataColumns?: boolean,
 ) {
   return useStockMetadataColumns
-    ? (getStockVolume24hValue(record) ??
-        getDefaultMarketValue(record.volume24h))
+    ? getStockPreferredDisplayValue(
+        getStockVolume24hValue(record),
+        record.volume24h,
+      )
     : getDefaultMarketValue(record.volume24h);
 }
 
@@ -45,8 +54,10 @@ function getMarketCapValue(
   useStockMetadataColumns?: boolean,
 ) {
   return useStockMetadataColumns
-    ? (getStockMarketCapValue(record) ??
-        getDefaultMarketValue(record.marketCap))
+    ? getStockPreferredDisplayValue(
+        getStockMarketCapValue(record),
+        record.marketCap,
+      )
     : getDefaultMarketValue(record.marketCap);
 }
 
@@ -64,19 +75,24 @@ function parseMarketValue(value?: string | number | null) {
   return Number.isFinite(parsedValue) ? parsedValue : undefined;
 }
 
+function getStockPreferredParsedMarketValue(
+  stockValue?: string | number | null,
+  fallbackValue?: string | number | null,
+) {
+  return parseMarketValue(stockValue) ?? parseMarketValue(fallbackValue) ?? 0;
+}
+
 function getMarketTokenDisplayMarketCap(item: IMarketTokenListItem) {
-  return (
-    parseMarketValue(item.stock?.marketCap) ??
-    parseMarketValue(item.marketCap) ??
-    0
+  return getStockPreferredParsedMarketValue(
+    item.stock?.marketCap,
+    item.marketCap,
   );
 }
 
 function getMarketTokenDisplayVolume24h(item: IMarketTokenListItem) {
-  return (
-    parseMarketValue(item.stock?.assetAnalysis?.volume24h) ??
-    parseMarketValue(item.volume24h) ??
-    0
+  return getStockPreferredParsedMarketValue(
+    item.stock?.assetAnalysis?.volume24h,
+    item.volume24h,
   );
 }
 

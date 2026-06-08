@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
-  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -17,17 +16,16 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
-  getMarketCapValue,
-  getPeRatioValue,
-  getVolume24hValue,
-  shouldUseStockMetadataColumnsForTokens,
-} from './utils';
+  getPopularTradingMetricColumns,
+  renderPopularTradingRightMetrics,
+  renderPopularTradingTokenSubtitle,
+} from './metricColumns';
+import { shouldUseStockMetadataColumnsForTokens } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 
@@ -111,85 +109,10 @@ function MarketCategoryTokenList({
             );
           },
         },
-        {
-          dataIndex: useStockMetadataColumns ? 'marketCap' : 'price',
-          title: useStockMetadataColumns
-            ? intl.formatMessage({ id: ETranslations.global_market_cap })
-            : intl.formatMessage({ id: ETranslations.global_price }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter={useStockMetadataColumns ? 'marketCap' : 'price'}
-              formatterOptions={{
-                currency: '$',
-                ...(useStockMetadataColumns ? { capAtMaxT: true } : undefined),
-              }}
-            >
-              {useStockMetadataColumns
-                ? getMarketCapValue(record, useStockMetadataColumns)
-                : (record.price ?? '-')}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          dataIndex: useStockMetadataColumns ? 'volume24h' : 'priceChange24h',
-          title: useStockMetadataColumns
-            ? intl.formatMessage({
-                id: ETranslations.dexmarket_stock_24h_volume,
-              })
-            : intl.formatMessage({ id: ETranslations.market_change_24h }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => {
-            if (useStockMetadataColumns) {
-              return (
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="marketCap"
-                  formatterOptions={{
-                    currency: '$',
-                  }}
-                >
-                  {getVolume24hValue(record, useStockMetadataColumns)}
-                </NumberSizeableText>
-              );
-            }
-
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: record.priceChange24h ?? 0,
-              });
-            return (
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyLgMedium"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            );
-          },
-        },
-        {
-          dataIndex: useStockMetadataColumns ? 'stock' : 'volume24h',
-          title: useStockMetadataColumns
-            ? intl.formatMessage({
-                id: ETranslations.dexmarket_stock_pe_ttm,
-              })
-            : intl.formatMessage({ id: ETranslations.market_24h_turnover }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter={useStockMetadataColumns ? 'value' : 'marketCap'}
-              formatterOptions={
-                useStockMetadataColumns ? undefined : { currency: '$' }
-              }
-            >
-              {useStockMetadataColumns
-                ? getPeRatioValue(record)
-                : getVolume24hValue(record, useStockMetadataColumns)}
-            </NumberSizeableText>
-          ),
-        },
+        ...getPopularTradingMetricColumns({
+          intl,
+          useStockMetadataColumns,
+        }),
       ];
     }
 
@@ -229,20 +152,10 @@ function MarketCategoryTokenList({
                   <SizableText size="$bodyLgMedium">
                     {record.symbol}
                   </SizableText>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="marketCap"
-                    formatterOptions={{
-                      currency: '$',
-                      ...(useStockMetadataColumns
-                        ? { capAtMaxT: true }
-                        : undefined),
-                    }}
-                  >
-                    {useStockMetadataColumns
-                      ? getMarketCapValue(record, useStockMetadataColumns)
-                      : getVolume24hValue(record, useStockMetadataColumns)}
-                  </NumberSizeableText>
+                  {renderPopularTradingTokenSubtitle(
+                    record,
+                    useStockMetadataColumns,
+                  )}
                 </YStack>
               </XStack>
             </XStack>
@@ -252,51 +165,8 @@ function MarketCategoryTokenList({
       {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
-        render: (_: unknown, record: IFavoriteTokenDisplay) => {
-          if (useStockMetadataColumns) {
-            return (
-              <YStack alignItems="flex-end">
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="marketCap"
-                  formatterOptions={{
-                    currency: '$',
-                  }}
-                >
-                  {getVolume24hValue(record, useStockMetadataColumns)}
-                </NumberSizeableText>
-                <NumberSizeableText size="$bodyMd" formatter="value">
-                  {getPeRatioValue(record)}
-                </NumberSizeableText>
-              </YStack>
-            );
-          }
-
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange: record.priceChange24h ?? 0,
-          });
-          return (
-            <YStack alignItems="flex-end">
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="price"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {record.price ?? '-'}
-              </NumberSizeableText>
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyMd"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            </YStack>
-          );
-        },
+        render: (_: unknown, record: IFavoriteTokenDisplay) =>
+          renderPopularTradingRightMetrics(record, useStockMetadataColumns),
       },
     ];
   }, [

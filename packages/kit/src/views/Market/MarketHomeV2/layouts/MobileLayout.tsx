@@ -59,7 +59,7 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
-  spotTabNames: string[];
+  isSpotTabName: (tabName: string) => boolean;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -81,7 +81,7 @@ function MarketHomeTabBar({
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
-  const showSpotSubHeader = ctx.spotTabNames.includes(currentFocusedTabName);
+  const showSpotSubHeader = ctx.isSpotTabName(currentFocusedTabName);
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
@@ -171,17 +171,13 @@ function MobileLayoutComponent({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    isSpotTabName,
     selectedTabName,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
     selectedSpotCategory: filterBarProps.selectedCategory,
     onSpotCategoryChange: filterBarProps.onCategoryChange,
   });
-
-  const spotTabNames = useMemo(
-    () => spotTabItems.map((item) => item.tabName),
-    [spotTabItems],
-  );
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -298,7 +294,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
-      spotTabNames,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -310,7 +306,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
-      spotTabNames,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       activeTabName,

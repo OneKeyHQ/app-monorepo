@@ -61,7 +61,7 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
-  spotTabNames: string[];
+  isSpotTabName: (tabName: string) => boolean;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -86,7 +86,7 @@ function MarketHomeTabBar({
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
   const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const showSpotSubHeader = ctx.spotTabNames.includes(currentFocusedTabName);
+  const showSpotSubHeader = ctx.isSpotTabName(currentFocusedTabName);
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
   const fixedSecondaryHeaderHeight = useMemo(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -241,17 +241,13 @@ function MobileLayoutComponent({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    isSpotTabName,
     selectedTabName,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
     selectedSpotCategory: filterBarProps.selectedCategory,
     onSpotCategoryChange: filterBarProps.onCategoryChange,
   });
-
-  const spotTabNames = useMemo(
-    () => spotTabItems.map((item) => item.tabName),
-    [spotTabItems],
-  );
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -370,7 +366,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
-      spotTabNames,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -382,7 +378,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
-      spotTabNames,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
