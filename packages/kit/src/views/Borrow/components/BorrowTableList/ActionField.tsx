@@ -50,7 +50,7 @@ export const ActionField = ({
   // Use prop if provided, otherwise use context, fallback to default
   const swapConfig = swapConfigProp ?? contextSwapConfig ?? defaultSwapConfig;
 
-  const { handleSwap, handleReceive } = useSupplyActions({
+  const { handleSwap, handleBridge, handleReceive } = useSupplyActions({
     accountId,
     walletId,
     networkId,
@@ -61,6 +61,7 @@ export const ActionField = ({
   const labels = useMemo(
     () => ({
       swap: intl.formatMessage({ id: ETranslations.global_swap }),
+      bridge: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
       receive: intl.formatMessage({ id: ETranslations.global_receive }),
     }),
     [intl],
@@ -68,7 +69,7 @@ export const ActionField = ({
 
   const actionItems = useMemo(() => {
     const items: {
-      icon: 'SwitchHorOutline' | 'ArrowBottomOutline';
+      icon: 'SwitchHorOutline' | 'BridgeOutline' | 'ArrowBottomOutline';
       label: string;
       onPress: () => void;
     }[] = [];
@@ -83,6 +84,16 @@ export const ActionField = ({
       });
     }
 
+    if (swapConfig.isSupportCrossChain) {
+      items.push({
+        icon: 'BridgeOutline',
+        label: labels.bridge,
+        onPress: () => {
+          void handleBridge?.(item);
+        },
+      });
+    }
+
     items.push({
       icon: 'ArrowBottomOutline',
       label: labels.receive,
@@ -92,7 +103,7 @@ export const ActionField = ({
     });
 
     return items;
-  }, [swapConfig, handleSwap, handleReceive, item, labels]);
+  }, [swapConfig, handleSwap, handleBridge, handleReceive, item, labels]);
 
   return (
     <XStack gap="$2" alignItems="center" justifyContent="flex-end">

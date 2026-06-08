@@ -168,21 +168,67 @@ export const useSupplyActions = ({
           return;
         }
 
-        const fromToken = supportSwap
-          ? getDefaultFromToken(token, onekeyNetwork)
-          : getEthereumEthToken();
+        const fromToken = getDefaultFromToken(token, onekeyNetwork);
 
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapMainLand,
           params: {
             importFromToken: fromToken,
             importToToken: buildSwapToken(token, onekeyNetwork),
-            swapTabSwitchType: ESwapTabSwitchType.SWAP,
+            swapTabSwitchType: supportSwap
+              ? ESwapTabSwitchType.SWAP
+              : ESwapTabSwitchType.BRIDGE,
             swapSource: ESwapSource.MARKET,
           },
         });
       } catch (error) {
         console.error('Error handling swap:', error);
+      }
+    },
+    [navigation, networkId, accountId, swapConfig, getNetworkSafe],
+  );
+
+  const handleBridge = useCallback(
+    async (item: IAssetWithToken) => {
+      if (!networkId || !accountId) {
+        console.warn('Network ID or Account ID not defined');
+        return;
+      }
+
+      const { token } = item;
+
+      try {
+        let supportCrossChain = swapConfig?.isSupportCrossChain;
+
+        if (supportCrossChain === undefined) {
+          const config = await backgroundApiProxy.serviceSwap.checkSupportSwap({
+            networkId,
+          });
+          supportCrossChain = config.isSupportCrossChain;
+        }
+
+        if (!supportCrossChain) {
+          console.warn('Bridge not supported for this network');
+          return;
+        }
+
+        const onekeyNetwork = await getNetworkSafe(networkId);
+        if (!onekeyNetwork) {
+          console.warn('Failed to get network details');
+          return;
+        }
+
+        navigation.pushModal(EModalRoutes.SwapModal, {
+          screen: EModalSwapRoutes.SwapMainLand,
+          params: {
+            importFromToken: getEthereumEthToken(),
+            importToToken: buildSwapToken(token, onekeyNetwork),
+            swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+            swapSource: ESwapSource.MARKET,
+          },
+        });
+      } catch (error) {
+        console.error('Error handling bridge:', error);
       }
     },
     [navigation, networkId, accountId, swapConfig, getNetworkSafe],
@@ -244,6 +290,7 @@ export const useSupplyActions = ({
 
   return {
     handleSwap,
+    handleBridge,
     handleReceive,
   };
 };

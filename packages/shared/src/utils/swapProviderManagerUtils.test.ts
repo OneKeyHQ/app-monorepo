@@ -8,6 +8,7 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildUnifiedSwapProviderManagers,
+  canUseUnifiedSwapProviderManagers,
   getDenyBridgeProviderString,
   getDenySwapProviderString,
   hasUnifiedSwapProviderManagers,
@@ -295,6 +296,73 @@ describe('swapProviderManagerUtils', () => {
     expect(hasUnifiedSwapProviderManagers([unifiedProviderManager])).toBe(true);
   });
 
+  it('allows unified migration only when the server provider contract is complete', () => {
+    const serverProviders = [serverProvider({ provider: 'ProviderA' })];
+    const unifiedProviderManagers = buildUnifiedSwapProviderManagers({
+      serverProviders,
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [
+        manager({ provider: 'ProviderA', enable: false }),
+      ],
+    });
+
+    expect(
+      canUseUnifiedSwapProviderManagers({
+        serverProviders,
+        unifiedProviderManagers,
+        bridgeProviderManagers: [
+          manager({ provider: 'ProviderA', enable: false }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('blocks unified migration when the provider list misses capability flags', () => {
+    const serverProviders: ISwapServiceProvider[] = [
+      {
+        providerInfo: providerInfo('ProviderA'),
+      },
+    ];
+    const unifiedProviderManagers = buildUnifiedSwapProviderManagers({
+      serverProviders,
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [
+        manager({ provider: 'ProviderA', enable: false }),
+      ],
+    });
+
+    expect(unifiedProviderManagers).toHaveLength(0);
+    expect(
+      canUseUnifiedSwapProviderManagers({
+        serverProviders,
+        unifiedProviderManagers,
+        bridgeProviderManagers: [
+          manager({ provider: 'ProviderA', enable: false }),
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('blocks unified migration when legacy bridge providers are missing from the unified cross-chain set', () => {
+    const serverProviders = [serverProvider({ provider: 'ProviderA' })];
+    const unifiedProviderManagers = buildUnifiedSwapProviderManagers({
+      serverProviders,
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [],
+    });
+
+    expect(
+      canUseUnifiedSwapProviderManagers({
+        serverProviders,
+        unifiedProviderManagers,
+        bridgeProviderManagers: [
+          manager({ provider: 'ProviderA' }),
+          manager({ provider: 'MissingBridgeProvider' }),
+        ],
+      }),
+    ).toBe(false);
+  });
+
   it('returns cross-chain deny providers when either side network is disabled', () => {
     const denyProviders = getDenySwapProviderString({
       providerManagers: [
@@ -408,5 +476,36 @@ describe('swapProviderManagerUtils', () => {
     expect(
       providerManager.crossChainDisableNetworks?.map((item) => item.networkId),
     ).toEqual(['sol--101']);
+  });
+
+  it('enables the current quote mode when a disabled provider re-enables one network', () => {
+    const [providerManager] = normalizeSwapProviderManagersForSave(
+      [
+        {
+          ...manager({
+            provider: 'ProviderA',
+            enable: true,
+            disableNetworks: [network('evm--1')],
+          }),
+          isSupportSingleSwap: true,
+          isSupportCrossChain: true,
+          singleSwapEnable: true,
+          crossChainEnable: false,
+          supportSingleSwapNetworks: [network('evm--1')],
+          supportCrossChainNetworks: [network('evm--1'), network('sol--101')],
+          crossChainDisableNetworks: [network('evm--1'), network('sol--101')],
+        },
+      ],
+      'crossChain',
+    );
+
+    expect(providerManager).toMatchObject({
+      enable: true,
+      singleSwapEnable: true,
+      crossChainEnable: true,
+    });
+    expect(
+      providerManager.crossChainDisableNetworks?.map((item) => item.networkId),
+    ).toEqual(['evm--1']);
   });
 });

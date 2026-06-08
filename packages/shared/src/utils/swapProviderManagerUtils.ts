@@ -54,6 +54,80 @@ export function hasUnifiedSwapProviderManagers(
   return providerManagers.some(isUnifiedProviderManager);
 }
 
+function hasProviderSupportNetworks(provider: ISwapServiceProvider) {
+  if (
+    provider.isSupportSingleSwap &&
+    !provider.supportSingleSwapNetworks?.length
+  ) {
+    return false;
+  }
+  if (
+    provider.isSupportCrossChain &&
+    !provider.supportCrossChainNetworks?.length
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function canUseUnifiedSwapProviderManagers({
+  serverProviders,
+  unifiedProviderManagers,
+  bridgeProviderManagers,
+}: {
+  serverProviders: ISwapServiceProvider[];
+  unifiedProviderManagers: ISwapProviderManager[];
+  bridgeProviderManagers: ISwapProviderManager[];
+}) {
+  if (!serverProviders.length || !unifiedProviderManagers.length) {
+    return false;
+  }
+
+  const serverProviderIds = new Set<string>();
+  for (const provider of serverProviders) {
+    const providerId = provider.providerInfo?.provider;
+    const hasCapability =
+      provider.isSupportSingleSwap || provider.isSupportCrossChain;
+    if (hasCapability) {
+      if (!providerId || !hasProviderSupportNetworks(provider)) {
+        return false;
+      }
+      serverProviderIds.add(providerId);
+    }
+  }
+
+  if (!serverProviderIds.size) {
+    return false;
+  }
+
+  const unifiedCrossChainProviderIds = new Set<string>();
+  for (const providerManager of unifiedProviderManagers) {
+    const providerId = providerManager.providerInfo.provider;
+    if (!serverProviderIds.has(providerId)) {
+      return false;
+    }
+    if (
+      providerManager.isSupportSingleSwap &&
+      !providerManager.supportSingleSwapNetworks?.length
+    ) {
+      return false;
+    }
+    if (
+      providerManager.isSupportCrossChain &&
+      !providerManager.supportCrossChainNetworks?.length
+    ) {
+      return false;
+    }
+    if (providerManager.isSupportCrossChain) {
+      unifiedCrossChainProviderIds.add(providerId);
+    }
+  }
+
+  return bridgeProviderManagers.every((providerManager) =>
+    unifiedCrossChainProviderIds.has(providerManager.providerInfo.provider),
+  );
+}
+
 export function buildUnifiedSwapProviderManagers({
   serverProviders,
   swapProviderManagers,

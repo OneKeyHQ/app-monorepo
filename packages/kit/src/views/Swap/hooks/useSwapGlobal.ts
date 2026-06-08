@@ -13,7 +13,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { buildUnifiedSwapProviderManagers } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
+import {
+  buildUnifiedSwapProviderManagers,
+  canUseUnifiedSwapProviderManagers,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -231,6 +234,16 @@ export function useSwapInit(params?: ISwapInitParams) {
             swapProviderManagers: swapProviderManagerSimpleDb,
             bridgeProviderManagers: bridgeProviderManagerSimpleDb,
           });
+          if (
+            !canUseUnifiedSwapProviderManagers({
+              serverProviders: swapProviderManagerFromServer,
+              unifiedProviderManagers: unifiedProviderManager,
+              bridgeProviderManagers: bridgeProviderManagerSimpleDb,
+            })
+          ) {
+            setProviderManagersFromCache();
+            return;
+          }
           await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
             unifiedProviderManager,
           );

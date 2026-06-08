@@ -196,7 +196,7 @@ const ProviderManageContainer = ({
                 return syncProviderManagerUnifiedSettings(
                   {
                     ...item,
-                    enable: providerEnable,
+                    enable: true,
                     disableNetworks: currentDisableNetworks.filter(
                       (net) =>
                         !disNetsEnable.find(
