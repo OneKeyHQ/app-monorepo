@@ -63,8 +63,9 @@ const TradesHistoryLoadingView = () => {
     <Stack
       flex={1}
       alignItems="flex-start"
-      justifyContent="center"
+      justifyContent="flex-start"
       p="$6"
+      pt="$10"
       gap="$2"
     >
       <Skeleton h="$8" w="$40" />

@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Маржа обновлена",
   "perp_twap_active__title": "Активно",
   "perp_twap_avg_filled_price__title": "Средняя цена исполнения",
+  "perp_twap_child_order_size__title": "Размер дочернего ордера",
   "perp_twap_duration__title": "Длительность",
   "perp_twap_duration_helper__desc": "TWAP отправляет рыночные сделки за выбранный период. Hyperliquid управляет временем сделок и может отклонять очень небольшие сделки.",
   "perp_twap_duration_range__msg": "Продолжительность для TWAP должна быть от {min} до {max} минут",
