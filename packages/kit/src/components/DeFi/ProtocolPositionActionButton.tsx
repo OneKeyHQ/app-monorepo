@@ -1,4 +1,11 @@
-import { type ComponentProps, memo, useCallback, useMemo } from 'react';
+import {
+  type ComponentProps,
+  memo,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -16,6 +23,7 @@ import {
   type IDeFiProtocol,
   type IDeFiSupportedProtocolAction,
   type IDeFiUnknownRecord,
+  type IResolvedDeFiPositionAction,
 } from '@onekeyhq/shared/types/defi';
 
 import {
@@ -216,6 +224,17 @@ function getAaveBorrowManageParams({
   };
 }
 
+function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
+  return [
+    action.protocolId,
+    action.networkId,
+    action.positionCategory,
+    action.assetCategory ?? '',
+    action.rewardCategory ?? '',
+    action.action,
+  ].join('-');
+}
+
 const ProtocolPositionActionButton = memo(
   ({
     accountId,
@@ -232,6 +251,10 @@ const ProtocolPositionActionButton = memo(
       networkId: protocol.networkId,
       onSuccess,
     });
+    const submittingActionKeyRef = useRef<string | undefined>(undefined);
+    const [submittingActionKey, setSubmittingActionKey] = useState<
+      string | undefined
+    >(undefined);
     const isActionAccount =
       !!accountId &&
       !accountUtils.isWatchingAccount({ accountId }) &&
@@ -269,6 +292,9 @@ const ProtocolPositionActionButton = memo(
         if (!accountId) {
           return;
         }
+        if (submittingActionKeyRef.current) {
+          return;
+        }
 
         const selectedAsset = action.assets[0];
         if (
@@ -277,6 +303,9 @@ const ProtocolPositionActionButton = memo(
           action.action !== EDeFiPositionAction.Withdraw &&
           action.action !== EDeFiPositionAction.RemoveLiquidity
         ) {
+          const actionKey = getResolvedActionKey(action);
+          submittingActionKeyRef.current = actionKey;
+          setSubmittingActionKey(actionKey);
           try {
             await submitProtocolPositionAction({
               action,
@@ -284,6 +313,9 @@ const ProtocolPositionActionButton = memo(
             });
           } catch {
             return;
+          } finally {
+            submittingActionKeyRef.current = undefined;
+            setSubmittingActionKey(undefined);
           }
           return;
         }
@@ -321,24 +353,28 @@ const ProtocolPositionActionButton = memo(
 
     return (
       <XStack gap="$1.5" alignItems="center" flexShrink={0} {...containerProps}>
-        {visibleActions.map((action) => (
-          <Button
-            key={`${action.action}-${action.assetCategory ?? ''}-${
-              action.rewardCategory ?? ''
-            }`}
-            testID={`defi-position-action-${action.action}`}
-            size="small"
-            variant="primary"
-            onPress={() => void handleActionPress(action)}
-          >
-            {getActionLabel({ action: action.action, intl })}
-          </Button>
-        ))}
+        {visibleActions.map((action) => {
+          const actionKey = getResolvedActionKey(action);
+          return (
+            <Button
+              key={actionKey}
+              testID={`defi-position-action-${action.action}`}
+              size="small"
+              variant="primary"
+              disabled={Boolean(submittingActionKey)}
+              loading={submittingActionKey === actionKey}
+              onPress={() => void handleActionPress(action)}
+            >
+              {getActionLabel({ action: action.action, intl })}
+            </Button>
+          );
+        })}
         {borrowManageParams ? (
           <Button
             testID="defi-position-action-manage"
             size="small"
             variant="primary"
+            disabled={Boolean(submittingActionKey)}
             onPress={handleManagePress}
           >
             {intl.formatMessage({ id: ETranslations.global_manage })}
