@@ -1,3 +1,5 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
 
 /**
@@ -10,9 +12,16 @@ export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
  * - 'online'  : load the remote TradingView URL via the chart-webview module.
  *
  * Native only — on web TradingView always uses 'legacy' (the module is native).
- * Flip this to 'offline' (or 'online') to exercise the new path.
+ *
+ * Gated purely on whether this is a PRODUCTION build (build-time constant from
+ * buildTimeEnv.js, no runtime env vars): production ships the offline bundle, so
+ * it loads offline; dev/internal builds don't stage the assets (loading offline
+ * would white-screen), so they use the chart-webview module against the online
+ * URL — still exercising the new path without the bundle.
  */
-export const CHART_WEBVIEW_MODE: IChartWebViewMode = 'offline';
+export const CHART_WEBVIEW_MODE: IChartWebViewMode = platformEnv.isProduction
+  ? 'offline'
+  : 'online';
 
 /**
  * Desktop offline chart switch (code-level, no runtime toggle).
