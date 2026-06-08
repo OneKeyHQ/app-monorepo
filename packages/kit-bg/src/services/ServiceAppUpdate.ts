@@ -852,7 +852,10 @@ class ServiceAppUpdate extends ServiceBase {
     const latestVersion = isJsBundle
       ? platformEnv.version || '1.0.0'
       : '999.0.0';
-    const jsBundleVersion = isJsBundle ? '999999' : undefined;
+    // Bundle versions are "seconds since 2026-01-01" (already in the tens of
+    // millions). Use a value far above any real bundle so resolveUpdateDecision
+    // returns jsBundleUpgrade (not jsBundleRollback) and isNeedUpdate is true.
+    const jsBundleVersion = isJsBundle ? '9999999999' : undefined;
     const downloadedEvent: IUpdateDownloadedEvent = {
       downloadUrl: 'https://localhost/onekey-dev-test',
       latestVersion,
