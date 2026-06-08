@@ -2188,6 +2188,7 @@ export enum ETranslations {
   global_bottom = 'global_bottom',
   global_buy_crypto = 'global_buy_crypto',
   global_sign_in = 'global_sign_in',
+  global_single_network = 'global_single_network',
   global_top = 'global_top',
   global_view_details = 'global_view_details',
   google_account_not_signed_in = 'google_account_not_signed_in',

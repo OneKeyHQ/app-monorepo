@@ -64,7 +64,6 @@ export enum EAppEventBusNames {
   TokenListUpdate = 'TokenListUpdate',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
-  RefreshEarnRecommendedList = 'RefreshEarnRecommendedList',
   RefreshHistoryList = 'RefreshHistoryList',
   RefreshBookmarkList = 'RefreshBookmarkList',
   InvalidateDiscoveryHomeBookmarksPrefetch = 'InvalidateDiscoveryHomeBookmarksPrefetch',

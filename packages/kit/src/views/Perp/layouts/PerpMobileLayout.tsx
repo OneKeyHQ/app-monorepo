@@ -120,168 +120,6 @@ export const TabBarItem = memo(
 
 TabBarItem.displayName = 'TabBarItem';
 
-type IPerpMobileTabMetrics = {
-  openOrdersLength: number;
-  positionsLength: number;
-  holdingsCount: number;
-  isUnifiedAccountMode: boolean;
-  hasPerpsAccountSummary: boolean;
-  spotBalancesLength: number;
-};
-
-const DEFAULT_TAB_METRICS: IPerpMobileTabMetrics = {
-  openOrdersLength: 0,
-  positionsLength: 0,
-  holdingsCount: 0,
-  isUnifiedAccountMode: false,
-  hasPerpsAccountSummary: false,
-  spotBalancesLength: 0,
-};
-
-const PerpMobileTabBarItems = memo(
-  ({
-    activeTab,
-    onMetricsChange,
-    onPress,
-  }: {
-    activeTab: ETabName;
-    onMetricsChange: (metrics: IPerpMobileTabMetrics) => void;
-    onPress: (name: ETabName) => void;
-  }) => {
-    const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
-    const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
-    const [positionsState] = usePerpsActivePositionAtom();
-    const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
-    const [{ balances, isLoaded: isSpotBalancesLoaded }] =
-      useSpotBalancesAtom();
-    const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
-    const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-    const [currentUser] = usePerpsActiveAccountAtom();
-    const accountScopedAddress = usePerpsAccountScopedCacheAddress();
-    const [abstractionMode] = usePerpsAbstractionModeAtom();
-    const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
-      abstractionMode,
-      currentUser?.accountAddress,
-    );
-    const currentUserAddress = accountScopedAddress;
-    const positionsLength = getPerpsAccountScopedListData({
-      activeAccountAddress: currentUserAddress,
-      dataAccountAddress: positionsState.accountAddress,
-      data: positionsState.activePositions,
-    }).length;
-    const openOrdersLength =
-      getPerpsAccountScopedListData({
-        activeAccountAddress: currentUserAddress,
-        dataAccountAddress: perpOpenOrdersState.accountAddress,
-        data: perpOpenOrdersState.openOrders.filter(
-          (order) => !isSpotInstrument(order.coin),
-        ),
-      }).length +
-      getPerpsAccountScopedListData({
-        activeAccountAddress: currentUserAddress,
-        dataAccountAddress: spotOpenOrdersState.accountAddress,
-        data: spotOpenOrdersState.openOrders,
-      }).length +
-      getPerpsAccountScopedListData({
-        activeAccountAddress: currentUserAddress,
-        dataAccountAddress: twapOrdersState.accountAddress,
-        data: twapOrdersState.twapOrders,
-      }).length;
-    const shouldUseCachedSpotBalances =
-      !isSpotBalancesLoaded &&
-      Boolean(currentUserAddress) &&
-      cachedSpotBalances?.accountAddress?.toLowerCase() ===
-        currentUserAddress?.toLowerCase();
-    const displayBalances = shouldUseCachedSpotBalances
-      ? (cachedSpotBalances?.balances ?? balances)
-      : balances;
-
-    const holdingsCount = useMemo(() => {
-      const nonUsdcSpotCount = displayBalances.filter(
-        (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
-      ).length;
-      const hasSpotUsdc = displayBalances.some(
-        (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
-      );
-      const hasPerpsUsdc =
-        !isUnifiedAccountMode &&
-        !!accountSummary?.totalRawUsd &&
-        new BigNumber(accountSummary.totalRawUsd).gt(0);
-      return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
-    }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
-
-    const positionsTabCount = useMemo(() => {
-      if (positionsLength > 0) {
-        return `(${positionsLength})`;
-      }
-      return '';
-    }, [positionsLength]);
-
-    const openOrdersTabCount = useMemo(() => {
-      if (openOrdersLength > 0) {
-        return `(${openOrdersLength})`;
-      }
-      return '';
-    }, [openOrdersLength]);
-
-    const holdingsTabCount = useMemo(() => {
-      if (holdingsCount > 0) {
-        return `(${holdingsCount})`;
-      }
-      return '';
-    }, [holdingsCount]);
-
-    useEffect(() => {
-      const metrics = {
-        openOrdersLength,
-        positionsLength,
-        holdingsCount,
-        isUnifiedAccountMode,
-        hasPerpsAccountSummary: Boolean(accountSummary),
-        spotBalancesLength: balances.length,
-      };
-      onMetricsChange(metrics);
-      tracePerpsMobileLayout('perpTab.counts.state', {
-        activeTab,
-        ...metrics,
-      });
-    }, [
-      accountSummary,
-      activeTab,
-      balances.length,
-      holdingsCount,
-      isUnifiedAccountMode,
-      onMetricsChange,
-      openOrdersLength,
-      positionsLength,
-    ]);
-
-    return (
-      <XStack gap="$5">
-        <TabBarItem
-          name={ETabName.Positions}
-          isFocused={activeTab === ETabName.Positions}
-          onPress={onPress}
-          tabCount={positionsTabCount}
-        />
-        <TabBarItem
-          name={ETabName.OpenOrders}
-          isFocused={activeTab === ETabName.OpenOrders}
-          onPress={onPress}
-          tabCount={openOrdersTabCount}
-        />
-        <TabBarItem
-          name={ETabName.Balances}
-          isFocused={activeTab === ETabName.Balances}
-          onPress={onPress}
-          tabCount={holdingsTabCount}
-        />
-      </XStack>
-    );
-  },
-);
-PerpMobileTabBarItems.displayName = 'PerpMobileTabBarItems';
-
 export function PerpMobileLayout() {
   const tabBarHeight = useScrollContentTabBarOffset();
   const [activeTab, setActiveTab] = useState<ETabName>(ETabName.Positions);
@@ -289,7 +127,6 @@ export function PerpMobileLayout() {
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
-  const tabMetricsRef = useRef<IPerpMobileTabMetrics>(DEFAULT_TAB_METRICS);
   const contentHeightRef = useRef<number | undefined>(undefined);
 
   const navigation =
@@ -316,12 +153,87 @@ export function PerpMobileLayout() {
     }
   }, [actions]);
 
-  const handleTabMetricsChange = useCallback(
-    (metrics: IPerpMobileTabMetrics) => {
-      tabMetricsRef.current = metrics;
-    },
-    [],
+  const [perpOpenOrdersState] = usePerpsActiveOpenOrdersAtom();
+  const [spotOpenOrdersState] = useSpotActiveOpenOrdersAtom();
+  const [positionsState] = usePerpsActivePositionAtom();
+  const [twapOrdersState] = usePerpsActiveTwapOrdersAtom();
+  const [{ balances, isLoaded: isSpotBalancesLoaded }] = useSpotBalancesAtom();
+  const [cachedSpotBalances] = usePerpsSpotBalancesAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+  const [abstractionMode] = usePerpsAbstractionModeAtom();
+  const isUnifiedAccountMode = isHyperLiquidUnifiedAccountMode(
+    abstractionMode,
+    currentUser?.accountAddress,
   );
+  const currentUserAddress = accountScopedAddress;
+  const positionsLength = getPerpsAccountScopedListData({
+    activeAccountAddress: currentUserAddress,
+    dataAccountAddress: positionsState.accountAddress,
+    data: positionsState.activePositions,
+  }).length;
+  const openOrdersLength =
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: perpOpenOrdersState.accountAddress,
+      data: perpOpenOrdersState.openOrders.filter(
+        (order) => !isSpotInstrument(order.coin),
+      ),
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: spotOpenOrdersState.accountAddress,
+      data: spotOpenOrdersState.openOrders,
+    }).length +
+    getPerpsAccountScopedListData({
+      activeAccountAddress: currentUserAddress,
+      dataAccountAddress: twapOrdersState.accountAddress,
+      data: twapOrdersState.twapOrders,
+    }).length;
+  const shouldUseCachedSpotBalances =
+    !isSpotBalancesLoaded &&
+    Boolean(currentUserAddress) &&
+    cachedSpotBalances?.accountAddress?.toLowerCase() ===
+      currentUserAddress?.toLowerCase();
+  const displayBalances = shouldUseCachedSpotBalances
+    ? (cachedSpotBalances?.balances ?? balances)
+    : balances;
+
+  const holdingsCount = useMemo(() => {
+    const nonUsdcSpotCount = displayBalances.filter(
+      (item) => item.coin !== 'USDC' && !new BigNumber(item.total).isZero(),
+    ).length;
+    const hasSpotUsdc = displayBalances.some(
+      (item) => item.coin === 'USDC' && !new BigNumber(item.total).isZero(),
+    );
+    const hasPerpsUsdc =
+      !isUnifiedAccountMode &&
+      !!accountSummary?.totalRawUsd &&
+      new BigNumber(accountSummary.totalRawUsd).gt(0);
+    return nonUsdcSpotCount + (hasSpotUsdc || hasPerpsUsdc ? 1 : 0);
+  }, [accountSummary?.totalRawUsd, displayBalances, isUnifiedAccountMode]);
+
+  const positionsTabCount = useMemo(() => {
+    if (positionsLength > 0) {
+      return `(${positionsLength})`;
+    }
+    return '';
+  }, [positionsLength]);
+
+  const openOrdersTabCount = useMemo(() => {
+    if (openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
+    }
+    return '';
+  }, [openOrdersLength]);
+
+  const holdingsTabCount = useMemo(() => {
+    if (holdingsCount > 0) {
+      return `(${holdingsCount})`;
+    }
+    return '';
+  }, [holdingsCount]);
 
   const handleTraceLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
@@ -329,19 +241,24 @@ export function PerpMobileLayout() {
       if (
         isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
       ) {
-        const tabMetrics = tabMetricsRef.current;
         tracePerpsMobileLayout(`perpTab.${name}.layout`, {
           rect,
           activeTab,
-          isUnifiedAccountMode: tabMetrics.isUnifiedAccountMode,
-          openOrdersLength: tabMetrics.openOrdersLength,
-          positionsLength: tabMetrics.positionsLength,
-          holdingsCount: tabMetrics.holdingsCount,
+          isUnifiedAccountMode,
+          openOrdersLength,
+          positionsLength,
+          holdingsCount,
         });
         layoutRectsRef.current[name] = rect;
       }
     },
-    [activeTab],
+    [
+      activeTab,
+      holdingsCount,
+      isUnifiedAccountMode,
+      openOrdersLength,
+      positionsLength,
+    ],
   );
 
   const handleContentSizeChange = useCallback(
@@ -372,6 +289,26 @@ export function PerpMobileLayout() {
     },
     [handleTraceLayout],
   );
+
+  useEffect(() => {
+    tracePerpsMobileLayout('perpTab.counts.state', {
+      activeTab,
+      openOrdersLength,
+      positionsLength,
+      holdingsCount,
+      isUnifiedAccountMode,
+      hasPerpsAccountSummary: Boolean(accountSummary),
+      spotBalancesLength: balances.length,
+    });
+  }, [
+    accountSummary,
+    activeTab,
+    balances.length,
+    holdingsCount,
+    isUnifiedAccountMode,
+    openOrdersLength,
+    positionsLength,
+  ]);
 
   return (
     <ScrollView
@@ -424,11 +361,26 @@ export function PerpMobileLayout() {
         pl="$4"
         onLayout={(event) => handleTraceLayout('positionsTabBar', event)}
       >
-        <PerpMobileTabBarItems
-          activeTab={activeTab}
-          onMetricsChange={handleTabMetricsChange}
-          onPress={setActiveTab}
-        />
+        <XStack gap="$5">
+          <TabBarItem
+            name={ETabName.Positions}
+            isFocused={activeTab === ETabName.Positions}
+            onPress={setActiveTab}
+            tabCount={positionsTabCount}
+          />
+          <TabBarItem
+            name={ETabName.OpenOrders}
+            isFocused={activeTab === ETabName.OpenOrders}
+            onPress={setActiveTab}
+            tabCount={openOrdersTabCount}
+          />
+          <TabBarItem
+            name={ETabName.Balances}
+            isFocused={activeTab === ETabName.Balances}
+            onPress={setActiveTab}
+            tabCount={holdingsTabCount}
+          />
+        </XStack>
         <IconButton
           testID="perp-icon-btn"
           variant="tertiary"
@@ -442,39 +394,32 @@ export function PerpMobileLayout() {
         flex={1}
         onLayout={(event) => handleTraceLayout('tabContent', event)}
       >
-        {activeTab === ETabName.Positions ? (
-          <YStack
-            flex={1}
-            onLayout={(event) => handleTraceLayout('positionsPanel', event)}
-          >
-            <PerpPositionsList
-              handleViewTpslOrders={handleViewTpslOrders}
-              isMobile
-              useTabsList={false}
-              disableListScroll
-            />
-          </YStack>
-        ) : null}
-        {activeTab === ETabName.OpenOrders ? (
-          <YStack
-            flex={1}
-            onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
-          >
-            <PerpOpenOrdersList
-              isMobile
-              useTabsList={false}
-              disableListScroll
-            />
-          </YStack>
-        ) : null}
-        {activeTab === ETabName.Balances ? (
-          <YStack
-            flex={1}
-            onLayout={(event) => handleTraceLayout('balancesPanel', event)}
-          >
-            <SpotBalanceList isMobile useTabsList={false} disableListScroll />
-          </YStack>
-        ) : null}
+        <YStack
+          display={activeTab === ETabName.Positions ? 'flex' : 'none'}
+          flex={1}
+          onLayout={(event) => handleTraceLayout('positionsPanel', event)}
+        >
+          <PerpPositionsList
+            handleViewTpslOrders={handleViewTpslOrders}
+            isMobile
+            useTabsList={false}
+            disableListScroll
+          />
+        </YStack>
+        <YStack
+          display={activeTab === ETabName.OpenOrders ? 'flex' : 'none'}
+          flex={1}
+          onLayout={(event) => handleTraceLayout('openOrdersPanel', event)}
+        >
+          <PerpOpenOrdersList isMobile useTabsList={false} disableListScroll />
+        </YStack>
+        <YStack
+          display={activeTab === ETabName.Balances ? 'flex' : 'none'}
+          flex={1}
+          onLayout={(event) => handleTraceLayout('balancesPanel', event)}
+        >
+          <SpotBalanceList isMobile useTabsList={false} disableListScroll />
+        </YStack>
       </YStack>
     </ScrollView>
   );

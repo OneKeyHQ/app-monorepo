@@ -1179,6 +1179,7 @@ interface ITradingSizeContext {
   side: 'long' | 'short';
   price?: string;
   markPrice?: string;
+  maxSize?: BigNumber.Value | null;
   availableToTrade?: Array<number | string>;
   maxTradeSzs?: Array<number | string>;
   leverageValue?: number | string | null;
@@ -1190,6 +1191,57 @@ interface ITradingSizeParams extends ITradingSizeContext {
   sizeInputMode: EPerpsSizeInputMode;
   manualSize?: string;
   sizePercent?: number;
+}
+
+type ISpotBalanceValueItem = {
+  coin: string;
+  token: number;
+  total: string;
+  entryNtl?: string;
+};
+
+const HYPERLIQUID_SPOT_STABLE_COINS = new Set(['USDC', 'USDT', 'USDB', 'USDH']);
+
+const isHyperliquidSpotStableCoin = (coin: string) =>
+  HYPERLIQUID_SPOT_STABLE_COINS.has(coin.toUpperCase());
+
+function calculateSpotBalancesTotalUsd({
+  balances,
+  getMarkPrice,
+}: {
+  balances: ISpotBalanceValueItem[];
+  getMarkPrice: (coin: string) => string | undefined;
+}): {
+  totalUsd: string;
+  missingPriceCoins: string[];
+} {
+  let totalUsd = new BigNumber(0);
+  const missingPriceCoins: string[] = [];
+
+  for (const balance of balances) {
+    const amount = new BigNumber(balance.total);
+    if (!amount.isFinite() || amount.lte(0)) {
+      // skip invalid / empty balances
+    } else if (
+      balance.token === 0 ||
+      isHyperliquidSpotStableCoin(balance.coin)
+    ) {
+      totalUsd = totalUsd.plus(amount);
+    } else {
+      const markPrice = getMarkPrice(balance.coin);
+      const markPriceBN = new BigNumber(markPrice ?? 0);
+      if (markPriceBN.isFinite() && markPriceBN.gt(0)) {
+        totalUsd = totalUsd.plus(amount.multipliedBy(markPriceBN));
+      } else {
+        missingPriceCoins.push(balance.coin);
+      }
+    }
+  }
+
+  return {
+    totalUsd: totalUsd.toFixed(),
+    missingPriceCoins,
+  };
 }
 
 const computeEffectivePrice = (
@@ -1225,11 +1277,22 @@ const computeMaxTradeSize = ({
   side,
   price,
   markPrice,
+  maxSize,
   maxTradeSzs,
   leverageValue,
   fallbackLeverage,
   szDecimals,
 }: ITradingSizeContext): BigNumber => {
+  if (maxSize !== undefined && maxSize !== null) {
+    const maxSizeBN = new BigNumber(maxSize);
+    if (!maxSizeBN.isFinite() || maxSizeBN.lte(0)) {
+      return new BigNumber(0);
+    }
+
+    const decimals = szDecimals ?? 2;
+    return maxSizeBN.decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+  }
+
   const effectivePrice = computeEffectivePrice(price, markPrice);
   if (!effectivePrice) {
     return new BigNumber(0);
@@ -1273,6 +1336,7 @@ const resolveTradingSizeBN = ({
   side,
   price,
   markPrice,
+  maxSize,
   maxTradeSzs,
   leverageValue,
   fallbackLeverage,
@@ -1292,23 +1356,24 @@ const resolveTradingSizeBN = ({
     return new BigNumber(0);
   }
 
-  const maxSize = computeMaxTradeSize({
+  const resolvedMaxSize = computeMaxTradeSize({
     side,
     price,
     markPrice,
+    maxSize,
     maxTradeSzs,
     leverageValue,
     fallbackLeverage,
     szDecimals,
   });
 
-  if (!maxSize.isFinite() || maxSize.lte(0)) {
+  if (!resolvedMaxSize.isFinite() || resolvedMaxSize.lte(0)) {
     return new BigNumber(0);
   }
 
   const percentBN = new BigNumber(percentValue);
   const decimals = szDecimals ?? 2;
-  return maxSize
+  return resolvedMaxSize
     .multipliedBy(percentBN)
     .dividedBy(100)
     .decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
@@ -2000,6 +2065,8 @@ export {
   getTriggerEffectivePrice,
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
+  isHyperliquidSpotStableCoin,
+  calculateSpotBalancesTotalUsd,
   getValidSpotPriceDecimals,
   formatSpotPriceToValid,
   formatSpotAssetCtx,
@@ -2059,6 +2126,8 @@ export default {
   formatChartUsdPrice,
   getSpotMarketCapValue,
   compareSpotMarketCapValues,
+  isHyperliquidSpotStableCoin,
+  calculateSpotBalancesTotalUsd,
   formatSpotAssetCtx,
   formatSpotPriceEntry,
   isSpotInstrument,

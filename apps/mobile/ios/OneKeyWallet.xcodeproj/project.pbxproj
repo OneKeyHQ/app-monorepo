@@ -284,6 +284,7 @@
 				076068C12E7EF3BA00E007B2 /* Embed Frameworks */,
 				3EDAD8685393FC102363B5F8 /* [CP] Embed Pods Frameworks */,
 				EFE2221F1F14C7E02A5D3839 /* [CP] Copy Pods Resources */,
+				DB48FE94C33F6F7A1A5D0F75 /* [CP-User] Bundle TradingView offline chart assets */,
 			);
 			buildRules = (
 			);
@@ -479,6 +480,16 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-OneKeyWallet/expo-configure-project.sh\"\n";
+		};
+		DB48FE94C33F6F7A1A5D0F75 /* [CP-User] Bundle TradingView offline chart assets */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			name = "[CP-User] Bundle TradingView offline chart assets";
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "      SRC=\"${PROJECT_DIR}/../tradingview-assets\"\n      DEST=\"${BUILT_PRODUCTS_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/tradingview-assets\"\n      if [ -d \"$SRC\" ]; then\n        rm -rf \"$DEST\"; mkdir -p \"$DEST\"; cp -R \"$SRC/.\" \"$DEST/\"\n        echo \"chart-webview: copied offline assets -> $DEST\"\n      else\n        echo \"chart-webview: no tradingview-assets (run fetch-tradingview-assets.mjs)\"\n      fi\n";
 		};
 		EA7958392B70B02A00E0382F /* Bundle React Native code and images */ = {
 			isa = PBXShellScriptBuildPhase;
