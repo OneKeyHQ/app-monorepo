@@ -209,8 +209,8 @@ function MarketTokenListBase({
   }, [rawData, showStockSubtitle]);
   const useStockMetadataColumns = useMemo(
     () =>
-      !isWatchlistMode &&
-      showStockSubtitle === 'auto' &&
+      (showStockSubtitle === 'auto' ||
+        (isWatchlistMode && showStockSubtitle !== false)) &&
       shouldUseStockMetadataColumnsForTokens(rawData),
     [isWatchlistMode, rawData, showStockSubtitle],
   );
@@ -366,7 +366,6 @@ function MarketTokenListBase({
       }
 
       if (
-        clientSort &&
         useStockMetadataColumns &&
         STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
       ) {

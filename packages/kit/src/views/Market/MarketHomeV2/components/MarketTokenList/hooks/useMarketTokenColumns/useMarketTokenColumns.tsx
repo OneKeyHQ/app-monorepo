@@ -36,7 +36,10 @@ export const useMarketTokenColumns = (
     change24hColumnTitle,
     useStockMetadataColumns,
   );
-  const mobileColumns = useColumnsMobile(showStockSubtitle);
+  const mobileColumns = useColumnsMobile(
+    showStockSubtitle,
+    useStockMetadataColumns,
+  );
 
   const media = useMedia();
 

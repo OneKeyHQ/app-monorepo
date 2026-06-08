@@ -5,6 +5,7 @@ import {
   normalizeStockMetadataValue,
   shouldShowStockSubtitleForTokens,
   shouldUseStockMetadataColumnsForTokens,
+  transformApiItemToToken,
 } from './tokenListHelpers';
 
 describe('stock metadata values', () => {
@@ -51,6 +52,34 @@ describe('stock metadata values', () => {
     expect(getStockMarketCapValue(record)).toBeUndefined();
     expect(getStockVolume24hValue(record)).toBeUndefined();
     expect(getStockPeRatioValue(record)).toBeUndefined();
+  });
+
+  test('uses stock display metrics before token list metrics', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Stock Token',
+        symbol: 'STOCK',
+        decimals: 18,
+        marketCap: '1000',
+        volume24h: '2000',
+        stock: {
+          subtitle: 'Stock Token Inc.',
+          sourceLogoUri: '',
+          marketCap: '3000',
+          assetAnalysis: {
+            volume24h: '4000',
+          },
+        },
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+      },
+    );
+
+    expect(token.marketCap).toBe(3000);
+    expect(token.turnover).toBe(4000);
   });
 });
 

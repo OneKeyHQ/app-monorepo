@@ -180,9 +180,10 @@ export function transformApiItemToToken(
       | undefined,
   );
   const turnover = safeNumber(
-    getMetricValueByTimeRange(item, timeRange, 'volume', '') as
-      | string
-      | undefined,
+    getStockVolume24hValue(item) ??
+      (getMetricValueByTimeRange(item, timeRange, 'volume', '') as
+        | string
+        | undefined),
   );
   const buyCount = safeNumber(
     getMetricValueByTimeRange(item, timeRange, 'buy', 'Count') as
@@ -202,7 +203,7 @@ export function transformApiItemToToken(
     address: item.address,
     price: safeNumber(item.price),
     change24h: priceChange,
-    marketCap: safeNumber(item.marketCap),
+    marketCap: safeNumber(getStockMarketCapValue(item) ?? item.marketCap),
     liquidity: safeNumber(item.liquidity),
     transactions,
     uniqueTraders,

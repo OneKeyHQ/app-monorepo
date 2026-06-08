@@ -65,7 +65,15 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
-import { getTokenKey } from './utils';
+import {
+  getMarketCapValue,
+  getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayVolume24h,
+  getPeRatioValue,
+  getTokenKey,
+  getVolume24hValue,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
@@ -344,6 +352,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [intl, isTokenInWatchList, watchListItems],
   );
 
+  const useStockMetadataColumns = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(favoriteTokens),
+    [favoriteTokens],
+  );
+
   // Columns for table layout (only used when user has favorites)
   const columns = useMemo(() => {
     if (tableLayout) {
@@ -398,24 +411,47 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           ),
         },
         {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
+          dataIndex: useStockMetadataColumns ? 'marketCap' : 'price',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({ id: ETranslations.global_market_cap })
+            : intl.formatMessage({ id: ETranslations.global_price }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="price"
+              formatter={useStockMetadataColumns ? 'marketCap' : 'price'}
               formatterOptions={{
                 currency: '$',
+                ...(useStockMetadataColumns ? { capAtMaxT: true } : undefined),
               }}
             >
-              {record.price ?? '-'}
+              {useStockMetadataColumns
+                ? getMarketCapValue(record, useStockMetadataColumns)
+                : (record.price ?? '-')}
             </NumberSizeableText>
           ),
         },
         {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
+          dataIndex: useStockMetadataColumns ? 'volume24h' : 'priceChange24h',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_24h_volume,
+              })
+            : intl.formatMessage({ id: ETranslations.market_change_24h }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => {
+            if (useStockMetadataColumns) {
+              return (
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{
+                    currency: '$',
+                  }}
+                >
+                  {getVolume24hValue(record, useStockMetadataColumns)}
+                </NumberSizeableText>
+              );
+            }
+
             const { changeColor, showPlusMinusSigns } =
               getTokenPriceChangeStyle({
                 priceChange: record.priceChange24h ?? 0,
@@ -433,17 +469,23 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           },
         },
         {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
+          dataIndex: useStockMetadataColumns ? 'stock' : 'volume24h',
+          title: useStockMetadataColumns
+            ? intl.formatMessage({
+                id: ETranslations.dexmarket_stock_pe_ttm,
+              })
+            : intl.formatMessage({ id: ETranslations.market_24h_turnover }),
           render: (_: unknown, record: IFavoriteTokenDisplay) => (
             <NumberSizeableText
               size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
+              formatter={useStockMetadataColumns ? 'value' : 'marketCap'}
+              formatterOptions={
+                useStockMetadataColumns ? undefined : { currency: '$' }
+              }
             >
-              {!record.volume24h ? '--' : record.volume24h}
+              {useStockMetadataColumns
+                ? getPeRatioValue(record)
+                : getVolume24hValue(record, useStockMetadataColumns)}
             </NumberSizeableText>
           ),
         },
@@ -490,9 +532,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   formatter="marketCap"
                   formatterOptions={{
                     currency: '$',
+                    ...(useStockMetadataColumns
+                      ? { capAtMaxT: true }
+                      : undefined),
                   }}
                 >
-                  {!record.volume24h ? '--' : record.volume24h}
+                  {useStockMetadataColumns
+                    ? getMarketCapValue(record, useStockMetadataColumns)
+                    : getVolume24hValue(record, useStockMetadataColumns)}
                 </NumberSizeableText>
               </YStack>
             </XStack>
@@ -503,6 +550,25 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
         render: (_: unknown, record: IFavoriteTokenDisplay) => {
+          if (useStockMetadataColumns) {
+            return (
+              <YStack alignItems="flex-end">
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="marketCap"
+                  formatterOptions={{
+                    currency: '$',
+                  }}
+                >
+                  {getVolume24hValue(record, useStockMetadataColumns)}
+                </NumberSizeableText>
+                <NumberSizeableText size="$bodyMd" formatter="value">
+                  {getPeRatioValue(record)}
+                </NumberSizeableText>
+              </YStack>
+            );
+          }
+
           const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
             priceChange: record.priceChange24h ?? 0,
           });
@@ -530,7 +596,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         },
       },
     ];
-  }, [intl, tableLayout]);
+  }, [intl, tableLayout, useStockMetadataColumns]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -650,8 +716,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               logoUrl: item.logoUrl ?? '',
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
               stock: item.stock,
             };
           })
@@ -724,8 +790,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               logoUrl: item.logoUrl ?? '',
               price: parseFloat(item.price ?? '0'),
               priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
               stock: item.stock,
             };
           })

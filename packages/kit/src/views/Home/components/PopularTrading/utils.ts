@@ -1,8 +1,16 @@
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
-import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
+import {
+  getNativeTokenInfo,
+  getStockMarketCapValue,
+  getStockPeRatioValue,
+  getStockVolume24hValue,
+  normalizeStockMetadataValue,
+} from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 import type { IFavoriteTokenDisplay } from './types';
+
+const EMPTY_MARKET_VALUE = '--';
 
 function getTokenKey(token: {
   chainId: string;
@@ -21,6 +29,60 @@ function shouldUseStockMetadataColumnsForTokens(
   items: Array<Pick<IFavoriteTokenDisplay, 'stock'>>,
 ) {
   return items.length > 0 && items.every((item) => !!item.stock);
+}
+
+function getDefaultMarketValue(value?: number) {
+  return value ? value : EMPTY_MARKET_VALUE;
+}
+
+function getVolume24hValue(
+  record: IFavoriteTokenDisplay,
+  useStockMetadataColumns?: boolean,
+) {
+  return useStockMetadataColumns
+    ? (getStockVolume24hValue(record) ??
+        getDefaultMarketValue(record.volume24h))
+    : getDefaultMarketValue(record.volume24h);
+}
+
+function getMarketCapValue(
+  record: IFavoriteTokenDisplay,
+  useStockMetadataColumns?: boolean,
+) {
+  return useStockMetadataColumns
+    ? (getStockMarketCapValue(record) ??
+        getDefaultMarketValue(record.marketCap))
+    : getDefaultMarketValue(record.marketCap);
+}
+
+function getPeRatioValue(record: IFavoriteTokenDisplay) {
+  return getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE;
+}
+
+function parseMarketValue(value?: string | number | null) {
+  const normalizedValue = normalizeStockMetadataValue(value);
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  const parsedValue = parseFloat(normalizedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : undefined;
+}
+
+function getMarketTokenDisplayMarketCap(item: IMarketTokenListItem) {
+  return (
+    parseMarketValue(item.stock?.marketCap) ??
+    parseMarketValue(item.marketCap) ??
+    0
+  );
+}
+
+function getMarketTokenDisplayVolume24h(item: IMarketTokenListItem) {
+  return (
+    parseMarketValue(item.stock?.assetAnalysis?.volume24h) ??
+    parseMarketValue(item.volume24h) ??
+    0
+  );
 }
 
 function mapMarketTokenToDisplay(
@@ -42,15 +104,21 @@ function mapMarketTokenToDisplay(
     logoUrl: item.logoUrl ?? '',
     price: parseFloat(item.price ?? '0'),
     priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-    marketCap: parseFloat(item.marketCap ?? '0'),
-    volume24h: parseFloat(item.volume24h ?? '0'),
+    marketCap: getMarketTokenDisplayMarketCap(item),
+    volume24h: getMarketTokenDisplayVolume24h(item),
     stock: item.stock,
   };
 }
 
 export {
   EMPTY_DISPLAY_TOKENS,
+  EMPTY_MARKET_VALUE,
+  getMarketCapValue,
+  getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayVolume24h,
+  getPeRatioValue,
   getTokenKey,
+  getVolume24hValue,
   mapMarketTokenToDisplay,
   shouldUseStockMetadataColumnsForTokens,
 };

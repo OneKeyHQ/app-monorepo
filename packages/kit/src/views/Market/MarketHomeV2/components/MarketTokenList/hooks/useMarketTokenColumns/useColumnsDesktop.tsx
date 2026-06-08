@@ -167,51 +167,58 @@ export const useColumnsDesktop = (
         </XStack>
       ),
     },
-    {
-      title: intl.formatMessage({ id: ETranslations.global_price }),
-      dataIndex: 'price',
-      columnProps: { flex: 1 },
-      render: (text: string) => {
-        return (
-          <NumberSizeableText
-            size="$bodyMd"
-            formatter={BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'}
-            formatterOptions={{ currency: '$', capAtMaxT: true }}
-          >
-            {text}
-          </NumberSizeableText>
-        );
-      },
-      renderSkeleton: () => <Skeleton width={70} height={16} />,
-    },
-    {
-      title:
-        change24hColumnTitle ??
-        `${intl.formatMessage({
-          id: ETranslations.dexmarket_token_change,
-        })}(%)`,
-      dataIndex: 'change24h',
-      columnProps: { flex: 1 },
-      render: (text: number) => {
-        const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-          priceChange: text,
-        });
-        return (
-          <NumberSizeableText
-            size="$bodyMd"
-            formatter="priceChange"
-            color={changeColor}
-            formatterOptions={{
-              showPlusMinusSigns,
-            }}
-          >
-            {text}
-          </NumberSizeableText>
-        );
-      },
-      renderSkeleton: () => <Skeleton width={60} height={16} />,
-    },
-    isWatchlistMode
+    useStockMetadataColumns
+      ? undefined
+      : {
+          title: intl.formatMessage({ id: ETranslations.global_price }),
+          dataIndex: 'price',
+          columnProps: { flex: 1 },
+          render: (text: string) => {
+            return (
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter={
+                  BigNumber(text).gt(1_000_000) ? 'marketCap' : 'price'
+                }
+                formatterOptions={{ currency: '$', capAtMaxT: true }}
+              >
+                {text}
+              </NumberSizeableText>
+            );
+          },
+          renderSkeleton: () => <Skeleton width={70} height={16} />,
+        },
+    useStockMetadataColumns
+      ? undefined
+      : {
+          title:
+            change24hColumnTitle ??
+            `${intl.formatMessage({
+              id: ETranslations.dexmarket_token_change,
+            })}(%)`,
+          dataIndex: 'change24h',
+          columnProps: { flex: 1 },
+          render: (text: number) => {
+            const { changeColor, showPlusMinusSigns } =
+              getTokenPriceChangeStyle({
+                priceChange: text,
+              });
+            return (
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="priceChange"
+                color={changeColor}
+                formatterOptions={{
+                  showPlusMinusSigns,
+                }}
+              >
+                {text}
+              </NumberSizeableText>
+            );
+          },
+          renderSkeleton: () => <Skeleton width={60} height={16} />,
+        },
+    isWatchlistMode && !useStockMetadataColumns
       ? undefined
       : {
           title: intl.formatMessage({ id: ETranslations.global_market_cap }),
@@ -234,7 +241,7 @@ export const useColumnsDesktop = (
           },
           renderSkeleton: () => <Skeleton width={80} height={16} />,
         },
-    isWatchlistMode
+    isWatchlistMode && !useStockMetadataColumns
       ? undefined
       : {
           title: useStockMetadataColumns

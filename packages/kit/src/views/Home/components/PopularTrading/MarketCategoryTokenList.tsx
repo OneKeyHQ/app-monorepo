@@ -16,44 +16,20 @@ import type { ITableProps } from '@onekeyhq/components';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
-import {
-  getStockMarketCapValue,
-  getStockPeRatioValue,
-  getStockVolume24hValue,
-} from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
-import { shouldUseStockMetadataColumnsForTokens } from './utils';
+import {
+  getMarketCapValue,
+  getPeRatioValue,
+  getVolume24hValue,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
-
-const EMPTY_MARKET_VALUE = '--';
-
-function getDefaultMarketValue(value?: number) {
-  return value ? value : EMPTY_MARKET_VALUE;
-}
-
-function getVolume24hValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? (getStockVolume24hValue(record) ?? EMPTY_MARKET_VALUE)
-    : getDefaultMarketValue(record.volume24h);
-}
-
-function getMarketCapValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? (getStockMarketCapValue(record) ?? EMPTY_MARKET_VALUE)
-    : getDefaultMarketValue(record.marketCap);
-}
 
 type IMarketCategoryTokenListProps = {
   tokens: IFavoriteTokenDisplay[];
@@ -209,7 +185,7 @@ function MarketCategoryTokenList({
               }
             >
               {useStockMetadataColumns
-                ? (getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE)
+                ? getPeRatioValue(record)
                 : getVolume24hValue(record, useStockMetadataColumns)}
             </NumberSizeableText>
           ),
@@ -290,7 +266,7 @@ function MarketCategoryTokenList({
                   {getVolume24hValue(record, useStockMetadataColumns)}
                 </NumberSizeableText>
                 <NumberSizeableText size="$bodyMd" formatter="value">
-                  {getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE}
+                  {getPeRatioValue(record)}
                 </NumberSizeableText>
               </YStack>
             );
