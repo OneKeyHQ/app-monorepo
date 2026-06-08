@@ -406,6 +406,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
     tokenAddress: string;
+    networkId?: string;
+    isSubscriptionAmbiguous?: boolean;
     messageType?: string;
     data: any;
     originalData?: any;
