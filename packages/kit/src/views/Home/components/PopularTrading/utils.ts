@@ -6,6 +6,7 @@ import {
   getStockPeRatioValue,
   getStockVolume24hValue,
   normalizeStockMetadataValue,
+  shouldUseStockMetadataColumnsForTokens,
 } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 import type { IFavoriteTokenDisplay } from './types';
@@ -24,12 +25,6 @@ function getTokenKey(token: {
 }
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
-
-function shouldUseStockMetadataColumnsForTokens(
-  items: Array<Pick<IFavoriteTokenDisplay, 'stock'>>,
-) {
-  return items.length > 0 && items.every((item) => !!item.stock);
-}
 
 function getDefaultMarketValue(value?: number) {
   return value ? value : EMPTY_MARKET_VALUE;
