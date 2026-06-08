@@ -61,6 +61,7 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
+  spotTabNames: string[];
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -71,16 +72,13 @@ const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
-  spotTabName: string;
   perpsTabName: string;
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
-const MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT = 120;
 
 function MarketHomeTabBar({
   watchlistTabName,
-  spotTabName,
   perpsTabName,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
@@ -88,7 +86,7 @@ function MarketHomeTabBar({
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
   const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const showSpotSubHeader = currentFocusedTabName === spotTabName;
+  const showSpotSubHeader = ctx.spotTabNames.includes(currentFocusedTabName);
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
   const fixedSecondaryHeaderHeight = useMemo(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -99,12 +97,8 @@ function MarketHomeTabBar({
       return 0;
     }
 
-    if (showSpotSubHeader) {
-      return MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT;
-    }
-
     return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, [ctx.isWatchlistEmpty, showSpotSubHeader, showWatchlistSubHeader]);
+  }, [ctx.isWatchlistEmpty, showWatchlistSubHeader]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -145,7 +139,12 @@ function MarketHomeTabBar({
   const renderSpotSubHeaderContent = useCallback(
     () => (
       <>
-        <MarketFilterBarSmall {...ctx.filterBarProps} />
+        <MarketFilterBarSmall
+          selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+          timeRange={ctx.filterBarProps.timeRange}
+          onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+          onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+        />
         <MarketListColumnHeader />
       </>
     ),
@@ -238,12 +237,21 @@ function MobileLayoutComponent({
   const [chartPredicted] = useChartPredictedSymbolAtom();
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
     selectedTabName,
-  } = useMarketTabsLogic(onTabChange);
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
+
+  const spotTabNames = useMemo(
+    () => spotTabItems.map((item) => item.tabName),
+    [spotTabItems],
+  );
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -340,12 +348,11 @@ function MobileLayoutComponent({
           {...tabBarProps}
           onTabPress={handleTabPress}
           watchlistTabName={watchlistTabName}
-          spotTabName={spotTabName}
           perpsTabName={perpsTabName}
         />
       );
     },
-    [perpsTabName, spotTabName, watchlistTabName],
+    [perpsTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -363,6 +370,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
+      spotTabNames,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -374,11 +382,41 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
+      spotTabNames,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
     ],
   );
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <MobileMarketWatchlistFlatList
+        selectedFilter={watchlistFilter}
+        listContainerProps={listContainerProps}
+      />
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => (
+      <Tabs.Tab key={item.categoryId} name={item.tabName}>
+        <MobileMarketTokenFlatList
+          networkId={selectedNetworkId}
+          selectedCategory={item.categoryId}
+          timeRange={filterBarProps.timeRange}
+          listContainerProps={listContainerProps}
+        />
+      </Tabs.Tab>
+    )),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
@@ -395,28 +433,7 @@ function MobileLayoutComponent({
         }
         {...containerProps}
       >
-        <Tabs.Tab name={watchlistTabName}>
-          <MobileMarketWatchlistFlatList
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name={spotTabName}>
-          <MobileMarketTokenFlatList
-            networkId={selectedNetworkId}
-            selectedCategory={filterBarProps.selectedCategory}
-            timeRange={filterBarProps.timeRange}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        {showPerpsTab ? (
-          <Tabs.Tab name={perpsTabName}>
-            <MobileMarketPerpsFlatList
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>
-        ) : null}
+        {tabElements}
       </Tabs.Container>
       {/* Boot + pre-position the shared unified chart WebView while the user
           browses the list, so opening a token is instant. Hidden + offscreen. */}

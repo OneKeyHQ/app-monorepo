@@ -6,7 +6,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
@@ -56,12 +55,17 @@ export function DesktopLayout({
 }: IDesktopLayoutProps) {
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    isSpotTabName,
     selectedTabName,
-  } = useMarketTabsLogic(onTabChange);
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
 
   const isFocused = useIsFirstFocus();
 
@@ -137,8 +141,8 @@ export function DesktopLayout({
                 containerStyle={{ position: 'relative' as any }}
               />
             </XStack>
-            {/* Right side controls - only visible on Spot tab */}
-            {currentActiveTabName === spotTabName ? (
+            {/* Right side controls - only visible on spot category tabs */}
+            {isSpotTabName(currentActiveTabName) ? (
               <XStack gap="$3" alignItems="center" pr="$5">
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
@@ -155,7 +159,7 @@ export function DesktopLayout({
         </YStack>
       );
     },
-    [portalRefCallback, spotTabName],
+    [isSpotTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
@@ -176,12 +180,12 @@ export function DesktopLayout({
     return { paddingBottom: 0 };
   }, []);
 
-  const hiddenSpotDesktopColumns = useMemo(
-    () =>
-      shouldHideSpotExtendedStats(filterBarProps.selectedCategory)
+  const getHiddenSpotDesktopColumns = useCallback(
+    (categoryId: string) =>
+      shouldHideSpotExtendedStats(categoryId)
         ? COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS
         : undefined,
-    [filterBarProps.selectedCategory],
+    [],
   );
 
   const stickyHeaderCtx = useMemo(
@@ -192,6 +196,54 @@ export function DesktopLayout({
   if (!isFocused) {
     return null;
   }
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <YStack px="$4" flex={1}>
+        {hasActivated(watchlistTabName) ? (
+          <MarketWatchlistTokenList
+            tabIntegrated
+            tabName={watchlistTabName}
+            listContainerProps={listContainerProps}
+          />
+        ) : null}
+      </YStack>
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => (
+      <Tabs.Tab key={item.categoryId} name={item.tabName}>
+        <YStack px="$4" flex={1}>
+          {hasActivated(item.tabName) ? (
+            <MarketNormalTokenList
+              networkId={selectedNetworkId}
+              selectedCategory={item.categoryId}
+              timeRange={filterBarProps.timeRange}
+              tabIntegrated
+              tabName={item.tabName}
+              listContainerProps={listContainerProps}
+              hiddenDesktopColumns={getHiddenSpotDesktopColumns(
+                item.categoryId,
+              )}
+            />
+          ) : null}
+        </YStack>
+      </Tabs.Tab>
+    )),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <YStack px="$4" flex={1}>
+              {hasActivated(perpsTabName) ? (
+                <MarketPerpsTokenList
+                  tabIntegrated
+                  tabName={perpsTabName}
+                  listContainerProps={listContainerProps}
+                />
+              ) : null}
+            </YStack>
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
@@ -204,46 +256,7 @@ export function DesktopLayout({
           onTabChange={onTabChangeHandler}
           {...containerProps}
         >
-          <Tabs.Tab name={watchlistTabName}>
-            <YStack px="$4" flex={1}>
-              {hasActivated(watchlistTabName) ? (
-                <MarketWatchlistTokenList
-                  tabIntegrated
-                  tabName={watchlistTabName}
-                  listContainerProps={listContainerProps}
-                />
-              ) : null}
-            </YStack>
-          </Tabs.Tab>
-          <Tabs.Tab name={spotTabName}>
-            <YStack px="$4" flex={1}>
-              {hasActivated(spotTabName) ? (
-                <MarketNormalTokenList
-                  networkId={selectedNetworkId}
-                  selectedCategory={filterBarProps.selectedCategory}
-                  timeRange={filterBarProps.timeRange}
-                  tabIntegrated
-                  tabName={spotTabName}
-                  listContainerProps={listContainerProps}
-                  toolbar={<MarketFilterBar {...filterBarProps} />}
-                  hiddenDesktopColumns={hiddenSpotDesktopColumns}
-                />
-              ) : null}
-            </YStack>
-          </Tabs.Tab>
-          {showPerpsTab ? (
-            <Tabs.Tab name={perpsTabName}>
-              <YStack px="$4" flex={1}>
-                {hasActivated(perpsTabName) ? (
-                  <MarketPerpsTokenList
-                    tabIntegrated
-                    tabName={perpsTabName}
-                    listContainerProps={listContainerProps}
-                  />
-                ) : null}
-              </YStack>
-            </Tabs.Tab>
-          ) : null}
+          {tabElements}
         </Tabs.Container>
       </YStack>
     </DesktopStickyHeaderContext.Provider>
