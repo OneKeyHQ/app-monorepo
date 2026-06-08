@@ -218,6 +218,7 @@ export abstract class CloudSyncFlowManagerBase<
     dataTime,
     allowHistoricalTime,
     existingDataTime,
+    preserveUndefinedDataTime,
     syncCredential,
     isDeleted,
   }: {
@@ -225,6 +226,7 @@ export abstract class CloudSyncFlowManagerBase<
     dataTime: number | undefined;
     allowHistoricalTime?: boolean;
     existingDataTime?: number;
+    preserveUndefinedDataTime?: boolean;
     syncCredential: ICloudSyncCredential | undefined;
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -239,12 +241,16 @@ export abstract class CloudSyncFlowManagerBase<
           callerName: 'buildSyncItem',
         });
       const finalDataTime =
-        await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime({
-          syncItemKey: key,
-          existingDataTime,
-          explicitHistoricalTime: dataTime,
-          allowHistoricalTime,
-        });
+        preserveUndefinedDataTime && dataTime === undefined
+          ? undefined
+          : await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime(
+              {
+                syncItemKey: key,
+                existingDataTime,
+                explicitHistoricalTime: dataTime,
+                allowHistoricalTime,
+              },
+            );
       const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
         key,
         rawDataJson: {
@@ -834,6 +840,7 @@ export abstract class CloudSyncFlowManagerBase<
           const item = await this.buildSyncItem({
             target,
             dataTime: initDataTime,
+            preserveUndefinedDataTime: true,
             syncCredential,
           });
           return item;

@@ -100,6 +100,8 @@ class SystemTimeUtils {
 
   private _lastServerTimeIsReal = false;
 
+  private _lastServerTimeCanBeFallback = false;
+
   private _refreshServerTimePromise: Promise<boolean> | undefined;
 
   get lastServerTime(): number | undefined {
@@ -120,9 +122,11 @@ class SystemTimeUtils {
       this._serverTimeEstimateBase = undefined;
       this._lastServerTimePerfBase = undefined;
       this._lastServerTimeIsReal = false;
+      this._lastServerTimeCanBeFallback = false;
       return;
     }
     this._lastServerTime = value;
+    this._lastServerTimeCanBeFallback = true;
     if (updateEstimateBaseline) {
       this._serverTimeEstimateBase = value;
       this._lastServerTimePerfBase = getMonotonicTimeNow();
@@ -304,7 +308,7 @@ class SystemTimeUtils {
     }
 
     if (
-      this._lastServerTimeIsReal &&
+      this._lastServerTimeCanBeFallback &&
       this.isTimeValid({ time: this.lastServerTime })
     ) {
       return {

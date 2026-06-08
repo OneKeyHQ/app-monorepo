@@ -14,6 +14,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils, {
+  ECloudSyncDataTimeSource,
   ELocalSystemTimeStatus,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -97,7 +98,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
     }
     const correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
-    return correctedNow.time;
+    if (
+      correctedNow.source === ECloudSyncDataTimeSource.Estimated ||
+      correctedNow.source === ECloudSyncDataTimeSource.TrustedLocal
+    ) {
+      return correctedNow.time;
+    }
+    return Date.now();
   }
 
   async getKeylessSyncAuth<T extends Record<string, unknown>>({

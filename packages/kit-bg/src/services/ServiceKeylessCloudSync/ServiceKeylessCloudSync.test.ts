@@ -159,4 +159,52 @@ describe('ServiceKeylessCloudSync', () => {
       }),
     );
   });
+
+  test('keyless signature header falls back to local now for stale corrected time', async () => {
+    const appBuildTimestamp = 1_747_527_766_656;
+    const localTimestamp = 1_800_000_000_000;
+    jest.spyOn(Date, 'now').mockReturnValue(localTimestamp);
+    jest.spyOn(systemTimeUtils, 'getCorrectedCloudSyncNow').mockReturnValue({
+      time: appBuildTimestamp,
+      source: ECloudSyncDataTimeSource.AppBuild,
+    });
+    jest
+      .spyOn(systemTimeUtils, 'hasFreshServerTimeInCurrentProcess')
+      .mockReturnValue(false);
+    const ensureFreshServerTime = jest
+      .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+      .mockResolvedValue(false);
+    const buildKeylessSignatureHeader = jest
+      .spyOn(keylessCloudSyncUtils, 'buildKeylessSignatureHeader')
+      .mockReturnValue('signature-header');
+
+    const service = new ServiceKeylessCloudSync({
+      backgroundApi: {
+        servicePrimeCloudSync: {
+          getSyncCredentialSafe: jest.fn(async () => ({
+            keylessCredential: {
+              keylessWalletId: 'keyless-wallet-id',
+              signingPrivateKey: 'signing-private-key',
+              signingPublicKey: 'signing-public-key',
+              encryptionKey: 'encryption-key',
+              pwdHash: 'pwd-hash',
+            },
+          })),
+        },
+      },
+    });
+
+    await service.getKeylessSyncAuth({
+      postData: {
+        foo: 'bar',
+      },
+    });
+
+    expect(ensureFreshServerTime).toHaveBeenCalledTimes(1);
+    expect(buildKeylessSignatureHeader).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timestamp: localTimestamp,
+      }),
+    );
+  });
 });
