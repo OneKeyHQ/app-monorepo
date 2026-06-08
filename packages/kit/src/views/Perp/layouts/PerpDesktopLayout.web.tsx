@@ -67,12 +67,10 @@ function PerpDesktopLayout() {
 
   const tradingPanel = useMemo(() => {
     return (
-      <YStack height={layout.marketContentHeight} overflow="hidden">
-        <Stack flex={1} style={{ overflowY: 'auto' }}>
-          <YStack pb="$4">
-            <PerpTradingPanel />
-          </YStack>
-        </Stack>
+      <YStack minHeight={layout.marketContentHeight}>
+        <YStack pb="$4">
+          <PerpTradingPanel />
+        </YStack>
       </YStack>
     );
   }, [layout.marketContentHeight]);
