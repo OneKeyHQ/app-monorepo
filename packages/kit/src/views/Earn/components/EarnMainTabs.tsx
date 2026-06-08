@@ -157,6 +157,9 @@ const EarnMainTabsComponent = ({
       const tabKey = tabKeyByName[tabName];
       if (tabKey) {
         if (platformEnv.isNativeIOS) {
+          rootNavigationRef.current?.setParams?.({
+            earnTab: tabKey,
+          });
           return;
         }
 

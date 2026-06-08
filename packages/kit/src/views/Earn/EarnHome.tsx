@@ -310,9 +310,7 @@ function BasicEarnHome({
 
   const navigation = useAppNavigation();
 
-  const defaultTab =
-    overrideDefaultTab ||
-    (platformEnv.isNativeIOS ? undefined : route.params?.tab);
+  const defaultTab = overrideDefaultTab || route.params?.tab;
   const defaultMode = route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
   const isBorrowMode = defaultMode === 'borrow';

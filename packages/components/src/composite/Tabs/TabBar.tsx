@@ -44,6 +44,7 @@ const PILL_SCROLL_CONTENT_STYLE = {
 const DIRECT_TAB_PRESS_ANIMATION_DURATION = 220;
 const DIRECT_TAB_PRESS_NATIVE_SYNC_TIMEOUT = 900;
 const DIRECT_TAB_PRESS_SETTLE_TIMEOUT = 450;
+const DIRECT_TAB_PRESS_MIN_INTERVAL = 600;
 
 export type ITabBarVariant = 'default' | 'pill';
 
@@ -649,6 +650,7 @@ export function TabBar({
     typeof setTimeout
   > | null>(null);
   const directTabPressResyncCountRef = useRef(0);
+  const directTabPressLastAcceptedAtRef = useRef(0);
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const [itemsLayout, setItemsLayout] = useState<IItemLayout[]>([]);
   const itemsLayoutRef = useRef<Map<number, IItemLayout>>(new Map());
@@ -810,6 +812,18 @@ export function TabBar({
   );
 
   const handleTabPress = useThrottledCallback((name: string) => {
+    const now = Date.now();
+    if (
+      useDirectTabPressAnimation &&
+      now - directTabPressLastAcceptedAtRef.current <
+        DIRECT_TAB_PRESS_MIN_INTERVAL
+    ) {
+      return;
+    }
+    if (useDirectTabPressAnimation) {
+      directTabPressLastAcceptedAtRef.current = now;
+    }
+
     clearDirectTabPressTimer();
     clearDirectTabPressSettleTimer();
     directTabPressResyncCountRef.current = 0;
@@ -834,7 +848,7 @@ export function TabBar({
     if (shouldAnimateDirectPress) {
       directTabPressResyncCountRef.current = 0;
       directTabPressTargetIndex.value = targetIndex;
-      directTabPressStartedAt.value = Date.now();
+      directTabPressStartedAt.value = now;
       directTabPressReachedAt.value = 0;
       displayIndexDecimal.value = indexDecimal.value;
       displayIndexDecimal.value = withTiming(targetIndex, {
@@ -852,7 +866,7 @@ export function TabBar({
     } else if (useDirectTabPressAnimation) {
       resetDirectTabPressState();
     }
-    tabClickCount = Date.now();
+    tabClickCount = now;
     setCurrentTab(name);
     scrollToTab(name);
     onTabPress(name);
