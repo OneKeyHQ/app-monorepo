@@ -22,6 +22,7 @@ export const useMarketTokenColumns = (
   showStockSubtitle?: boolean,
   hiddenDesktopColumns?: readonly string[],
   change24hColumnTitle?: string,
+  useStockMetadataColumns?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const desktopColumns = useColumnsDesktop(
     networkId,
@@ -33,8 +34,12 @@ export const useMarketTokenColumns = (
     showStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
+    useStockMetadataColumns,
   );
-  const mobileColumns = useColumnsMobile(showStockSubtitle);
+  const mobileColumns = useColumnsMobile(
+    showStockSubtitle,
+    useStockMetadataColumns,
+  );
 
   const media = useMedia();
 
