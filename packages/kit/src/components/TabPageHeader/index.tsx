@@ -128,8 +128,10 @@ function BaseDesktopTabPageHeader({
             <HistoryIconButton />
           </XStack>
         ) : null}
-        <HeaderUpdateButton />
-        <HeaderNotificationIconButton testID="header-right-notification" />
+        <XStack alignItems="center">
+          <HeaderUpdateButton />
+          <HeaderNotificationIconButton testID="header-right-notification" />
+        </XStack>
       </>
     );
   }, [customHeaderRightItems, tabRoute]);
