@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -49,6 +49,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
@@ -103,6 +104,12 @@ function PerpContent() {
       };
     }, []),
   );
+
+  useEffect(() => {
+    if (platformEnv.isNative) {
+      void preloadPerpsMobileTokenSelectorPage();
+    }
+  }, []);
 
   const fallbackTabPageHeight = platformEnv.isNative
     ? resolvedSafeAreaTop + PERP_NATIVE_HEADER_ROW_HEIGHT

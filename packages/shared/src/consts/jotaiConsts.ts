@@ -15,8 +15,11 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   perpsActivePositionAtom: 'ctx:perpsActivePositionAtom',
   perpsActiveOpenOrdersAtom: 'ctx:perpsActiveOpenOrdersAtom',
   swapTipsStateAtom: 'ctx:swapTipsStateAtom',
+  swapTypeSwitchAtom: 'ctx:swapTypeSwitchAtom',
   swapSelectFromTokenAtom: 'ctx:swapSelectFromTokenAtom',
   swapSelectToTokenAtom: 'ctx:swapSelectToTokenAtom',
+  swapSelectedTokensColdStartContextAtom:
+    'ctx:swapSelectedTokensColdStartContextAtom',
   swapProPositionsCacheAtom: 'ctx:swapProPositionsCacheAtom',
 } as const;
 
