@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Margin Diperbarui",
   "perp_twap_active__title": "Aktif",
   "perp_twap_avg_filled_price__title": "Harga eksekusi rata-rata",
+  "perp_twap_child_order_size__title": "Ukuran per order anak",
   "perp_twap_duration__title": "Durasi",
   "perp_twap_duration_helper__desc": "TWAP mengirimkan irisan pasar selama durasi yang dipilih. Hyperliquid mengontrol waktu irisan dan mungkin menolak irisan yang sangat kecil.",
   "perp_twap_duration_range__msg": "Durasi TWAP harus {min}-{max} menit",

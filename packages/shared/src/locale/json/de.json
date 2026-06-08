@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Marge aktualisiert",
   "perp_twap_active__title": "Aktiv",
   "perp_twap_avg_filled_price__title": "Durchschn. Ausführungspreis",
+  "perp_twap_child_order_size__title": "Groesse pro Teilorder",
   "perp_twap_duration__title": "Dauer",
   "perp_twap_duration_helper__desc": "TWAP sendet Markt-Slices über die gewählte Dauer. Hyperliquid steuert die Slice-Timing und kann sehr kleine Slices ablehnen.",
   "perp_twap_duration_range__msg": "TWAP-Dauer muss {min}-{max} Minuten betragen",

@@ -6,9 +6,11 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Button,
   DashText,
+  Divider,
   type IDebugRenderTrackerProps,
   Icon,
   Illustration,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -50,7 +52,7 @@ import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import {
   calcCellAlign,
   getColumnStyle,
-  getPerpFillDirectionType,
+  getFillDirectionDisplayInfo,
   getTwapAssetDisplayName,
 } from '../utils';
 
@@ -288,25 +290,7 @@ function sortTwapSliceFills(fills: ITwapSliceFill[]) {
 }
 
 function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
-  let color = fill.side === 'B' ? '$green11' : '$red11';
-  const directionType = getPerpFillDirectionType(fill.dir);
-  let text = fill.dir;
-
-  if (directionType === 'openLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_long });
-  } else if (directionType === 'openShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_short });
-  } else if (directionType === 'closeLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
-  } else if (directionType === 'closeShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
-  }
-
-  if (fill.side === 'A') {
-    color = '$red11';
-  }
-
-  return { text, color };
+  return getFillDirectionDisplayInfo({ fill, intl });
 }
 
 function TwapEmptyState({
@@ -319,17 +303,50 @@ function TwapEmptyState({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const isMobile = !gtMd;
-  const buttonHeight = isMobile ? 32 : 28;
   const handleGuidePress = useCallback(() => {
     openGuideUrl(buildHelpUrl('articles/13988742'));
   }, []);
+
+  if (isMobile) {
+    return (
+      <YStack flex={1} alignItems="center" p="$6">
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({ id: titleId })}
+        </SizableText>
+        {description ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            mt="$2"
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        <SizableText
+          testID={PerpTestIDs.TwapEmptyGuideButton}
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          textDecorationLine="underline"
+          mt="$2"
+          onPress={handleGuidePress}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </YStack>
+    );
+  }
+
   const guideButton = (
     <Button
       testID={PerpTestIDs.TwapEmptyGuideButton}
       width={180}
       borderRadius="$full"
       size="small"
-      h={buttonHeight}
+      h={28}
       px="$3"
       variant="secondary"
       onPress={handleGuidePress}
@@ -619,9 +636,9 @@ function TwapHistoryRow({
         <XStack
           px="$3"
           pt="$3"
-          pb="$2"
+          pb="$1"
           justifyContent="space-between"
-          alignItems="flex-start"
+          alignItems="center"
           width="100%"
           gap="$3"
         >
@@ -640,14 +657,17 @@ function TwapHistoryRow({
               </SizableText>
             </XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_twap_order__title,
-              })}{' '}
-              · {creationTime.inline}
+              {creationTime.inline}
             </SizableText>
           </YStack>
-          <YStack alignItems="flex-end" gap="$1" maxWidth="42%">
-            <SizableText size="$bodySm" color="$textSubdued">
+          <YStack
+            alignItems="flex-end"
+            justifyContent="center"
+            gap="$1"
+            minWidth={72}
+            maxWidth="42%"
+          >
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl.formatMessage({ id: ETranslations.global_status })}
             </SizableText>
             <SizableText
@@ -663,7 +683,8 @@ function TwapHistoryRow({
         </XStack>
         <YStack
           px="$3"
-          py="$3"
+          pt="$2.5"
+          pb="$3"
           width="100%"
           gap="$2"
           borderTopWidth="$px"
@@ -674,14 +695,12 @@ function TwapHistoryRow({
               id: ETranslations.perp_position_position_size,
             })}
             value={baseInfo.sizeWithSymbol}
-            valueColor={sideInfo.color}
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
               id: ETranslations.perp_executed_size__title,
             })}
             value={baseInfo.executedSizeWithSymbol}
-            valueColor={sideInfo.color}
           />
           <MobileTwapHistoryInfoRow
             label={intl.formatMessage({
@@ -821,6 +840,7 @@ function TwapFillRow({
   onHoverChange,
   spotDisplayMap,
   builderFeeRate,
+  isMobile,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -831,6 +851,7 @@ function TwapFillRow({
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
   builderFeeRate?: number;
+  isMobile?: boolean;
 }) {
   const intl = useIntl();
   const { fill } = record;
@@ -898,6 +919,111 @@ function TwapFillRow({
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+  if (isMobile) {
+    return (
+      <ListItem
+        mx="$5"
+        my="$2"
+        p="$0"
+        backgroundColor="$bgSubdued"
+        flexDirection="column"
+        alignItems="flex-start"
+        borderRadius="$3"
+      >
+        <XStack
+          px="$3"
+          pt="$3"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <YStack gap="$1">
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText size="$bodySm" color={directionInfo.color}>
+                {directionInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {dateInfo.date} {dateInfo.time}
+            </SizableText>
+          </YStack>
+          <YStack gap="$1" alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_close_pnl,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color={fillInfo.closePnlColor}>
+              {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <Divider width="100%" borderColor="$borderSubdued" />
+        <XStack
+          px="$3"
+          pt="$1"
+          pb="$3"
+          width="100%"
+          alignItems="flex-start"
+          justifyContent="space-around"
+        >
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_trade_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+            </SizableText>
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashThickness={0.3}
+                >
+                  {fillInfo.feeFormatted}
+                </DashText>
+              }
+              renderContent={() => (
+                <YStack px="$5" pb="$4">
+                  {feeTooltipContent}
+                </YStack>
+              )}
+            />
+          </YStack>
+        </XStack>
+      </ListItem>
+    );
+  }
 
   return (
     <XStack
@@ -1434,9 +1560,10 @@ function PerpTwapList({
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
         builderFeeRate={builderFeeRate}
+        isMobile={isMobile}
       />
     ),
-    [builderFeeRate, fillColumns, fillMinWidth, spotDisplayMap],
+    [builderFeeRate, fillColumns, fillMinWidth, isMobile, spotDisplayMap],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
@@ -1467,7 +1594,7 @@ function PerpTwapList({
           tabs={twapOrderSubTabs}
           activeTab={activeTab}
           onChange={setActiveTab}
-          variant="underline"
+          variant="pill"
         />
       ) : null}
       {activeTab === 'active' ? (

@@ -3291,6 +3291,7 @@ export enum ETranslations {
   perp_trading_adjust_margin_updated = 'perp_trading_adjust_margin_updated',
   perp_twap_active__title = 'perp_twap_active__title',
   perp_twap_avg_filled_price__title = 'perp_twap_avg_filled_price__title',
+  perp_twap_child_order_size__title = 'perp_twap_child_order_size__title',
   perp_twap_duration__title = 'perp_twap_duration__title',
   perp_twap_duration_helper__desc = 'perp_twap_duration_helper__desc',
   perp_twap_duration_range__msg = 'perp_twap_duration_range__msg',

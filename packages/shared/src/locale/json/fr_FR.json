@@ -3286,6 +3286,7 @@
   "perp_trading_adjust_margin_updated": "Marge mise à jour",
   "perp_twap_active__title": "Actif",
   "perp_twap_avg_filled_price__title": "Prix moyen exécuté",
+  "perp_twap_child_order_size__title": "Taille par sous-ordre",
   "perp_twap_duration__title": "Durée",
   "perp_twap_duration_helper__desc": "TWAP soumet des fragments de marché sur la durée sélectionnée. Hyperliquid contrôle le timing des fragments et peut rejeter les fragments très petits.",
   "perp_twap_duration_range__msg": "La durée de TWAP doit être de {min}-{max} minutes",
