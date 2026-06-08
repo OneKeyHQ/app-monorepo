@@ -19,9 +19,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PriceChangeBadge } from '../../../PriceChangeBadge';
 import { TokenIdentityItem } from '../../components/TokenIdentityItem';
 import { type IMarketToken } from '../../MarketTokenData';
+import {
+  getStockPeRatioValue,
+  getStockVolume24hValue,
+} from '../../utils/tokenListHelpers';
+
+const EMPTY_MARKET_VALUE = '--';
+
+function getDefaultMarketValue(text: number) {
+  return text === 0 ? EMPTY_MARKET_VALUE : text;
+}
 
 export const useColumnsMobile = (
   showStockSubtitle?: boolean,
+  useStockMetadataColumns?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const intl = useIntl();
 
@@ -31,11 +42,17 @@ export const useColumnsMobile = (
       renderTitle: (sortIcon) => (
         <XStack alignItems="center" py="$2" paddingLeft="$5">
           <SizableText color="$textSubdued" size="$bodySmMedium">
-            {`${intl.formatMessage({
-              id: ETranslations.global_name,
-            })} / ${intl.formatMessage({
-              id: ETranslations.dexmarket_turnover,
-            })}`}
+            {useStockMetadataColumns
+              ? `${intl.formatMessage({
+                  id: ETranslations.global_name,
+                })} / ${intl.formatMessage({
+                  id: ETranslations.global_market_cap,
+                })}`
+              : `${intl.formatMessage({
+                  id: ETranslations.global_name,
+                })} / ${intl.formatMessage({
+                  id: ETranslations.dexmarket_turnover,
+                })}`}
           </SizableText>
           {sortIcon}
         </XStack>
@@ -103,7 +120,9 @@ export const useColumnsMobile = (
               symbol={record.symbol}
               address={record.address}
               showVolume
-              volume={record.turnover}
+              volume={
+                useStockMetadataColumns ? record.marketCap : record.turnover
+              }
               communityRecognized={record.communityRecognized}
               stock={record.stock}
               showStockSubtitle={showStockSubtitle}
@@ -140,13 +159,21 @@ export const useColumnsMobile = (
             flexShrink={1}
             textAlign="right"
           >
-            {intl.formatMessage({ id: ETranslations.global_price })}
+            {useStockMetadataColumns
+              ? intl.formatMessage({
+                  id: ETranslations.dexmarket_stock_24h_volume,
+                })
+              : intl.formatMessage({ id: ETranslations.global_price })}
           </SizableText>
           <XStack alignItems="center" justifyContent="center" width="$20">
             <SizableText color="$textSubdued" size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_token_change,
-              })}
+              {useStockMetadataColumns
+                ? intl.formatMessage({
+                    id: ETranslations.dexmarket_stock_pe_ttm,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.dexmarket_token_change,
+                  })}
             </SizableText>
             {sortIcon}
           </XStack>
@@ -155,23 +182,53 @@ export const useColumnsMobile = (
       dataIndex: 'change24h',
       columnWidth: '50%',
       align: 'right',
-      render: (_, record: IMarketToken) => (
-        <XStack justifyContent="flex-end" alignItems="center" gap="$2" mr="$5">
-          <NumberSizeableText
-            userSelect="none"
-            flexShrink={1}
-            numberOfLines={1}
-            size="$bodyLgMedium"
-            formatter="price"
-            formatterOptions={{
-              currency: '$',
-            }}
+      render: (_, record: IMarketToken) => {
+        if (useStockMetadataColumns) {
+          return (
+            <YStack alignItems="flex-end" mr="$5">
+              <NumberSizeableText
+                userSelect="none"
+                flexShrink={1}
+                numberOfLines={1}
+                size="$bodyLgMedium"
+                formatter="marketCap"
+                formatterOptions={{
+                  currency: '$',
+                }}
+              >
+                {getStockVolume24hValue(record) ??
+                  getDefaultMarketValue(record.turnover)}
+              </NumberSizeableText>
+              <NumberSizeableText size="$bodyMd" formatter="value">
+                {getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE}
+              </NumberSizeableText>
+            </YStack>
+          );
+        }
+
+        return (
+          <XStack
+            justifyContent="flex-end"
+            alignItems="center"
+            gap="$2"
+            mr="$5"
           >
-            {record.price}
-          </NumberSizeableText>
-          <PriceChangeBadge change={record.change24h} />
-        </XStack>
-      ),
+            <NumberSizeableText
+              userSelect="none"
+              flexShrink={1}
+              numberOfLines={1}
+              size="$bodyLgMedium"
+              formatter="price"
+              formatterOptions={{
+                currency: '$',
+              }}
+            >
+              {record.price}
+            </NumberSizeableText>
+            <PriceChangeBadge change={record.change24h} />
+          </XStack>
+        );
+      },
       renderSkeleton: () => (
         <XStack
           justifyContent="flex-end"
