@@ -1,5 +1,9 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -8,6 +12,7 @@ import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
   buildSwapSelectedTokensColdStartContext,
+  getSelectedTokensColdStartLimitSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
@@ -59,6 +64,25 @@ function buildSelectedAccount(
     focusedWallet: 'wallet-1',
     ...overrides,
   };
+}
+
+function buildSwapToken(networkId: string): ISwapToken {
+  return {
+    networkId,
+  } as ISwapToken;
+}
+
+function buildSwapNetwork({
+  networkId,
+  supportLimit,
+}: {
+  networkId: string;
+  supportLimit: boolean;
+}): ISwapNetwork {
+  return {
+    networkId,
+    supportLimit,
+  } as ISwapNetwork;
 }
 
 describe('swap cold-start selected token context', () => {
@@ -362,6 +386,61 @@ describe('swap cold-start selected token context', () => {
       }),
       swapType: ESwapTabSwitchType.LIMIT,
     });
+  });
+
+  it('waits for runtime networks before completing a Limit cold-start token sync', () => {
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.LIMIT,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [],
+      }),
+    ).toBeUndefined();
+  });
+
+  it('clears prefilled Limit defaults when runtime support is disabled', () => {
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.LIMIT,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--1',
+            supportLimit: false,
+          }),
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps synced Limit tokens when the current runtime list omits their network', () => {
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.LIMIT,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'tron--0x2b6653dc',
+            supportLimit: false,
+          }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it('does not apply Limit runtime support checks outside the Limit tab', () => {
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.SWAP,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--1',
+            supportLimit: false,
+          }),
+        ],
+      }),
+    ).toBe(true);
   });
 
   it('handles home network changes only before the first swap token sync completes', () => {

@@ -70,7 +70,6 @@ function SwapColdStartCacheSync() {
       setSwapToToken(defaultTokens.toToken);
       setSelectedTokensColdStartContext(defaultTokens.context);
       setSwapTypeSwitch(defaultTokens.swapType);
-      markInitialSelectedTokensSynced();
       return true;
     };
 

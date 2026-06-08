@@ -13,7 +13,10 @@ import {
   swapBridgeDefaultTokenExtraConfigs,
   swapDefaultSetTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 export {
@@ -269,6 +272,40 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
     },
     swapType,
   };
+}
+
+export function getSelectedTokensColdStartLimitSupport({
+  swapType,
+  fromToken,
+  toToken,
+  swapNetworks,
+}: {
+  swapType: ESwapTabSwitchType;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+}) {
+  if (swapType !== ESwapTabSwitchType.LIMIT) {
+    return true;
+  }
+
+  const selectedTokenNetworkId = fromToken?.networkId ?? toToken?.networkId;
+  if (!selectedTokenNetworkId) {
+    return true;
+  }
+
+  if (!swapNetworks.length) {
+    return undefined;
+  }
+
+  const selectedTokenNetwork = swapNetworks.find(
+    (net) => net.networkId === selectedTokenNetworkId,
+  );
+  if (!selectedTokenNetwork) {
+    return true;
+  }
+
+  return Boolean(selectedTokenNetwork?.supportLimit);
 }
 
 function isSelectedAccountMatched(
