@@ -36,6 +36,10 @@ import type {
 } from '../../dbs/local/types';
 
 class CloudSyncItemBuilder {
+  normalizeDataTime(dataTime: number | undefined): number | undefined {
+    return cloudSyncUtils.normalizeDataTime(dataTime);
+  }
+
   /**
    * Get pwdHash from sync credential
    * For keyless mode, returns precomputed pwdHash from keylessCredential
@@ -199,7 +203,7 @@ class CloudSyncItemBuilder {
       dataType: rawDataJson.dataType,
       rawData,
       data: encryptedData,
-      dataTime,
+      dataTime: this.normalizeDataTime(dataTime),
       isDeleted: false, // TODO re-update deleted items
       pwdHash,
       localSceneUpdated: false,

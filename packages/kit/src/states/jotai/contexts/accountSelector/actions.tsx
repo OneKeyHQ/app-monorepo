@@ -831,6 +831,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // view. A specific-network (single) add keeps the per-app install prompt.
       const isAutoCreateMultiNetwork =
         !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
       const customNetworks =
         networkId && deriveType ? [{ networkId, deriveType }] : undefined;
       let ledgerRequiredApps: ILedgerCoreAppName[] = [];
@@ -850,7 +851,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       };
 
       if (!params.wallet.isMocked) {
-        if (isAutoCreateMultiNetwork) {
+        if (isAutoCreateMultiNetwork && isHwWallet) {
           const device =
             await backgroundApiProxy.serviceAccount.getWalletDevice({
               walletId: wallet.id,
