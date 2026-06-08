@@ -8,6 +8,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { prewarmColdStartImagesFromSnapshot } from '../../utils/coldStartImagePreload';
+
 // Web/desktop gate the React mount on BOTH:
 //   - globalJotaiStorageReadyHandler: source-of-truth atoms have been
 //     reconciled from JotaiStorage IDB into the jotai store, so first render
@@ -29,6 +31,7 @@ const isWebOrDesktop = platformEnv.isWeb || platformEnv.isDesktop;
 // seconds on cold IDB), short enough that a stuck handler can never hang
 // the app forever.
 const GATE_SAFETY_TIMEOUT_MS = 5000;
+const COLD_START_IMAGE_PRIME_TIMEOUT_MS = isWebOrDesktop ? 160 : 0;
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -84,6 +87,12 @@ async function waitForJotaiReadyOnWebOrDesktop(): Promise<void> {
     (globalThis as Record<string, unknown>).__ONEKEY_COLD_START_GATE_TIMEOUT__ =
       true;
   }
+}
+
+async function primeColdStartImagesBeforeRender(): Promise<void> {
+  await prewarmColdStartImagesFromSnapshot({
+    primeTimeoutMs: COLD_START_IMAGE_PRIME_TIMEOUT_MS,
+  });
 }
 
 const jsEntryStart: number =
@@ -142,11 +151,14 @@ export function GlobalJotaiReady({ children }: { children: any }) {
         setIsReady(true);
       });
     };
+    const releaseAfterImagePrime = () => {
+      void primeColdStartImagesBeforeRender().then(release, release);
+    };
     if (isWebOrDesktop) {
-      void waitForJotaiReadyOnWebOrDesktop().then(release);
+      void waitForJotaiReadyOnWebOrDesktop().then(releaseAfterImagePrime);
     } else {
       // Native/extension: single handler, always resolves with `true`.
-      void globalJotaiStorageReadyHandler.ready.then(release);
+      void globalJotaiStorageReadyHandler.ready.then(releaseAfterImagePrime);
     }
     return () => {
       isMounted = false;

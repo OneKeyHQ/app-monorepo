@@ -2804,6 +2804,7 @@ export const useSwapActions = () => {
   const quoteSpeedAction = actions.quoteSpeedAction.use();
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
   const setSwapProSelectToken = actions.setSwapProSelectToken.use();
+  const resetSwapTokenData = actions.resetSwapTokenData.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -2836,5 +2837,6 @@ export const useSwapActions = () => {
     cancelSpeedQuote,
     cleanSpeedQuote,
     setSwapProSelectToken,
+    resetSwapTokenData,
   });
 };
