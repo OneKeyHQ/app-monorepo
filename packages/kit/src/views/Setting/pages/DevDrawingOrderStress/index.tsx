@@ -16,7 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
  * Dev-only stress page to reproduce the Android-only crash
  *   IndexOutOfBoundsException: getChildDrawingOrder() returned invalid index N
  *   (child count is M)
- * thrown from ReactViewGroup.dispatchDraw -> getAndVerifyPreorderedIndex.
+ * thrown from the ReactViewGroup drawing-order verification path.
  *
  * Root cause (Sentry REACT-NATIVE-48W / 4AM): when a ReactViewGroup has children
  * with `zIndex`, RN enables a custom child drawing order cached in
@@ -142,7 +142,7 @@ function DevDrawingOrderStress() {
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       cancelled = true;
-      if (rafRef.current != null) {
+      if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
@@ -187,7 +187,11 @@ function DevDrawingOrderStress() {
             >
               {running ? 'Stop' : 'Start'}
             </Button>
-            <Button variant="secondary" onPress={onReset}>
+            <Button
+              variant="secondary"
+              onPress={onReset}
+              testID="drawing-order-stress-reset"
+            >
               Reset
             </Button>
             <SizableText

@@ -18,9 +18,9 @@ import { useEffect, useRef, useState } from 'react';
 // reads (best bid/ask, mid, mark price) must keep their original, un-coalesced
 // data source so they stay maximally fresh.
 
-// Master switch for the frame-coalescing behaviour. requestAnimationFrame
+// Master switch for the frame-coalescing behavior. requestAnimationFrame
 // already aligns emissions to the display refresh, so no millisecond constant
-// is needed; kept as a named flag so the optimisation is easy to toggle/audit
+// is needed; kept as a named flag so the optimization is easy to toggle/audit
 // for REACT-NATIVE-1JZ.
 const RAF_COALESCE_ENABLED = true;
 
