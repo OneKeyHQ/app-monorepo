@@ -1,4 +1,10 @@
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import {
+  getDeviceBleName,
+  getDeviceLabel,
+  getDeviceType,
+  getDeviceUUID,
+} from '@onekeyfe/hd-core';
 import semver from 'semver';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
@@ -95,9 +101,7 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
 function getDeviceSerialNoFromFeatures(
   features: IOneKeyDeviceFeatures | undefined,
 ) {
-  return (
-    features?.onekey_serial_no ?? features?.onekey_serial ?? features?.serial_no
-  );
+  return features ? getDeviceUUID(features) : undefined;
 }
 
 // web sdk return KnownDevice
@@ -159,7 +163,6 @@ async function getDeviceTypeFromFeatures({
 }: {
   features: IOneKeyDeviceFeatures;
 }): Promise<IDeviceType> {
-  const { getDeviceType } = await CoreSDKLoader();
   return Promise.resolve(getDeviceType(features));
 }
 
@@ -333,8 +336,9 @@ async function buildDeviceLabel({
   features: IOneKeyDeviceFeatures;
   buildModelName?: boolean;
 }): Promise<string | ''> {
-  if (features.label && !buildModelName) {
-    return features.label;
+  const label = getDeviceLabel(features);
+  if (label && !buildModelName) {
+    return label;
   }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     [EDeviceType.Classic]: 'OneKey Classic',
@@ -363,11 +367,12 @@ async function buildDeviceName({
   if (label) {
     return label;
   }
-  const { getDeviceUUID } = await CoreSDKLoader();
+  const bleName = getDeviceBleName(features);
+  if (bleName) {
+    return bleName;
+  }
   const deviceUUID = device?.uuid || getDeviceUUID(features);
-  return (
-    features.label || features.ble_name || `OneKey ${deviceUUID.slice(-4)}`
-  );
+  return deviceUUID ? `OneKey ${deviceUUID.slice(-4)}` : '';
 }
 
 function buildDeviceBleName({
@@ -378,7 +383,7 @@ function buildDeviceBleName({
   if (!features) {
     return undefined;
   }
-  return features.ble_name;
+  return getDeviceBleName(features) || undefined;
 }
 
 async function getFirmwareType({
@@ -563,7 +568,7 @@ async function shouldUseV2FirmwareUpdateFlow({
     return false;
   }
 
-  const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
+  const { getDeviceBootloaderVersion } = await CoreSDKLoader();
   const deviceType = getDeviceType(features);
   if (deviceType !== EDeviceType.Pro) {
     return false;
@@ -581,12 +586,11 @@ function getRawDeviceId({
   features,
 }: {
   device: Omit<SearchDevice, 'commType'>;
-  features: IOneKeyDeviceFeatures;
+  features?: IOneKeyDeviceFeatures;
 }) {
-  // SearchDevice.deviceId is undefined when BLE connecting
-  // const rawDeviceId = device.deviceId || features.device_id || '';
-  const rawDeviceId = device.deviceId || features.device_id || '';
-  return rawDeviceId;
+  const knownDevice = device as KnownDevice | undefined;
+  const usedFeatures = features || knownDevice?.features;
+  return device.deviceId || usedFeatures?.device_id || '';
 }
 
 /**
@@ -715,8 +719,7 @@ async function buildDeviceUSBConnectId({
   if (!features) {
     return null;
   }
-  const { getDeviceUUID } = await CoreSDKLoader();
-  return getDeviceUUID(features);
+  return getDeviceUUID(features) || null;
 }
 
 async function attachAppParamsToFeatures({

@@ -127,7 +127,7 @@ import type {
   OnekeyFeatures,
   SearchDevice,
   UiEvent,
-  UnifiedDeviceInfo,
+  DeviceProfile,
 } from '@onekeyfe/hd-core';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
@@ -161,7 +161,7 @@ export type IDeviceGetInfoOptions = Omit<
 const nullableToUndefined = (value?: string | null) => value ?? undefined;
 
 function buildOnekeyFeaturesFromDeviceInfo(
-  deviceInfo: UnifiedDeviceInfo,
+  deviceInfo: DeviceProfile,
 ): OnekeyFeatures {
   const rawFeatures = {
     ...deviceInfo.raw?.features,
@@ -748,7 +748,15 @@ class ServiceHardware extends ServiceBase {
         DEVICE.SUPPORT_FEATURES,
         (message: DeviceSupportFeaturesPayload) => {
           const { features } = message.device || {};
-          if (!features || !features.device_id) return;
+          if (
+            !features ||
+            !deviceUtils.getRawDeviceId({
+              device: message.device as any,
+              features,
+            })
+          ) {
+            return;
+          }
 
           // TODO: save features to dbDevice
           serviceHardwareUtils.hardwareLog('features update', features);
@@ -761,8 +769,13 @@ class ServiceHardware extends ServiceBase {
 
       instance.on(DEVICE.CONNECT, (message: { device: KnownDevice }) => {
         const { features } = message.device || {};
-        if (!features || !features.device_id) return;
-        const { device_id: deviceId } = features;
+        const deviceId = features
+          ? deviceUtils.getRawDeviceId({
+              device: message.device as any,
+              features,
+            })
+          : '';
+        if (!features || !deviceId) return;
 
         void (async () => {
           try {
@@ -1227,10 +1240,10 @@ class ServiceHardware extends ServiceBase {
       }
     }
 
-    // TODO get connectId from SDK: connectId = getDeviceUUID() only works on usb sdk
-    // connectId: DataManager.isBleConnect(env) ? this.mainId || null : getDeviceUUID(this.features),
+    // TODO get connectId from SDK: USB connectId should use the standard device identity helper.
+    // For App-side compatibility use deviceUtils.buildDeviceUSBConnectId({ features }).
     // TODO uuid is equal to connectId in ble sdk?
-    // const connectId = getDeviceUUID(features);
+    // const connectId = await deviceUtils.buildDeviceUSBConnectId({ features });
     // if (connectId) {
     //   return connectId;
     // }
@@ -1342,7 +1355,7 @@ class ServiceHardware extends ServiceBase {
 
   _getDeviceInfoWithMutex = async (
     options: IDeviceGetInfoOptions,
-  ): Promise<UnifiedDeviceInfo> =>
+  ): Promise<DeviceProfile> =>
     this.getFeaturesMutex.runExclusive(async () =>
       this._getDeviceInfoWithTimeout(options),
     );
@@ -2391,16 +2404,23 @@ class ServiceHardware extends ServiceBase {
         });
       }
 
+      const expectedDeviceId =
+        featuresDeviceId ||
+        deviceUtils.getRawDeviceId({
+          device: matchingDevice as any,
+          features,
+        });
+
       // Step 4: Try to connect and verify
       const connectResult = await this.connect({
         device: {
           ...matchingDevice,
           connectId: matchingDevice.connectId || '',
-          deviceId: features.device_id,
+          deviceId: expectedDeviceId,
         },
       });
 
-      if (connectResult && connectResult.device_id === features.device_id) {
+      if (connectResult && connectResult.device_id === expectedDeviceId) {
         // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,

@@ -590,7 +590,10 @@ export function useDeviceConnect({
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...latestDevice,
-              deviceId: latestDevice.deviceId || features.device_id,
+              deviceId: deviceUtils.getRawDeviceId({
+                device: latestDevice,
+                features,
+              }),
             },
           });
 
@@ -744,7 +747,7 @@ export function useDeviceConnect({
           device,
           features,
         }),
-        deviceId: features.device_id ?? undefined,
+        deviceId: deviceUtils.getRawDeviceId({ device, features }),
         deviceType,
       };
     },
@@ -860,7 +863,7 @@ export function useDeviceConnect({
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: features.device_id || device.deviceId || '',
+          deviceId: deviceUtils.getRawDeviceId({ device, features }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);

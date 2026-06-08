@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { sha256 } from '@noble/hashes/sha256';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import stringify from 'fast-json-stable-stringify';
 
 import { getBtcForkNetwork } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -14,6 +15,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import {
   OneKeyInternalError,
   OneKeyLocalError,
@@ -39,6 +41,7 @@ import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
+  IDeviceSharedCallParams,
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
@@ -49,6 +52,22 @@ export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.lightning.hd;
 
   override hwSdkNetwork: IHwSdkNetwork = 'btc';
+
+  private assertPro2LightningSupported(
+    deviceParams: IDeviceSharedCallParams | undefined,
+  ) {
+    if (deviceParams?.dbDevice?.deviceType !== EDeviceType.Pro2) {
+      return;
+    }
+
+    throw new deviceErrors.UnknownMethod({
+      payload: {
+        error: 'Device not support this method',
+        connectId: deviceParams.dbDevice.connectId,
+        deviceId: deviceParams.dbDevice.deviceId,
+      },
+    });
+  }
 
   override async buildHwAllNetworkPrepareAccountsParams(
     params: IBuildHwAllNetworkPrepareAccountsParams,
@@ -86,6 +105,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { addressEncoding } = params.deriveInfo;
     const networkInfo = await this.getCoreApiNetworkInfo();
     const isTestnet = networkInfo.networkImpl === IMPL_LIGHTNING_TESTNET;
@@ -249,6 +270,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { unsignedTx } = params;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
@@ -317,6 +340,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     if (process.env.NODE_ENV !== 'production') {
       console.log('LightningNetwork signMessage: ', params);
     }
@@ -349,6 +374,8 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   async lnurlAuth(params: ILnurlAuthParams) {
+    this.assertPro2LightningSupported(params.deviceParams);
+
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
       throw new OneKeyLocalError('lnurl-auth: invalid tag');

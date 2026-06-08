@@ -294,7 +294,7 @@ function useDeviceConnection({
             const isUsbData = sortedDevices.some((device) =>
               // @ts-expect-error
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              isString(device.features?.device_id),
+              isString(deviceUtils.getRawDeviceId({ device: device as any })),
             );
             if (isUsbData) {
               setSearchedDevices([]);

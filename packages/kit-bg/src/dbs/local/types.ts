@@ -401,7 +401,7 @@ export type IDBDevice = IDBBaseObjectWithName & {
   name: string;
   // TODO make index for better performance (getDeviceByQuery)
   uuid: string;
-  deviceId: string; // features.device_id changed after device reset, use deviceUtils.getRawDeviceId()
+  deviceId: string; // rawDeviceId changes after device reset, use deviceUtils.getRawDeviceId()
   deviceType: IDeviceType;
   settingsRaw: string;
   settings?: IDBDeviceSettings;

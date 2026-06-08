@@ -3770,8 +3770,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async buildHwWalletId(params: IDBCreateHwWalletParams) {
-    const { getDeviceType, getDeviceUUID } = await CoreSDKLoader();
-
     const {
       name,
       device,
@@ -3780,7 +3778,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       isFirmwareVerified,
       vendor,
     } = params;
-    const deviceUUID = device.uuid || getDeviceUUID(features);
+    const deviceUUID =
+      device.uuid || deviceUtils.getDeviceSerialNoFromFeatures(features);
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
@@ -3973,10 +3972,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // BLE connections - set bleConnectId but don't override connectId
           // @ts-expect-error
           bleConnectId = (device.bleConnectId || connectId) ?? undefined;
-          // If connectId is empty, get it from getDeviceUUID for compatibility
+          // If connectId is empty, get it from device serial number for compatibility
           if (!compatibleConnectId) {
-            const { getDeviceUUID } = await CoreSDKLoader();
-            const uuid = getDeviceUUID(features);
+            const uuid = deviceUtils.getDeviceSerialNoFromFeatures(features);
             compatibleConnectId = uuid;
             usbConnectId = uuid;
           }
@@ -4108,7 +4106,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.features = featuresStr;
               item.updatedAt = now;
 
-              // Use compatibleConnectId which includes getDeviceUUID fallback for BLE
+              // Use compatibleConnectId which includes serial-number fallback for BLE
               item.connectId = compatibleConnectId || item.connectId || '';
               item.uuid = deviceUUID;
               item.deviceId = rawDeviceId;
@@ -6154,7 +6152,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     ) => Promise<'match' | 'mismatch' | 'unknown'>;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    // Third-party devices may not have rawDeviceId (features.device_id).
+    // Third-party devices may not have rawDeviceId.
     // Use vendorProfile.canMatchDeviceByConnectId to determine if connectId
     // is reliable enough to identify an existing device.
     if (!rawDeviceId) {
@@ -6315,7 +6313,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     features?: IOneKeyDeviceFeatures;
     vendor?: EHardwareVendor;
   }): Promise<IDBDevice | undefined> {
-    const { getDeviceUUID } = await CoreSDKLoader();
     const normalizedVendor = vendor ?? EHardwareVendor.onekey;
     const { devices } = await this.getAllDevices();
     const device = devices.find((item) => {
@@ -6347,9 +6344,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (features) {
         let uuidInDb = item.uuid;
         if (!uuidInDb) {
-          uuidInDb = item.featuresInfo ? getDeviceUUID(item.featuresInfo) : '';
+          uuidInDb = item.featuresInfo
+            ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo)
+            : '';
         }
-        const uuidInQuery = features ? getDeviceUUID(features) : '';
+        const uuidInQuery = features
+          ? deviceUtils.getDeviceSerialNoFromFeatures(features)
+          : '';
         mergePredicate(!!uuidInDb && !!uuidInQuery && uuidInQuery === uuidInDb);
       }
       return predicate ?? false;

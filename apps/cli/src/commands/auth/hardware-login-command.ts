@@ -299,13 +299,14 @@ export async function executeHardwareLoginCommand({
         'searchDevices',
       ) as Array<{
         connectId?: string;
+        deviceId?: string;
         features?: { session_id?: string; device_id?: string };
       }>;
       const targetDevice = refreshedDevices.find(
         (d) => d.connectId === connectId,
       );
       resolvedSessionId = targetDevice?.features?.session_id;
-      resolvedDeviceId = targetDevice?.features?.device_id || deviceId;
+      resolvedDeviceId = targetDevice?.deviceId || deviceId;
     }
     if (resolvedSessionId) {
       // In-memory only — no keychain write yet

@@ -89,7 +89,7 @@ function buildSkippedFirmwareHashResult(
   return {
     certificate: {
       isMatch: true,
-      format: onekeyFeatures?.onekey_serial_no ?? '',
+      format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
     },
     firmware: {
       isMatch: true,
@@ -396,7 +396,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const defaultResult = {
       certificate: {
         isMatch: true,
-        format: onekeyFeatures?.onekey_serial_no ?? '',
+        format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
       },
       firmware: { isMatch: false, format: '' },
       bluetooth: { isMatch: false, format: '' },
@@ -450,7 +450,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return {
       certificate: {
         isMatch: true,
-        format: onekeyFeatures?.onekey_serial_no ?? '',
+        format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
       },
       firmware: {
         isMatch: firmwareMatch,

@@ -261,9 +261,7 @@ export abstract class SignerHardwareBase implements ISigner {
       if (!Array.isArray(devices)) return;
       // Match on stable deviceId (device UUID), not connectId.
       const match = devices.find(
-        (d) =>
-          d.deviceId === this.device.deviceId ||
-          d.features?.device_id === this.device.deviceId,
+        (d) => d.deviceId === this.device.deviceId,
       );
       if (match?.connectId) {
         this.device.connectId = match.connectId;

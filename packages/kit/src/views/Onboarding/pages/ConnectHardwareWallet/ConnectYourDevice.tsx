@@ -534,7 +534,7 @@ function useDeviceConnection({
             const isUsbData = sortedDevices.some((device) =>
               // @ts-expect-error
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              isString(device.features?.device_id),
+              isString(deviceUtils.getRawDeviceId({ device: device as any })),
             );
             if (isUsbData) {
               setSearchedDevices([]);
@@ -1373,7 +1373,7 @@ export function ConnectYourDevicePage() {
           device,
           features,
         }),
-        deviceId: features.device_id ?? undefined,
+        deviceId: deviceUtils.getRawDeviceId({ device, features }),
         deviceType,
       };
     },
@@ -1490,7 +1490,7 @@ export function ConnectYourDevicePage() {
 
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: features.device_id || device.deviceId || '',
+          deviceId: deviceUtils.getRawDeviceId({ device, features }),
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
@@ -1684,7 +1684,7 @@ export function ConnectYourDevicePage() {
           await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
             device: {
               ...device,
-              deviceId: device.deviceId || features.device_id,
+              deviceId: deviceUtils.getRawDeviceId({ device, features }),
             },
           });
 

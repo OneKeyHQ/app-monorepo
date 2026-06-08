@@ -421,8 +421,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
       };
     }
 
-    const { getDeviceUUID } = await CoreSDKLoader();
-
     const releaseInfoCache = this._checkCacheMeetExpectations({
       baseReleaseInfo: baseReleaseInfoCache,
     });
@@ -585,7 +583,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     // TODO boot mode device uuid is empty
-    const deviceUUID = getDeviceUUID(features);
+    const deviceUUID = deviceUtils.getDeviceSerialNoFromFeatures(features);
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
