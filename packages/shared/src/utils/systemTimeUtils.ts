@@ -87,29 +87,23 @@ function normalizeTimestamp(time: number | undefined): number | undefined {
   return Math.floor(time);
 }
 
-function parsePersistedTime(value: string | null): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const time = normalizeTimestamp(Number(value));
-  if (!isTimeValid({ time })) {
-    return undefined;
-  }
-  return time;
-}
-
 class SystemTimeUtils {
   constructor() {
+    const lastServerTimeInStorage = appStorage.syncStorage.getNumber(
+      lastValidServerTimeStorageKey,
+    );
     this.setLastServerTimeValue({
-      value: undefined,
+      value: lastServerTimeInStorage,
       updateEstimateBaseline: false,
       persist: false,
     });
+    const lastLocalTimeInStorage = appStorage.syncStorage.getNumber(
+      lastValidLocalTimeStorageKey,
+    );
     this.setLastLocalTimeValue({
-      value: undefined,
+      value: lastLocalTimeInStorage,
       persist: false,
     });
-    void this.hydratePersistedTime();
   }
 
   systemTimeStatus: ELocalSystemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
@@ -125,10 +119,6 @@ class SystemTimeUtils {
   private _lastServerTimeCanBeFallback = false;
 
   private _refreshServerTimePromise: Promise<boolean> | undefined;
-
-  private _persistedTimeHydrated = false;
-
-  private _hydratePersistedTimePromise: Promise<void> | undefined;
 
   get lastServerTime(): number | undefined {
     return this._lastServerTime;
@@ -212,54 +202,17 @@ class SystemTimeUtils {
 
   _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
 
-  private persistTimeValue({ key, value }: { key: string; value: number }) {
+  private persistTimeValue({
+    key,
+    value,
+  }: {
+    key: EAppSyncStorageKeys;
+    value: number;
+  }) {
     try {
-      void appStorage.setItem(key, String(value)).catch(() => undefined);
+      appStorage.syncStorage.set(key, value);
     } catch (_error) {
       // Cache persistence is best-effort and should not affect time checks.
-    }
-  }
-
-  private async hydratePersistedTime(): Promise<void> {
-    if (this._persistedTimeHydrated) {
-      return;
-    }
-
-    this._hydratePersistedTimePromise ??= this.loadPersistedTime().finally(
-      () => {
-        this._hydratePersistedTimePromise = undefined;
-      },
-    );
-    await this._hydratePersistedTimePromise;
-  }
-
-  private async loadPersistedTime(): Promise<void> {
-    try {
-      const [lastServerTimeInStorage, lastLocalTimeInStorage] =
-        await Promise.all([
-          appStorage.getItem(lastValidServerTimeStorageKey),
-          appStorage.getItem(lastValidLocalTimeStorageKey),
-        ]);
-      const lastServerTime = parsePersistedTime(lastServerTimeInStorage);
-      const lastLocalTime = parsePersistedTime(lastLocalTimeInStorage);
-
-      if (!this.hasFreshServerTimeInCurrentProcess()) {
-        this.setLastServerTimeValue({
-          value: lastServerTime,
-          updateEstimateBaseline: false,
-          persist: false,
-        });
-      }
-      if (!this._lastLocalTime || this._lastLocalTime <= appBuildTime) {
-        this.setLastLocalTimeValue({
-          value: lastLocalTime,
-          persist: false,
-        });
-      }
-    } catch (_error) {
-      // Storage read failures should fall back to the in-memory defaults.
-    } finally {
-      this._persistedTimeHydrated = true;
     }
   }
 
@@ -281,8 +234,6 @@ class SystemTimeUtils {
   }
 
   async ensureFreshServerTime(): Promise<boolean> {
-    await this.hydratePersistedTime();
-
     if (this.hasFreshServerTimeInCurrentProcess()) {
       return true;
     }
