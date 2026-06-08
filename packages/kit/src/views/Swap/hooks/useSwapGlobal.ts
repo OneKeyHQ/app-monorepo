@@ -60,8 +60,10 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartLimitSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapTokenSupportTypes,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
+  isSwapTokenSupportedBySwapType,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
@@ -788,21 +790,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const checkSupportTokenSwapType = useCallback(
     (token: ISwapToken, enableSwitchAction?: boolean) => {
-      const supportNet = swapNetworks.find(
-        (net) => net.networkId === token.networkId,
-      );
-      let supportTypes: ESwapTabSwitchType[] = [];
-      if (supportNet) {
-        if (supportNet.supportSingleSwap) {
-          supportTypes = [...supportTypes, ESwapTabSwitchType.SWAP];
-        }
-        if (supportNet.supportCrossChainSwap) {
-          supportTypes = [...supportTypes, ESwapTabSwitchType.BRIDGE];
-        }
-        if (supportNet.supportLimit) {
-          supportTypes = [...supportTypes, ESwapTabSwitchType.LIMIT];
-        }
-      }
+      const supportTypes = getSwapTokenSupportTypes({ token, swapNetworks });
       if (!params?.swapTabSwitchType && enableSwitchAction) {
         if (
           supportTypes.length > 0 &&
@@ -905,41 +893,47 @@ export function useSwapInit(params?: ISwapInitParams) {
           (net) => net.networkId === params?.importToToken?.networkId,
         ))
     ) {
+      const importSwapType =
+        params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+      const isImportFromTokenSupported = isSwapTokenSupportedBySwapType({
+        token: params?.importFromToken,
+        swapNetworks: swapNetworksRef.current,
+        swapType: importSwapType,
+      });
+      const isImportToTokenSupported = isSwapTokenSupportedBySwapType({
+        token: params?.importToToken,
+        swapNetworks: swapNetworksRef.current,
+        swapType: importSwapType,
+      });
+      const hasUnsupportedImportToken =
+        (Boolean(params?.importFromToken) && !isImportFromTokenSupported) ||
+        (Boolean(params?.importToToken) && !isImportToTokenSupported);
+      if (hasUnsupportedImportToken) {
+        clearSelectedTokensColdStartCache();
+      }
       if (params?.importFromToken) {
-        const fromTokenSupportTypes = checkSupportTokenSwapType(
-          params?.importFromToken,
-        );
-        if (
-          params?.swapTabSwitchType &&
-          fromTokenSupportTypes.includes(params?.swapTabSwitchType)
-        ) {
+        if (isImportFromTokenSupported) {
           setSwapFromToken(params?.importFromToken);
         }
       }
       if (params?.importToToken) {
-        const toTokenSupportTypes = checkSupportTokenSwapType(
-          params?.importToToken,
-        );
-        if (
-          params?.swapTabSwitchType &&
-          toTokenSupportTypes.includes(params?.swapTabSwitchType)
-        ) {
+        if (isImportToTokenSupported) {
           setToToken(params?.importToToken);
         }
       }
-      if (params?.importFromToken && !params?.importToToken) {
+      if (
+        params?.importFromToken &&
+        !params?.importToToken &&
+        !hasUnsupportedImportToken
+      ) {
         const needSetToToken = needChangeToken({
           token: params.importFromToken,
-          swapTypeSwitchValue:
-            params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+          swapTypeSwitchValue: importSwapType,
         });
         if (needSetToToken) {
           const defaultTokenSupportTypes =
             checkSupportTokenSwapType(needSetToToken);
-          if (
-            params?.swapTabSwitchType &&
-            defaultTokenSupportTypes.includes(params?.swapTabSwitchType)
-          ) {
+          if (defaultTokenSupportTypes.includes(importSwapType)) {
             setToToken(needSetToToken);
           }
         }

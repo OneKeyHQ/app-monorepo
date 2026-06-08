@@ -308,6 +308,49 @@ export function getSelectedTokensColdStartLimitSupport({
   return Boolean(selectedTokenNetwork?.supportLimit);
 }
 
+export function getSwapTokenSupportTypes({
+  token,
+  swapNetworks,
+}: {
+  token?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+}) {
+  const supportNet = swapNetworks.find(
+    (net) => net.networkId === token?.networkId,
+  );
+  const supportTypes: ESwapTabSwitchType[] = [];
+  if (!supportNet) {
+    return supportTypes;
+  }
+
+  if (supportNet.supportSingleSwap) {
+    supportTypes.push(ESwapTabSwitchType.SWAP);
+  }
+  if (supportNet.supportCrossChainSwap) {
+    supportTypes.push(ESwapTabSwitchType.BRIDGE);
+  }
+  if (supportNet.supportLimit) {
+    supportTypes.push(ESwapTabSwitchType.LIMIT);
+  }
+
+  return supportTypes;
+}
+
+export function isSwapTokenSupportedBySwapType({
+  token,
+  swapNetworks,
+  swapType,
+}: {
+  token?: ISwapToken;
+  swapNetworks: ISwapNetwork[];
+  swapType?: ESwapTabSwitchType;
+}) {
+  return Boolean(
+    swapType &&
+    getSwapTokenSupportTypes({ token, swapNetworks }).includes(swapType),
+  );
+}
+
 function isSelectedAccountMatched(
   accountA?: IAccountSelectorSelectedAccount,
   accountB?: IAccountSelectorSelectedAccount,
