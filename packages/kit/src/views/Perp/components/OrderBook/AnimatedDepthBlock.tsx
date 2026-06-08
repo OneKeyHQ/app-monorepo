@@ -93,8 +93,12 @@ export function DepthBarColumn({
   barInset,
   color,
   origin = 'left',
+  prices,
+  sizes,
   priceColor,
   sizeColor,
+  priceFontSize,
+  sizeFontSize,
   textInset,
   onRowPress,
   placeholderText,
@@ -119,8 +123,12 @@ export function DepthBarColumn({
               paddingHorizontal: textInset ?? 0,
             }}
           >
-            <Text style={{ color: priceColor }}>{placeholderText}</Text>
-            <Text style={{ color: sizeColor }}>{placeholderText}</Text>
+            <Text style={{ color: priceColor, fontSize: priceFontSize }}>
+              {placeholderText}
+            </Text>
+            <Text style={{ color: sizeColor, fontSize: sizeFontSize }}>
+              {placeholderText}
+            </Text>
           </View>
         ))}
       </>
@@ -128,28 +136,71 @@ export function DepthBarColumn({
   }
   return (
     <>
-      {percents.map((percent, index) => (
-        <Pressable
-          // eslint-disable-next-line react/no-array-index-key
-          key={index}
-          disabled={!onRowPress}
-          onPress={() => onRowPress?.(index)}
-          style={{
-            cursor: onRowPress ? 'pointer' : undefined,
-            height: rowHeight,
-            marginTop: rowMarginTop,
-            position: 'relative',
-          }}
-        >
-          <DepthBar
-            animated={animated}
-            color={color}
-            origin={origin}
-            width={`${percent}%`}
-            height={barHeight}
-          />
-        </Pressable>
-      ))}
+      {percents.map((percent, index) => {
+        const priceText = prices?.[index] ?? '';
+        const sizeText = sizes?.[index] ?? '';
+        const shouldRenderText = priceText.length > 0 || sizeText.length > 0;
+        return (
+          <Pressable
+            // eslint-disable-next-line react/no-array-index-key
+            key={index}
+            disabled={!onRowPress}
+            onPress={() => onRowPress?.(index)}
+            style={{
+              cursor: onRowPress ? 'pointer' : undefined,
+              height: rowHeight,
+              marginTop: rowMarginTop,
+              position: 'relative',
+            }}
+          >
+            <DepthBar
+              animated={animated}
+              color={color}
+              origin={origin}
+              width={`${percent}%`}
+              height={barHeight}
+            />
+            {shouldRenderText ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  left: 0,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingHorizontal: textInset ?? 0,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: priceColor,
+                    fontSize: priceFontSize,
+                    flexShrink: 1,
+                    paddingRight: 4,
+                  }}
+                >
+                  {priceText}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: sizeColor,
+                    fontSize: sizeFontSize,
+                    flexShrink: 1,
+                    textAlign: 'right',
+                  }}
+                >
+                  {sizeText}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
     </>
   );
 }

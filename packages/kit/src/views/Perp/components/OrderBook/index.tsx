@@ -1938,24 +1938,22 @@ export function OrderBookMobile({
   );
   const askLadder = useRafCoalesced(askLadderRaw, depthEpoch);
   const bidLadder = useRafCoalesced(bidLadderRaw, depthEpoch);
-  // Spacers reserve the height of the native columns so the foreground spread
-  // row stays aligned. In populated state, use the same frame-coalesced row count
-  // the native columns render; while empty, reserve the native placeholder rows.
+  // Spacers reserve the height of each rendered depth column so the foreground
+  // spread row stays aligned. Each side can be empty independently, and
+  // DepthBarColumn falls back to its placeholder rows for that side.
   const askSpacerStyle = useMemo(
     () => ({
       height:
-        (isEmpty ? maxLevelsPerSide : askLadder.percents.length) *
-        MOBILE_ROW_HEIGHT,
+        (askLadder.percents.length || maxLevelsPerSide) * MOBILE_ROW_HEIGHT,
     }),
-    [askLadder.percents.length, isEmpty, maxLevelsPerSide],
+    [askLadder.percents.length, maxLevelsPerSide],
   );
   const bidSpacerStyle = useMemo(
     () => ({
       height:
-        (isEmpty ? maxLevelsPerSide : bidLadder.percents.length) *
-        MOBILE_ROW_HEIGHT,
+        (bidLadder.percents.length || maxLevelsPerSide) * MOBILE_ROW_HEIGHT,
     }),
-    [bidLadder.percents.length, isEmpty, maxLevelsPerSide],
+    [bidLadder.percents.length, maxLevelsPerSide],
   );
 
   const priceFontSize = useMemo(() => {
@@ -2081,10 +2079,10 @@ export function OrderBookMobile({
         </View>
 
         {/* foreground: only the spread row. Per-row price/size text AND the
-            `--` empty-state placeholder are drawn natively by DepthBarColumn
-            (no RN overlay), so the native view swaps placeholder→numbers with no
-            blank handoff frame. Transparent spacers keep the spread row aligned
-            with the native columns in both empty and populated states. */}
+            `--` empty-state placeholder are drawn by DepthBarColumn (no RN
+            overlay), so placeholder→numbers has no blank handoff frame.
+            Transparent spacers keep the spread row aligned with the depth
+            columns in empty, single-sided, and populated states. */}
         <View style={styles.absoluteContainer}>
           <View style={askSpacerStyle} />
           <DebugRenderTracker
