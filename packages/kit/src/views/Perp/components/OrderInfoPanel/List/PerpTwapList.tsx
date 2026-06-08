@@ -6,9 +6,11 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Button,
   DashText,
+  Divider,
   type IDebugRenderTrackerProps,
   Icon,
   Illustration,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -803,6 +805,7 @@ function TwapFillRow({
   onHoverChange,
   spotDisplayMap,
   builderFeeRate,
+  isMobile,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -813,6 +816,7 @@ function TwapFillRow({
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
   builderFeeRate?: number;
+  isMobile?: boolean;
 }) {
   const intl = useIntl();
   const { fill } = record;
@@ -880,6 +884,112 @@ function TwapFillRow({
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+  if (isMobile) {
+    return (
+      <ListItem
+        mx="$5"
+        my="$2"
+        p="$0"
+        backgroundColor="$bgSubdued"
+        flexDirection="column"
+        alignItems="flex-start"
+        borderRadius="$3"
+      >
+        <XStack
+          px="$3"
+          pt="$3"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <YStack gap="$1">
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText size="$bodySm" color={directionInfo.color}>
+                {directionInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {dateInfo.date} {dateInfo.time}
+            </SizableText>
+          </YStack>
+          <YStack gap="$1" alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_close_pnl,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color={fillInfo.closePnlColor}>
+              {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <Divider width="100%" borderColor="$borderSubdued" />
+        <XStack
+          px="$3"
+          pb="$3"
+          pt="$3"
+          width="100%"
+          flex={1}
+          alignItems="center"
+          justifyContent="space-around"
+        >
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_trade_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+            </SizableText>
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashThickness={0.3}
+                >
+                  {fillInfo.feeFormatted}
+                </DashText>
+              }
+              renderContent={() => (
+                <YStack px="$5" pb="$4">
+                  {feeTooltipContent}
+                </YStack>
+              )}
+            />
+          </YStack>
+        </XStack>
+      </ListItem>
+    );
+  }
 
   return (
     <XStack
@@ -1416,9 +1526,10 @@ function PerpTwapList({
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
         builderFeeRate={builderFeeRate}
+        isMobile={isMobile}
       />
     ),
-    [builderFeeRate, fillColumns, fillMinWidth, spotDisplayMap],
+    [builderFeeRate, fillColumns, fillMinWidth, isMobile, spotDisplayMap],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
@@ -1449,7 +1560,7 @@ function PerpTwapList({
           tabs={twapOrderSubTabs}
           activeTab={activeTab}
           onChange={setActiveTab}
-          variant="underline"
+          variant="pill"
         />
       ) : null}
       {activeTab === 'active' ? (
