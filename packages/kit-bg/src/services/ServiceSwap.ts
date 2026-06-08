@@ -43,6 +43,7 @@ import {
 import {
   getDenyBridgeProviderString,
   getDenySwapProviderString,
+  hasUnifiedSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1580,12 +1581,21 @@ export default class ServiceSwap extends ServiceBase {
       }));
       return;
     }
+    const shouldClearLegacyBridgeProviderManager =
+      hasUnifiedSwapProviderManagers(data);
+
     await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
-    await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager([]);
+    if (shouldClearLegacyBridgeProviderManager) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        [],
+      );
+    }
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapProviderManager: data,
-      bridgeProviderManager: [],
+      ...(shouldClearLegacyBridgeProviderManager
+        ? { bridgeProviderManager: [] }
+        : undefined),
     }));
   }
 

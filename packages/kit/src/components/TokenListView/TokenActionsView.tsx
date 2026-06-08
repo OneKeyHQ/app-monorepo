@@ -8,9 +8,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -49,30 +51,43 @@ function TokenActionsView(props: IProps) {
 
   useEffect(() => {
     const setActiveAggregateToken = async () => {
-      if (token.isAggregateToken) {
-        const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
-        if (aggregateTokens) {
-          const sortedAggregateTokens = sortTokensCommon({
-            tokens: aggregateTokens,
-            tokenListMap,
-          });
+      if (!token.isAggregateToken) {
+        setActiveToken(token);
+        return;
+      }
 
-          let _activeToken = sortedAggregateTokens[0];
+      const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+      if (aggregateTokens) {
+        const sortedAggregateTokens = sortTokensCommon({
+          tokens: aggregateTokens,
+          tokenListMap,
+        });
 
-          for (const _token of sortedAggregateTokens) {
-            const { isSupportSwap } =
-              await backgroundApiProxy.serviceSwap.checkSupportSwap({
-                networkId: _token.networkId ?? '',
-              });
-            if (isSupportSwap) {
-              _activeToken = _token;
-              break;
-            }
+        let _activeToken = sortedAggregateTokens[0];
+        let firstCrossChainToken: IAccountToken | undefined;
+        let foundSwapToken = false;
+
+        for (const _token of sortedAggregateTokens) {
+          const { isSupportSwap, isSupportCrossChain } =
+            await backgroundApiProxy.serviceSwap.checkSupportSwap({
+              networkId: _token.networkId ?? '',
+            });
+          if (isSupportSwap) {
+            _activeToken = _token;
+            foundSwapToken = true;
+            break;
           }
-
-          if (_activeToken) {
-            setActiveToken(_activeToken);
+          if (!firstCrossChainToken && isSupportCrossChain) {
+            firstCrossChainToken = _token;
           }
+        }
+
+        if (!foundSwapToken && firstCrossChainToken) {
+          _activeToken = firstCrossChainToken;
+        }
+
+        if (_activeToken) {
+          setActiveToken(_activeToken);
         }
       }
     };
@@ -90,26 +105,49 @@ function TokenActionsView(props: IProps) {
       tradeType: ESwapTabSwitchType.SWAP,
       isSoftwareWalletOnlyUser,
     });
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId:
-          activeToken.networkId ?? activeAccount?.network?.id ?? '',
-        importFromToken: {
-          contractAddress: activeToken.address,
-          symbol: activeToken.symbol,
-          networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
-          isNative: activeToken.isNative,
-          decimals: activeToken.decimals,
-          name: activeToken.name,
-          logoURI: activeToken.logoURI,
-          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+
+    void (async () => {
+      const activeNetworkId =
+        activeToken.networkId ?? activeAccount?.network?.id ?? '';
+      const importFromToken: ISwapToken = {
+        contractAddress: activeToken.address,
+        symbol: activeToken.symbol,
+        networkId: activeNetworkId,
+        isNative: activeToken.isNative,
+        decimals: activeToken.decimals,
+        name: activeToken.name,
+        logoURI: activeToken.logoURI,
+        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+      };
+      let importToToken: ISwapToken | undefined;
+      if (activeNetworkId) {
+        try {
+          const { isSupportSwap, isSupportCrossChain } =
+            await backgroundApiProxy.serviceSwap.checkSupportSwap({
+              networkId: activeNetworkId,
+            });
+          if (!isSupportSwap && isSupportCrossChain) {
+            importToToken = getSwapBridgeDefaultToToken(importFromToken);
+          }
+        } catch {
+          // Keep the existing Swap fallback if capability refresh fails.
+        }
+      }
+
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: activeNetworkId,
+          importFromToken,
+          importToToken,
+          importDeriveType: deriveType,
+          swapTabSwitchType: importToToken
+            ? ESwapTabSwitchType.BRIDGE
+            : ESwapTabSwitchType.SWAP,
+          swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
         },
-        importDeriveType: deriveType,
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
-        swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
-      },
-    });
+      });
+    })();
   }, [
     activeAccount,
     activeToken,

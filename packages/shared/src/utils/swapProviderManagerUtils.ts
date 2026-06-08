@@ -48,6 +48,12 @@ function isUnifiedProviderManager(providerManager: ISwapProviderManager) {
   );
 }
 
+export function hasUnifiedSwapProviderManagers(
+  providerManagers: ISwapProviderManager[],
+) {
+  return providerManagers.some(isUnifiedProviderManager);
+}
+
 export function buildUnifiedSwapProviderManagers({
   serverProviders,
   swapProviderManagers,

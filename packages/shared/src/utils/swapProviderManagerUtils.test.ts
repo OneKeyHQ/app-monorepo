@@ -10,6 +10,7 @@ import {
   buildUnifiedSwapProviderManagers,
   getDenyBridgeProviderString,
   getDenySwapProviderString,
+  hasUnifiedSwapProviderManagers,
   mergeDenyProviderStrings,
   normalizeSwapProviderManagersForSave,
 } from './swapProviderManagerUtils';
@@ -274,6 +275,24 @@ describe('swapProviderManagerUtils', () => {
     });
 
     expect(denyProviders).toBeUndefined();
+  });
+
+  it('detects unified managers before clearing the legacy bridge cache', () => {
+    expect(
+      hasUnifiedSwapProviderManagers([
+        manager({ provider: 'LegacySwapProvider' }),
+      ]),
+    ).toBe(false);
+
+    const [unifiedProviderManager] = buildUnifiedSwapProviderManagers({
+      serverProviders: [serverProvider({ provider: 'ProviderA' })],
+      swapProviderManagers: [manager({ provider: 'ProviderA' })],
+      bridgeProviderManagers: [
+        manager({ provider: 'ProviderA', enable: false }),
+      ],
+    });
+
+    expect(hasUnifiedSwapProviderManagers([unifiedProviderManager])).toBe(true);
   });
 
   it('returns cross-chain deny providers when either side network is disabled', () => {

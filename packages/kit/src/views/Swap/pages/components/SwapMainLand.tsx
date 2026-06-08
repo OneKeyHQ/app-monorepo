@@ -126,6 +126,7 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
+import { getSwapExecutionTypeFromQuoteResult } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import PreSwapDialogContent from './PreSwapDialogContent';
@@ -352,14 +353,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return toSelectTokenAtom;
   }, [focusSwapPro, toSelectTokenAtom, swapProToToken]);
 
-  const swapTypeFinal = useMemo(() => {
-    if (focusSwapPro) {
-      return swapProTradeType === ESwapProTradeType.LIMIT
-        ? ESwapTabSwitchType.LIMIT
-        : ESwapTabSwitchType.SWAP;
-    }
-    return swapTypeSwitch;
-  }, [focusSwapPro, swapProTradeType, swapTypeSwitch]);
   const fromTokenBalance = useMemo(() => {
     if (focusSwapPro) {
       return swapProFromToken?.balanceParsed;
@@ -748,7 +741,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           : fromTokenAmount.value,
       toTokenAmount: swapToAmount.value,
       quoteResult: currentQuoteRes,
-      swapType: swapTypeFinal,
+      swapType: getSwapExecutionTypeFromQuoteResult(currentQuoteRes),
       shouldFallback:
         SwapBuildShouldFallBackNetworkIds.includes(
           fromSelectToken?.networkId ?? '',
@@ -774,7 +767,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapProInputAmount,
     fromTokenAmount.value,
     swapToAmount.value,
-    swapTypeFinal,
     swapFromAddressInfo.accountInfo?.account?.id,
     swapFromAddressInfo.networkId,
     settingsPersistAtom.swapBatchApproveAndSwap,
