@@ -2803,3 +2803,125 @@ describe('onUpdateAction', () => {
     );
   });
 });
+
+// =========================================================================
+// D2. onUpdateActionDirect routing (toolbox reminder + top-right Update button)
+// Never opens the changelog: hot update restarts, major update jumps to the
+// download/verify modal (App Store builds open the store).
+// =========================================================================
+describe('onUpdateActionDirect', () => {
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
+    jest.isolateModules(() => {
+      jest.mock('react', () => (globalThis as any).__sharedReact);
+      hooks = require('./useAppUpdate');
+    });
+    return hooks;
+  }
+
+  test('jsBundle + ready → installs bundle (restart), no navigation / no store', async () => {
+    // latestVersion === platformEnv.version ('1.0.0') + higher jsBundleVersion
+    // → getUpdateFileType resolves to jsBundle.
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      downloadedEvent: { downloadUrl: 'https://x/bundle' },
+    });
+    svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    await act(async () => {
+      result.current.onUpdateActionDirect();
+      await Promise.resolve();
+    });
+
+    expect(bundleUpd.installBundle).toHaveBeenCalledWith(
+      mockAtomHolder.value.downloadedEvent,
+    );
+    expect(nav.pushModal).not.toHaveBeenCalled();
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+  });
+
+  test('appShell + notify + downloadUrl → navigates to DownloadVerify (no changelog)', () => {
+    setAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://x/app',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'DownloadVerify' }),
+    );
+    expect(nav.pushModal).not.toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'UpdatePreview' }),
+    );
+  });
+
+  test('appShell + storeUrl → opens store, no navigation', () => {
+    setAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      storeUrl: 'https://apps.apple.com/onekey',
+      downloadUrl: 'https://x/app',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://apps.apple.com/onekey',
+    );
+    expect(nav.pushModal).not.toHaveBeenCalled();
+  });
+
+  test('status=updateIncomplete → shows incomplete dialog', () => {
+    setAtom({
+      status: EAppUpdateStatus.updateIncomplete,
+      latestVersion: '2.0.0',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(mockDialogShow).toHaveBeenCalled();
+  });
+
+  test('status=manualInstall → navigates to ManualInstall', () => {
+    setAtom({
+      status: EAppUpdateStatus.manualInstall,
+      latestVersion: '2.0.0',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'ManualInstall' }),
+    );
+  });
+});

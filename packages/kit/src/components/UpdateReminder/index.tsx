@@ -292,14 +292,14 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
 
 function BasicUpdateReminder() {
   const appUpdateInfo = useAppUpdateInfo(true);
-  const { data, onUpdateAction } = appUpdateInfo;
+  const { data, onUpdateActionDirect } = appUpdateInfo;
   const { closePopover } = usePopoverContext();
   const { closeTooltip } = useTooltipContext();
   const handlePress = useCallback(async () => {
     await closePopover?.();
     await closeTooltip?.();
-    onUpdateAction?.();
-  }, [closePopover, closeTooltip, onUpdateAction]);
+    onUpdateActionDirect?.();
+  }, [closePopover, closeTooltip, onUpdateActionDirect]);
 
   const showUpdateUI = useMemo(() => {
     return isShowAppUpdateUIWhenUpdating({
