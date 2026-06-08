@@ -139,6 +139,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     needChangeToken,
     selectToToken,
     selectFromToken,
+    resetSwapTokenData,
     swapTypeSwitchAction,
   } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -306,8 +307,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     } = {}) => {
       fromTokenRef.current = undefined;
       toTokenRef.current = undefined;
-      setSwapFromToken(undefined);
-      setToToken(undefined);
+      void resetSwapTokenData(ESwapDirectionType.FROM);
+      void resetSwapTokenData(ESwapDirectionType.TO);
       setSelectedTokensColdStartContext(undefined);
       if (resetSwapType) {
         switchSwapTypeIfNeeded(
@@ -317,9 +318,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
     [
       params?.swapTabSwitchType,
+      resetSwapTokenData,
       setSelectedTokensColdStartContext,
-      setSwapFromToken,
-      setToToken,
       switchSwapTypeIfNeeded,
     ],
   );
@@ -354,7 +354,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         return false;
       }
 
-      clearSelectedTokensColdStartCache({ resetSwapType: true });
+      if (hasSelectedTokens) {
+        clearSelectedTokensColdStartCache({ resetSwapType: true });
+      }
       void updateSelectedAccount({
         updateMeta: {
           eventEmitDisabled: true,
