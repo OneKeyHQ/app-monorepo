@@ -61,7 +61,6 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
-  HOME_PERPS_CATEGORY_ID,
   HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
@@ -230,25 +229,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
     if (apiHomeTabs.length > 0) {
-      const configuredHomeCategories = apiHomeTabs
-        .filter((tab) => tab.type !== HOME_PERPS_CATEGORY_ID)
-        .map((tab) => {
-          if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
-            return {
-              ...favoritesCategory,
-              name: tab.name,
-            };
-          }
-
+      return apiHomeTabs.map((tab) => {
+        if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
           return {
-            id: tab.type,
+            ...favoritesCategory,
             name: tab.name,
-            icon: tab.icon,
           };
-        });
-      if (configuredHomeCategories.length > 0) {
-        return configuredHomeCategories;
-      }
+        }
+
+        return {
+          id: tab.type,
+          name: tab.name,
+          icon: tab.icon,
+        };
+      });
     }
 
     return [favoritesCategory, ...marketCategories];
