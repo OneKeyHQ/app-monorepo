@@ -202,10 +202,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       void systemTimeUtils.ensureFreshServerTime().catch((error) => {
         errorUtils.autoPrintErrorIgnore(error);
       });
-      correctedNow = {
-        time: Date.now(),
-        source: ECloudSyncDataTimeSource.LocalFallback,
-      };
+      correctedNow =
+        systemTimeUtils.systemTimeStatus === ELocalSystemTimeStatus.INVALID
+          ? systemTimeUtils.getCorrectedCloudSyncNow()
+          : {
+              time: Date.now(),
+              source: ECloudSyncDataTimeSource.LocalFallback,
+            };
     } else {
       correctedNow = systemTimeUtils.getCorrectedCloudSyncNow();
     }
@@ -2292,7 +2295,8 @@ class ServicePrimeCloudSync extends ServiceBase {
                 target: target as never,
                 dataTime: item.dataTime,
                 existingDataTime: item.dataTime,
-                allowHistoricalTime: true,
+                allowHistoricalTime: !isNil(item.dataTime),
+                preserveUndefinedDataTime: isNil(item.dataTime),
                 syncCredential,
                 isDeleted: item.isDeleted,
               });
