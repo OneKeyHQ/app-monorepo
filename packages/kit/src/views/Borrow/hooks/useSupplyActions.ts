@@ -188,57 +188,6 @@ export const useSupplyActions = ({
     [navigation, networkId, accountId, swapConfig, getNetworkSafe],
   );
 
-  const handleBridge = useCallback(
-    async (item: IAssetWithToken) => {
-      if (!networkId || !accountId) {
-        console.warn('Network ID or Account ID not defined');
-        return;
-      }
-
-      const { token } = item;
-
-      try {
-        // Use provided swapConfig or fetch if not available
-        let supportCrossChain = swapConfig?.isSupportCrossChain;
-
-        if (supportCrossChain === undefined) {
-          const config = await backgroundApiProxy.serviceSwap.checkSupportSwap({
-            networkId,
-          });
-          supportCrossChain = config.isSupportCrossChain;
-        }
-
-        if (!supportCrossChain) {
-          console.warn('Bridge not supported for this network');
-          return;
-        }
-
-        // Get network details with error handling
-        const onekeyNetwork = await getNetworkSafe(networkId);
-        if (!onekeyNetwork) {
-          console.warn('Failed to get network details');
-          return;
-        }
-
-        // For bridge, always use Ethereum ETH as fromToken
-        const fromToken = getEthereumEthToken();
-
-        navigation.pushModal(EModalRoutes.SwapModal, {
-          screen: EModalSwapRoutes.SwapMainLand,
-          params: {
-            importFromToken: fromToken,
-            importToToken: buildSwapToken(token, onekeyNetwork),
-            swapTabSwitchType: ESwapTabSwitchType.SWAP,
-            swapSource: ESwapSource.MARKET,
-          },
-        });
-      } catch (error) {
-        console.error('Error handling bridge:', error);
-      }
-    },
-    [navigation, networkId, accountId, swapConfig, getNetworkSafe],
-  );
-
   const handleReceive = useCallback(
     async (item: IAssetWithToken) => {
       if (!networkId || !accountId || !walletId) {
@@ -295,7 +244,6 @@ export const useSupplyActions = ({
 
   return {
     handleSwap,
-    handleBridge,
     handleReceive,
   };
 };

@@ -190,12 +190,13 @@ const ProviderManageContainer = ({
                     net.networkId.split('--')[0] === networkId.split('--')[0],
                 )
               : supportNetworks.filter((net) => net.networkId === networkId);
+            const providerEnable = getProviderEnable(item, mode);
             if (enable) {
               if (disNetsEnable?.length) {
                 return syncProviderManagerUnifiedSettings(
                   {
                     ...item,
-                    enable: true,
+                    enable: providerEnable,
                     disableNetworks: currentDisableNetworks.filter(
                       (net) =>
                         !disNetsEnable.find(
@@ -210,7 +211,7 @@ const ProviderManageContainer = ({
               return syncProviderManagerUnifiedSettings(
                 {
                   ...item,
-                  enable: true,
+                  enable: providerEnable,
                   disableNetworks: uniqueProviderNetworks([
                     ...currentDisableNetworks,
                     ...disNetsEnable,

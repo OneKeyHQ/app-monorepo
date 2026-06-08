@@ -77,6 +77,7 @@ import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
+import { getSwapDisabledNetworkIdsForPairToken } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -414,6 +415,13 @@ const SwapTokenSelectPage = ({
       toToken
     ) {
       res = networkIds.filter((net) => net === toToken?.networkId);
+    }
+    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      const pairedToken = type === ESwapDirectionType.TO ? fromToken : toToken;
+      res = getSwapDisabledNetworkIdsForPairToken({
+        networks: swapNetworksIncludeAllNetwork,
+        pairedNetworkId: pairedToken?.networkId,
+      });
     }
     return res;
   }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, toToken, type]);

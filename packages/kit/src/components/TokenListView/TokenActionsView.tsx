@@ -98,14 +98,6 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
-    defaultLogger.wallet.walletActions.actionTrade({
-      walletType: activeAccount?.wallet?.type ?? '',
-      networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
-      source: 'homeTokenList',
-      tradeType: ESwapTabSwitchType.SWAP,
-      isSoftwareWalletOnlyUser,
-    });
-
     void (async () => {
       const activeNetworkId =
         activeToken.networkId ?? activeAccount?.network?.id ?? '';
@@ -134,6 +126,17 @@ function TokenActionsView(props: IProps) {
         }
       }
 
+      const swapTabSwitchType = importToToken
+        ? ESwapTabSwitchType.BRIDGE
+        : ESwapTabSwitchType.SWAP;
+      defaultLogger.wallet.walletActions.actionTrade({
+        walletType: activeAccount?.wallet?.type ?? '',
+        networkId: activeNetworkId,
+        source: 'homeTokenList',
+        tradeType: swapTabSwitchType,
+        isSoftwareWalletOnlyUser,
+      });
+
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -141,9 +144,7 @@ function TokenActionsView(props: IProps) {
           importFromToken,
           importToToken,
           importDeriveType: deriveType,
-          swapTabSwitchType: importToToken
-            ? ESwapTabSwitchType.BRIDGE
-            : ESwapTabSwitchType.SWAP,
+          swapTabSwitchType,
           swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
         },
       });

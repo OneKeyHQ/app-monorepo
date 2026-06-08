@@ -191,18 +191,6 @@ function ActionSwap(props: IActionItemsProps) {
   );
 }
 
-function ActionBridge(props: IActionItemsProps) {
-  const intl = useIntl();
-  const { icon, label, ...rest } = props;
-  return (
-    <ActionItem
-      label={label ?? intl.formatMessage({ id: ETranslations.global_swap })}
-      icon={icon ?? 'SwitchHorOutline'}
-      {...rest}
-    />
-  );
-}
-
 function ActionPerp(props: IActionItemsProps) {
   const intl = useIntl();
   const { icon, label, ...rest } = props;
@@ -348,7 +336,6 @@ RawActions.Buy = ActionBuy;
 RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
-RawActions.Bridge = ActionBridge;
 RawActions.Perp = ActionPerp;
 RawActions.Earn = ActionEarn;
 RawActions.Staking = ActionStaking;
