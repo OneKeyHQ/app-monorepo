@@ -79,8 +79,10 @@ function hasSwapColdStartSnapshot() {
 
   const swapColdStartCacheKeys = [
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTipsStateAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
   ];
   return Object.keys(snapshot).some((key) =>

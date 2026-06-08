@@ -26,6 +26,11 @@ import { settingsAtom } from '../states/jotai/atoms';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+import {
+  isAccountSelectorHomeSyncSourceScene,
+  isAccountSelectorHomeSyncTargetScene,
+  shouldSyncAccountSelectorHomeAndSwapScenes,
+} from './utils/accountSelectorHomeSyncUtils';
 
 import type {
   IDBAccount,
@@ -62,34 +67,44 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
-    const syncScenes: {
-      sceneName: EAccountSelectorSceneName;
-      num: number;
-    }[] = [
-      {
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-      },
-      {
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 0,
-      },
-    ];
-
     const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    if (!swapToAnotherAccountSwitchOn) {
-      syncScenes.push({
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 1,
-      });
-    }
+    return isAccountSelectorHomeSyncTargetScene({
+      scene: { sceneName, sceneUrl, num },
+      swapToAnotherAccountSwitchOn,
+    });
+  }
 
-    return syncScenes.some((item) =>
-      accountSelectorUtils.isEqualAccountSelectorScene({
-        scene1: item,
-        scene2: { sceneName, sceneUrl, num },
-      }),
-    );
+  @backgroundMethod()
+  async shouldSyncWithHomeSource(params: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }) {
+    return isAccountSelectorHomeSyncSourceScene(params);
+  }
+
+  @backgroundMethod()
+  async shouldSyncHomeAndSwapSelectedAccount({
+    sourceScene,
+    targetScene,
+  }: {
+    sourceScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+    targetScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+  }) {
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+    return shouldSyncAccountSelectorHomeAndSwapScenes({
+      sourceScene,
+      targetScene,
+      swapToAnotherAccountSwitchOn,
+    });
   }
 
   @backgroundMethod()

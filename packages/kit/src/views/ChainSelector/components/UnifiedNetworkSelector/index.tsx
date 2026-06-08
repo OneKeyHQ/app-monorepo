@@ -353,7 +353,7 @@ function UnifiedNetworkSelector() {
 
   // Network tab callbacks
   const handleNetworkPressItem = useCallback(
-    (item: IServerNetwork) => {
+    async (item: IServerNetwork) => {
       if (
         sceneName === EAccountSelectorSceneName.home ||
         sceneName === EAccountSelectorSceneName.homeUrlAccount
@@ -367,16 +367,18 @@ function UnifiedNetworkSelector() {
         });
       }
 
-      void actions.current.updateSelectedAccountNetwork({
-        num,
-        networkId: item.id,
-      });
-
-      // Surgically drop only the ChainSelectorModal route. popStack() triggers
-      // the iOS RNSScreenStack window=NIL retry storm, and resetAboveMainRoute
-      // would also close any parent modal that pushed us here.
-      // See ios-overlay-navigation-freeze.md.
-      resetChainSelectorModal();
+      try {
+        await actions.current.updateSelectedAccountNetwork({
+          num,
+          networkId: item.id,
+        });
+      } finally {
+        // Surgically drop only the ChainSelectorModal route. popStack() triggers
+        // the iOS RNSScreenStack window=NIL retry storm, and resetAboveMainRoute
+        // would also close any parent modal that pushed us here.
+        // See ios-overlay-navigation-freeze.md.
+        resetChainSelectorModal();
+      }
     },
     [actions, num, recordNetworkHistoryEnabled, activeNetwork, sceneName],
   );
@@ -410,7 +412,7 @@ function UnifiedNetworkSelector() {
           appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
         } else {
           // Network tab: select network and close modal (original behavior)
-          handleNetworkPressItem(network);
+          void handleNetworkPressItem(network);
         }
       },
     });
