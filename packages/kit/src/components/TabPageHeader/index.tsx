@@ -106,7 +106,7 @@ function BaseDesktopTabPageHeader({
       return (
         <>
           {customHeaderRightItems}
-          <XStack pl="$5" alignItems="center" gap="$2">
+          <XStack pl="$5" alignItems="center">
             <HeaderUpdateButton />
             <HeaderNotificationIconButton testID="header-right-notification" />
           </XStack>

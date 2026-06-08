@@ -39,6 +39,10 @@ function BasicHeaderUpdateButton() {
       testID="header-update-button"
       variant="accent"
       size="small"
+      // Right gap so the button doesn't sit flush against the notification
+      // bell. Self-contained (rather than parent spacing) so it disappears
+      // with the button when there's no update.
+      mr="$3"
       onPress={onUpdateActionDirect}
     >
       {intl.formatMessage({ id: ETranslations.update_update_now })}
