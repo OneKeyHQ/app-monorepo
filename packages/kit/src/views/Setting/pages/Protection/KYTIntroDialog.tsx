@@ -234,27 +234,28 @@ function useKYTIntroDialog() {
     });
   }, [intl, md, mobileFooterBottomPadding, navigation, onekeyUserId]);
 
-  // Sync gate: the intro may auto-pop only when Home is the foreground tab, the
-  // app-update flow is settled, and no blocking root overlay or open dialog
-  // (including the featured-changelog Dialog.show()) is on screen.
-  const canAutoShowKytIntroNow = useCallback(() => {
-    if (!isHomeReadyRef.current) {
-      return false;
-    }
-    if (!isHomeTabFocusedRef.current) {
-      return false;
-    }
-    if (!isAppUpdateSettledForKyt(appUpdateInfo)) {
-      return false;
-    }
-    if (isKytBlockingRootOverlayOpen()) {
-      return false;
-    }
-    if (hasOpenBlockingDialog()) {
-      return false;
-    }
-    return true;
-  }, [appUpdateInfo]);
+  // "Ready" = Home is the foreground tab, Home has finished its first load, and
+  // the app-update flow is settled — everything except transient overlays. Both
+  // the auto-show gate and the retry-arming decision derive from this single
+  // definition so they can't drift apart.
+  const isReadyExceptOverlays = useCallback(
+    () =>
+      isHomeReadyRef.current &&
+      isHomeTabFocusedRef.current &&
+      isAppUpdateSettledForKyt(appUpdateInfo),
+    [appUpdateInfo],
+  );
+
+  // Sync gate: the intro may auto-pop only when ready AND no blocking root
+  // overlay or open dialog (including the featured-changelog Dialog.show()) is on
+  // screen.
+  const canAutoShowKytIntroNow = useCallback(
+    () =>
+      isReadyExceptOverlays() &&
+      !isKytBlockingRootOverlayOpen() &&
+      !hasOpenBlockingDialog(),
+    [isReadyExceptOverlays],
+  );
 
   const clearRetry = useCallback(() => {
     if (retryTimerRef.current) {
@@ -291,15 +292,10 @@ function useKYTIntroDialog() {
       return;
     }
 
-    const readyExceptOverlays =
-      isHomeReadyRef.current &&
-      isHomeTabFocusedRef.current &&
-      isAppUpdateSettledForKyt(appUpdateInfo);
-
     if (!canAutoShowKytIntroNow()) {
       // Only arm the fallback timer when the sole blocker is a transient
       // overlay/dialog; otherwise wait for the next trigger (route/atom/tokens).
-      if (readyExceptOverlays) {
+      if (isReadyExceptOverlays()) {
         scheduleRetry();
       }
       return;
@@ -339,11 +335,7 @@ function useKYTIntroDialog() {
         }
         // Overlay state may have changed during the awaits — re-check.
         if (!canAutoShowKytIntroNow()) {
-          if (
-            isHomeReadyRef.current &&
-            isHomeTabFocusedRef.current &&
-            isAppUpdateSettledForKyt(appUpdateInfo)
-          ) {
+          if (isReadyExceptOverlays()) {
             scheduleRetry();
           }
           return;
@@ -364,7 +356,7 @@ function useKYTIntroDialog() {
   }, [
     isPrimeSubscriptionActive,
     onekeyUserId,
-    appUpdateInfo,
+    isReadyExceptOverlays,
     canAutoShowKytIntroNow,
     scheduleRetry,
     clearRetry,

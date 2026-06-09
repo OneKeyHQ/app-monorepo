@@ -87,6 +87,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -757,10 +758,13 @@ function SendAmountInputContainer() {
   // Usable price gate for the fiat/token toggle. Defined here (before the
   // toggle handler) so handleToggleFiatMode can guard on it. Backend may send
   // "--" for an unknown price, which parses to NaN downstream.
-  const hasUsablePrice = useMemo(
-    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
-    [tokenDetails?.price],
-  );
+  const hasUsablePrice = useMemo(() => {
+    // Match the finite + positive check used by linkedAmount / maxBalanceFiat so
+    // the three "is the price usable" gates can't drift apart. "--" parses to
+    // NaN (non-finite), so it is correctly treated as unusable.
+    const priceBN = new BigNumber(tokenDetails?.price ?? 0);
+    return priceBN.isFinite() && priceBN.isGreaterThan(0);
+  }, [tokenDetails?.price]);
 
   const privateSendAmount = useMemo(
     () => (isUseFiat ? linkedAmount.originalAmount : amount),
@@ -2939,9 +2943,10 @@ function SendAmountInputContainer() {
   }
 
   // Fiat/token equivalent shown beneath the input. Backend may report "--" for
-  // an unknown price (NaN once parsed); show "--" and disable the toggle below
-  // instead of surfacing NaN or carrying it into the input.
-  let fiatTokenEquivalentValue = '--';
+  // an unknown price (NaN once parsed); show the unavailable placeholder and
+  // disable the toggle below instead of surfacing NaN or carrying it into the
+  // input.
+  let fiatTokenEquivalentValue = UNAVAILABLE_DISPLAY;
   if (hasUsablePrice) {
     fiatTokenEquivalentValue = isUseFiat
       ? linkedAmount.originalAmount
