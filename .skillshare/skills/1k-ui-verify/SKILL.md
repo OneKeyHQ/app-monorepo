@@ -50,16 +50,20 @@ capture, and pitfalls (DevTools closed, finding the right window): [electron-cdp
 ## RN quick recipe (agent-device)
 
 ```bash
-agent-device open --platform ios          # boot/attach simulator + app
-agent-device snapshot                      # compact a11y tree + RN component tree, refs like @e3
-agent-device fill @e3 "0.5"                # type into an element
-agent-device tap @e7                        # tap
-agent-device screenshot --out .tmp/ui/rn.png
-agent-device close
+agent-device open --platform ios              # boot/attach simulator + app
+agent-device metro reload                      # after editing src/node_modules; wait ~10-13s
+agent-device click 'id="home-more-button"'     # click by testID — works on iOS AND Android
+agent-device fill 'id="amount-input"' "0.5"    # type by testID
+agent-device screenshot --out .tmp/ui/rn.png   # read the PNG — it's the source of truth
 ```
 
-Prefer the **MCP** integration so the agent calls these directly. Install, MCP wiring, picking the
-target device, and launching OneKey's dev build: [agent-device-rn.md](references/rules/agent-device-rn.md).
+testID works on iOS (`click`/`is visible`/`get attrs` with `id="..."`) even though `snapshot` looks
+empty. Gotcha: the dev CPU/RAM/fps perf-overlay is a full-screen window that **swallows taps over
+its HUD box** — if a `click` prints "Tapped" but nothing changes, disable the overlay or `get attrs`
++ `click <x y>` on a clear spot. Command is `click`, not `tap`. Full details, the proven
+edit→reload→verify workflow, and pitfalls: [agent-device-rn.md](references/rules/agent-device-rn.md).
+
+Prefer the **MCP** integration so the agent calls these directly.
 
 ## Regression scenario series
 

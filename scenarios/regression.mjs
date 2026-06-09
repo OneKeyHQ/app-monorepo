@@ -300,6 +300,17 @@ const RN = {
   tabs: { earn: 'Earn', swap: 'Swap', perp: 'Trade', home: 'Wallet' }, // tab a11y labels/ids — VERIFY
 };
 
+// RESOLVED (2026-06-09, iPhone 16/17 Pro-class sim, agent-device 0.17.x):
+// testID DOES work on OneKey iOS — `click 'id="..."'` / `is visible 'id="..."'` /
+// `get attrs 'id="..."'` resolve via native accessibilityIdentifier even though
+// `snapshot` returns a sparse tree. The real trap: the native CPU/RAM/fps perf
+// overlay is a full-screen passthrough UIWindow (@onekeyfe/react-native-perf-stats)
+// that swallows taps landing over its HUD box, so a testID `click` can print
+// "Tapped" yet do nothing. Clear it first via the dev global
+// `globalThis.$onekeyPerfMonitor.hide()` (callable over the RN Hermes CDP), or
+// `get attrs` the rect and click a clear coordinate. Full writeup in skill
+// 1k-ui-verify (references/rules/agent-device-rn.md).
+//
 // RN analog of gift-storm: open the gift overlay on Earn, storm tabs without
 // closing it, land Home, open Settings, then probe for a freeze. Detection:
 //   - command RTT balloons past FREEZE_MS (UI thread wedged), or
@@ -324,7 +335,10 @@ async function runGiftStormRn(platform) {
   }
   await ad(['logs', 'clear'], { platform });
 
-  const tap = (id) => ad(['find', id, 'tap'], { platform, timeoutMs: 8000 });
+  // NOTE: standalone tap is `click`; find's action verb is `press` (version-
+  // sensitive). testID resolves on OneKey iOS (see note above), so these match —
+  // but disable/clear the perf overlay first or taps over its HUD box are eaten.
+  const tap = (id) => ad(['find', id, 'press'], { platform, timeoutMs: 8000 });
   // Cheap responsiveness probe: time an appstate round-trip; a wedged UI thread
   // makes the automation call hang until our timeout.
   const rtt = async () => {
