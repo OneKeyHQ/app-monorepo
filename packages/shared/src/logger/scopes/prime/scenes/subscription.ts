@@ -41,13 +41,16 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primeUpsellShow({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint?: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    isPrimeActive?: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
     };
   }
 
@@ -128,6 +131,27 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       featureName,
       entryPoint,
+    };
+  }
+
+  /**
+   * Prime feature CTA button click
+   * Triggered when an active Prime user clicks a feature action CTA on the feature intro page/dialog.
+   */
+  @LogToServer()
+  public primeFeatureCtaClick({
+    featureName,
+    entryPoint,
+    isPrimeActive,
+  }: {
+    featureName: EPrimeFeatures;
+    entryPoint: 'primePage';
+    isPrimeActive: boolean;
+  }) {
+    return {
+      featureName,
+      entryPoint,
+      isPrimeActive,
     };
   }
 

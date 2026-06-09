@@ -17,6 +17,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { RedemptionTestIDs } from '@onekeyhq/kit/src/views/Redemption/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import type { IBtcRewardCodeInfoParam } from '@onekeyhq/shared/src/routes';
 
@@ -72,9 +74,18 @@ function VerifyVoucherPage() {
           voucherCode,
         });
       if (!result.success) {
+        defaultLogger.referral.redemption.btcRewardOrderClaimVerifyResult({
+          result: 'failed',
+          errorCode: result.error.code,
+        });
         form.setError('voucherCode', { message: result.error.message });
         return;
       }
+
+      defaultLogger.referral.redemption.btcRewardOrderClaimVerifyResult({
+        result: 'success',
+        quotaRemaining: result.data.quotaRemaining,
+      });
 
       navigation.push(EModalReferFriendsRoutes.BtcRewardSelectAddress, {
         codeInfo,
@@ -82,6 +93,10 @@ function VerifyVoucherPage() {
         quotaRemaining: result.data.quotaRemaining,
       });
     } catch {
+      defaultLogger.referral.redemption.btcRewardOrderClaimVerifyResult({
+        result: 'failed',
+        errorCode: EBtcRewardErrorCode.Unknown,
+      });
       form.setError('voucherCode', {
         message: intl.formatMessage({
           id: ETranslations.redemption_btc_confirm_error_desc,
