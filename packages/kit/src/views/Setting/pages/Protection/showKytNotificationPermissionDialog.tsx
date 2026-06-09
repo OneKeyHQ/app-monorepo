@@ -72,11 +72,33 @@ export async function promptKytNotificationPermissionIfNeeded({
     }),
     onConfirm: async ({ close }) => {
       await close();
+      const routeToNotificationGuide = async () => {
+        // Wait for the dialog dismiss animation before pushing the modal,
+        // matching the existing NotificationsSettings flow.
+        await timerUtils.wait(300);
+        navigation.pushModal(EModalRoutes.NotificationsModal, {
+          screen: EModalNotificationsRoutes.NotificationIntroduction,
+        });
+      };
       try {
         // 1) Turn on the OneKey notification master switch if it is off.
         const serverSettings =
           await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
-        if (!serverSettings?.pushEnabled) {
+        // `/notification/v1/config/update` replaces the entire config object
+        // (NotificationsSettings always submits `{ ...currentSettings, ...part }`),
+        // so we may only merge-submit when we already hold a complete server
+        // settings object. When it is missing or empty (new user / empty server
+        // config), spreading it would POST a bare `{ pushEnabled: true }` and
+        // silently wipe other notification defaults (account activity, price
+        // alerts, etc.). In that case route to the full notification guide
+        // instead of submitting an incomplete object.
+        const hasServerSettings =
+          !!serverSettings && Object.keys(serverSettings).length > 0;
+        if (!hasServerSettings) {
+          await routeToNotificationGuide();
+          return;
+        }
+        if (!serverSettings.pushEnabled) {
           await backgroundApiProxy.serviceNotification.updateServerNotificationSettings(
             {
               ...serverSettings,
@@ -92,12 +114,7 @@ export async function promptKytNotificationPermissionIfNeeded({
           permission.isSupported &&
           permission.permission !== ENotificationPermission.granted
         ) {
-          // Wait for the dialog dismiss animation before pushing the modal,
-          // matching the existing NotificationsSettings flow.
-          await timerUtils.wait(300);
-          navigation.pushModal(EModalRoutes.NotificationsModal, {
-            screen: EModalNotificationsRoutes.NotificationIntroduction,
-          });
+          await routeToNotificationGuide();
         }
       } catch {
         // Best-effort notification enablement; a failure here must not surface
