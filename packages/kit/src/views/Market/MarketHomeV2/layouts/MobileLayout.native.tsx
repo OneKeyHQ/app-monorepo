@@ -33,6 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { debugMarketTabsLog } from '../debugMarketTabsLog';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -42,6 +43,10 @@ import type {
   IMarketHomeTabValue,
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type {
+  PageScrollStateChangedNativeEvent,
+  PagerViewProps,
+} from 'react-native-pager-view';
 
 interface IMobileLayoutProps {
   filterBarProps: IMarketFilterBarProps;
@@ -76,6 +81,10 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
+const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
+const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
+const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
+type IMarketPagerProps = Omit<PagerViewProps, 'onPageScroll' | 'initialPage'>;
 
 function MarketHomeTabBar({
   watchlistTabName,
@@ -172,7 +181,10 @@ function MarketHomeTabBar({
 
   return (
     <YStack bg="$bgApp">
-      <Tabs.TabBar {...tabBarProps} />
+      <Tabs.TabBar
+        {...tabBarProps}
+        directTabPressAnimation={platformEnv.isNativeIOS}
+      />
       <YStack
         height={fixedSecondaryHeaderHeight}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
@@ -286,13 +298,108 @@ function MobileLayoutComponent({
     }
   }, [initialCategoryId, selectedCategoryId]);
 
+  const expectedTabChangeTargetRef = useRef<string | undefined>(undefined);
+  const expectedTabChangeTargetStartedAtRef = useRef(0);
+  const lastPagerDraggingAtRef = useRef(0);
+  const lastAcceptedTabChangeNameRef = useRef<string | undefined>(undefined);
+  const expectedTabChangeTargetTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const clearExpectedTabChangeTargetTimer = useCallback(() => {
+    if (expectedTabChangeTargetTimerRef.current) {
+      clearTimeout(expectedTabChangeTargetTimerRef.current);
+      expectedTabChangeTargetTimerRef.current = undefined;
+    }
+  }, []);
+  const clearExpectedTabChangeTarget = useCallback(() => {
+    clearExpectedTabChangeTargetTimer();
+    expectedTabChangeTargetRef.current = undefined;
+    expectedTabChangeTargetStartedAtRef.current = 0;
+  }, [clearExpectedTabChangeTargetTimer]);
+  const scheduleExpectedTabChangeTargetClear = useCallback(
+    (tabName: string, delayMs: number) => {
+      clearExpectedTabChangeTargetTimer();
+      expectedTabChangeTargetTimerRef.current = setTimeout(() => {
+        if (expectedTabChangeTargetRef.current === tabName) {
+          expectedTabChangeTargetRef.current = undefined;
+          expectedTabChangeTargetStartedAtRef.current = 0;
+        }
+        expectedTabChangeTargetTimerRef.current = undefined;
+      }, delayMs);
+    },
+    [clearExpectedTabChangeTargetTimer],
+  );
+  const markExpectedTabChangeTarget = useCallback(
+    (tabName: string) => {
+      clearExpectedTabChangeTarget();
+      expectedTabChangeTargetRef.current = tabName;
+      expectedTabChangeTargetStartedAtRef.current = Date.now();
+      lastAcceptedTabChangeNameRef.current = undefined;
+      scheduleExpectedTabChangeTargetClear(
+        tabName,
+        MARKET_TAB_CHANGE_TARGET_GUARD_MS,
+      );
+    },
+    [clearExpectedTabChangeTarget, scheduleExpectedTabChangeTargetClear],
+  );
+  const shouldDeferJumpToTab = useCallback(
+    ({ targetTabName }: { targetTabName: string; currentTabName: string }) => {
+      if (expectedTabChangeTargetRef.current !== targetTabName) {
+        return false;
+      }
+
+      const startedAt = expectedTabChangeTargetStartedAtRef.current;
+      return (
+        startedAt > 0 && Date.now() - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS
+      );
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      clearExpectedTabChangeTarget();
+    },
+    [clearExpectedTabChangeTarget],
+  );
+
   const {
     activeTabName,
     setActiveTabName,
     tabsRef: currentTabsRef,
-  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused);
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused, {
+    onBeforeJumpToTab: markExpectedTabChangeTarget,
+    shouldDeferJumpToTab,
+  });
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
+  const latestTabStateRef = useRef({
+    activeTabName,
+    selectedTabName,
+  });
+  latestTabStateRef.current = {
+    activeTabName,
+    selectedTabName,
+  };
+  useEffect(() => {
+    debugMarketTabsLog('mobile.state', {
+      activeTabName,
+      selectedTabName,
+      selectedSpotCategory: filterBarProps.selectedCategory,
+      spotItemsCount: spotTabItems.length,
+      isFocused,
+      nestedPager,
+    });
+  }, [
+    activeTabName,
+    filterBarProps.selectedCategory,
+    isFocused,
+    nestedPager,
+    selectedTabName,
+    spotTabItems.length,
+  ]);
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
@@ -335,6 +442,14 @@ function MobileLayoutComponent({
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
+        const latestTabState = latestTabStateRef.current;
+        debugMarketTabsLog('mobile.tab-press', {
+          name,
+          selectedTabName: latestTabState.selectedTabName,
+          focusedTab: currentTabsRef.current?.getFocusedTab(),
+          tabNames: tabBarProps.tabNames,
+        });
+        markExpectedTabChangeTarget(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -348,15 +463,109 @@ function MobileLayoutComponent({
         />
       );
     },
-    [perpsTabName, watchlistTabName],
+    [
+      currentTabsRef,
+      markExpectedTabChangeTarget,
+      perpsTabName,
+      watchlistTabName,
+    ],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
-      setActiveTabName(tabName);
-      handleTabChange(tabName);
+      const latestTabState = latestTabStateRef.current;
+      const focusedTab = currentTabsRef.current?.getFocusedTab();
+      const expectedTabName = expectedTabChangeTargetRef.current;
+      const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
+      const pagerDragElapsedMs =
+        lastPagerDraggingAt > 0 ? Date.now() - lastPagerDraggingAt : undefined;
+      const isRecentPagerDrag =
+        pagerDragElapsedMs !== undefined &&
+        pagerDragElapsedMs < MARKET_TAB_USER_DRAG_ACCEPT_MS;
+      debugMarketTabsLog('mobile.on-tab-change', {
+        tabName,
+        activeTabName: latestTabState.activeTabName,
+        selectedTabName: latestTabState.selectedTabName,
+        focusedTab,
+        expectedTabName,
+        pagerDragElapsedMs,
+      });
+      if (expectedTabName && tabName !== expectedTabName) {
+        if (isRecentPagerDrag && focusedTab === tabName) {
+          debugMarketTabsLog('mobile.on-tab-change.user-drag-accepted', {
+            tabName,
+            expectedTabName,
+            activeTabName: latestTabState.activeTabName,
+            selectedTabName: latestTabState.selectedTabName,
+            focusedTab,
+            pagerDragElapsedMs,
+          });
+          clearExpectedTabChangeTarget();
+        } else {
+          debugMarketTabsLog('mobile.on-tab-change.ignored', {
+            tabName,
+            expectedTabName,
+            activeTabName: latestTabState.activeTabName,
+            selectedTabName: latestTabState.selectedTabName,
+            focusedTab,
+            pagerDragElapsedMs,
+          });
+          return;
+        }
+      }
+
+      if (!expectedTabName && focusedTab && focusedTab !== tabName) {
+        debugMarketTabsLog('mobile.on-tab-change.focus-mismatch-ignored', {
+          tabName,
+          activeTabName: latestTabState.activeTabName,
+          selectedTabName: latestTabState.selectedTabName,
+          focusedTab,
+        });
+        return;
+      }
+
+      if (
+        tabName === lastAcceptedTabChangeNameRef.current &&
+        latestTabState.activeTabName === tabName
+      ) {
+        debugMarketTabsLog('mobile.on-tab-change.duplicate-ignored', {
+          tabName,
+          activeTabName: latestTabState.activeTabName,
+          selectedTabName: latestTabState.selectedTabName,
+          focusedTab,
+        });
+        return;
+      }
+
+      lastAcceptedTabChangeNameRef.current = tabName;
+      setActiveTabNameRef.current(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [clearExpectedTabChangeTarget, currentTabsRef],
+  );
+
+  const handlePagerScrollStateChanged = useCallback(
+    (event: PageScrollStateChangedNativeEvent) => {
+      const { pageScrollState } = event.nativeEvent;
+      if (pageScrollState !== 'dragging') {
+        return;
+      }
+
+      lastPagerDraggingAtRef.current = Date.now();
+      debugMarketTabsLog('mobile.pager-drag', {
+        pageScrollState,
+        expectedTabName: expectedTabChangeTargetRef.current,
+        focusedTab: currentTabsRef.current?.getFocusedTab(),
+      });
+    },
+    [currentTabsRef],
+  );
+  const pagerProps = useMemo<IMarketPagerProps>(
+    () => ({
+      ...(nestedPager ? { nestedScrollEnabled: true } : {}),
+      onPageScrollStateChanged: handlePagerScrollStateChanged,
+    }),
+    [handlePagerScrollStateChanged, nestedPager],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -424,9 +633,7 @@ function MobileLayoutComponent({
         initialTabName={selectedTabName}
         onTabChange={onTabChangeHandler}
         useNativeHeaderAnimation={useNativeHeaderAnimation}
-        pagerProps={
-          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-        }
+        pagerProps={pagerProps}
         {...containerProps}
       >
         {tabElements}

@@ -25,6 +25,7 @@ import { useMarketHomePageEnterAnalytics } from '../hooks/useMarketEnterAnalytic
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 
+import { debugMarketTabsLog } from './debugMarketTabsLog';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
@@ -109,11 +110,24 @@ const useMarketHomeLayoutProps = () => {
     const hasTargetCategory = categories.some(
       (item) => item.id === spotCategoryToSelect,
     );
+    debugMarketTabsLog('home.pending-category', {
+      spotCategoryToSelect,
+      hasTargetCategory,
+      isMarketBasicConfigLoading,
+      categoriesCount: categories.length,
+      selectedCategory,
+    });
     if (!hasTargetCategory) {
       if (isMarketBasicConfigLoading !== false) {
+        debugMarketTabsLog('home.pending-category.wait-config', {
+          spotCategoryToSelect,
+        });
         return;
       }
 
+      debugMarketTabsLog('home.pending-category.clear-missing', {
+        spotCategoryToSelect,
+      });
       setMarketSelectedTab((prev) => ({
         ...prev,
         spotCategoryToSelect: undefined,
@@ -121,6 +135,10 @@ const useMarketHomeLayoutProps = () => {
       return;
     }
 
+    debugMarketTabsLog('home.pending-category.apply', {
+      from: selectedCategory,
+      to: spotCategoryToSelect,
+    });
     setSelectedCategory(spotCategoryToSelect);
     setMarketSelectedTab((prev) => ({
       ...prev,
@@ -130,9 +148,21 @@ const useMarketHomeLayoutProps = () => {
   }, [
     categories,
     isMarketBasicConfigLoading,
+    selectedCategory,
     setMarketSelectedTab,
     spotCategoryToSelect,
   ]);
+
+  const handleCategoryChange = useCallback(
+    (categoryId: string) => {
+      debugMarketTabsLog('home.category-change', {
+        from: selectedCategory,
+        to: categoryId,
+      });
+      setSelectedCategory(categoryId);
+    },
+    [selectedCategory],
+  );
 
   const handleNetworkIdChange = useCallback(
     (networkId: string) => {
@@ -152,7 +182,7 @@ const useMarketHomeLayoutProps = () => {
         onLiquidityFilterChange: setLiquidityFilter,
         selectedCategory,
         categories,
-        onCategoryChange: setSelectedCategory,
+        onCategoryChange: handleCategoryChange,
       },
       selectedNetworkId,
       liquidityFilter,
@@ -164,6 +194,7 @@ const useMarketHomeLayoutProps = () => {
       liquidityFilter,
       handleNetworkIdChange,
       handleTabChange,
+      handleCategoryChange,
       selectedCategory,
       categories,
     ],
