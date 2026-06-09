@@ -24,8 +24,8 @@ import {
 
 function SwapColdStartCacheSync() {
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [, setSwapFromToken] = useSwapSelectFromTokenAtom();
-  const [, setSwapToToken] = useSwapSelectToTokenAtom();
+  const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
+  const [swapToToken, setSwapToToken] = useSwapSelectToTokenAtom();
   const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
     useSwapInitialSelectedTokensSyncedAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
@@ -38,6 +38,10 @@ function SwapColdStartCacheSync() {
   initialSelectedTokensSyncedRef.current = initialSelectedTokensSynced;
   const swapTypeSwitchRef = useRef(swapTypeSwitch);
   swapTypeSwitchRef.current = swapTypeSwitch;
+  const swapFromTokenRef = useRef(swapFromToken);
+  swapFromTokenRef.current = swapFromToken;
+  const swapToTokenRef = useRef(swapToToken);
+  swapToTokenRef.current = swapToToken;
 
   useEffect(() => {
     const markInitialSelectedTokensSynced = () => {
@@ -82,6 +86,9 @@ function SwapColdStartCacheSync() {
         shouldHandleSwapColdStartHomeAccountUpdate({
           cachedContext: selectedTokensColdStartContextRef.current,
           eventPayload,
+          hasSelectedTokens: Boolean(
+            swapFromTokenRef.current || swapToTokenRef.current,
+          ),
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
         })
       ) {

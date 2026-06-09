@@ -381,6 +381,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           cachedContext: selectedTokensColdStartContextRef.current,
           eventPayload,
           hasSelectedTokens,
+          initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
           swapActiveNetworkId: swapActiveAccountRef.current?.network?.id,
           swapSelectedAccount: swapSelectedAccountRef.current,
         })
@@ -1128,6 +1129,33 @@ export function useSwapInit(params?: ISwapInitParams) {
     markInitialSelectedTokensSynced,
     switchSwapTypeIfNeeded,
     syncSwapSelectedAccountFromLatestHome,
+  ]);
+
+  useEffect(() => {
+    if (initialSelectedTokensSyncedRef.current) {
+      return;
+    }
+    if (!fromTokenRef.current && !toTokenRef.current) {
+      return;
+    }
+    if (validateSelectedTokensColdStartContext()) {
+      markInitialSelectedTokensSynced();
+    }
+  }, [
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
+    selectedTokensColdStartContext,
+    swapActiveAccount.ready,
+    swapActiveAccount.wallet?.id,
+    swapActiveAccount.indexedAccount?.id,
+    swapActiveAccount.account?.id,
+    swapActiveAccount.dbAccount?.id,
+    swapActiveAccount.deriveType,
+    swapActiveAccount.network?.id,
+    validateSelectedTokensColdStartContext,
+    markInitialSelectedTokensSynced,
   ]);
 
   useEffect(() => {

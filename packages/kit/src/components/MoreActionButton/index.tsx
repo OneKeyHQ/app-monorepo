@@ -49,6 +49,7 @@ import {
   useHardwareWalletXfpStatusAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getUpdateFileType } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -87,7 +88,11 @@ import { showRedemptionCenterDialog } from '../../views/Redemption/components/Re
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { ESettingsTabNames } from '../../views/Setting/pages/Tab/config';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
-import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from '../AppUpdate';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  isToolboxUpdateIndicatorRedundant,
+  useAppUpdateInfo,
+} from '../AppUpdate';
 import { MultipleClickStack } from '../MultipleClickStack';
 import { OneKeyIdAvatar } from '../OneKeyIdAvatar';
 import { UpdateReminder } from '../UpdateReminder';
@@ -744,10 +749,23 @@ const useIsShowAppUpdateDot = () => {
       updateStatus: appUpdateInfo.data.status,
     });
   }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  // On desktop, hot updates are surfaced by the dedicated header Update button,
+  // so the more-actions dot would open an empty Action Center — suppress it.
+  const isAppUpdateIndicatorRedundant = useMemo(
+    () =>
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: !!platformEnv.isDesktop,
+        fileType: getUpdateFileType({
+          latestVersion: appUpdateInfo.data.latestVersion,
+          jsBundleVersion: appUpdateInfo.data.jsBundleVersion,
+        }),
+      }),
+    [appUpdateInfo.data.latestVersion, appUpdateInfo.data.jsBundleVersion],
+  );
   const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
   const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
   return (
-    (isShowAppUpdateUI && isAppNeedUpdate) ||
+    (isShowAppUpdateUI && isAppNeedUpdate && !isAppUpdateIndicatorRedundant) ||
     isNeedUpgradeFirmware ||
     isShowWalletXfpStatus
   );
@@ -1447,7 +1465,7 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$blue8"
+          color="$bgAccent"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1463,7 +1481,7 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
+        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

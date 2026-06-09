@@ -3,21 +3,26 @@
 import type { ReactNode } from 'react';
 import { Component, createElement } from 'react';
 
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 
 import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   buildJotaiContextStoreId,
   jotaiContextStore,
 } from './jotaiContextStore';
-import { JotaiContextStoreMirrorTracker } from './JotaiContextStoreMirrorTracker';
+import {
+  JotaiContextRootProvidersAutoMount,
+  JotaiContextStoreMirrorTracker,
+} from './JotaiContextStoreMirrorTracker';
 import { useJotaiContextRootStore } from './useJotaiContextRootStore';
 
 jest.mock(
@@ -53,9 +58,14 @@ jest.mock('../../../views/Market/MarketWatchListProvider', () => ({
 jest.mock('../../../views/Market/MarketWatchListProviderV2', () => ({
   MarketWatchListProviderV2: () => null,
 }));
-jest.mock('../../../views/Perp/PerpsProvider', () => ({
-  PerpsRootProvider: () => null,
-}));
+jest.mock('../../../views/Perp/PerpsProvider', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    PerpsRootProvider: jest.fn(() =>
+      React.createElement('div', { 'data-testid': 'perps-root-provider' }),
+    ),
+  };
+});
 jest.mock(
   '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider',
   () => ({
@@ -68,10 +78,15 @@ jest.mock(
     SignatureConfirmRootProvider: () => null,
   }),
 );
-jest.mock('../../../views/Swap/pages/SwapRootProvider', () => ({
-  SwapModalRootProvider: () => null,
-  SwapRootProvider: () => null,
-}));
+jest.mock('../../../views/Swap/pages/SwapRootProvider', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    SwapModalRootProvider: jest.fn(() => null),
+    SwapRootProvider: jest.fn(() =>
+      React.createElement('div', { 'data-testid': 'swap-root-provider' }),
+    ),
+  };
+});
 jest.mock(
   '../../../views/UniversalSearch/pages/UniversalSearchProvider',
   () => ({
@@ -85,6 +100,10 @@ function clearJotaiContextTrackerMap() {
     delete map[key];
   });
 }
+
+type IGlobalColdStartSnapshot = typeof globalThis & {
+  __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+};
 
 class TestErrorBoundary extends Component<
   { children?: ReactNode },
@@ -132,6 +151,11 @@ describe('jotaiContextStore reset flow', () => {
   beforeEach(() => {
     jest.spyOn(console, 'log').mockImplementation(jest.fn());
     jest.spyOn(console, 'error').mockImplementation(jest.fn());
+    jest.clearAllMocks();
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+    platformEnv.isNative = false;
+    platformEnv.isDesktop = false;
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
@@ -141,6 +165,8 @@ describe('jotaiContextStore reset flow', () => {
     jotaiContextStore.storeCache.clear();
     jotaiContextStore.storeResetRequests.clear();
     clearJotaiContextTrackerMap();
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    delete globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__;
     jest.restoreAllMocks();
   });
 
@@ -255,5 +281,42 @@ describe('jotaiContextStore reset flow', () => {
     unmount();
 
     expect(getJotaiContextTrackerMap()[accountSelectorStoreId]).toBeUndefined();
+  });
+
+  it('does not mount duplicate root providers for active stores already owned by cold-start roots', async () => {
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [`store:${EJotaiContextStoreNames.swap}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom}`]:
+        { networkId: 'evm--1' },
+      [`store:${EJotaiContextStoreNames.perps}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom}`]:
+        { coin: 'BTC' },
+    };
+    platformEnv.isNative = true;
+
+    const swapData: IJotaiContextStoreData = {
+      storeName: EJotaiContextStoreNames.swap,
+    };
+    const perpsData: IJotaiContextStoreData = {
+      storeName: EJotaiContextStoreNames.perps,
+    };
+    const swapStoreId = buildJotaiContextStoreId(swapData);
+    const perpsStoreId = buildJotaiContextStoreId(perpsData);
+    const { queryAllByTestId } = render(
+      createElement(
+        'div',
+        undefined,
+        createElement(JotaiContextRootProvidersAutoMount),
+        createElement(JotaiContextStoreMirrorTracker, swapData),
+        createElement(JotaiContextStoreMirrorTracker, perpsData),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(getJotaiContextTrackerMap()[swapStoreId]?.count).toBe(1);
+      expect(getJotaiContextTrackerMap()[perpsStoreId]?.count).toBe(1);
+    });
+
+    expect(queryAllByTestId('swap-root-provider')).toHaveLength(1);
+    expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
   });
 });

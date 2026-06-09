@@ -92,7 +92,17 @@ export function useMarketTabsLogic(
         tabValue = 'watchlist';
       } else if (tabName === perpsTabName) {
         tabValue = 'perps';
-      } else if (categoryId) {
+      }
+
+      const isSelectionUnchanged =
+        tabValue === selectedTab &&
+        (!categoryId || categoryId === selectedSpotCategory);
+
+      if (isSelectionUnchanged) {
+        return;
+      }
+
+      if (categoryId) {
         onSpotCategoryChange?.(categoryId);
       }
 
@@ -107,6 +117,8 @@ export function useMarketTabsLogic(
       onSpotCategoryChange,
       onTabChange,
       perpsTabName,
+      selectedSpotCategory,
+      selectedTab,
       setSelectedTabAtom,
       spotTabNameToCategoryIdMap,
       watchlistTabName,
