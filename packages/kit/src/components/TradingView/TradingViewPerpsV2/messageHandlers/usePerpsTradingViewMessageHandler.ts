@@ -57,6 +57,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderDraftCreate,
   onOrderPriceUpdate,
   onTouchScroll,
+  onBarsState,
 }: {
   symbol: string;
   userAddress?: IHex | null;
@@ -67,6 +68,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
   onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onBarsState?: (state: { hasBars: boolean; count: number }) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
@@ -350,6 +352,13 @@ export function usePerpsTradingViewMessageHandler({
       if (messageData.scope !== IInjectedProviderNames.$private) return;
 
       switch (messageData.method) {
+        case 'tradingview_barsState':
+          // Unified bars-state from the chart library's getBars — drives the
+          // chart loading mask (hasBars=false => still loading / empty).
+          onBarsState?.(
+            messageData.data as { hasBars: boolean; count: number },
+          );
+          break;
         case 'tradingview_getMarks':
           await handleGetMarks(messageData.data as IGetMarksRequest);
           break;
@@ -406,6 +415,7 @@ export function usePerpsTradingViewMessageHandler({
       onOrderDraftCreate,
       onOrderPriceUpdate,
       onTouchScroll,
+      onBarsState,
       setLayoutState,
     ],
   );

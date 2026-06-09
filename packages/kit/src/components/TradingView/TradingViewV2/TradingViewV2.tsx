@@ -11,9 +11,17 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import { ChartLoadingMask } from '../ChartLoadingMask';
+import {
+  markChartDataReady,
+  markChartLoading,
+  useChartDataReady,
+} from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
@@ -98,6 +106,18 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
+  // Chart loading mask: show until real (non-empty) bars arrive. Backed by a
+  // GLOBAL store (not per-instance) so the visible chart reveals even when the
+  // bars-state signal was routed to a different host instance (prewarm / stale).
+  const hasChartData = useChartDataReady();
+  // When THIS (focused) chart switches token, go back to loading until the new
+  // token's bars arrive. Focus-gated so a background prewarm switching symbols
+  // never blanks the visible chart.
+  useEffect(() => {
+    if (isVisible) {
+      markChartLoading();
+    }
+  }, [tokenAddress, networkId, symbol, isVisible]);
   const [devSettings] = useDevSettingsPersistAtom();
   const [
     mockEmptyKLineBadgePositionIndex,
@@ -157,6 +177,18 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
+    onBarsState: ({ hasBars }) => {
+      defaultLogger.market.chart.chartHost({
+        platform: platformEnv.appPlatform ?? 'native',
+        type: 'market',
+        event: 'barsState',
+        symbol,
+        hasData: hasBars,
+      });
+      if (hasBars) {
+        markChartDataReady();
+      }
+    },
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -439,6 +471,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
       {useChartWebView ? chartWebView : webView}
+
+      <ChartLoadingMask visible={!hasChartData} />
 
       {mockEmptyKLineEnabled ? (
         <Stack

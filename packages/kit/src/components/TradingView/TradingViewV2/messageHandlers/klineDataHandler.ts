@@ -1,5 +1,6 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IMarketAccountTokenTransaction,
+  IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
@@ -84,6 +86,42 @@ function buildEmptyKLineData(): IMarketTokenKLineResponse {
     points: [],
     total: 0,
   };
+}
+
+// Q2 FIX: the market kline API (/utility/v2/market/token/kline) returns each bar
+// as { c: "<string close>", t } — only a STRING close + timestamp, no numeric
+// o/h/l/v. The chart page's datafeed expects numeric OHLCV, so the candles never
+// render (the y-axis collapses to a default ~[-0.4, 0.6] empty scale). Normalize
+// every bar to numeric o/h/l/c/v: parse strings to numbers, and when o/h/l are
+// absent synthesize them from the close (flat bar) and default v to 0. Safe no-op
+// when the API already returns full numeric OHLCV. Returns the count of bars that
+// needed OHLC synthesis so we can flag a backend gap in the logs.
+export function normalizeKLineForPage(data: IMarketTokenKLineResponse): {
+  data: IMarketTokenKLineResponse;
+  synthesizedOHLC: number;
+} {
+  let synthesizedOHLC = 0;
+  const toNum = (v: unknown): number | undefined => {
+    if (v === null || v === undefined || v === '') return undefined;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const points = (data.points ?? []).map((raw) => {
+    const p = raw as unknown as Record<string, unknown>;
+    const c = toNum(p.c) ?? 0;
+    let o = toNum(p.o);
+    let h = toNum(p.h);
+    let l = toNum(p.l);
+    const v = toNum(p.v) ?? 0;
+    if (o === undefined || h === undefined || l === undefined) {
+      synthesizedOHLC += 1;
+      o = o ?? c;
+      h = h ?? c;
+      l = l ?? c;
+    }
+    return { o, h, l, c, v, t: Number(p.t) } as IMarketTokenKLineDataPoint;
+  });
+  return { data: { points, total: data.total }, synthesizedOHLC };
 }
 
 function formatAmount(amount: string) {
@@ -272,6 +310,20 @@ export async function handleKLineDataRequest({
     const from = safeData.from as number;
     const to = safeData.to as number;
 
+    // DEBUG instrumentation (Q2: market chart shows no data). Log every bars
+    // request the page makes so we can see whether the request even arrives with
+    // a valid token/network, and (below) whether bars come back.
+    defaultLogger.market.chart.chartKline({
+      platform: 'native',
+      phase: 'request',
+      type: 'market',
+      symbol: (safeData.symbol as string) || tokenAddress,
+      networkId,
+      resolution,
+      from,
+      to,
+    });
+
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
     } else if (context.currentKLineResolution) {
@@ -312,9 +364,50 @@ export async function handleKLineDataRequest({
       const shouldUseEmptyKLineData =
         shouldForceEmptyKLineData ||
         (shouldSuppressKLineError && !fetchedKLineData);
-      const kLineData = shouldUseEmptyKLineData
+      const rawKLineData = shouldUseEmptyKLineData
         ? buildEmptyKLineData()
         : fetchedKLineData;
+
+      // DEBUG: capture the RAW first-bar shape (before normalization) so the log
+      // proves what the API actually returned.
+      const rawSample = rawKLineData?.points?.[0]
+        ? JSON.stringify(rawKLineData.points[0])
+        : 'none';
+
+      // Q2 FIX: normalize to numeric OHLCV before handing bars to the page.
+      const normalized = rawKLineData
+        ? normalizeKLineForPage(rawKLineData)
+        : undefined;
+      const kLineData = normalized?.data ?? rawKLineData;
+
+      // DEBUG instrumentation (Q2): the bars result that goes back to the page.
+      // points=0 with no error => "chart shows but empty"; missing this log after
+      // a 'request' => the fetch threw (see catch below). rawSample vs sample show
+      // the shape before/after the OHLC normalization fix; synthesizedOHLC>0 means
+      // the API gave close-only bars (backend gap the fix worked around).
+      defaultLogger.market.chart.chartKline({
+        platform: 'native',
+        phase: 'response',
+        type: 'market',
+        symbol: (safeData.symbol as string) || tokenAddress,
+        networkId,
+        resolution,
+        points: kLineData?.points?.length ?? 0,
+        total: kLineData?.total ?? 0,
+        forcedEmpty: shouldUseEmptyKLineData,
+        willSend: Boolean(webRef.current && kLineData),
+        rawSample,
+        sample: kLineData?.points?.[0]
+          ? JSON.stringify(kLineData.points[0])
+          : 'none',
+        sampleKeys: kLineData?.points?.[0]
+          ? Object.keys(kLineData.points[0] as object).join(',')
+          : 'none',
+        closeType: kLineData?.points?.[0]
+          ? typeof (kLineData.points[0] as { c?: unknown }).c
+          : 'none',
+        synthesizedOHLC: normalized?.synthesizedOHLC ?? 0,
+      });
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
@@ -353,6 +446,17 @@ export async function handleKLineDataRequest({
         });
       }
     } catch (error) {
+      // DEBUG instrumentation (Q2): a thrown fetch is the most likely cause of a
+      // blank market chart — the page asked for bars and got nothing back.
+      defaultLogger.market.chart.chartKline({
+        platform: 'native',
+        phase: 'error',
+        type: 'market',
+        symbol: (safeData.symbol as string) || tokenAddress,
+        networkId,
+        resolution,
+        message: error instanceof Error ? error.message : String(error),
+      });
       console.error('Failed to fetch and send kline data:', error);
     }
   }

@@ -131,6 +131,17 @@ export function ChartWebView({
     ref.postMessage(JSON.stringify(buildSymbolChangeMessage(current)));
   }, []);
 
+  // Stable VALUE key for the symbol-change payload. `params` is a fresh object
+  // every render, so effects that depend on it (the focused resync) used to fire
+  // on EVERY re-render — flooding the bridge with SYMBOL_CHANGE and churning the
+  // page (the chart re-applied its symbol ~per frame). Depending on this string
+  // instead means the resync only runs when the symbol payload actually changes
+  // (or focus flips), not on unrelated parent re-renders (price/orderbook ticks).
+  const symbolChangeKey = useMemo(
+    () => (params.symbol ? JSON.stringify(buildSymbolChangeMessage(params)) : ''),
+    [params],
+  );
+
   // Adapter exposing the IWebViewRef surface used by TradingView hooks/handlers
   // (sendMessageViaInjectedScript / reload), backed by the chart-webview
   // module's imperative methods. Lets every existing call site work unchanged.
@@ -158,6 +169,45 @@ export function ChartWebView({
     };
   }, [onWebViewRef]);
 
+  // DEBUG instrumentation (Q1): host mount/unmount. The FIRST host to mount on a
+  // cold path becomes the pool owner and triggers the load — comparing the perps
+  // detail host vs the prewarm host mount order explains "prewarm didn't warm".
+  useEffect(() => {
+    defaultLogger.market.chart.chartHost({
+      platform: platformEnv.appPlatform ?? 'native',
+      type: paramsRef.current.type,
+      event: 'mount',
+      isFocused: isFocusedRef.current,
+      autoDriveSymbol: autoDriveSymbolRef.current,
+      symbol: paramsRef.current.symbol,
+      pooled: !!reuseKey,
+    });
+    return () => {
+      defaultLogger.market.chart.chartHost({
+        platform: platformEnv.appPlatform ?? 'native',
+        type: paramsRef.current.type,
+        event: 'unmount',
+        symbol: paramsRef.current.symbol,
+        pooled: !!reuseKey,
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // DEBUG instrumentation (Q1): focus transitions drive `active` -> native pool
+  // ownership. This is exactly what decides whether THIS host claims the WebView.
+  useEffect(() => {
+    defaultLogger.market.chart.chartHost({
+      platform: platformEnv.appPlatform ?? 'native',
+      type: paramsRef.current.type,
+      event: 'focus',
+      isFocused,
+      hybridReady,
+      symbol: paramsRef.current.symbol,
+      pooled: !!reuseKey,
+    });
+  }, [isFocused, hybridReady, reuseKey]);
+
   // (1) Eager: push our symbol the moment the transport is ready — BEFORE this
   // screen finishes focusing — so the chart switches during the navigation
   // transition and the new screen appears already showing the right symbol
@@ -166,16 +216,35 @@ export function ChartWebView({
   useEffect(() => {
     if (!autoDriveSymbol || !hybridReady || didEagerSendRef.current) return;
     didEagerSendRef.current = true;
+    defaultLogger.market.chart.chartHost({
+      platform: platformEnv.appPlatform ?? 'native',
+      type: paramsRef.current.type,
+      event: 'eagerSend',
+      isFocused,
+      autoDriveSymbol,
+      hybridReady,
+      symbol: paramsRef.current.symbol,
+    });
     sendSymbolChange();
-  }, [autoDriveSymbol, hybridReady, sendSymbolChange]);
+  }, [autoDriveSymbol, hybridReady, isFocused, sendSymbolChange]);
 
   // (2) Focused resync: re-assert our symbol whenever we hold focus or our symbol
   // changes while focused — the shared page may have been moved by another host.
   // Idempotent (force:false), so a no-op when the page already shows our symbol.
   useEffect(() => {
     if (!autoDriveSymbol || !hybridReady || !isFocused) return;
+    defaultLogger.market.chart.chartHost({
+      platform: platformEnv.appPlatform ?? 'native',
+      type: paramsRef.current.type,
+      event: 'resync',
+      isFocused,
+      hybridReady,
+      symbol: paramsRef.current.symbol,
+    });
     sendSymbolChange();
-  }, [autoDriveSymbol, hybridReady, isFocused, params, sendSymbolChange]);
+    // symbolChangeKey (stable value) instead of `params` (new object每render) so
+    // this only re-asserts on focus or an actual symbol change, not every render.
+  }, [autoDriveSymbol, hybridReady, isFocused, symbolChangeKey, sendSymbolChange]);
 
   const source = useMemo(() => {
     if (CHART_WEBVIEW_MODE === 'online') {
@@ -275,7 +344,20 @@ export function ChartWebView({
         try {
           // Module delivers the chart's $private.request payload as a raw JSON
           // string; legacy handlers expect it wrapped as { data: payload }.
-          void customReceiveHandler?.({ data: JSON.parse(raw) });
+          // DEBUG (Q1 data): if this host has no customReceiveHandler (e.g. the
+          // prewarm host), the page's $private data request is DROPPED here. This
+          // log flags exactly that — if it fires for getKLineData during warm, the
+          // prewarm needs its own data handler to truly prefetch.
+          if (!customReceiveHandler) {
+            defaultLogger.market.chart.chartHost({
+              platform: platformEnv.appPlatform ?? 'native',
+              type: paramsRef.current.type,
+              event: 'msgDroppedNoHandler',
+              symbol: paramsRef.current.symbol,
+            });
+            return;
+          }
+          void customReceiveHandler({ data: JSON.parse(raw) });
         } catch {
           // ignore malformed messages
         }
@@ -296,13 +378,44 @@ export function ChartWebView({
         });
         // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
         // eager send, so re-assert now that it is.
-        if (autoDriveSymbolRef.current && isFocusedRef.current) {
+        // Q1 FIX (data): drive the symbol on load even when NOT focused. This
+        // callback only runs on the host that owns the page at load time (incl.
+        // the provisional warm owner). The page just finished loading and is blank
+        // — it MUST be told a symbol now, or it sits idle until a focused host
+        // claims (the observed ~5s no-data gap). Dropping the isFocused gate here
+        // is safe: a real focused host re-asserts its own symbol on focus (same
+        // symbol -> idempotent), and only the load-time owner reaches this point.
+        if (autoDriveSymbolRef.current) {
+          defaultLogger.market.chart.chartHost({
+            platform: platformEnv.appPlatform ?? 'native',
+            type: paramsRef.current.type,
+            event: 'loadEndDrive',
+            isFocused: isFocusedRef.current,
+            symbol: paramsRef.current.symbol,
+          });
           sendSymbolChange();
         }
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).
         onLoadEndRef.current?.();
       }),
     [sendSymbolChange, sourceKind],
+  );
+
+  // DEBUG instrumentation: surface native WKWebView load failures (didFail /
+  // didFailProvisional). This was previously unwired on the JS side, so a failed
+  // offline load produced NO log at all — the only hint was a missing
+  // chartLoadEnd. Now it is explicit (Q1/Q2).
+  const onErrorProp = useMemo(
+    () =>
+      callback((message: string) => {
+        defaultLogger.market.chart.chartError({
+          platform: platformEnv.appPlatform ?? 'native',
+          type: paramsRef.current.type,
+          sourceKind,
+          message,
+        });
+      }),
+    [sourceKind],
   );
 
   // Remount when the source mode/url changes so the new source loads cleanly.
@@ -323,6 +436,7 @@ export function ChartWebView({
         hybridRef={hybridRefProp}
         onMessage={onMessageProp}
         onLoadEnd={onLoadEndProp}
+        onError={onErrorProp}
       />
     </Stack>
   );

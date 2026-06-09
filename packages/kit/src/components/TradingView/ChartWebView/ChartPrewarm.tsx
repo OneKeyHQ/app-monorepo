@@ -1,11 +1,19 @@
+import { useEffect, useRef } from 'react';
+
 import { ChartWebView } from '.';
 
 import { Stack } from '@onekeyhq/components';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { markChartDataReady } from '../chartDataReadyStore';
 import { useTradingViewUrl } from '../hooks';
+import { usePerpsTradingViewMessageHandler } from '../TradingViewPerpsV2/messageHandlers';
+import { useTradingViewMessageHandler } from '../TradingViewV2/messageHandlers';
 
 import { CHART_WEBVIEW_MODE, CHART_WEBVIEW_SCENE } from './constants';
+
+import type { IWebViewRef } from '../../WebView/types';
 
 // Neutral symbol the prewarm falls back to when no symbol is given — used to
 // RESET the shared page off a previous context's symbol (e.g. back on market
@@ -28,24 +36,139 @@ export interface IChartPrewarmProps {
   decimal?: number;
 }
 
+// The hidden offscreen container the prewarmed (warm-driver) WebView lives in.
+function PrewarmStack({ children }: { children: React.ReactNode }) {
+  return (
+    <Stack
+      position="absolute"
+      left={-9999}
+      top={-9999}
+      width={1}
+      height={1}
+      opacity={0}
+      pointerEvents="none"
+    >
+      {children}
+    </Stack>
+  );
+}
+
+// Perps prewarm host: wires the SAME data handler the perps chart detail uses
+// (usePerpsTradingViewMessageHandler), so the page's $private requests
+// (getKLineData / price scale / marks) are SERVICED during warm — not dropped.
+// Without a handler the prewarm WebView was a data-less shell (msgDroppedNoHandler).
+function PerpsPrewarmHost({
+  params,
+  symbol,
+}: {
+  params: Record<string, string>;
+  symbol: string;
+}) {
+  const webRef = useRef<IWebViewRef | null>(null);
+  // userAddress omitted: kline / price-scale don't need it (only marks/fills do),
+  // and the detail re-asserts those on focus.
+  const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
+    symbol,
+    webRef,
+    // Also flip the shared loading flag from the prewarm host: the bars-state
+    // signal is routed to whichever host owns the WebView when it fires, which
+    // can be THIS offscreen prewarm (esp. on Android, which has no warmDriver
+    // fallback) — without this it would be dropped and the detail would stay on
+    // the loading mask forever.
+    onBarsState: ({ hasBars }) => {
+      if (hasBars) {
+        markChartDataReady();
+      }
+    },
+  });
+
+  useEffect(() => {
+    defaultLogger.market.chart.chartPrewarm({
+      platform: platformEnv.appPlatform ?? 'native',
+      phase: 'mount',
+      type: 'perps',
+      symbol,
+      hasSymbol: true,
+      enabled: true,
+      handler: 'perps',
+    });
+  }, [symbol]);
+
+  return (
+    <ChartWebView
+      params={params}
+      onlineUrl=""
+      flex={1}
+      customReceiveHandler={customReceiveHandler}
+      onWebViewRef={(r) => {
+        webRef.current = r;
+      }}
+    />
+  );
+}
+
+// Market prewarm host: wires the market data handler (useTradingViewMessageHandler
+// -> klineDataHandler) so the prewarmed page can fetch the token kline.
+function MarketPrewarmHost({
+  params,
+  symbol,
+  networkId,
+  address,
+}: {
+  params: Record<string, string>;
+  symbol: string;
+  networkId?: string;
+  address?: string;
+}) {
+  const webRef = useRef<IWebViewRef | null>(null);
+  const { customReceiveHandler } = useTradingViewMessageHandler({
+    tokenAddress: address ?? '',
+    networkId: networkId ?? '',
+    tokenSymbol: symbol,
+    webRef,
+    onBarsState: ({ hasBars }) => {
+      if (hasBars) {
+        markChartDataReady();
+      }
+    },
+  });
+
+  useEffect(() => {
+    defaultLogger.market.chart.chartPrewarm({
+      platform: platformEnv.appPlatform ?? 'native',
+      phase: 'mount',
+      type: 'market',
+      symbol,
+      hasSymbol: true,
+      enabled: true,
+      handler: 'market',
+    });
+  }, [symbol]);
+
+  return (
+    <ChartWebView
+      params={params}
+      onlineUrl=""
+      flex={1}
+      customReceiveHandler={customReceiveHandler}
+      onWebViewRef={(r) => {
+        webRef.current = r;
+      }}
+    />
+  );
+}
+
 /**
  * Keeps the single shared unified chart WebView warm and pre-positioned while the
  * user is on a screen they reach just before a chart (market home, perps home).
- * While focused, this hidden host owns the pooled WebView and drives its symbol;
- * when the user opens a real chart, that chart reuses the already-booted, already-
- * on-the-right-symbol page via SYMBOL_CHANGE with no reload.
+ * The hidden host boots the offline page, drives its symbol, AND services its
+ * data requests (via the same handler the real detail uses), so opening the chart
+ * reuses an already-booted, already-on-the-right-symbol, already-has-data page.
  *
- * Per-context behavior (each screen mounts its own and only drives while focused,
- * so switching tabs hands the symbol over cleanly):
+ * Per-context behavior:
  *   - with `symbol`  -> pre-select it (e.g. perps home injects the active pair)
  *   - without symbol -> RESET to the neutral placeholder (e.g. market home clears
  *     a leftover perps symbol)
- *
- * Do NOT mount on a screen that already renders a real chart with the same pool
- * key — two active hosts would fight for the one shared WebView.
- *
- * Memory: does NOT add a second WebView — the pool is a singleton, so this just
- * creates the one shared WebView earlier. Switching charts afterwards reuses it.
  *
  * Native + unified only; renders nothing otherwise (ChartWebView is native-only).
  */
@@ -63,8 +186,7 @@ export function ChartPrewarm({
 
   // Always drive a symbol (real one, or the neutral reset) so focusing this
   // screen actively positions the shared page, instead of leaving whatever the
-  // previous screen left. The constant unified source strips the symbol, so the
-  // page is still reused without reload — this only feeds the SYMBOL_CHANGE.
+  // previous screen left.
   const effectiveSymbol = symbol ?? PREWARM_RESET_COIN;
   const effectiveSource = symbol ? source : PREWARM_RESET_SOURCE;
   const isMarket = effectiveSource === 'market';
@@ -82,20 +204,47 @@ export function ChartPrewarm({
     },
   });
 
+  // DEBUG instrumentation (Q1): unmount log + disabled log. The per-host mount log
+  // (with the wired handler) lives in the host components below.
+  useEffect(() => {
+    if (!enabled) {
+      defaultLogger.market.chart.chartPrewarm({
+        platform: platformEnv.appPlatform ?? 'native',
+        phase: 'disabled',
+        type: isMarket ? 'market' : 'perps',
+        symbol: effectiveSymbol,
+        hasSymbol: !!symbol,
+        enabled,
+      });
+      return;
+    }
+    return () => {
+      defaultLogger.market.chart.chartPrewarm({
+        platform: platformEnv.appPlatform ?? 'native',
+        phase: 'unmount',
+        type: isMarket ? 'market' : 'perps',
+        symbol: effectiveSymbol,
+        hasSymbol: !!symbol,
+        enabled,
+      });
+    };
+  }, [enabled, isMarket, effectiveSymbol, symbol]);
+
   if (!enabled) return null;
 
   return (
-    <Stack
-      position="absolute"
-      left={-9999}
-      top={-9999}
-      width={1}
-      height={1}
-      opacity={0}
-      pointerEvents="none"
-    >
-      <ChartWebView params={params} onlineUrl="" flex={1} />
-    </Stack>
+    <PrewarmStack>
+      {isMarket ? (
+        <MarketPrewarmHost
+          params={params}
+          symbol={effectiveSymbol}
+          networkId={networkId}
+          address={address}
+        />
+      ) : (
+        <PerpsPrewarmHost params={params} symbol={effectiveSymbol} />
+      )}
+    </PrewarmStack>
   );
 }
 

@@ -8,6 +8,7 @@ import {
   useHyperliquidActions,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EActionType,
   withToast,
@@ -21,8 +22,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import {
+  markChartDataReady,
+  markChartLoading,
+  useChartDataReady,
+} from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import {
   CHART_WEBVIEW_MODE,
@@ -325,6 +332,18 @@ export function TradingViewPerpsV2(
     setUnifiedReadyConfirmation((prev) => prev + 1);
   }, []);
 
+  // Chart loading mask: show until real (non-empty) bars arrive. Backed by a
+  // GLOBAL store (not per-instance) so the visible chart reveals even when the
+  // bars-state signal was routed to a different host instance (prewarm / stale
+  // instances during rapid navigation). Reset (focus-gated) on symbol change.
+  const isVisible = useRouteIsFocused();
+  const hasChartData = useChartDataReady();
+  useEffect(() => {
+    if (isVisible) {
+      markChartLoading();
+    }
+  }, [symbol, isVisible]);
+
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
     : chartLinesReadyWebviewKey === _webviewKey;
@@ -558,6 +577,18 @@ export function TradingViewPerpsV2(
     onOrderDraftCreate,
     onOrderPriceUpdate,
     onTouchScroll,
+    onBarsState: ({ hasBars }) => {
+      defaultLogger.market.chart.chartHost({
+        platform: platformEnv.appPlatform ?? 'native',
+        type: 'perps',
+        event: 'barsState',
+        symbol,
+        hasData: hasBars,
+      });
+      if (hasBars) {
+        markChartDataReady();
+      }
+    },
   });
 
   // Chart lines management (liquidation, position, orders)
@@ -611,10 +642,12 @@ export function TradingViewPerpsV2(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  // Unified shares a warm pooled WebView, so there's no cold load to mask (the
-  // native module reveals via snapshot on switch). The spinner only applies to
-  // the legacy per-instance WebView.
-  const showChartLoadingMask = !useUnifiedHost && !isChartContentReady;
+  // Show the loading mask until real (non-empty) bars arrive — for BOTH the
+  // unified pooled host and the legacy per-instance WebView. Driven by
+  // `hasChartData` (unified bars-state signal). This replaces the old
+  // unified-skips-mask behavior so a switch/cold-open never exposes a blank or
+  // flat-candle chart while data is still loading or missing.
+  const showChartLoadingMask = !hasChartData;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
