@@ -778,6 +778,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 await serviceAccount.removeFailedOnboardingHwWallet({
                   walletId,
                 });
+                // Advance selection off the just-removed walletId.
+                await this.autoSelectNextAccount.call(set, {
+                  num: 0,
+                  triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+                });
               }
             } catch (cleanupErr) {
               defaultLogger.app.error.log(
