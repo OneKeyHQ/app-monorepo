@@ -89,16 +89,6 @@ function isCategoryMatch(expected?: string, actual?: string) {
   );
 }
 
-function isFrontendSupportedAction(
-  supportedAction: IDeFiSupportedProtocolAction,
-) {
-  const protocolId = normalizeProtocolForAction(supportedAction.protocolId);
-  if (supportedAction.action === EDeFiPositionAction.ClaimWithdrawal) {
-    return !['ethena', 'polygon_staking'].includes(protocolId);
-  }
-  return true;
-}
-
 function normalizeDeFiActionPercent(value?: number) {
   const percent = value ?? DEFI_ACTION_MAX_PERCENT;
   if (!Number.isFinite(percent)) return undefined;
@@ -129,17 +119,31 @@ function isPoolAddressRequired({
   protocolId: string;
   action: EDeFiPositionAction;
 }) {
-  if (
-    action !== EDeFiPositionAction.Withdraw &&
-    action !== EDeFiPositionAction.Claim &&
-    action !== EDeFiPositionAction.ClaimWithdrawal
-  ) {
-    return false;
+  const normalizedProtocolId = normalizeProtocolForAction(protocolId);
+
+  if (action === EDeFiPositionAction.Withdraw) {
+    return [
+      'aave_pool_v3',
+      'morpho_blue',
+      'polygon_staking',
+      'ethena',
+      'spark',
+      'fluid',
+      'sky',
+      'maple',
+      'stake_dao',
+    ].includes(normalizedProtocolId);
   }
 
-  return ['aave_pool_v3', 'morpho_blue', 'polygon_staking', 'spark'].includes(
-    normalizeProtocolForAction(protocolId),
-  );
+  if (action === EDeFiPositionAction.Claim) {
+    return ['polygon_staking'].includes(normalizedProtocolId);
+  }
+
+  if (action === EDeFiPositionAction.ClaimWithdrawal) {
+    return ['polygon_staking', 'ethena'].includes(normalizedProtocolId);
+  }
+
+  return false;
 }
 
 function isPositiveAmount(amount?: string) {
@@ -766,7 +770,6 @@ function resolveDeFiPositionActions({
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
-      isFrontendSupportedAction(supportedAction) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 

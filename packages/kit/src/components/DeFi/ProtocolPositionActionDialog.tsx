@@ -52,7 +52,10 @@ function getActionLabel({
   if (action === EDeFiPositionAction.Withdraw) {
     return intl.formatMessage({ id: ETranslations.global_withdraw });
   }
-  if (action === EDeFiPositionAction.Claim) {
+  if (
+    action === EDeFiPositionAction.Claim ||
+    action === EDeFiPositionAction.ClaimWithdrawal
+  ) {
     return intl.formatMessage({ id: ETranslations.earn_claim });
   }
   if (action === EDeFiPositionAction.RemoveLiquidity) {

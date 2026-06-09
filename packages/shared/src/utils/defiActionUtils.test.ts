@@ -150,7 +150,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
   });
 
-  it('filters frontend-unsupported Polygon claimWithdrawal actions', () => {
+  it('resolves Polygon claimWithdrawal with pool and unbond nonce metadata', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
@@ -162,6 +162,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
           symbol: 'POL',
           address: '0xpol',
           category: 'staking',
+          poolAddress: '0xvalidator',
         }),
       ],
     });
@@ -184,10 +185,13 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
+    // oxlint-disable-next-line @cspell/spellchecker
+    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
   });
 
-  it('filters frontend-unsupported Ethena claimWithdrawal actions', () => {
+  it('resolves Ethena claimWithdrawal when pool metadata is available', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'ethena',
       protocolName: 'Ethena',
@@ -199,6 +203,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
           symbol: 'USDe',
           address: '0xusde:pending',
           category: 'locked',
+          poolAddress: '0xstakedusde',
         }),
       ],
     });
@@ -216,6 +221,43 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       protocol: {
         networkId: 'evm--1',
         protocol: 'ethena',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xstakedusde');
+  });
+
+  it('hides pool-address-gated withdraw actions when metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'fluid',
+      protocolName: 'Fluid',
+      category: 'yield',
+      assets: [
+        makeAsset({
+          symbol: 'fUSDC',
+          address: '0xfusdc',
+          category: 'deposit',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'fluid',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'fluid',
       },
       position: makePosition(sourcePosition),
       supportedActions,
