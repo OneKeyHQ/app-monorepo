@@ -45,7 +45,15 @@ export async function promptKytNotificationPermissionIfNeeded({
   navigation: IAppNavigation;
   intl: IntlShape;
 }): Promise<void> {
-  if (await isNotificationFullyEnabled()) {
+  try {
+    if (await isNotificationFullyEnabled()) {
+      return;
+    }
+  } catch {
+    // Best-effort: if the notification state can't be resolved (network / IPC
+    // error) we silently skip the prompt rather than letting the rejection
+    // bubble into the caller's KYT-enable flow. KYT detection is unaffected and
+    // the user can still enable notifications manually from settings.
     return;
   }
   Dialog.show({
@@ -64,31 +72,36 @@ export async function promptKytNotificationPermissionIfNeeded({
     }),
     onConfirm: async ({ close }) => {
       await close();
-      // 1) Turn on the OneKey notification master switch if it is off.
-      const serverSettings =
-        await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
-      if (!serverSettings?.pushEnabled) {
-        await backgroundApiProxy.serviceNotification.updateServerNotificationSettings(
-          {
-            ...serverSettings,
-            pushEnabled: true,
-          },
-        );
-      }
-      // 2) If the system permission is still missing, route to the existing
-      // notification permission guide page.
-      const permission =
-        await backgroundApiProxy.serviceNotification.getPermission();
-      if (
-        permission.isSupported &&
-        permission.permission !== ENotificationPermission.granted
-      ) {
-        // Wait for the dialog dismiss animation before pushing the modal,
-        // matching the existing NotificationsSettings flow.
-        await timerUtils.wait(300);
-        navigation.pushModal(EModalRoutes.NotificationsModal, {
-          screen: EModalNotificationsRoutes.NotificationIntroduction,
-        });
+      try {
+        // 1) Turn on the OneKey notification master switch if it is off.
+        const serverSettings =
+          await backgroundApiProxy.serviceNotification.fetchServerNotificationSettingsWithCache();
+        if (!serverSettings?.pushEnabled) {
+          await backgroundApiProxy.serviceNotification.updateServerNotificationSettings(
+            {
+              ...serverSettings,
+              pushEnabled: true,
+            },
+          );
+        }
+        // 2) If the system permission is still missing, route to the existing
+        // notification permission guide page.
+        const permission =
+          await backgroundApiProxy.serviceNotification.getPermission();
+        if (
+          permission.isSupported &&
+          permission.permission !== ENotificationPermission.granted
+        ) {
+          // Wait for the dialog dismiss animation before pushing the modal,
+          // matching the existing NotificationsSettings flow.
+          await timerUtils.wait(300);
+          navigation.pushModal(EModalRoutes.NotificationsModal, {
+            screen: EModalNotificationsRoutes.NotificationIntroduction,
+          });
+        }
+      } catch {
+        // Best-effort notification enablement; a failure here must not surface
+        // as an unhandled rejection or interrupt the KYT flow.
       }
     },
   });

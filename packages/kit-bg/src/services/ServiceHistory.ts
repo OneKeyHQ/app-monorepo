@@ -930,7 +930,7 @@ class ServiceHistory extends ServiceBase {
   // current when they were saved, so normalize them to the requesting accountId
   // before they surface — otherwise a stale (possibly deleted) accountId leaks
   // into the UI and downstream per-account checks. Single-account paths only;
-  // all-networks intentionally keeps each sub-account's own accountId.≥
+  // all-networks intentionally keeps each sub-account's own accountId.
   private _normalizeLocalTxsAccountId({
     txs,
     accountId,

@@ -156,6 +156,11 @@ function useKYTIntroDialog() {
   // attemptShow without forming a useCallback dependency cycle or capturing a
   // stale closure (useListenTabFocusState registers its callback only once).
   const attemptShowRef = useRef<(() => void) | undefined>(undefined);
+  // Latest Prime user id, read inside the async attempt to detect an account
+  // switch that happened mid-flight (see attemptShow). Kept as a ref because the
+  // in-flight closure otherwise only sees the user captured when it started.
+  const onekeyUserIdRef = useRef(onekeyUserId);
+  onekeyUserIdRef.current = onekeyUserId;
 
   const showDialog = useCallback(() => {
     defaultLogger.prime.usage.primeReceiveKytIntroShown(
@@ -301,6 +306,10 @@ function useKYTIntroDialog() {
     }
 
     attemptInFlightRef.current = true;
+    // Snapshot the user this attempt is evaluating; if the Prime user switches
+    // while we await below, the results belong to a stale user and must not be
+    // applied to the (now different) current user's "shown" guard.
+    const requestUserId = onekeyUserId;
     void (async () => {
       try {
         const isShown = await backgroundApiProxy.serviceSetting.isKytIntroShown(
@@ -308,6 +317,9 @@ function useKYTIntroDialog() {
             onekeyUserId,
           },
         );
+        if (requestUserId !== onekeyUserIdRef.current) {
+          return;
+        }
         if (isShown) {
           dialogShownRef.current = true;
           return;
@@ -318,6 +330,9 @@ function useKYTIntroDialog() {
           await backgroundApiProxy.serviceSetting.getKytEnabled({
             onekeyUserId,
           });
+        if (requestUserId !== onekeyUserIdRef.current) {
+          return;
+        }
         if (kytEnabled) {
           dialogShownRef.current = true;
           return;
@@ -338,6 +353,12 @@ function useKYTIntroDialog() {
         showDialog();
       } finally {
         attemptInFlightRef.current = false;
+        // The user switched mid-flight: the early returns above intentionally
+        // skipped the now-current user, and that switch's own trigger was
+        // dropped by the in-flight guard. Re-evaluate once for the new user.
+        if (requestUserId !== onekeyUserIdRef.current) {
+          attemptShowRef.current?.();
+        }
       }
     })();
   }, [

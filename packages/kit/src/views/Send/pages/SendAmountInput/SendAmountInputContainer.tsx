@@ -681,9 +681,14 @@ function SendAmountInputContainer() {
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
+    // Backend may report "--" for an unknown price, which parses to NaN. Guard
+    // the multiplication the same way the linkedAmount conversion does so the
+    // UTXO-selected fiat balance never renders as "NaN".
+    const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
       currentSelectedUtxoInfo?.totalValue &&
-      tokenDetails.price &&
+      priceBN.isFinite() &&
+      priceBN.isGreaterThan(0) &&
       tokenDetails.info
     ) {
       const balanceInToken = new BigNumber(
@@ -692,7 +697,7 @@ function SendAmountInputContainer() {
           token: tokenDetails.info,
         }),
       );
-      return balanceInToken.times(tokenDetails.price).toFixed();
+      return balanceInToken.times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
