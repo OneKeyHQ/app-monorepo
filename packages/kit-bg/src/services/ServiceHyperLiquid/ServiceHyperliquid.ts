@@ -1946,9 +1946,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     const baseNameToAssetId: Record<string, number> = {};
     const baseNameToSzDecimals: Record<string, number> = {};
     const baseNameToPairName: Record<string, string> = {};
+    const preferredUniverseByBaseName =
+      perpsUtils.buildPreferredSpotUniverseByBaseNameMap(universes);
 
     for (const u of universes) {
       pairToBaseName[u.name] = u.baseName;
+    }
+
+    for (const u of Object.values(preferredUniverseByBaseName)) {
       baseNameToAssetId[u.baseName] = u.assetId;
       baseNameToSzDecimals[u.baseName] = u.baseSzDecimals;
       baseNameToPairName[u.baseName] = u.name;
