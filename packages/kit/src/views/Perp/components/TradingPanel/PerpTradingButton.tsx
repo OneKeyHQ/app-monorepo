@@ -8,7 +8,6 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Button,
   SizableText,
-  Spinner,
   Toast,
   XStack,
   YStack,
@@ -65,7 +64,7 @@ const PerpTradingButtonMidPriceRef = memo(
 PerpTradingButtonMidPriceRef.displayName = 'PerpTradingButtonMidPriceRef';
 
 export function PerpTradingButton({
-  loading,
+  disabledForAccountLoading,
   handleShowConfirm,
   formData,
   computedSize,
@@ -73,7 +72,7 @@ export function PerpTradingButton({
   isSubmitting,
   isNoEnoughMargin,
 }: {
-  loading: boolean;
+  disabledForAccountLoading: boolean;
   handleShowConfirm: () => void;
   formData: ITradingFormData;
   computedSize: BigNumber;
@@ -332,7 +331,7 @@ export function PerpTradingButton({
   const isWaitingForLiveStatus =
     !perpsAccountStatus.details && Boolean(perpsAccount?.accountAddress);
   if (
-    loading ||
+    disabledForAccountLoading ||
     perpsAccountLoading?.selectAccountLoading ||
     isWaitingForLiveStatus
   ) {
@@ -343,7 +342,9 @@ export function PerpTradingButton({
         childrenAsText={false}
         testID="perp-order-confirm-btn"
       >
-        <Spinner />
+        <SizableText color="$textDisabled" size="$bodyMdMedium">
+          {buttonText}
+        </SizableText>
       </Button>
     );
   }
@@ -408,7 +409,7 @@ export function PerpTradingButton({
           {...sharedButtonProps}
           testID={PerpTestIDs.EnableTradingButton}
           variant="primary"
-          loading={isAccountLoading}
+          disabled={isAccountLoading}
           onPress={async () => {
             await enableTrading();
           }}
@@ -441,7 +442,6 @@ export function PerpTradingButton({
             ? { bg: buttonStyles.pressBg }
             : undefined
         }
-        loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
         onPress={orderConfirm}
         disabled={buttonDisabled}
         childrenAsText={false}
