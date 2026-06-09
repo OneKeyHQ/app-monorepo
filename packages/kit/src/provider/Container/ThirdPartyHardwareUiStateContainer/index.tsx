@@ -50,7 +50,7 @@ import {
 } from '../../../components/Hardware/HardwareDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
-import { useInstallCancelOnStall } from './installCancelVisibility';
+import { useInstallCancelVisibility } from './installCancelVisibility';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
@@ -211,11 +211,11 @@ function InstallAppDialogContent() {
   const inBatch = !!batch;
 
   // Key mutates whenever the active app or its progress advances; the hook
-  // resets its watchdog on every change and only reveals cancel once progress
-  // has stalled for INSTALL_CANCEL_STALL_DELAY.
+  // resets its watchdog on every change and only reveals cancel once
+  // progress has stalled.
   const installProgressKey = `${vendor ?? ''}:${appName}:${percent}`;
 
-  const showInstallCancel = useInstallCancelOnStall({
+  const showInstallCancel = useInstallCancelVisibility({
     installing: phase === 'installing',
     progressKey: installProgressKey,
   });
