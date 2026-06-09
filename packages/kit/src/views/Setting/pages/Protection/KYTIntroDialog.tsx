@@ -28,6 +28,10 @@ import {
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -147,14 +151,9 @@ function useKYTIntroDialog() {
   const dialogShownRef = useRef(false);
   // Serializes async attempts so concurrent triggers can't open two dialogs.
   const attemptInFlightRef = useRef(false);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const retryCountRef = useRef(0);
-  const isMountedRef = useRef(true);
-  // Stable indirection so scheduleRetry / the tab listener can invoke the latest
-  // attemptShow without forming a useCallback dependency cycle or capturing a
-  // stale closure (useListenTabFocusState registers its callback only once).
+  // Stable indirection so the tab listener / DialogClosed subscription can invoke
+  // the latest attemptShow without forming a useCallback dependency cycle or
+  // capturing a stale closure (their callbacks register only once at mount).
   const attemptShowRef = useRef<(() => void) | undefined>(undefined);
   // Latest Prime user id, read inside the async attempt to detect an account
   // switch that happened mid-flight (see attemptShow). Kept as a ref because the
@@ -257,33 +256,6 @@ function useKYTIntroDialog() {
     [isReadyExceptOverlays],
   );
 
-  const clearRetry = useCallback(() => {
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = undefined;
-    }
-  }, []);
-
-  // Covers the one gap router/atom triggers can't: a non-route Dialog.show()
-  // (e.g. the featured changelog) closing emits no navigation/atom change, so we
-  // re-check on a short, bounded timer while Home + update are otherwise ready.
-  const scheduleRetry = useCallback(() => {
-    if (retryTimerRef.current) {
-      return;
-    }
-    if (retryCountRef.current >= 15) {
-      return;
-    }
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = undefined;
-      retryCountRef.current += 1;
-      if (!isMountedRef.current || dialogShownRef.current) {
-        return;
-      }
-      attemptShowRef.current?.();
-    }, 1000);
-  }, []);
-
   const attemptShow = useCallback(() => {
     if (!isPrimeSubscriptionActive || !onekeyUserId) {
       return;
@@ -293,11 +265,9 @@ function useKYTIntroDialog() {
     }
 
     if (!canAutoShowKytIntroNow()) {
-      // Only arm the fallback timer when the sole blocker is a transient
-      // overlay/dialog; otherwise wait for the next trigger (route/atom/tokens).
-      if (isReadyExceptOverlays()) {
-        scheduleRetry();
-      }
+      // A transient overlay/dialog (e.g. the featured changelog) is the only
+      // blocker; wait for the next trigger — a DialogClosed event (subscribed
+      // below) or a route/atom/tab change — instead of polling.
       return;
     }
 
@@ -333,15 +303,12 @@ function useKYTIntroDialog() {
           dialogShownRef.current = true;
           return;
         }
-        // Overlay state may have changed during the awaits — re-check.
+        // Overlay state may have changed during the awaits — re-check. If it's
+        // now blocked, wait for the next trigger (DialogClosed / route / atom).
         if (!canAutoShowKytIntroNow()) {
-          if (isReadyExceptOverlays()) {
-            scheduleRetry();
-          }
           return;
         }
         dialogShownRef.current = true;
-        clearRetry();
         showDialog();
       } finally {
         attemptInFlightRef.current = false;
@@ -356,10 +323,7 @@ function useKYTIntroDialog() {
   }, [
     isPrimeSubscriptionActive,
     onekeyUserId,
-    isReadyExceptOverlays,
     canAutoShowKytIntroNow,
-    scheduleRetry,
-    clearRetry,
     showDialog,
   ]);
 
@@ -370,7 +334,8 @@ function useKYTIntroDialog() {
   // Defer the very first auto-pop until the Home token list has finished its
   // initial load (or a fallback delay), so the dialog doesn't animate in during
   // the heavy cold-start render and cause visible frame drops. Once Home is
-  // ready, subsequent attempts are driven by the route/atom/timer triggers.
+  // ready, subsequent attempts are driven by the route/atom/DialogClosed
+  // triggers.
   useEffect(() => {
     const cleanup = runAfterTokensDone({
       onRun: () => {
@@ -386,9 +351,7 @@ function useKYTIntroDialog() {
   // a user change, the guard is cleared before attemptShow re-runs this commit.
   useEffect(() => {
     dialogShownRef.current = false;
-    retryCountRef.current = 0;
-    clearRetry();
-  }, [onekeyUserId, clearRetry]);
+  }, [onekeyUserId]);
 
   // Trigger A: re-attempt whenever an input captured by attemptShow changes
   // (Prime status, Prime user, or app-update status/strategy transitions).
@@ -404,13 +367,17 @@ function useKYTIntroDialog() {
     attemptShowRef.current?.();
   });
 
-  useEffect(
-    () => () => {
-      isMountedRef.current = false;
-      clearRetry();
-    },
-    [clearRetry],
-  );
+  // Trigger C: a non-route Dialog.show() (e.g. the featured changelog) closing
+  // emits no navigation/atom change, so the router/tab triggers can't see it.
+  // The DialogClosed event fires after any dialog tears down — re-attempt then,
+  // by which point hasOpenBlockingDialog() already excludes the closed dialog.
+  useEffect(() => {
+    const onDialogClosed = () => attemptShowRef.current?.();
+    appEventBus.on(EAppEventBusNames.DialogClosed, onDialogClosed);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DialogClosed, onDialogClosed);
+    };
+  }, []);
 }
 
 function BasicKYTIntroOnMount() {

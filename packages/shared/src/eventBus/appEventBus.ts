@@ -108,6 +108,10 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
+  // Emitted whenever any imperative Dialog.show() instance tears down. Lets
+  // consumers re-evaluate once a blocking dialog closes (e.g. the KYT intro
+  // auto-pop) without polling.
+  [EAppEventBusNames.DialogClosed]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.SwapApprovingSuccess]: {

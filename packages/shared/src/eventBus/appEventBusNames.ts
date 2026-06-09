@@ -28,6 +28,7 @@ export enum EAppEventBusNames {
   WalletConnectConnectError = 'WalletConnectConnectError',
   ShowDialogLoading = 'ShowDialogLoading',
   HideDialogLoading = 'HideDialogLoading',
+  DialogClosed = 'DialogClosed',
   ShowToast = 'ShowToast',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
