@@ -39,7 +39,7 @@ describe('useInstallCancelVisibility', () => {
     expect(result.current).toBe(false);
 
     act(() => {
-      jest.advanceTimersByTime(1_000);
+      jest.advanceTimersByTime(1000);
     });
     expect(result.current).toBe(true);
   });

@@ -781,8 +781,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 // Advance selection off the just-removed walletId.
                 await this.autoSelectNextAccount.call(set, {
                   num: 0,
-                  triggerBy:
-                    EAccountSelectorAutoSelectTriggerBy.removeWallet,
+                  triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
                 });
               }
             } catch (cleanupErr) {
