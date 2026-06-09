@@ -46,6 +46,7 @@ import type {
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
 import { PerpTestIDs } from '../../../testIDs';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
@@ -62,7 +63,7 @@ import {
   type IRenderMode,
 } from './CommonTableListView';
 
-const TWAP_PAGE_SIZE = 40;
+const TWAP_PAGE_SIZE = 20;
 const TWAP_TABLE_ROW_MIN_HEIGHT = 48;
 
 type ITwapPanelTab = 'active' | 'history' | 'fills';
@@ -1158,6 +1159,7 @@ function PerpTwapList({
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
   const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const { onViewAllUrl } = usePerpTwapHistoryViewAllUrl();
   const enabledTabsSet = useMemo(
     () => new Set(enabledTabs ?? TWAP_ORDERS_SUB_TABS.map((tab) => tab.key)),
     [enabledTabs],
@@ -1577,6 +1579,10 @@ function PerpTwapList({
       ),
     [enabledTabsSet, intl],
   );
+  const historyViewAll = historyRows.length > 0 ? onViewAllUrl : undefined;
+  const fillsViewAll =
+    sliceFills.length > TWAP_PAGE_SIZE ? onViewAllUrl : undefined;
+
   const listEmptyComponent = useMemo(
     () => (
       <TwapEmptyState
@@ -1604,10 +1610,7 @@ function PerpTwapList({
           useTabsList={useTabsList}
           disableListScroll={disableListScroll}
           enableDesktopVerticalScroll={!isMobile}
-          enablePagination
-          pageSize={TWAP_PAGE_SIZE}
-          currentListPage={currentListPage}
-          setCurrentListPage={setCurrentListPage}
+          enablePagination={false}
           columns={activeColumns}
           minTableWidth={activeMinWidth}
           data={twapOrders}
@@ -1638,6 +1641,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
+          onViewAll={historyViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
@@ -1662,6 +1666,7 @@ function PerpTwapList({
           isMobile={isMobile}
           paginationToBottom={isMobile}
           renderRow={renderFillRow}
+          onViewAll={fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,
