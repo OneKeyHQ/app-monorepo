@@ -1179,7 +1179,16 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (isLoading && !historyInit.current && !historyTxParam) {
+    // On the notification path no `historyTx` is passed in, so the detail is
+    // fetched on mount. `isLoading` starts as `undefined` and, because the
+    // request is debounced, only flips to `true` after the debounce window —
+    // during that gap the previous `isLoading &&` guard fell through and
+    // rendered the detail skeleton whose empty (undefined) status shows as
+    // "Pending", flashing a brief "待处理" frame before the spinner. Treat
+    // "fetch path, not yet initialized, loading not settled to false" as
+    // loading so the spinner shows immediately and the pending placeholder is
+    // never rendered.
+    if (!historyTxParam && !historyInit.current && isLoading !== false) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
