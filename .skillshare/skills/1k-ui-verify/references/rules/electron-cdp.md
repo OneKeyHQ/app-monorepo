@@ -1,7 +1,7 @@
 # Desktop UI verification via CDP 9222
 
 The Electron renderer is Chromium, so drive it with `playwright-core`'s `connectOverCDP`. This is
-the same convention the repo already uses (`apps/desktop/scripts/cdp-repro-gift-storm.mjs`,
+the same convention the repo already uses (`scenarios/regression.mjs`,
 `apps/desktop/e2e/open-url.e2e.js`).
 
 ## Contents

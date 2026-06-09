@@ -4,7 +4,7 @@
  * for AI-agent UI verification. Connects to the main window, optionally clicks a
  * testID, screenshots, and reports console errors seen during the run.
  *
- * Prereq: `yarn app:desktop` is running (its dev:main exposes --remote-debugging-port=9222).
+ * Prerequisite: `yarn app:desktop` is running (its dev:main exposes --remote-debugging-port=9222).
  * Uses playwright-core, already a root dependency.
  *
  * Usage:
@@ -18,6 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+
 import { chromium } from 'playwright-core';
 
 const CDP_URL = process.env.CDP_URL || 'http://127.0.0.1:9222';
@@ -70,13 +71,11 @@ async function main() {
 
   const page = await findMainWindow(browser);
   if (!page) {
-    console.error(
-      'OneKey main window not found on CDP. Found pages: ' +
-        browser
-          .contexts()
-          .flatMap((c) => c.pages().map((p) => p.url()))
-          .join(', '),
-    );
+    const pages = browser
+      .contexts()
+      .flatMap((c) => c.pages().map((p) => p.url()))
+      .join(', ');
+    console.error(`OneKey main window not found on CDP. Found pages: ${pages}`);
     // Do NOT close the browser — it is the user's live app.
     process.exit(1);
   }

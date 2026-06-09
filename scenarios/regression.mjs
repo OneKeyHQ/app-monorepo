@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* eslint-disable no-console */
+/* eslint-disable no-console, onekey/no-raw-error -- standalone Node CLI script, no @onekeyhq/shared dependency */
+/* cspell:ignore appstate */
 /**
  * scenarios/regression.mjs — unified UI-freeze regression series.
  *
@@ -21,12 +22,16 @@
  *   node scenarios/regression.mjs gift-storm-rn --platform android
  *
  * Env (shared): ROUNDS, REGRESSION=1 (exit 1 if reproduced, 0 if clean).
+ * Env (cdp targets): CDP_URL_DESKTOP (falls back to CDP_URL, default 9222),
+ *   CDP_URL_WEB (default 9223). Separate names so a desktop CDP_URL override
+ *   can't silently redirect the web scenario.
  * Exit codes: 0 reproduced (or REGRESSION clean), 1 REGRESSION fail, 3 not reproduced.
  */
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+
 import { chromium } from 'playwright-core';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +40,8 @@ import { chromium } from 'playwright-core';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const hhmmss = () => new Date().toTimeString().slice(0, 8);
 const log = (...a) => console.log(`[${hhmmss()}]`, ...a);
-const ERR_RE = /Maximum update depth|FocusScope|compose-refs|too many re-renders/i;
+const ERR_RE =
+  /Maximum update depth|FocusScope|compose-refs|too many re-renders/i;
 
 function parseFlags(argv) {
   const flags = {};
@@ -91,6 +97,7 @@ async function connectCdpMainWindow(cdpUrl) {
         `Web: launch Chrome with --remote-debugging-port=9223 on the "yarn app:web" URL.\n${
           e.message || e
         }`,
+      { cause: e },
     );
   }
   let page = null;
@@ -108,13 +115,14 @@ async function connectCdpMainWindow(cdpUrl) {
     if (page) break;
   }
   if (!page) {
-    await browser.close().catch(() => {});
+    // Detach only — never browser.close(), it would kill the user's running app
+    // (see references/rules/electron-cdp.md). connectOverCDP leaks no process.
     throw new Error('OneKey main window not found on CDP (no tab-modal root)');
   }
   return { browser, page };
 }
 
-// Faithful port of apps/desktop/scripts/cdp-repro-gift-storm.mjs. The detection
+// Ported from the former cdp-repro-gift-storm.mjs. The detection
 // signal — console "Maximum update depth", JS heap, evaluate RTT — is CDP-only,
 // which is exactly why this scenario stays on CDP.
 async function runGiftStormCdp(cdpUrl) {
@@ -122,7 +130,7 @@ async function runGiftStormCdp(cdpUrl) {
   const STEP = Number(process.env.STEP_MS || 3000); // ~3s between tab switches (real avg)
   const HOME_DWELL = Number(process.env.HOME_DWELL_MS || 9000);
 
-  const { browser, page } = await connectCdpMainWindow(cdpUrl);
+  const { page } = await connectCdpMainWindow(cdpUrl);
   log('driving', page.url().slice(0, 50));
 
   let errTotal = 0;
@@ -260,7 +268,8 @@ async function runGiftStormCdp(cdpUrl) {
       break;
     }
   }
-  await browser.close().catch(() => {});
+  // Don't browser.close() — we're attached to the user's live app; main() exits
+  // the process explicitly so the CDP connection won't keep it alive.
   return report('gift-storm-cdp', hits, ran, frozeAt, errTotal, firstErr);
 }
 
@@ -269,10 +278,12 @@ async function runGiftStormCdp(cdpUrl) {
 // ===========================================================================
 // Run an agent-device subcommand. Returns { code, stdout, stderr }.
 // `agent-device` must be on PATH (npm i -g agent-device).
-function ad(args, { platform, timeoutMs = 15000 } = {}) {
+function ad(args, { platform, timeoutMs = 15_000 } = {}) {
   const full = platform ? [...args, '--platform', platform] : args;
   return new Promise((resolve) => {
-    const child = spawn('agent-device', full, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn('agent-device', full, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     let out = '';
     let err = '';
     const killer = setTimeout(() => child.kill('SIGKILL'), timeoutMs);
@@ -322,11 +333,15 @@ async function runGiftStormRn(platform) {
 
   const probe = await ad(['--version']);
   if (probe.code !== 0) {
-    throw new Error('agent-device not found on PATH. Install: npm i -g agent-device');
+    throw new Error(
+      'agent-device not found on PATH. Install: npm i -g agent-device',
+    );
   }
 
   log(`open app on ${platform}`);
-  const opened = await ad(['open', '--platform', platform], { timeoutMs: 120000 });
+  const opened = await ad(['open', '--platform', platform], {
+    timeoutMs: 120_000,
+  });
   if (opened.code !== 0) {
     throw new Error(
       `agent-device open failed (${platform}). Is the simulator/emulator booted and the dev app installed? ` +
@@ -388,7 +403,7 @@ async function runGiftStormRn(platform) {
     if (hit) {
       const shot = path.resolve(`.tmp/ui/gift-storm-rn-round${i}.png`);
       fs.mkdirSync(path.dirname(shot), { recursive: true });
-      await ad(['screenshot', shot], { platform });
+      await ad(['screenshot', '--out', shot], { platform });
       log(`evidence -> ${shot}`);
     }
     return { hit, frozen };
@@ -418,18 +433,28 @@ async function runGiftStormRn(platform) {
 const scenarios = {
   'gift-storm-desktop': {
     backend: 'cdp',
-    describe: 'Electron FocusScope freeze (Earn gift overlay + tab storm + Settings). CDP 9222.',
-    run: () => runGiftStormCdp(process.env.CDP_URL || 'http://127.0.0.1:9222'),
+    describe:
+      'Electron FocusScope freeze (Earn gift overlay + tab storm + Settings). CDP 9222.',
+    run: () =>
+      runGiftStormCdp(
+        process.env.CDP_URL_DESKTOP ||
+          process.env.CDP_URL ||
+          'http://127.0.0.1:9222',
+      ),
   },
   'gift-storm-web': {
     backend: 'cdp',
-    describe: 'Same flow on the web build. Chrome --remote-debugging-port=9223 on the app:web URL.',
-    run: () => runGiftStormCdp(process.env.CDP_URL || 'http://127.0.0.1:9223'),
+    describe:
+      'Same flow on the web build. Chrome --remote-debugging-port=9223 on the app:web URL.',
+    run: () =>
+      runGiftStormCdp(process.env.CDP_URL_WEB || 'http://127.0.0.1:9223'),
   },
   'gift-storm-rn': {
     backend: 'agent-device',
-    describe: 'RN (iOS/Android) analog. Drive via agent-device; freeze = command RTT + app-log errors.',
-    run: (flags) => runGiftStormRn(flags.platform === 'android' ? 'android' : 'ios'),
+    describe:
+      'RN (iOS/Android) analog. Drive via agent-device; freeze = command RTT + app-log errors.',
+    run: (flags) =>
+      runGiftStormRn(flags.platform === 'android' ? 'android' : 'ios'),
   },
 };
 
@@ -442,13 +467,17 @@ async function main() {
     for (const [name, s] of Object.entries(scenarios)) {
       console.log(`  ${name.padEnd(20)} [${s.backend}]  ${s.describe}`);
     }
-    console.log('\nRun: node scenarios/regression.mjs <name> [--platform ios|android]');
+    console.log(
+      '\nRun: node scenarios/regression.mjs <name> [--platform ios|android]',
+    );
     process.exit(0);
   }
 
   const scenario = scenarios[cmd];
   if (!scenario) {
-    console.error(`Unknown scenario "${cmd}". Try: node scenarios/regression.mjs list`);
+    console.error(
+      `Unknown scenario "${cmd}". Try: node scenarios/regression.mjs list`,
+    );
     process.exit(2);
   }
   const exit = await scenario.run(flags);
