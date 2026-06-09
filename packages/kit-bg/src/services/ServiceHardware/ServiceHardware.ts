@@ -2559,7 +2559,12 @@ class ServiceHardware extends ServiceBase {
             {
               device,
               deviceId:
-                featuresDeviceId || device.featuresInfo?.device_id || '',
+                featuresDeviceId ||
+                deviceUtils.getRawDeviceId({
+                  device: deviceUtils.dbDeviceToSearchDevice(device),
+                  features: device.featuresInfo,
+                }) ||
+                '',
               usbConnectId: connectId,
               features: features || device.featuresInfo,
               promiseId,

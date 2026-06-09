@@ -34,6 +34,7 @@ import type {
 } from '../../types/device';
 import type {
   Features,
+  DeviceProfile,
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
@@ -85,6 +86,12 @@ type IGetDeviceVersionParams = {
   features: IOneKeyDeviceFeatures | undefined;
 };
 
+type IDeviceProfileVersionResult = {
+  bleVersion: string;
+  firmwareVersion: string;
+  bootloaderVersion: string;
+};
+
 // TODO move to db converter
 function dbDeviceToSearchDevice(device: IDBDevice) {
   const result: Omit<SearchDevice, 'commType'> = {
@@ -102,6 +109,24 @@ function getDeviceSerialNoFromFeatures(
   features: IOneKeyDeviceFeatures | undefined,
 ) {
   return features ? getDeviceUUID(features) : undefined;
+}
+
+function getDeviceSerialNoFromProfile(
+  deviceInfo: DeviceProfile | undefined,
+): string | undefined {
+  return deviceInfo?.serialNo || undefined;
+}
+
+function getDeviceVersionFromProfile({
+  deviceInfo,
+}: {
+  deviceInfo: DeviceProfile | undefined;
+}): IDeviceProfileVersionResult {
+  return {
+    bleVersion: deviceInfo?.versions.ble || '',
+    firmwareVersion: deviceInfo?.versions.firmware || '',
+    bootloaderVersion: deviceInfo?.versions.bootloader || '',
+  };
 }
 
 // web sdk return KnownDevice
@@ -340,6 +365,13 @@ async function buildDeviceLabel({
   if (label && !buildModelName) {
     return label;
   }
+  const deviceType = await getDeviceTypeFromFeatures({
+    features,
+  });
+  return getDefaultDeviceLabel(deviceType);
+}
+
+function getDefaultDeviceLabel(deviceType: IDeviceType): string {
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     [EDeviceType.Classic]: 'OneKey Classic',
     [EDeviceType.Classic1s]: 'OneKey Classic 1S',
@@ -350,10 +382,23 @@ async function buildDeviceLabel({
     [EDeviceType.Pro2]: 'OneKey Pro 2',
     [EDeviceType.Unknown]: '',
   };
-  const deviceType = await getDeviceTypeFromFeatures({
-    features,
-  });
   return defaultLabelsByDeviceType[deviceType] || '';
+}
+
+function buildDeviceLabelFromProfile({
+  deviceInfo,
+  buildModelName,
+}: {
+  deviceInfo: DeviceProfile | undefined;
+  buildModelName?: boolean;
+}): string | undefined {
+  if (!deviceInfo) {
+    return undefined;
+  }
+  if (deviceInfo.label && !buildModelName) {
+    return deviceInfo.label;
+  }
+  return getDefaultDeviceLabel(deviceInfo.deviceType);
 }
 
 async function buildDeviceName({
@@ -384,6 +429,14 @@ function buildDeviceBleName({
     return undefined;
   }
   return getDeviceBleName(features) || undefined;
+}
+
+function buildDeviceBleNameFromProfile({
+  deviceInfo,
+}: {
+  deviceInfo: DeviceProfile | undefined;
+}): string | undefined {
+  return deviceInfo?.bleName || undefined;
 }
 
 async function getFirmwareType({
@@ -788,7 +841,9 @@ function supportSettings({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  getDeviceVersionFromProfile,
   getDeviceSerialNoFromFeatures,
+  getDeviceSerialNoFromProfile,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,
@@ -801,8 +856,10 @@ export default {
   getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
   buildDeviceLabel,
+  buildDeviceLabelFromProfile,
   buildDeviceName,
   buildDeviceBleName,
+  buildDeviceBleNameFromProfile,
   getDeviceVerifyVersionsFromFeatures,
   formatVersionWithHash,
   parseLocalDeviceVersions,

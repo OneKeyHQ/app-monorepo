@@ -12,6 +12,7 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -109,38 +110,65 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         return defaultDeviceInfo;
       }
 
-      const versions = await deviceUtils.getDeviceVersion({
-        device,
-        features: device.featuresInfo,
-      });
+      const profile = await backgroundApiProxy.serviceHardware
+        .getDeviceInfo({
+          connectId: device.connectId,
+          params: {
+            scope: 'versions',
+          },
+          silentMode: true,
+        })
+        .catch(() => undefined);
 
-      const model = await deviceUtils.buildDeviceLabel({
-        features: device.featuresInfo,
-        buildModelName: true,
-      });
+      const versions = profile
+        ? deviceUtils.getDeviceVersionFromProfile({ deviceInfo: profile })
+        : await deviceUtils.getDeviceVersion({
+            device,
+            features: device.featuresInfo,
+          });
 
-      const firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
-        features: device?.featuresInfo,
-        displayFormat: 'withSpace',
-      });
+      const model =
+        deviceUtils.buildDeviceLabelFromProfile({
+          deviceInfo: profile,
+          buildModelName: true,
+        }) ??
+        (await deviceUtils.buildDeviceLabel({
+          features: device.featuresInfo,
+          buildModelName: true,
+        }));
+
+      const firmwareTypeLabel = profile
+        ? deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: profile.firmwareType,
+            displayFormat: 'withSpace',
+          })
+        : await deviceUtils.getFirmwareTypeLabel({
+            features: device?.featuresInfo,
+            displayFormat: 'withSpace',
+          });
       const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
         versions?.firmwareVersion,
       )}`;
+      const deviceType = profile?.deviceType ?? device.deviceType;
 
       return {
         model: model ?? VERSION_PLACEHOLDER,
-        bleName: device.featuresInfo.ble_name ?? VERSION_PLACEHOLDER,
+        bleName:
+          deviceUtils.buildDeviceBleNameFromProfile({ deviceInfo: profile }) ??
+          deviceUtils.buildDeviceBleName({ features: device.featuresInfo }) ??
+          VERSION_PLACEHOLDER,
         bleVersion: getDisplayVersion(versions?.bleVersion),
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
+          deviceUtils.getDeviceSerialNoFromProfile(profile) ??
           deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ??
           VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,
           EDeviceType.Classic1s,
           EDeviceType.ClassicPure,
-        ].includes(device.deviceType)
+        ].includes(deviceType)
           ? 'EAL 6+'
           : null,
       };

@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -166,9 +167,11 @@ function WebDeviceAccessDialogContent({
         await backgroundApiProxy.serviceHardware.getDeviceByConnectId({
           connectId,
         });
-      return (
-        device?.featuresInfo?.ble_name || `OneKey ${device?.deviceType || ''}`
-      );
+      return device?.featuresInfo
+        ? deviceUtils.buildDeviceBleName({
+            features: device.featuresInfo,
+          }) || `OneKey ${device?.deviceType || ''}`
+        : '';
     } catch (error) {
       console.log('======>: error:  ', error);
       return '';
