@@ -163,8 +163,16 @@ class ServiceToken extends ServiceBase {
           .div(rate)
           .toFixed();
       }
-      if (typeof fiat.price === 'number' && Number.isFinite(fiat.price)) {
-        fiat.price = new BigNumber(fiat.price).div(rate).toNumber();
+      // `price` is typed as number but the API can deliver it as a numeric
+      // string, so a `typeof === 'number'` guard silently skips it — leaving
+      // price in the request currency while the render layer still converts
+      // USD -> display currency, double-applying the rate (CNY price ends up
+      // ~rate^2 off). Guard on truthiness like the fiat fields above.
+      if (fiat.price) {
+        const priceBn = new BigNumber(fiat.price);
+        if (priceBn.isFinite()) {
+          fiat.price = priceBn.div(rate).toNumber();
+        }
       }
     }
     fiat.currency = targetCurrency;
