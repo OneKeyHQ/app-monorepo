@@ -80,6 +80,7 @@ const SwapMainLandModalPage = () => {
           swapTabSwitchType,
           fromAmount,
           marketPresetToken,
+          swapSource,
         }}
       />
     </Page>

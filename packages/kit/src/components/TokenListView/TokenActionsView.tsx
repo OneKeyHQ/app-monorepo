@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -83,9 +84,28 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
+    const networkId = activeToken.networkId ?? activeAccount?.network?.id ?? '';
+    const isBtcNativeToken =
+      networkId === getNetworkIdsMap().btc &&
+      activeToken.isNative &&
+      activeToken.symbol?.toUpperCase() === 'BTC' &&
+      !activeToken.address;
+    const importFromToken = !isBtcNativeToken
+      ? {
+          contractAddress: activeToken.address,
+          symbol: activeToken.symbol,
+          networkId,
+          isNative: activeToken.isNative,
+          decimals: activeToken.decimals,
+          name: activeToken.name,
+          logoURI: activeToken.logoURI,
+          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+        }
+      : undefined;
+
     defaultLogger.wallet.walletActions.actionTrade({
       walletType: activeAccount?.wallet?.type ?? '',
-      networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
+      networkId,
       source: 'homeTokenList',
       tradeType: ESwapTabSwitchType.SWAP,
       isSoftwareWalletOnlyUser,
@@ -93,18 +113,8 @@ function TokenActionsView(props: IProps) {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId:
-          activeToken.networkId ?? activeAccount?.network?.id ?? '',
-        importFromToken: {
-          contractAddress: activeToken.address,
-          symbol: activeToken.symbol,
-          networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
-          isNative: activeToken.isNative,
-          decimals: activeToken.decimals,
-          name: activeToken.name,
-          logoURI: activeToken.logoURI,
-          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-        },
+        importNetworkId: networkId,
+        importFromToken,
         importDeriveType: deriveType,
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
