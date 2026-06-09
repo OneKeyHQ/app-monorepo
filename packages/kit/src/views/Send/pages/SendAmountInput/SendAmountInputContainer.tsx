@@ -705,9 +705,14 @@ function SendAmountInputContainer() {
         ? new BigNumber(chainValueUtils.convertBtcToSats(amountBN.toFixed()))
         : amountBN;
 
+    // Backend returns "--" (and 0) for "no price"; new BigNumber("--") is NaN.
+    // Treat any non-finite / non-positive price as unusable so neither the
+    // fiat→token division nor the token→fiat multiplication can yield NaN.
+    const price = new BigNumber(tokenDetails?.price ?? 0);
+    const hasPrice = price.isFinite() && price.isGreaterThan(0);
+
     if (isUseFiat) {
-      const price = new BigNumber(tokenDetails?.price ?? 0);
-      if (price.isZero()) {
+      if (!hasPrice) {
         return { originalAmount: '0', linkedAmount: '0' };
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
@@ -726,7 +731,9 @@ function SendAmountInputContainer() {
         linkedAmount: amountBN.toFixed(),
       };
     }
-    const price = new BigNumber(tokenDetails?.price ?? 0);
+    if (!hasPrice) {
+      return { originalAmount: amountBN.toFixed(), linkedAmount: '0' };
+    }
     const linkedAmountValue = amountForPrice.multipliedBy(price);
     return {
       originalAmount: amountBN.toFixed(),
@@ -740,6 +747,14 @@ function SendAmountInputContainer() {
     tokenDetails?.info.decimals,
     tokenDetails?.price,
   ]);
+
+  // Usable price gate for the fiat/token toggle. Defined here (before the
+  // toggle handler) so handleToggleFiatMode can guard on it. Backend may send
+  // "--" for an unknown price, which parses to NaN downstream.
+  const hasUsablePrice = useMemo(
+    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
+    [tokenDetails?.price],
+  );
 
   const privateSendAmount = useMemo(
     () => (isUseFiat ? linkedAmount.originalAmount : amount),
@@ -990,6 +1005,10 @@ function SendAmountInputContainer() {
   ]);
 
   const handleToggleFiatMode = useCallback(() => {
+    // No usable price → the fiat conversion is NaN. Refuse to switch so NaN is
+    // never written into the input. The UI also disables the toggle; this is
+    // the matching guard for any other call path.
+    if (!hasUsablePrice) return;
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
     // When currently in token mode (isUseFiat=false), switching to fiat mode -> use linkedAmount
     let amountValue = isUseFiat
@@ -1018,6 +1037,7 @@ function SendAmountInputContainer() {
     form.setValue('amount', amountValue);
   }, [
     form,
+    hasUsablePrice,
     isLightningNetwork,
     isUseFiat,
     linkedAmount.linkedAmount,
@@ -1346,13 +1366,6 @@ function SendAmountInputContainer() {
     if (!form.getValues('amount')) return;
     void form.trigger('amount');
   }, [form, maxBalance, tokenDetails?.balanceParsed]);
-
-  // Fiat input needs a usable price to convert it to a token amount. Single
-  // source of truth for the fiat-mode guards below.
-  const hasUsablePrice = useMemo(
-    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
-    [tokenDetails?.price],
-  );
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
@@ -2881,6 +2894,16 @@ function SendAmountInputContainer() {
       minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined);
   }
 
+  // Fiat/token equivalent shown beneath the input. Backend may report "--" for
+  // an unknown price (NaN once parsed); show "--" and disable the toggle below
+  // instead of surfacing NaN or carrying it into the input.
+  let fiatTokenEquivalentValue = '--';
+  if (hasUsablePrice) {
+    fiatTokenEquivalentValue = isUseFiat
+      ? linkedAmount.originalAmount
+      : linkedAmount.linkedAmount;
+  }
+
   const renderAmountInput = useMemo(
     () => (
       <>
@@ -2897,14 +2920,14 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible={!isInvoiceAmountLocked}
+            reversible={!isInvoiceAmountLocked && hasUsablePrice}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: isUseFiat
-                ? linkedAmount.originalAmount
-                : linkedAmount.linkedAmount,
-              onPress: handleToggleFiatMode,
+              // Unknown price → show "--" and disable the toggle (no onPress) so
+              // NaN can't be entered or carried into the input.
+              value: fiatTokenEquivalentValue,
+              onPress: hasUsablePrice ? handleToggleFiatMode : undefined,
             }}
             inputProps={{
               inputAccessoryViewID: platformEnv.isNativeIOS
@@ -2951,17 +2974,17 @@ function SendAmountInputContainer() {
     [
       amountHint,
       currencySymbol,
+      fiatTokenEquivalentValue,
       handleAmountInputChange,
       handleAmountInputBlur,
       handleAmountInputFocus,
       handleToggleFiatMode,
       handleValidateTokenAmount,
+      hasUsablePrice,
       intl,
       isIntegerAmount,
       isInvoiceAmountLocked,
       isUseFiat,
-      linkedAmount.linkedAmount,
-      linkedAmount.originalAmount,
       tokenSymbol,
     ],
   );
