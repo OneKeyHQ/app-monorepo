@@ -2406,6 +2406,7 @@ export enum ETranslations {
   kyt_receive_risk_monitoring_enable__action = 'kyt_receive_risk_monitoring_enable__action',
   kyt_receive_risk_monitoring_intro_1__desc = 'kyt_receive_risk_monitoring_intro_1__desc',
   kyt_receive_risk_monitoring_intro_2__desc = 'kyt_receive_risk_monitoring_intro_2__desc',
+  kyt_receive_risk_monitoring_notification_permission__desc = 'kyt_receive_risk_monitoring_notification_permission__desc',
   kyt_result_disclaimer__desc = 'kyt_result_disclaimer__desc',
   kyt_risk_check_failed__desc = 'kyt_risk_check_failed__desc',
   kyt_risk_check_failed__title = 'kyt_risk_check_failed__title',
