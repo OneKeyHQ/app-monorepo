@@ -33,7 +33,6 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
-import { debugMarketTabsLog } from '../debugMarketTabsLog';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -383,23 +382,6 @@ function MobileLayoutComponent({
     activeTabName,
     selectedTabName,
   };
-  useEffect(() => {
-    debugMarketTabsLog('mobile.state', {
-      activeTabName,
-      selectedTabName,
-      selectedSpotCategory: filterBarProps.selectedCategory,
-      spotItemsCount: spotTabItems.length,
-      isFocused,
-      nestedPager,
-    });
-  }, [
-    activeTabName,
-    filterBarProps.selectedCategory,
-    isFocused,
-    nestedPager,
-    selectedTabName,
-    spotTabItems.length,
-  ]);
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
@@ -442,13 +424,6 @@ function MobileLayoutComponent({
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
-        const latestTabState = latestTabStateRef.current;
-        debugMarketTabsLog('mobile.tab-press', {
-          name,
-          selectedTabName: latestTabState.selectedTabName,
-          focusedTab: currentTabsRef.current?.getFocusedTab(),
-          tabNames: tabBarProps.tabNames,
-        });
         markExpectedTabChangeTarget(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
@@ -463,12 +438,7 @@ function MobileLayoutComponent({
         />
       );
     },
-    [
-      currentTabsRef,
-      markExpectedTabChangeTarget,
-      perpsTabName,
-      watchlistTabName,
-    ],
+    [markExpectedTabChangeTarget, perpsTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -482,45 +452,15 @@ function MobileLayoutComponent({
       const isRecentPagerDrag =
         pagerDragElapsedMs !== undefined &&
         pagerDragElapsedMs < MARKET_TAB_USER_DRAG_ACCEPT_MS;
-      debugMarketTabsLog('mobile.on-tab-change', {
-        tabName,
-        activeTabName: latestTabState.activeTabName,
-        selectedTabName: latestTabState.selectedTabName,
-        focusedTab,
-        expectedTabName,
-        pagerDragElapsedMs,
-      });
       if (expectedTabName && tabName !== expectedTabName) {
         if (isRecentPagerDrag && focusedTab === tabName) {
-          debugMarketTabsLog('mobile.on-tab-change.user-drag-accepted', {
-            tabName,
-            expectedTabName,
-            activeTabName: latestTabState.activeTabName,
-            selectedTabName: latestTabState.selectedTabName,
-            focusedTab,
-            pagerDragElapsedMs,
-          });
           clearExpectedTabChangeTarget();
         } else {
-          debugMarketTabsLog('mobile.on-tab-change.ignored', {
-            tabName,
-            expectedTabName,
-            activeTabName: latestTabState.activeTabName,
-            selectedTabName: latestTabState.selectedTabName,
-            focusedTab,
-            pagerDragElapsedMs,
-          });
           return;
         }
       }
 
       if (!expectedTabName && focusedTab && focusedTab !== tabName) {
-        debugMarketTabsLog('mobile.on-tab-change.focus-mismatch-ignored', {
-          tabName,
-          activeTabName: latestTabState.activeTabName,
-          selectedTabName: latestTabState.selectedTabName,
-          focusedTab,
-        });
         return;
       }
 
@@ -528,12 +468,6 @@ function MobileLayoutComponent({
         tabName === lastAcceptedTabChangeNameRef.current &&
         latestTabState.activeTabName === tabName
       ) {
-        debugMarketTabsLog('mobile.on-tab-change.duplicate-ignored', {
-          tabName,
-          activeTabName: latestTabState.activeTabName,
-          selectedTabName: latestTabState.selectedTabName,
-          focusedTab,
-        });
         return;
       }
 
@@ -552,13 +486,8 @@ function MobileLayoutComponent({
       }
 
       lastPagerDraggingAtRef.current = Date.now();
-      debugMarketTabsLog('mobile.pager-drag', {
-        pageScrollState,
-        expectedTabName: expectedTabChangeTargetRef.current,
-        focusedTab: currentTabsRef.current?.getFocusedTab(),
-      });
     },
-    [currentTabsRef],
+    [],
   );
   const pagerProps = useMemo<IMarketPagerProps>(
     () => ({

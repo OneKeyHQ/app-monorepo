@@ -1,12 +1,10 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useMarketSelectedTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-
-import { debugMarketTabsLog } from '../../debugMarketTabsLog';
 
 import type { IMarketCategoryItem, IMarketHomeTabValue } from '../../types';
 
@@ -101,13 +99,6 @@ export function useMarketTabsLogic(
         (!categoryId || categoryId === selectedSpotCategory);
 
       if (isSelectionUnchanged) {
-        debugMarketTabsLog('logic.handle-tab-change.ignored', {
-          tabName,
-          categoryId,
-          tabValue,
-          selectedTab,
-          selectedSpotCategory,
-        });
         return;
       }
 
@@ -115,13 +106,6 @@ export function useMarketTabsLogic(
         onSpotCategoryChange?.(categoryId);
       }
 
-      debugMarketTabsLog('logic.handle-tab-change', {
-        tabName,
-        categoryId,
-        tabValue,
-        selectedTab,
-        selectedSpotCategory,
-      });
       setSelectedTabAtom((prev) => ({
         ...prev,
         tab: tabValue,
@@ -151,22 +135,6 @@ export function useMarketTabsLogic(
     selectedSpotTabName,
     perpsTabName,
     showPerpsTab,
-  ]);
-
-  useEffect(() => {
-    debugMarketTabsLog('logic.selected-tab-name', {
-      selectedTab,
-      selectedTabName,
-      selectedSpotCategory,
-      spotItemsCount: spotTabItems.length,
-      showPerpsTab,
-    });
-  }, [
-    selectedSpotCategory,
-    selectedTab,
-    selectedTabName,
-    showPerpsTab,
-    spotTabItems.length,
   ]);
 
   return {

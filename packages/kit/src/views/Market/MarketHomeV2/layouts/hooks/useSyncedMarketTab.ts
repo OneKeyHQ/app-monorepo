@@ -3,8 +3,6 @@ import type { RefObject } from 'react';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 
-import { debugMarketTabsLog } from '../../debugMarketTabsLog';
-
 interface IUseSyncedMarketTabOptions {
   onBeforeJumpToTab?: (targetTabName: string) => void;
   shouldDeferJumpToTab?: (params: {
@@ -28,28 +26,16 @@ export function useSyncedMarketTab(
 
   useEffect(() => {
     if (shouldResync && !wasResyncEnabledRef.current) {
-      debugMarketTabsLog('sync.enable-resync', {
-        targetTabName,
-      });
       pendingPageSyncRef.current = true;
     }
     if (!shouldResync) {
-      debugMarketTabsLog('sync.disable-resync', {
-        targetTabName,
-      });
       pendingPageSyncRef.current = false;
     }
-  }, [shouldResync, targetTabName]);
+  }, [shouldResync]);
 
   useEffect(() => {
     const currentTabsRef = resolvedTabsRef.current;
     const currentTabName = currentTabsRef?.getFocusedTab();
-    debugMarketTabsLog('sync.target-effect', {
-      targetTabName,
-      currentTabName,
-      shouldResync,
-      hasTabsRef: !!currentTabsRef,
-    });
     if (!currentTabName) {
       setActiveTabName(targetTabName);
       return;
@@ -65,19 +51,9 @@ export function useSyncedMarketTab(
           currentTabName,
         })
       ) {
-        debugMarketTabsLog('sync.defer-jump-target', {
-          from: currentTabName,
-          to: targetTabName,
-          shouldResync,
-        });
         setActiveTabName(targetTabName);
         return;
       }
-      debugMarketTabsLog('sync.jump-target', {
-        from: currentTabName,
-        to: targetTabName,
-        shouldResync,
-      });
       onBeforeJumpToTab?.(targetTabName);
       currentTabsRef?.jumpToTab(targetTabName);
       if (!shouldResync) {
@@ -111,20 +87,12 @@ export function useSyncedMarketTab(
 
       const currentTabsRef = resolvedTabsRef.current;
       if (!currentTabsRef) {
-        debugMarketTabsLog('sync.retry.no-ref', {
-          targetTabName,
-          retryCount,
-        });
         return;
       }
 
       const currentTabName = currentTabsRef.getFocusedTab();
 
       if (currentTabName === targetTabName) {
-        debugMarketTabsLog('sync.current-page', {
-          targetTabName,
-          retryCount,
-        });
         currentTabsRef.syncCurrentPage();
         pendingPageSyncRef.current = false;
         setActiveTabName(targetTabName);
@@ -138,33 +106,18 @@ export function useSyncedMarketTab(
           currentTabName,
         })
       ) {
-        debugMarketTabsLog('sync.retry-defer-jump', {
-          from: currentTabName,
-          to: targetTabName,
-          retryCount,
-        });
         timeoutId = setTimeout(() => {
           rafId = requestAnimationFrame(runResync);
         }, 32);
         return;
       }
 
-      debugMarketTabsLog('sync.retry-jump', {
-        from: currentTabName,
-        to: targetTabName,
-        retryCount,
-      });
       onBeforeJumpToTab?.(targetTabName);
       currentTabsRef.jumpToTab(targetTabName);
 
       retryCount += 1;
       if (retryCount > 6) {
         const finalTabName = currentTabsRef.getFocusedTab();
-        debugMarketTabsLog('sync.retry-stop', {
-          targetTabName,
-          finalTabName,
-          retryCount,
-        });
         pendingPageSyncRef.current = false;
         setActiveTabName(finalTabName || targetTabName);
         return;
