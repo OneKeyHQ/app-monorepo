@@ -503,6 +503,84 @@ function applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
   };
 }
 
+function normalizePrivateSendHistoryAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized || '';
+}
+
+function isSamePrivateSendHistoryAddress(a?: string, b?: string) {
+  const normalizedA = normalizePrivateSendHistoryAddress(a);
+  const normalizedB = normalizePrivateSendHistoryAddress(b);
+  if (!normalizedA || !normalizedB) {
+    return false;
+  }
+  if (normalizedA === normalizedB) {
+    return true;
+  }
+  const normalizedLowerA = normalizedA.toLowerCase();
+  const normalizedLowerB = normalizedB.toLowerCase();
+  if (normalizedLowerA.startsWith('0x') && normalizedLowerB.startsWith('0x')) {
+    return normalizedLowerA === normalizedLowerB;
+  }
+  return false;
+}
+
+function getPrivateSendPayinAddressFromSwapHistory(
+  swapHistory: ISwapTxHistory,
+) {
+  const payinAddress = isRecord(swapHistory.ctx)
+    ? swapHistory.ctx.payinAddress
+    : undefined;
+  return typeof payinAddress === 'string'
+    ? normalizePrivateSendHistoryAddress(payinAddress)
+    : '';
+}
+
+function applyPrivateSendSwapHistoryRecipientToHistoryTx({
+  tx,
+  swapHistory,
+}: {
+  tx: IAccountHistoryTx;
+  swapHistory: ISwapTxHistory;
+}): IAccountHistoryTx {
+  const payload = tx.decodedTx.payload;
+  const privateSendPayload = payload?.privateSend ?? {};
+  if (
+    normalizePrivateSendHistoryAddress(privateSendPayload.originalRecipient)
+  ) {
+    return tx;
+  }
+
+  const receiver = normalizePrivateSendHistoryAddress(
+    swapHistory.txInfo.receiver,
+  );
+  if (!payload || !receiver) {
+    return tx;
+  }
+
+  const payinAddress = getPrivateSendPayinAddressFromSwapHistory(swapHistory);
+  if (isSamePrivateSendHistoryAddress(receiver, payinAddress)) {
+    return tx;
+  }
+
+  return {
+    ...tx,
+    decodedTx: {
+      ...tx.decodedTx,
+      payload: {
+        ...payload,
+        privateSend: {
+          ...privateSendPayload,
+          originalRecipient: receiver,
+          ...(payinAddress && !privateSendPayload.payinAddress
+            ? { payinAddress }
+            : {}),
+        },
+      },
+    },
+  };
+}
+
 function mergePrivateSendLocalDecodedTxFields({
   localTx,
   onChainHistoryTx,
@@ -599,9 +677,14 @@ class ServiceHistory extends ServiceBase {
       if (!swapHistory) {
         return this.clearHistoryTxDisplayStatus(tx);
       }
+      const txWithSwapHistoryRecipient =
+        applyPrivateSendSwapHistoryRecipientToHistoryTx({
+          tx,
+          swapHistory,
+        });
       const txWithSwapHistoryTokenPrices =
         applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
-          tx,
+          tx: txWithSwapHistoryRecipient,
           swapHistory,
         });
 

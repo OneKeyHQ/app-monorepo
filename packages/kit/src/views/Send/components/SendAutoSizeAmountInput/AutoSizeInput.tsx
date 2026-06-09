@@ -201,6 +201,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         focus: () => {
           inputRef.current?.focus();
         },
+        blur: () => {
+          inputRef.current?.blur();
+        },
       }),
       [],
     );
