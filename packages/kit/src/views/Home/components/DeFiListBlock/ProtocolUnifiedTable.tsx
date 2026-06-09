@@ -66,6 +66,7 @@ const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
 type IProtocolUnifiedTableProps = {
   accountId?: string;
+  indexedAccountId?: string;
   protocol: IDeFiProtocol;
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
@@ -80,6 +81,7 @@ type IProtocolUnifiedTableProps = {
 const ProtocolUnifiedTable = memo(
   ({
     accountId,
+    indexedAccountId,
     protocol,
     rows,
     currencySymbol,
@@ -325,6 +327,7 @@ const ProtocolUnifiedTable = memo(
               </XStack>
               <ProtocolPositionActionButton
                 accountId={accountId}
+                indexedAccountId={indexedAccountId}
                 protocol={protocol}
                 position={actionPosition}
                 supportedActions={supportedActions}

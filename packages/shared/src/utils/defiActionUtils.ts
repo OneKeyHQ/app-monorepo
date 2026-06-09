@@ -741,11 +741,12 @@ function buildResolvedAsset({
       asset,
       extraParams,
     });
-    if (!queueNonces?.length) {
+    const queueNonce = queueNonces?.[0];
+    if (!queueNonce) {
       return undefined;
     }
     // oxlint-disable-next-line @cspell/spellchecker
-    extraParams = mergeExtraParams(extraParams, { unbondNonces: queueNonces });
+    extraParams = mergeExtraParams(extraParams, { unbondNonces: [queueNonce] });
   }
 
   return {

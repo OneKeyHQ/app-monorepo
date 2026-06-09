@@ -41,6 +41,7 @@ import { ProtocolRow } from './ProtocolRow';
 
 type IProtocolProps = {
   accountId?: string;
+  indexedAccountId?: string;
   protocol: IDeFiProtocol;
   tableLayout?: boolean;
   isAllNetworks?: boolean;
@@ -87,6 +88,7 @@ const ProtocolDesktopLayout = memo(
     {
       protocol: IDeFiProtocol;
       accountId?: string;
+      indexedAccountId?: string;
       protocolDisplayInfo: IDeFiProtocolDisplayInfo;
       isAllNetworks?: boolean;
       currencySymbol: string;
@@ -104,6 +106,7 @@ const ProtocolDesktopLayout = memo(
       {
         protocol,
         accountId,
+        indexedAccountId,
         protocolDisplayInfo,
         isAllNetworks,
         currencySymbol,
@@ -202,6 +205,9 @@ const ProtocolDesktopLayout = memo(
                     <ProtocolCategoryGroup
                       key={group.groupKey}
                       accountId={protocol.accountId ?? accountId}
+                      indexedAccountId={
+                        protocol.indexedAccountId ?? indexedAccountId
+                      }
                       protocol={protocol}
                       group={group}
                       currencySymbol={currencySymbol}
@@ -305,6 +311,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
   (
     {
       accountId,
+      indexedAccountId,
       protocol,
       tableLayout,
       isAllNetworks,
@@ -333,6 +340,7 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
       <ProtocolDesktopLayout
         ref={forwardedRef}
         accountId={accountId}
+        indexedAccountId={indexedAccountId}
         protocol={protocol}
         protocolDisplayInfo={viewModel.protocolDisplayInfo}
         isAllNetworks={isAllNetworks}

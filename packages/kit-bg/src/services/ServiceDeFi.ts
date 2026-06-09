@@ -231,6 +231,13 @@ class ServiceDeFi extends ServiceBase {
 
     let accountAddress = params.accountAddress;
     let xpub = params.xpub;
+    const indexedAccountId =
+      params.indexedAccountId ??
+      (
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId,
+        })
+      )?.indexedAccountId;
 
     if (!accountAddress && !xpub) {
       const [a, x] = await Promise.all([
@@ -267,6 +274,7 @@ class ServiceDeFi extends ServiceBase {
 
     const parsedData = defiUtils.transformDeFiData({
       accountId,
+      indexedAccountId,
       positions: resp.data.data.data.positions,
       protocolSummaries: resp.data.data.data.protocolSummaries,
     });
@@ -478,6 +486,7 @@ class ServiceDeFi extends ServiceBase {
 
       const resp = await this.fetchAccountDeFiPositions({
         accountId,
+        indexedAccountId,
         networkId,
         accountAddress,
         xpub,

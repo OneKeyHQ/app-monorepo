@@ -114,6 +114,7 @@ const ProtocolListItem = memo(
     protocol,
     protocolKey,
     accountId,
+    indexedAccountId,
     registerProtocol,
     tableLayout,
     onActionSuccess,
@@ -123,6 +124,7 @@ const ProtocolListItem = memo(
     protocol: IDeFiProtocol;
     protocolKey: string;
     accountId?: string;
+    indexedAccountId?: string;
     registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
     tableLayout?: boolean;
     onActionSuccess?: (
@@ -141,6 +143,7 @@ const ProtocolListItem = memo(
         <Protocol
           ref={registerProtocol ? handleProtocolRef : undefined}
           accountId={accountId}
+          indexedAccountId={indexedAccountId}
           protocol={protocol}
           tableLayout={tableLayout}
           isAllNetworks={isAllNetworks}
@@ -387,6 +390,7 @@ function DeFiListBlock({
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
+            indexedAccountId: account.indexedAccountId,
             networkId: network.id,
             accountAddress: account.address,
             excludeLowValueProtocols: true,
@@ -496,6 +500,7 @@ function DeFiListBlock({
       const shouldForceInitialRefresh = !allNetworkDataInit;
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
+        indexedAccountId: account?.indexedAccountId,
         networkId,
         isAllNetworks: true,
         allNetworksAccountId: account?.id,
@@ -548,6 +553,7 @@ function DeFiListBlock({
     },
     [
       account?.id,
+      account?.indexedAccountId,
       network?.id,
       updateAllNetworkData,
       updateDeFiListProtocolMap,
@@ -1460,6 +1466,7 @@ function DeFiListBlock({
                 protocol={protocol}
                 protocolKey={protocolKey}
                 accountId={account?.id}
+                indexedAccountId={account?.indexedAccountId}
                 registerProtocol={registerProtocol}
                 tableLayout={tableLayout}
                 onActionSuccess={handleActionSuccess}
@@ -1500,6 +1507,7 @@ function DeFiListBlock({
   }, [
     filteredProtocols,
     account?.id,
+    account?.indexedAccountId,
     tableLayout,
     network?.isAllNetworks,
     intl,

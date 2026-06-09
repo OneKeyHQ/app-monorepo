@@ -150,6 +150,53 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
   });
 
+  it('resolves multiple Uniswap removeLiquidity assets from grouped source positions', () => {
+    const firstSourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: '0x1111111111111111111111111111111111111111#123',
+      name: 'ETH / USDC',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const secondSourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: '0x2222222222222222222222222222222222222222#456',
+      name: 'ETH / USDC',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const position = {
+      ...makePosition(firstSourcePosition),
+      sourcePositions: [firstSourcePosition, secondSourcePosition],
+    };
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v3',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v3',
+      },
+      position,
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets).toHaveLength(2);
+    expect(
+      actions[0].assets.map((asset) => asset.extraParams?.tokenId),
+    ).toEqual(['123', '456']);
+  });
+
   it('resolves Polygon claimWithdrawal with pool and unbond nonce metadata', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
@@ -187,6 +234,50 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
+    // oxlint-disable-next-line @cspell/spellchecker
+    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
+  });
+
+  it('passes only one Polygon unbond nonce per claimWithdrawal transaction', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      groupId: 'polygon-cooldowns',
+      name: 'Polygon Cooldowns',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'staking',
+          poolAddress: '0xvalidator',
+          extraParams: {
+            // oxlint-disable-next-line @cspell/spellchecker
+            unbondNonces: ['5', '6'],
+          },
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'staking',
+        action: EDeFiPositionAction.ClaimWithdrawal,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
     // oxlint-disable-next-line @cspell/spellchecker
     expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
   });

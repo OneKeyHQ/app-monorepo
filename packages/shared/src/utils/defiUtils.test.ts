@@ -220,4 +220,38 @@ describe('defiUtils.transformDeFiData', () => {
       netWorth: 123,
     });
   });
+
+  it('preserves account identity on transformed protocols', () => {
+    const result = defiUtils.transformDeFiData({
+      accountId: 'evm-account-1',
+      indexedAccountId: 'indexed-account-1',
+      positions: {
+        'evm--1': [
+          makePosition({
+            protocol: 'aave-v3',
+            protocolName: 'Aave V3',
+            category: 'lending',
+            groupId: 'aave-usde',
+            name: 'Aave USDe',
+            assets: [
+              makeAsset({
+                symbol: 'USDe',
+                address: '0xusde',
+                value: 10,
+                category: 'deposit',
+              }),
+            ],
+            debts: [],
+            rewards: [],
+          }),
+        ],
+      },
+      protocolSummaries: [],
+    });
+
+    expect(result.protocols[0]).toMatchObject({
+      accountId: 'evm-account-1',
+      indexedAccountId: 'indexed-account-1',
+    });
+  });
 });

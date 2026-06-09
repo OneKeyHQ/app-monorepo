@@ -35,7 +35,8 @@ import {
 
 type IProtocolPositionActionButtonProps = {
   accountId?: string;
-  protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
+  indexedAccountId?: string;
+  protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol' | 'indexedAccountId'>;
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
@@ -238,6 +239,7 @@ function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
 const ProtocolPositionActionButton = memo(
   ({
     accountId,
+    indexedAccountId,
     protocol,
     position,
     supportedActions,
@@ -333,6 +335,7 @@ const ProtocolPositionActionButton = memo(
       if (!accountId || !borrowManageParams) return;
       BorrowNavigation.pushToBorrowManagePosition(navigation, {
         accountId,
+        indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
         networkId: protocol.networkId,
         provider: borrowManageParams.provider,
         marketAddress: borrowManageParams.marketAddress,
@@ -342,7 +345,14 @@ const ProtocolPositionActionButton = memo(
         providerLogoURI: borrowManageParams.providerLogoURI,
         type: EManagePositionType.Withdraw,
       });
-    }, [accountId, borrowManageParams, navigation, protocol.networkId]);
+    }, [
+      accountId,
+      borrowManageParams,
+      indexedAccountId,
+      navigation,
+      protocol.indexedAccountId,
+      protocol.networkId,
+    ]);
 
     if (
       !isActionAccount ||

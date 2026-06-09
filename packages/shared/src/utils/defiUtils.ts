@@ -213,10 +213,12 @@ function transferPositionMap(positionMap: Map<string, IGroupedPositionValue>) {
 
 function transformDeFiData({
   accountId,
+  indexedAccountId,
   positions,
   protocolSummaries,
 }: {
   accountId?: string;
+  indexedAccountId?: string;
   positions: Record<string, IDeFiPosition[]>;
   protocolSummaries: IProtocolSummary[];
 }) {
@@ -226,6 +228,7 @@ function transformDeFiData({
     {
       owner: string;
       accountId?: string;
+      indexedAccountId?: string;
       networkId: string;
       protocol: string;
       positionMap: Map<string, IGroupedPositionValue>; // key: groupId
@@ -250,6 +253,7 @@ function transformDeFiData({
       if (!protocolPositionsMap.has(protocolPositionsMapKey)) {
         protocolPositionsMap.set(protocolPositionsMapKey, {
           accountId,
+          indexedAccountId,
           owner: normalizedPosition.owner,
           networkId: normalizedPosition.networkId,
           protocol: normalizedPosition.protocol,
@@ -263,6 +267,7 @@ function transformDeFiData({
       ) as {
         owner: string;
         accountId?: string;
+        indexedAccountId?: string;
         networkId: string;
         protocol: string;
         positionMap: Map<string, IGroupedPositionValue>; // key: groupId
@@ -396,6 +401,7 @@ function transformDeFiData({
       networkId: value.networkId,
       owner: value.owner,
       accountId: value.accountId,
+      indexedAccountId: value.indexedAccountId,
       protocol: value.protocol,
       positions: transferPositionMap(value.positionMap),
       categories: Array.from(value.categorySet),

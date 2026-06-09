@@ -4,6 +4,7 @@ export type IDeFiUnknownRecord = Record<string, unknown>;
 
 export type IFetchAccountDeFiPositionsParams = {
   accountId: string;
+  indexedAccountId?: string;
   networkId: string;
   accountAddress?: string;
   xpub?: string;
@@ -149,6 +150,7 @@ export type IFetchAccountDeFiPositionsResp = {
 
 export type IDeFiProtocol = {
   accountId?: string;
+  indexedAccountId?: string;
   networkId: string;
   owner: string;
   protocol: string; // as protocolId

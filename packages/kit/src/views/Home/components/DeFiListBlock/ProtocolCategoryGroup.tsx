@@ -47,6 +47,7 @@ function buildActionPosition(
 
 type IProtocolCategoryGroupProps = {
   accountId?: string;
+  indexedAccountId?: string;
   protocol: IDeFiProtocol;
   group: ILocalizedProtocolCategoryGroup;
   currencySymbol: string;
@@ -61,6 +62,7 @@ type IProtocolCategoryGroupProps = {
 const ProtocolCategoryGroup = memo(
   ({
     accountId,
+    indexedAccountId,
     protocol,
     group,
     currencySymbol,
@@ -113,6 +115,7 @@ const ProtocolCategoryGroup = memo(
                 />
                 <ProtocolPositionActionButton
                   accountId={accountId}
+                  indexedAccountId={indexedAccountId}
                   protocol={protocol}
                   position={actionPosition}
                   supportedActions={supportedActions}
@@ -135,6 +138,7 @@ const ProtocolCategoryGroup = memo(
         </YStack>
         <ProtocolUnifiedTable
           accountId={accountId}
+          indexedAccountId={indexedAccountId}
           protocol={protocol}
           rows={group.rows}
           currencySymbol={currencySymbol}

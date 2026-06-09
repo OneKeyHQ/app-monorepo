@@ -96,6 +96,8 @@ function DeFiProtocolDetails() {
     }
   }, []);
   const actionAccountId = protocol.accountId ?? account?.id;
+  const actionIndexedAccountId =
+    protocol.indexedAccountId ?? account?.indexedAccountId;
   const handleActionSuccess = useCallback(
     ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
       appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
@@ -258,6 +260,7 @@ function DeFiProtocolDetails() {
                   ))}
                   <ProtocolPositionActionButton
                     accountId={actionAccountId}
+                    indexedAccountId={actionIndexedAccountId}
                     protocol={protocol}
                     position={actionPosition}
                     supportedActions={supportedActions}

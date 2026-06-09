@@ -66,6 +66,12 @@ function getActionLabel({
   return action;
 }
 
+function getActionAssetExtraLabel(asset: IResolvedDeFiPositionActionAsset) {
+  const tokenId = asset.extraParams?.tokenId?.trim();
+  if (tokenId) return `#${tokenId}`;
+  return undefined;
+}
+
 function ProtocolPositionActionAssetRow({
   asset,
   index,
@@ -81,6 +87,8 @@ function ProtocolPositionActionAssetRow({
   priceUnavailableLabel: string;
   onSelect: (index: number, selected: boolean) => void;
 }) {
+  const extraLabel = getActionAssetExtraLabel(asset);
+
   return (
     <XStack
       testID={`defi-position-action-asset-${index}`}
@@ -126,6 +134,11 @@ function ProtocolPositionActionAssetRow({
           color="$textSubdued"
           numberOfLines={1}
         />
+        {extraLabel ? (
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {extraLabel}
+          </SizableText>
+        ) : null}
       </YStack>
       <Stack
         onPress={(event) => {
@@ -491,8 +504,10 @@ function ProtocolPositionActionDialogContent({
     setSelectedAssetIndex(selected ? index : undefined);
   };
   const showAssetSelector = useMemo(
-    () => action.action !== EDeFiPositionAction.RemoveLiquidity,
-    [action.action],
+    () =>
+      action.action !== EDeFiPositionAction.RemoveLiquidity ||
+      action.assets.length > 1,
+    [action.action, action.assets.length],
   );
 
   const handleConfirm = async () => {
