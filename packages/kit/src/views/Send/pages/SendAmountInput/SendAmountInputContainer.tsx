@@ -1507,16 +1507,6 @@ function SendAmountInputContainer() {
     [vaultSettings?.coinControlEnabled],
   );
 
-  const handleCoinControlPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.CoinControl,
-      params: {
-        accountId: currentAccountId,
-        networkId,
-      },
-    });
-  }, [navigation, currentAccountId, networkId]);
-
   const normalizeAmountInputValue = useCallback(
     (rawValue: string) => {
       let inputValue = (rawValue ?? '').replace(/\s/g, '');
@@ -1600,6 +1590,30 @@ function SendAmountInputContainer() {
 
   // Ref for AmountInput to trigger button focus
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
+
+  const dismissAmountInputKeyboardBeforeOverlayOpen = useCallback(async () => {
+    if (!platformEnv.isNative) return;
+    amountInputRef.current?.blur();
+    await Keyboard.dismissWithDelay(80);
+  }, []);
+
+  const handleCoinControlPress = useCallback(() => {
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      navigation.pushModal(EModalRoutes.SendModal, {
+        screen: EModalSendRoutes.CoinControl,
+        params: {
+          accountId: currentAccountId,
+          networkId,
+        },
+      });
+    })();
+  }, [
+    currentAccountId,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
+    navigation,
+    networkId,
+  ]);
 
   // Ref to track submit disabled state for keyboard shortcuts
   const isSubmitDisabledRef = useRef(true);
@@ -1689,36 +1703,40 @@ function SendAmountInputContainer() {
 
   const showTxMessageRawData = useCallback(() => {
     if (!txMessage) return;
-    let content = txMessageLinkedString;
-    if (isHexTxMessage) {
-      try {
-        content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
-          'utf-8',
-        );
-      } catch {
-        content = txMessageLinkedString;
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      let content = txMessageLinkedString;
+      if (isHexTxMessage) {
+        try {
+          content = Buffer.from(txMessage.replace(/^0x/i, ''), 'hex').toString(
+            'utf-8',
+          );
+        } catch {
+          content = txMessageLinkedString;
+        }
       }
-    }
-    Dialog.show({
-      title: txMessageViewActionLabel,
-      renderContent: (
-        <ScrollView maxHeight="$96">
-          <SizableText
-            size="$bodyLg"
-            color="$textSubdued"
-            selectable
-            style={
-              platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
-            }
-          >
-            {content}
-          </SizableText>
-        </ScrollView>
-      ),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
-    });
+      Dialog.show({
+        title: txMessageViewActionLabel,
+        renderContent: (
+          <ScrollView maxHeight="$96">
+            <SizableText
+              size="$bodyLg"
+              color="$textSubdued"
+              selectable
+              style={
+                platformEnv.isNative ? undefined : { wordBreak: 'break-all' }
+              }
+            >
+              {content}
+            </SizableText>
+          </ScrollView>
+        ),
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({ id: ETranslations.global_ok }),
+      });
+    })();
   }, [
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     intl,
     isHexTxMessage,
     txMessage,
@@ -1727,22 +1745,25 @@ function SendAmountInputContainer() {
   ]);
 
   const showTxMessageFaq = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: recipientIsContract
-          ? ETranslations.global_hex_data_default
-          : ETranslations.global_hex_data,
-      }),
-      icon: 'ConsoleOutline',
-      description: intl.formatMessage({
-        id: ETranslations.global_hex_data_faq_desc,
-      }),
-      showCancelButton: false,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_ok,
-      }),
-    });
-  }, [intl, recipientIsContract]);
+    void (async () => {
+      await dismissAmountInputKeyboardBeforeOverlayOpen();
+      Dialog.show({
+        title: intl.formatMessage({
+          id: recipientIsContract
+            ? ETranslations.global_hex_data_default
+            : ETranslations.global_hex_data,
+        }),
+        icon: 'ConsoleOutline',
+        description: intl.formatMessage({
+          id: ETranslations.global_hex_data_faq_desc,
+        }),
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_ok,
+        }),
+      });
+    })();
+  }, [dismissAmountInputKeyboardBeforeOverlayOpen, intl, recipientIsContract]);
 
   const getRecipientValidateMessage = useCallback(
     (status?: Exclude<IAddressValidateStatus, 'valid'>) => {
@@ -2454,12 +2475,15 @@ function SendAmountInputContainer() {
         ml="$2"
         p="$0.5"
         onPress={() => {
-          showBalanceDetailsDialog({
-            accountId: currentAccountId,
-            networkId,
-            mergeDeriveAssetsEnabled: false,
-            intl,
-          });
+          void (async () => {
+            await dismissAmountInputKeyboardBeforeOverlayOpen();
+            showBalanceDetailsDialog({
+              accountId: currentAccountId,
+              networkId,
+              mergeDeriveAssetsEnabled: false,
+              intl,
+            });
+          })();
         }}
         hoverStyle={{ opacity: 0.7 }}
         pressStyle={{ opacity: 0.5 }}
@@ -2468,7 +2492,13 @@ function SendAmountInputContainer() {
         <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
       </XStack>
     );
-  }, [hasFrozenBalance, currentAccountId, networkId, intl]);
+  }, [
+    currentAccountId,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
+    hasFrozenBalance,
+    intl,
+    networkId,
+  ]);
 
   const handleSendModeChange = useCallback(
     (value: string | number) => {
@@ -2496,12 +2526,6 @@ function SendAmountInputContainer() {
       isPrivateSendGuideClicked: true,
     }));
   }, [settings.isPrivateSendGuideClicked, setSettings]);
-
-  const dismissAmountInputKeyboardBeforeSelectorOpen = useCallback(async () => {
-    if (!platformEnv.isNative) return;
-    amountInputRef.current?.blur();
-    await Keyboard.dismissWithDelay(80);
-  }, []);
 
   const renderPrivateSendHeaderRight = useCallback(() => {
     if (!showPrivateSendModeSwitch) return null;
@@ -2715,7 +2739,7 @@ function SendAmountInputContainer() {
             refreshOnOpen
             renderSelectorTrigger={
               deriveInfo ? (
-                <Stack onPress={dismissAmountInputKeyboardBeforeSelectorOpen}>
+                <Stack onPress={dismissAmountInputKeyboardBeforeOverlayOpen}>
                   <AddressTypeSelectorTrigger activeDeriveInfo={deriveInfo} />
                 </Stack>
               ) : undefined
@@ -2759,7 +2783,7 @@ function SendAmountInputContainer() {
     deriveInfo,
     deriveType,
     displayCoinControlButton,
-    dismissAmountInputKeyboardBeforeSelectorOpen,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     handleCoinControlPress,
     networkId,
     pulseSignal,
@@ -3289,8 +3313,11 @@ function SendAmountInputContainer() {
     const handleTogglePrivateSendQuoteDetails = () => {
       if (!shouldUsePrivateSendQuoteCollapse) return;
       if (!isPrivateSendQuoteDetailsExpanded) {
-        amountInputRef.current?.blur();
-        Keyboard.dismiss();
+        void (async () => {
+          await dismissAmountInputKeyboardBeforeOverlayOpen();
+          setIsPrivateSendQuoteDetailsExpanded((expanded) => !expanded);
+        })();
+        return;
       }
       setIsPrivateSendQuoteDetailsExpanded((expanded) => !expanded);
     };
@@ -3353,6 +3380,7 @@ function SendAmountInputContainer() {
               dashThickness={0.5}
               tooltip={estimatedReceivedTooltip}
               tooltipTitle={estimatedReceivedTitle}
+              onPress={dismissAmountInputKeyboardBeforeOverlayOpen}
             >
               {estimatedReceivedTitle}
             </DashText>
@@ -3464,6 +3492,7 @@ function SendAmountInputContainer() {
     );
   }, [
     currencySymbol,
+    dismissAmountInputKeyboardBeforeOverlayOpen,
     intl,
     isLoadingAssets,
     isNFT,
