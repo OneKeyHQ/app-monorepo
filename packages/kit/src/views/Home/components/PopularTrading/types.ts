@@ -1,3 +1,5 @@
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
+
 interface IFavoriteTokenDisplay {
   chainId: string;
   contractAddress: string;
@@ -11,6 +13,7 @@ interface IFavoriteTokenDisplay {
   volume24h: number;
   perpsCoin?: string;
   maxLeverage?: number;
+  stock?: IMarketStockInfo;
 }
 
 export type { IFavoriteTokenDisplay };

@@ -92,6 +92,7 @@ import {
   ESwapProTradeType,
   ESwapQuoteKind,
   ESwapSelectTokenSource,
+  ESwapSource,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapBuildShouldFallBackNetworkIds,
@@ -1291,6 +1292,17 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
+  const initialSelectedTokensOnInit =
+    props.swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    Boolean(props.swapInitParams?.importNetworkId)
+      ? {
+          fromToken: props.swapInitParams?.importFromToken,
+          toToken: props.swapInitParams?.importToToken,
+          swapType:
+            props.swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+        }
+      : undefined;
+
   return (
     <SwapProviderMirror
       storeName={
@@ -1298,6 +1310,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           ? EJotaiContextStoreNames.swapModal
           : EJotaiContextStoreNames.swap
       }
+      initialSelectedTokensOnInit={initialSelectedTokensOnInit}
     >
       <MarketWatchListProviderMirrorV2
         storeName={EJotaiContextStoreNames.marketWatchListV2}

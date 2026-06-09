@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -99,24 +100,31 @@ function TokenActionsView(props: IProps) {
 
   const handleTokenOnSwap = useCallback(() => {
     void (async () => {
-      const activeNetworkId =
+      const networkId =
         activeToken.networkId ?? activeAccount?.network?.id ?? '';
-      const importFromToken: ISwapToken = {
-        contractAddress: activeToken.address,
-        symbol: activeToken.symbol,
-        networkId: activeNetworkId,
-        isNative: activeToken.isNative,
-        decimals: activeToken.decimals,
-        name: activeToken.name,
-        logoURI: activeToken.logoURI,
-        networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-      };
+      const isBtcNativeToken =
+        networkId === getNetworkIdsMap().btc &&
+        activeToken.isNative &&
+        activeToken.symbol?.toUpperCase() === 'BTC' &&
+        !activeToken.address;
+      const importFromToken: ISwapToken | undefined = !isBtcNativeToken
+        ? {
+            contractAddress: activeToken.address,
+            symbol: activeToken.symbol,
+            networkId,
+            isNative: activeToken.isNative,
+            decimals: activeToken.decimals,
+            name: activeToken.name,
+            logoURI: activeToken.logoURI,
+            networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+          }
+        : undefined;
       let importToToken: ISwapToken | undefined;
-      if (activeNetworkId) {
+      if (networkId && importFromToken) {
         try {
           const { isSupportSwap, isSupportCrossChain } =
             await backgroundApiProxy.serviceSwap.checkSupportSwap({
-              networkId: activeNetworkId,
+              networkId,
             });
           if (!isSupportSwap && isSupportCrossChain) {
             importToToken = getSwapBridgeDefaultToToken(importFromToken);
@@ -126,23 +134,21 @@ function TokenActionsView(props: IProps) {
         }
       }
 
-      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
       defaultLogger.wallet.walletActions.actionTrade({
         walletType: activeAccount?.wallet?.type ?? '',
-        networkId: activeNetworkId,
+        networkId,
         source: 'homeTokenList',
-        tradeType: swapTabSwitchType,
+        tradeType: ESwapTabSwitchType.SWAP,
         isSoftwareWalletOnlyUser,
       });
-
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
-          importNetworkId: activeNetworkId,
+          importNetworkId: networkId,
           importFromToken,
           importToToken,
           importDeriveType: deriveType,
-          swapTabSwitchType,
+          swapTabSwitchType: ESwapTabSwitchType.SWAP,
           swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
         },
       });

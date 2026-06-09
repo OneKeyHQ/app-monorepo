@@ -2012,14 +2012,20 @@ export default class ServiceSwap extends ServiceBase {
         };
       });
       const isPrivateSendHistory = isPrivateSendSwapHistoryItem(item);
+      const isSuccessStatus =
+        item.status === ESwapTxHistoryStatus.SUCCESS ||
+        item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
       if (
         shouldShowToast &&
         item.status !== ESwapTxHistoryStatus.PENDING &&
-        !isPrivateSendHistory
+        (!isPrivateSendHistory || isSuccessStatus)
       ) {
-        const isSuccessStatus =
-          item.status === ESwapTxHistoryStatus.SUCCESS ||
-          item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+        let toastTitleId = ETranslations.swap_page_toast_swap_failed;
+        if (isSuccessStatus) {
+          toastTitleId = isPrivateSendHistory
+            ? ETranslations.private_send_success
+            : ETranslations.swap_page_toast_swap_successful;
+        }
         let fromAmountFinal = item.baseInfo.fromAmount;
         if (item.swapInfo.otherFeeInfos?.length) {
           item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
@@ -2038,9 +2044,7 @@ export default class ServiceSwap extends ServiceBase {
         void this.backgroundApi.serviceApp.showToast({
           method: isSuccessStatus ? 'success' : 'error',
           title: appLocale.intl.formatMessage({
-            id: isSuccessStatus
-              ? ETranslations.swap_page_toast_swap_successful
-              : ETranslations.swap_page_toast_swap_failed,
+            id: toastTitleId,
           }),
           message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
             item.baseInfo.fromToken.symbol

@@ -59,6 +59,7 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
+  isSpotTabName: (tabName: string) => boolean;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -69,27 +70,25 @@ const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
-  spotTabName: string;
   perpsTabName: string;
 }
 
 function MarketHomeTabBar({
   watchlistTabName,
-  spotTabName,
   perpsTabName,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
+  const showSpotSubHeader = ctx.isSpotTabName(currentFocusedTabName);
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
   // tab switches — avoids remount flicker and loading re-trigger for the
   // network selector and perps category selector.
   const isSpotOrPerps =
-    currentFocusedTabName === spotTabName ||
-    currentFocusedTabName === perpsTabName;
+    showSpotSubHeader || currentFocusedTabName === perpsTabName;
 
   return (
     <YStack bg="$bgApp" position={'sticky' as any} top={0} zIndex={10}>
@@ -124,14 +123,13 @@ function MarketHomeTabBar({
           <MarketListColumnHeader />
         </>
       ) : null}
-      <YStack
-        display={
-          isSpotOrPerps && currentFocusedTabName === spotTabName
-            ? 'flex'
-            : 'none'
-        }
-      >
-        <MarketFilterBarSmall {...ctx.filterBarProps} />
+      <YStack display={isSpotOrPerps && showSpotSubHeader ? 'flex' : 'none'}>
+        <MarketFilterBarSmall
+          selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+          timeRange={ctx.filterBarProps.timeRange}
+          onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+          onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+        />
         <MarketListColumnHeader />
       </YStack>
       <YStack
@@ -169,12 +167,17 @@ function MobileLayoutComponent({
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    isSpotTabName,
     selectedTabName,
-  } = useMarketTabsLogic(onTabChange);
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -269,12 +272,11 @@ function MobileLayoutComponent({
           {...tabBarProps}
           onTabPress={handleTabPress}
           watchlistTabName={watchlistTabName}
-          spotTabName={spotTabName}
           perpsTabName={perpsTabName}
         />
       );
     },
-    [watchlistTabName, spotTabName, perpsTabName],
+    [watchlistTabName, perpsTabName],
   );
 
   const onTabChangeHandler = useCallback(
@@ -292,6 +294,7 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -303,11 +306,41 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
+      isSpotTabName,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
     ],
   );
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <MobileMarketWatchlistFlatList
+        selectedFilter={watchlistFilter}
+        listContainerProps={listContainerProps}
+      />
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => (
+      <Tabs.Tab key={item.categoryId} name={item.tabName}>
+        <MobileMarketTokenFlatList
+          networkId={selectedNetworkId}
+          selectedCategory={item.categoryId}
+          timeRange={filterBarProps.timeRange}
+          listContainerProps={listContainerProps}
+        />
+      </Tabs.Tab>
+    )),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
@@ -326,28 +359,7 @@ function MobileLayoutComponent({
         }
         {...containerProps}
       >
-        <Tabs.Tab name={watchlistTabName}>
-          <MobileMarketWatchlistFlatList
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name={spotTabName}>
-          <MobileMarketTokenFlatList
-            networkId={selectedNetworkId}
-            selectedCategory={filterBarProps.selectedCategory}
-            timeRange={filterBarProps.timeRange}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        {showPerpsTab ? (
-          <Tabs.Tab name={perpsTabName}>
-            <MobileMarketPerpsFlatList
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>
-        ) : null}
+        {tabElements}
       </Tabs.Container>
     </TabBarDynamicContext.Provider>
   );

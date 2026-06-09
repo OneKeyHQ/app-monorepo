@@ -4,6 +4,7 @@ import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartContext,
+  getSwapColdStartSelectedTokensFromSnapshot,
   isSwapColdStartAllNetworkContextNetworkId,
   normalizeSwapColdStartCacheSnapshot,
 } from './swapColdStartCacheSnapshotUtils';
@@ -14,6 +15,7 @@ function buildSnapshotKey(scope: string, key: string) {
 
 const swapScope = 'store:swap';
 const homeScope = 'store:accountSelector@home';
+const swapAccountSelectorScope = 'store:accountSelector@swap';
 
 function buildActiveAccount({
   networkId = 'btc--0',
@@ -32,16 +34,28 @@ function buildSwapSnapshot({
   contextNetworkId = 'btc--0',
   activeNetworkId = 'btc--0',
   activeIndexedAccountId = 'indexed-account-1',
+  swapActiveNetworkId,
+  swapActiveIndexedAccountId = activeIndexedAccountId,
   contextSwapType = ESwapTabSwitchType.BRIDGE,
   snapshotSwapType = ESwapTabSwitchType.BRIDGE,
   fromTokenNetworkId = 'btc--0',
   toTokenNetworkId = 'evm--1',
+}: {
+  contextNetworkId?: string;
+  activeNetworkId?: string;
+  activeIndexedAccountId?: string;
+  swapActiveNetworkId?: string;
+  swapActiveIndexedAccountId?: string;
+  contextSwapType?: ESwapTabSwitchType;
+  snapshotSwapType?: ESwapTabSwitchType;
+  fromTokenNetworkId?: string;
+  toTokenNetworkId?: string;
 } = {}) {
   const activeAccount = buildActiveAccount({
     networkId: activeNetworkId,
     indexedAccountId: activeIndexedAccountId,
   });
-  return {
+  const snapshot: Record<string, unknown> = {
     [buildSnapshotKey(
       homeScope,
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
@@ -70,6 +84,20 @@ function buildSwapSnapshot({
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     )]: { networkId: toTokenNetworkId, symbol: 'ETH' },
   };
+  if (swapActiveNetworkId) {
+    snapshot[
+      buildSnapshotKey(
+        swapAccountSelectorScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+      )
+    ] = {
+      0: buildActiveAccount({
+        networkId: swapActiveNetworkId,
+        indexedAccountId: swapActiveIndexedAccountId,
+      }),
+    };
+  }
+  return snapshot;
 }
 
 describe('swapColdStartCacheSnapshotUtils', () => {
@@ -177,6 +205,256 @@ describe('swapColdStartCacheSnapshotUtils', () => {
         )
       ],
     ).toBeDefined();
+  });
+
+  it('keeps a concrete swap context when home is all-network for the same account', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'evm--1',
+      activeNetworkId: 'onekeyall--0',
+      swapActiveNetworkId: 'evm--1',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'evm--1', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+  });
+
+  it('backfills missing all-network context for same-account selected token snapshots', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'onekeyall--0',
+      activeNetworkId: 'onekeyall--0',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+    delete snapshot[
+      buildSnapshotKey(
+        swapScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )
+    ];
+    snapshot[
+      buildSnapshotKey(
+        homeScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'onekeyall--0',
+        deriveType: 'default',
+      },
+    };
+    snapshot[
+      buildSnapshotKey(
+        swapAccountSelectorScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+      },
+    };
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toEqual({ networkId: 'evm--1', symbol: 'BTC' });
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toEqual(
+      expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'onekeyall--0',
+        swapType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+  });
+
+  it('drops missing-context selected token snapshots when the all-network account owner differs', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'onekeyall--0',
+      activeNetworkId: 'onekeyall--0',
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+    delete snapshot[
+      buildSnapshotKey(
+        swapScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )
+    ];
+    snapshot[
+      buildSnapshotKey(
+        homeScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'onekeyall--0',
+        deriveType: 'default',
+      },
+    };
+    snapshot[
+      buildSnapshotKey(
+        swapAccountSelectorScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+      },
+    };
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
+        )
+      ],
+    ).toBeUndefined();
+  });
+
+  it('extracts normalized selected tokens from a same-account all-network snapshot without context', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'onekeyall--0',
+      activeNetworkId: 'onekeyall--0',
+      contextSwapType: ESwapTabSwitchType.SWAP,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+    delete snapshot[
+      buildSnapshotKey(
+        swapScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )
+    ];
+    snapshot[
+      buildSnapshotKey(
+        homeScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'onekeyall--0',
+        deriveType: 'default',
+      },
+    };
+    snapshot[
+      buildSnapshotKey(
+        swapAccountSelectorScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+      },
+    };
+
+    expect(getSwapColdStartSelectedTokensFromSnapshot(snapshot)).toEqual({
+      fromToken: { networkId: 'evm--1', symbol: 'BTC' },
+      toToken: { networkId: 'evm--1', symbol: 'ETH' },
+    });
+  });
+
+  it('does not extract selected tokens when the normalized snapshot drops them', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'onekeyall--0',
+      activeNetworkId: 'onekeyall--0',
+      fromTokenNetworkId: 'evm--1',
+      toTokenNetworkId: 'evm--1',
+    });
+    delete snapshot[
+      buildSnapshotKey(
+        swapScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+      )
+    ];
+    snapshot[
+      buildSnapshotKey(
+        homeScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'onekeyall--0',
+        deriveType: 'default',
+      },
+    };
+    snapshot[
+      buildSnapshotKey(
+        swapAccountSelectorScope,
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+      )
+    ] = {
+      0: {
+        walletId: 'wallet-1',
+        indexedAccountId: 'indexed-account-1',
+        networkId: 'evm--1',
+        deriveType: 'default',
+      },
+    };
+
+    expect(getSwapColdStartSelectedTokensFromSnapshot(snapshot)).toEqual({
+      fromToken: undefined,
+      toToken: undefined,
+    });
   });
 
   it('drops swap type and token snapshot when home network changes', () => {
