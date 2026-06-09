@@ -67,6 +67,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -527,22 +528,58 @@ function SendAmountInputContainer() {
   // push notification) while the user stays on this amount page. Polling and
   // revalidateOnFocus cover the slow / return-to-page paths; subscribing to the
   // balance-refresh events makes the displayed available balance update within
-  // seconds of those changes too. The input value is intentionally left
-  // untouched here — only the available balance display and the validation
-  // react to the new balance.
+  // seconds of those changes too. Only events for THIS account + network are
+  // honored — unrelated activity elsewhere (a token-list refresh for another
+  // account, opening a token selector, etc.) must not force a refetch here.
+  // (`AccountDataUpdate` is payload-less and broadcast app-wide, so it can't be
+  // filtered and is deliberately not subscribed — polling + focus cover it.)
+  // The input value is intentionally left untouched; only the available balance
+  // display and the validation react to the new balance.
   useEffect(() => {
-    const refresh = () => {
-      void refreshTokenDetails({ alwaysSetState: true });
+    const pageAccountId = account?.id;
+    const pageNetworkId = network?.id;
+    if (!pageAccountId || !pageNetworkId) {
+      return;
+    }
+    const matchesCurrent = (eventAccountId?: string, eventNetworkId?: string) =>
+      eventAccountId === pageAccountId && eventNetworkId === pageNetworkId;
+
+    const onRefreshTokenList = (
+      params: IAppEventBusPayload[EAppEventBusNames.RefreshTokenList],
+    ) => {
+      // An undefined payload is a global refresh (currency / custom token /
+      // settings change) that affects this token's fiat display too.
+      if (!params) {
+        void refreshTokenDetails({ alwaysSetState: true });
+        return;
+      }
+      if (
+        params.accounts?.some((a) => matchesCurrent(a.accountId, a.networkId))
+      ) {
+        void refreshTokenDetails({ alwaysSetState: true });
+      }
     };
-    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
-    appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    const onLocalPendingTxConfirmed = (
+      params: IAppEventBusPayload[EAppEventBusNames.LocalPendingTxConfirmed],
+    ) => {
+      if (matchesCurrent(params.accountId, params.networkId)) {
+        void refreshTokenDetails({ alwaysSetState: true });
+      }
+    };
+
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, onRefreshTokenList);
+    appEventBus.on(
+      EAppEventBusNames.LocalPendingTxConfirmed,
+      onLocalPendingTxConfirmed,
+    );
     return () => {
-      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
-      appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, onRefreshTokenList);
+      appEventBus.off(
+        EAppEventBusNames.LocalPendingTxConfirmed,
+        onLocalPendingTxConfirmed,
+      );
     };
-  }, [refreshTokenDetails]);
+  }, [account?.id, network?.id, refreshTokenDetails]);
 
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
