@@ -20,6 +20,7 @@ import {
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldHandleSwapColdStartHomeAccountUpdate,
+  shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from './swapColdStartTokenCacheUtils';
 
@@ -798,6 +799,66 @@ describe('swap cold-start selected token context', () => {
         }),
       }),
     ).toBe(true);
+  });
+
+  it('preserves selected tokens after initial sync when the same account switches networks', () => {
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount: buildSelectedAccount({
+          networkId: 'sol--101',
+        }),
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount: buildSelectedAccount({
+          networkId: 'evm--1',
+        }),
+      }),
+    ).toBe(false);
+  });
+
+  it('clears selected tokens after initial sync when the home account owner changes', () => {
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount: buildSelectedAccount({
+          indexedAccountId: 'indexed-account-2',
+          networkId: 'sol--101',
+        }),
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount: buildSelectedAccount({
+          indexedAccountId: 'indexed-account-1',
+          networkId: 'evm--1',
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it('continues default token sync after initial sync when selected tokens are empty', () => {
+    expect(
+      shouldSkipSwapDefaultSelectedTokenSync({
+        hasImportParams: false,
+        hasSelectedTokens: false,
+        initialSelectedTokensSynced: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldSkipSwapDefaultSelectedTokenSync({
+        hasImportParams: false,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSkipSwapDefaultSelectedTokenSync({
+        hasImportParams: true,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: true,
+      }),
+    ).toBe(false);
   });
 
   it('clears restored tokens when syncing All Networks for another account without token context', () => {

@@ -379,14 +379,23 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   cachedContext,
   hasSelectedTokens,
   homeSelectedAccount,
+  initialSelectedTokensSynced,
   swapSelectedAccount,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
+  initialSelectedTokensSynced?: boolean;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
 }) {
   if (!hasSelectedTokens) {
+    return false;
+  }
+
+  if (
+    initialSelectedTokensSynced &&
+    isSelectedAccountOwnerMatched(homeSelectedAccount, swapSelectedAccount)
+  ) {
     return false;
   }
 
@@ -414,6 +423,18 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   }
 
   return true;
+}
+
+export function shouldSkipSwapDefaultSelectedTokenSync({
+  hasImportParams,
+  hasSelectedTokens,
+  initialSelectedTokensSynced,
+}: {
+  hasImportParams: boolean;
+  hasSelectedTokens: boolean;
+  initialSelectedTokensSynced: boolean;
+}) {
+  return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
 }
 
 export function getSwapSelectedTokensColdStartContextNetworkId({

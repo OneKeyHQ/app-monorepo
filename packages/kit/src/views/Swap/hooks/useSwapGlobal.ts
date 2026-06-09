@@ -65,6 +65,7 @@ import {
   isSwapSelectedTokensColdStartContextMatched,
   isSwapTokenSupportedBySwapType,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
+  shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
 import {
@@ -393,6 +394,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           cachedContext: selectedTokensColdStartContextRef.current,
           hasSelectedTokens,
           homeSelectedAccount,
+          initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
           swapSelectedAccount: swapSelectedAccountRef.current,
         })
       ) {
@@ -825,7 +827,13 @@ export function useSwapInit(params?: ISwapInitParams) {
       params?.importNetworkId,
     );
     let hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
-    if (initialSelectedTokensSyncedRef.current && !hasImportParams) {
+    if (
+      shouldSkipSwapDefaultSelectedTokenSync({
+        hasImportParams,
+        hasSelectedTokens,
+        initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
+      })
+    ) {
       if (
         hasSelectedTokens &&
         getSelectedTokensColdStartLimitSupport({
