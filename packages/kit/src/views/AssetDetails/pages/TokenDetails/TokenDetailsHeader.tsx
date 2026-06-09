@@ -144,7 +144,10 @@ const TokenDetailsAddressBlock = memo(
 );
 TokenDetailsAddressBlock.displayName = 'TokenDetailsAddressBlock';
 
-function TokenDetailsHeader(props: IProps) {
+function TokenDetailsHeaderContent({
+  focusParam,
+  ...props
+}: IProps & { focusParam: boolean }) {
   const {
     accountId,
     networkId,
@@ -236,18 +239,17 @@ function TokenDetailsHeader(props: IProps) {
     isBotWalletDeactivated,
   });
 
-  const { isFocused } = useTabIsRefreshingFocused();
   const tokenDetailsPromiseOptions = useMemo(
     () => ({
       watchLoading: true,
       overrideIsFocused: (isPageFocused: boolean) =>
-        isPageFocused && (isTabView ? isFocused : true),
+        isPageFocused && (isTabView ? focusParam : true),
       debounced: POLLING_DEBOUNCE_INTERVAL,
       ...(cachedTokenDetails !== undefined
         ? { initResult: cachedTokenDetails }
         : {}),
     }),
-    [cachedTokenDetails, isFocused, isTabView],
+    [cachedTokenDetails, focusParam, isTabView],
   );
   const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
@@ -618,6 +620,20 @@ function TokenDetailsHeader(props: IProps) {
       </>
     </DebugRenderTracker>
   );
+}
+
+function TokenDetailsHeaderWithTabFocus(props: IProps) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <TokenDetailsHeaderContent {...props} focusParam={isFocused} />;
+}
+
+function TokenDetailsHeader(props: IProps) {
+  if (props.isTabView) {
+    return <TokenDetailsHeaderWithTabFocus {...props} />;
+  }
+
+  return <TokenDetailsHeaderContent {...props} focusParam />;
 }
 
 export default memo(TokenDetailsHeader);

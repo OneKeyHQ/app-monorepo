@@ -2,7 +2,13 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Image, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Image,
+  SizableText,
+  Skeleton,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -13,14 +19,19 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
+  displayToken?: ISwapToken;
+  networkLoading?: boolean;
   onClickNetwork?: (type: ESwapDirectionType) => void;
 }
 const SwapAccountAddressContainer = ({
   type,
+  displayToken,
+  networkLoading,
   onClickNetwork,
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
@@ -31,7 +42,8 @@ const SwapAccountAddressContainer = ({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
-    const token = type === ESwapDirectionType.FROM ? fromToken : toToken;
+    const token =
+      displayToken ?? (type === ESwapDirectionType.FROM ? fromToken : toToken);
     const networkInfo = swapSupportAllNetwork.find(
       (net) => net.networkId === token?.networkId,
     );
@@ -44,25 +56,44 @@ const SwapAccountAddressContainer = ({
       token?.networkLogoURI ??
       localNetworkInfo?.logoURI;
 
-    return networkName ? (
-      <XStack
-        key="network-component"
-        gap="$1"
-        alignItems="center"
-        cursor="pointer"
-        onPress={() => {
-          onClickNetwork?.(type);
-        }}
-      >
-        {networkLogoURI ? (
-          <Image w={16} h={16} source={{ uri: networkLogoURI }} />
-        ) : null}
-        <SizableText size="$bodyMd" color="$text">
-          {networkName}
-        </SizableText>
+    if (networkName) {
+      return (
+        <XStack
+          key="network-component"
+          gap="$1"
+          alignItems="center"
+          cursor="pointer"
+          onPress={() => {
+            onClickNetwork?.(type);
+          }}
+        >
+          {networkLogoURI ? (
+            <Image w={16} h={16} source={{ uri: networkLogoURI }} />
+          ) : null}
+          <SizableText size="$bodyMd" color="$text">
+            {networkName}
+          </SizableText>
+        </XStack>
+      );
+    }
+
+    return networkLoading ? (
+      <XStack key="network-component" gap="$1" alignItems="center">
+        <Skeleton w={16} h={16} radius="round" />
+        <Stack py="$1">
+          <Skeleton h="$3" w="$16" />
+        </Stack>
       </XStack>
     ) : null;
-  }, [swapSupportAllNetwork, onClickNetwork, type, fromToken, toToken]);
+  }, [
+    displayToken,
+    networkLoading,
+    swapSupportAllNetwork,
+    onClickNetwork,
+    type,
+    fromToken,
+    toToken,
+  ]);
 
   return (
     <XStack alignItems="center" gap="$1">

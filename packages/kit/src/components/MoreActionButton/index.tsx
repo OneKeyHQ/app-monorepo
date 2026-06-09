@@ -1162,7 +1162,7 @@ const MoreActionMoreGrid = () => {
 
   const handleRedeem = useCallback(async () => {
     await closePopover?.();
-    showRedemptionCenterDialog();
+    showRedemptionCenterDialog({ source: 'more_action' });
   }, [closePopover]);
 
   const items = useMemo(() => {

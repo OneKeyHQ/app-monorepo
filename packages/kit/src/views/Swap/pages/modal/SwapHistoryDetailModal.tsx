@@ -426,6 +426,39 @@ function getPrivateSendDisplayTransfers(item?: ISwapTxHistory) {
     : [];
 }
 
+function preservePrivateSendRouteDisplayTransfers({
+  item,
+  routeItem,
+}: {
+  item: ISwapTxHistory;
+  routeItem?: ISwapTxHistory;
+}) {
+  if (
+    !routeItem ||
+    !isPrivateSendSwapTxHistory(item) ||
+    !isPrivateSendSwapTxHistory(routeItem)
+  ) {
+    return item;
+  }
+
+  if (getPrivateSendDisplayTransfers(item).length) {
+    return item;
+  }
+
+  const routeDisplayTransfers = getPrivateSendDisplayTransfers(routeItem);
+  if (!routeDisplayTransfers.length) {
+    return item;
+  }
+
+  return {
+    ...item,
+    ctx: {
+      ...(isRecord(item.ctx) ? item.ctx : {}),
+      privateSendDisplayTransfers: routeDisplayTransfers,
+    },
+  };
+}
+
 function normalizeTokenAddress(address?: string) {
   const normalized = address?.trim();
   return normalized ? normalized.toLowerCase() : '';
@@ -650,6 +683,19 @@ const SwapHistoryDetailModal = () => {
             : item,
         )
       : swapTxHistoryList;
+    const nextRawTxHistoryList =
+      routeTxHistory &&
+      (routeTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        routeTxHistory.swapInfo.provider.provider === privateSendProvider)
+        ? rawNextTxHistoryList.map((item) =>
+            item.swapInfo.orderId === routeTxHistoryOrderId
+              ? preservePrivateSendRouteDisplayTransfers({
+                  item,
+                  routeItem: routeTxHistory,
+                })
+              : item,
+          )
+        : rawNextTxHistoryList;
     const currentTxHistory = txHistoryListState?.find(
       (item) => item.swapInfo.orderId === txHistoryOrderId,
     );
@@ -659,7 +705,7 @@ const SwapHistoryDetailModal = () => {
           getPositiveTokenPrice(currentTxHistory.baseInfo.toToken.price))
         : undefined;
     const nextTxHistoryList = currentPrivateSendPrice
-      ? rawNextTxHistoryList.map((item) =>
+      ? nextRawTxHistoryList.map((item) =>
           item.swapInfo.orderId === txHistoryOrderId &&
           isPrivateSendSwapTxHistory(item) &&
           isSamePrivateSendHistoryToken({
@@ -672,7 +718,7 @@ const SwapHistoryDetailModal = () => {
               })
             : item,
         )
-      : rawNextTxHistoryList;
+      : nextRawTxHistoryList;
     if (
       JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {

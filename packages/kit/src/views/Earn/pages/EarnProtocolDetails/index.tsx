@@ -51,6 +51,7 @@ import type {
   IEarnAlert,
   IEarnText,
   IEarnTokenInfo,
+  IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
@@ -63,6 +64,7 @@ import {
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
+import { EarnPlatformBonusSection } from '../../../Staking/components/ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
 import { PendleRulesSection } from '../../../Staking/components/ProtocolDetails/PendleRulesSection';
@@ -482,6 +484,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
 const DetailsPartComponent = ({
   detailInfo,
   tokenInfo,
+  protocolInfo,
   isLoading,
   keepSkeletonVisible,
   onRefresh,
@@ -493,6 +496,7 @@ const DetailsPartComponent = ({
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
   isLoading: boolean;
   keepSkeletonVisible: boolean;
   onRefresh: () => void;
@@ -533,6 +537,11 @@ const DetailsPartComponent = ({
                 vault={vault}
               />
             </YStack>
+            <EarnPlatformBonusSection
+              platformBonus={detailInfo.platformBonus}
+              protocolInfo={protocolInfo}
+              tokenInfo={tokenInfo}
+            />
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
@@ -682,15 +691,21 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
-  const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
-    useProtocolDetailData({
-      accountId,
-      networkId,
-      indexedAccountId,
-      symbol,
-      provider,
-      vault,
-    });
+  const {
+    detailInfo,
+    tokenInfo,
+    protocolInfo,
+    isLoading,
+    refreshData,
+    refreshAccount,
+  } = useProtocolDetailData({
+    accountId,
+    networkId,
+    indexedAccountId,
+    symbol,
+    provider,
+    vault,
+  });
 
   useUnsupportedProtocol({
     detailInfo,
@@ -847,6 +862,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
+            protocolInfo={protocolInfo}
             isLoading={isLoading ?? false}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
