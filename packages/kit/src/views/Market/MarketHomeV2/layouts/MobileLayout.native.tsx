@@ -33,6 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -101,7 +102,12 @@ function MarketHomeTabBar({
   );
   const showSpotSubHeader = Boolean(currentSpotCategoryId);
   const currentSpotCategoryHasStockData = Boolean(
-    currentSpotCategoryId && ctx.stockDataCategoryMap[currentSpotCategoryId],
+    currentSpotCategoryId &&
+    (isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) ||
+      ctx.stockDataCategoryMap[currentSpotCategoryId]),
   );
   const showSpotFilterBar = Boolean(
     currentSpotCategoryId && !currentSpotCategoryHasStockData,

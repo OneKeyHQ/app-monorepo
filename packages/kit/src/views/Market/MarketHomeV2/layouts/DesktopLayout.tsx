@@ -12,6 +12,7 @@ import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWa
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  isMarketStockCategoryById,
   shouldHideSpotExtendedStats,
 } from '../utils';
 
@@ -153,7 +154,11 @@ export function DesktopLayout({
         getSpotCategoryIdByTabName(currentActiveTabName);
       const currentSpotCategoryHasStockData = Boolean(
         currentSpotCategoryId &&
-        stockDataCategoryMapRef.current[currentSpotCategoryId],
+        (isMarketStockCategoryById(
+          currentFilterBarProps.categories,
+          currentSpotCategoryId,
+        ) ||
+          stockDataCategoryMapRef.current[currentSpotCategoryId]),
       );
       const showSpotControls = Boolean(
         currentSpotCategoryId && !currentSpotCategoryHasStockData,
