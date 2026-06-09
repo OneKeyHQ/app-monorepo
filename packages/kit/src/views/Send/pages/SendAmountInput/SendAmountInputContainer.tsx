@@ -2500,8 +2500,7 @@ function SendAmountInputContainer() {
   const dismissAmountInputKeyboardBeforeSelectorOpen = useCallback(async () => {
     if (!platformEnv.isNative) return;
     amountInputRef.current?.blur();
-    Keyboard.dismiss();
-    await new Promise((resolve) => setTimeout(resolve, 32));
+    await Keyboard.dismissWithDelay(80);
   }, []);
 
   const renderPrivateSendHeaderRight = useCallback(() => {
