@@ -61,8 +61,13 @@ import type {
   IAccountDeriveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -434,6 +439,7 @@ function SendAmountInputContainer() {
   const {
     result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
     isLoading: isLoadingAssets,
+    run: refreshTokenDetails,
   } = usePromiseResult(
     async () => {
       if (!account?.id || !network?.id) return;
@@ -497,7 +503,15 @@ function SendAmountInputContainer() {
       tokenInfo,
       settings.inscriptionProtection,
     ],
-    { watchLoading: true, alwaysSetState: true },
+    {
+      watchLoading: true,
+      alwaysSetState: true,
+      // Keep the balance fresh while the user lingers on this page: poll on the
+      // standard token interval and refetch when the page regains focus. The
+      // event subscription below adds second-level refresh on tx/push updates.
+      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      revalidateOnFocus: true,
+    },
   );
 
   // Calculate balanceParsed if not provided
@@ -506,6 +520,27 @@ function SendAmountInputContainer() {
       .shiftedBy(tokenDetails.info.decimals * -1)
       .toFixed();
   }
+
+  // Balance can change elsewhere (incoming transfer, a tx the user just sent, a
+  // push notification) while the user stays on this amount page. Polling and
+  // revalidateOnFocus cover the slow / return-to-page paths; subscribing to the
+  // balance-refresh events makes the displayed available balance update within
+  // seconds of those changes too. The input value is intentionally left
+  // untouched here — only the available balance display and the validation
+  // react to the new balance.
+  useEffect(() => {
+    const refresh = () => {
+      void refreshTokenDetails({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+      appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, [refreshTokenDetails]);
 
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
@@ -3029,7 +3064,11 @@ function SendAmountInputContainer() {
   ]);
 
   const renderBalanceRowContent = useCallback(() => {
-    if (isLoadingAssets) {
+    // Only show the skeleton before the first balance load. During polling /
+    // event-driven refreshes `isLoadingAssets` toggles true again, but the
+    // existing balance stays visible and updates silently to avoid a periodic
+    // skeleton flash.
+    if (isLoadingAssets && !tokenDetails && !nftDetails) {
       return (
         <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
@@ -3140,7 +3179,9 @@ function SendAmountInputContainer() {
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
+    nftDetails,
     sendMode,
+    tokenDetails,
     tokenInfo?.logoURI,
     tokenSymbol,
   ]);
