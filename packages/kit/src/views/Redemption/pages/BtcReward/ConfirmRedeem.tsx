@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import type { IBtcRewardCodeInfoParam } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -64,6 +65,11 @@ function ConfirmRedeemPage() {
         });
 
       if (!result.success) {
+        defaultLogger.referral.redemption.btcRewardCommitResult({
+          result: 'failed',
+          errorCode: result.error.code,
+          rewardUsd,
+        });
         defaultLogger.referral.redemption.redeemFailed(
           codeId,
           result.error.message,
@@ -72,6 +78,10 @@ function ConfirmRedeemPage() {
         return;
       }
 
+      defaultLogger.referral.redemption.btcRewardCommitResult({
+        result: 'success',
+        rewardUsd,
+      });
       defaultLogger.referral.redemption.redeemSuccess(codeId);
 
       navigation.dispatch(
@@ -90,6 +100,11 @@ function ConfirmRedeemPage() {
         }),
       );
     } catch {
+      defaultLogger.referral.redemption.btcRewardCommitResult({
+        result: 'failed',
+        errorCode: EBtcRewardErrorCode.Unknown,
+        rewardUsd,
+      });
       setSubmitError(
         intl.formatMessage({
           id: ETranslations.redemption_btc_confirm_error_desc,
