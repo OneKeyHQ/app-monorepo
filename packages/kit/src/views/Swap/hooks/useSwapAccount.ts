@@ -37,10 +37,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
-import {
-  buildSwapSelectedTokensColdStartContext,
-  isSwapSelectedTokensColdStartContextMatched,
-} from '../utils/swapColdStartTokenCacheUtils';
+import { isSwapSelectedTokensColdStartContextValidForAccountNetworkSync } from '../utils/swapColdStartTokenCacheUtils';
 
 import {
   shouldShowSwapRecipientAddressInfo,
@@ -70,24 +67,11 @@ export function useSwapFromAccountNetworkSync() {
   const [selectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
   const isSelectedTokensColdStartContextValid = useMemo(() => {
-    if (!fromToken && !toToken) {
-      return true;
-    }
-    if (!selectedTokensColdStartContext) {
-      return true;
-    }
-
-    const currentContext = buildSwapSelectedTokensColdStartContext({
+    return isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
       activeAccount: fromActiveAccount,
-      networkId: fromActiveAccount.network?.id,
-    });
-    if (!currentContext) {
-      return false;
-    }
-
-    return isSwapSelectedTokensColdStartContextMatched({
-      cachedContext: selectedTokensColdStartContext,
-      currentContext,
+      fromToken,
+      selectedTokensColdStartContext,
+      toToken,
     });
   }, [fromToken, fromActiveAccount, selectedTokensColdStartContext, toToken]);
   const fromTokenRef = useRef<ISwapToken | undefined>(undefined);

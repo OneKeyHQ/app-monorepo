@@ -90,26 +90,6 @@ function hasSwapColdStartSnapshot() {
   );
 }
 
-const PerpsColdStartRootProvider = memo(() => {
-  const shouldMount = useMemo(() => hasPerpsColdStartSnapshot(), []);
-  if (!shouldMount) {
-    return null;
-  }
-
-  return <PerpsRootProvider />;
-});
-PerpsColdStartRootProvider.displayName = 'PerpsColdStartRootProvider';
-
-const SwapColdStartRootProvider = memo(() => {
-  const shouldMount = useMemo(() => hasSwapColdStartSnapshot(), []);
-  if (!shouldMount) {
-    return null;
-  }
-
-  return <SwapRootProvider />;
-});
-SwapColdStartRootProvider.displayName = 'SwapColdStartRootProvider';
-
 // AccountSelectorMapTracker
 export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
@@ -175,6 +155,14 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 function JotaiContextRootProvidersAutoMountCmp() {
   const [map] = useJotaiContextStoreMapAtom();
   const mapEntries = useMemo(() => Object.entries(map), [map]);
+  const shouldMountSwapColdStartRootProvider = useMemo(
+    () => hasSwapColdStartSnapshot(),
+    [],
+  );
+  const shouldMountPerpsColdStartRootProvider = useMemo(
+    () => hasPerpsColdStartSnapshot(),
+    [],
+  );
   // const mapEntries = [];
   if (process.env.NODE_ENV !== 'production') {
     // console.log(
@@ -186,8 +174,8 @@ function JotaiContextRootProvidersAutoMountCmp() {
   }
   return (
     <>
-      <SwapColdStartRootProvider />
-      <PerpsColdStartRootProvider />
+      {shouldMountSwapColdStartRootProvider ? <SwapRootProvider /> : null}
+      {shouldMountPerpsColdStartRootProvider ? <PerpsRootProvider /> : null}
       {mapEntries.map(([key, value]) => {
         const { accountSelectorInfo, count, storeName } = value;
         // const config = {
@@ -240,6 +228,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
             return <MarketWatchListProviderV2 key={key} />;
           }
           case EJotaiContextStoreNames.swap: {
+            if (shouldMountSwapColdStartRootProvider) {
+              return null;
+            }
             return <SwapRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.swapModal: {
@@ -259,6 +250,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
             return <SignatureConfirmRootProvider key={key} />;
           }
           case EJotaiContextStoreNames.perps: {
+            if (shouldMountPerpsColdStartRootProvider) {
+              return null;
+            }
             return <PerpsRootProvider key={key} />;
           }
           default: {
