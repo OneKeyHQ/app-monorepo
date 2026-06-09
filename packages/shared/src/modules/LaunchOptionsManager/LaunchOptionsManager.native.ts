@@ -1,5 +1,7 @@
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 
+import type { INotificationPushMessageInfo } from '@onekeyhq/shared/types/notification';
+
 import platformEnv from '../../platformEnv';
 
 import type { ILaunchOptions, ILaunchOptionsManagerInterface } from './type';
@@ -28,6 +30,21 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
   getLaunchOptions: () =>
     ReactNativeDeviceUtils.getLaunchOptions() as Promise<ILaunchOptions | null>,
   clearLaunchOptions: () => ReactNativeDeviceUtils.clearLaunchOptions(),
+  getAndClearColdStartLocalNotification: async () => {
+    try {
+      const json =
+        await ReactNativeDeviceUtils.getAndClearColdStartLocalNotification();
+      if (!json) {
+        return null;
+      }
+      return JSON.parse(json) as INotificationPushMessageInfo;
+    } catch {
+      // Either the installed device-utils binary predates this native method
+      // (method undefined → throws) or the stored payload is malformed JSON.
+      // Both mean: nothing to deliver.
+      return null;
+    }
+  },
   getDeviceToken: () => {
     if (!platformEnv.isNativeIOS) {
       return Promise.resolve('');

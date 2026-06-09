@@ -602,6 +602,27 @@ extension AppDelegate:JPUSHRegisterDelegate {
       NitroModuleBridge.logInfo("App", "clicked remote notification: \(userInfo)")
     } else {
       NitroModuleBridge.logInfo("App", "clicked local notification: \(userInfo)")
+      // Cold-start deep-link: the broadcast below is fire-and-forget. When the
+      // app was killed and relaunched by this tap, JS has not registered a
+      // listener yet, so the broadcast is lost and the deep-link/coin-switch
+      // never happens. Persist the tapped payload into the launch store so JS
+      // can pull it once it boots (LaunchOptionsStore.coldStartLocalNotification
+      // in @onekeyfe/react-native-device-utils, drained read-once by JS).
+      // The `responds(to:)` guard keeps this a no-op (no KVC crash) on a
+      // device-utils version that predates the property.
+      if let dict = userInfo as? [String: Any],
+         JSONSerialization.isValidJSONObject(dict),
+         let data = try? JSONSerialization.data(withJSONObject: dict),
+         let json = String(data: data, encoding: .utf8) {
+        let store = NitroModuleBridge.launchOptionsStore()
+        if store?.responds(to: NSSelectorFromString("setColdStartLocalNotification:")) == true {
+          store?.setValue(json, forKey: "coldStartLocalNotification")
+        } else {
+          NitroModuleBridge.logInfo("App", "cold-start local notification store unavailable (old device-utils), skipped")
+        }
+      } else {
+        NitroModuleBridge.logInfo("App", "cold-start local notification payload not JSON-serializable, skipped")
+      }
       NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_OPENED_EVENT), object: userInfo)
     }
 

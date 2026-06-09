@@ -15,6 +15,8 @@ const getUIVisibleTimeAt = () => {
 const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
   getLaunchOptions: () => Promise.resolve(null),
   clearLaunchOptions: () => Promise.resolve(true),
+  // Cold-start LOCAL notification deep-link is an iOS-only native channel.
+  getAndClearColdStartLocalNotification: () => Promise.resolve(null),
   getDeviceToken: () => Promise.resolve(null),
   getStartupTime: () => {
     return Promise.resolve(getStartupTimeAt());

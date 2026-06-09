@@ -13,6 +13,37 @@ import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { ColdStartByNotification } from '../ColdStartByNotification';
 
+// UNUserNotificationCenter delivers the launch tap asynchronously, with no
+// ordering guarantee relative to JS boot. The native side buffers the tapped
+// LOCAL-notification payload in an in-memory launch store (drained read-once);
+// poll it for ~2s so a `didReceive` write that lands after JS starts is still
+// picked up. Empty reads clear nothing, so the retries are harmless no-ops on a
+// normal (non-notification) cold start.
+const COLD_START_LOCAL_NOTIFICATION_MAX_ATTEMPTS = 8;
+const COLD_START_LOCAL_NOTIFICATION_RETRY_MS = 250;
+
+const delay = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const drainColdStartLocalNotification =
+  async (): Promise<INotificationPushMessageInfo | null> => {
+    for (
+      let attempt = 0;
+      attempt < COLD_START_LOCAL_NOTIFICATION_MAX_ATTEMPTS;
+      attempt += 1
+    ) {
+      const userInfo =
+        await launchOptionsManager.getAndClearColdStartLocalNotification();
+      if (userInfo) {
+        return userInfo;
+      }
+      await delay(COLD_START_LOCAL_NOTIFICATION_RETRY_MS);
+    }
+    return null;
+  };
+
 export const useInitialNotification = () => {
   const coldStartRef = useRef(true);
   const { isVersionCompatible } = useVersionCompatible();
@@ -76,6 +107,24 @@ export const useInitialNotification = () => {
               },
             },
           );
+          return;
+        }
+        // Cold-start deep-link for LOCAL notifications (app was killed, user
+        // tapped). Remote (APNs) cold start is handled above via
+        // `ColdStartByNotification.launchNotification`; local notifications have
+        // no such synchronous launch channel, so we drain the native buffer.
+        const coldLocalUserInfo = await drainColdStartLocalNotification();
+        if (coldLocalUserInfo) {
+          await handleShowNotificationDetail({
+            message: coldLocalUserInfo,
+            notificationAccountId: coldLocalUserInfo?.extras?.params?.accountId,
+            mode: coldLocalUserInfo?.extras?.mode,
+            payload: coldLocalUserInfo?.extras?.payload,
+            notificationId:
+              coldLocalUserInfo?.extras?.params?.msgId ||
+              coldLocalUserInfo?.extras?.msgId ||
+              '',
+          });
           return;
         }
         const launchOptions = await launchOptionsManager.getLaunchOptions();
