@@ -25,6 +25,8 @@ import type {
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 
+const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
+
 interface IDesktopLayoutProps {
   filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
@@ -184,7 +186,10 @@ export function DesktopLayout({
               </XStack>
             ) : null}
           </XStack>
-          <div ref={portalRefCallback} />
+          <div
+            ref={portalRefCallback}
+            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
+          />
         </YStack>
       );
     },
