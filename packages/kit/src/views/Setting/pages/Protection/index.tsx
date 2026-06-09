@@ -33,6 +33,8 @@ import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
+
 const SettingProtectionModal = () => {
   const intl = useIntl();
   const [
@@ -89,6 +91,11 @@ const SettingProtectionModal = () => {
         await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
           enabled: value,
         });
+        // Only prompt to enable notifications when turning KYT on; disabling
+        // never triggers the notification check.
+        if (value) {
+          await promptKytNotificationPermissionIfNeeded({ navigation, intl });
+        }
       } catch {
         // Error toast is handled by @toastIfError in the background method;
         // local state stays unchanged so the switch keeps its previous position.
@@ -97,7 +104,7 @@ const SettingProtectionModal = () => {
         updateLockTimer();
       }
     },
-    [updateLockTimer],
+    [intl, navigation, updateLockTimer],
   );
 
   useEffect(() => {

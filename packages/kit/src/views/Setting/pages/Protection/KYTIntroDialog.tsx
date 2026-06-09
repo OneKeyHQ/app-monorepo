@@ -13,12 +13,15 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
 
 const receiveKytIntroTrackingParams = {
   featureName: EPrimeFeatures.ReceiveRiskMonitoring,
@@ -74,6 +77,7 @@ function KYTIntroDialogContent() {
 
 function useKYTIntroDialog() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { md } = useMedia();
   const { bottom } = useSafeAreaInsets();
   const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
@@ -132,6 +136,9 @@ function useKYTIntroDialog() {
           enabled: true,
         });
         await dialogInstance.close({ flag: 'confirm' });
+        // Close the KYT dialog first, then prompt to enable notifications so the
+        // user can actually receive high-risk push alerts.
+        await promptKytNotificationPermissionIfNeeded({ navigation, intl });
       },
       onClose: (extra) => {
         if (extra?.flag !== 'confirm') {
@@ -142,7 +149,7 @@ function useKYTIntroDialog() {
         }
       },
     });
-  }, [intl, md, mobileFooterBottomPadding]);
+  }, [intl, md, mobileFooterBottomPadding, navigation]);
 
   useEffect(() => {
     if (!isPrimeSubscriptionActive || !onekeyUserId) {
