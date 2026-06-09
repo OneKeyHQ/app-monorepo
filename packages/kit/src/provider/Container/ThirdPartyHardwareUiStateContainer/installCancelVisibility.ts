@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 
 export const INSTALL_CANCEL_DELAY = 30_000;
 
+// Reveal cancel when install progress stops advancing for `delayMs`.
+// Caller mutates `progressKey` on every progress tick so each change resets
+// the watchdog; cleanup also fires on `installing` flip or unmount.
 export function useInstallCancelVisibility({
   installing,
-  taskKey,
+  progressKey,
   delayMs = INSTALL_CANCEL_DELAY,
 }: {
   installing: boolean;
-  taskKey: string;
+  progressKey: string;
   delayMs?: number;
 }) {
   const [visible, setVisible] = useState(false);
@@ -19,9 +22,16 @@ export function useInstallCancelVisibility({
       return undefined;
     }
 
-    const timer = setTimeout(() => setVisible(true), delayMs);
-    return () => clearTimeout(timer);
-  }, [delayMs, installing, taskKey]);
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      setVisible(true);
+    }, delayMs);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [delayMs, installing, progressKey]);
 
   return visible;
 }
