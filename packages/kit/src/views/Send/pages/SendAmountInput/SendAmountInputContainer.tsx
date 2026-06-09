@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import AddressTypeSelectorTrigger from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelectorTrigger';
 import { calcPercentBalance } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
@@ -2496,6 +2497,13 @@ function SendAmountInputContainer() {
     }));
   }, [settings.isPrivateSendGuideClicked, setSettings]);
 
+  const dismissAmountInputKeyboardBeforeSelectorOpen = useCallback(async () => {
+    if (!platformEnv.isNative) return;
+    amountInputRef.current?.blur();
+    Keyboard.dismiss();
+    await new Promise((resolve) => setTimeout(resolve, 32));
+  }, []);
+
   const renderPrivateSendHeaderRight = useCallback(() => {
     if (!showPrivateSendModeSwitch) return null;
 
@@ -2706,6 +2714,13 @@ function SendAmountInputContainer() {
             // currently selected derive type and would show wrong balances
             // for other types (e.g. Taproot).
             refreshOnOpen
+            renderSelectorTrigger={
+              deriveInfo ? (
+                <Stack onPress={dismissAmountInputKeyboardBeforeSelectorOpen}>
+                  <AddressTypeSelectorTrigger activeDeriveInfo={deriveInfo} />
+                </Stack>
+              ) : undefined
+            }
             onSelect={async ({ account: a }) => {
               if (a) {
                 setCurrentAccountId(a.id);
@@ -2745,6 +2760,7 @@ function SendAmountInputContainer() {
     deriveInfo,
     deriveType,
     displayCoinControlButton,
+    dismissAmountInputKeyboardBeforeSelectorOpen,
     handleCoinControlPress,
     networkId,
     pulseSignal,
