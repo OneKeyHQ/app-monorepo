@@ -1173,7 +1173,9 @@ class ServiceHistory extends ServiceBase {
         ),
       );
     const privateSendDisplayStatusTxById = new Map(
-      privateSendDisplayStatusTxs.map((tx) => [tx.id, tx]),
+      privateSendDisplayStatusTxs
+        .filter((tx) => isPrivateSendAccountHistoryTx(tx))
+        .map((tx) => [tx.id, tx]),
     );
     const withPrivateSendDisplayStatus = (txsToMap: IAccountHistoryTx[]) =>
       txsToMap.map((tx) => privateSendDisplayStatusTxById.get(tx.id) ?? tx);

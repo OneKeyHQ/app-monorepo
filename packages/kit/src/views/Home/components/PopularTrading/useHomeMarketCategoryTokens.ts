@@ -6,10 +6,12 @@ import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import { EMPTY_DISPLAY_TOKENS, mapMarketTokenToDisplay } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
+import type { IMarketApiTimeFrame } from '../../../Market/MarketHomeV2/types';
 
 const HOME_MARKET_CATEGORY_POLLING_INTERVAL = timerUtils.getTimeDurationMs({
   seconds: 30,
 });
+const HOME_MARKET_CATEGORY_TIME_FRAME: IMarketApiTimeFrame = '4';
 
 type ICategoryTokensResult = {
   requestKey: string;
@@ -62,7 +64,7 @@ function useHomeMarketCategoryTokens({
             limit: HOME_MARKET_CATEGORY_REQUEST_LIMIT,
             minLiquidity,
             type: selectedMarketCategoryId,
-            timeFrame: '2',
+            timeFrame: HOME_MARKET_CATEGORY_TIME_FRAME,
           });
 
         return {

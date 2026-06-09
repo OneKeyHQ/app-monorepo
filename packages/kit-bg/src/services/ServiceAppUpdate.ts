@@ -10,6 +10,7 @@ import {
   EPendingInstallTaskAction,
   EPendingInstallTaskStatus,
   EPendingInstallTaskType,
+  EUpdateFileType,
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
   normalizeFeaturedChangelog,
@@ -827,6 +828,69 @@ class ServiceAppUpdate extends ServiceBase {
   public async getUpdateInfo() {
     const appInfo = await appUpdatePersistAtom.get();
     return appInfo;
+  }
+
+  // DEV ONLY: seed the app-update atom into an arbitrary scenario so QA can
+  // verify the update prompt (dot / desktop button / reminder) and the
+  // unified click routing without a real server response or downloaded
+  // bundle. For a real end-to-end hot-update (actual download + restart) use
+  // the Dev Bundle Manager instead. `ready` seeds a placeholder
+  // downloadedEvent so the install path is reachable (it will fail to install
+  // a non-existent package — that is expected for a pure UI test).
+  @backgroundMethod()
+  public async devSimulateUpdate(params: {
+    fileType: EUpdateFileType;
+    updateStrategy: EUpdateStrategy;
+    status: EAppUpdateStatus;
+    channel?: 'direct' | 'store';
+  }) {
+    const { fileType, updateStrategy, status, channel = 'direct' } = params;
+    const isJsBundle = fileType === EUpdateFileType.jsBundle;
+    // appShell → bump the app version; jsBundle → keep the app version and
+    // bump only the bundle version, so resolveUpdateDecision picks the
+    // intended file type.
+    const latestVersion = isJsBundle
+      ? platformEnv.version || '1.0.0'
+      : '999.0.0';
+    // Bundle versions are "seconds since 2026-01-01" (already in the tens of
+    // millions). Use a value far above any real bundle so resolveUpdateDecision
+    // returns jsBundleUpgrade (not jsBundleRollback) and isNeedUpdate is true.
+    const jsBundleVersion = isJsBundle ? '9999999999' : undefined;
+    const downloadedEvent: IUpdateDownloadedEvent = {
+      downloadUrl: 'https://localhost/onekey-dev-test',
+      latestVersion,
+      bundleVersion: jsBundleVersion,
+      signature: 'dev-simulated-signature',
+    };
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      updateAt: Date.now(),
+      updateStrategy,
+      status,
+      latestVersion,
+      jsBundleVersion,
+      errorText: undefined,
+      changeLog: '## Dev simulated update\n\n- This is a simulated changelog.',
+      storeUrl:
+        !isJsBundle && channel === 'store'
+          ? 'https://apps.apple.com/app/onekey/id1609559473'
+          : undefined,
+      downloadUrl:
+        !isJsBundle && channel === 'direct'
+          ? 'https://localhost/onekey-dev-test.dmg'
+          : undefined,
+      jsBundle: isJsBundle
+        ? {
+            downloadUrl: 'https://localhost/onekey-dev-test-bundle.zip',
+            fileSize: 1,
+            sha256: 'dev',
+            signature: 'dev-simulated-signature',
+          }
+        : undefined,
+      downloadedEvent:
+        status === EAppUpdateStatus.ready ? downloadedEvent : undefined,
+    }));
+    return appUpdatePersistAtom.get();
   }
 
   @backgroundMethod()

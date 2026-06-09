@@ -20,6 +20,7 @@ export interface IMarketTabsLogicReturn {
   showPerpsTab: boolean;
   handleTabChange: (tabName: string) => void;
   isSpotTabName: (tabName: string) => boolean;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
   selectedTab: string;
   selectedTabName: string;
 }
@@ -83,6 +84,11 @@ export function useMarketTabsLogic(
     [spotTabNameToCategoryIdMap],
   );
 
+  const getSpotCategoryIdByTabName = useCallback(
+    (tabName: string) => spotTabNameToCategoryIdMap[tabName],
+    [spotTabNameToCategoryIdMap],
+  );
+
   const handleTabChange = useCallback(
     (tabName: string) => {
       let tabValue: IMarketHomeTabValue = 'trending';
@@ -92,7 +98,17 @@ export function useMarketTabsLogic(
         tabValue = 'watchlist';
       } else if (tabName === perpsTabName) {
         tabValue = 'perps';
-      } else if (categoryId) {
+      }
+
+      const isSelectionUnchanged =
+        tabValue === selectedTab &&
+        (!categoryId || categoryId === selectedSpotCategory);
+
+      if (isSelectionUnchanged) {
+        return;
+      }
+
+      if (categoryId) {
         onSpotCategoryChange?.(categoryId);
       }
 
@@ -107,6 +123,8 @@ export function useMarketTabsLogic(
       onSpotCategoryChange,
       onTabChange,
       perpsTabName,
+      selectedSpotCategory,
+      selectedTab,
       setSelectedTabAtom,
       spotTabNameToCategoryIdMap,
       watchlistTabName,
@@ -132,6 +150,7 @@ export function useMarketTabsLogic(
     showPerpsTab,
     handleTabChange,
     isSpotTabName,
+    getSpotCategoryIdByTabName,
     selectedTab,
     selectedTabName,
   };
