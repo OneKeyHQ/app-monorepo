@@ -2292,7 +2292,14 @@ class ServiceHistory extends ServiceBase {
           status: getOnChainHistoryTxStatus(resp.data.data.data.status),
         });
       }
-      return resp.data.data;
+      const detail = resp.data.data;
+      // Watch-only accounts are excluded from KYT; strip any KYT block the
+      // detail endpoint still returns so the detail page never shows it for
+      // them (mirrors the auth-token withholding in fetchAccountOnChainHistory).
+      if (detail?.data && accountUtils.isWatchingAccount({ accountId })) {
+        detail.data.kyt = undefined;
+      }
+      return detail;
     } catch (e) {
       console.log(e);
       return null;

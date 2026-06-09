@@ -44,7 +44,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -1226,14 +1225,14 @@ function HistoryDetails() {
             />
           </InfoItemGroup>
 
-          {/* KYT Risk Check — hidden for watch-only accounts */}
-          {accountId && accountUtils.isWatchingAccount({ accountId }) ? null : (
-            <TxKYTRiskCheck
-              kyt={kytResult}
-              transfers={kytReceives}
-              networkName={network?.name}
-            />
-          )}
+          {/* KYT Risk Check. Watch-only accounts are gated at the data layer
+              (VaultBase + fetchHistoryTxDetails blank their KYT), so kytResult
+              is empty for them and TxKYTRiskCheck renders nothing. */}
+          <TxKYTRiskCheck
+            kyt={kytResult}
+            transfers={kytReceives}
+            networkName={network?.name}
+          />
 
           {/* Notification account */}
           {notificationAccountId ? (
@@ -1363,7 +1362,6 @@ function HistoryDetails() {
     renderAssetsChange,
     kytResult,
     kytReceives,
-    accountId,
   ]);
 
   return (

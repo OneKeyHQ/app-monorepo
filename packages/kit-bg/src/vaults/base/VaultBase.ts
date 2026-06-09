@@ -757,6 +757,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         onChainHistoryTx.isPrivateSend === true ||
         onChainHistoryTx.type === EOnChainHistoryTxType.PrivateSend;
 
+      // Watch-only accounts are excluded from KYT (the server never enrols their
+      // addresses — see the auth-token withholding in
+      // ServiceHistory.fetchAccountOnChainHistory). Blank any KYT that still
+      // comes back here so no history surface renders KYT for a watch-only
+      // account; gating at this single producer covers every consumer of
+      // decodedTx.kyt / kytRiskLevel.
+      const hideKyt = accountUtils.isWatchingAccount({ accountId });
+
       const decodedTx: IDecodedTx = {
         txid: onChainHistoryTx.tx,
 
@@ -768,8 +776,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
 
         riskyLevel: onChainHistoryTx.riskLevel,
 
-        kytRiskLevel: resolveKytDisplayLevel(onChainHistoryTx.kyt),
-        kyt: onChainHistoryTx.kyt,
+        kytRiskLevel: hideKyt
+          ? undefined
+          : resolveKytDisplayLevel(onChainHistoryTx.kyt),
+        kyt: hideKyt ? undefined : onChainHistoryTx.kyt,
 
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
