@@ -20,6 +20,7 @@ export interface IMarketTabsLogicReturn {
   showPerpsTab: boolean;
   handleTabChange: (tabName: string) => void;
   isSpotTabName: (tabName: string) => boolean;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
   selectedTab: string;
   selectedTabName: string;
 }
@@ -80,6 +81,11 @@ export function useMarketTabsLogic(
 
   const isSpotTabName = useCallback(
     (tabName: string) => !!spotTabNameToCategoryIdMap[tabName],
+    [spotTabNameToCategoryIdMap],
+  );
+
+  const getSpotCategoryIdByTabName = useCallback(
+    (tabName: string) => spotTabNameToCategoryIdMap[tabName],
     [spotTabNameToCategoryIdMap],
   );
 
@@ -144,6 +150,7 @@ export function useMarketTabsLogic(
     showPerpsTab,
     handleTabChange,
     isSpotTabName,
+    getSpotCategoryIdByTabName,
     selectedTab,
     selectedTabName,
   };
