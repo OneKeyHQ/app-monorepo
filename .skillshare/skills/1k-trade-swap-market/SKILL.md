@@ -1,11 +1,11 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, K-line/chart, token selectors, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
 ---
 
 # Trade, Swap, Market
 
-Use this skill when App code touches Trade, Swap, Market swap panels, provider/channel integrations, order-style execution, K-line data, transaction history, or funding handoffs into Swap.
+Use this skill when App code touches Trade, Swap, Market swap panels, provider/channel integrations, order-style execution, K-line data, transaction history, token selection, cold-start rendering, or funding handoffs into Swap.
 
 This is an App development skill. Use current repository code, runtime payloads, and visible App behavior as evidence. Do not bake external workflow details into the skill.
 
@@ -46,6 +46,9 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
    especially async identity, token/account identity, frozen review data, and
    history/status.
 7. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
+8. For cold start, token selector flicker, default-token bring-in, tab stability,
+   or Wallet handoff regressions, run
+   [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
 ## Reference Map
 
@@ -57,6 +60,7 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 | Define channel listening, writeback, replay, and repair | [channel-state-model.md](references/channel-state-model.md) |
 | Prevent known failure classes | [checklists.md](references/checklists.md) |
 | Prove the change works | [validation.md](references/validation.md) |
+| Validate Swap cold-start frames, default tokens, tab stability, and Wallet handoffs | [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md) |
 
 ## Readiness Drills
 
@@ -86,6 +90,7 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
 - Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
+- Do not validate cold-start or flicker fixes from the final settled screenshot only; inspect the first frames and tab/token transitions.
 - Do not edit generated locale files directly; use the repository i18n workflow.
 
 ## Related Skills

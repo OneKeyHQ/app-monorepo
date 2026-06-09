@@ -528,7 +528,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
   const descriptionTarget = isPrivateSend
-    ? (payload?.privateSend?.originalRecipient ?? transferTarget)
+    ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
   const description = {
     prefix: '',
