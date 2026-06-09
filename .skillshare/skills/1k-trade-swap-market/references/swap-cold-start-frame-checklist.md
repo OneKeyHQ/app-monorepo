@@ -63,11 +63,13 @@ was inspected.
 | SWAP-SINGLE-001 | Select ETH network -> first entry to Swap | Expected ETH pair is brought in, for example ETH -> USDC, and the first frames are stable. |
 | SWAP-BTC-ETH-001 | Cold start on BTC -> switch Home network to ETH -> first entry to Swap | ETH default token is brought in; the form does not stay at Select Token. |
 | SWAP-PRESERVE-001 | After ETH default pair is initialized -> switch Home to Solana or another network -> re-enter Swap | Existing Swap tokens are preserved; Home network sync does not clear them. |
+| SWAP-PRESERVE-BTC-001 | After Swap is initialized with a BTC-involved pair -> switch Home to ETH/Solana/another single network -> re-enter Swap | Existing Swap tokens are preserved even if the Home account derive type changes; Home network sync does not rewrite the pair. |
 | BRIDGE-BTC-001 | Cold start on BTC -> enter Swap area | BTC entry lands in Bridge when the entry is bridge-only; it does not remain on ordinary Swap by accident. |
 | HOME-BTC-001 | Wallet Home under All Networks -> click the BTC row swap button | Stay on Swap tab, but From and To both display Select Token because BTC is unsupported for ordinary Swap. |
 | LIMIT-TRON-001 | Home select Tron -> Trade Limit -> choose a token from the Limit network selector | Stay on Limit tab; unsupported tokens show Select Token; no forced Swap tab and no infinite skeleton. |
 | LIMIT-STABLE-001 | Enter Limit on a supported network | Supported default tokens render normally, and later unrelated network switches do not clear initialized Limit state. |
 | SWAP-FAST-TAP-001 | Cold start -> immediately tap Trade/Swap | No long blank white screen; a meaningful cached UI or bounded skeleton is visible quickly. |
+| SWAP-PERPS-CACHE-001 | Cold start with both Perps and Swap cold-start snapshots present -> enter Perps first -> enter Swap | Perps settles to a usable trading view, then Swap opens to a meaningful cached/default UI without a white screen or duplicate root-provider crash. |
 | TOKEN-SWITCH-001 | Switch From/To tokens repeatedly on single-network and All Networks contexts | Token and network icons do not flicker or fall back to Select Token during valid switches. |
 | TAB-STABILITY-001 | Move among Swap, Bridge, and Limit, then change Home network and return | Unsupported token handling never causes an unintended tab switch; initialized selections are not reset by unrelated sync. |
 
@@ -84,6 +86,11 @@ For every run, report:
    occurred.
 6. Any unsupported-token behavior and whether it showed Select Token without
    changing tabs.
+7. For preserve cases, the exact pre-switch pair and post-switch pair, plus the
+   Home network switched from/to.
+8. For `SWAP-PERPS-CACHE-001`, whether both cold-start snapshots were present
+   and whether any duplicate provider, red screen, LogBox, or white-screen state
+   appeared while moving Perps -> Swap.
 
 ## Failure Triage
 
