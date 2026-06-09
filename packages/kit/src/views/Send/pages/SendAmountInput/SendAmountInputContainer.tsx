@@ -1335,6 +1335,18 @@ function SendAmountInputContainer() {
     validationEffectiveMinAmount,
   ]);
 
+  // Balance just refreshed in the background (polling / events). Re-run the
+  // field validator so the vault-level checks (gas-aware insufficient balance)
+  // and form.isValid stay in sync with the new balance — the button-level
+  // isInsufficientBalance memo updates on its own, but the form validator
+  // otherwise only re-runs on user input. The trigger effect above covers
+  // PRIVATE mode only. `maxBalance` / `balanceParsed` are stable strings, so
+  // this only fires when the balance value actually changes, not on every poll.
+  useEffect(() => {
+    if (!form.getValues('amount')) return;
+    void form.trigger('amount');
+  }, [form, maxBalance, tokenDetails?.balanceParsed]);
+
   // Fiat input needs a usable price to convert it to a token amount. Single
   // source of truth for the fiat-mode guards below.
   const hasUsablePrice = useMemo(
