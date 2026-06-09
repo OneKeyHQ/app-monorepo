@@ -162,6 +162,7 @@ interface IControllerOptions {
   gap: number;
   speed: number;
   playOnFocus: boolean;
+  autoPlay: boolean;
 }
 
 // Drives one canvas: lays out the pixel grid (dpr-aware), wires hover/focus on
@@ -180,6 +181,8 @@ class PixelShimmerController {
   private readonly pixelSpeed: number;
 
   private readonly playOnFocus: boolean;
+
+  private readonly autoPlay: boolean;
 
   private readonly reducedMotion: boolean;
 
@@ -211,6 +214,7 @@ class PixelShimmerController {
     this.colors = options.colors;
     this.gap = clamp(Math.floor(options.gap), GAP_MIN, GAP_MAX);
     this.playOnFocus = options.playOnFocus;
+    this.autoPlay = options.autoPlay;
     this.reducedMotion = globalThis.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
@@ -225,11 +229,18 @@ class PixelShimmerController {
     this.resizeObserver = new ResizeObserver(() => this.init());
     this.resizeObserver.observe(canvas);
 
-    host.addEventListener('mouseenter', this.onMouseEnter);
-    host.addEventListener('mouseleave', this.onMouseLeave);
-    if (this.playOnFocus) {
-      host.addEventListener('focusin', this.onFocusIn);
-      host.addEventListener('focusout', this.onFocusOut);
+    if (this.autoPlay) {
+      // Always-on background: mark the loop as 'appear' so the first init()
+      // (fired by the ResizeObserver with the initial size) starts the shimmer
+      // and keeps it running. No pointer/focus listeners.
+      this.activeAnimation = 'appear';
+    } else {
+      host.addEventListener('mouseenter', this.onMouseEnter);
+      host.addEventListener('mouseleave', this.onMouseLeave);
+      if (this.playOnFocus) {
+        host.addEventListener('focusin', this.onFocusIn);
+        host.addEventListener('focusout', this.onFocusOut);
+      }
     }
   }
 
@@ -347,6 +358,7 @@ export default function PixelShimmer({
   gap = 5,
   speed = 35,
   playOnFocus = true,
+  autoPlay = false,
   className,
   style,
 }: IPixelShimmerProps) {
@@ -365,11 +377,12 @@ export default function PixelShimmer({
       gap,
       speed,
       playOnFocus,
+      autoPlay,
     });
     return () => controller.destroy();
     // colorsKey stands in for the `colors` array identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colorsKey, gap, speed, playOnFocus]);
+  }, [colorsKey, gap, speed, playOnFocus, autoPlay]);
 
   return (
     <canvas

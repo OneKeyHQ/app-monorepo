@@ -199,6 +199,10 @@ const SegmentControlGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentControl'),
 );
+const SetupStepItemGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SetupStepItem'),
+);
 const SelectGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Select'),
@@ -620,6 +624,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSegmentControl,
     component: SegmentControlGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSetupStepItem,
+    component: SetupStepItemGallery,
   },
   { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
   {

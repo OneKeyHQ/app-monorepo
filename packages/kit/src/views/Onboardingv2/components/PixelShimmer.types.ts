@@ -9,6 +9,12 @@ export interface IPixelShimmerProps {
   speed?: number;
   /** Also play while the host card has keyboard focus (default true). */
   playOnFocus?: boolean;
+  /**
+   * Play continuously without any hover/focus — an always-on background.
+   * When set, the shimmer starts as soon as the grid is built and never stops,
+   * and no pointer/focus listeners are wired. Default false.
+   */
+  autoPlay?: boolean;
   className?: string;
   style?: CSSProperties;
 }
