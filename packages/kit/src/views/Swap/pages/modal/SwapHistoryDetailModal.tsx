@@ -23,6 +23,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   useTheme,
@@ -96,6 +97,10 @@ const privateSendProgressStepLabels = [
 ] as const;
 const privateSendProgressStepLabelWidth = 72;
 const privateSendProgressStepIconSize = 24;
+const privateSendProgressStepCircleSize = 20;
+const privateSendProgressStepCircleInset =
+  (privateSendProgressStepIconSize - privateSendProgressStepCircleSize) / 2;
+const privateSendProgressConnectorIconGap = 4;
 
 function getPrivateSendProgressStepLabel({
   index,
@@ -221,11 +226,11 @@ function PrivateSendProgressStatusIcon({
   status: IPrivateSendProgressStepStatus;
 }) {
   if (status === 'done') {
-    return <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+    return <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />;
   }
 
   if (status === 'error') {
-    return <Icon name="XCircleSolid" size="$5" color="$iconCritical" />;
+    return <Icon name="XCircleSolid" size="$6" color="$iconCritical" />;
   }
 
   if (status === 'process') {
@@ -236,19 +241,11 @@ function PrivateSendProgressStatusIcon({
         alignItems="center"
         justifyContent="center"
       >
-        <Stack
-          w="$5"
-          h="$5"
-          borderRadius="$full"
-          borderWidth={2}
-          borderColor="$icon"
-        />
-        <Stack
-          position="absolute"
-          w="$2"
-          h="$2"
-          borderRadius="$full"
-          bg="$icon"
+        <Spinner
+          size="small"
+          color="$textCaution"
+          w={privateSendProgressStepCircleSize}
+          h={privateSendProgressStepCircleSize}
         />
       </Stack>
     );
@@ -262,8 +259,8 @@ function PrivateSendProgressStatusIcon({
       justifyContent="center"
     >
       <Stack
-        w="$5"
-        h="$5"
+        w={privateSendProgressStepCircleSize}
+        h={privateSendProgressStepCircleSize}
         borderRadius="$full"
         borderWidth={2}
         borderColor="$iconDisabled"
@@ -273,13 +270,42 @@ function PrivateSendProgressStatusIcon({
 }
 
 function PrivateSendProgressConnector({
+  index,
   nextStepStatus,
+  total,
 }: {
+  index: number;
   nextStepStatus: IPrivateSendProgressStepStatus;
+  total: number;
 }) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const isNextStepTodo = nextStepStatus === 'todo';
+  const prevStepIndex = index - 1;
+  const getStepIconLeft = (stepIndex: number) => {
+    if (stepIndex === 0) {
+      return 0;
+    }
+    if (stepIndex === total - 1) {
+      return (
+        privateSendProgressStepLabelWidth - privateSendProgressStepIconSize
+      );
+    }
+    return (
+      (privateSendProgressStepLabelWidth - privateSendProgressStepIconSize) / 2
+    );
+  };
+  const prevCircleRight =
+    getStepIconLeft(prevStepIndex) +
+    privateSendProgressStepCircleInset +
+    privateSendProgressStepCircleSize;
+  const nextCircleLeft =
+    getStepIconLeft(index) + privateSendProgressStepCircleInset;
+  const marginLeft =
+    prevCircleRight +
+    privateSendProgressConnectorIconGap -
+    privateSendProgressStepLabelWidth;
+  const marginRight = privateSendProgressConnectorIconGap - nextCircleLeft;
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const nextWidth = e.nativeEvent.layout.width;
     setWidth((prevWidth) => (prevWidth === nextWidth ? prevWidth : nextWidth));
@@ -290,8 +316,8 @@ function PrivateSendProgressConnector({
       flex={1}
       minWidth={0}
       height="$6"
-      ml={-privateSendProgressStepIconSize}
-      mr={-privateSendProgressStepIconSize}
+      ml={marginLeft}
+      mr={marginRight}
       position="relative"
       justifyContent="center"
       onLayout={isNextStepTodo ? handleLayout : undefined}
@@ -306,7 +332,7 @@ function PrivateSendProgressConnector({
                 x2={width}
                 y2={privateSendProgressStepIconSize / 2}
                 stroke={theme.borderSubdued.val}
-                strokeWidth={1}
+                strokeWidth={2}
                 strokeDasharray="6 6"
                 strokeLinecap="square"
               />
@@ -314,22 +340,38 @@ function PrivateSendProgressConnector({
           ) : null}
         </Stack>
       ) : (
-        <Stack height="$px" bg="$borderSubdued" />
+        <Stack height={2} bg="$borderSubdued" />
       )}
     </Stack>
   );
 }
 
 function PrivateSendProgressStep({
+  index,
   label,
   status,
+  total,
 }: {
+  index: number;
   label: ETranslations;
   status: IPrivateSendProgressStepStatus;
+  total: number;
 }) {
   const intl = useIntl();
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  let alignItems: 'flex-start' | 'center' | 'flex-end' = 'center';
+  let textAlign: 'left' | 'center' | 'right' = 'center';
+  if (isFirst) {
+    alignItems = 'flex-start';
+    textAlign = 'left';
+  } else if (isLast) {
+    alignItems = 'flex-end';
+    textAlign = 'right';
+  }
+
   return (
-    <Stack w={privateSendProgressStepLabelWidth} alignItems="center">
+    <Stack w={privateSendProgressStepLabelWidth} alignItems={alignItems}>
       <Stack
         w={privateSendProgressStepIconSize}
         h={privateSendProgressStepIconSize}
@@ -340,11 +382,11 @@ function PrivateSendProgressStep({
       </Stack>
       <SizableText
         mt="$1"
-        size="$bodySm"
+        size="$bodySmMedium"
         color="$textSubdued"
         width={privateSendProgressStepLabelWidth}
         numberOfLines={2}
-        textAlign="center"
+        textAlign={textAlign}
       >
         {intl.formatMessage({ id: label })}
       </SizableText>
@@ -372,19 +414,32 @@ function PrivateSendProgress({
   );
 
   return (
-    <Stack mx="$5" mb="$2.5" px="$5" py="$3" bg="$bgSubdued" borderRadius="$2">
+    <Stack
+      mx="$5"
+      mb="$2.5"
+      px="$4"
+      py="$3"
+      bg="$bgSubdued"
+      borderRadius="$2.5"
+    >
       <XStack alignItems="flex-start">
         {stepStatuses.map((stepStatus, index) => (
           <Fragment key={`${stepStatus}-${index}`}>
             {index > 0 ? (
-              <PrivateSendProgressConnector nextStepStatus={stepStatus} />
+              <PrivateSendProgressConnector
+                index={index}
+                nextStepStatus={stepStatus}
+                total={stepStatuses.length}
+              />
             ) : null}
             <PrivateSendProgressStep
+              index={index}
               label={getPrivateSendProgressStepLabel({
                 index,
                 status: stepStatus,
               })}
               status={stepStatus}
+              total={stepStatuses.length}
             />
           </Fragment>
         ))}

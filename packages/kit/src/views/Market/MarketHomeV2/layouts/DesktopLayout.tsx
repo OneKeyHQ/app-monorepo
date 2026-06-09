@@ -12,6 +12,7 @@ import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWa
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  isMarketStockCategoryById,
   shouldHideSpotExtendedStats,
 } from '../utils';
 
@@ -24,6 +25,8 @@ import type {
   IMarketHomeTabValue,
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+
+const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 
 interface IDesktopLayoutProps {
   filterBarProps: IMarketFilterBarProps;
@@ -59,7 +62,7 @@ export function DesktopLayout({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    isSpotTabName,
+    getSpotCategoryIdByTabName,
     selectedTabName,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
@@ -90,6 +93,23 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
 
   // Mount each sub-tab's heavy list only after the tab has been activated
   // once. The initial activeTabName comes in synchronously from
@@ -117,6 +137,9 @@ export function DesktopLayout({
   const activeTabNameRef = useRef(activeTabName);
   activeTabNameRef.current = activeTabName;
 
+  const stockDataCategoryMapRef = useRef(stockDataCategoryMap);
+  stockDataCategoryMapRef.current = stockDataCategoryMap;
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -127,6 +150,19 @@ export function DesktopLayout({
       };
       const currentFilterBarProps = filterBarPropsRef.current;
       const currentActiveTabName = activeTabNameRef.current;
+      const currentSpotCategoryId =
+        getSpotCategoryIdByTabName(currentActiveTabName);
+      const currentSpotCategoryHasStockData = Boolean(
+        currentSpotCategoryId &&
+        (isMarketStockCategoryById(
+          currentFilterBarProps.categories,
+          currentSpotCategoryId,
+        ) ||
+          stockDataCategoryMapRef.current[currentSpotCategoryId]),
+      );
+      const showSpotControls = Boolean(
+        currentSpotCategoryId && !currentSpotCategoryHasStockData,
+      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -141,8 +177,8 @@ export function DesktopLayout({
                 containerStyle={{ position: 'relative' as any }}
               />
             </XStack>
-            {/* Right side controls - only visible on spot category tabs */}
-            {isSpotTabName(currentActiveTabName) ? (
+            {/* Right side controls - hidden when the active spot data is stock */}
+            {showSpotControls ? (
               <XStack gap="$3" alignItems="center" pr="$5">
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
@@ -155,11 +191,14 @@ export function DesktopLayout({
               </XStack>
             ) : null}
           </XStack>
-          <div ref={portalRefCallback} />
+          <div
+            ref={portalRefCallback}
+            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
+          />
         </YStack>
       );
     },
-    [isSpotTabName, portalRefCallback],
+    [getSpotCategoryIdByTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
@@ -223,6 +262,7 @@ export function DesktopLayout({
               hiddenDesktopColumns={getHiddenSpotDesktopColumns(
                 item.categoryId,
               )}
+              onStockDataChange={handleStockDataChange}
             />
           ) : null}
         </YStack>

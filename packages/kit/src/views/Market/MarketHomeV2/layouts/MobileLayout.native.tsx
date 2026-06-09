@@ -33,6 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -65,7 +66,8 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
-  isSpotTabName: (tabName: string) => boolean;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
+  stockDataCategoryMap: Record<string, boolean>;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -80,6 +82,7 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
+const MARKET_ANDROID_COLUMN_HEADER_HEIGHT = 36;
 const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
 const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
 const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
@@ -94,7 +97,21 @@ function MarketHomeTabBar({
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
   const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const showSpotSubHeader = ctx.isSpotTabName(currentFocusedTabName);
+  const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
+    currentFocusedTabName,
+  );
+  const showSpotSubHeader = Boolean(currentSpotCategoryId);
+  const currentSpotCategoryHasStockData = Boolean(
+    currentSpotCategoryId &&
+    (isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) ||
+      ctx.stockDataCategoryMap[currentSpotCategoryId]),
+  );
+  const showSpotFilterBar = Boolean(
+    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+  );
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
   const fixedSecondaryHeaderHeight = useMemo(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -105,8 +122,17 @@ function MarketHomeTabBar({
       return 0;
     }
 
+    if (showSpotSubHeader && !showSpotFilterBar) {
+      return MARKET_ANDROID_COLUMN_HEADER_HEIGHT;
+    }
+
     return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, [ctx.isWatchlistEmpty, showWatchlistSubHeader]);
+  }, [
+    ctx.isWatchlistEmpty,
+    showSpotFilterBar,
+    showSpotSubHeader,
+    showWatchlistSubHeader,
+  ]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -147,16 +173,18 @@ function MarketHomeTabBar({
   const renderSpotSubHeaderContent = useCallback(
     () => (
       <>
-        <MarketFilterBarSmall
-          selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
-          timeRange={ctx.filterBarProps.timeRange}
-          onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
-          onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
-        />
+        {showSpotFilterBar ? (
+          <MarketFilterBarSmall
+            selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+            timeRange={ctx.filterBarProps.timeRange}
+            onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+            onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+          />
+        ) : null}
         <MarketListColumnHeader />
       </>
     ),
-    [ctx.filterBarProps],
+    [ctx.filterBarProps, showSpotFilterBar],
   );
 
   const renderPerpsSubHeaderContent = useCallback(
@@ -252,7 +280,7 @@ function MobileLayoutComponent({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    isSpotTabName,
+    getSpotCategoryIdByTabName,
     selectedTabName,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
@@ -271,6 +299,23 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -504,7 +549,8 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
-      isSpotTabName,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -516,7 +562,8 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
-      isSpotTabName,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
@@ -537,6 +584,7 @@ function MobileLayoutComponent({
           selectedCategory={item.categoryId}
           timeRange={filterBarProps.timeRange}
           listContainerProps={listContainerProps}
+          onStockDataChange={handleStockDataChange}
         />
       </Tabs.Tab>
     )),

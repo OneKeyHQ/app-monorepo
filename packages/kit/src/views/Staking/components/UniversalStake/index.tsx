@@ -2010,6 +2010,16 @@ export function UniversalStake({
     />
   ) : null;
 
+  // When entering from the trending list, the protocol selector is rendered as a
+  // standalone (border-less) card above the summary card. The bordered summary
+  // card should then only render when it actually has body content, otherwise it
+  // would show up as an empty bordered box.
+  const summaryCardHasBodyContent = Boolean(
+    summaryContent ||
+    ongoingValidator ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2126,26 +2136,26 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {shouldShowSummaryCard ? (
+      {protocolSwitchConfig ? (
+        <ProtocolSwitcher
+          tokenSymbol={actionSymbol}
+          accountId={accountId}
+          fallbackProviderName={providerName}
+          fallbackProviderLogoUri={providerLogo}
+          fallbackAprText={apyDetail?.description?.text}
+          protocolSwitchConfig={protocolSwitchConfig}
+        />
+      ) : null}
+
+      {shouldShowSummaryCard &&
+      (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
-          pt={protocolSwitchConfig ? '$3.5' : '$5'}
+          pt="$5"
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {protocolSwitchConfig ? (
-            <YStack mb="$3.5">
-              <ProtocolSwitcher
-                tokenSymbol={actionSymbol}
-                accountId={accountId}
-                fallbackProviderName={providerName}
-                fallbackProviderLogoUri={providerLogo}
-                fallbackAprText={apyDetail?.description?.text}
-                protocolSwitchConfig={protocolSwitchConfig}
-              />
-            </YStack>
-          ) : null}
           {showApyHeader && apyDetail && !protocolSwitchConfig ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText

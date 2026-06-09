@@ -96,6 +96,14 @@ function getMarketTokenDisplayVolume24h(item: IMarketTokenListItem) {
   );
 }
 
+function getMarketTokenDisplayPrice(item: IMarketTokenListItem) {
+  return parseMarketValue(item.price) ?? 0;
+}
+
+function getMarketTokenDisplayPriceChange24h(item: IMarketTokenListItem) {
+  return parseMarketValue(item.priceChange24hPercent) ?? 0;
+}
+
 function mapMarketTokenToDisplay(
   item: IMarketTokenListItem,
 ): IFavoriteTokenDisplay | null {
@@ -113,8 +121,8 @@ function mapMarketTokenToDisplay(
     symbol: item.symbol,
     name: item.name,
     logoUrl: item.logoUrl ?? '',
-    price: parseFloat(item.price ?? '0'),
-    priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+    price: getMarketTokenDisplayPrice(item),
+    priceChange24h: getMarketTokenDisplayPriceChange24h(item),
     marketCap: getMarketTokenDisplayMarketCap(item),
     volume24h: getMarketTokenDisplayVolume24h(item),
     stock: item.stock,
@@ -126,6 +134,8 @@ export {
   EMPTY_MARKET_VALUE,
   getMarketCapValue,
   getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayPrice,
+  getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getPeRatioValue,
   getTokenKey,
