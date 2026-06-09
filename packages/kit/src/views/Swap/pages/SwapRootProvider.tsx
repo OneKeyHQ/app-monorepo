@@ -21,6 +21,7 @@ import {
   buildSwapDefaultSelectedTokensFromHomeAccount,
   shouldHandleSwapColdStartHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
+import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 function SwapColdStartCacheSync() {
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -73,7 +74,10 @@ function SwapColdStartCacheSync() {
       setSwapFromToken(defaultTokens.fromToken);
       setSwapToToken(defaultTokens.toToken);
       setSelectedTokensColdStartContext(defaultTokens.context);
-      setSwapTypeSwitch(defaultTokens.swapType);
+      setSwapTypeSwitch(
+        getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
+          defaultTokens.swapType,
+      );
       return true;
     };
 

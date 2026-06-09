@@ -22,6 +22,10 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  getSwapSupportCheckType,
+  getVisibleSwapTabSwitchType,
+} from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   checkWrappedTokenPair,
@@ -2446,8 +2450,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteCurrentEventReceivedCountAtom(), 0);
       set(swapQuoteEventCompletedAtom(), false);
       set(swapQuoteEventTotalCountAtom(), { count: 0 });
-      const normalizedType =
-        type === ESwapTabSwitchType.BRIDGE ? ESwapTabSwitchType.SWAP : type;
+      const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const supportCheckType = getSwapSupportCheckType(type) ?? type;
       set(swapTypeSwitchAtom(), normalizedType);
       if (platformEnv.isNative && normalizedType === ESwapTabSwitchType.LIMIT) {
         return;
@@ -2463,7 +2467,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       this.cleanManualSelectQuoteProviders.call(set);
       const swapSupportNetworks =
-        type === ESwapTabSwitchType.BRIDGE
+        supportCheckType === ESwapTabSwitchType.BRIDGE
           ? get(swapNetworks()).filter((net) => net.supportCrossChainSwap)
           : get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
@@ -2489,7 +2493,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (net) => net.networkId === swapAccountNetworkId,
         )
       ) {
-        if (type === ESwapTabSwitchType.BRIDGE) {
+        if (supportCheckType === ESwapTabSwitchType.BRIDGE) {
           let shouldSetFromToken = null;
           if (fromToken) {
             shouldSetFromToken = fromToken;
