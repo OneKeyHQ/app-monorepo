@@ -293,14 +293,16 @@ export function TradingViewPerpsV2(
   >(null);
   const [chartContentReadyWebviewKey, setChartContentReadyWebviewKey] =
     useState<string | null>(null);
+  const [chartLoadingReadyWebviewKey, setChartLoadingReadyWebviewKey] =
+    useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
 
-  // Unified: perps shares the single warm pooled WebView (no cold load, no
-  // spinner) and the host auto-drives SYMBOL_CHANGE (source:'hyperliquid', from
-  // params.type='perps'). The shared page is loaded once globally, so per-load
-  // chartReady/perpsReady don't re-fire for a later perps host — treat the chart
-  // as ready (the page's listeners are already up) so lines still sync.
+  // Unified: perps shares the single warm pooled WebView and the host auto-drives
+  // SYMBOL_CHANGE (source:'hyperliquid', from params.type='perps'). The shared
+  // page is loaded once globally, so per-load chartReady/perpsReady don't re-fire
+  // for a later perps host — treat the chart as ready (the page's listeners are
+  // already up) so lines still sync.
   const useUnifiedHost =
     (platformEnv.isNative &&
       CHART_WEBVIEW_MODE !== 'legacy' &&
@@ -340,6 +342,7 @@ export function TradingViewPerpsV2(
       hasPerpsReadyRef.current = false;
       setChartLinesReadyWebviewKey(null);
       setChartContentReadyWebviewKey(null);
+      setChartLoadingReadyWebviewKey(null);
       prevWebviewKeyRef.current = _webviewKey;
     }
   }, [_webviewKey]);
@@ -445,25 +448,38 @@ export function TradingViewPerpsV2(
     if (!hasPerpsReadyRef.current) {
       setChartLinesReadyWebviewKey(null);
       setChartContentReadyWebviewKey(null);
+      setChartLoadingReadyWebviewKey(null);
       webRef.current?.reload();
     }
   }, [restoreNonce]);
+
+  const markChartLoadingReady = useCallback(() => {
+    setChartLoadingReadyWebviewKey(_webviewKey);
+  }, [_webviewKey]);
+
+  useEffect(() => {
+    if (useUnifiedHost && unifiedReadyConfirmation > 0) {
+      markChartLoadingReady();
+    }
+  }, [markChartLoadingReady, unifiedReadyConfirmation, useUnifiedHost]);
 
   const onChartLinesReady = useCallback(() => {
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
+    markChartLoadingReady();
     // Unified mode gates line sync on the optimistic unifiedReady; a real READY
     // ACK from the page confirms its perps listener is up, so force a full
     // resend to recover any cold-start sync the page dropped before it was ready.
     if (useUnifiedHost) {
       confirmUnifiedReady();
     }
-  }, [_webviewKey, useUnifiedHost, confirmUnifiedReady]);
+  }, [_webviewKey, useUnifiedHost, confirmUnifiedReady, markChartLoadingReady]);
 
   const onChartReady = useCallback(() => {
     setChartContentReadyWebviewKey(_webviewKey);
-  }, [_webviewKey]);
+    markChartLoadingReady();
+  }, [_webviewKey, markChartLoadingReady]);
 
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
@@ -603,18 +619,16 @@ export function TradingViewPerpsV2(
   // Cold first load of the shared page; mark ready (covers the rare case where
   // the optimistic mount-time ready guessed wrong) and forward to the caller.
   const handleUnifiedLoadEnd = useCallback(() => {
+    markChartLoadingReady();
     confirmUnifiedReady();
     onLoadEnd?.();
-  }, [confirmUnifiedReady, onLoadEnd]);
+  }, [confirmUnifiedReady, markChartLoadingReady, onLoadEnd]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  // Unified shares a warm pooled WebView, so there's no cold load to mask (the
-  // native module reveals via snapshot on switch). The spinner only applies to
-  // the legacy per-instance WebView.
-  const showChartLoadingMask = !useUnifiedHost && !isChartContentReady;
+  const showChartLoadingMask = chartLoadingReadyWebviewKey !== _webviewKey;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
