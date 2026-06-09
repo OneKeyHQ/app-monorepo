@@ -538,6 +538,7 @@ const DetailsPartComponent = ({
               />
             </YStack>
             <EarnPlatformBonusSection
+              appearance="alert"
               platformBonus={detailInfo.platformBonus}
               protocolInfo={protocolInfo}
               tokenInfo={tokenInfo}
