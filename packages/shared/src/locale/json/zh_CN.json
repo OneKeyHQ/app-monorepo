@@ -3640,7 +3640,7 @@
   "private_key_staty_on_device": "私钥保存在设备内",
   "private_send.arrival_in": "预计完成",
   "private_send.done": "完成",
-  "private_send.est_received_tooltips": "使用隐身发送时，到账金额可能会略低于发送金额，因为报价包含平台费用及多个路由产生的损耗。最终到账金额请以交易详情为准。",
+  "private_send.est_received_tooltips": "使用隐私发送时，到账金额可能会略低于发送金额，因为报价包含平台费用及多个路由产生的损耗。最终到账金额请以交易详情为准。",
   "private_send.estimated_received": "预计收到",
   "private_send.failed": "失败",
   "private_send.high_value_drop_title": "高价值损失",
