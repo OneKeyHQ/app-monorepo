@@ -18,6 +18,7 @@ import {
   useConnectionStateAtom,
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
+  usePerpsL2BookColdCacheAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -37,7 +38,11 @@ import {
 } from '../hooks/usePerpMarketData';
 import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../hooks/useTradingPrice';
-import { isPerpsL2BookInteractive } from '../utils/l2BookFreshness';
+import {
+  getFreshL2BookSnapshotFromColdCache,
+  getPerpsL2BookColdCacheGlobalSnapshot,
+  isPerpsL2BookInteractive,
+} from '../utils/l2BookFreshness';
 import {
   type IPerpsMobileLayoutTraceRect,
   getPerpsMobileLayoutTraceRect,
@@ -572,6 +577,7 @@ export function PerpOrderBook({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [shouldShowEnableTradingButton] =
     usePerpsShouldShowEnableTradingButtonAtom();
 
@@ -598,18 +604,34 @@ export function PerpOrderBook({
     if (!coin) {
       return null;
     }
+    const options = {
+      nSigFigs: l2SubscriptionOptions.nSigFigs,
+      mantissa: l2SubscriptionOptions.mantissa,
+    };
+    const coldCachedBook = getFreshL2BookSnapshotFromColdCache({
+      coin,
+      options,
+      cache: l2BookColdCache,
+    });
+    const globalColdCachedBook =
+      coldCachedBook ??
+      getFreshL2BookSnapshotFromColdCache({
+        coin,
+        options,
+        cache: getPerpsL2BookColdCacheGlobalSnapshot(),
+      });
     return normalizeL2BookData({
       expectedCoin: coin,
-      bookData: getFreshL2BookSnapshotFromSwr({
-        coin,
-        options: {
-          nSigFigs: l2SubscriptionOptions.nSigFigs,
-          mantissa: l2SubscriptionOptions.mantissa,
-        },
-      }),
+      bookData:
+        globalColdCachedBook ??
+        getFreshL2BookSnapshotFromSwr({
+          coin,
+          options,
+        }),
     });
   }, [
     activeTradeInstrument.coin,
+    l2BookColdCache,
     l2SubscriptionOptions.mantissa,
     l2SubscriptionOptions.nSigFigs,
   ]);

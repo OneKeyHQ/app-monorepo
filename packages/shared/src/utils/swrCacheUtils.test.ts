@@ -5,19 +5,22 @@ describe('perps L2 book SWR cache keys', () => {
     expect(swrKeys.perpsOrderBookTickOptions()).toBe('perpsOrderBookTicks:v1');
   });
 
-  it('uses only the default key when no tick option is requested', () => {
+  it('uses the default and latest keys when no tick option is requested', () => {
     expect(
       getPerpsL2BookSnapshotCacheKeys({
         coin: 'BTC',
       }),
     ).toEqual([
       swrKeys.perpsL2BookSnapshot({
+        coin: 'BTC',
+      }),
+      swrKeys.perpsL2BookSnapshotLatest({
         coin: 'BTC',
       }),
     ]);
   });
 
-  it('does not fall back option-specific snapshots to the default key', () => {
+  it('falls back option-specific snapshots only to the coin latest key', () => {
     expect(
       getPerpsL2BookSnapshotCacheKeys({
         coin: 'BTC',
@@ -29,6 +32,9 @@ describe('perps L2 book SWR cache keys', () => {
         coin: 'BTC',
         nSigFigs: 5,
         mantissa: 2,
+      }),
+      swrKeys.perpsL2BookSnapshotLatest({
+        coin: 'BTC',
       }),
     ]);
   });
