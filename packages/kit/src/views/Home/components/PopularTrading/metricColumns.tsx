@@ -1,5 +1,6 @@
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -164,6 +165,10 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
   );
 }
 
+function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
+  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
+}
+
 function renderPopularTradingRightMetrics(
   record: IFavoriteTokenDisplay,
   useStockMetadataColumns: boolean,
@@ -215,6 +220,7 @@ function renderPopularTradingRightMetrics(
 
 export {
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
