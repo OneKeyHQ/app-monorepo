@@ -88,7 +88,6 @@ export const BorrowAlerts = memo(
 
     const handleSwapPress = useCallback(() => {
       if (!swapFromToken || !swapToToken) {
-        console.warn('Borrow alert swap action missing swap tokens.');
         return;
       }
 
