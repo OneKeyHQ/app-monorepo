@@ -121,6 +121,7 @@ function RecommendCardItem({
         <Token
           size="md"
           tokenImageUri={token.logoUrl}
+          tokenImageUris={token.logoUrls}
           networkId={token.chainId}
           showNetworkIcon
         />
@@ -389,6 +390,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 <Token
                   size="md"
                   tokenImageUri={record.logoUrl}
+                  tokenImageUris={record.logoUrls}
                   networkId={record.perpsCoin ? undefined : record.chainId}
                   showNetworkIcon={!record.perpsCoin}
                 />
@@ -450,6 +452,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               <Token
                 size="lg"
                 tokenImageUri={record.logoUrl}
+                tokenImageUris={record.logoUrls}
                 networkId={record.perpsCoin ? undefined : record.chainId}
                 showNetworkIcon={!record.perpsCoin}
               />
@@ -599,6 +602,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
+              logoUrls: item.logoUrls,
               price: getMarketTokenDisplayPrice(item),
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
@@ -673,6 +677,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
+              logoUrls: item.logoUrls,
               price: getMarketTokenDisplayPrice(item),
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),

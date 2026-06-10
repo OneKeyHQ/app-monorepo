@@ -7,6 +7,7 @@ interface IFavoriteTokenDisplay {
   symbol: string;
   name: string;
   logoUrl: string;
+  logoUrls?: string[];
   price: number;
   priceChange24h: number;
   marketCap: number;
