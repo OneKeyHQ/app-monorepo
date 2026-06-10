@@ -103,6 +103,36 @@ describe('classifyThirdPartyHwCreateFailures', () => {
     expect(result.allAppNotInstalled).toBe(false);
     expect(result.genuineFailures).toEqual([unknownFailure]);
   });
+
+  it('drops device-not-found failures when at least one account succeeded', () => {
+    const deviceNotFoundFailure = {
+      error: {
+        code: ThirdPartyHwErrorCode.DeviceNotFound,
+      },
+    };
+    const result = classifyThirdPartyHwCreateFailures({
+      addedCount: 1,
+      failedAccounts: [deviceNotFoundFailure],
+    });
+
+    expect(result.allAppNotInstalled).toBe(false);
+    expect(result.genuineFailures).toEqual([]);
+  });
+
+  it('keeps device-not-found failures when no account succeeded', () => {
+    const deviceNotFoundFailure = {
+      error: {
+        code: ThirdPartyHwErrorCode.DeviceNotFound,
+      },
+    };
+    const result = classifyThirdPartyHwCreateFailures({
+      addedCount: 0,
+      failedAccounts: [deviceNotFoundFailure],
+    });
+
+    expect(result.allAppNotInstalled).toBe(false);
+    expect(result.genuineFailures).toEqual([deviceNotFoundFailure]);
+  });
 });
 
 describe('filterThirdPartyHwCreateFailureToasts', () => {
