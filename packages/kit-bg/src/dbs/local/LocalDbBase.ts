@@ -158,6 +158,7 @@ import type {
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
+  IDBUtxoAccount,
   IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
@@ -5573,6 +5574,45 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.xpubSegwit = xpubSegwit;
             }
           }
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateAccountFindAddresses({
+    accountId,
+    addedFindAddresses,
+    removedRelPaths,
+  }: {
+    accountId: string;
+    addedFindAddresses?: Record<string, string>; // { "0/100": "address" }
+    removedRelPaths?: string[];
+  }) {
+    const account = (await this.getAccount({
+      accountId,
+    })) as IDBUtxoAccount | undefined;
+    if (!account || account.type !== EDBAccountType.UTXO) {
+      throw new OneKeyLocalError(
+        'updateAccountFindAddresses ERROR: utxo account not found',
+      );
+    }
+    const findAddresses: Record<string, string> = {
+      ...account.findAddresses,
+    };
+    if (addedFindAddresses) {
+      Object.assign(findAddresses, addedFindAddresses);
+    }
+    removedRelPaths?.forEach((relPath) => {
+      delete findAddresses[relPath];
+    });
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater: (item) => {
+          (item as IDBUtxoAccount).findAddresses = findAddresses;
           return item;
         },
       });

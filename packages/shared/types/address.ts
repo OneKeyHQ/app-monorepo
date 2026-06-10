@@ -44,6 +44,9 @@ export type IFetchAccountDetailsParams = {
   accountId: string;
   networkId: string;
   accountAddress?: string;
+  // query by accountAddress only, do NOT attach account xpub to the request
+  // (e.g. query balance/UTXOs of one derived address of an xpub account)
+  queryByAddressOnly?: boolean;
   cardanoPubKey?: string; // only available for cardano utxo query
   withUTXOList?: boolean;
   withNetWorth?: boolean;

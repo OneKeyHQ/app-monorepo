@@ -219,7 +219,7 @@ class ServiceAccountProfile extends ServiceBase {
       ]);
       xpub = x;
       accountAddress = a;
-    } else {
+    } else if (!params.queryByAddressOnly) {
       xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
         networkId,

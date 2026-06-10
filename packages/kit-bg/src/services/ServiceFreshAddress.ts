@@ -5,6 +5,7 @@ import {
   transformAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/fresh-address';
 import type {
+  IBtcFindAddressItem,
   IBtcFreshAddress,
   IBtcFreshAddressStructure,
 } from '@onekeyhq/core/src/chains/btc/types';
@@ -24,6 +25,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import localDb from '../dbs/local/localDb';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
@@ -32,6 +34,9 @@ import ServiceBase from './ServiceBase';
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type VaultBtc from '../vaults/impls/btc/Vault';
 import type { IAccountDeriveTypes } from '../vaults/types';
+
+// max non-hardened BIP32 child index (2^31 - 1)
+export const BTC_FIND_ADDRESS_MAX_INDEX = 2 ** 31 - 1;
 
 @backgroundClass()
 class ServiceFreshAddress extends ServiceBase {
@@ -874,6 +879,234 @@ class ServiceFreshAddress extends ServiceBase {
     );
 
     return result;
+  }
+
+  // ---------------------------------------------- btc find-address feature
+
+  private async getBtcFindAddressDbAccount({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IDBUtxoAccount> {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      throw new OneKeyLocalError(
+        'btc find-address is only available on BTC networks',
+      );
+    }
+    if (
+      !accountUtils.isHdAccount({ accountId }) &&
+      !accountUtils.isHwAccount({ accountId }) &&
+      !accountUtils.isQrAccount({ accountId })
+    ) {
+      throw new OneKeyLocalError(
+        'btc find-address is only available for hd/hw/qr accounts',
+      );
+    }
+    const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    })) as IDBUtxoAccount | undefined;
+    if (!dbAccount?.xpub || !dbAccount?.path) {
+      throw new OneKeyLocalError('Account xpub not found');
+    }
+    return dbAccount;
+  }
+
+  @backgroundMethod()
+  async findBtcAddressByIndex({
+    accountId,
+    networkId,
+    index,
+  }: {
+    accountId: string;
+    networkId: string;
+    index: number;
+  }): Promise<IBtcFindAddressItem> {
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index > BTC_FIND_ADDRESS_MAX_INDEX
+    ) {
+      throw new OneKeyLocalError('Invalid address index');
+    }
+    const dbAccount = await this.getBtcFindAddressDbAccount({
+      accountId,
+      networkId,
+    });
+    const relPath = `0/${index}`;
+    const path = `${dbAccount.path}/${relPath}`;
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as VaultBtc;
+    const derivedMap = await vault.deriveAddressesByPaths({
+      dbAccount,
+      paths: [path],
+    });
+    const address = derivedMap[path];
+    if (!address) {
+      throw new OneKeyLocalError('Failed to derive address by index');
+    }
+    return { index, relPath, path, address };
+  }
+
+  @backgroundMethod()
+  async isBtcAddressAlreadyDiscovered({
+    accountId,
+    networkId,
+    address,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+  }): Promise<boolean> {
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+    });
+    if (!ctx) {
+      return false;
+    }
+    const freshAddressesMap =
+      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddressMap({
+        networkId,
+        xpubSegwit: ctx.xpubSegwit,
+      });
+    if (freshAddressesMap[address]) {
+      return true;
+    }
+    return Object.values(freshAddressesMap).some(
+      (item) => item.address === address,
+    );
+  }
+
+  @backgroundMethod()
+  async claimBtcFindAddress({
+    accountId,
+    networkId,
+    index,
+  }: {
+    accountId: string;
+    networkId: string;
+    index: number;
+  }): Promise<{
+    item: IBtcFindAddressItem;
+    alreadyDiscovered: boolean;
+  }> {
+    const item = await this.findBtcAddressByIndex({
+      accountId,
+      networkId,
+      index,
+    });
+    const alreadyDiscovered = await this.isBtcAddressAlreadyDiscovered({
+      accountId,
+      networkId,
+      address: item.address,
+    });
+    if (alreadyDiscovered) {
+      // address is already visible in the account (within gap scan),
+      // claiming it would be meaningless (D7)
+      return { item, alreadyDiscovered: true };
+    }
+    await localDb.updateAccountFindAddresses({
+      accountId,
+      addedFindAddresses: { [item.relPath]: item.address },
+    });
+    appEventBus.emit(EAppEventBusNames.BtcFindAddressUpdated, undefined);
+    return { item, alreadyDiscovered: false };
+  }
+
+  @backgroundMethod()
+  async unclaimBtcFindAddress({
+    accountId,
+    relPath,
+  }: {
+    accountId: string;
+    relPath: string;
+  }): Promise<void> {
+    await localDb.updateAccountFindAddresses({
+      accountId,
+      removedRelPaths: [relPath],
+    });
+    appEventBus.emit(EAppEventBusNames.BtcFindAddressUpdated, undefined);
+  }
+
+  @backgroundMethod()
+  async getBtcFindAddresses({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<IBtcFindAddressItem[]> {
+    let dbAccount: IDBUtxoAccount;
+    try {
+      dbAccount = await this.getBtcFindAddressDbAccount({
+        accountId,
+        networkId,
+      });
+    } catch {
+      return [];
+    }
+    const findAddresses = dbAccount.findAddresses || {};
+    let entries = Object.entries(findAddresses);
+    if (!entries.length) {
+      return [];
+    }
+
+    // D8: a claimed address that later gets discovered by the gap scan is
+    // shown in the used list only, drop it from findAddresses
+    const discoveredRelPaths: string[] = [];
+    for (const [relPath, address] of entries) {
+      if (
+        await this.isBtcAddressAlreadyDiscovered({
+          accountId,
+          networkId,
+          address,
+        })
+      ) {
+        discoveredRelPaths.push(relPath);
+      }
+    }
+    if (discoveredRelPaths.length) {
+      await localDb.updateAccountFindAddresses({
+        accountId,
+        removedRelPaths: discoveredRelPaths,
+      });
+      entries = entries.filter(
+        ([relPath]) => !discoveredRelPaths.includes(relPath),
+      );
+    }
+
+    return entries
+      .map(([relPath, address]) => ({
+        index: Number(relPath.split('/')[1]),
+        relPath,
+        path: `${dbAccount.path}/${relPath}`,
+        address,
+      }))
+      .toSorted((a, b) => b.index - a.index);
+  }
+
+  @backgroundMethod()
+  async fetchBtcFindAddressDetails({
+    accountId,
+    networkId,
+    address,
+  }: {
+    accountId: string;
+    networkId: string;
+    address: string;
+  }) {
+    return this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+      accountId,
+      networkId,
+      accountAddress: address,
+      queryByAddressOnly: true,
+      withUTXOList: true,
+      withFrozenBalance: true,
+    });
   }
 }
 
