@@ -31,6 +31,7 @@ interface IMobileMarketTokenFlatListProps {
     paddingBottom: number;
   };
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -41,6 +42,7 @@ function MobileMarketTokenFlatListBase({
   timeRange,
   listContainerProps,
   onStockDataChange,
+  shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -78,18 +80,21 @@ function MobileMarketTokenFlatListBase({
     ({ item }: { item: IMarketToken }) => (
       <TokenListItem
         item={item}
-        onPress={() =>
-          toMarketDetailPage({
+        onPress={() => {
+          if (shouldSuppressItemPress?.()) {
+            return;
+          }
+          void toMarketDetailPage({
             symbol: item.symbol,
             tokenAddress: item.address,
             networkId: item.networkId,
             isNative: item.isNative,
             decimals: item.decimals,
-          })
-        }
+          });
+        }}
       />
     ),
-    [toMarketDetailPage],
+    [shouldSuppressItemPress, toMarketDetailPage],
   );
 
   // Key extractor - must be unique across different networks

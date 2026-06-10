@@ -50,6 +50,7 @@ interface IMobileMarketWatchlistFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -63,6 +64,7 @@ const SECOND_LEVEL_MENU_ANCHOR_Y_OFFSET = 4;
 function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
+  shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -253,11 +255,16 @@ function MobileMarketWatchlistFlatListImpl({
         <TokenListItem
           item={item}
           onPress={() => {
+            clearMenuTimer();
+            if (shouldSuppressItemPress?.()) {
+              gestureRef.current.consumeNextPress = false;
+              resetGestureSession();
+              return;
+            }
             if (gestureRef.current.consumeNextPress) {
               gestureRef.current.consumeNextPress = false;
               return;
             }
-            clearMenuTimer();
             if (item.perpsCoin) {
               navigateToPerps(item.perpsCoin);
               return;
@@ -355,6 +362,7 @@ function MobileMarketWatchlistFlatListImpl({
       handleShowContextMenu,
       navigateToPerps,
       resetGestureSession,
+      shouldSuppressItemPress,
       toMarketDetailPage,
     ],
   );

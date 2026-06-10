@@ -22,6 +22,7 @@ import { MarketBannerList } from '../components/MarketBanner';
 import { MarketFilterBarSmall } from '../components/MarketFilterBarSmall';
 import { MarketListColumnHeader } from '../components/MarketListColumnHeader';
 import { MobileMarketPerpsFlatList } from '../components/MarketPerpsList';
+import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../components/MarketPerpsList/constants';
 import { MarketPerpsCategorySelector } from '../components/MarketPerpsList/MarketPerpsCategorySelector';
 import { useIsWatchlistTokenCacheReady } from '../components/MarketTokenList/hooks/useMarketWatchlistTokenList';
 import {
@@ -239,17 +240,24 @@ function MobileLayoutComponent({
   );
 
   const initialCategoryId = useMemo(
-    () => perpsCategories[0]?.tabId ?? '',
+    () => perpsCategories[0]?.tabId ?? MARKET_PERPS_DEFAULT_CATEGORY_ID,
     [perpsCategories],
   );
   const [selectedCategoryId, setSelectedCategoryId] =
     useState(initialCategoryId);
 
   useEffect(() => {
-    if (!selectedCategoryId && initialCategoryId) {
+    const shouldSyncSelectedCategory =
+      !selectedCategoryId ||
+      (perpsCategories.length > 0 &&
+        !perpsCategories.some(
+          (category) => category.tabId === selectedCategoryId,
+        ));
+
+    if (shouldSyncSelectedCategory && initialCategoryId) {
       setSelectedCategoryId(initialCategoryId);
     }
-  }, [initialCategoryId, selectedCategoryId]);
+  }, [initialCategoryId, perpsCategories, selectedCategoryId]);
 
   const {
     activeTabName,
