@@ -103,11 +103,22 @@ export function ChartWebView({
   onWebViewRef,
   onLoadEnd,
   selfDrivenSymbol,
+  prewarm,
   ...stackStyle
 }: IChartWebViewProps) {
   useChartRenderRateLog('host');
   const hybridRefHolder = useRef<ChartWebviewMethods | null>(null);
-  const isFocused = useRouteIsFocused();
+  const isFocusedRaw = useRouteIsFocused();
+  // A prewarm host NEVER claims native ownership: it warm-loads + drives the
+  // symbol + prefetches data via the warmDriver path, but `active=false` so the
+  // native pauseIfIdle can pause the offscreen renderer (Android doesn't throttle
+  // offscreen WebViews). `isFocused` keeps the prewarm's symbol-driving effects
+  // running while its home is focused; only OWNERSHIP is suppressed.
+  const isFocused = isFocusedRaw;
+  // Prewarm is iOS-only now (see ChartPrewarm.enabled); keep ownership == focus
+  // for every host (the prior Android-specific `active=false` prewarm tweak is
+  // moot now that Android has no prewarm host).
+  const active = isFocused;
   // Honor the app's "Enable Native Webview Debugging" dev-mode toggle for the
   // chart webview, exactly like the main react-native-webview (NativeWebView.tsx).
   // Fallback mirrors that component: default to platformEnv.isDev when unset.
@@ -136,11 +147,49 @@ export function ChartWebView({
   // before postMessage is wired. Gate sends on this and re-run when it flips true.
   const [hybridReady, setHybridReady] = useState(false);
 
+  // ⚠️ FALLBACK / 兜底方案 — NOT a root-cause fix.
+  // Symptom: on Android, the first force:false SYMBOL_CHANGE intermittently does
+  // NOT take — the shared page stays on the PREVIOUS token (no getKLineData /
+  // barsState for the new symbol) and the chart hangs on the loading mask. CDP
+  // confirmed the page is still drawing the old symbol while the new token's data
+  // streams in. The real bug lives in the offline chart bundle's SYMBOL_CHANGE
+  // handler (it drops/ignores the switch under a rapid-switch race); fixing it
+  // there is the proper solution. Until then this is a DEFENSIVE retry: after a
+  // drive, if the page hasn't acknowledged the switch within 3s, re-send ONCE with
+  // force:true. One-shot per drive so an empty-data token (never emits barsState)
+  // can't cause an endless resend loop. Remove once the chart bundle is fixed.
+  const switchAckedRef = useRef(false);
+  const resentRef = useRef(false);
+  const resendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const sendSymbolChange = useCallback(() => {
     const ref = hybridRefHolder.current;
     const current = paramsRef.current;
     if (!ref || !current.symbol) return;
     ref.postMessage(JSON.stringify(buildSymbolChangeMessage(current)));
+    // Arm the 3s self-heal (see FALLBACK note above).
+    const drivenSymbol = current.symbol;
+    switchAckedRef.current = false;
+    resentRef.current = false;
+    if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
+    resendTimerRef.current = setTimeout(() => {
+      if (switchAckedRef.current || resentRef.current) return;
+      const r = hybridRefHolder.current;
+      const c = paramsRef.current;
+      if (!r || c.symbol !== drivenSymbol) return; // symbol moved on / gone
+      resentRef.current = true;
+      const forced = buildSymbolChangeMessage(c);
+      (forced.payload as { force: boolean }).force = true;
+      r.postMessage(JSON.stringify(forced));
+      defaultLogger.market.chart.chartHost({
+        platform: platformEnv.appPlatform ?? 'native',
+        type: c.type,
+        event: 'symbolResend',
+        symbol: drivenSymbol,
+      } as unknown as Parameters<
+        typeof defaultLogger.market.chart.chartHost
+      >[0]);
+    }, 3000);
   }, []);
 
   // Stable VALUE key for the symbol-change payload. `params` is a fresh object
@@ -195,6 +244,8 @@ export function ChartWebView({
       pooled: !!reuseKey,
     });
     return () => {
+      // Clear the FALLBACK self-heal timer (see sendSymbolChange) on teardown.
+      if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
       defaultLogger.market.chart.chartHost({
         platform: platformEnv.appPlatform ?? 'native',
         type: paramsRef.current.type,
@@ -206,19 +257,22 @@ export function ChartWebView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // DEBUG instrumentation (Q1): focus transitions drive `active` -> native pool
-  // ownership. This is exactly what decides whether THIS host claims the WebView.
+  // DEBUG instrumentation: focus + computed `active` -> native pool ownership.
+  // For a prewarm host `active` must stay false even when focused, so verifying
+  // "focus behaves as expected" = (prewarm ? active===false : active===isFocused).
   useEffect(() => {
     defaultLogger.market.chart.chartHost({
       platform: platformEnv.appPlatform ?? 'native',
       type: paramsRef.current.type,
       event: 'focus',
       isFocused,
+      active,
+      prewarm: !!prewarm,
       hybridReady,
       symbol: paramsRef.current.symbol,
       pooled: !!reuseKey,
-    });
-  }, [isFocused, hybridReady, reuseKey]);
+    } as any);
+  }, [isFocused, active, prewarm, hybridReady, reuseKey]);
 
   // From origin/x: if the unified chart already finished its (one-time) load,
   // fire onLoadEnd immediately for this host so consumers don't wait again.
@@ -363,6 +417,16 @@ export function ChartWebView({
     () =>
       callback((raw: string) => {
         try {
+          // FALLBACK ack (see sendSymbolChange): any of these messages means the
+          // page is actively fetching/rendering for the CURRENT symbol, i.e. the
+          // SYMBOL_CHANGE took — so cancel the pending 3s force-resend.
+          if (
+            raw.includes('tradingview_barsState') ||
+            raw.includes('tradingview_renderReady') ||
+            raw.includes('tradingview_getKLineData')
+          ) {
+            switchAckedRef.current = true;
+          }
           // Module delivers the chart's $private.request payload as a raw JSON
           // string; legacy handlers expect it wrapped as { data: payload }.
           // DEBUG (Q1 data): if this host has no customReceiveHandler (e.g. the
@@ -456,7 +520,7 @@ export function ChartWebView({
         {...source}
         pooled={!!reuseKey}
         reuseKey={reuseKey}
-        active={isFocused}
+        active={active}
         webviewDebuggingEnabled={webviewDebuggingEnabled}
         hybridRef={hybridRefProp}
         onMessage={onMessageProp}

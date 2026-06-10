@@ -1,4 +1,19 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// TEMP diagnostic (root-cause C3 verification): low-frequency, change-only logs.
+// markReady fires only when readySymbol actually changes; maskEval only when a
+// host's (symbol, ready, hasData) tuple changes — never per render/message — so
+// this can't flood. Shows symbol thrashing + how many subscribers re-render.
+function dbgReady(payload: Record<string, unknown>) {
+  defaultLogger.market.chart.chartHost({
+    platform: platformEnv.appPlatform ?? 'native',
+    type: 'store',
+    ...payload,
+  } as any);
+}
 
 // Tracks WHICH symbol the shared chart currently has data for, so the loading
 // mask can be derived as `readySymbol !== currentSymbol`. This is GLOBAL (not
@@ -24,6 +39,13 @@ export function markChartDataReady(symbol: string) {
   if (!symbol || readySymbol === symbol) {
     return;
   }
+  // C3: readySymbol churn + how many subscribers will re-render via emit().
+  dbgReady({
+    event: 'markReady',
+    symbol,
+    prev: readySymbol ?? '(null)',
+    subscribers: listeners.size,
+  });
   readySymbol = symbol;
   emit();
 }
@@ -39,5 +61,23 @@ export function useChartHasData(symbol: string | undefined): boolean {
     () => readySymbol,
     () => readySymbol,
   );
-  return !!symbol && ready === symbol;
+  const hasData = !!symbol && ready === symbol;
+  // C3: change-only mask state (via useEffect, never during render).
+  const idRef = useRef(0);
+  if (idRef.current === 0) {
+    hookSeq += 1;
+    idRef.current = hookSeq;
+  }
+  useEffect(() => {
+    dbgReady({
+      event: 'maskEval',
+      inst: idRef.current,
+      symbol: symbol ?? '(undef)',
+      readySymbol: ready ?? '(null)',
+      hasData,
+    });
+  }, [symbol, ready, hasData]);
+  return hasData;
 }
+
+let hookSeq = 0;

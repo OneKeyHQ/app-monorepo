@@ -25,6 +25,14 @@ export interface IChartWebViewBaseProps {
   // drive its own (e.g. perps: source:'hyperliquid' + displayNames + ready
   // gating). The host still supplies the constant unified source + warm WebView.
   selfDrivenSymbol?: boolean;
+  // This host is an offscreen prewarm, NOT a visible chart. It still warm-loads
+  // the page + drives the symbol + prefetches data (as warmDriver), but must
+  // NEVER claim native ownership (`active=false`) — otherwise it keeps the shared
+  // WebView's renderer running offscreen on Android (which, unlike iOS WKWebView,
+  // does not throttle offscreen pages), pinning CPU/GPU and growing RAM to OOM
+  // while stalling the whole app. With active=false the native pauseIfIdle can
+  // pause the renderer whenever no VISIBLE detail owns it.
+  prewarm?: boolean;
 }
 
 export type IChartWebViewProps = IChartWebViewBaseProps & IStackStyle;

@@ -99,6 +99,7 @@ function PerpsPrewarmHost({
       params={params}
       onlineUrl=""
       flex={1}
+      prewarm
       customReceiveHandler={customReceiveHandler}
       onWebViewRef={(r) => {
         webRef.current = r;
@@ -150,6 +151,7 @@ function MarketPrewarmHost({
       params={params}
       onlineUrl=""
       flex={1}
+      prewarm
       customReceiveHandler={customReceiveHandler}
       onWebViewRef={(r) => {
         webRef.current = r;
@@ -179,8 +181,14 @@ export function ChartPrewarm({
   address,
   decimal,
 }: IChartPrewarmProps = {}) {
+  // Prewarm is iOS-ONLY. iOS WKWebView auto-throttles the offscreen prewarm page,
+  // so warming is cheap and never contends. Android WebView does NOT throttle
+  // offscreen pages: the prewarm host kept the shared WebView's renderer running
+  // offscreen (CPU/GPU/RAM burn -> OOM) AND its symbol-driving contended the
+  // visible chart's switch (market stuck on the wrong symbol). Disabled on Android
+  // pending a cheaper warm strategy.
   const enabled =
-    platformEnv.isNative &&
+    platformEnv.isNativeIOS &&
     CHART_WEBVIEW_MODE !== 'legacy' &&
     CHART_WEBVIEW_SCENE === 'unified';
 

@@ -104,11 +104,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
-  // Chart loading mask: shown until the shared chart has data for THIS symbol.
-  // Symbol-keyed global store so re-entering an already-loaded token reveals
-  // immediately (no fresh barsState fires for a cached page) and switching tokens
-  // shows loading until the new token's bars arrive — no explicit reset needed.
-  const hasChartData = useChartHasData(symbol);
   const [devSettings] = useDevSettingsPersistAtom();
   const [
     mockEmptyKLineBadgePositionIndex,
@@ -137,6 +132,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onLoadStart,
     ...stackStyle
   } = props;
+
+  // Chart loading mask: shown until the shared chart has data for THIS symbol.
+  // MUST stay AFTER the props destructuring above: calling useChartHasData(symbol)
+  // before `symbol` is destructured read a hoisted `undefined` (Babel lowers the
+  // `const { symbol } = props` to a hoisted `var symbol`), so hasChartData was
+  // permanently false and the market chart hung on the loading spinner forever
+  // (perps was fine because TradingViewPerpsV2 destructures before this hook).
+  // Symbol-keyed global store so re-entering an already-loaded token reveals
+  // immediately and switching tokens shows loading until the new token's bars arrive.
+  const hasChartData = useChartHasData(symbol);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
