@@ -40,6 +40,29 @@ type ISwapHomeSelectedAccountForDefaults = ISwapSelectedAccountKeySource & {
   networkId?: string;
 };
 
+type ISwapAmountInputState = {
+  value?: string;
+  isInput?: boolean;
+};
+
+export function shouldPreserveSwapUserInputOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  hasSelectedTokens,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  hasSelectedTokens: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  const hasUserInputAmount = Boolean(
+    (fromTokenAmount?.isInput && fromTokenAmount.value) ||
+    (toTokenAmount?.isInput && toTokenAmount.value),
+  );
+  return Boolean(!hasImportParams && hasSelectedTokens && hasUserInputAmount);
+}
+
 export function buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
   selectedAccount?: ISwapSelectedAccountKeySource,
 ) {
@@ -222,6 +245,7 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
   eventPayload,
   hasSelectedTokens,
   initialSelectedTokensSynced,
+  preserveSelectedTokens,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   eventPayload: {
@@ -231,7 +255,12 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
   };
   hasSelectedTokens?: boolean;
   initialSelectedTokensSynced: boolean;
+  preserveSelectedTokens?: boolean;
 }) {
+  if (preserveSelectedTokens) {
+    return false;
+  }
+
   if (initialSelectedTokensSynced) {
     return false;
   }
@@ -479,15 +508,21 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   hasSelectedTokens,
   homeSelectedAccount,
   initialSelectedTokensSynced,
+  preserveSelectedTokens,
   swapSelectedAccount,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
   initialSelectedTokensSynced?: boolean;
+  preserveSelectedTokens?: boolean;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
 }) {
   if (!hasSelectedTokens) {
+    return false;
+  }
+
+  if (preserveSelectedTokens) {
     return false;
   }
 
@@ -584,6 +619,7 @@ export function getSwapSelectedTokensColdStartContextNetworkId({
 export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
   activeAccount,
   fromToken,
+  preserveSelectedTokens,
   selectedTokensColdStartContext,
   toToken,
 }: {
@@ -591,10 +627,14 @@ export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
     typeof buildSwapSelectedTokensColdStartContext
   >[0]['activeAccount'];
   fromToken?: ISwapToken;
+  preserveSelectedTokens?: boolean;
   selectedTokensColdStartContext?: ISwapSelectedTokensColdStartContext;
   toToken?: ISwapToken;
 }) {
   if (!fromToken && !toToken) {
+    return true;
+  }
+  if (preserveSelectedTokens) {
     return true;
   }
   if (!selectedTokensColdStartContext) {

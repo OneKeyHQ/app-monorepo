@@ -49,6 +49,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import { shouldPreserveSwapUserInputOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -127,6 +128,9 @@ export function useSwapQuote() {
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
+  const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    toTokenAmount,
+  );
 
   const swapSlippageRef = useRef(slippageItem);
   const slippageKeyLastRef = useRef(slippageItem.key);
@@ -142,6 +146,12 @@ export function useSwapQuote() {
     fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
   ) {
     fromTokenAmountRef.current = fromTokenAmount;
+  }
+  if (
+    toTokenAmountRef.current?.value !== toTokenAmount.value ||
+    toTokenAmountRef.current?.isInput !== toTokenAmount.isInput
+  ) {
+    toTokenAmountRef.current = toTokenAmount;
   }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
     swapToAddressInfoRef.current = swapToAddressInfo;
@@ -770,12 +780,22 @@ export function useSwapQuote() {
                 swapQuoteEventTotalCountRef.current.count)
           ) {
             // reset tab quote data when swap modal is open and tab quote data is fetching
+            const shouldPreserveUserInputAmount =
+              shouldPreserveSwapUserInputOnAccountSwitch({
+                fromTokenAmount: fromTokenAmountRef.current,
+                hasSelectedTokens: Boolean(
+                  fromTokenRef.current || toTokenRef.current,
+                ),
+                toTokenAmount: toTokenAmountRef.current,
+              });
             closeQuoteEvent();
             setSwapQuoteEventTotalCount({
               count: 0,
             });
             setSwapQuoteResultList([]);
-            setFromTokenAmount({ value: '', isInput: true });
+            if (!shouldPreserveUserInputAmount) {
+              setFromTokenAmount({ value: '', isInput: true });
+            }
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);
