@@ -280,6 +280,33 @@ function SideButtonInternal({
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
+  const handleDepositFromToast = useCallback(() => {
+    void showDepositWithdrawModal('deposit');
+  }, [showDepositWithdrawModal]);
+  const showNoEnoughMarginToast = useCallback(
+    (latestIsSpot: boolean) => {
+      Toast.error({
+        title: intl.formatMessage({
+          id: latestIsSpot
+            ? ETranslations.dexmarket_insufficient_balance
+            : ETranslations.perp_insufficient_margin__title,
+        }),
+        actions: (
+          <Button
+            testID={PerpTestIDs.MarginToastDepositButton}
+            size="small"
+            variant="primary"
+            onPress={handleDepositFromToast}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </Button>
+        ),
+        actionsAlign: 'left',
+        toastId: `perp-no-enough-margin-${latestIsSpot ? 'spot' : 'perp'}`,
+      });
+    },
+    [handleDepositFromToast, intl],
+  );
   const perpsAccountKey = useMemo(
     () => getPerpsAccountKey(perpsAccount),
     [perpsAccount],
@@ -403,7 +430,6 @@ function SideButtonInternal({
   const hasNonColdStartDisabledReason = useMemo(
     () =>
       Boolean(
-        (!shouldAutoEnableTrading && isNoEnoughMargin) ||
         (!perpsAccountStatus.canTrade && !shouldEnableTradingBeforeOrder) ||
         isSubmitting ||
         priceError === 'bbo_unavailable' ||
@@ -411,11 +437,9 @@ function SideButtonInternal({
       ),
     [
       perpsAccountStatus.canTrade,
-      isNoEnoughMargin,
       isServerActionDisabled,
       isSubmitting,
       priceError,
-      shouldAutoEnableTrading,
       shouldEnableTradingBeforeOrder,
     ],
   );
@@ -520,12 +544,6 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
       });
-    if (!shouldEnableTradingBeforeOrder && isNoEnoughMargin)
-      return intl.formatMessage({
-        id: isSpot
-          ? ETranslations.dexmarket_insufficient_balance
-          : ETranslations.perp_trading_button_no_enough_margin,
-      });
     if (isSpot) {
       if (!spotTradeSymbol) {
         return side === 'long'
@@ -556,7 +574,6 @@ function SideButtonInternal({
   }, [
     priceError,
     formData.orderMode,
-    isNoEnoughMargin,
     isSpot,
     side,
     spotTradeSymbol,
@@ -641,6 +658,7 @@ function SideButtonInternal({
         effectivePriceBN: latestEffectivePriceBN,
         formData: latestFormData,
         isMinimumOrderNotMetForSide: latestIsMinimumOrderNotMetForSide,
+        isNoEnoughMargin: latestIsNoEnoughMargin,
         isSpot: latestIsSpot,
         isScaleMode: latestIsScaleMode,
         isTriggerMode: latestIsTriggerMode,
@@ -841,6 +859,11 @@ function SideButtonInternal({
         return false;
       }
 
+      if (latestIsNoEnoughMargin) {
+        showNoEnoughMarginToast(latestIsSpot);
+        return false;
+      }
+
       if (latestIsScaleMode) {
         const legs = buildScaleOrderLegs({
           totalSize: latestComputedSizeForSide.toFixed(),
@@ -1014,7 +1037,7 @@ function SideButtonInternal({
 
       return true;
     },
-    [intl],
+    [intl, showNoEnoughMarginToast],
   );
 
   const requestOrderPanelEnableTrading = useCallback(
@@ -1163,13 +1186,7 @@ function SideButtonInternal({
             isDepositRequired,
           })
         ) {
-          Toast.message({
-            title: intl.formatMessage({
-              id: preEnableOrderPanelState.isSpot
-                ? ETranslations.dexmarket_insufficient_balance
-                : ETranslations.perp_trading_button_no_enough_margin,
-            }),
-          });
+          showNoEnoughMarginToast(preEnableOrderPanelState.isSpot);
           return;
         }
 
@@ -1205,13 +1222,7 @@ function SideButtonInternal({
           return;
         }
         if (postEnableTradingResult === 'noEnoughMargin') {
-          Toast.message({
-            title: intl.formatMessage({
-              id: postEnableState.isSpot
-                ? ETranslations.dexmarket_insufficient_balance
-                : ETranslations.perp_trading_button_no_enough_margin,
-            }),
-          });
+          showNoEnoughMarginToast(postEnableState.isSpot);
           return;
         }
       }
@@ -1497,7 +1508,6 @@ function SideButtonInternal({
           disabledStyle={
             shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
           }
-          loading={shouldShowButtonLoading}
           onPress={handlePress}
           h={36}
           py={
@@ -1544,7 +1554,6 @@ function SideButtonInternal({
         disabledStyle={
           shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
         }
-        loading={shouldShowButtonLoading}
         onPress={handlePress}
         h={36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
@@ -1987,7 +1996,6 @@ function EmptySizeSideButton({
       disabledStyle={
         shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
       }
-      loading={shouldShowButtonLoading || isSubmitting}
       onPress={handlePress}
       h={36}
     >

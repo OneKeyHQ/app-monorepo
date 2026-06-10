@@ -590,6 +590,7 @@ const ManagePositionPart = ({
   tokenImageUri,
   accountId,
   indexedAccountId,
+  suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: {
@@ -600,6 +601,7 @@ const ManagePositionPart = ({
   tokenImageUri?: string;
   accountId: string;
   indexedAccountId?: string;
+  suppressPlatformBonus?: boolean;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
 }) => {
@@ -615,6 +617,7 @@ const ManagePositionPart = ({
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={tokenImageUri}
+          suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
@@ -884,6 +887,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               tokenImageUri={tokenInfo?.token?.logoURI}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
+              suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
             />
