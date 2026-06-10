@@ -121,7 +121,7 @@ const LedgerAppOpsTester = () => {
     setBusy(true);
     try {
       const res =
-        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListInstalledApps(
+        (await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareListInstalledApps(
           { vendor: EHardwareVendor.ledger, connectId },
         )) as { success: boolean; payload: unknown };
       if (res.success) {
@@ -142,7 +142,7 @@ const LedgerAppOpsTester = () => {
     setBusy(true);
     try {
       const res =
-        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareListAvailableApps(
+        (await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareListAvailableApps(
           { vendor: EHardwareVendor.ledger, connectId },
         )) as { success: boolean; payload: unknown };
       if (res.success) {
@@ -170,11 +170,13 @@ const LedgerAppOpsTester = () => {
     appendLog(`installApp ${appName} → start`);
     try {
       const res =
-        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareInstallApp({
-          vendor: EHardwareVendor.ledger,
-          connectId,
-          appName,
-        })) as { success: boolean; payload: unknown };
+        (await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareInstallApp(
+          {
+            vendor: EHardwareVendor.ledger,
+            connectId,
+            appName,
+          },
+        )) as { success: boolean; payload: unknown };
       if (res.success) {
         appendLog(`installApp ${appName} → SUCCESS`);
         setProgress(1);
@@ -197,7 +199,7 @@ const LedgerAppOpsTester = () => {
     setBusy(true);
     try {
       const res =
-        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetFirmwareVersion(
+        (await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareGetFirmwareVersion(
           { vendor: EHardwareVendor.ledger, connectId },
         )) as { success: boolean; payload: unknown };
       if (res.success) {
@@ -220,7 +222,7 @@ const LedgerAppOpsTester = () => {
     setBusy(true);
     try {
       const res =
-        (await backgroundApiProxy.serviceHardware.thirdPartyHardwareGetDeviceInfo(
+        (await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareGetDeviceInfo(
           { vendor: EHardwareVendor.ledger, connectId },
         )) as { success: boolean; payload: unknown };
       if (res.success) {
@@ -239,10 +241,12 @@ const LedgerAppOpsTester = () => {
 
   const handleCancel = async () => {
     if (!connectId) return;
-    await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
-      vendor: EHardwareVendor.ledger,
-      connectId,
-    });
+    await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+      {
+        vendor: EHardwareVendor.ledger,
+        connectId,
+      },
+    );
     appendLog('cancel sent');
   };
 

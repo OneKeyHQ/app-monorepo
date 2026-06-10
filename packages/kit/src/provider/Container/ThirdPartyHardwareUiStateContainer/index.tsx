@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core';
+import { UI_RESPONSE } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -45,16 +45,19 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { EnterPhase } from '../../../components/Hardware/Hardware';
 import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '../../../components/Hardware/HardwareDialog';
+import { showTrezorBleBindingDialog } from '../../../components/Hardware/TrezorBleBindingDialog';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
+  createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
@@ -372,6 +375,12 @@ function getToastLabel(
       return intl.formatMessage({
         id: ETranslations.hardware_searching_for_device,
       });
+    case EThirdPartyHardwareUiAction.connecting:
+      return intl.formatMessage({ id: ETranslations.connecting_your_device });
+    case EThirdPartyHardwareUiAction.processing:
+      return intl.formatMessage({ id: ETranslations.global_processing });
+    case EThirdPartyHardwareUiAction.done:
+      return intl.formatMessage({ id: ETranslations.global_done });
     case EThirdPartyHardwareUiAction.confirmOnDevice:
     default:
       return intl.formatMessage({
@@ -517,16 +526,20 @@ function getDialogContent(
         message: `Enter the pairing code shown on your ${device}.`,
         showFooter: true,
       };
+    case EThirdPartyHardwareUiAction.requestTrezorPassphrase:
+      return {
+        title: intl.formatMessage({
+          id: payload?.passphraseState
+            ? ETranslations.global_enter_passphrase
+            : ETranslations.global_add_hidden_wallet,
+        }),
+        message: '',
+        showFooter: false,
+      };
     default:
       return { title: '', message: '', showFooter: false };
   }
 }
-
-const REQUEST_ACTIONS = new Set([
-  EThirdPartyHardwareUiAction.requestDeviceNotFound,
-  EThirdPartyHardwareUiAction.requestBtcHighIndexConfirm,
-  EThirdPartyHardwareUiAction.requestTrezorThpPairing,
-]);
 
 function ThirdPartyHardwareUiStateContainerCmp() {
   const intl = useIntl();
@@ -553,6 +566,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   }, [currentAction]);
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const bleBindingDialogInstanceRef = useRef<IDialogInstance | null>(null);
+  const bleBindingSettledRef = useRef(false);
   const permissionDialogInstanceRef = useRef<IDialogInstance | null>(null);
   const installDialogInstanceRef = useRef<IDialogInstance | null>(null);
   // Deferred-close timer so a rapid next-chain request reuses the same dialog.
@@ -617,7 +632,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   );
 
   const isToastAction = isThirdPartyToastAction(uiState?.action);
-  const isDialogAction = !!uiState && !isToastAction;
+  const isTrezorBleBinding =
+    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorBleBinding;
+  const isDialogAction = !!uiState && !isToastAction && !isTrezorBleBinding;
 
   // Programmatic closes pass autoClosed; unflagged closes come from user exits.
   const handleToastClose = useCallback(async () => undefined, []);
@@ -636,11 +653,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       await cancelThirdPartyHardwareUiRequest({
         state: uiStateRef.current,
         uiResponse: (requestParams) =>
-          backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
+          backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
             requestParams,
           ),
         cancel: (requestParams) =>
-          backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel(
+          backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
             requestParams,
           ),
         clearState: clearCurrentUiState,
@@ -652,6 +669,38 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const handlePermissionDialogClose = useCallback(async () => {
     await clearCurrentUiState();
   }, [clearCurrentUiState]);
+
+  useEffect(() => {
+    if (!isTrezorBleBinding) {
+      return;
+    }
+    const { usbConnectId, featuresDeviceId, promiseId } =
+      uiState?.payload ?? {};
+    if (!usbConnectId || !featuresDeviceId || !promiseId) {
+      void clearCurrentUiState();
+      return;
+    }
+    if (bleBindingDialogInstanceRef.current) {
+      return;
+    }
+
+    bleBindingSettledRef.current = false;
+    const callbacks = createTrezorBleBindingDialogCallbacks({
+      promiseId,
+      dialogInstanceRef: bleBindingDialogInstanceRef,
+      settledRef: bleBindingSettledRef,
+      resolveCallback: (requestParams) =>
+        backgroundApiProxy.servicePromise.resolveCallback(requestParams),
+      clearState: clearCurrentUiState,
+    });
+    const instance = showTrezorBleBindingDialog({
+      usbConnectId,
+      featuresDeviceId,
+      onBound: callbacks.onBound,
+      onClose: callbacks.onClose,
+    });
+    bleBindingDialogInstanceRef.current = instance;
+  }, [clearCurrentUiState, isTrezorBleBinding, uiState?.payload]);
 
   useEffect(() => {
     const callback = async ({
@@ -690,11 +739,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
       await cancelThirdPartyHardwareUiRequest({
         state: uiStateRef.current,
         uiResponse: (requestParams) =>
-          backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse(
+          backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
             requestParams,
           ),
         cancel: (requestParams) =>
-          backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel(
+          backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
             requestParams,
           ),
         clearState: clearCurrentUiState,
@@ -717,10 +766,12 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           : undefined;
       const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
       if (response) {
-        await backgroundApiProxy.serviceHardware.thirdPartyHardwareUiResponse({
-          vendor,
-          response,
-        });
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+          {
+            vendor,
+            response,
+          },
+        );
       }
     }
     await clearCurrentUiState();
@@ -728,10 +779,85 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const isThpPairing =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorThpPairing;
+  const isTrezorPassphrase =
+    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPassphrase;
+
+  const sendTrezorPassphraseResponse = useCallback(
+    async ({
+      passphrase,
+      passphraseOnDevice,
+      save,
+      hideImmediately,
+    }: {
+      passphrase?: string;
+      passphraseOnDevice: boolean;
+      save: boolean;
+      hideImmediately: boolean;
+    }) => {
+      const vendor = uiStateRef.current?.vendor;
+      const action = uiStateRef.current?.action;
+      if (
+        !vendor ||
+        action !== EThirdPartyHardwareUiAction.requestTrezorPassphrase
+      ) {
+        return;
+      }
+      if (!uiStateRef.current?.payload?.passphraseState) {
+        await backgroundApiProxy.serviceSetting.setHiddenWalletImmediately(
+          hideImmediately,
+        );
+      }
+      const response = buildThirdPartyHardwareUiResponse(action, true, {
+        passphrase,
+        passphraseOnDevice,
+        save,
+      });
+      if (response) {
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+          {
+            vendor,
+            response,
+          },
+        );
+      }
+      await clearCurrentUiState();
+    },
+    [clearCurrentUiState],
+  );
 
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
     const { message } = getDialogContent(uiState, intl);
+    if (isTrezorPassphrase) {
+      return (
+        <EnterPhase
+          isVerifyMode={!!uiState.payload?.passphraseState}
+          allowUseAttachPin={false}
+          onConfirm={async ({ passphrase, save, hideImmediately }) => {
+            await sendTrezorPassphraseResponse({
+              passphrase,
+              passphraseOnDevice: false,
+              save,
+              hideImmediately,
+            });
+          }}
+          switchOnDevice={async ({ hideImmediately }) => {
+            await sendTrezorPassphraseResponse({
+              passphraseOnDevice: true,
+              save: true,
+              hideImmediately,
+            });
+          }}
+          switchOnDeviceAttachPin={async ({ hideImmediately }) => {
+            await sendTrezorPassphraseResponse({
+              passphraseOnDevice: true,
+              save: true,
+              hideImmediately,
+            });
+          }}
+        />
+      );
+    }
     return (
       <YStack gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -739,6 +865,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         </SizableText>
         {isThpPairing ? (
           <Input
+            testID="third-party-hw-trezor-thp-pairing-input"
             value={thpTagInput}
             onChangeText={setThpTagInput}
             placeholder="Pairing code"
@@ -750,7 +877,15 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         ) : null}
       </YStack>
     );
-  }, [uiState, isToastAction, intl, isThpPairing, thpTagInput]);
+  }, [
+    uiState,
+    isToastAction,
+    intl,
+    isTrezorPassphrase,
+    isThpPairing,
+    sendTrezorPassphraseResponse,
+    thpTagInput,
+  ]);
 
   const dialogTitle = useMemo(() => {
     if (!uiState || isToastAction) return '';
@@ -766,9 +901,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const vendor = uiStateRef.current?.vendor;
     try {
       if (vendor) {
-        await backgroundApiProxy.serviceHardware.thirdPartyHardwareCancel({
-          vendor,
-        });
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareCancel(
+          {
+            vendor,
+          },
+        );
       }
     } finally {
       await clearCurrentUiState();

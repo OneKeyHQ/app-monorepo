@@ -108,6 +108,7 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -195,6 +196,7 @@ import {
   isDefaultBotWalletName,
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
+import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -248,6 +250,33 @@ class ServiceAccount extends ServiceBase {
   }, 600);
 
   private importedAccountKdfProbeIndex = 0;
+
+  private async getFirmwareTypeFromDeviceFeatures({
+    vendor,
+    features,
+  }: {
+    vendor?: EHardwareVendor;
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    const rawFeatureVendor =
+      features && 'vendor' in features
+        ? (features as { vendor?: unknown }).vendor
+        : undefined;
+    const featureVendor =
+      rawFeatureVendor === EHardwareVendor.ledger ||
+      rawFeatureVendor === EHardwareVendor.trezor
+        ? rawFeatureVendor
+        : undefined;
+    const resolvedVendor = vendor ?? featureVendor ?? EHardwareVendor.onekey;
+    if (getVendorProfile(resolvedVendor).isThirdParty) {
+      return thirdPartyDeviceUtils.getFirmwareType({
+        features,
+      });
+    }
+    return deviceUtils.getFirmwareType({
+      features,
+    });
+  }
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -3335,11 +3364,13 @@ class ServiceAccount extends ServiceBase {
     // createHWHiddenWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        const passphraseState =
-          await this.backgroundApi.serviceHardware.getPassphraseState({
-            connectId: compatibleConnectId,
-            forceInputPassphrase: true,
-          });
+        const passphraseState = await getHwHiddenWalletPassphraseState({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+          serviceHardware: this.backgroundApi.serviceHardware,
+          serviceThirdPartyHardware:
+            this.backgroundApi.serviceThirdPartyHardware,
+        });
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
@@ -3497,6 +3528,7 @@ class ServiceAccount extends ServiceBase {
             featuresDeviceId: params.device.deviceId ?? '',
             hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
           });
+
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
@@ -3561,6 +3593,31 @@ class ServiceAccount extends ServiceBase {
       transportType,
     });
     // Third-party chain fingerprints are generated lazily by the keyring via SDK.
+
+    // Trezor: THP pairing credentials were minted while probing the device above
+    // (before this DB record existed) and buffered in the adapter. Now that the
+    // record exists, flush them into its settings so a SW restart auto-connects.
+    // Best-effort — a miss just means re-pairing on next boot, never a failure.
+    if (vendor === EHardwareVendor.trezor) {
+      try {
+        defaultLogger.hardware.sdkLog.log(
+          `[TrezorTHPTrace][serviceAccount.persist] ${JSON.stringify({
+            connectId: params.device.connectId,
+            rawDeviceId: deviceId,
+            paramsDeviceId: params.device.deviceId,
+            featuresDeviceId: features.device_id,
+          })}`,
+        );
+        await this.backgroundApi.serviceThirdPartyHardware.persistTrezorThpCredentials(
+          {
+            connectId: params.device.connectId ?? undefined,
+            deviceId,
+          },
+        );
+      } catch {
+        // ignore — credential persistence is non-critical to wallet creation.
+      }
+    }
 
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -7373,7 +7430,7 @@ class ServiceAccount extends ServiceBase {
     }) => {
       let firmwareType: EFirmwareType | undefined;
       if (featuresInfo) {
-        firmwareType = await deviceUtils.getFirmwareType({
+        firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
           features: featuresInfo,
         });
       } else {
@@ -7382,7 +7439,8 @@ class ServiceAccount extends ServiceBase {
             walletId,
           });
         if (walletDevice) {
-          firmwareType = await deviceUtils.getFirmwareType({
+          firmwareType = await this.getFirmwareTypeFromDeviceFeatures({
+            vendor: walletDevice.vendor,
             features: walletDevice.featuresInfo,
           });
         }
@@ -7397,7 +7455,11 @@ class ServiceAccount extends ServiceBase {
         const fwVendor = options.featuresInfo?.fw_vendor || '';
         const capabilities =
           options.featuresInfo?.capabilities?.join(',') ?? '';
-        return `${options.walletId}-${fwVendor}-${capabilities}`;
+        const unitBtcOnly = String(
+          (options.featuresInfo as { unit_btconly?: boolean } | undefined)
+            ?.unit_btconly ?? '',
+        );
+        return `${options.walletId}-${fwVendor}-${capabilities}-${unitBtcOnly}`;
       },
       maxAge: timerUtils.getTimeDurationMs({ seconds: 60 }),
       max: 5,

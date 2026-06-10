@@ -1,4 +1,4 @@
-import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 

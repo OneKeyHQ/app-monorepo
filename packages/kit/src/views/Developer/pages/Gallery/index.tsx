@@ -90,6 +90,10 @@ const LedgerAppOpsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LedgerAppOps'),
 );
+const TrezorMultiTransportGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TrezorMultiTransport'),
+);
 const IconGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Icon'),
@@ -694,6 +698,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLedgerAppOps,
     component: LedgerAppOpsGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentTrezorMultiTransport,
+    component: TrezorMultiTransportGallery,
   },
   {
     name: EGalleryRoutes.ComponentImage,

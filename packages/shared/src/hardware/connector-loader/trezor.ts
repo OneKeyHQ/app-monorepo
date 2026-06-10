@@ -4,9 +4,8 @@ import type { IConnector } from '@onekeyfe/hwk-adapter-core';
 // offscreen build so credentials minted in one environment can be replayed
 // in the other (same hostName + appName).
 export const createTrezorConnector = async (): Promise<IConnector> => {
-  const { createTrezorWebUsbConnector } = await import(
-    '@onekeyfe/hwk-trezor-connector-webusb'
-  );
+  const { createTrezorWebUsbConnector } =
+    await import('@onekeyfe/hwk-trezor-connector-webusb');
   return createTrezorWebUsbConnector({
     thp: {
       hostName: 'OneKey',

@@ -118,6 +118,25 @@ config.resolver.unstable_enablePackageExports = false;
 
 // Manual alias for a subpath export when package exports are disabled.
 const hyperliquidSigningPath = require.resolve('@nktkas/hyperliquid/signing');
+
+// OneKey HWK SDK sub-path aliases. With
+// `unstable_enablePackageExports=false` above, Metro can't read the `exports`
+// map in the SDK packages, so each sub-path consumer apps import (e.g.
+// `@onekeyfe/hwk-adapter-core/errors`) needs an explicit redirect. We
+// `require.resolve` here in Node-land where the `exports` map IS honored, so
+// the target file path is correct.
+//
+// When the SDK adds new sub-paths (or `unstable_enablePackageExports` becomes
+// safe to enable globally), append/remove entries from this array.
+const HWK_SUBPATH_ALIASES = [
+  '@onekeyfe/hwk-adapter-core/errors',
+  '@onekeyfe/hwk-adapter-core/ui-events',
+  '@onekeyfe/hwk-trezor-connector-webusb/constants',
+];
+const hwkSubpathAliasMap = new Map(
+  HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
+);
+
 // In production builds, redirect Developer/router to an empty stub so that
 // Gallery pages and all their background-only transitive dependencies
 // (core/chains, kit-bg/vaults, qr-wallet-sdk, bitcoinjs-lib, etc.) are
@@ -154,6 +173,14 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     return {
       type: 'sourceFile',
       filePath: hyperliquidSigningPath,
+    };
+  }
+  // OneKey HWK SDK sub-path resolution (see HWK_SUBPATH_ALIASES above).
+  const hwkAliasPath = hwkSubpathAliasMap.get(moduleName);
+  if (hwkAliasPath) {
+    return {
+      type: 'sourceFile',
+      filePath: hwkAliasPath,
     };
   }
   // Strip Developer/Gallery from production union builds

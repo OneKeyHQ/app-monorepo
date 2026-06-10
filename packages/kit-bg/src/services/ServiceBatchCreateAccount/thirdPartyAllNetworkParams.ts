@@ -57,6 +57,41 @@ export function normalizeThirdPartyAllNetworkBundle(
   return bundle.map(normalizeItem);
 }
 
+export function attachTrezorAllNetworkPassphraseState({
+  bundle,
+  passphraseState,
+}: {
+  bundle: AllNetworkAddressParams[];
+  passphraseState?: string;
+}): boolean {
+  if (!passphraseState) {
+    return false;
+  }
+  for (const item of bundle) {
+    (
+      item as AllNetworkAddressParams & { passphraseState?: string }
+    ).passphraseState = passphraseState;
+  }
+  return true;
+}
+
+export function shouldUseThirdPartyAllNetworkGetAddress({
+  isThirdPartyWallet,
+  supportsAllNetworkGetAddress,
+  hasAllNetworkGetAddress,
+}: {
+  isThirdPartyWallet: boolean;
+  isVerifyAddressAction?: boolean;
+  supportsAllNetworkGetAddress?: boolean;
+  hasAllNetworkGetAddress?: boolean;
+}): boolean {
+  return (
+    isThirdPartyWallet &&
+    !!supportsAllNetworkGetAddress &&
+    !!hasAllNetworkGetAddress
+  );
+}
+
 function getLedgerFingerprintChain(
   item: AllNetworkAddressParams,
 ): ChainForFingerprint | undefined {

@@ -149,6 +149,9 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.BlePairingTimeout:
       return new ThirdPartyErrors.ThirdPartyBlePairingTimeout(props);
 
+    case ThirdPartyHwErrorCode.ThpPairingFailed:
+      return new ThirdPartyErrors.ThirdPartyThpPairingFailed(props);
+
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
 

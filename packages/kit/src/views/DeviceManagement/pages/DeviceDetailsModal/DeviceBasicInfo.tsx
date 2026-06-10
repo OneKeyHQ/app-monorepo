@@ -58,9 +58,11 @@ function DeviceWalletRenameButton({
 }
 
 function DeviceBasicInfo({
-  showDeviceStatus = true,
+  showFirmwareVersion = true,
+  showDeviceVerification = true,
 }: {
-  showDeviceStatus?: boolean;
+  showFirmwareVersion?: boolean;
+  showDeviceVerification?: boolean;
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -127,30 +129,32 @@ function DeviceBasicInfo({
               {deviceMetaStatic.deviceName}
             </SizableText>
           ) : null}
-          {isQrWallet || !showDeviceStatus ? null : (
+          {isQrWallet || !showFirmwareVersion ? null : (
             <XStack mt="$4" gap="$2">
               <Badge badgeSize="sm" badgeType="default">
                 {deviceMetaStatic.firmwareVersionDisplay}
               </Badge>
-              <Badge
-                badgeSize="sm"
-                badgeType={deviceVerifiedBadge.verifiedBadgeType}
-                userSelect="none"
-              >
-                <XStack ai="center" gap="$1.5">
-                  <Icon
-                    name={deviceVerifiedBadge.verifiedBadgeIconName}
-                    color={deviceVerifiedBadge.verifiedBadgeIconColor}
-                    size="$4"
-                  />
-                  <SizableText
-                    size="$bodySmMedium"
-                    color={deviceVerifiedBadge.verifiedBadgeTextColor}
-                  >
-                    {deviceVerifiedBadge.verifiedBadgeText}
-                  </SizableText>
-                </XStack>
-              </Badge>
+              {showDeviceVerification ? (
+                <Badge
+                  badgeSize="sm"
+                  badgeType={deviceVerifiedBadge.verifiedBadgeType}
+                  userSelect="none"
+                >
+                  <XStack ai="center" gap="$1.5">
+                    <Icon
+                      name={deviceVerifiedBadge.verifiedBadgeIconName}
+                      color={deviceVerifiedBadge.verifiedBadgeIconColor}
+                      size="$4"
+                    />
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={deviceVerifiedBadge.verifiedBadgeTextColor}
+                    >
+                      {deviceVerifiedBadge.verifiedBadgeText}
+                    </SizableText>
+                  </XStack>
+                </Badge>
+              ) : null}
             </XStack>
           )}
         </YStack>

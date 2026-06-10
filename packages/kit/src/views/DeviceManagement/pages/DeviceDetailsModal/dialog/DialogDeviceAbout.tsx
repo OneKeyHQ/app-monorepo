@@ -13,9 +13,12 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 const VERSION_PLACEHOLDER = '--';
 
@@ -109,20 +112,43 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         return defaultDeviceInfo;
       }
 
-      const versions = await deviceUtils.getDeviceVersion({
-        device,
-        features: device.featuresInfo,
-      });
+      const profile = getVendorProfile(device.vendor ?? EHardwareVendor.onekey);
+      const versions = profile.isThirdParty
+        ? thirdPartyDeviceUtils.getDeviceVersion({
+            device,
+            features: device.featuresInfo,
+          })
+        : await deviceUtils.getDeviceVersion({
+            device,
+            features: device.featuresInfo,
+          });
 
-      const model = await deviceUtils.buildDeviceLabel({
-        features: device.featuresInfo,
-        buildModelName: true,
-      });
+      const features = device.featuresInfo as typeof device.featuresInfo & {
+        internal_model?: string;
+        model?: string;
+      };
+      const model = profile.isThirdParty
+        ? thirdPartyDeviceUtils.getDeviceModelName({
+            device,
+            features,
+            defaultDeviceName: profile.defaultDeviceName,
+          })
+        : await deviceUtils.buildDeviceLabel({
+            features: device.featuresInfo,
+            buildModelName: true,
+          });
 
-      const firmwareTypeLabel = await deviceUtils.getFirmwareTypeLabel({
-        features: device?.featuresInfo,
-        displayFormat: 'withSpace',
-      });
+      const firmwareTypeLabel = profile.isThirdParty
+        ? deviceUtils.getFirmwareTypeLabelByFirmwareType({
+            firmwareType: thirdPartyDeviceUtils.getFirmwareType({
+              features: device?.featuresInfo,
+            }),
+            displayFormat: 'withSpace',
+          })
+        : await deviceUtils.getFirmwareTypeLabel({
+            features: device?.featuresInfo,
+            displayFormat: 'withSpace',
+          });
       const firmwareVersion = `${firmwareTypeLabel}${getDisplayVersion(
         versions?.firmwareVersion,
       )}`;
@@ -134,7 +160,9 @@ function DialogDeviceSpecsContent({ data }: { data: IHwQrWalletWithDevice }) {
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion,
         serialNumber:
-          deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ??
+          (profile.isThirdParty
+            ? thirdPartyDeviceUtils.getSerialNo(device.featuresInfo)
+            : deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo)) ??
           VERSION_PLACEHOLDER,
         certifications: [
           EDeviceType.Pro,

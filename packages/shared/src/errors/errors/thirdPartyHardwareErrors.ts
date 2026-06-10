@@ -281,6 +281,26 @@ export class ThirdPartyBlePairingTimeout extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.BlePairingTimeout;
 }
 
+/**
+ * Trezor THP pairing handshake was rejected by the device — typically a
+ * mistyped CodeEntry code ("Unexpected Code Entry Tag"). Recoverable: the user
+ * re-pairs and re-enters the code. Distinct from BlePairingTimeout (BLE bonding
+ * window) and UserRejected (on-device reject).
+ */
+export class ThirdPartyThpPairingFailed extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.global_connet_error_try_again,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.ThpPairingFailed;
+}
+
 /** Chain has no keyring impl for this vendor (e.g. Ledger doesn't support Aptos). */
 export class ThirdPartyChainNotSupported extends ThirdPartyHardwareError {
   constructor(
@@ -318,6 +338,26 @@ export class ThirdPartyMethodNotSupported extends ThirdPartyHardwareError {
         defaultAutoToast: true,
       }),
     );
+  }
+
+  override code = ThirdPartyHwErrorCode.MethodNotSupported;
+}
+
+/**
+ * Device has passphrase (hidden wallet) protection enabled, which isn't
+ * supported yet. The user must disable passphrase on-device before creating a
+ * wallet. Reuses the MethodNotSupported code — this is a "this configuration
+ * isn't supported" rejection — but carries the "Disable Passphrase" guidance.
+ */
+export class ThirdPartyPassphraseEnabled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.global_disable_passphrase,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
   }
 
   override code = ThirdPartyHwErrorCode.MethodNotSupported;

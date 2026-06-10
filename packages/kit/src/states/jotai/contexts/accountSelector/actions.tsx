@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core/errors';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 

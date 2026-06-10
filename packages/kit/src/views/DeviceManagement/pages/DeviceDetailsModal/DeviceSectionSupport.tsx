@@ -18,11 +18,15 @@ import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
 function DeviceSectionSupport({
   onPressCheckForUpdates,
+  showFirmwareVerify = true,
+  showFirmwareUpdate = true,
 }: {
   onPressCheckForUpdates: (
     firmwareType?: EFirmwareType,
     baseReleaseInfo?: AllFirmwareRelease,
   ) => void;
+  showFirmwareVerify?: boolean;
+  showFirmwareUpdate?: boolean;
 }) {
   const intl = useIntl();
   const { pushToTroubleshooting } = useDeviceManagerNavigation();
@@ -75,27 +79,31 @@ function DeviceSectionSupport({
         onPress={onPressAboutDevice}
         testID={DeviceManagementTestIDs.aboutDeviceItem}
       />
-      <ListItem
-        key="authRequest"
-        title={intl.formatMessage({
-          id: ETranslations.device_auth_request_title,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={onPressAuthRequest}
-        isLoading={isFirmwareVerifyDialogLoading}
-        testID={DeviceManagementTestIDs.authRequestItem}
-      />
-      <ListItem
-        key="checkForUpdates"
-        title={intl.formatMessage({
-          id: ETranslations.global_check_for_updates,
-        })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
-        drillIn
-        onPress={() => onPressCheckForUpdates()}
-        testID={DeviceManagementTestIDs.checkForUpdatesItem}
-      />
+      {showFirmwareVerify ? (
+        <ListItem
+          key="authRequest"
+          title={intl.formatMessage({
+            id: ETranslations.device_auth_request_title,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={onPressAuthRequest}
+          isLoading={isFirmwareVerifyDialogLoading}
+          testID={DeviceManagementTestIDs.authRequestItem}
+        />
+      ) : null}
+      {showFirmwareUpdate ? (
+        <ListItem
+          key="checkForUpdates"
+          title={intl.formatMessage({
+            id: ETranslations.global_check_for_updates,
+          })}
+          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          drillIn
+          onPress={() => onPressCheckForUpdates()}
+          testID={DeviceManagementTestIDs.checkForUpdatesItem}
+        />
+      ) : null}
       <ListItem
         key="troubleshooting"
         title={intl.formatMessage({

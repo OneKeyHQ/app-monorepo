@@ -65,7 +65,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         }
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
         if (!adapter) {
@@ -127,7 +127,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -183,7 +183,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {

@@ -33,6 +33,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -106,7 +107,7 @@ export function AccountSelectorWalletListSideBar({
 
   // Detect connected hardware wallets via WebUSB
   // Note: connectedDevices reference is stable - only changes when device list actually changes
-  const { connectedDevices } = useHardwareWalletConnectStatus();
+  const { isWalletConnected } = useHardwareWalletConnectStatus();
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -313,6 +314,9 @@ export function AccountSelectorWalletListSideBar({
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
       let shouldShowCreateHiddenWalletButton = false;
       noop(reloadWalletsHook);
+      const isThirdPartyHwWallet = getVendorProfile(
+        wallet?.associatedDeviceInfo?.vendor,
+      ).isThirdParty;
       if (
         wallet &&
         accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
@@ -328,8 +332,9 @@ export function AccountSelectorWalletListSideBar({
           !accountUtils.isQrWallet({
             walletId: wallet.id,
           }) &&
-          (wallet?.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
-            true ||
+          ((!isThirdPartyHwWallet &&
+            wallet?.associatedDeviceInfo?.featuresInfo
+              ?.passphrase_protection === true) ||
             (wallet?.hiddenWallets?.length ?? 0) > 0)
         ) {
           shouldShowCreateHiddenWalletButton = true;
@@ -406,13 +411,11 @@ export function AccountSelectorWalletListSideBar({
       }
 
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const deviceId = wallet.associatedDeviceInfo?.deviceId;
-      const isConnected =
-        isHwWallet && deviceId ? connectedDevices.has(deviceId) : false;
+      const isConnected = isHwWallet ? isWalletConnected(wallet) : false;
       map.set(wallet.id, isConnected);
     });
     return map;
-  }, [wallets, connectedDevices]);
+  }, [wallets, isWalletConnected]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   const shouldHideWalletList =

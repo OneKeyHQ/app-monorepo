@@ -77,9 +77,8 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         // device shows `hostName` on the pairing screen, so consistency
         // across SW restarts matters for credential reuse: same hostName
         // + persisted credentials = autoconnect path skipping CodeEntry.
-        const { createTrezorWebUsbConnector } = await import(
-          '@onekeyfe/hwk-trezor-connector-webusb'
-        );
+        const { createTrezorWebUsbConnector } =
+          await import('@onekeyfe/hwk-trezor-connector-webusb');
         return createTrezorWebUsbConnector({
           thp: {
             hostName: 'OneKey',
@@ -136,9 +135,16 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
 
   async searchDevices(params: {
     vendor: VendorType;
+    options?: { waitForAll?: boolean };
   }): Promise<ConnectorDevice[]> {
     const connector = await this.getConnector(params.vendor);
-    return connector.searchDevices();
+    return (
+      connector as IConnector & {
+        searchDevices(options?: {
+          waitForAll?: boolean;
+        }): Promise<ConnectorDevice[]>;
+      }
+    ).searchDevices(params.options);
   }
 
   async connect(params: {

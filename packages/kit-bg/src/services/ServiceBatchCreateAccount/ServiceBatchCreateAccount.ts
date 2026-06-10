@@ -1,9 +1,11 @@
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
-  type ChainForFingerprint,
-  type ICommonCallParams,
   ORPHAN_ELIGIBLE_ERROR_CODES,
   HardwareErrorCode as ThirdPartyHwErrorCode,
+} from '@onekeyfe/hwk-adapter-core/errors';
+import type {
+  ChainForFingerprint,
+  ICommonCallParams,
 } from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
@@ -57,6 +59,10 @@ import {
   persistLedgerChainFingerprint,
 } from '../../vaults/base/ledgerFingerprintUtils';
 import { thirdPartyCommonCallParamsForCreateScene } from '../../vaults/base/thirdPartyHardwareCommonParams';
+import {
+  buildTrezorBleFallbackOptions,
+  callTrezorWithBleFallback,
+} from '../../vaults/base/trezorTransportUtils';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
@@ -67,9 +73,12 @@ import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkEr
 import {
   type IThirdPartyAllNetworkAddressParams,
   attachLedgerAllNetworkFingerprints,
+  attachTrezorAllNetworkPassphraseState,
   normalizeThirdPartyAllNetworkBundle,
+  shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
 
+import type { IDBDevice } from '../../dbs/local/types';
 import type { IPrimeTransferAtomData } from '../../states/jotai/atoms/prime';
 import type {
   IAccountDeriveTypes,
@@ -135,6 +144,48 @@ type IThirdPartyAllNetworkGetAddressHw = {
 type IThirdPartyAllNetworkGetAddressFn = NonNullable<
   IThirdPartyAllNetworkGetAddressHw['allNetworkGetAddress']
 >;
+
+export function bindThirdPartyAllNetworkGetAddress(
+  thirdPartyHw: IThirdPartyAllNetworkGetAddressHw | undefined,
+): IThirdPartyAllNetworkGetAddressFn | undefined {
+  return thirdPartyHw?.allNetworkGetAddress?.bind(thirdPartyHw);
+}
+
+export function getLedgerAllNetworkDeviceIdentity(
+  payload:
+    | Pick<
+        NonNullable<IHwAllNetworkPrepareAccountsItem['payload']>,
+        'deviceIdentity' | 'chainFingerprint' | 'chainFingerprintChain'
+      >
+    | undefined,
+): { chain: ChainForFingerprint; fingerprint: string } | undefined {
+  const identity = payload?.deviceIdentity;
+  if (
+    identity?.vendor === 'ledger' &&
+    identity.type === 'chainFingerprint' &&
+    isLedgerFingerprintChain(identity.chain) &&
+    identity.value
+  ) {
+    return {
+      chain: identity.chain,
+      fingerprint: identity.value,
+    };
+  }
+
+  const fingerprint = payload?.chainFingerprint;
+  const chain = payload?.chainFingerprintChain;
+  if (
+    typeof fingerprint === 'string' &&
+    fingerprint &&
+    isLedgerFingerprintChain(chain)
+  ) {
+    return {
+      chain,
+      fingerprint,
+    };
+  }
+  return undefined;
+}
 
 export type IBatchBuildAccountsBaseParams = {
   walletId: string;
@@ -816,11 +867,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
     bundleParams,
     vendorName,
     shouldPersistLedgerFingerprints,
+    dbDevice,
+    vendor,
   }: {
     allNetworkGetAddress: IThirdPartyAllNetworkGetAddressFn;
     connectId: string;
     deviceId: string;
     dbDeviceId?: string;
+    dbDevice?: IDBDevice;
+    vendor?: EHardwareVendor;
     commonParams?: IDeviceCommonParams;
     createSceneParams: { isAutoCreateMultiNetwork?: boolean };
     bundleParams: AllNetworkAddressParams[];
@@ -830,11 +885,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const bundle = normalizeThirdPartyAllNetworkBundle(bundleParams);
     const thirdPartyCommonParams =
       thirdPartyCommonCallParamsForCreateScene(createSceneParams);
-    const response = await allNetworkGetAddress(connectId, deviceId, {
+    const requestParams = {
       ...commonParams,
       ...thirdPartyCommonParams,
       bundle,
-    });
+    };
+    const response =
+      vendor === EHardwareVendor.trezor && dbDevice
+        ? await callTrezorWithBleFallback(
+            dbDevice,
+            (targetConnectId) =>
+              allNetworkGetAddress(targetConnectId, deviceId, requestParams),
+            buildTrezorBleFallbackOptions(this.backgroundApi),
+          )
+        : await allNetworkGetAddress(connectId, deviceId, requestParams);
 
     if (!response.success) {
       throw convertThirdPartyDeviceError(response.payload, {
@@ -864,20 +928,14 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const persisted = new Set<ChainForFingerprint>();
     for (const item of items) {
       if (item.success) {
-        const fingerprint = item.payload?.chainFingerprint;
-        const chain = item.payload?.chainFingerprintChain;
-        if (
-          typeof fingerprint === 'string' &&
-          fingerprint &&
-          isLedgerFingerprintChain(chain) &&
-          !persisted.has(chain)
-        ) {
+        const identity = getLedgerAllNetworkDeviceIdentity(item.payload);
+        if (identity && !persisted.has(identity.chain)) {
           await persistLedgerChainFingerprint({
             dbDeviceId,
-            chain,
-            fingerprint,
+            chain: identity.chain,
+            fingerprint: identity.fingerprint,
           });
-          persisted.add(chain);
+          persisted.add(identity.chain);
         }
       }
     }
@@ -923,18 +981,21 @@ class ServiceBatchCreateAccount extends ServiceBase {
       let thirdPartyAllNetworkAdapter: IThirdPartyHardwareAdapter | undefined;
       let thirdPartyHw: IThirdPartyAllNetworkGetAddressHw | undefined;
       if (isThirdPartyWallet) {
-        if (params.isVerifyAddressAction) {
-          return undefined;
-        }
         const adapter =
           await this.backgroundApi.serviceHardware.getAdapterForVendor(
             deviceVendor,
           );
-        if (!adapter?.supportsAllNetworkGetAddress) {
-          return undefined;
-        }
-        thirdPartyHw = adapter.hw as IThirdPartyAllNetworkGetAddressHw;
-        if (!thirdPartyHw.allNetworkGetAddress) {
+        thirdPartyHw = adapter?.hw as
+          | IThirdPartyAllNetworkGetAddressHw
+          | undefined;
+        if (
+          !shouldUseThirdPartyAllNetworkGetAddress({
+            isThirdPartyWallet,
+            isVerifyAddressAction: params.isVerifyAddressAction,
+            supportsAllNetworkGetAddress: adapter?.supportsAllNetworkGetAddress,
+            hasAllNetworkGetAddress: !!thirdPartyHw?.allNetworkGetAddress,
+          })
+        ) {
           return undefined;
         }
         thirdPartyAllNetworkAdapter = adapter;
@@ -1005,6 +1066,15 @@ class ServiceBatchCreateAccount extends ServiceBase {
                 settingsRaw: deviceParams.dbDevice.settingsRaw,
               });
             }
+            if (
+              thirdPartyAllNetworkAdapter?.vendor === EHardwareVendor.trezor
+            ) {
+              attachTrezorAllNetworkPassphraseState({
+                bundle: bundleParams,
+                passphraseState:
+                  deviceParams.deviceCommonParams?.passphraseState,
+              });
+            }
             hwAllNetworkPrepareAccountsResponse.bundleLength =
               bundleParams.length;
 
@@ -1019,7 +1089,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
               [];
             try {
               const thirdPartyAllNetworkGetAddress =
-                thirdPartyHw?.allNetworkGetAddress;
+                bindThirdPartyAllNetworkGetAddress(thirdPartyHw);
               if (
                 thirdPartyAllNetworkAdapter &&
                 thirdPartyAllNetworkGetAddress
@@ -1033,6 +1103,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
                     commonParams: deviceParams.deviceCommonParams,
                     createSceneParams: params,
                     bundleParams,
+                    dbDevice: deviceParams.dbDevice,
+                    vendor: thirdPartyAllNetworkAdapter.vendor,
                     vendorName:
                       vendorProfile.defaultDeviceName ||
                       thirdPartyAllNetworkAdapter.vendor,

@@ -380,15 +380,27 @@ export type IDBAddAccountDerivationParams = {
 };
 
 // ---------------------------------------------- device
+/**
+ * One Trezor THP pairing credential blob. Opaque to the host (shipped back to
+ * the device verbatim on the next handshake) — mirrors `TrezorThpCredentials`
+ * from @onekeyfe/hwk-trezor-core. Persisted per-device in device settings so it
+ * dies with the device record on "forget device".
+ */
+export type ITrezorThpCredential = Record<string, unknown>;
 export type IDBDeviceSettings = {
   inputPinOnSoftware?: boolean;
   inputPinOnSoftwareSupport?: boolean;
   chainFingerprints?: Record<string, string>;
+  // Trezor THP pairing credentials for THIS device (autoconnect without
+  // re-pairing). Lives here so "forget device" clears it automatically.
+  thpCredentials?: ITrezorThpCredential[];
   vendor?: EHardwareVendor;
   /** Third-party device model id from SDK (e.g. 'nanoX'). Used for avatar mapping. */
   vendorModel?: string;
   /** Third-party device human-readable model name (e.g. 'Ledger Nano X'). */
   vendorModelName?: string;
+  /** Third-party firmware version captured at connect time. */
+  vendorFirmwareVersion?: string;
 };
 export type IDBDevice = IDBBaseObjectWithName & {
   features: string; // TODO rename to featuresRaw

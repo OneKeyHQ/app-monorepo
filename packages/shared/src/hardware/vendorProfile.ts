@@ -20,6 +20,22 @@ export interface IHardwareVendorProfile {
   hasPersistentDeviceId(transport: 'usb' | 'ble'): boolean;
   /** Whether this vendor's wallets support cloud sync */
   supportsCloudSync: boolean;
+  /** Whether Device Manager can open the detail page */
+  supportsDeviceManagementDetails: boolean;
+  /** Whether Device Manager can show the About Device support section */
+  supportsDeviceAbout: boolean;
+  /** Whether firmware version should be shown in Device Manager */
+  supportsFirmwareVersionDisplay: boolean;
+  /** Whether OneKey firmware authenticity verification is supported */
+  supportsFirmwareVerify: boolean;
+  /** Whether OneKey firmware update checking is supported */
+  supportsFirmwareUpdate: boolean;
+  /** Whether OneKey device settings sections are supported */
+  supportsOneKeyDeviceSettings: boolean;
+  /** Whether Device Manager can show vendor-routed device settings */
+  supportsDeviceSettings: boolean;
+  /** Whether passphrase can be enabled/disabled from Device Manager */
+  supportsPassphraseSetting: boolean;
   /** Whether a connectId can be used to identify an existing device.
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
@@ -35,6 +51,14 @@ const onekeyProfile: IHardwareVendorProfile = {
   hasPersistentConnectId: () => true,
   hasPersistentDeviceId: () => true,
   supportsCloudSync: true,
+  supportsDeviceManagementDetails: true,
+  supportsDeviceAbout: true,
+  supportsFirmwareVersionDisplay: true,
+  supportsFirmwareVerify: true,
+  supportsFirmwareUpdate: true,
+  supportsOneKeyDeviceSettings: true,
+  supportsDeviceSettings: true,
+  supportsPassphraseSetting: true,
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
 };
@@ -49,29 +73,55 @@ const ledgerProfile: IHardwareVendorProfile = {
   hasPersistentConnectId: (transport) => transport === 'ble',
   hasPersistentDeviceId: () => false,
   supportsCloudSync: false,
+  supportsDeviceManagementDetails: true,
+  supportsDeviceAbout: false,
+  supportsFirmwareVersionDisplay: false,
+  supportsFirmwareVerify: false,
+  supportsFirmwareUpdate: false,
+  supportsOneKeyDeviceSettings: false,
+  supportsDeviceSettings: false,
+  supportsPassphraseSetting: false,
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
 };
 
-// Trezor stub — isThirdParty=true so it won't be treated as OneKey device.
-// Full profile will be filled when Trezor adapter/keyrings are re-integrated.
-const trezorProfileStub: IHardwareVendorProfile = {
+// Trezor THP (Safe 7) — the only Trezor firmware we currently support. PIN
+// is entered on-device during pairing; the host never sees a PIN matrix.
+// USB serial number is sticky on Trezor (unlike Ledger's DMK ephemeral
+// UUID), so connectId persists for both transports.
+const trezorProfile: IHardwareVendorProfile = {
   vendor: EHardwareVendor.trezor,
   isThirdParty: true,
   defaultDeviceName: 'Trezor',
-  avatarKey: '',
+  avatarKey: 'trezor',
+  // THP firmware reads PIN on its own touchscreen during handshake. The host
+  // SDK never holds a PIN matrix — different from Trezor T1 (legacy) where
+  // PIN was entered host-side. We don't ship the T1 path, so always false.
   supportsSoftwarePin: false,
+  // Trezor has no Ledger-style per-chain "app" concept.
   requiresAppOpen: false,
+  // USB: Trezor uses the device serial number as connectId — sticky across
+  // sessions. BLE: MAC, also sticky.
   hasPersistentConnectId: () => true,
+  // `device_id` from Features is a stable 24-char hex, persists across
+  // reconnects, only changes on full device wipe.
   hasPersistentDeviceId: () => true,
   supportsCloudSync: false,
-  canMatchDeviceByConnectId: () => true,
+  supportsDeviceManagementDetails: true,
+  supportsDeviceAbout: false,
+  supportsFirmwareVersionDisplay: true,
+  supportsFirmwareVerify: false,
+  supportsFirmwareUpdate: false,
+  supportsOneKeyDeviceSettings: false,
+  supportsDeviceSettings: true,
+  supportsPassphraseSetting: true,
+  canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
 };
 
 const vendorProfiles: Record<EHardwareVendor, IHardwareVendorProfile> = {
   [EHardwareVendor.onekey]: onekeyProfile,
   [EHardwareVendor.ledger]: ledgerProfile,
-  [EHardwareVendor.trezor]: trezorProfileStub,
+  [EHardwareVendor.trezor]: trezorProfile,
 };
 
 export function getVendorProfile(

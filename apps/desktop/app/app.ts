@@ -9,6 +9,8 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
@@ -1578,6 +1580,31 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ];
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
+
+  // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
+  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
+  // `initTrezorBleSupport`, whose IPC channels live in their own
+  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
+  // own `nobleBle` without colliding. When we add other 3rd-party BLE
+  // vendors, they should plug into the same `thirdPartyBle` surface
+  // rather than each adding a parallel object.
+  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+    ipcMain.removeHandler(channel),
+  );
+  initTrezorBleSupport(browserWindow.webContents, {
+    logger: (entry) => {
+      const message = `[hwk:${entry.scope}] ${entry.event}`;
+      if (entry.level === 'error') {
+        logger.error(message, entry.data ?? '');
+        return;
+      }
+      if (entry.level === 'warn') {
+        logger.warn(message, entry.data ?? '');
+        return;
+      }
+      logger.info(message, entry.data ?? '');
+    },
+  });
 
   return browserWindow;
 }

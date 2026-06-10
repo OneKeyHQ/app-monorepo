@@ -153,6 +153,13 @@ export enum EThirdPartyHardwareUiAction {
   // Different from confirmOnDevice (passive toast) because the user types
   // back into the app, not just acts on hardware.
   requestTrezorThpPairing = 'request-trezor-thp-pairing',
+  // Trezor hidden wallet: host must collect passphrase or request on-device
+  // entry. Standard-wallet calls keep using auto-empty passphrase.
+  requestTrezorPassphrase = 'request-trezor-passphrase',
+  // Trezor transport fallback: USB is unavailable and this DB device has not
+  // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
+  // device_id, then resolves the waiting hardware call.
+  requestTrezorBleBinding = 'request-trezor-ble-binding',
   // Non-blocking notifications — UI shows status.
   openApp = 'ui-event-ledger-open-app',
   confirmOnDevice = 'ui-event-ledger-confirm-on-device',
@@ -177,6 +184,9 @@ const TOAST_ACTIONS = new Set<string>([
   EThirdPartyHardwareUiAction.confirmOnDevice,
   EThirdPartyHardwareUiAction.openApp,
   EThirdPartyHardwareUiAction.searching,
+  EThirdPartyHardwareUiAction.connecting,
+  EThirdPartyHardwareUiAction.processing,
+  EThirdPartyHardwareUiAction.done,
   EThirdPartyHardwareUiAction.unlockDevice,
   EThirdPartyHardwareUiAction.requestTrezorUnlock,
 ]);
@@ -205,7 +215,7 @@ export type IThirdPartyHardwareUiState = {
     path?: string;
     /** Account index parsed from the path (e.g. requestBtcHighIndexConfirm). */
     accountIndex?: number;
-    /** Trezor THP pairing: connect id of the device asking for the tag. */
+    /** Trezor request: connect id of the device asking for user input. */
     connectId?: string;
     /** Trezor THP pairing: pairing methods the device offered (CodeEntry/QrCode/NFC/SkipPairing). */
     availableMethods?: number[];
@@ -213,6 +223,14 @@ export type IThirdPartyHardwareUiState = {
     selectedMethod?: number;
     /** Trezor THP pairing: optional NFC payload — hex-encoded when method is NFC. */
     nfcData?: string;
+    /** Trezor passphrase: expected hidden wallet identity in verify mode. */
+    passphraseState?: string;
+    /** Trezor BLE binding: USB-side connect id of the DB device. */
+    usbConnectId?: string;
+    /** Trezor BLE binding: stable device_id read from Trezor features. */
+    featuresDeviceId?: string;
+    /** Trezor BLE binding: servicePromise id resolved with the bound BLE connectId. */
+    promiseId?: number;
   };
 };
 

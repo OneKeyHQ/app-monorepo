@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IThirdPartyHardwareAdapter } from './types';
+import type { IHardwareBridge } from '@onekeyfe/hwk-adapter-core';
 
 /**
  * Factory that lazily constructs an IThirdPartyHardwareAdapter for one vendor.
@@ -37,29 +38,68 @@ export const thirdPartyHardwareAdapterRegistry = {
     // webpack resolves this to the platform-specific variant:
     //   - ext Service Worker (MV3) → `trezor.ext-bg-v3.ts` (bridges to offscreen)
     //   - desktop / native / web   → `trezor.desktop.ts` / `.native.ts` / `.ts`
-    const { createTrezorConnector } = await import(
-      '@onekeyhq/shared/src/hardware/connector-loader/trezor'
-    );
-    const { TrezorAdapter: HwkTrezorAdapter } = await import(
-      '@onekeyfe/hwk-trezor-adapter'
-    );
-    const simpleDbModule = await import(
-      '@onekeyhq/kit-bg/src/dbs/simple/simpleDb'
-    );
-    const simpleDb = simpleDbModule.default;
-    const connector = await createTrezorConnector();
-
-    // Warm-load persisted THP credentials before the first session. On the
-    // extension path this round-trips into the offscreen connector via the
-    // bridge; on other platforms it sets directly. Either way, the next
-    // `ThpHandshakeInitRequest` ships these to the device and the device
-    // routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    const { createTrezorConnector } =
+      await import('@onekeyhq/shared/src/hardware/connector-loader/trezor');
+    const { TrezorAdapter: HwkTrezorAdapter } =
+      await import('@onekeyfe/hwk-trezor-adapter');
+    // Temporary transport switch for desktop. Other platform loaders take no
+    // arguments, so they ignore the hint. Set in DevTools:
+    //   localStorage.setItem('debug.trezor.transport', 'ble')   // switch to BLE
+    //   localStorage.removeItem('debug.trezor.transport')       // back to USB
+    // Once the proper UI transport picker lands this hack goes away.
+    let transportHint: 'ble' | undefined;
     try {
-      const stored = await simpleDb.trezorThpCredentials.getCredentials();
+      if (
+        typeof globalThis !== 'undefined' &&
+        (globalThis as { localStorage?: Storage }).localStorage?.getItem(
+          'debug.trezor.transport',
+        ) === 'ble'
+      ) {
+        transportHint = 'ble';
+      }
+    } catch {
+      // Ignored: kit-bg might run somewhere without DOM (worker/SW).
+    }
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Registry] trezor transport hint=${transportHint ?? 'default(usb)'}`,
+    );
+    let connector: Awaited<ReturnType<typeof createTrezorConnector>>;
+    if (platformEnv.isExtensionBackground) {
+      const { getOffscreenHardwareBridgeClient } =
+        await import('./offscreenHardwareBridgeClient');
+      connector = await (
+        createTrezorConnector as (options: {
+          bridge: IHardwareBridge;
+        }) => ReturnType<typeof createTrezorConnector>
+      )({ bridge: getOffscreenHardwareBridgeClient() });
+    } else {
+      connector = await (
+        createTrezorConnector as (
+          t?: 'usb' | 'ble',
+        ) => ReturnType<typeof createTrezorConnector>
+      )(transportHint);
+    }
+
+    // Warm-load persisted THP credentials before the first session. Credentials
+    // now live per-device in each Trezor's IDBDevice settings (so forget-device
+    // clears them for free), so gather them across all devices and seed the
+    // connector. On the extension path setKnownCredentials round-trips into the
+    // offscreen connector via the bridge; on other platforms it sets directly.
+    // Either way, the next `ThpHandshakeInitRequest` ships these to the device
+    // and the device routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    try {
+      const localDbModule =
+        await import('@onekeyhq/kit-bg/src/dbs/local/localDb');
+      const localDb = localDbModule.default;
+      const { devices } = await localDb.getAllDevices();
+      // Only Trezor devices ever store thpCredentials, so presence is enough.
+      const stored = devices.flatMap(
+        (device) => device.settings?.thpCredentials ?? [],
+      );
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Registry] trezor warm-load credentials count=${stored.length}`,
       );
-      connector.setKnownCredentials?.(stored);
+      await connector.setKnownCredentials?.(stored);
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Registry] trezor warm-load failed: ${
@@ -68,7 +108,10 @@ export const thirdPartyHardwareAdapterRegistry = {
       );
     }
 
-    const hw = new HwkTrezorAdapter(connector);
+    const HwkTrezorAdapterCtor = HwkTrezorAdapter as unknown as new (
+      adapterConnector: typeof connector,
+    ) => InstanceType<typeof HwkTrezorAdapter>;
+    const hw = new HwkTrezorAdapterCtor(connector);
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] trezor adapter ready',
     );

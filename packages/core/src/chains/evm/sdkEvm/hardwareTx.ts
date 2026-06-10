@@ -11,6 +11,7 @@ import { omit } from 'lodash';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 
+import type { IEvmEthereumDefinitions, IEvmPaymentRequest } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
 // Hardware SDK transaction shapes (mirror hd-core's EVMTransaction /
@@ -23,9 +24,13 @@ export interface IHardwareEvmTransaction {
   chainId: number;
   nonce: string; // 0x-prefixed hex
   gasLimit: string; // 0x-prefixed hex
-  gasPrice: string;
+  gasPrice: string; // 0x-prefixed hex
+  txType?: number;
+  accessList?: Array<{ address: string; storageKeys: string[] }>;
   maxFeePerGas: undefined;
   maxPriorityFeePerGas: undefined;
+  paymentRequest?: IEvmPaymentRequest;
+  ethereumDefinitions?: IEvmEthereumDefinitions;
 }
 
 export interface IHardwareEvmTransactionEIP1559 {
@@ -36,9 +41,11 @@ export interface IHardwareEvmTransactionEIP1559 {
   nonce: string; // 0x-prefixed hex
   gasLimit: string; // 0x-prefixed hex
   gasPrice: undefined;
-  maxFeePerGas: string;
-  maxPriorityFeePerGas: string;
+  maxFeePerGas: string; // 0x-prefixed hex
+  maxPriorityFeePerGas: string; // 0x-prefixed hex
   accessList?: Array<{ address: string; storageKeys: string[] }>;
+  paymentRequest?: IEvmPaymentRequest;
+  ethereumDefinitions?: IEvmEthereumDefinitions;
 }
 
 /**
@@ -58,9 +65,12 @@ export interface IBuildHardwareEvmTxInput {
   from?: string;
   customData?: string;
   gasPrice?: string;
+  txType?: number;
   maxFeePerGas?: string;
   maxPriorityFeePerGas?: string;
   accessList?: Array<{ address: string; storageKeys: string[] }>;
+  paymentRequest?: IEvmPaymentRequest;
+  ethereumDefinitions?: IEvmEthereumDefinitions;
   [key: string]: unknown;
 }
 
@@ -81,8 +91,26 @@ export function buildHardwareEvmTransaction(
   const value = encodedTx.value ?? '0x0';
   const data = encodedTx.data ?? '0x';
   const to = encodedTx.to ?? '';
+  const gasPrice = encodedTx.gasPrice
+    ? numberUtils.numberToHex(encodedTx.gasPrice, { prefix0x: true })
+    : undefined;
+  const maxFeePerGas = encodedTx.maxFeePerGas
+    ? numberUtils.numberToHex(encodedTx.maxFeePerGas, { prefix0x: true })
+    : undefined;
+  const maxPriorityFeePerGas = encodedTx.maxPriorityFeePerGas
+    ? numberUtils.numberToHex(encodedTx.maxPriorityFeePerGas, {
+        prefix0x: true,
+      })
+    : undefined;
 
-  const isEip1559 = encodedTx.maxFeePerGas || encodedTx.maxPriorityFeePerGas;
+  const isEip1559 = maxFeePerGas || maxPriorityFeePerGas;
+  let txType: number | undefined;
+  if (typeof encodedTx.txType === 'number') {
+    txType = encodedTx.txType;
+  } else if (encodedTx.accessList) {
+    txType = 1;
+  }
+  const isEip2930 = !isEip1559 && (txType === 1 || !!encodedTx.accessList);
 
   // Spread extras (e.g. `customData`) minus `from` to preserve the
   // pre-extraction kit-bg behavior.
@@ -100,8 +128,8 @@ export function buildHardwareEvmTransaction(
       nonce,
       gasPrice: undefined,
       gasLimit,
-      maxFeePerGas: checkIsDefined(encodedTx.maxFeePerGas),
-      maxPriorityFeePerGas: checkIsDefined(encodedTx.maxPriorityFeePerGas),
+      maxFeePerGas: checkIsDefined(maxFeePerGas),
+      maxPriorityFeePerGas: checkIsDefined(maxPriorityFeePerGas),
     } as IHardwareEvmTransactionEIP1559;
   } else {
     hwTransaction = {
@@ -111,7 +139,7 @@ export function buildHardwareEvmTransaction(
       data,
       chainId,
       nonce,
-      gasPrice: checkIsDefined(encodedTx.gasPrice),
+      gasPrice: checkIsDefined(gasPrice),
       gasLimit,
       maxFeePerGas: undefined,
       maxPriorityFeePerGas: undefined,
@@ -120,7 +148,7 @@ export function buildHardwareEvmTransaction(
 
   // Build UnsignedTransaction for ethers RLP serialization.
   const unsignedTx: UnsignedTransaction = {
-    to: hwTransaction.to,
+    to: hwTransaction.to || undefined,
     gasPrice: hwTransaction.gasPrice,
     gasLimit: hwTransaction.gasLimit,
     nonce: parseInt(hwTransaction.nonce, 16),
@@ -140,6 +168,11 @@ export function buildHardwareEvmTransaction(
         hwTransaction as IHardwareEvmTransactionEIP1559
       ).accessList;
     }
+  } else if (isEip2930) {
+    unsignedTx.type = txType ?? 1;
+    unsignedTx.accessList = (
+      hwTransaction as IHardwareEvmTransaction
+    ).accessList;
   }
 
   return { hwTransaction, unsignedTx };

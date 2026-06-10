@@ -13,6 +13,10 @@ import type {
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
 
+type IConnectorSearchDevicesOptions = {
+  waitForAll?: boolean;
+};
+
 /**
  * SW-side `IHardwareBridge` — forwards to the offscreen-doc server
  * (`OffscreenApiThirdPartyHardware`) via `offscreenApiProxy`. Event
@@ -21,10 +25,17 @@ import type {
  * Singleton across SW lifetime (SW kill → module dropped → SW restart
  * recreates on demand).
  */
-class OffscreenHardwareBridgeClient implements IHardwareBridge {
+export class OffscreenHardwareBridgeClient implements IHardwareBridge {
   private eventHandlersByVendor = new Map<
     VendorType,
     Set<(event: { type: ConnectorEventType; data: unknown }) => void>
+  >();
+
+  private knownCredentialsByVendor = new Map<VendorType, unknown[]>();
+
+  private replayCredentialsPromisesByVendor = new Map<
+    VendorType,
+    Promise<void>
   >();
 
   /** Cached unsubscribe fn returned by `onOffscreenEvent`. */
@@ -37,14 +48,18 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
   // Forwarded methods
   // -------------------------------------------------------------------------
 
-  searchDevices(params: { vendor: VendorType }): Promise<ConnectorDevice[]> {
+  async searchDevices(params: {
+    vendor: VendorType;
+    options?: IConnectorSearchDevicesOptions;
+  }): Promise<ConnectorDevice[]> {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] searchDevices vendor=${params.vendor}`,
     );
+    await this.replayKnownCredentials(params.vendor);
     return offscreenApiProxy.thirdPartyHardware.searchDevices(params);
   }
 
-  connect(params: {
+  async connect(params: {
     vendor: VendorType;
     deviceId?: string;
   }): Promise<ConnectorSession> {
@@ -53,6 +68,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
         params.deviceId ?? ''
       }`,
     );
+    await this.replayKnownCredentials(params.vendor);
     return offscreenApiProxy.thirdPartyHardware.connect(params);
   }
 
@@ -63,7 +79,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     return offscreenApiProxy.thirdPartyHardware.disconnect(params);
   }
 
-  call(params: {
+  async call(params: {
     vendor: VendorType;
     sessionId: string;
     method: string;
@@ -72,6 +88,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] call vendor=${params.vendor} method=${params.method}`,
     );
+    await this.replayKnownCredentials(params.vendor);
     return offscreenApiProxy.thirdPartyHardware.call(params);
   }
 
@@ -105,7 +122,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
    * Trezor THP credentials in secure storage; this is the path that pushes
    * them back into the connector on SW boot or after credential updates.
    * Returns a Promise so callers can await the offscreen ack — important
-   * to chain "load creds → first searchDevices" without racing.
+   * to chain "load credentials → first searchDevices" without racing.
    */
   setKnownCredentials(params: {
     vendor: VendorType;
@@ -114,6 +131,7 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] setKnownCredentials vendor=${params.vendor} count=${params.credentials.length}`,
     );
+    this.knownCredentialsByVendor.set(params.vendor, [...params.credentials]);
     return offscreenApiProxy.thirdPartyHardware.setKnownCredentials(params);
   }
 
@@ -188,6 +206,11 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
     this.unsubscribeFromBus = onOffscreenEvent(
       'thirdPartyHardwareConnectorEvent',
       (payload) => {
+        this.rememberCredentialsFromEvent(
+          payload.vendor as VendorType,
+          payload.type,
+          payload.data,
+        );
         const handlers = this.eventHandlersByVendor.get(
           payload.vendor as VendorType,
         );
@@ -211,6 +234,57 @@ class OffscreenHardwareBridgeClient implements IHardwareBridge {
         }
       },
     );
+  }
+
+  private replayKnownCredentials(vendor: VendorType): Promise<void> {
+    const credentials = this.knownCredentialsByVendor.get(vendor);
+    if (!credentials?.length) {
+      return Promise.resolve();
+    }
+    const existing = this.replayCredentialsPromisesByVendor.get(vendor);
+    if (existing) return existing;
+    const replay = offscreenApiProxy.thirdPartyHardware
+      .setKnownCredentials({ vendor, credentials })
+      .finally(() => {
+        this.replayCredentialsPromisesByVendor.delete(vendor);
+      });
+    this.replayCredentialsPromisesByVendor.set(vendor, replay);
+    return replay;
+  }
+
+  private rememberCredentialsFromEvent(
+    vendor: VendorType,
+    type: ConnectorEventType,
+    data: unknown,
+  ): void {
+    if (type !== 'device-trezor-thp-credentials-changed') return;
+    const credentials = (data as { credentials?: unknown[] } | undefined)
+      ?.credentials;
+    if (!credentials?.length) return;
+    const existing = this.knownCredentialsByVendor.get(vendor) ?? [];
+    const merged = [...existing];
+    for (const credential of credentials) {
+      if (!this.hasCredential(merged, credential)) {
+        merged.push(credential);
+      }
+    }
+    this.knownCredentialsByVendor.set(vendor, merged);
+  }
+
+  private hasCredential(credentials: unknown[], credential: unknown): boolean {
+    const key = this.getCredentialKey(credential);
+    return credentials.some((item) => this.getCredentialKey(item) === key);
+  }
+
+  private getCredentialKey(credential: unknown): string {
+    const raw = (credential as { credential?: unknown } | undefined)
+      ?.credential;
+    if (typeof raw === 'string') return raw;
+    try {
+      return JSON.stringify(credential);
+    } catch {
+      return String(credential);
+    }
   }
 
   private teardownIfIdle(): void {

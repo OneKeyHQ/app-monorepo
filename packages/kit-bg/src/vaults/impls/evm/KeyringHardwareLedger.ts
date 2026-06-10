@@ -77,7 +77,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         }
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
 
@@ -153,7 +153,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const { dbDevice } = checkIsDefined(deviceParams);
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -213,7 +213,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const { dbDevice } = deviceParams;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {

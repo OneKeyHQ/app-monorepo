@@ -1,6 +1,5 @@
-import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-
 import type { EAddressEncodings, ITxInputToSign } from '../../types';
+import type { IAdaAmount } from '../ada/types';
 import type BigNumber from 'bignumber.js';
 import type {
   Bip32Derivation,
@@ -48,11 +47,21 @@ export type IBtcInput = {
   value: string;
   address: string;
   path: string;
+  sequence?: number;
+  origHash?: string;
+  origIndex?: number;
+  scriptSig?: string;
+  witness?: string;
+  ownershipProof?: string;
+  commitmentData?: string;
 };
 
 export type IBtcOutput = {
   address: string;
   value: string;
+  paymentReqIndex?: number;
+  origHash?: string;
+  origIndex?: number;
   payload?: {
     isChange?: boolean;
     bip44Path?: string;
@@ -70,6 +79,86 @@ export type IBtcOutput = {
   };
 };
 
+export type IBtcPaymentRequestMemo = {
+  textMemo?: {
+    text: string;
+  };
+  textDetailsMemo?: {
+    title: string;
+    text: string;
+  };
+  refundMemo?: {
+    address: string;
+    addressN?: number[];
+    mac: string;
+  };
+  coinPurchaseMemo?: {
+    coinType: number;
+    amount: string;
+    address: string;
+    addressN?: number[];
+    mac: string;
+  };
+};
+
+export type IBtcPaymentRequest = {
+  nonce?: string;
+  recipientName: string;
+  memos?: IBtcPaymentRequestMemo[];
+  amount?: string;
+  signature: string;
+};
+
+export type IBtcRefTransaction = {
+  hash: string;
+  version: number;
+  inputs: Array<{
+    prevHash: string;
+    prevIndex: number;
+    script: string;
+    sequence: number;
+  }>;
+  outputs: Array<{
+    amount: string;
+    scriptPubKey: string;
+  }>;
+  locktime: number;
+  origInputs?: Array<
+    Pick<
+      IBtcInput,
+      | 'path'
+      | 'sequence'
+      | 'origHash'
+      | 'origIndex'
+      | 'scriptSig'
+      | 'witness'
+      | 'ownershipProof'
+      | 'commitmentData'
+    > & {
+      prevHash: string;
+      prevIndex: number;
+      amount: string;
+      scriptType?: 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2wsh' | 'p2tr';
+    }
+  >;
+  origOutputs?: Array<
+    Pick<
+      IBtcOutput,
+      'address' | 'paymentReqIndex' | 'origHash' | 'origIndex'
+    > & {
+      path?: string;
+      opReturnData?: string;
+      amount: string;
+      scriptType?: 'p2pkh' | 'p2sh' | 'p2wpkh' | 'p2wsh' | 'p2tr';
+    }
+  >;
+  extraData?: string;
+  timestamp?: number;
+  expiry?: number;
+  versionGroupId?: number;
+  branchId?: number;
+};
+
 export type ICoinSelectUTXO = {
   txId: string;
   vout: number;
@@ -79,6 +168,28 @@ export type ICoinSelectUTXO = {
   path: string;
   confirmations?: number;
   forceSelect?: boolean;
+};
+
+export type IUtxoInfo = {
+  txid: string;
+  vout: number;
+  value: string;
+  height: number;
+  confirmations: number;
+  address: string;
+  path: string;
+  blockTime?: number;
+  txIndex?: number;
+  amount?: IAdaAmount[];
+  datumHash?: string | null;
+  referenceScriptHash?: string | null;
+  scriptPublicKey?: {
+    scriptPublicKey: string;
+    version: number;
+  };
+  globalIndex: number;
+  prevOutPubkey: string;
+  txPubkey: string;
 };
 
 export type IUTxoInput = Omit<IUtxoInfo, 'txid'> & {
@@ -113,8 +224,16 @@ export type IEncodedTxBtc = {
   inputsForCoinSelect: IInputsForCoinSelect;
   outputsForCoinSelect: IOutputsForCoinSelect;
   fee: string;
+  version?: number;
+  locktime?: number;
+  timestamp?: number;
+  expiry?: number;
+  versionGroupId?: number;
+  branchId?: number;
   psbtHex?: string;
   inputsToSign?: ITxInputToSign[];
+  paymentRequests?: IBtcPaymentRequest[];
+  origRefTxs?: IBtcRefTransaction[];
   disabledCoinSelect?: boolean;
   txSize: number | undefined;
 };

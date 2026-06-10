@@ -6,7 +6,9 @@ import { LEDGER_BTC_FAMILY_NETWORKS } from '@onekeyhq/shared/src/hardware/ledger
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   attachLedgerAllNetworkFingerprints,
+  attachTrezorAllNetworkPassphraseState,
   normalizeThirdPartyAllNetworkBundle,
+  shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
 
 import type { IHwAllNetworkPrepareAccountsItem } from '../../vaults/types';
@@ -122,6 +124,68 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
     expect(result).toBe(true);
     expect((bundle[0] as { deviceId?: string }).deviceId).toBe('evm-fp');
     expect((bundle[1] as { deviceId?: string }).deviceId).toBeUndefined();
+  });
+
+  it('attaches Trezor passphraseState to every all-network item for hidden wallets', () => {
+    const bundle: AllNetworkAddressParams[] = [
+      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
+      { network: 'btc', path: "m/84'/0'/0'", showOnOneKey: false },
+    ];
+
+    const result = attachTrezorAllNetworkPassphraseState({
+      bundle,
+      passphraseState: 'aabbccdd',
+    });
+
+    expect(result).toBe(true);
+    expect(
+      bundle.map(
+        (item) => (item as { passphraseState?: string }).passphraseState,
+      ),
+    ).toEqual(['aabbccdd', 'aabbccdd']);
+  });
+
+  it('leaves Trezor standard-wallet all-network items unchanged', () => {
+    const bundle: AllNetworkAddressParams[] = [
+      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
+    ];
+
+    const result = attachTrezorAllNetworkPassphraseState({ bundle });
+
+    expect(result).toBe(false);
+    expect(
+      (bundle[0] as { passphraseState?: string }).passphraseState,
+    ).toBeUndefined();
+  });
+
+  it('preserves Trezor passphraseState when normalizing all-network items', () => {
+    const bundle: AllNetworkAddressParams[] = [
+      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
+    ];
+    attachTrezorAllNetworkPassphraseState({
+      bundle,
+      passphraseState: 'aabbccdd',
+    });
+
+    const [item] = normalizeThirdPartyAllNetworkBundle(bundle);
+
+    expect((item as { passphraseState?: string }).passphraseState).toBe(
+      'aabbccdd',
+    );
+    expect(item.methodName).toBe('evmGetAddress');
+  });
+});
+
+describe('shouldUseThirdPartyAllNetworkGetAddress', () => {
+  it('allows verify-address calls when the third-party adapter supports all-network', () => {
+    expect(
+      shouldUseThirdPartyAllNetworkGetAddress({
+        isThirdPartyWallet: true,
+        isVerifyAddressAction: true,
+        supportsAllNetworkGetAddress: true,
+        hasAllNetworkGetAddress: true,
+      }),
+    ).toBe(true);
   });
 });
 

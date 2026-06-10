@@ -581,8 +581,7 @@ function getRawDeviceId({
   features: IOneKeyDeviceFeatures;
 }) {
   // SearchDevice.deviceId is undefined when BLE connecting
-  // const rawDeviceId = device.deviceId || features.device_id || '';
-  const rawDeviceId = device.deviceId || features.device_id || '';
+  const rawDeviceId = features.device_id || device.deviceId || '';
   return rawDeviceId;
 }
 
