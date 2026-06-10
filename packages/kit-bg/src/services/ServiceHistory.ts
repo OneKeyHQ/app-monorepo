@@ -924,6 +924,27 @@ class ServiceHistory extends ServiceBase {
     };
   }
 
+  // Local history is cached per network + address/xpub and shared by every
+  // account that resolves to the same address (e.g. a watch-only account later
+  // re-imported as an HD account). Cached txs keep whatever accountId was
+  // current when they were saved, so normalize them to the requesting accountId
+  // before they surface — otherwise a stale (possibly deleted) accountId leaks
+  // into the UI and downstream per-account checks. Single-account paths only;
+  // all-networks intentionally keeps each sub-account's own accountId.
+  private _normalizeLocalTxsAccountId({
+    txs,
+    accountId,
+  }: {
+    txs: IAccountHistoryTx[];
+    accountId: string;
+  }): IAccountHistoryTx[] {
+    return txs.map((tx) =>
+      tx.decodedTx.accountId === accountId
+        ? tx
+        : { ...tx, decodedTx: { ...tx.decodedTx, accountId } },
+    );
+  }
+
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const resolvedParams = await this._resolveHistoryRequestParams(params);
@@ -963,6 +984,9 @@ class ServiceHistory extends ServiceBase {
       }),
     ]);
 
+    const normalizeLocalTxsAccountId = (txsToNormalize: IAccountHistoryTx[]) =>
+      this._normalizeLocalTxsAccountId({ txs: txsToNormalize, accountId });
+
     const isAllNetworks = networkUtils.isAllNetwork({ networkId });
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -996,12 +1020,14 @@ class ServiceHistory extends ServiceBase {
       localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
     } else {
-      localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-        tokenIdOnNetwork,
-      });
+      localHistoryPendingTxs = normalizeLocalTxsAccountId(
+        await this.getAccountLocalHistoryPendingTxs({
+          networkId,
+          accountAddress,
+          xpub,
+          tokenIdOnNetwork,
+        }),
+      );
     }
 
     // 2. Check if the locally pending transactions have been confirmed
@@ -1114,12 +1140,14 @@ class ServiceHistory extends ServiceBase {
       localHistoryConfirmedTxs =
         await this.getAccountsLocalHistoryConfirmedTxs(allNetworksParams);
     } else {
-      localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
-        networkId,
-        accountAddress,
-        xpub,
-        tokenIdOnNetwork,
-      });
+      localHistoryConfirmedTxs = normalizeLocalTxsAccountId(
+        await this.getAccountLocalHistoryConfirmedTxs({
+          networkId,
+          accountAddress,
+          xpub,
+          tokenIdOnNetwork,
+        }),
+      );
     }
 
     // 4. Fetch the on-chain history
@@ -1641,16 +1669,21 @@ class ServiceHistory extends ServiceBase {
       }),
     ]);
 
-    const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryConfirmedTxs({
+    const localHistoryConfirmedTxs = this._normalizeLocalTxsAccountId({
+      txs: await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
-      });
-    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
-      networkId,
-      accountAddress,
-      xpub,
+      }),
+      accountId,
+    });
+    const localHistoryPendingTxs = this._normalizeLocalTxsAccountId({
+      txs: await this.getAccountLocalHistoryPendingTxs({
+        networkId,
+        accountAddress,
+        xpub,
+      }),
+      accountId,
     });
 
     const result = unionBy(
