@@ -1,6 +1,9 @@
 export const BTC_TX_PLACEHOLDER_VSIZE = 79; // calculate_vsize(["P2WPKH"], [])
 export const BTC_FIRST_TAPROOT_PATH = "m/86'/0'/0'";
 
+// btc find-address feature: max non-hardened BIP32 child index (2^31 - 1)
+export const BTC_FIND_ADDRESS_MAX_INDEX = 2 ** 31 - 1;
+
 // Tron constants live in shared/consts so the eager main bundle does not
 // have to reach into @onekeyhq/core/src/chains/ (forbidden in the main
 // bundle under the three-bundle rules). All entries are pure data with no

@@ -35,6 +35,7 @@ export const ReceiveTestIDs = {
   BtcAddressCopyButton: 'receive-btc-address-copy-button',
   BtcNextAddressCopyButton: 'receive-btc-next-address-copy-button',
   BtcAddressPagination: 'receive-btc-address-pagination',
+  BtcFindAddressEntry: 'receive-btc-find-address-entry',
 
   // BtcCoins page
   BtcCoinsSortSelect: 'receive-btc-coins-sort-select',

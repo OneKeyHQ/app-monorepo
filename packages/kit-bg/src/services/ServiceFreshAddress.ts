@@ -15,6 +15,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { BTC_FIND_ADDRESS_MAX_INDEX } from '@onekeyhq/shared/src/consts/chainConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -34,9 +35,6 @@ import ServiceBase from './ServiceBase';
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type VaultBtc from '../vaults/impls/btc/Vault';
 import type { IAccountDeriveTypes } from '../vaults/types';
-
-// max non-hardened BIP32 child index (2^31 - 1)
-export const BTC_FIND_ADDRESS_MAX_INDEX = 2 ** 31 - 1;
 
 @backgroundClass()
 class ServiceFreshAddress extends ServiceBase {
