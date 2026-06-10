@@ -255,17 +255,88 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       network: btcNetwork,
       maximumFeeRate: btcNetwork.maximumFeeRate,
     });
+
+    // Resolve per-address paths/pubkeys instead of assuming every input
+    // spends from the account's main address. Inputs from fresh or claimed
+    // (find-address) addresses would otherwise be fed the wrong derivation
+    // path and the device would produce an invalid signature.
+    const vault = this.vault as VaultBtc;
+    const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+      unsignedTx,
+    });
+    const addressToPath = btcExtraInfo?.addressToPath ?? {};
+    const fallbackPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+
+    const relPathsToDerive = new Set<string>();
+    const collectRelPath = (address: string | undefined) => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      if (relPath) {
+        relPathsToDerive.add(relPath);
+      }
+    };
+    inputsToSign.forEach((input) => collectRelPath(input.address));
+    psbt.txOutputs.forEach((output) => collectRelPath(output.address));
+
+    let derivedPublicKeys: Record<string, string> = {};
+    if (relPathsToDerive.size && dbAccount.xpub) {
+      try {
+        const { encoding } = await vault.validateAddress(dbAccount.address);
+        const xpubAddressInfo = await checkIsDefined(
+          this.coreApi,
+        ).getAddressFromXpub({
+          network: btcNetwork,
+          xpub: dbAccount.xpub,
+          relativePaths: Array.from(relPathsToDerive),
+          addressEncoding: encoding,
+        });
+        derivedPublicKeys = xpubAddressInfo.publicKeys;
+      } catch (e) {
+        // fall back to the account-level pubkey/path below
+        console.error('signPsbt derive per-input pubkeys ERROR:', e);
+      }
+    }
+
+    const resolvePubkeyHexByAddress = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }): string => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      const derivedPubkey = relPath ? derivedPublicKeys[relPath] : undefined;
+      return derivedPubkey ?? fallbackPubkeyHex;
+    };
+    const resolveTapBip32Derivation = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }) => {
+      const pubkeyHex = resolvePubkeyHexByAddress({
+        address,
+        fallbackPubkeyHex,
+      });
+      return [
+        {
+          masterFingerprint: Buffer.from(fingerprint, 'hex'),
+          pubkey: Buffer.from(pubkeyHex, 'hex').subarray(1, 33),
+          path:
+            (address ? addressToPath[address]?.fullPath : undefined) ??
+            fallbackPath,
+          leafHashes: [],
+        },
+      ];
+    };
+
     for (let i = 0, len = inputsToSign.length; i < len; i += 1) {
       const input = inputsToSign[i];
       psbt.updateInput(input.index, {
-        tapBip32Derivation: [
-          {
-            masterFingerprint: Buffer.from(fingerprint, 'hex'),
-            pubkey: Buffer.from(input.publicKey, 'hex').subarray(1, 33),
-            path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-            leafHashes: [],
-          },
-        ],
+        tapBip32Derivation: resolveTapBip32Derivation({
+          address: input.address,
+          fallbackPubkeyHex: input.publicKey,
+        }),
       });
     }
 
@@ -274,22 +345,19 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       try {
         // If the address is the change address
         if (output.address === dbAccount.address && len > 1) {
+          const outputPubkeyHex = resolvePubkeyHexByAddress({
+            address: output.address,
+            fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
+          });
           psbt.updateOutput(i, {
-            tapInternalKey: Buffer.from(
-              checkIsDefined(dbAccount.pub),
-              'hex',
-            ).subarray(1, 33),
-            tapBip32Derivation: [
-              {
-                masterFingerprint: Buffer.from(fingerprint, 'hex'),
-                pubkey: Buffer.from(
-                  checkIsDefined(dbAccount.pub),
-                  'hex',
-                ).subarray(1, 33),
-                path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
-                leafHashes: [],
-              },
-            ],
+            tapInternalKey: Buffer.from(outputPubkeyHex, 'hex').subarray(
+              1,
+              33,
+            ),
+            tapBip32Derivation: resolveTapBip32Derivation({
+              address: output.address,
+              fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
+            }),
           });
         }
       } catch (err) {
