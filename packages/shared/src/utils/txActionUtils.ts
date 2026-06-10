@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import {
+  EParseTxComponentRole,
   EParseTxComponentType,
   ETransferDirection,
 } from '../../types/signatureConfirm';
@@ -381,6 +382,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   if (isInternalSwap && unsignedTx.swapInfo) {
     const receiveAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
+      role: EParseTxComponentRole.SwapReceiver,
       label: appLocale.intl.formatMessage({
         id: ETranslations.swap_history_detail_received_address,
       }),

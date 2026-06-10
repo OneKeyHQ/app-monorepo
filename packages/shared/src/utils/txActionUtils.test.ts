@@ -1,4 +1,7 @@
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+
 import {
+  EParseTxComponentRole,
   EParseTxComponentType,
   type IDisplayComponentAddress,
   type IDisplayComponentInternalAssets,
@@ -58,7 +61,10 @@ describe('txActionUtils', () => {
   beforeEach(() => {
     appLocale.setLocale('en-US', {
       [ETranslations.global_asset]: 'Asset',
+      [ETranslations.global_pay]: 'Pay',
       [ETranslations.global_to]: 'To',
+      [ETranslations.sign_swap_estimate_receive]: 'Est. receive',
+      [ETranslations.swap_history_detail_received_address]: 'Received address',
     } as Parameters<typeof appLocale.setLocale>[1]);
   });
 
@@ -110,5 +116,30 @@ describe('txActionUtils', () => {
     expect(addressComponents.map((component) => component.address)).toEqual([
       '0xrecipient1',
     ]);
+  });
+
+  it('marks internal swap receiver address components', () => {
+    const components =
+      convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+        decodedTx: buildDecodedTx([buildTransfer('0xpayin')]),
+        unsignedTx: {
+          swapInfo: {
+            receivingAddress: '0xrecipient',
+            receiver: {
+              accountInfo: {
+                networkId: 'sui--mainnet',
+              },
+            },
+          },
+        } as unknown as IUnsignedTxPro,
+      });
+
+    const receiverComponent = components.find(
+      (component): component is IDisplayComponentAddress =>
+        component.type === EParseTxComponentType.Address &&
+        component.address === '0xrecipient',
+    );
+
+    expect(receiverComponent?.role).toBe(EParseTxComponentRole.SwapReceiver);
   });
 });

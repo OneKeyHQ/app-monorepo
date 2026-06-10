@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 import type {
   IAfterSendTxActionParams,
+  IDisplayComponent,
   IParseMessageParams,
   IParseMessageResp,
   IParseTransactionParams,
@@ -104,7 +105,7 @@ function getPrivateSendTxDisplayTitle() {
   });
 }
 
-function fixPrivateSendRecipientDisplay({
+export function fixPrivateSendRecipientDisplay({
   decodedTx,
   unsignedTx,
   transferPayload,
@@ -154,29 +155,55 @@ function fixPrivateSendRecipientDisplay({
     }
   });
 
-  decodedTx.txDisplay.components = decodedTx.txDisplay.components.map(
-    (component) => {
-      if (component.type !== EParseTxComponentType.Address) {
-        return component;
-      }
+  const hasReceiverAddressComponent = decodedTx.txDisplay.components.some(
+    (component) =>
+      component.type === EParseTxComponentType.Address &&
+      (component.role === EParseTxComponentRole.SwapReceiver ||
+        getAddressKey(component.address) === originalRecipientKey),
+  );
 
-      const shouldUseOriginalRecipient =
-        component.role === EParseTxComponentRole.SwapReceiver ||
-        payinAddresses.has(getAddressKey(component.address));
-      if (!shouldUseOriginalRecipient) {
-        return component;
-      }
+  const nextComponents: IDisplayComponent[] = [];
 
-      return {
+  decodedTx.txDisplay.components.forEach((component) => {
+    if (component.type !== EParseTxComponentType.Address) {
+      nextComponents.push(component);
+      return;
+    }
+
+    const isPayinAddress = payinAddresses.has(getAddressKey(component.address));
+    if (isPayinAddress && hasReceiverAddressComponent) {
+      return;
+    }
+
+    const shouldUseOriginalRecipient =
+      component.role === EParseTxComponentRole.SwapReceiver || isPayinAddress;
+    if (!shouldUseOriginalRecipient) {
+      nextComponents.push(component);
+      return;
+    }
+
+    if (component.role === EParseTxComponentRole.SwapReceiver) {
+      nextComponents.push({
         ...component,
-        label: appLocale.intl.formatMessage({ id: ETranslations.global_to }),
         address: originalRecipient,
         tags: [],
         isNavigable: false,
         highlight: true,
-      };
-    },
-  );
+      });
+      return;
+    }
+
+    nextComponents.push({
+      ...component,
+      label: appLocale.intl.formatMessage({ id: ETranslations.global_to }),
+      address: originalRecipient,
+      tags: [],
+      isNavigable: false,
+      highlight: true,
+    });
+  });
+
+  decodedTx.txDisplay.components = nextComponents;
 }
 
 @backgroundClass()
