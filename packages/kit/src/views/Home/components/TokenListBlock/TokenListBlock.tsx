@@ -146,6 +146,13 @@ type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
   syncTokenFilterToOverview: boolean;
+  // Active owner at request time. `updateAllNetworksTokenList` reprocesses
+  // the retained `allNetworksResult` whenever its identity changes — which
+  // includes owner switches, where the result still belongs to the PREVIOUS
+  // owner (usePromiseResult keeps the last resolved value). These fields let
+  // it refuse to stamp the new owner over another owner's data.
+  ownerAccountId?: string;
+  ownerNetworkId?: string;
 };
 
 type IActiveAccountTokenListRequestContext = {
@@ -830,6 +837,29 @@ function TokenListBlock({
 
   const isAllNetworkManualRefresh = useRef(false);
 
+  // Active-owner snapshot as of this instance's LAST RENDER (stale while the
+  // tab is frozen — matching the equally stale closures it is compared
+  // against, so the guard never misfires under freeze). In-flight async
+  // writers' closures capture the owner a request was issued FOR; comparing
+  // them against this ref lets post-await write paths drop stale cross-owner
+  // responses (detached history-loop refreshes, un-aborted fetches from a
+  // previous owner) instead of writing over atoms already cleared and
+  // re-stamped for the new owner.
+  const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
+  activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
+
+  // Mirror of `allTokenListAtom`'s owner stamp, kept in a ref so callbacks
+  // (e.g. `handleClearAllNetworkData`) can consult it without taking the
+  // atom value — whose identity changes on every write — as a dependency.
+  const allTokenListStampRef = useRef<{
+    accountId?: string;
+    networkId?: string;
+  }>({});
+  allTokenListStampRef.current = {
+    accountId: allTokenListAtomValue.accountId,
+    networkId: allTokenListAtomValue.networkId,
+  };
+
   const updateAllNetworkData = useThrottledCallback(() => {
     refreshTokenList({
       keys: tokenListRef.current.keys,
@@ -895,6 +925,10 @@ function TokenListBlock({
         ...response,
         tokenSelectorFilterMode: 'wallet-token',
         syncTokenFilterToOverview,
+        // Closure values — this callback is recreated per owner, so these are
+        // the owner this request was issued for.
+        ownerAccountId: account?.id,
+        ownerNetworkId: network?.id,
       };
 
       const aggregateTokenConfigMapRawData =
@@ -993,7 +1027,20 @@ function TokenListBlock({
       }
       r.allTokens = allTokens;
 
-      if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
+      // The active owner may have changed during the awaits above (detached
+      // history-loop refresh, un-aborted fetch from a previous owner). Writing
+      // would land this owner's data on atoms already cleared and re-stamped
+      // for the new owner — and the next same-owner stamp write would then
+      // vouch for it.
+      const isStaleOwnerRequest = () =>
+        activeOwnerRef.current.accountId !== account?.id ||
+        activeOwnerRef.current.networkId !== network?.id;
+
+      if (
+        !allNetworkDataInit &&
+        r.isSameAllNetworksAccountData &&
+        !isStaleOwnerRequest()
+      ) {
         const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
         let createAtNetworkWorth = '0';
 
@@ -1040,6 +1087,12 @@ function TokenListBlock({
             networkId,
           })
         ).mergeDeriveAssetsEnabled;
+
+        // Re-check after the await above — the owner can switch mid-flight.
+        if (isStaleOwnerRequest()) {
+          isAllNetworkManualRefresh.current = false;
+          return r;
+        }
 
         tokenListRef.current.tokens = tokenListRef.current.tokens.concat([
           ...r.tokens.data,
@@ -1151,6 +1204,40 @@ function TokenListBlock({
   const handleClearAllNetworkData = useCallback(() => {
     const emptyTokens = getEmptyTokenData();
 
+    // Cancel the pending throttled flush and discard its accumulation —
+    // otherwise a trailing `updateAllNetworkData` fires after this clear and
+    // merges the previous owner's tokens into the freshly stamped-empty list
+    // (the owner stamp written below would then claim that data is current).
+    updateAllNetworkData.cancel();
+    tokenListRef.current.tokens = [];
+    tokenListRef.current.keys = '';
+    tokenListRef.current.map = {};
+    riskyTokenListRef.current.tokens = [];
+    riskyTokenListRef.current.keys = '';
+    riskyTokenListRef.current.map = {};
+
+    // Aggregate-token keys are owner-independent (commonSymbol-based), so a
+    // leftover map from ANOTHER owner would resolve that owner's balances for
+    // the new owner's aggregate rows until the first fresh response replaces
+    // it. Only clear on a true owner mismatch: when the stamp already matches
+    // (same-owner re-init via the useAllNetwork runner) the maps hold this
+    // owner's own values, and wiping them would only blank aggregate-row
+    // balances until the refetch lands. Note the stamp ref is a render
+    // snapshot, one commit stale at the first post-switch clear — so that
+    // first clear always sees a mismatch and clears; the failure direction
+    // is an extra clear, never a false skip.
+    if (
+      allTokenListStampRef.current.accountId !== account?.id ||
+      allTokenListStampRef.current.networkId !== network?.id
+    ) {
+      refreshAggregateTokensMap({
+        tokens: {},
+      });
+      refreshAggregateTokensListMap({
+        tokens: {},
+      });
+    }
+
     refreshSmallBalanceTokensFiatValue({
       value: '0',
     });
@@ -1192,6 +1279,8 @@ function TokenListBlock({
   }, [
     account?.id,
     network?.id,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshRiskyTokenList,
@@ -1201,6 +1290,7 @@ function TokenListBlock({
     refreshSmallBalanceTokensFiatValue,
     refreshTokenList,
     refreshTokenListMap,
+    updateAllNetworkData,
   ]);
 
   const handleAllNetworkRequestsFinished = useCallback(
@@ -1692,6 +1782,18 @@ function TokenListBlock({
       ) {
         return;
       }
+      // This callback's identity changes on owner switch, re-firing the
+      // consuming effect while `allNetworksResult` still holds the PREVIOUS
+      // owner's completed fan-out (usePromiseResult keeps the last resolved
+      // value). Reprocessing it would replace every token atom with that
+      // owner's data, write its worth under the new owner's accountId, and
+      // stamp `allTokenList` with the new owner — vouching for foreign data.
+      if (
+        allNetworksResult[0].ownerAccountId !== account?.id ||
+        allNetworksResult[0].ownerNetworkId !== network?.id
+      ) {
+        return;
+      }
       const shouldSyncTokenFilterToOverview =
         allNetworksResult[0].syncTokenFilterToOverview;
 
@@ -2128,11 +2230,12 @@ function TokenListBlock({
     refreshAllTokenListMap({ tokens: cached.tokenListMap });
     // Restore the aggregate-token source map so cached aggregate tokens
     // render against their own balances/prices instead of the previous
-    // owner's map. Older entries without it leave the atom alone — the
-    // async fetch below will refill it.
-    if (cached.aggregateTokensMap) {
-      refreshAggregateTokensMap({ tokens: cached.aggregateTokensMap });
-    }
+    // owner's map. Legacy entries persisted without it must CLEAR the atom
+    // rather than leave it alone: aggregate keys are owner-independent
+    // (commonSymbol-based), so the previous owner's balances would otherwise
+    // resolve under the fresh owner stamp written above until the async
+    // fetch refills the map.
+    refreshAggregateTokensMap({ tokens: cached.aggregateTokensMap ?? {} });
     // The cache only stores the high-value `tokens` and `tokenListMap`.
     // Reset small-balance and risky atoms here so the footer counts/value
     // and risky list don't briefly mirror the previous owner until the

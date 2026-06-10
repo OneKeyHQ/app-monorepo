@@ -126,6 +126,7 @@ function mapMarketTokenToDisplay(
     priceChange24h: getMarketTokenDisplayPriceChange24h(item),
     marketCap: getMarketTokenDisplayMarketCap(item),
     volume24h: getMarketTokenDisplayVolume24h(item),
+    communityRecognized: item.communityRecognized,
     stock: item.stock,
   };
 }

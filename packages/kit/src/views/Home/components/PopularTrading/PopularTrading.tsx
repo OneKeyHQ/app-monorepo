@@ -63,6 +63,7 @@ import {
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
@@ -149,6 +150,7 @@ function RecommendCardItem({
               {token.symbol}
             </SizableText>
             {renderPopularTradingStockBadges(token)}
+            {renderPopularTradingCommunityBadge(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -417,6 +419,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
                     {renderPopularTradingStockBadges(record)}
+                    {renderPopularTradingCommunityBadge(record)}
                   </XStack>
                   <SizableText
                     size="$bodyMd"
@@ -488,6 +491,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
                   {renderPopularTradingStockBadges(record)}
+                  {renderPopularTradingCommunityBadge(record)}
                 </XStack>
                 {renderPopularTradingTokenSubtitle(record)}
               </YStack>
@@ -626,6 +630,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
               stock: item.stock,
             };
           })
@@ -701,6 +706,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
               stock: item.stock,
             };
           })

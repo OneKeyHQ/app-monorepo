@@ -147,6 +147,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 let lastL2BookColdCacheWriteAt = 0;
 
 type ITwapHistoryLoadResult =
@@ -167,10 +168,10 @@ type ITwapSliceFillsLoadResult =
       ok: false;
     };
 
-type ITwapDataLoadResult = {
-  webData2?: HL.IWsWebData2;
-  historyResult: ITwapHistoryLoadResult;
-  fillsResult: ITwapSliceFillsLoadResult;
+type ITwapDataLoadPromises = {
+  webData2Promise: Promise<HL.IWsWebData2 | undefined>;
+  historyPromise: Promise<ITwapHistoryLoadResult>;
+  fillsPromise: Promise<ITwapSliceFillsLoadResult>;
 };
 
 function resolveSubmitOrderTradeInstrument({
@@ -330,12 +331,14 @@ function sortAndDedupeTwapSliceFills(
   for (const record of records) {
     map.set(getTwapSliceFillKey(record), record);
   }
-  return Array.from(map.values()).toSorted(
-    (a, b) =>
-      b.fill.time - a.fill.time ||
-      (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
-      b.twapId - a.twapId,
-  );
+  return Array.from(map.values())
+    .toSorted(
+      (a, b) =>
+        b.fill.time - a.fill.time ||
+        (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
+        b.twapId - a.twapId,
+    )
+    .slice(0, TWAP_SLICE_FILLS_MAX_COUNT);
 }
 
 async function clearMatchedDepositOrders(
@@ -394,7 +397,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private loadTwapDataInFlightByAccount = new Map<
     string,
-    Promise<ITwapDataLoadResult>
+    ITwapDataLoadPromises
   >();
 
   private beginActiveInstrumentChange(): number {
@@ -412,33 +415,36 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return orders.filter((order) => !this.canceledTwapIds.has(order.twapId));
   }
 
-  private getTwapDataLoadPromise(
+  private getTwapDataLoadPromises(
     accountAddress: string,
-  ): Promise<ITwapDataLoadResult> {
+  ): ITwapDataLoadPromises {
     const inFlight = this.loadTwapDataInFlightByAccount.get(accountAddress);
     if (inFlight) {
       return inFlight;
     }
 
-    const promise = this.fetchTwapData(accountAddress).finally(() => {
-      if (this.loadTwapDataInFlightByAccount.get(accountAddress) === promise) {
+    const promises = this.fetchTwapData(accountAddress);
+    void Promise.all([
+      promises.webData2Promise,
+      promises.historyPromise,
+      promises.fillsPromise,
+    ]).finally(() => {
+      if (this.loadTwapDataInFlightByAccount.get(accountAddress) === promises) {
         this.loadTwapDataInFlightByAccount.delete(accountAddress);
       }
     });
-    this.loadTwapDataInFlightByAccount.set(accountAddress, promise);
-    return promise;
+    this.loadTwapDataInFlightByAccount.set(accountAddress, promises);
+    return promises;
   }
 
-  private async fetchTwapData(
-    accountAddress: string,
-  ): Promise<ITwapDataLoadResult> {
-    const [webData2, historyResult, fillsResult] = await Promise.all([
-      backgroundApiProxy.serviceHyperliquid
+  private fetchTwapData(accountAddress: string): ITwapDataLoadPromises {
+    return {
+      webData2Promise: backgroundApiProxy.serviceHyperliquid
         .getWebData2({
           user: accountAddress as HL.IHex,
         })
         .catch(() => undefined),
-      backgroundApiProxy.serviceHyperliquid
+      historyPromise: backgroundApiProxy.serviceHyperliquid
         .getTwapHistory({
           user: accountAddress as HL.IHex,
         })
@@ -449,7 +455,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         .catch(() => ({
           ok: false as const,
         })),
-      backgroundApiProxy.serviceHyperliquid
+      fillsPromise: backgroundApiProxy.serviceHyperliquid
         .getUserTwapSliceFills({
           user: accountAddress as HL.IHex,
         })
@@ -460,12 +466,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         .catch(() => ({
           ok: false as const,
         })),
-    ]);
-
-    return {
-      webData2,
-      historyResult,
-      fillsResult,
     };
   }
 
@@ -1098,9 +1098,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return;
       }
       const prev = get(perpsTwapHistoryAtom());
+      // Merge: WS snapshots only carry the ~30 most recent records, replacing
+      // would discard the full HTTP-loaded history.
       const previousHistory =
-        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
-        !data.isSnapshot
+        prev.accountAddress?.toLowerCase() === activeAccountAddress
           ? prev.history
           : [];
       set(perpsTwapHistoryAtom(), {
@@ -1132,9 +1133,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return;
       }
       const prev = get(perpsTwapSliceFillsAtom());
+      // Merge: WS snapshots only carry the ~30 most recent fills, replacing
+      // would discard the full HTTP-loaded history.
       const previousFills =
-        prev.accountAddress?.toLowerCase() === activeAccountAddress &&
-        !data.isSnapshot
+        prev.accountAddress?.toLowerCase() === activeAccountAddress
           ? prev.fills
           : [];
       const fills = sortAndDedupeTwapSliceFills([
@@ -2051,85 +2053,103 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return;
     }
 
-    const { webData2, historyResult, fillsResult } =
-      await this.getTwapDataLoadPromise(accountAddress);
-    const latestActiveAccount = await perpsActiveAccountAtom.get();
-    if (
-      requestId !== this.loadTwapDataRequestId ||
-      normalizePerpsAccountAddress(latestActiveAccount?.accountAddress) !==
+    const { webData2Promise, historyPromise, fillsPromise } =
+      this.getTwapDataLoadPromises(accountAddress);
+
+    const isStillCurrent = async () => {
+      if (requestId !== this.loadTwapDataRequestId) {
+        return false;
+      }
+      const latestActiveAccount = await perpsActiveAccountAtom.get();
+      return (
+        normalizePerpsAccountAddress(latestActiveAccount?.accountAddress) ===
         accountAddress
-    ) {
-      return;
-    }
-    const currentTwapOrders = get(perpsActiveTwapOrdersAtom());
-    const currentHistory = get(perpsTwapHistoryAtom());
-    const currentSliceFills = get(perpsTwapSliceFillsAtom());
-    const canReuseCurrentHistory =
-      currentHistory.accountAddress?.toLowerCase() === accountAddress;
-    const canReuseCurrentSliceFills =
-      currentSliceFills.accountAddress?.toLowerCase() === accountAddress;
-
-    if (webData2?.user?.toLowerCase() === accountAddress) {
-      const twapOrders = this.filterCanceledTwapOrders(
-        sortTwapOrders([
-          ...(currentTwapOrders.accountAddress?.toLowerCase() === accountAddress
-            ? currentTwapOrders.twapOrders.filter(
-                (order) => (order.dex ?? '') !== '',
-              )
-            : []),
-          ...(webData2.twapStates ?? []).map(
-            ([twapId, state]): IPerpsActiveTwapOrder => ({
-              twapId,
-              state,
-              dex: '',
-            }),
-          ),
-        ]),
       );
-      set(perpsActiveTwapOrdersAtom(), {
-        accountAddress,
-        twapOrders,
-        twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
-      });
-    } else if (
-      webData2 ||
-      currentTwapOrders.accountAddress?.toLowerCase() !== accountAddress
-    ) {
-      set(perpsActiveTwapOrdersAtom(), {
-        accountAddress,
-        twapOrders: [],
-        twapOrdersByCoin: {},
-      });
-    }
-    let history: typeof currentHistory.history = [];
-    if (historyResult.ok) {
-      history = historyResult.data;
-    } else if (canReuseCurrentHistory) {
-      history = currentHistory.history;
-    }
+    };
 
-    let fills: typeof currentSliceFills.fills = [];
-    if (fillsResult.ok) {
-      fills = fillsResult.data;
-    } else if (canReuseCurrentSliceFills) {
-      fills = currentSliceFills.fills;
-    }
+    // Apply per request so history/fills don't wait for the much larger
+    // webData2 payload.
+    const applyWebData2 = webData2Promise.then(async (webData2) => {
+      if (!(await isStillCurrent())) {
+        return;
+      }
+      const currentTwapOrders = get(perpsActiveTwapOrdersAtom());
+      if (webData2?.user?.toLowerCase() === accountAddress) {
+        const twapOrders = this.filterCanceledTwapOrders(
+          sortTwapOrders([
+            ...(currentTwapOrders.accountAddress?.toLowerCase() ===
+            accountAddress
+              ? currentTwapOrders.twapOrders.filter(
+                  (order) => (order.dex ?? '') !== '',
+                )
+              : []),
+            ...(webData2.twapStates ?? []).map(
+              ([twapId, state]): IPerpsActiveTwapOrder => ({
+                twapId,
+                state,
+                dex: '',
+              }),
+            ),
+          ]),
+        );
+        set(perpsActiveTwapOrdersAtom(), {
+          accountAddress,
+          twapOrders,
+          twapOrdersByCoin: buildTwapOrdersByCoinMap(twapOrders),
+        });
+      } else if (
+        webData2 ||
+        currentTwapOrders.accountAddress?.toLowerCase() !== accountAddress
+      ) {
+        set(perpsActiveTwapOrdersAtom(), {
+          accountAddress,
+          twapOrders: [],
+          twapOrdersByCoin: {},
+        });
+      }
+    });
 
-    const sortedFills = sortAndDedupeTwapSliceFills(fills);
-    set(perpsTwapHistoryAtom(), {
-      accountAddress,
-      history: sortAndDedupeTwapHistory(history),
-      isLoaded:
-        historyResult.ok || (canReuseCurrentHistory && currentHistory.isLoaded),
+    const applyHistory = historyPromise.then(async (historyResult) => {
+      if (!(await isStillCurrent())) {
+        return;
+      }
+      const currentHistory = get(perpsTwapHistoryAtom());
+      const canReuseCurrentHistory =
+        currentHistory.accountAddress?.toLowerCase() === accountAddress;
+      set(perpsTwapHistoryAtom(), {
+        accountAddress,
+        history: sortAndDedupeTwapHistory([
+          ...(canReuseCurrentHistory ? currentHistory.history : []),
+          ...(historyResult.ok ? historyResult.data : []),
+        ]),
+        isLoaded:
+          historyResult.ok ||
+          (canReuseCurrentHistory && currentHistory.isLoaded),
+      });
     });
-    set(perpsTwapSliceFillsAtom(), {
-      accountAddress,
-      fills: sortedFills,
-      isLoaded:
-        fillsResult.ok ||
-        (canReuseCurrentSliceFills && currentSliceFills.isLoaded),
-      latestTime: sortedFills[0]?.fill.time ?? 0,
+
+    const applyFills = fillsPromise.then(async (fillsResult) => {
+      if (!(await isStillCurrent())) {
+        return;
+      }
+      const currentSliceFills = get(perpsTwapSliceFillsAtom());
+      const canReuseCurrentSliceFills =
+        currentSliceFills.accountAddress?.toLowerCase() === accountAddress;
+      const sortedFills = sortAndDedupeTwapSliceFills([
+        ...(canReuseCurrentSliceFills ? currentSliceFills.fills : []),
+        ...(fillsResult.ok ? fillsResult.data : []),
+      ]);
+      set(perpsTwapSliceFillsAtom(), {
+        accountAddress,
+        fills: sortedFills,
+        isLoaded:
+          fillsResult.ok ||
+          (canReuseCurrentSliceFills && currentSliceFills.isLoaded),
+        latestTime: sortedFills[0]?.fill.time ?? 0,
+      });
     });
+
+    await Promise.all([applyWebData2, applyHistory, applyFills]);
   });
 
   clearActiveAssetData = contextAtomMethod(async (get, set) => {

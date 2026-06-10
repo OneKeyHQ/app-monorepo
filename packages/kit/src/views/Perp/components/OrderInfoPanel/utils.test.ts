@@ -2,7 +2,9 @@ import {
   calculateSpotHoldingPnl,
   formatSpotHoldingPnlText,
   getTwapAssetDisplayName,
+  getTwapHistoryEventTimeMs,
   isSpotHoldingStableCoin,
+  normalizeEpochMs,
 } from './utils';
 
 describe('calculateSpotHoldingPnl', () => {
@@ -57,5 +59,29 @@ describe('getTwapAssetDisplayName', () => {
 
   it('falls back to the shared spot token map for canonical pair names', () => {
     expect(getTwapAssetDisplayName('UETH/USDC', {})).toBe('ETH');
+  });
+});
+
+describe('TWAP history time helpers', () => {
+  it('normalizes seconds and milliseconds timestamps', () => {
+    expect(normalizeEpochMs(1_718_000_000)).toBe(1_718_000_000_000);
+    expect(normalizeEpochMs(1_718_000_000_123)).toBe(1_718_000_000_123);
+  });
+
+  it('uses Hyperliquid history record time ahead of TWAP start time', () => {
+    expect(
+      getTwapHistoryEventTimeMs({
+        time: 1_718_000_000,
+        state: { timestamp: 1_717_999_000_000 },
+      }),
+    ).toBe(1_718_000_000_000);
+  });
+
+  it('falls back to TWAP start time when the history record time is missing', () => {
+    expect(
+      getTwapHistoryEventTimeMs({
+        state: { timestamp: 1_717_999_000_000 },
+      }),
+    ).toBe(1_717_999_000_000);
   });
 });

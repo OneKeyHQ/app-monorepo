@@ -106,7 +106,7 @@ export function PerpTradersHistoryListModal() {
         })}
       </Button>
     );
-  }, [onViewAllUrl, intl, activeTab]);
+  }, [activeTab, intl, onViewAllUrl]);
 
   return (
     <Page>

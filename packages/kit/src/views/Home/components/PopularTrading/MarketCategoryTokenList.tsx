@@ -22,6 +22,7 @@ import { RichTable } from '../RichTable';
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
@@ -111,6 +112,7 @@ function MarketCategoryTokenList({
                         {record.symbol}
                       </SizableText>
                       {renderPopularTradingStockBadges(record)}
+                      {renderPopularTradingCommunityBadge(record)}
                     </XStack>
                     <SizableText
                       size="$bodyMd"
@@ -186,6 +188,7 @@ function MarketCategoryTokenList({
                       {record.symbol}
                     </SizableText>
                     {renderPopularTradingStockBadges(record)}
+                    {renderPopularTradingCommunityBadge(record)}
                   </XStack>
                   {renderPopularTradingTokenSubtitle(record)}
                 </YStack>
