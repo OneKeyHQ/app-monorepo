@@ -62,6 +62,8 @@ type IUtxoListItemProps = {
   readOnly?: boolean;
   isChange?: boolean;
   changeLabel?: string;
+  isClaimed?: boolean;
+  claimedLabel?: string;
 };
 
 const UTXOListItemInner = ({
@@ -75,6 +77,8 @@ const UTXOListItemInner = ({
   readOnly,
   isChange,
   changeLabel,
+  isClaimed,
+  claimedLabel,
 }: IUtxoListItemProps) => {
   const handlePress = useCallback(() => {
     if (readOnly || !onToggle) return;
@@ -135,6 +139,11 @@ const UTXOListItemInner = ({
 
       <YStack flex={1} ai="flex-end">
         <XStack ai="center" gap="$1.5">
+          {isClaimed && claimedLabel ? (
+            <Badge badgeType="warning" badgeSize="sm">
+              <Badge.Text>{claimedLabel}</Badge.Text>
+            </Badge>
+          ) : null}
           {isChange && changeLabel ? (
             <Badge badgeType="default" badgeSize="sm">
               <Badge.Text>{changeLabel}</Badge.Text>

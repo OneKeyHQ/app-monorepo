@@ -36,6 +36,7 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
+import { findAddressCopy } from '../../../Receive/components/BtcFindAddress';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 import { SendTestIDs } from '../../testIDs';
 
@@ -67,6 +68,9 @@ function CoinControlPage() {
       return backgroundApiProxy.serviceAccountProfile.getAccountUtxos({
         accountId,
         networkId,
+        // btc find-address feature: claimed off-gap UTXOs are shown here
+        // (labeled) so the user can explicitly opt them into a spend
+        includeClaimedAddresses: true,
       });
     },
     [accountId, networkId],
@@ -80,6 +84,16 @@ function CoinControlPage() {
   const utxoList: IUtxoInfo[] = useMemo(
     () => (Array.isArray(result) ? result : []),
     [result],
+  );
+
+  // claimed (find-address) UTXOs must only be spent through an explicit
+  // individual check, keep them out of every select-all style operation
+  const nonClaimedUtxoKeys = useMemo(
+    () =>
+      utxoList
+        .filter((utxo) => !utxo.isCustomClaimed)
+        .map((utxo) => generateUtxoKey(utxo.txid, utxo.vout)),
+    [utxoList],
   );
 
   // Track if initial selection has been applied
@@ -117,13 +131,17 @@ function CoinControlPage() {
       setSelectedUTXOs(new Set(selectedUTXOsFromAtom.selectedUtxoKeys));
       setStrategy(selectedUTXOsFromAtom.utxoSelectionStrategy);
     } else {
-      // Default: select all UTXOs with Default strategy
-      setSelectedUTXOs(
-        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
-      );
+      // Default: select all non-claimed UTXOs with Default strategy
+      setSelectedUTXOs(new Set(nonClaimedUtxoKeys));
       setStrategy(EUtxoSelectionStrategy.Default);
     }
-  }, [utxoList, selectedUTXOsFromAtom, networkId, accountId]);
+  }, [
+    utxoList,
+    nonClaimedUtxoKeys,
+    selectedUTXOsFromAtom,
+    networkId,
+    accountId,
+  ]);
 
   // Sorted data based on current sort type
   const sortedData = useMemo(() => {
@@ -150,16 +168,18 @@ function CoinControlPage() {
     }
   }, [utxoList, sortType]);
 
-  // Check if all items are selected
+  // Check if all items are selected (select-all only covers non-claimed)
   const isAllSelected = useMemo(
-    () => selectedUTXOs.size === utxoList.length && utxoList.length > 0,
-    [selectedUTXOs.size, utxoList.length],
+    () =>
+      nonClaimedUtxoKeys.length > 0 &&
+      nonClaimedUtxoKeys.every((key) => selectedUTXOs.has(key)),
+    [selectedUTXOs, nonClaimedUtxoKeys],
   );
 
   // Check if some (but not all) items are selected
   const isIndeterminate = useMemo(
-    () => selectedUTXOs.size > 0 && selectedUTXOs.size < utxoList.length,
-    [selectedUTXOs.size, utxoList.length],
+    () => selectedUTXOs.size > 0 && !isAllSelected,
+    [selectedUTXOs.size, isAllSelected],
   );
 
   // Checkbox value state
@@ -200,16 +220,14 @@ function CoinControlPage() {
     });
   }, []);
 
-  // Select all / Deselect all
+  // Select all / Deselect all (claimed UTXOs are only checked individually)
   const handleSelectAll = useCallback(() => {
     if (isAllSelected) {
       setSelectedUTXOs(new Set());
     } else {
-      setSelectedUTXOs(
-        new Set(utxoList.map((utxo) => generateUtxoKey(utxo.txid, utxo.vout))),
-      );
+      setSelectedUTXOs(new Set(nonClaimedUtxoKeys));
     }
-  }, [isAllSelected, utxoList]);
+  }, [isAllSelected, nonClaimedUtxoKeys]);
 
   // Done button handler
   const handleDone = useCallback(() => {
@@ -283,6 +301,8 @@ function CoinControlPage() {
           decimals={network?.decimals ?? 8}
           symbol={network?.symbol ?? 'BTC'}
           intl={intl}
+          isClaimed={Boolean(item.isCustomClaimed)}
+          claimedLabel={findAddressCopy.claimedUtxoLabel}
         />
       );
     },
