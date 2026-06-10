@@ -8,6 +8,7 @@ import {
 import { type HybridView, callback } from 'react-native-nitro-modules';
 
 import { Stack } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,6 +23,8 @@ import {
   CHART_WEBVIEW_UNIFIED_APP_GLOBAL_KEYS,
   CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL,
 } from './constants';
+
+import { useChartRenderRateLog } from '../useChartRenderRateLog';
 
 import type { IChartWebViewProps } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -100,8 +103,15 @@ export function ChartWebView({
   selfDrivenSymbol,
   ...stackStyle
 }: IChartWebViewProps) {
+  useChartRenderRateLog('host');
   const hybridRefHolder = useRef<ChartWebviewMethods | null>(null);
   const isFocused = useRouteIsFocused();
+  // Honor the app's "Enable Native Webview Debugging" dev-mode toggle for the
+  // chart webview, exactly like the main react-native-webview (NativeWebView.tsx).
+  // Fallback mirrors that component: default to platformEnv.isDev when unset.
+  const [devSettings] = useDevSettingsPersistAtom();
+  const webviewDebuggingEnabled =
+    devSettings.settings?.webviewDebuggingEnabled ?? platformEnv.isDev;
 
   // When the consumer drives its own symbol switching (e.g. perps sends a richer
   // SYMBOL_CHANGE with source/displayNames + ready-gating), the host must NOT
@@ -433,6 +443,7 @@ export function ChartWebView({
         pooled={!!reuseKey}
         reuseKey={reuseKey}
         active={isFocused}
+        webviewDebuggingEnabled={webviewDebuggingEnabled}
         hybridRef={hybridRefProp}
         onMessage={onMessageProp}
         onLoadEnd={onLoadEndProp}

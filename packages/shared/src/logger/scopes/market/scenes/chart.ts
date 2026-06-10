@@ -121,6 +121,10 @@ export class ChartScene extends BaseScene {
     pooled?: boolean;
     // For event='barsState': whether the chart library reported bars present.
     hasData?: boolean;
+    // For event='msgIn': the $private method the page sent to this handler —
+    // confirms whether market getKLineData actually reaches the market handler
+    // (vs being routed to the perps handler on the shared pool).
+    method?: string;
   }) {
     return params;
   }

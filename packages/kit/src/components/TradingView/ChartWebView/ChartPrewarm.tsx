@@ -77,7 +77,7 @@ function PerpsPrewarmHost({
     // the loading mask forever.
     onBarsState: ({ hasBars }) => {
       if (hasBars) {
-        markChartDataReady();
+        markChartDataReady(symbol);
       }
     },
   });
@@ -128,7 +128,7 @@ function MarketPrewarmHost({
     webRef,
     onBarsState: ({ hasBars }) => {
       if (hasBars) {
-        markChartDataReady();
+        markChartDataReady(symbol);
       }
     },
   });

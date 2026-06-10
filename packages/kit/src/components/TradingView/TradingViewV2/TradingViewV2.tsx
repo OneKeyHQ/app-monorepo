@@ -17,15 +17,12 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { ChartLoadingMask } from '../ChartLoadingMask';
-import {
-  markChartDataReady,
-  markChartLoading,
-  useChartDataReady,
-} from '../chartDataReadyStore';
+import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
+import { useChartRenderRateLog } from '../useChartRenderRateLog';
 
 import {
   useAutoKLineUpdate,
@@ -98,6 +95,7 @@ interface IBaseTradingViewV2Props {
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
+  useChartRenderRateLog('market');
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
@@ -106,18 +104,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const theme = useThemeVariant();
   const isVisible = useRouteIsFocused();
-  // Chart loading mask: show until real (non-empty) bars arrive. Backed by a
-  // GLOBAL store (not per-instance) so the visible chart reveals even when the
-  // bars-state signal was routed to a different host instance (prewarm / stale).
-  const hasChartData = useChartDataReady();
-  // When THIS (focused) chart switches token, go back to loading until the new
-  // token's bars arrive. Focus-gated so a background prewarm switching symbols
-  // never blanks the visible chart.
-  useEffect(() => {
-    if (isVisible) {
-      markChartLoading();
-    }
-  }, [tokenAddress, networkId, symbol, isVisible]);
+  // Chart loading mask: shown until the shared chart has data for THIS symbol.
+  // Symbol-keyed global store so re-entering an already-loaded token reveals
+  // immediately (no fresh barsState fires for a cached page) and switching tokens
+  // shows loading until the new token's bars arrive — no explicit reset needed.
+  const hasChartData = useChartHasData(symbol);
   const [devSettings] = useDevSettingsPersistAtom();
   const [
     mockEmptyKLineBadgePositionIndex,
@@ -186,7 +177,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         hasData: hasBars,
       });
       if (hasBars) {
-        markChartDataReady();
+        markChartDataReady(symbol);
       }
     },
   });

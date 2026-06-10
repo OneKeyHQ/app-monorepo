@@ -22,20 +22,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
-import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import {
-  markChartDataReady,
-  markChartLoading,
-  useChartDataReady,
-} from '../chartDataReadyStore';
+import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import {
   CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
+import { useChartRenderRateLog } from '../useChartRenderRateLog';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
@@ -270,6 +266,7 @@ const hideTradingViewBuiltInLoadingScript = `
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
+  useChartRenderRateLog('perps');
   const {
     symbol,
     displayPair,
@@ -332,17 +329,11 @@ export function TradingViewPerpsV2(
     setUnifiedReadyConfirmation((prev) => prev + 1);
   }, []);
 
-  // Chart loading mask: show until real (non-empty) bars arrive. Backed by a
-  // GLOBAL store (not per-instance) so the visible chart reveals even when the
-  // bars-state signal was routed to a different host instance (prewarm / stale
-  // instances during rapid navigation). Reset (focus-gated) on symbol change.
-  const isVisible = useRouteIsFocused();
-  const hasChartData = useChartDataReady();
-  useEffect(() => {
-    if (isVisible) {
-      markChartLoading();
-    }
-  }, [symbol, isVisible]);
+  // Chart loading mask: shown until the shared chart has data for THIS symbol.
+  // Symbol-keyed global store so re-entering an already-loaded pair reveals
+  // immediately and switching pairs shows loading until the new bars arrive — no
+  // explicit reset needed (symbol mismatch == loading).
+  const hasChartData = useChartHasData(symbol);
 
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
@@ -586,7 +577,7 @@ export function TradingViewPerpsV2(
         hasData: hasBars,
       });
       if (hasBars) {
-        markChartDataReady();
+        markChartDataReady(symbol);
       }
     },
   });

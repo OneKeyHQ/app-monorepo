@@ -1,48 +1,43 @@
 import { useSyncExternalStore } from 'react';
 
-// Shared "does the chart currently have data" flag, used to drive the loading
-// mask. It is GLOBAL (not per-component) on purpose: there is a single shared
-// pooled chart WebView showing one symbol, but several React host instances can
-// exist at once (the offscreen prewarm + the visible detail, plus stale
-// instances during rapid navigation). The unified `tradingview_barsState` signal
-// is routed to whichever host owns the WebView at that instant — NOT necessarily
-// the visible one — so per-instance state left the visible chart stuck on the
-// loading mask. A single shared flag means any owner that learns "has data"
-// reveals the chart for everyone.
-let ready = false;
+// Tracks WHICH symbol the shared chart currently has data for, so the loading
+// mask can be derived as `readySymbol !== currentSymbol`. This is GLOBAL (not
+// per-component): a single shared pooled chart WebView shows one symbol, but
+// several React host instances exist at once (offscreen prewarm + visible detail
+// + stale instances during navigation), and the unified `tradingview_barsState`
+// signal is routed to whichever host owns the WebView — not necessarily the
+// visible one. Keying by symbol (instead of a plain boolean) means:
+//   - re-entering an already-loaded symbol shows NO loading (no fresh barsState
+//     fires for a cached page — the old boolean + reset-on-mount got stuck here);
+//   - switching to a new symbol shows loading until ITS bars arrive, with no
+//     explicit reset call needed (mismatch == loading).
+let readySymbol: string | null = null;
 const listeners = new Set<() => void>();
 
 function emit() {
   listeners.forEach((l) => l());
 }
 
-// Data confirmed present on the shared page -> hide the loading mask. Only ever
-// flipped true here (never false), so a stray empty/error bars-state for a
-// half-typed search symbol can't hide-then-reshow a working chart.
-export function markChartDataReady() {
-  if (!ready) {
-    ready = true;
-    emit();
+// Bars confirmed present for `symbol` on the shared page. Called from any host's
+// onBarsState (detail or prewarm) with that host's current symbol.
+export function markChartDataReady(symbol: string) {
+  if (!symbol || readySymbol === symbol) {
+    return;
   }
+  readySymbol = symbol;
+  emit();
 }
 
-// The (focused) chart is switching symbol -> show the loading mask again until
-// the new symbol's bars arrive. Gated by the caller on focus so a background
-// prewarm switching symbols never blanks the visible chart.
-export function markChartLoading() {
-  if (ready) {
-    ready = false;
-    emit();
-  }
-}
-
-export function useChartDataReady(): boolean {
-  return useSyncExternalStore(
+// True when the shared chart currently has data for `symbol`. Drives the mask:
+// show the loading mask while this is false.
+export function useChartHasData(symbol: string | undefined): boolean {
+  const ready = useSyncExternalStore(
     (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
     },
-    () => ready,
-    () => ready,
+    () => readySymbol,
+    () => readySymbol,
   );
+  return !!symbol && ready === symbol;
 }
