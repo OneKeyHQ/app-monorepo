@@ -58,6 +58,7 @@ export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
 });
 
 export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';
+export const PERPS_TWAP_HISTORY_URL = `${HYPER_LIQUID_ORIGIN}/twapHistory/`;
 
 /**
  * Filtered transaction types in account ledger history

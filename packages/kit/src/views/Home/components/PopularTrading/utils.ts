@@ -121,10 +121,12 @@ function mapMarketTokenToDisplay(
     symbol: item.symbol,
     name: item.name,
     logoUrl: item.logoUrl ?? '',
+    logoUrls: item.logoUrls,
     price: getMarketTokenDisplayPrice(item),
     priceChange24h: getMarketTokenDisplayPriceChange24h(item),
     marketCap: getMarketTokenDisplayMarketCap(item),
     volume24h: getMarketTokenDisplayVolume24h(item),
+    communityRecognized: item.communityRecognized,
     stock: item.stock,
   };
 }

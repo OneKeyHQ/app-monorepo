@@ -672,13 +672,17 @@ function SwapKLineHeaderRight({
 function SwapKLineTokenPriceInfo({
   tokenMarketDetail,
   walletMarketInfo,
+  fallbackPrice,
   compact,
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  fallbackPrice?: string;
   compact?: boolean;
 }) {
-  const price = getNormalizedPrice(tokenMarketDetail?.price);
+  const price =
+    getNormalizedPrice(tokenMarketDetail?.price) ??
+    getNormalizedPrice(fallbackPrice);
   const priceChange =
     getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
@@ -787,6 +791,7 @@ function SwapKLineTokenInfoRow({
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
+          fallbackPrice={token.price}
           compact={compact}
         />
       </XStack>

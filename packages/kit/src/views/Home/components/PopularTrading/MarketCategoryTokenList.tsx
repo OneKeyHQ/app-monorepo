@@ -22,6 +22,7 @@ import { RichTable } from '../RichTable';
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
@@ -51,13 +52,14 @@ function MarketCategoryTokenList({
 }: IMarketCategoryTokenListProps) {
   const intl = useIntl();
   const { md } = useMedia();
+  const shouldUseTableLayout = Boolean(tableLayout && !md);
   const useStockMetadataColumns = useMemo(
     () => shouldUseStockMetadataColumnsForTokens(tokens),
     [tokens],
   );
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
-    if (tableLayout) {
+    if (shouldUseTableLayout) {
       return [
         {
           dataIndex: 'symbol',
@@ -69,7 +71,7 @@ function MarketCategoryTokenList({
           ) => {
             const checked = isTokenInWatchList(record);
             return (
-              <XStack alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
                 <IconButton
                   testID={HomeTestIDs.popularTokenStarBtnMobile(record.symbol)}
                   title={intl.formatMessage({
@@ -83,17 +85,24 @@ function MarketCategoryTokenList({
                   iconProps={{
                     color: checked ? '$iconActive' : '$iconSubdued',
                   }}
+                  m="$0"
                   onPress={() => void onStarPress(record)}
                 />
-                <XStack alignItems="center" gap="$2">
+                <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
                   <Token
                     size="md"
                     tokenImageUri={record.logoUrl}
+                    tokenImageUris={record.logoUrls}
                     networkId={record.chainId}
                     showNetworkIcon
                   />
-                  <YStack minWidth={0}>
-                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                  <YStack flex={1} minWidth={0}>
+                    <XStack
+                      alignItems="center"
+                      gap="$1"
+                      minWidth={0}
+                      overflow="hidden"
+                    >
                       <SizableText
                         size="$bodyLgMedium"
                         numberOfLines={1}
@@ -103,12 +112,15 @@ function MarketCategoryTokenList({
                         {record.symbol}
                       </SizableText>
                       {renderPopularTradingStockBadges(record)}
+                      {renderPopularTradingCommunityBadge(record)}
                     </XStack>
                     <SizableText
                       size="$bodyMd"
                       color="$textSubdued"
                       numberOfLines={1}
-                      maxWidth={200}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                      maxWidth="100%"
                     >
                       {record.name}
                     </SizableText>
@@ -129,10 +141,11 @@ function MarketCategoryTokenList({
       {
         dataIndex: 'symbol',
         title: intl.formatMessage({ id: ETranslations.global_name }),
+        columnProps: { flex: 1.35, flexBasis: 0, minWidth: 0 },
         render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => {
           const checked = isTokenInWatchList(record);
           return (
-            <XStack alignItems="center" gap="$2" justifyContent="flex-end">
+            <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
               <IconButton
                 testID={HomeTestIDs.popularTokenStarBtnDesktop(record.symbol)}
                 title={intl.formatMessage({
@@ -146,19 +159,26 @@ function MarketCategoryTokenList({
                 iconProps={{
                   color: checked ? '$iconActive' : '$iconSubdued',
                 }}
+                m="$0"
                 onPress={() => void onStarPress(record)}
                 hoverStyle={{ bg: 'transparent' }}
                 pressStyle={{ bg: 'transparent' }}
               />
-              <XStack alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
                 <Token
                   size="lg"
                   tokenImageUri={record.logoUrl}
+                  tokenImageUris={record.logoUrls}
                   networkId={record.chainId}
                   showNetworkIcon
                 />
-                <YStack minWidth={0}>
-                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                <YStack flex={1} minWidth={0}>
+                  <XStack
+                    alignItems="center"
+                    gap="$1"
+                    minWidth={0}
+                    overflow="hidden"
+                  >
                     <SizableText
                       size="$bodyLgMedium"
                       numberOfLines={1}
@@ -168,6 +188,7 @@ function MarketCategoryTokenList({
                       {record.symbol}
                     </SizableText>
                     {renderPopularTradingStockBadges(record)}
+                    {renderPopularTradingCommunityBadge(record)}
                   </XStack>
                   {renderPopularTradingTokenSubtitle(record)}
                 </YStack>
@@ -179,6 +200,7 @@ function MarketCategoryTokenList({
       {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
+        columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
         render: (_: unknown, record: IFavoriteTokenDisplay) =>
           renderPopularTradingRightMetrics(record, useStockMetadataColumns),
       },
@@ -187,7 +209,7 @@ function MarketCategoryTokenList({
     intl,
     isTokenInWatchList,
     onStarPress,
-    tableLayout,
+    shouldUseTableLayout,
     useStockMetadataColumns,
   ]);
 
@@ -216,7 +238,7 @@ function MarketCategoryTokenList({
   return (
     <YStack>
       <RichTable<IFavoriteTokenDisplay>
-        showHeader={!!tableLayout}
+        showHeader={shouldUseTableLayout}
         dataSource={tokens}
         columns={columns}
         keyExtractor={(item) => `${item.chainId}-${item.contractAddress}`}

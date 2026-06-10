@@ -13,6 +13,7 @@ import {
   YStack,
   getSharedButtonStyles,
   rootNavigationRef,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
@@ -62,6 +63,7 @@ import {
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
@@ -121,6 +123,7 @@ function RecommendCardItem({
         <Token
           size="md"
           tokenImageUri={token.logoUrl}
+          tokenImageUris={token.logoUrls}
           networkId={token.chainId}
           showNetworkIcon
         />
@@ -147,6 +150,7 @@ function RecommendCardItem({
               {token.symbol}
             </SizableText>
             {renderPopularTradingStockBadges(token)}
+            {renderPopularTradingCommunityBadge(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -182,6 +186,8 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
+  const { md } = useMedia();
+  const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const {
@@ -363,7 +369,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Columns for table layout (only used when user has favorites)
   const columns = useMemo(() => {
-    if (tableLayout) {
+    if (shouldUseTableLayout) {
       return [
         {
           dataIndex: 'symbol',
@@ -373,7 +379,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             record: IFavoriteTokenDisplay,
             _index: number,
           ) => (
-            <XStack alignItems="center" gap="$2">
+            <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
               <IconButton
                 testID="home-columns-icon-btn"
                 icon="StarSolid"
@@ -383,17 +389,24 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 title={intl.formatMessage({
                   id: ETranslations.market_remove_from_favorites,
                 })}
+                m="$0"
                 onPress={() => handleRemoveFromWatchlistRef.current(record)}
               />
-              <XStack alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
                 <Token
                   size="md"
                   tokenImageUri={record.logoUrl}
+                  tokenImageUris={record.logoUrls}
                   networkId={record.perpsCoin ? undefined : record.chainId}
                   showNetworkIcon={!record.perpsCoin}
                 />
-                <YStack minWidth={0}>
-                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                <YStack flex={1} minWidth={0}>
+                  <XStack
+                    alignItems="center"
+                    gap="$1"
+                    minWidth={0}
+                    overflow="hidden"
+                  >
                     <SizableText
                       size="$bodyLgMedium"
                       numberOfLines={1}
@@ -406,12 +419,15 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
                     {renderPopularTradingStockBadges(record)}
+                    {renderPopularTradingCommunityBadge(record)}
                   </XStack>
                   <SizableText
                     size="$bodyMd"
                     color="$textSubdued"
                     numberOfLines={1}
-                    maxWidth={200}
+                    ellipsizeMode="tail"
+                    flexShrink={1}
+                    maxWidth="100%"
                   >
                     {record.name}
                   </SizableText>
@@ -431,8 +447,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       {
         dataIndex: 'symbol',
         title: intl.formatMessage({ id: ETranslations.global_name }),
+        columnProps: { flex: 1.35, flexBasis: 0, minWidth: 0 },
         render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => (
-          <XStack alignItems="center" gap="$2" justifyContent="flex-end">
+          <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
             <IconButton
               testID="home-icon-btn"
               icon="StarSolid"
@@ -442,19 +459,26 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               title={intl.formatMessage({
                 id: ETranslations.market_remove_from_favorites,
               })}
+              m="$0"
               onPress={() => handleRemoveFromWatchlistRef.current(record)}
               hoverStyle={{ bg: 'transparent' }}
               pressStyle={{ bg: 'transparent' }}
             />
-            <XStack alignItems="center" gap="$2">
+            <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
               <Token
                 size="lg"
                 tokenImageUri={record.logoUrl}
+                tokenImageUris={record.logoUrls}
                 networkId={record.perpsCoin ? undefined : record.chainId}
                 showNetworkIcon={!record.perpsCoin}
               />
-              <YStack minWidth={0}>
-                <XStack alignItems="center" gap="$1" minWidth={0}>
+              <YStack flex={1} minWidth={0}>
+                <XStack
+                  alignItems="center"
+                  gap="$1"
+                  minWidth={0}
+                  overflow="hidden"
+                >
                   <SizableText
                     size="$bodyLgMedium"
                     numberOfLines={1}
@@ -467,6 +491,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
                   {renderPopularTradingStockBadges(record)}
+                  {renderPopularTradingCommunityBadge(record)}
                 </XStack>
                 {renderPopularTradingTokenSubtitle(record)}
               </YStack>
@@ -477,11 +502,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
+        columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
         render: (_: unknown, record: IFavoriteTokenDisplay) =>
           renderPopularTradingRightMetrics(record, useStockMetadataColumns),
       },
     ];
-  }, [intl, tableLayout, useStockMetadataColumns]);
+  }, [intl, shouldUseTableLayout, useStockMetadataColumns]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -599,10 +625,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
+              logoUrls: item.logoUrls,
               price: getMarketTokenDisplayPrice(item),
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
               stock: item.stock,
             };
           })
@@ -673,10 +701,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
+              logoUrls: item.logoUrls,
               price: getMarketTokenDisplayPrice(item),
               priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
               stock: item.stock,
             };
           })
@@ -879,7 +909,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       />
     );
 
-    if (!tableLayout) {
+    if (!shouldUseTableLayout) {
       return (
         <YStack gap="$2.5" width="100%">
           {[0, 1].map((rowIndex) => (
@@ -898,7 +928,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         {favoriteTokens.map(renderCardItem)}
       </XStack>
     );
-  }, [favoriteTokens, selectedTokens, handleRecommendItemChange, tableLayout]);
+  }, [
+    favoriteTokens,
+    selectedTokens,
+    handleRecommendItemChange,
+    shouldUseTableLayout,
+  ]);
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
@@ -918,7 +953,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return (
       <YStack>
         <RichTable<IFavoriteTokenDisplay>
-          showHeader={!!tableLayout}
+          showHeader={shouldUseTableLayout}
           dataSource={favoriteTokens}
           columns={columns}
           keyExtractor={(item) =>
@@ -968,7 +1003,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleTokenPress,
     handleViewMore,
     intl,
-    tableLayout,
+    shouldUseTableLayout,
     totalFavoritesCount,
   ]);
 
@@ -1014,7 +1049,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           <MarketCategoryTokenList
             tokens={categoryTokens}
             isLoading={isCategoryLoading}
-            tableLayout={tableLayout}
+            tableLayout={shouldUseTableLayout}
             isTokenInWatchList={isTokenInWatchList}
             onStarPress={handleMarketCategoryStarPress}
             onTokenPress={handleTokenPress}
@@ -1056,7 +1091,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack px={tableLayout ? '$pagePadding' : undefined}>
+        <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
           <CategorySelector
             categories={homeCategories}
             selectedCategoryId={resolvedSelectedCategoryId}
@@ -1085,7 +1120,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     renderUserFavoritesList,
     selectedMarketCategoryId,
     resolvedSelectedCategoryId,
-    tableLayout,
+    shouldUseTableLayout,
   ]);
 
   return (

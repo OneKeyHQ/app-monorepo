@@ -249,10 +249,31 @@ export function DepthBarColumn({
     pushDepth();
   }, [percents, prices, sizes, placeholderText, placeholderRows, pushDepth]);
 
+  const seededNativePropsRef = useRef<
+    | {
+        epoch: unknown;
+        percents: number[];
+        prices: string[];
+        sizes: string[];
+      }
+    | undefined
+  >(undefined);
+  const shouldSeedNativeProps =
+    depthRef.current === null || seededNativePropsRef.current?.epoch !== epoch;
+  if (shouldSeedNativeProps) {
+    seededNativePropsRef.current = {
+      epoch,
+      percents,
+      prices: prices ?? EMPTY_STRINGS,
+      sizes: sizes ?? EMPTY_STRINGS,
+    };
+  }
+  const seededNativeProps = seededNativePropsRef.current;
+
   return (
     <StyledPerpDepthBarsView
       hybridRef={hybridRef}
-      percents={EMPTY_PERCENTS}
+      percents={seededNativeProps?.percents ?? EMPTY_PERCENTS}
       rowHeight={rowHeight}
       rowMarginTop={rowMarginTop}
       barInset={barInset}
@@ -260,8 +281,8 @@ export function DepthBarColumn({
       origin={origin}
       reducedMotion={reducedMotion}
       epoch={epoch}
-      prices={EMPTY_STRINGS}
-      sizes={EMPTY_STRINGS}
+      prices={seededNativeProps?.prices ?? EMPTY_STRINGS}
+      sizes={seededNativeProps?.sizes ?? EMPTY_STRINGS}
       priceColor={nativePriceColor ?? 'rgba(0,0,0,1)'}
       sizeColor={nativeSizeColor ?? 'rgba(0,0,0,1)'}
       priceFontSize={priceFontSize ?? 11}

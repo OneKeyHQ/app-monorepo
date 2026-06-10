@@ -68,6 +68,7 @@ interface INormalManageContentProps {
   showApyDetail?: boolean;
   fallbackTokenImageUri?: string;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
+  suppressPlatformBonus?: boolean;
   ongoingValidator?: IEarnSelectField;
   managePageData?: IEarnManagePageResponse;
   type?: EManagePositionType;
@@ -102,6 +103,7 @@ export function NormalManageContent({
   showApyDetail,
   fallbackTokenImageUri,
   stakeProtocolSwitchConfig,
+  suppressPlatformBonus,
   ongoingValidator,
   managePageData,
   type = EManagePositionType.Staking,
@@ -716,6 +718,7 @@ export function NormalManageContent({
           onSuccess={onSuccess}
           beforeFooter={stakeBeforeFooter}
           showApyDetail={showApyDetail}
+          suppressPlatformBonus={suppressPlatformBonus}
           isInModalContext={isInModalContext}
           fallbackTokenImageUri={fallbackTokenImageUri}
           protocolSwitchConfig={stakeProtocolSwitchConfig}

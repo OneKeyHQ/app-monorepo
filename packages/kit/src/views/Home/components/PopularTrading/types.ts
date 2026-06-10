@@ -7,12 +7,14 @@ interface IFavoriteTokenDisplay {
   symbol: string;
   name: string;
   logoUrl: string;
+  logoUrls?: string[];
   price: number;
   priceChange24h: number;
   marketCap: number;
   volume24h: number;
   perpsCoin?: string;
   maxLeverage?: number;
+  communityRecognized?: boolean;
   stock?: IMarketStockInfo;
 }
 

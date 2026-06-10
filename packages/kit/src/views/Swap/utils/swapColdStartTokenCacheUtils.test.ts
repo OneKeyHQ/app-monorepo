@@ -22,6 +22,8 @@ import {
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldMarkSwapInitialSelectedTokensSynced,
+  shouldPreserveSwapUserInputAmountOnAccountSwitch,
+  shouldPreserveSwapUserInputOnAccountSwitch,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from './swapColdStartTokenCacheUtils';
@@ -97,6 +99,60 @@ function buildSwapNetwork({
 }
 
 describe('swap cold-start selected token context', () => {
+  it('preserves swap user input when selected tokens and from amount are present', () => {
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+        hasSelectedTokens: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('preserves swap user input when selected tokens and to amount are present', () => {
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        hasSelectedTokens: true,
+        toTokenAmount: { value: '100', isInput: true },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not preserve swap user input for imported params or non-input amounts', () => {
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+        hasImportParams: true,
+        hasSelectedTokens: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: false },
+        hasSelectedTokens: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+        hasSelectedTokens: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('preserves swap user input amount even when selected token refs are temporarily empty', () => {
+    expect(
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+      }),
+    ).toBe(true);
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+        hasSelectedTokens: false,
+      }),
+    ).toBe(false);
+  });
+
   it('matches when account and network are unchanged', () => {
     const activeAccount = buildActiveAccount();
     const cachedContext = buildSwapSelectedTokensColdStartContext({
@@ -301,6 +357,32 @@ describe('swap cold-start selected token context', () => {
         toToken: buildSwapToken('evm--1'),
       }),
     ).toBe(false);
+  });
+
+  it('allows account network sync when selected tokens should be preserved across owner changes', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount(),
+      networkId: 'evm--1',
+      swapType: ESwapTabSwitchType.SWAP,
+      now: 1,
+    });
+
+    expect(
+      isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
+        activeAccount: buildActiveAccount({
+          indexedAccount: {
+            id: 'indexed-account-2',
+          } as IAccountSelectorActiveAccountInfo['indexedAccount'],
+          network: {
+            id: 'sol--101',
+          } as IAccountSelectorActiveAccountInfo['network'],
+        }),
+        fromToken: buildSwapToken('evm--1'),
+        preserveSelectedTokens: true,
+        selectedTokensColdStartContext: cachedContext,
+        toToken: buildSwapToken('evm--1'),
+      }),
+    ).toBe(true);
   });
 
   it('clears cached selected tokens when home network changes', () => {
@@ -1106,22 +1188,200 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
-  it('clears selected tokens after initial sync when the home account owner changes', () => {
+  it('keeps the root listener from rewriting selected tokens when preserving user-entered amount', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount({
+        network: {
+          id: 'sol--101',
+        } as IAccountSelectorActiveAccountInfo['network'],
+      }),
+      networkId: 'sol--101',
+      swapType: ESwapTabSwitchType.SWAP,
+      now: 1,
+    });
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'evm--1',
+      }),
+    };
+
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext,
+        eventPayload,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: false,
+        preserveSelectedTokens: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the root listener from rewriting default tokens when amount exists before selected token refs are ready', () => {
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'sol--101',
+      }),
+    };
+
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext: undefined,
+        eventPayload,
+        hasSelectedTokens: false,
+        initialSelectedTokensSynced: false,
+        preserveSelectedTokens:
+          shouldPreserveSwapUserInputAmountOnAccountSwitch({
+            fromTokenAmount: { value: '1.23', isInput: true },
+          }),
+      }),
+    ).toBe(false);
+  });
+
+  it('preserves user-entered selected tokens before the initial synced flag is committed', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount({
+        network: {
+          id: 'sol--101',
+        } as IAccountSelectorActiveAccountInfo['network'],
+      }),
+      networkId: 'sol--101',
+      swapType: ESwapTabSwitchType.SWAP,
+      now: 1,
+    });
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'evm--1',
+      }),
+    };
+    const swapSelectedAccount = buildSelectedAccount({
+      networkId: 'sol--101',
+    });
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext,
+        eventPayload,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: false,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext,
+        hasSelectedTokens: true,
+        homeSelectedAccount: eventPayload.selectedAccount,
+        initialSelectedTokensSynced: false,
+        preserveSelectedTokens: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(false);
+  });
+
+  it('clears selected tokens after initial sync when the home account owner changes without user input preservation', () => {
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'sol--101',
+      }),
+    };
+    const swapSelectedAccount = buildSelectedAccount({
+      indexedAccountId: 'indexed-account-1',
+      networkId: 'evm--1',
+    });
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        eventPayload,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
     expect(
       shouldClearSwapSelectedTokensBeforeHomeAccountSync({
         cachedContext: undefined,
         hasSelectedTokens: true,
-        homeSelectedAccount: buildSelectedAccount({
-          indexedAccountId: 'indexed-account-2',
-          networkId: 'sol--101',
-        }),
+        homeSelectedAccount: eventPayload.selectedAccount,
         initialSelectedTokensSynced: true,
-        swapSelectedAccount: buildSelectedAccount({
-          indexedAccountId: 'indexed-account-1',
-          networkId: 'evm--1',
-        }),
+        swapSelectedAccount,
       }),
     ).toBe(true);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount: eventPayload.selectedAccount,
+        initialSelectedTokensSynced: true,
+        preserveSelectedTokens: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(false);
+  });
+
+  it('clears selected tokens after initial sync when the home wallet changes without user input preservation', () => {
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        focusedWallet: 'wallet-2',
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'sol--101',
+        walletId: 'wallet-2',
+      }),
+    };
+    const swapSelectedAccount = buildSelectedAccount({
+      focusedWallet: 'wallet-1',
+      indexedAccountId: 'indexed-account-1',
+      networkId: 'evm--1',
+      walletId: 'wallet-1',
+    });
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        eventPayload,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount: eventPayload.selectedAccount,
+        initialSelectedTokensSynced: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext: undefined,
+        hasSelectedTokens: true,
+        homeSelectedAccount: eventPayload.selectedAccount,
+        initialSelectedTokensSynced: true,
+        preserveSelectedTokens: true,
+        swapSelectedAccount,
+      }),
+    ).toBe(false);
   });
 
   it('continues default token sync after initial sync when selected tokens are empty', () => {
