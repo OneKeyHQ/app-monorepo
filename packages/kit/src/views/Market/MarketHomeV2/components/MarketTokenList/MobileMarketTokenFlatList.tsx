@@ -164,7 +164,7 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,
