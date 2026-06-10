@@ -949,6 +949,60 @@ class ServiceFreshAddress extends ServiceBase {
     return { index, relPath, path, address };
   }
 
+  // build a one-shot checker so callers with many addresses resolve the
+  // db account and the fresh-address map once instead of per address
+  private async buildBtcDiscoveredAddressChecker({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }): Promise<(address: string) => boolean> {
+    const discovered = new Set<string>();
+
+    const ctx = await this.resolveBtcAddressContext({
+      accountId,
+      networkId,
+    });
+
+    // local-first: the main address plus gap-scanned/custom addresses are
+    // already visible even when the fresh-address cache was never fetched
+    const dbAccount =
+      ctx?.dbAccount ??
+      ((await this.backgroundApi.serviceAccount
+        .getDBAccount({ accountId })
+        .catch(() => undefined)) as IDBUtxoAccount | undefined);
+    if (dbAccount) {
+      if (dbAccount.address) {
+        discovered.add(dbAccount.address);
+      }
+      Object.values(dbAccount.addresses || {}).forEach((item) =>
+        discovered.add(item),
+      );
+      Object.values(dbAccount.customAddresses || {}).forEach((item) =>
+        discovered.add(item),
+      );
+    }
+
+    if (ctx) {
+      const freshAddressesMap =
+        await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddressMap(
+          {
+            networkId,
+            xpubSegwit: ctx.xpubSegwit,
+          },
+        );
+      Object.entries(freshAddressesMap).forEach(([name, item]) => {
+        discovered.add(name);
+        if (item.address) {
+          discovered.add(item.address);
+        }
+      });
+    }
+
+    return (address: string) => discovered.has(address);
+  }
+
   @backgroundMethod()
   async isBtcAddressAlreadyDiscovered({
     accountId,
@@ -959,24 +1013,11 @@ class ServiceFreshAddress extends ServiceBase {
     networkId: string;
     address: string;
   }): Promise<boolean> {
-    const ctx = await this.resolveBtcAddressContext({
+    const isDiscovered = await this.buildBtcDiscoveredAddressChecker({
       accountId,
       networkId,
     });
-    if (!ctx) {
-      return false;
-    }
-    const freshAddressesMap =
-      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddressMap({
-        networkId,
-        xpubSegwit: ctx.xpubSegwit,
-      });
-    if (freshAddressesMap[address]) {
-      return true;
-    }
-    return Object.values(freshAddressesMap).some(
-      (item) => item.address === address,
-    );
+    return isDiscovered(address);
   }
 
   @backgroundMethod()
@@ -1077,18 +1118,13 @@ class ServiceFreshAddress extends ServiceBase {
 
     // D8: a claimed address that later gets discovered by the gap scan is
     // shown in the used list only, drop it from findAddresses
-    const discoveredRelPaths: string[] = [];
-    for (const [relPath, address] of entries) {
-      if (
-        await this.isBtcAddressAlreadyDiscovered({
-          accountId,
-          networkId,
-          address,
-        })
-      ) {
-        discoveredRelPaths.push(relPath);
-      }
-    }
+    const isDiscovered = await this.buildBtcDiscoveredAddressChecker({
+      accountId,
+      networkId,
+    });
+    const discoveredRelPaths = entries
+      .filter(([, address]) => isDiscovered(address))
+      .map(([relPath]) => relPath);
     if (discoveredRelPaths.length) {
       await localDb.updateAccountFindAddresses({
         accountId,
