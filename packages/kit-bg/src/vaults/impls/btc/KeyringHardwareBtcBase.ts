@@ -350,10 +350,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
             fallbackPubkeyHex: checkIsDefined(dbAccount.pub),
           });
           psbt.updateOutput(i, {
-            tapInternalKey: Buffer.from(outputPubkeyHex, 'hex').subarray(
-              1,
-              33,
-            ),
+            tapInternalKey: Buffer.from(outputPubkeyHex, 'hex').subarray(1, 33),
             tapBip32Derivation: resolveTapBip32Derivation({
               address: output.address,
               fallbackPubkeyHex: checkIsDefined(dbAccount.pub),

@@ -103,6 +103,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
+import { buildBtcSendUtxoPool } from './sdkBtc/findAddressUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
@@ -984,22 +985,19 @@ export default class VaultBtc extends VaultBase {
     const totalUtxoCount = utxosInfo.length;
 
     const hasSelectedUtxos = selectedUtxoKeys && selectedUtxoKeys.length > 0;
+    // btc find-address feature: claimed off-gap UTXOs are not part of the
+    // gap-scanned pool, merge them in ONLY when the user explicitly made a
+    // coin-control selection, the selection filter below then decides what
+    // gets spent. Sends without a selection never see claimed UTXOs.
+    const { utxoList: claimedUtxos } = hasSelectedUtxos
+      ? await this._collectClaimedUtxosInfo()
+      : { utxoList: [] as IUtxoInfo[] };
+    utxosInfo = buildBtcSendUtxoPool({
+      poolUtxos: utxosInfo,
+      claimedUtxos,
+      selectedUtxoKeys,
+    });
     if (hasSelectedUtxos) {
-      // btc find-address feature: claimed off-gap UTXOs are not part of the
-      // gap-scanned pool, merge them in ONLY when the user explicitly made a
-      // coin-control selection, the selection filter below then decides what
-      // gets spent. Sends without a selection never see claimed UTXOs.
-      const { utxoList: claimedUtxos } = await this._collectClaimedUtxosInfo();
-      if (claimedUtxos.length) {
-        const existingUtxoKeys = new Set(
-          utxosInfo.map((utxo) => `${utxo.txid}:${utxo.vout}`),
-        );
-        utxosInfo = utxosInfo.concat(
-          claimedUtxos.filter(
-            (utxo) => !existingUtxoKeys.has(`${utxo.txid}:${utxo.vout}`),
-          ),
-        );
-      }
       const selectedKeysSet = new Set(selectedUtxoKeys);
       utxosInfo = utxosInfo.filter((utxo) => {
         const utxoKey = `${utxo.txid}:${utxo.vout}`;
@@ -1358,7 +1356,9 @@ export default class VaultBtc extends VaultBase {
   // normal send pool never contains them implicitly.
   _collectClaimedUtxosWithCache = memoizee(
     async (withCheckInscription: boolean) => {
-      const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+      const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: this.accountId,
+      })) as IDBUtxoAccount;
       const findAddresses = dbAccount.findAddresses || {};
       const entries = Object.entries(findAddresses);
       const utxoList: IUtxoInfo[] = [];

@@ -43,6 +43,7 @@ import {
   currencyPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -1664,19 +1665,7 @@ class ServiceAccountProfile extends ServiceBase {
 
     const { utxoList: claimedUtxos } =
       await btcVault._collectClaimedUtxosInfo();
-    if (!claimedUtxos.length) {
-      return utxoList;
-    }
-    // a claimed address that later got discovered by the gap scan is already
-    // part of the main pool, dedupe by txid:vout and prefer the main entry
-    const existingUtxoKeys = new Set(
-      utxoList.map((utxo) => `${utxo.txid}:${utxo.vout}`),
-    );
-    return utxoList.concat(
-      claimedUtxos.filter(
-        (utxo) => !existingUtxoKeys.has(`${utxo.txid}:${utxo.vout}`),
-      ),
-    );
+    return mergeClaimedUtxos({ poolUtxos: utxoList, claimedUtxos });
   }
 
   // Get wallet type
