@@ -348,9 +348,15 @@ function BtcAddresses() {
 
   const effectiveAccountId = currentAccount?.id ?? accountId;
   const effectiveDeriveInfo = currentDeriveInfo;
-  const isHardwareAccount = accountUtils.isHwAccount({
-    accountId: effectiveAccountId,
-  });
+  // hw and qr accounts can both verify an arbitrary-path address on the
+  // device/offline screen (ReceiveToken supports both wallet kinds)
+  const isHardwareAccount =
+    accountUtils.isHwAccount({
+      accountId: effectiveAccountId,
+    }) ||
+    accountUtils.isQrAccount({
+      accountId: effectiveAccountId,
+    });
 
   const [activeTab, setActiveTab] = useState<ITabKey>('receive');
   const [receivePage, setReceivePage] = useState(1);
