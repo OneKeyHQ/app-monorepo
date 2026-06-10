@@ -158,6 +158,23 @@ function isHomeMainAccountUpdate({
   );
 }
 
+function shouldResetSelectedTokensForAllNetworkHome({
+  cachedContext,
+  selectedAccount,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  selectedAccount?: IAccountSelectorSelectedAccount;
+}) {
+  if (!isSwapColdStartAllNetworkContextNetworkId(selectedAccount?.networkId)) {
+    return false;
+  }
+
+  return (
+    !cachedContext ||
+    !isSwapColdStartAllNetworkContextNetworkId(cachedContext.networkId)
+  );
+}
+
 export function shouldClearSwapSelectedTokensOnHomeAccountUpdate({
   cachedContext,
   eventPayload,
@@ -217,6 +234,16 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
 }) {
   if (initialSelectedTokensSynced) {
     return false;
+  }
+
+  if (
+    hasSelectedTokens &&
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: eventPayload.selectedAccount,
+    })
+  ) {
+    return true;
   }
 
   if (
@@ -474,6 +501,15 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
     return false;
   }
 
+  if (
+    shouldResetSelectedTokensForAllNetworkHome({
+      cachedContext,
+      selectedAccount: homeSelectedAccount,
+    })
+  ) {
+    return true;
+  }
+
   const isMatched =
     isSwapSelectedTokensColdStartContextMatchedWithSelectedAccount({
       cachedContext,
@@ -510,6 +546,22 @@ export function shouldSkipSwapDefaultSelectedTokenSync({
   initialSelectedTokensSynced: boolean;
 }) {
   return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
+}
+
+export function shouldMarkSwapInitialSelectedTokensSynced({
+  hasSelectedTokens,
+  hasSyncedSwapSelectedAccountFromHomeStorage,
+  selectedTokensColdStartContextValid,
+}: {
+  hasSelectedTokens: boolean;
+  hasSyncedSwapSelectedAccountFromHomeStorage: boolean;
+  selectedTokensColdStartContextValid: boolean | undefined;
+}) {
+  return Boolean(
+    hasSelectedTokens &&
+    hasSyncedSwapSelectedAccountFromHomeStorage &&
+    selectedTokensColdStartContextValid === true,
+  );
 }
 
 export function getSwapSelectedTokensColdStartContextNetworkId({

@@ -17,6 +17,7 @@ import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
@@ -43,8 +44,47 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
   __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
 };
 
+type ISelectedAccountSnapshot = {
+  networkId?: string;
+};
+
+type ISelectedAccountsSnapshot = Record<
+  string | number,
+  ISelectedAccountSnapshot | undefined
+>;
+
+const COLD_START_SCOPED_KEY_SEPARATOR = '::';
+const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
+
 function getColdStartSnapshot() {
   return (globalThis as IGlobalColdStartSnapshot).__ONEKEY_CTX_ATOM_SNAPSHOT__;
+}
+
+function buildContextAtomSnapshotKey({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: string;
+}) {
+  return `${coldStartScopeKey}${COLD_START_SCOPED_KEY_SEPARATOR}${coldStartCacheKey}`;
+}
+
+function hasAllNetworkHomeSelectedAccountSnapshot() {
+  const snapshot = getColdStartSnapshot();
+  if (!snapshot) {
+    return false;
+  }
+
+  const selectedAccounts = snapshot[
+    buildContextAtomSnapshotKey({
+      coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+      coldStartCacheKey:
+        CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+    })
+  ] as ISelectedAccountsSnapshot | null | undefined;
+  const selectedAccount = selectedAccounts?.[0] ?? selectedAccounts?.['0'];
+  return isSwapColdStartAllNetworkContextNetworkId(selectedAccount?.networkId);
 }
 
 function hasPerpsColdStartSnapshot() {
@@ -85,8 +125,10 @@ function hasSwapColdStartSnapshot() {
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapProPositionsCacheAtom,
   ];
-  return Object.keys(snapshot).some((key) =>
-    swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+  return (
+    Object.keys(snapshot).some((key) =>
+      swapColdStartCacheKeys.some((cacheKey) => key.endsWith(`::${cacheKey}`)),
+    ) || hasAllNetworkHomeSelectedAccountSnapshot()
   );
 }
 

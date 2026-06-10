@@ -21,6 +21,7 @@ import {
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldHandleSwapColdStartHomeAccountUpdate,
+  shouldMarkSwapInitialSelectedTokensSynced,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from './swapColdStartTokenCacheUtils';
@@ -360,6 +361,34 @@ describe('swap cold-start selected token context', () => {
       homeSelectedAccount: buildSelectedAccount({
         networkId: 'onekeyall--0',
       }),
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      }),
+      toToken: expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'USDC',
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'onekeyall--0',
+        swapType: ESwapTabSwitchType.SWAP,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+    });
+  });
+
+  it('uses Swap ETH-USDC defaults for All Networks even when the previous tab was Bridge', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'onekeyall--0',
+      }),
+      swapType: ESwapTabSwitchType.BRIDGE,
       now: 1,
     });
 
@@ -766,7 +795,7 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
-  it('preserves restored tokens when syncing the same account into All Networks without token context', () => {
+  it('clears restored tokens when syncing the same account into All Networks without token context', () => {
     const homeSelectedAccount = buildSelectedAccount({
       networkId: 'onekeyall--0',
     });
@@ -794,10 +823,10 @@ describe('swap cold-start selected token context', () => {
         homeSelectedAccount,
         swapSelectedAccount,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('preserves restored tokens when syncing the same account into All Networks with concrete swap context', () => {
+  it('clears restored tokens when syncing the same account into All Networks with concrete swap context', () => {
     const cachedContext = buildSwapSelectedTokensColdStartContext({
       activeAccount: buildActiveAccount({
         network: {
@@ -833,6 +862,120 @@ describe('swap cold-start selected token context', () => {
         cachedContext,
         hasSelectedTokens: true,
         homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+  });
+
+  it('preserves restored tokens when syncing the same account into All Networks with all-network context', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount({
+        network: {
+          id: 'onekeyall--0',
+        } as IAccountSelectorActiveAccountInfo['network'],
+      }),
+      networkId: 'onekeyall--0',
+      swapType: ESwapTabSwitchType.SWAP,
+      now: 1,
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      networkId: 'onekeyall--0',
+    });
+    const swapSelectedAccount = buildSelectedAccount({
+      networkId: 'onekeyall--0',
+    });
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext,
+        hasSelectedTokens: true,
+        swapSelectedAccount,
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: homeSelectedAccount,
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        swapSelectedAccount,
+      }),
+    ).toBe(false);
+  });
+
+  it('clears stale BTC Bridge tokens when cold-starting into All Networks', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount({
+        network: {
+          id: 'btc--0',
+        } as IAccountSelectorActiveAccountInfo['network'],
+      }),
+      networkId: 'btc--0',
+      swapType: ESwapTabSwitchType.BRIDGE,
+      now: 1,
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      networkId: 'onekeyall--0',
+    });
+    const swapSelectedAccount = buildSelectedAccount({
+      deriveType: 'BIP44',
+      networkId: 'btc--0',
+    });
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: homeSelectedAccount,
+    };
+
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext,
+        eventPayload,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext,
+        eventPayload,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: false,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: false,
+        swapSelectedAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext,
+        eventPayload,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: true,
         swapSelectedAccount,
       }),
     ).toBe(false);
@@ -1007,6 +1150,24 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
   });
 
+  it('does not mark restored tokens as initially synced before latest Home storage is checked', () => {
+    expect(
+      shouldMarkSwapInitialSelectedTokensSynced({
+        hasSelectedTokens: true,
+        hasSyncedSwapSelectedAccountFromHomeStorage: false,
+        selectedTokensColdStartContextValid: true,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldMarkSwapInitialSelectedTokensSynced({
+        hasSelectedTokens: true,
+        hasSyncedSwapSelectedAccountFromHomeStorage: true,
+        selectedTokensColdStartContextValid: true,
+      }),
+    ).toBe(true);
+  });
+
   it('clears restored tokens when syncing All Networks for another account without token context', () => {
     expect(
       shouldClearSwapSelectedTokensBeforeHomeAccountSync({
@@ -1052,6 +1213,50 @@ describe('swap cold-start selected token context', () => {
             deriveType: 'default',
           }),
         },
+      }),
+    ).toBe(true);
+  });
+
+  it('syncs and clears stale Tron tokens when iOS cold-starts after Home changed to Bitcoin while Swap was not open', () => {
+    const cachedContext = buildSwapSelectedTokensColdStartContext({
+      activeAccount: buildActiveAccount({
+        network: {
+          id: 'tron--0x2b6653dc',
+        } as IAccountSelectorActiveAccountInfo['network'],
+      }),
+      networkId: 'tron--0x2b6653dc',
+      swapType: ESwapTabSwitchType.SWAP,
+      now: 1,
+    });
+    const homeSelectedAccount = buildSelectedAccount({
+      networkId: 'btc--0',
+      deriveType: 'BIP44',
+    });
+    const swapSelectedAccount = buildSelectedAccount({
+      networkId: 'tron--0x2b6653dc',
+      deriveType: 'default',
+    });
+
+    expect(
+      shouldSyncSwapSelectedAccountOnHomeAccountUpdate({
+        cachedContext,
+        hasSelectedTokens: true,
+        initialSelectedTokensSynced: false,
+        swapSelectedAccount,
+        eventPayload: {
+          sceneName: EAccountSelectorSceneName.home,
+          num: 0,
+          selectedAccount: homeSelectedAccount,
+        },
+      }),
+    ).toBe(true);
+    expect(
+      shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+        cachedContext,
+        hasSelectedTokens: true,
+        homeSelectedAccount,
+        initialSelectedTokensSynced: false,
+        swapSelectedAccount,
       }),
     ).toBe(true);
   });
