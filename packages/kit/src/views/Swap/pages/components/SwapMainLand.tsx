@@ -72,6 +72,7 @@ import {
 } from '@onekeyhq/shared/src/routes/swap';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -126,6 +127,7 @@ import {
 } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapReviewState } from '../../utils/buildSwapReviewState';
+import { getSwapSafeInputBalanceAmount } from '../../utils/swapBalanceUtils';
 import { buildSwapRateDifference } from '../../utils/swapRateDifferenceUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -369,6 +371,38 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return swapFromTokenBalance;
   }, [focusSwapPro, swapFromTokenBalance, swapProFromToken?.balanceParsed]);
+  const fromSelectTokenAccountAddress = useMemo(() => {
+    if (!fromSelectToken || !('accountAddress' in fromSelectToken)) {
+      return undefined;
+    }
+    return fromSelectToken.accountAddress;
+  }, [fromSelectToken]);
+  const fallbackFromTokenBalance = useMemo(() => {
+    if (
+      !fromSelectToken?.balanceParsed ||
+      !fromSelectTokenAccountAddress ||
+      !swapFromAddressInfo.address ||
+      !equalsIgnoreCase(
+        fromSelectTokenAccountAddress,
+        swapFromAddressInfo.address,
+      )
+    ) {
+      return undefined;
+    }
+    return fromSelectToken.balanceParsed;
+  }, [
+    fromSelectTokenAccountAddress,
+    fromSelectToken?.balanceParsed,
+    swapFromAddressInfo.address,
+  ]);
+  const safeFromTokenBalanceAmount = useMemo(
+    () =>
+      getSwapSafeInputBalanceAmount({
+        balance: fromTokenBalance,
+        fallbackBalance: fallbackFromTokenBalance,
+      }),
+    [fallbackFromTokenBalance, fromTokenBalance],
+  );
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -545,15 +579,23 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   }, [fromSelectToken?.symbol]);
 
   const checkNativeTokenGasToast = useCallback(() => {
-    let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+    let maxAmount = safeFromTokenBalanceAmount;
+    if (!maxAmount) {
+      return undefined;
+    }
     if (fromSelectToken?.isNative) {
       const reserveGas = swapNativeTokenReserveGas.find(
         (item) => item.networkId === fromSelectToken.networkId,
       )?.reserveGas;
-      if (reserveGas) {
+      const reserveGasBN = new BigNumber(reserveGas ?? '');
+      if (
+        reserveGasBN.isFinite() &&
+        !reserveGasBN.isNaN() &&
+        reserveGasBN.gt(0)
+      ) {
         maxAmount = BigNumber.max(
           0,
-          maxAmount.minus(new BigNumber(reserveGas)),
+          maxAmount.minus(reserveGasBN),
         ).decimalPlaces(
           Number(fromSelectToken?.decimals ?? 6),
           BigNumber.ROUND_DOWN,
@@ -582,7 +624,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     return maxAmount;
   }, [
-    fromTokenBalance,
+    safeFromTokenBalanceAmount,
     fromSelectToken?.isNative,
     fromSelectToken?.networkId,
     fromSelectToken?.decimals,
@@ -593,17 +635,25 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onBalanceMaxPress = useCallback(() => {
     const maxAmount = checkNativeTokenGasToast();
+    if (!maxAmount || maxAmount.isNaN() || !maxAmount.isFinite()) {
+      return;
+    }
+    const maxAmountValue = maxAmount.toFixed();
+    if (!validateAmountInput(maxAmountValue, fromSelectToken?.decimals)) {
+      return;
+    }
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-      setSwapProInputAmount(maxAmount?.toFixed() ?? '');
+      setSwapProInputAmount(maxAmountValue);
     } else {
       setFromInputAmount({
-        value: maxAmount?.toFixed() ?? '',
+        value: maxAmountValue,
         isInput: true,
       });
     }
   }, [
     checkNativeTokenGasToast,
     focusSwapPro,
+    fromSelectToken?.decimals,
     setFromInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
@@ -611,8 +661,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
-      const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-      const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
+      if (stage === 100) {
+        onBalanceMaxPress();
+        return;
+      }
+      if (!safeFromTokenBalanceAmount) {
+        return;
+      }
+      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
       const amountAfterDecimal = amountBN.decimalPlaces(
         Number(fromSelectToken?.decimals ?? 6),
         BigNumber.ROUND_DOWN,
@@ -624,10 +680,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromSelectToken?.decimals,
         )
       ) {
-        if (stage === 100) {
-          onBalanceMaxPress();
-          return;
-        }
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(amountAfterDecimal.toFixed());
         } else {
@@ -639,7 +691,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       }
     },
     [
-      fromTokenBalance,
+      safeFromTokenBalanceAmount,
       fromSelectToken?.decimals,
       focusSwapPro,
       swapProTradeType,
