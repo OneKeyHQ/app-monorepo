@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
 
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IUseNavigationHandlerReturn {
@@ -9,30 +7,22 @@ interface IUseNavigationHandlerReturn {
 }
 
 /**
- * Custom hook for handling WebView navigation in TradingView
- * @returns Navigation handler function that redirects external URLs to system browser
+ * Custom hook for handling WebView navigation in TradingView.
+ *
+ * Tapping the chart's TradingView logo navigates to www.tradingview.com.
+ * Block that redirect entirely (instead of opening it in an external browser),
+ * since the jump is annoying on mobile. All other navigation is allowed.
  */
 export const useNavigationHandler = (): IUseNavigationHandlerReturn => {
   const handleNavigation = useCallback((event: WebViewNavigation): boolean => {
     try {
       const requestUrl = new URL(event.url);
-      const isBlockedTradingViewUrl =
-        requestUrl.hostname === 'www.tradingview.com';
-
-      if (isBlockedTradingViewUrl) {
-        console.log(
-          'Blocked navigation to www.tradingview.com, opening in external browser:',
-          event.url,
-        );
-        // Open the blocked URL in external browser
-        openUrlUtils.openUrlExternal(event.url);
+      if (requestUrl.hostname === 'www.tradingview.com') {
         return false;
       }
-
       return true;
     } catch (_error) {
       // If URL parsing fails, allow the request
-      console.log('Failed to parse URL, allowing navigation:', event.url);
       return true;
     }
   }, []);
