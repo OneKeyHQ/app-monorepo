@@ -9,6 +9,7 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   analyzeOrderBookPrecision,
+  buildPreferredSpotUniverseByBaseNameMap,
   calculateLiquidationPrice,
   calculatePriceScale,
   calculateSpotBalancesTotalUsd,
@@ -216,6 +217,42 @@ describe('calculateSpotBalancesTotalUsd', () => {
 
     expect(result.totalUsd).toBe('236.786521');
     expect(result.missingPriceCoins).toEqual(['BTC']);
+  });
+});
+
+describe('buildPreferredSpotUniverseByBaseNameMap', () => {
+  test('prefers USDC-quoted universes when the same spot token has multiple quotes', () => {
+    const result = buildPreferredSpotUniverseByBaseNameMap([
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDH',
+        name: '@234',
+      },
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDC',
+        name: '@142',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDH',
+        name: '@250',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDC',
+        name: '@336',
+      },
+      {
+        baseName: 'ONLYUSDH',
+        quoteName: 'USDH',
+        name: '@999',
+      },
+    ]);
+
+    expect(result['UBTC'].name).toBe('@142');
+    expect(result['KHYPE'].name).toBe('@336');
+    expect(result['ONLYUSDH'].name).toBe('@999');
   });
 });
 

@@ -1465,7 +1465,7 @@ function MoreButtonWithDot({
     if (isShowUpgradeDot) {
       return (
         <Dot
-          color="$bgAccent"
+          color="$blue8"
           top={isDesktopMode ? 0 : '$-2'}
           right={isDesktopMode ? undefined : '$-2.5'}
         />
@@ -1481,7 +1481,7 @@ function MoreButtonWithDot({
       <Stack
         width="$3"
         height="$3"
-        bg={isShowUpgradeDot ? '$bgAccent' : '$bgCriticalStrong'}
+        bg={isShowUpgradeDot ? '$iconInfo' : '$bgCriticalStrong'}
         borderRadius="$full"
         position="absolute"
         right={-4}

@@ -37,13 +37,20 @@ function BasicHeaderUpdateButton() {
   return (
     <Button
       testID="header-update-button"
-      variant="accent"
       size="small"
       // Right gap so the button doesn't sit flush against the notification
       // bell. Self-contained (rather than parent spacing) so it disappears
       // with the button when there's no update.
       mr="$3"
       onPress={onUpdateActionDirect}
+      bg="$bgInfoStrong"
+      color="$textOnColor"
+      hoverStyle={{
+        bg: '$info10',
+      }}
+      pressStyle={{
+        bg: '$info11',
+      }}
     >
       {intl.formatMessage({ id: ETranslations.update_update_now })}
     </Button>

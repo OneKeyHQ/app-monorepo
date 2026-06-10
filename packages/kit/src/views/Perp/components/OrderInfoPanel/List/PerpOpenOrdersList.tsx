@@ -500,6 +500,10 @@ function PerpOpenOrdersList({
       />
     );
   };
+  const mobileHeaderTotalOrderCount =
+    activeOpenOrdersSubTab === 'twap'
+      ? scopedTwapOrders.length
+      : openOrders.length;
   const mobileListHeader = isMobile ? (
     <YStack>
       <OrderInfoSubTabs
@@ -507,8 +511,10 @@ function PerpOpenOrdersList({
         activeTab={activeOpenOrdersSubTab}
         onChange={setActiveOpenOrdersSubTab}
       />
+      {/* Keep the filter checkbox visible after "hide other pairs" filters
+          the current sub-tab to an empty list. */}
       <MobileOpenOrdersListHeader
-        totalOrderCount={filteredOrders.length + filteredTwapOrders.length}
+        totalOrderCount={mobileHeaderTotalOrderCount}
         cancelableOrderCount={
           canMutateScopedOrders && activeOpenOrdersSubTab === 'basic'
             ? filteredOrders.length

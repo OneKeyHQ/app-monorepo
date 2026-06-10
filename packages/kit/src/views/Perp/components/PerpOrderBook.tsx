@@ -655,15 +655,10 @@ export function PerpOrderBook({
     [],
   );
 
-  useEffect(() => {
-    setRenderL2Book(null);
-    setIsOrderBookInteractive(false);
-  }, [
-    activeTradeInstrument.coin,
-    activeTradeInstrument.mode,
-    l2SubscriptionOptions.mantissa,
-    l2SubscriptionOptions.nSigFigs,
-  ]);
+  // Do NOT reset renderL2Book/isOrderBookInteractive on coin/options change:
+  // the bridge only re-reports isInteractive on a boolean flip, so a reset
+  // landing after a `true` report leaves it stuck out of sync. Render-time gates
+  // (activeRenderL2Book coin filter + freshness checks) already cover staleness.
 
   useEffect(() => {
     const coin = activeTradeInstrument.coin;
