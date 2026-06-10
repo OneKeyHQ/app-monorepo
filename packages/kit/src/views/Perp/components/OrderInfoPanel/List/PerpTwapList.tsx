@@ -759,7 +759,10 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
-            <SizableText size="$bodySm">{historyTime.inline}</SizableText>
+            <SizableText size="$bodySm">{historyTime.date}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {historyTime.time}
+            </SizableText>
           </YStack>
           <YStack
             {...getColumnStyle(columnConfigs[1])}
@@ -1334,7 +1337,7 @@ function PerpTwapList({
     () => ({
       key: 'time',
       title: intl.formatMessage({ id: ETranslations.global_time }),
-      minWidth: 150,
+      minWidth: 130,
       flex: 1,
       align: 'left',
     }),
