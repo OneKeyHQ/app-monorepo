@@ -373,6 +373,7 @@ type IUniversalStakeProps = {
   beforeFooter?: ReactElement | null;
   protocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
   showApyDetail?: boolean;
+  suppressPlatformBonus?: boolean;
   isInModalContext?: boolean;
   ongoingValidator?: IEarnSelectField;
   receiveInputConfig?: IManagePageV2ReceiveInputConfig;
@@ -414,6 +415,7 @@ export function UniversalStake({
   beforeFooter,
   protocolSwitchConfig,
   showApyDetail = false,
+  suppressPlatformBonus = false,
   isInModalContext = false,
   ongoingValidator,
   receiveInputConfig,
@@ -1997,13 +1999,14 @@ export function UniversalStake({
     />
   );
 
-  const shouldShowPlatformBonus = Boolean(
-    transactionConfirmation?.platformBonus,
-  );
+  const platformBonus = suppressPlatformBonus
+    ? undefined
+    : transactionConfirmation?.platformBonus;
+  const shouldShowPlatformBonus = Boolean(platformBonus);
 
-  const platformBonusContent = transactionConfirmation?.platformBonus ? (
+  const platformBonusContent = platformBonus ? (
     <EarnPlatformBonusSection
-      platformBonus={transactionConfirmation.platformBonus}
+      platformBonus={platformBonus}
       protocolInfo={protocolInfo}
       tokenInfo={tokenInfo}
       footer={tradeOrBuyContent}
