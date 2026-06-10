@@ -14,6 +14,7 @@ interface IFavoriteTokenDisplay {
   volume24h: number;
   perpsCoin?: string;
   maxLeverage?: number;
+  communityRecognized?: boolean;
   stock?: IMarketStockInfo;
 }
 

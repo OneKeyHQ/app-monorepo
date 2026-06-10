@@ -19,6 +19,7 @@ describe('PopularTrading market token display utils', () => {
       price: '0.00137840543892581329',
       priceChange24hPercent: '-',
       volume24h: '-',
+      communityRecognized: true,
     };
 
     expect(getMarketTokenDisplayPrice(item)).toBe(
@@ -31,5 +32,6 @@ describe('PopularTrading market token display utils', () => {
     expect(displayToken?.priceChange24h).toBe(0);
     expect(Number.isNaN(displayToken?.priceChange24h)).toBe(false);
     expect(displayToken?.logoUrls).toEqual(item.logoUrls);
+    expect(displayToken?.communityRecognized).toBe(true);
   });
 });
