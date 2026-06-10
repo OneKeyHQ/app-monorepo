@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,6 +41,10 @@ let devModeOverride: 'offline' | 'legacy' | undefined;
 // ready barrier — Gate 2). `serviceBootstrap.init()` is fire-and-forget and
 // prewarm can out-race it, hence the explicit barrier.
 let initialized = false;
+// In-flight init promise, so concurrent callers share one execution (see
+// initChartWebViewModeSnapshot). Stays set after completion; harmless because
+// the `initialized` short-circuit returns before it is read again.
+let initPromise: Promise<void> | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -94,6 +98,18 @@ export async function initChartWebViewModeSnapshot(): Promise<void> {
   if (initialized) {
     return;
   }
+  // Coalesce concurrent callers (multiple chart hosts can mount in the same
+  // frame on mobile, each firing this from `useChartBootSnapshotReady`). Without
+  // this, every concurrent caller would race past the `initialized` guard before
+  // the first one sets it, re-reading MMKV and emitting duplicate
+  // `chartModeDecision` diagnostics. Share a single in-flight promise instead.
+  if (!initPromise) {
+    initPromise = doInitChartWebViewModeSnapshot();
+  }
+  return initPromise;
+}
+
+async function doInitChartWebViewModeSnapshot(): Promise<void> {
   try {
     snapshot = await chartSourcePersistAtom.get();
   } catch {
@@ -145,9 +161,29 @@ export async function initChartWebViewModeSnapshot(): Promise<void> {
 /**
  * Subscribe to the ready barrier so React hosts re-render when the cold-start
  * snapshot becomes available. Chart / prewarm hosts gate their mount on this.
+ *
+ * Cross-runtime fix: on mobile the UI/main thread runs a SEPARATE Hermes runtime
+ * from the background thread. `initChartWebViewModeSnapshot()` is only called by
+ * `ServiceBootstrap` in the BACKGROUND runtime, so the UI runtime's module-static
+ * `initialized` would stay false forever and every chart host would silently fall
+ * back to the legacy webview (the chart-webview native module never mounts).
+ *
+ * To fix this WITHOUT a bridge round-trip, this hook lazily kicks off the snapshot
+ * init in whatever runtime it is rendered in. The init reads the persisted decision
+ * straight from MMKV (`chartSourcePersistAtom` / `devSettingsPersistAtom` are
+ * native per-key MMKV-hydrated globalAtoms shared by both runtimes), so the UI
+ * runtime resolves the SAME correct mode the background runtime decided once the
+ * AsyncStorage->MMKV migration is complete (the steady state for upgraded
+ * devices). Before migration completes (fresh install / failed prior migration)
+ * the UI runtime falls back to the offline DEFAULT — the safe default, never a
+ * wrong online decision. The init is idempotent (`if (initialized) return`) and
+ * never throws, so on single-runtime
+ * platforms (web / desktop / extension) — where `ServiceBootstrap` already ran it —
+ * this is a harmless no-op. The `emit()` inside the init flips this
+ * `useSyncExternalStore` so consumers re-render once it completes.
  */
 export function useChartBootSnapshotReady(): boolean {
-  return useSyncExternalStore(
+  const ready = useSyncExternalStore(
     (cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
@@ -155,4 +191,12 @@ export function useChartBootSnapshotReady(): boolean {
     () => initialized,
     () => initialized,
   );
+  useEffect(() => {
+    // Idempotent + never-throws by contract; fire-and-forget so the gate flips
+    // in this runtime even when nobody else initialized it (the UI/main thread).
+    if (!initialized) {
+      void initChartWebViewModeSnapshot();
+    }
+  }, []);
+  return ready;
 }

@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -330,6 +331,22 @@ export function TradingViewPerpsV2(
   useEffect(() => {
     if (useUnifiedHost) setUnifiedReady(true);
   }, [useUnifiedHost]);
+  // Diagnostic: record which chart branch this perps host actually rendered.
+  // Logged once per mount and again only when the branch decision flips (e.g.
+  // the cold-start snapshot resolves and the gate switches from legacy to the
+  // unified native host) — gated on the effect deps so it never floods on every
+  // render. See chartHostRender in the market chart logger scope.
+  useEffect(() => {
+    defaultLogger.market.chart.chartHostRender({
+      scene: 'perps',
+      symbol,
+      component: useUnifiedHost ? 'unified-native' : 'legacy-webview',
+      useUnifiedHost,
+      bootSnapshotReady,
+      mode: getChartWebViewMode(),
+      platform: platformEnv.appPlatform ?? 'native',
+    });
+  }, [useUnifiedHost, bootSnapshotReady, symbol]);
   // The optimistic mount-time unifiedReady keeps the warm/prewarmed host fast,
   // but on a genuine cold start the chart page's perps listener may not be
   // registered yet, so the first full line sync can be silently dropped. The

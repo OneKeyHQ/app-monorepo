@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
@@ -455,6 +456,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       bootSnapshotReady &&
       getChartWebViewMode() !== 'legacy') ||
     (!preferLegacyChart && getDesktopOfflineChartReady());
+
+  // Diagnostic: record which chart branch this market host actually rendered.
+  // Logged once per mount and again only when the branch decision flips (e.g.
+  // the cold-start snapshot resolves and the gate switches from legacy to the
+  // unified native host) — gated on the effect deps so it never floods on every
+  // render. See chartHostRender in the market chart logger scope.
+  useEffect(() => {
+    defaultLogger.market.chart.chartHostRender({
+      scene: 'market',
+      symbol,
+      component: useChartWebView ? 'unified-native' : 'legacy-webview',
+      useUnifiedHost: useChartWebView,
+      bootSnapshotReady,
+      mode: getChartWebViewMode(),
+      platform: platformEnv.appPlatform ?? 'native',
+    });
+  }, [useChartWebView, bootSnapshotReady, symbol]);
 
   const chartWebView = useMemo(
     () => (

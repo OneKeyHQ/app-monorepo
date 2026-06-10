@@ -112,6 +112,28 @@ export class ChartScene extends BaseScene {
     return params;
   }
 
+  // Diagnostic: which chart host branch a scene actually rendered. The
+  // chart-mode gate is decided per-runtime (the unified native ChartWebView vs
+  // the legacy kit WebView), and a cross-runtime gate bug silently forced the
+  // legacy branch on mobile. Emit this ONCE per mount / when the branch decision
+  // changes (never every render) so the live branch can be confirmed on a real
+  // build. Captures every input that fed the fork.
+  @LogToLocal({ level: 'info' })
+  public chartHostRender(params: {
+    // Which consumer mounted the chart.
+    scene: 'perps' | 'market';
+    symbol: string;
+    // The render branch actually taken.
+    component: 'unified-native' | 'legacy-webview';
+    // Inputs that fed the fork (mirrors the host's `useUnifiedHost` expression).
+    useUnifiedHost: boolean;
+    bootSnapshotReady: boolean;
+    mode: 'offline' | 'online' | 'legacy';
+    platform: string;
+  }) {
+    return params;
+  }
+
   // DEBUG instrumentation: native WKWebView load failure (didFail /
   // didFailProvisional). Previously the page-load error was forwarded to JS but
   // never logged, so a failed offline load was completely silent — the only
