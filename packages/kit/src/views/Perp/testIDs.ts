@@ -17,6 +17,7 @@ export const PerpTestIDs = {
   OrderTypeMarketTab: 'perp-order-type-market-tab',
   OrderTypeLimitTab: 'perp-order-type-limit-tab',
   OrderTypeTriggerTab: 'perp-order-type-trigger-tab',
+  OrderTypeInfoButton: 'perp-order-type-info-button',
 
   // -- Trading form: price inputs --
   PriceInput: 'perp-price-input',

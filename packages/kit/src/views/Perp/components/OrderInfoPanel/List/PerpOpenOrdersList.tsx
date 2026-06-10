@@ -62,7 +62,7 @@ type IOpenOrdersDisplayRow =
 function MobileTwapEmptyState() {
   const intl = useIntl();
   const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/13988742'));
+    openGuideUrl(buildHelpUrl('articles/15442238'));
   }, []);
 
   return (
