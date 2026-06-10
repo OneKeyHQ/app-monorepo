@@ -99,6 +99,7 @@ function hasPerpsColdStartSnapshot() {
 
   const perpsColdStartCacheKeys = [
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveTradeInstrumentAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActiveOpenOrdersAtom,
   ];

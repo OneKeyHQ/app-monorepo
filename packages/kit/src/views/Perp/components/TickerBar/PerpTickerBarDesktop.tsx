@@ -649,6 +649,7 @@ const TickerBarFundingRateView = memo(
           <SkeletonContainer isLoading={isLoading} width={120} height={16}>
             <XStack alignItems="center" gap="$2">
               <Tooltip
+                hovering
                 renderTrigger={
                   <XStack alignItems="center" gap="$2">
                     <DashText

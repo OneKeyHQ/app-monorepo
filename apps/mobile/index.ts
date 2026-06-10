@@ -53,9 +53,17 @@ try {
   if (_ctxRaw) {
     const { normalizeSwapColdStartCacheSnapshot: _normalizeSwapSnapshot } =
       require('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils') as typeof import('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils');
-    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = _normalizeSwapSnapshot(
-      JSON.parse(_ctxRaw),
+    const { CONTEXT_ATOM_COLD_START_CACHE_KEYS: _ctxAtomKeys } =
+      require('@onekeyhq/shared/src/consts/jotaiConsts') as typeof import('@onekeyhq/shared/src/consts/jotaiConsts');
+    const _ctxSnapshot = _normalizeSwapSnapshot(JSON.parse(_ctxRaw));
+    (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ = _ctxSnapshot;
+    const _perpsL2BookColdCacheEntry = Object.entries(_ctxSnapshot).find(
+      ([_key]) => _key.endsWith(`::${_ctxAtomKeys.perpsL2BookColdCacheAtom}`),
     );
+    if (_perpsL2BookColdCacheEntry) {
+      (globalThis as any).__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__ =
+        _perpsL2BookColdCacheEntry[1];
+    }
     const { NativeLogger: _NL, LogLevel: _LL } =
       require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
     _NL.write(

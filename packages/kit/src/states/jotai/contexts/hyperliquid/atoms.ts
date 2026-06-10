@@ -145,6 +145,26 @@ export const {
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<IPerpsL2BookWithLocalReceivedAt | null>(null);
 
+export type IPerpsL2BookColdCacheAtom = Record<
+  string,
+  {
+    data: IPerpsL2BookWithLocalReceivedAt;
+    updatedAt: number;
+  }
+>;
+
+export const {
+  atom: perpsL2BookColdCacheAtom,
+  use: usePerpsL2BookColdCacheAtom,
+} = contextAtom<IPerpsL2BookColdCacheAtom>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom,
+  },
+);
+
 export const { atom: bboAtom, use: useBboAtom } =
   contextAtom<IPerpsBboWithLocalReceivedAt | null>(null);
 
