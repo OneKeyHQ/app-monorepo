@@ -285,6 +285,11 @@ function useKYTIntroDialog() {
   }, []);
 
   const attemptShow = useCallback(() => {
+    // Covers re-entries that bypass the timer's own guard (the finally-block
+    // re-invoke and the route/atom triggers racing an unmount).
+    if (!isMountedRef.current) {
+      return;
+    }
     if (!isPrimeSubscriptionActive || !onekeyUserId) {
       return;
     }
@@ -331,6 +336,12 @@ function useKYTIntroDialog() {
         }
         if (kytEnabled) {
           dialogShownRef.current = true;
+          return;
+        }
+        // The hook may have unmounted during the awaits — Dialog.show is a
+        // global imperative API, so without this check the intro could still
+        // pop after unmount.
+        if (!isMountedRef.current) {
           return;
         }
         // Overlay state may have changed during the awaits — re-check.
@@ -404,13 +415,16 @@ function useKYTIntroDialog() {
     attemptShowRef.current?.();
   });
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Re-arm on every (re)mount — with only a cleanup, a StrictMode replay or a
+    // genuine remount would leave the ref permanently false and silently kill
+    // the retry timer and the attempt guards.
+    isMountedRef.current = true;
+    return () => {
       isMountedRef.current = false;
       clearRetry();
-    },
-    [clearRetry],
-  );
+    };
+  }, [clearRetry]);
 }
 
 function BasicKYTIntroOnMount() {

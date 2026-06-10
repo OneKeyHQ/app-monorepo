@@ -7,6 +7,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
@@ -90,12 +91,18 @@ export async function promptKytNotificationPermissionIfNeeded({
         // settings object. When it is missing or empty (new user / empty server
         // config), spreading it would POST a bare `{ pushEnabled: true }` and
         // silently wipe other notification defaults (account activity, price
-        // alerts, etc.). In that case route to the full notification guide
-        // instead of submitting an incomplete object.
+        // alerts, etc.). In that case mirror NotificationEnableAlert and route
+        // to the notification SETTINGS page: it owns the master-switch
+        // semantics for an empty config and chains into the OS-permission
+        // guide on its own, whereas the guide page alone only requests the OS
+        // permission and never enables the server-side pushEnabled switch.
         const hasServerSettings =
           !!serverSettings && Object.keys(serverSettings).length > 0;
         if (!hasServerSettings) {
-          await routeToNotificationGuide();
+          await timerUtils.wait(300);
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingNotifications,
+          });
           return;
         }
         if (!serverSettings.pushEnabled) {

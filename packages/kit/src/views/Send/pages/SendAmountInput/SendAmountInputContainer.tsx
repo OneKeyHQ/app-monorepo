@@ -1015,10 +1015,13 @@ function SendAmountInputContainer() {
   ]);
 
   const handleToggleFiatMode = useCallback(() => {
-    // No usable price → the fiat conversion is NaN. Refuse to switch so NaN is
-    // never written into the input. The UI also disables the toggle; this is
-    // the matching guard for any other call path.
-    if (!hasUsablePrice) return;
+    // No usable price → the fiat conversion is NaN. Refuse to ENTER fiat mode
+    // so NaN is never written into the input. Exiting fiat mode stays allowed:
+    // polling can drop the price mid-session while the user sits in fiat mode,
+    // and without this escape hatch they'd be locked there until the price
+    // recovers. The exit path is NaN-safe — `linkedAmount.originalAmount`
+    // collapses to '0' when the price is unusable.
+    if (!hasUsablePrice && !isUseFiat) return;
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
     // When currently in token mode (isUseFiat=false), switching to fiat mode -> use linkedAmount
     let amountValue = isUseFiat
@@ -2969,14 +2972,19 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible={!isInvoiceAmountLocked && hasUsablePrice}
+            reversible={
+              !isInvoiceAmountLocked && (hasUsablePrice || isUseFiat)
+            }
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              // Unknown price → show "--" and disable the toggle (no onPress) so
-              // NaN can't be entered or carried into the input.
+              // Unknown price → show "--" and disable entering fiat mode so NaN
+              // can't be carried into the input. When already IN fiat mode the
+              // toggle stays live as an escape hatch back to token mode (the
+              // price may have dropped to "--" mid-session via polling).
               value: fiatTokenEquivalentValue,
-              onPress: hasUsablePrice ? handleToggleFiatMode : undefined,
+              onPress:
+                hasUsablePrice || isUseFiat ? handleToggleFiatMode : undefined,
             }}
             inputProps={{
               inputAccessoryViewID: platformEnv.isNativeIOS
@@ -3151,8 +3159,16 @@ function SendAmountInputContainer() {
     // Only show the skeleton before the first balance load. During polling /
     // event-driven refreshes `isLoadingAssets` toggles true again, but the
     // existing balance stays visible and updates silently to avoid a periodic
-    // skeleton flash.
-    if (isLoadingAssets && !tokenDetails && !nftDetails) {
+    // skeleton flash. The `balanceAccountId` clause covers in-place account
+    // switches (auto derive-type switch): the previous account's balance stays
+    // in `tokenDetails` until the new fetch lands, and without it that stale
+    // balance — and a tappable Max fed by it — would briefly render as if it
+    // belonged to the new account. Regular polls keep `balanceAccountId ===
+    // currentAccountId`, so they never re-trigger the skeleton.
+    if (
+      (isLoadingAssets && !tokenDetails && !nftDetails) ||
+      balanceAccountId !== currentAccountId
+    ) {
       return (
         <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
@@ -3255,7 +3271,9 @@ function SendAmountInputContainer() {
       </>
     );
   }, [
+    balanceAccountId,
     balanceInfoContent,
+    currentAccountId,
     form,
     intl,
     isLoadingAssets,
