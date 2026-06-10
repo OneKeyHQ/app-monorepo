@@ -43,6 +43,7 @@ type IParams = {
 type IBuildUnsignedTxParams = {
   encodedTx?: IEncodedTx;
   unsignedTx?: IUnsignedTxPro;
+  unsignedTxs?: IUnsignedTxPro[];
   transfersInfo?: ITransferInfo[];
   approvesInfo?: IApproveInfo[];
   wrappedInfo?: IWrappedInfo;
@@ -134,58 +135,71 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         swapInfo,
         stakingInfo,
         encodedTx,
+        unsignedTxs: unsignedTxsFromParams,
         transfersInfo,
         ...rest
       } = params;
       let transferPayload = transferPayloadBase;
       try {
-        const unsignedTxs = [];
-        // for batch approve&swap
-        if (
-          approvesInfo &&
-          !isEmpty(approvesInfo) &&
-          (encodedTx || !isEmpty(transfersInfo))
-        ) {
-          let prevNonce: number | undefined;
-          for (const approveInfo of approvesInfo) {
-            const unsignedTx =
+        let unsignedTxs: IUnsignedTxPro[] = [];
+        if (unsignedTxsFromParams?.length) {
+          unsignedTxs = [...unsignedTxsFromParams];
+        } else {
+          // for batch approve&swap
+          if (
+            approvesInfo &&
+            !isEmpty(approvesInfo) &&
+            (encodedTx || !isEmpty(transfersInfo))
+          ) {
+            let prevNonce: number | undefined;
+            for (const approveInfo of approvesInfo) {
+              const unsignedTx =
+                await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                  {
+                    networkId,
+                    accountId,
+                    approveInfo,
+                    prevNonce,
+                    ...rest,
+                  },
+                );
+              prevNonce = unsignedTx.nonce;
+              unsignedTxs.push(unsignedTx);
+            }
+            unsignedTxs.push(
               await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
                 {
                   networkId,
                   accountId,
-                  approveInfo,
+                  encodedTx,
+                  transfersInfo,
+                  swapInfo,
+                  stakingInfo,
                   prevNonce,
                   ...rest,
                 },
-              );
-            prevNonce = unsignedTx.nonce;
-            unsignedTxs.push(unsignedTx);
+              ),
+            );
+          } else {
+            unsignedTxs.push(
+              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                {
+                  networkId,
+                  accountId,
+                  approveInfo: approvesInfo?.[0],
+                  swapInfo,
+                  stakingInfo,
+                  encodedTx,
+                  transfersInfo,
+                  ...rest,
+                },
+              ),
+            );
           }
-          unsignedTxs.push(
-            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-              networkId,
-              accountId,
-              encodedTx,
-              transfersInfo,
-              swapInfo,
-              stakingInfo,
-              prevNonce,
-              ...rest,
-            }),
-          );
-        } else {
-          unsignedTxs.push(
-            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-              networkId,
-              accountId,
-              approveInfo: approvesInfo?.[0],
-              swapInfo,
-              stakingInfo,
-              encodedTx,
-              transfersInfo,
-              ...rest,
-            }),
-          );
+        }
+
+        if (unsignedTxs.length === 0) {
+          throw new OneKeyLocalError('Unsigned transaction is missing');
         }
 
         if (feeInfos?.length) {

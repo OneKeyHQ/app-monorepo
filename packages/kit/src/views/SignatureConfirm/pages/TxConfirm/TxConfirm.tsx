@@ -39,6 +39,7 @@ import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { getBorrowTxTitle } from '../../../Borrow/borrowUtils';
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import DeFiActionInfo from '../../components/DeFiActionInfo';
 import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
@@ -421,6 +422,7 @@ function TxConfirm() {
           networkId={networkId}
           unsignedTxs={unsignedTxs}
         />
+        <DeFiActionInfo unsignedTxs={unsignedTxs} />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />

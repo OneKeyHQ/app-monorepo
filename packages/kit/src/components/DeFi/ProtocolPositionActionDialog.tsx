@@ -4,18 +4,15 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Checkbox,
   Dialog,
-  Input,
   SizableText,
-  Slider,
   Stack,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
@@ -23,15 +20,12 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  DEFI_ACTION_MAX_PERCENT,
-  DEFI_ACTION_MIN_PERCENT,
-  buildDeFiActionBps,
-} from '@onekeyhq/shared/src/utils/defiActionUtils';
+import { buildDeFiActionBps } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
+  type IDeFiActionTxConfirmInfo,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
@@ -98,7 +92,7 @@ function ProtocolPositionActionAssetRow({
       py="$2.5"
       cursor="pointer"
       userSelect="none"
-      onPress={() => onSelect(index, true)}
+      onPress={() => onSelect(index, !isSelected)}
     >
       <Token
         size="md"
@@ -175,14 +169,6 @@ function isPercentageAction(action: EDeFiPositionAction) {
   );
 }
 
-function clampPercent(value: number) {
-  if (!Number.isFinite(value)) return DEFI_ACTION_MAX_PERCENT;
-  return Math.min(
-    DEFI_ACTION_MAX_PERCENT,
-    Math.max(DEFI_ACTION_MIN_PERCENT, Math.round(value)),
-  );
-}
-
 function isLidoProtocol(protocolId: string) {
   return (
     protocolId
@@ -192,6 +178,41 @@ function isLidoProtocol(protocolId: string) {
   );
 }
 
+function buildDeFiActionTxConfirmInfo({
+  action,
+  selectedAsset,
+  intl,
+}: {
+  action: IResolvedDeFiPositionAction;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+  intl: ReturnType<typeof useIntl>;
+}): IDeFiActionTxConfirmInfo {
+  return {
+    actionLabel: getActionLabel({ action: action.action, intl }),
+    protocolId: action.protocolId,
+    assetAmount: selectedAsset.amount,
+    assetSymbol: selectedAsset.symbol,
+    assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
+    extraLabel: getActionAssetExtraLabel(selectedAsset),
+  };
+}
+
+function attachDeFiActionTxConfirmInfo({
+  unsignedTx,
+  info,
+}: {
+  unsignedTx: IUnsignedTxPro;
+  info: IDeFiActionTxConfirmInfo;
+}): IUnsignedTxPro {
+  return {
+    ...unsignedTx,
+    payload: {
+      ...unsignedTx.payload,
+      defiActionInfo: info,
+    },
+  };
+}
+
 type IProtocolPositionActionSuccessParams = {
   accountId: string;
   networkId: string;
@@ -199,17 +220,16 @@ type IProtocolPositionActionSuccessParams = {
 
 type IProtocolPositionActionSubmitParams = {
   action: IResolvedDeFiPositionAction;
-  selectedAsset: IResolvedDeFiPositionActionAsset;
-  percent?: number;
+  selectedAssets: IResolvedDeFiPositionActionAsset[];
 };
 
 function buildDeFiActionExtraParams({
   action,
   selectedAsset,
-}: Pick<
-  IProtocolPositionActionSubmitParams,
-  'action' | 'selectedAsset'
->): IDeFiActionExtraParams {
+}: {
+  action: IResolvedDeFiPositionAction;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+}): IDeFiActionExtraParams {
   const extraParams: IDeFiActionExtraParams = {
     ...selectedAsset.extraParams,
   };
@@ -249,91 +269,116 @@ function useProtocolPositionActionSubmit({
     });
 
   return useCallback(
-    async ({
-      action,
-      selectedAsset,
-      percent,
-    }: IProtocolPositionActionSubmitParams) => {
+    async ({ action, selectedAssets }: IProtocolPositionActionSubmitParams) => {
+      if (selectedAssets.length === 0) {
+        throw new OneKeyLocalError('DeFi action asset is missing');
+      }
+
       const isWithdraw = action.action === EDeFiPositionAction.Withdraw;
       const isRemoveLiquidity =
         action.action === EDeFiPositionAction.RemoveLiquidity;
       const percentageAction = isPercentageAction(action.action);
-      const bps = percentageAction ? buildDeFiActionBps(percent) : undefined;
+      const bps = percentageAction ? buildDeFiActionBps() : undefined;
       if (percentageAction && !bps) {
         throw new OneKeyLocalError('Invalid DeFi action percentage');
       }
-      const extraParams = buildDeFiActionExtraParams({
-        action,
-        selectedAsset,
-      });
 
       try {
-        let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
-          accountId,
-          networkId,
-          protocolId: action.protocolId,
-          action:
-            isLidoProtocol(action.protocolId) && isWithdraw
-              ? EDeFiPositionAction.Permit
-              : action.action,
-          tokenAddress: isRemoveLiquidity
-            ? undefined
-            : selectedAsset.tokenAddress,
-          amount: undefined,
-          bps,
-          extraParams,
-        });
+        const unsignedTxs: IUnsignedTxPro[] = [];
+        let prevNonce: number | undefined;
 
-        if (isLidoProtocol(action.protocolId) && isWithdraw) {
-          if (!resp.permit) {
-            throw new OneKeyLocalError('DeFi permit response is missing');
-          }
-          const account = await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId,
+        for (const selectedAsset of selectedAssets) {
+          const extraParams = buildDeFiActionExtraParams({
+            action,
+            selectedAsset,
           });
-          const unsignedMessage =
-            typeof resp.permit.message === 'string'
-              ? resp.permit.message
-              : stableStringify(resp.permit.message);
-          const signature = await navigationToMessageConfirmAsync({
-            accountId,
-            networkId,
-            unsignedMessage: {
-              type: EMessageTypesEth.TYPED_DATA_V4,
-              message: unsignedMessage,
-              payload: [account.address, unsignedMessage],
-            },
-            walletInternalSign: true,
-          });
-          resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
+          let resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
             accountId,
             networkId,
             protocolId: action.protocolId,
-            action: action.action,
-            tokenAddress: selectedAsset.tokenAddress,
+            action:
+              isLidoProtocol(action.protocolId) && isWithdraw
+                ? EDeFiPositionAction.Permit
+                : action.action,
+            tokenAddress: isRemoveLiquidity
+              ? undefined
+              : selectedAsset.tokenAddress,
             amount: undefined,
             bps,
-            extraParams: {
-              ...extraParams,
-              signature,
-              deadline: resp.permit.deadline,
-            },
+            extraParams,
           });
-        }
 
-        if (resp.approvalTx) {
-          throw new OneKeyLocalError(
-            'DeFi approval transaction is not supported',
+          if (isLidoProtocol(action.protocolId) && isWithdraw) {
+            if (!resp.permit) {
+              throw new OneKeyLocalError('DeFi permit response is missing');
+            }
+            const account = await backgroundApiProxy.serviceAccount.getAccount({
+              accountId,
+              networkId,
+            });
+            const unsignedMessage =
+              typeof resp.permit.message === 'string'
+                ? resp.permit.message
+                : stableStringify(resp.permit.message);
+            const signature = await navigationToMessageConfirmAsync({
+              accountId,
+              networkId,
+              unsignedMessage: {
+                type: EMessageTypesEth.TYPED_DATA_V4,
+                message: unsignedMessage,
+                payload: [account.address, unsignedMessage],
+              },
+              walletInternalSign: true,
+            });
+            resp = await backgroundApiProxy.serviceDeFi.buildDeFiTransaction({
+              accountId,
+              networkId,
+              protocolId: action.protocolId,
+              action: action.action,
+              tokenAddress: selectedAsset.tokenAddress,
+              amount: undefined,
+              bps,
+              extraParams: {
+                ...extraParams,
+                signature,
+                deadline: resp.permit.deadline,
+              },
+            });
+          }
+
+          if (resp.approvalTx) {
+            throw new OneKeyLocalError(
+              'DeFi approval transaction is not supported',
+            );
+          }
+
+          if (!resp.tx) {
+            throw new OneKeyLocalError('DeFi transaction is missing');
+          }
+
+          const unsignedTx =
+            await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+              accountId,
+              networkId,
+              encodedTx: resp.tx as IEncodedTx,
+              prevNonce,
+              withUuid: selectedAssets.length > 1,
+            });
+          prevNonce = unsignedTx.nonce;
+          unsignedTxs.push(
+            attachDeFiActionTxConfirmInfo({
+              unsignedTx,
+              info: buildDeFiActionTxConfirmInfo({
+                action,
+                selectedAsset,
+                intl,
+              }),
+            }),
           );
         }
 
-        if (!resp.tx) {
-          throw new OneKeyLocalError('DeFi transaction is missing');
-        }
-
         await navigationToTxConfirm({
-          encodedTx: resp.tx as IEncodedTx,
+          unsignedTxs,
           gasAccountScenario: 'earn',
           onSuccess: async () => {
             Toast.success({
@@ -370,93 +415,6 @@ function useProtocolPositionActionSubmit({
   );
 }
 
-function ProtocolPositionActionPercentInput({
-  value,
-  onChange,
-}: {
-  value: number | undefined;
-  onChange: (value: number | undefined) => void;
-}) {
-  const [inputValue, setInputValue] = useState(
-    String(value ?? DEFI_ACTION_MAX_PERCENT),
-  );
-  const sliderValue = value ?? DEFI_ACTION_MIN_PERCENT;
-  const handlePercentChange = useCallback(
-    (nextValue: number) => {
-      const nextPercent = clampPercent(nextValue);
-      setInputValue(String(nextPercent));
-      onChange(nextPercent);
-    },
-    [onChange],
-  );
-  const handleInputChange = useCallback(
-    (text: string) => {
-      const sanitizedText = text.replace(/[^\d]/g, '');
-      if (!sanitizedText) {
-        setInputValue('');
-        onChange(undefined);
-        return;
-      }
-      const nextPercent = clampPercent(Number(sanitizedText));
-      setInputValue(String(nextPercent));
-      onChange(nextPercent);
-    },
-    [onChange],
-  );
-
-  return (
-    <YStack gap="$3">
-      <XStack gap="$3" alignItems="center">
-        <Slider
-          testID="defi-position-action-percent-slider"
-          flex={1}
-          minWidth={0}
-          min={DEFI_ACTION_MIN_PERCENT}
-          max={DEFI_ACTION_MAX_PERCENT}
-          step={1}
-          value={sliderValue}
-          onChange={handlePercentChange}
-        />
-        <SizableText
-          size="$bodyMdMedium"
-          color="$text"
-          width={56}
-          textAlign="right"
-        >
-          {value === undefined ? '--%' : `${value}%`}
-        </SizableText>
-      </XStack>
-      <XStack gap="$2" alignItems="center">
-        <Input
-          testID="defi-position-action-percent-input"
-          flex={1}
-          minWidth={0}
-          value={inputValue}
-          onChangeText={handleInputChange}
-          keyboardType="numeric"
-          textAlign="right"
-        />
-        <SizableText size="$bodyMd" color="$textSubdued" width={20}>
-          %
-        </SizableText>
-      </XStack>
-      <XStack gap="$2" flexWrap="wrap">
-        {[25, 50, 75, 100].map((percentValue) => (
-          <Button
-            key={percentValue}
-            testID={`defi-position-action-percent-${percentValue}`}
-            size="small"
-            variant={value === percentValue ? 'primary' : 'secondary'}
-            onPress={() => handlePercentChange(percentValue)}
-          >
-            {`${percentValue}%`}
-          </Button>
-        ))}
-      </XStack>
-    </YStack>
-  );
-}
-
 function ProtocolPositionActionDialogContent({
   accountId,
   networkId,
@@ -481,44 +439,47 @@ function ProtocolPositionActionDialogContent({
       currencyInfo: { symbol: currencySymbol },
     },
   ] = useSettingsPersistAtom();
-  const [selectedAssetIndex, setSelectedAssetIndex] = useState<
-    number | undefined
-  >(action.assets[0] ? 0 : undefined);
-  const [percent, setPercent] = useState<number | undefined>(
-    DEFI_ACTION_MAX_PERCENT,
+  const [selectedAssetIndexes, setSelectedAssetIndexes] = useState<number[]>(
+    () => (action.assets[0] ? [0] : []),
   );
 
-  const selectedAsset =
-    typeof selectedAssetIndex === 'number'
-      ? action.assets[selectedAssetIndex]
-      : undefined;
+  const selectedAssets = useMemo(
+    () =>
+      selectedAssetIndexes
+        .map((index) => action.assets[index])
+        .filter((asset): asset is IResolvedDeFiPositionActionAsset =>
+          Boolean(asset),
+        ),
+    [action.assets, selectedAssetIndexes],
+  );
   const actionLabel = getActionLabel({ action: action.action, intl });
-  const percentageAction = isPercentageAction(action.action);
   const priceUnavailableLabel = intl.formatMessage({
     id: ETranslations.wallet_price_unavailable,
   });
-  const isConfirmDisabled =
-    !selectedAsset || (percentageAction && percent === undefined);
+  const isConfirmDisabled = selectedAssets.length === 0;
 
   const handleAssetSelect = (index: number, selected: boolean) => {
-    setSelectedAssetIndex(selected ? index : undefined);
+    setSelectedAssetIndexes((prev) => {
+      if (selected) {
+        if (prev.includes(index)) return prev;
+        return action.assets
+          .map((_asset, assetIndex) => assetIndex)
+          .filter(
+            (assetIndex) => assetIndex === index || prev.includes(assetIndex),
+          );
+      }
+      return prev.filter((item) => item !== index);
+    });
   };
-  const showAssetSelector = useMemo(
-    () =>
-      action.action !== EDeFiPositionAction.RemoveLiquidity ||
-      action.assets.length > 1,
-    [action.action, action.assets.length],
-  );
 
   const handleConfirm = async () => {
-    if (!selectedAsset) {
+    if (selectedAssets.length === 0) {
       throw new OneKeyLocalError('DeFi action asset is missing');
     }
 
     await submitProtocolPositionAction({
       action,
-      selectedAsset,
-      percent,
+      selectedAssets,
     });
   };
 
@@ -528,27 +489,20 @@ function ProtocolPositionActionDialogContent({
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {showAssetSelector ? (
+      {action.assets.length > 0 ? (
         <YStack>
           {action.assets.map((asset, index) => (
             <ProtocolPositionActionAssetRow
               key={`${asset.tokenAddress ?? asset.symbol}-${index}`}
               asset={asset}
               index={index}
-              isSelected={selectedAssetIndex === index}
+              isSelected={selectedAssetIndexes.includes(index)}
               currencySymbol={currencySymbol}
               priceUnavailableLabel={priceUnavailableLabel}
               onSelect={handleAssetSelect}
             />
           ))}
         </YStack>
-      ) : null}
-
-      {percentageAction ? (
-        <ProtocolPositionActionPercentInput
-          value={percent}
-          onChange={setPercent}
-        />
       ) : null}
 
       <Dialog.Footer

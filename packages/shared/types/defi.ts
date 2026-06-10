@@ -216,6 +216,15 @@ export type IDeFiBuildTransactionResp = {
   };
 };
 
+export type IDeFiActionTxConfirmInfo = {
+  actionLabel: string;
+  protocolId: string;
+  assetAmount: string;
+  assetSymbol: string;
+  assetLogoUrl?: string;
+  extraLabel?: string;
+};
+
 export type IResolvedDeFiPositionActionAsset = {
   asset: IDeFiAsset;
   tokenAddress?: string;

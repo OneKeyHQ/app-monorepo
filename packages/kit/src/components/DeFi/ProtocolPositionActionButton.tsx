@@ -311,7 +311,7 @@ const ProtocolPositionActionButton = memo(
           try {
             await submitProtocolPositionAction({
               action,
-              selectedAsset,
+              selectedAssets: [selectedAsset],
             });
           } catch {
             return;
