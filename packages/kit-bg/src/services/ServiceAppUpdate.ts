@@ -1821,6 +1821,11 @@ class ServiceAppUpdate extends ServiceBase {
     EAppUpdateStatus.ready,
   ];
 
+  // Persistent rate-limit window for pruneStaleArtifacts: at most one sweep
+  // per 24h across launches (the per-launch flag only dedupes within a
+  // single process).
+  static PRUNE_STALE_ARTIFACTS_MIN_INTERVAL = 24 * 60 * 60 * 1000;
+
   // Volatile per-launch debounce: pruneStaleArtifacts is a cold-start idle
   // sweep that must run at most once per app launch.
   private hasPrunedStaleArtifactsThisLaunch = false;
@@ -1850,6 +1855,29 @@ class ServiceAppUpdate extends ServiceBase {
 
     const appInfo = await appUpdatePersistAtom.get();
     const { status } = appInfo;
+
+    // Persistent 24h rate-limit (survives relaunch). The per-launch flag above
+    // only dedupes within one process; this caps the sweep to once per day
+    // across cold starts so frequent restarts don't repeatedly hit the disk.
+    const now = Date.now();
+    const lastPrunedAt = appInfo.lastPruneStaleArtifactsAt ?? 0;
+    if (
+      now - lastPrunedAt <
+      ServiceAppUpdate.PRUNE_STALE_ARTIFACTS_MIN_INTERVAL
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip — last sweep ${Math.round(
+          (now - lastPrunedAt) / 1000,
+        )}s ago (<24h)`,
+      );
+      return;
+    }
+    // Stamp the attempt up-front so a partial failure still respects the 24h
+    // window — cleanup is best-effort and must not retry every launch.
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastPruneStaleArtifactsAt: now,
+    }));
 
     // An in-progress OTA transfer/install is reflected either in the
     // app-update status machine or in a running/pending install task.
