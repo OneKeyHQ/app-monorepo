@@ -11,8 +11,6 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
@@ -22,7 +20,6 @@ import { ChartWebView } from '../ChartWebView';
 import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
-import { useChartRenderRateLog } from '../useChartRenderRateLog';
 
 import {
   useAutoKLineUpdate,
@@ -95,7 +92,6 @@ interface IBaseTradingViewV2Props {
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
 export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
-  useChartRenderRateLog('market');
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
@@ -174,13 +170,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
     onBarsState: ({ hasBars }) => {
-      defaultLogger.market.chart.chartHost({
-        platform: platformEnv.appPlatform ?? 'native',
-        type: 'market',
-        event: 'barsState',
-        symbol,
-        hasData: hasBars,
-      });
       if (hasBars) {
         markChartDataReady(symbol);
       }

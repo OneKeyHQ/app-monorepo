@@ -7,7 +7,6 @@ import {
 import { noop } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   usePerpsCustomSettingsAtom,
   usePerpsLayoutStateAtom,
@@ -351,19 +350,6 @@ export function usePerpsTradingViewMessageHandler({
       };
 
       if (messageData.scope !== IInjectedProviderNames.$private) return;
-
-      // DEBUG: log every $private method that reaches the PERPS handler (mirror of
-      // the market handler) so we can see, on the shared pool, which handler the
-      // page's requests actually land on.
-      if (messageData.method) {
-        defaultLogger.market.chart.chartHost({
-          platform: 'native',
-          type: 'perps',
-          event: 'msgIn',
-          method: messageData.method,
-          symbol,
-        });
-      }
 
       switch (messageData.method) {
         case 'tradingview_barsState':

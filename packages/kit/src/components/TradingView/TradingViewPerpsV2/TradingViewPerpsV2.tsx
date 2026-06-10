@@ -8,7 +8,6 @@ import {
   useHyperliquidActions,
   useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EActionType,
   withToast,
@@ -31,7 +30,6 @@ import {
   CHART_WEBVIEW_SCENE,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
-import { useChartRenderRateLog } from '../useChartRenderRateLog';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
@@ -266,7 +264,6 @@ const hideTradingViewBuiltInLoadingScript = `
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
-  useChartRenderRateLog('perps');
   const {
     symbol,
     displayPair,
@@ -569,13 +566,6 @@ export function TradingViewPerpsV2(
     onOrderPriceUpdate,
     onTouchScroll,
     onBarsState: ({ hasBars }) => {
-      defaultLogger.market.chart.chartHost({
-        platform: platformEnv.appPlatform ?? 'native',
-        type: 'perps',
-        event: 'barsState',
-        symbol,
-        hasData: hasBars,
-      });
       if (hasBars) {
         markChartDataReady(symbol);
       }

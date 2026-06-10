@@ -24,8 +24,6 @@ import {
   CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL,
 } from './constants';
 
-import { useChartRenderRateLog } from '../useChartRenderRateLog';
-
 import type { IChartWebViewProps } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 
@@ -106,7 +104,6 @@ export function ChartWebView({
   prewarm,
   ...stackStyle
 }: IChartWebViewProps) {
-  useChartRenderRateLog('host');
   const hybridRefHolder = useRef<ChartWebviewMethods | null>(null);
   const isFocusedRaw = useRouteIsFocused();
   // A prewarm host NEVER claims native ownership: it warm-loads + drives the
@@ -134,8 +131,6 @@ export function ChartWebView({
   // Latest values for use inside Nitro callbacks (which capture once).
   const paramsRef = useRef(params);
   paramsRef.current = params;
-  const isFocusedRef = useRef(isFocused);
-  isFocusedRef.current = isFocused;
   const autoDriveSymbolRef = useRef(autoDriveSymbol);
   autoDriveSymbolRef.current = autoDriveSymbol;
   const onLoadEndRef = useRef(onLoadEnd);
@@ -181,14 +176,6 @@ export function ChartWebView({
       const forced = buildSymbolChangeMessage(c);
       (forced.payload as { force: boolean }).force = true;
       r.postMessage(JSON.stringify(forced));
-      defaultLogger.market.chart.chartHost({
-        platform: platformEnv.appPlatform ?? 'native',
-        type: c.type,
-        event: 'symbolResend',
-        symbol: drivenSymbol,
-      } as unknown as Parameters<
-        typeof defaultLogger.market.chart.chartHost
-      >[0]);
     }, 3000);
   }, []);
 
@@ -199,7 +186,8 @@ export function ChartWebView({
   // instead means the resync only runs when the symbol payload actually changes
   // (or focus flips), not on unrelated parent re-renders (price/orderbook ticks).
   const symbolChangeKey = useMemo(
-    () => (params.symbol ? JSON.stringify(buildSymbolChangeMessage(params)) : ''),
+    () =>
+      params.symbol ? JSON.stringify(buildSymbolChangeMessage(params)) : '',
     [params],
   );
 
@@ -230,49 +218,13 @@ export function ChartWebView({
     };
   }, [onWebViewRef]);
 
-  // DEBUG instrumentation (Q1): host mount/unmount. The FIRST host to mount on a
-  // cold path becomes the pool owner and triggers the load — comparing the perps
-  // detail host vs the prewarm host mount order explains "prewarm didn't warm".
   useEffect(() => {
-    defaultLogger.market.chart.chartHost({
-      platform: platformEnv.appPlatform ?? 'native',
-      type: paramsRef.current.type,
-      event: 'mount',
-      isFocused: isFocusedRef.current,
-      autoDriveSymbol: autoDriveSymbolRef.current,
-      symbol: paramsRef.current.symbol,
-      pooled: !!reuseKey,
-    });
     return () => {
       // Clear the FALLBACK self-heal timer (see sendSymbolChange) on teardown.
       if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
-      defaultLogger.market.chart.chartHost({
-        platform: platformEnv.appPlatform ?? 'native',
-        type: paramsRef.current.type,
-        event: 'unmount',
-        symbol: paramsRef.current.symbol,
-        pooled: !!reuseKey,
-      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // DEBUG instrumentation: focus + computed `active` -> native pool ownership.
-  // For a prewarm host `active` must stay false even when focused, so verifying
-  // "focus behaves as expected" = (prewarm ? active===false : active===isFocused).
-  useEffect(() => {
-    defaultLogger.market.chart.chartHost({
-      platform: platformEnv.appPlatform ?? 'native',
-      type: paramsRef.current.type,
-      event: 'focus',
-      isFocused,
-      active,
-      prewarm: !!prewarm,
-      hybridReady,
-      symbol: paramsRef.current.symbol,
-      pooled: !!reuseKey,
-    } as any);
-  }, [isFocused, active, prewarm, hybridReady, reuseKey]);
 
   // From origin/x: if the unified chart already finished its (one-time) load,
   // fire onLoadEnd immediately for this host so consumers don't wait again.
@@ -291,15 +243,6 @@ export function ChartWebView({
   useEffect(() => {
     if (!autoDriveSymbol || !hybridReady || didEagerSendRef.current) return;
     didEagerSendRef.current = true;
-    defaultLogger.market.chart.chartHost({
-      platform: platformEnv.appPlatform ?? 'native',
-      type: paramsRef.current.type,
-      event: 'eagerSend',
-      isFocused,
-      autoDriveSymbol,
-      hybridReady,
-      symbol: paramsRef.current.symbol,
-    });
     sendSymbolChange();
   }, [autoDriveSymbol, hybridReady, isFocused, sendSymbolChange]);
 
@@ -308,18 +251,16 @@ export function ChartWebView({
   // Idempotent (force:false), so a no-op when the page already shows our symbol.
   useEffect(() => {
     if (!autoDriveSymbol || !hybridReady || !isFocused) return;
-    defaultLogger.market.chart.chartHost({
-      platform: platformEnv.appPlatform ?? 'native',
-      type: paramsRef.current.type,
-      event: 'resync',
-      isFocused,
-      hybridReady,
-      symbol: paramsRef.current.symbol,
-    });
     sendSymbolChange();
     // symbolChangeKey (stable value) instead of `params` (new object每render) so
     // this only re-asserts on focus or an actual symbol change, not every render.
-  }, [autoDriveSymbol, hybridReady, isFocused, symbolChangeKey, sendSymbolChange]);
+  }, [
+    autoDriveSymbol,
+    hybridReady,
+    isFocused,
+    symbolChangeKey,
+    sendSymbolChange,
+  ]);
 
   const source = useMemo(() => {
     if (CHART_WEBVIEW_MODE === 'online') {
@@ -429,17 +370,9 @@ export function ChartWebView({
           }
           // Module delivers the chart's $private.request payload as a raw JSON
           // string; legacy handlers expect it wrapped as { data: payload }.
-          // DEBUG (Q1 data): if this host has no customReceiveHandler (e.g. the
-          // prewarm host), the page's $private data request is DROPPED here. This
-          // log flags exactly that — if it fires for getKLineData during warm, the
-          // prewarm needs its own data handler to truly prefetch.
+          // A host with no customReceiveHandler (e.g. the prewarm host) drops the
+          // page's $private data request here.
           if (!customReceiveHandler) {
-            defaultLogger.market.chart.chartHost({
-              platform: platformEnv.appPlatform ?? 'native',
-              type: paramsRef.current.type,
-              event: 'msgDroppedNoHandler',
-              symbol: paramsRef.current.symbol,
-            });
             return;
           }
           void customReceiveHandler({ data: JSON.parse(raw) });
@@ -474,13 +407,6 @@ export function ChartWebView({
         // is safe: a real focused host re-asserts its own symbol on focus (same
         // symbol -> idempotent), and only the load-time owner reaches this point.
         if (autoDriveSymbolRef.current) {
-          defaultLogger.market.chart.chartHost({
-            platform: platformEnv.appPlatform ?? 'native',
-            type: paramsRef.current.type,
-            event: 'loadEndDrive',
-            isFocused: isFocusedRef.current,
-            symbol: paramsRef.current.symbol,
-          });
           sendSymbolChange();
         }
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).

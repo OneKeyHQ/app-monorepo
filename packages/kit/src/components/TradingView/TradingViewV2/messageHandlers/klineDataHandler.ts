@@ -1,6 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -310,20 +309,6 @@ export async function handleKLineDataRequest({
     const from = safeData.from as number;
     const to = safeData.to as number;
 
-    // DEBUG instrumentation (Q2: market chart shows no data). Log every bars
-    // request the page makes so we can see whether the request even arrives with
-    // a valid token/network, and (below) whether bars come back.
-    defaultLogger.market.chart.chartKline({
-      platform: 'native',
-      phase: 'request',
-      type: 'market',
-      symbol: (safeData.symbol as string) || tokenAddress,
-      networkId,
-      resolution,
-      from,
-      to,
-    });
-
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
     } else if (context.currentKLineResolution) {
@@ -368,46 +353,11 @@ export async function handleKLineDataRequest({
         ? buildEmptyKLineData()
         : fetchedKLineData;
 
-      // DEBUG: capture the RAW first-bar shape (before normalization) so the log
-      // proves what the API actually returned.
-      const rawSample = rawKLineData?.points?.[0]
-        ? JSON.stringify(rawKLineData.points[0])
-        : 'none';
-
       // Q2 FIX: normalize to numeric OHLCV before handing bars to the page.
       const normalized = rawKLineData
         ? normalizeKLineForPage(rawKLineData)
         : undefined;
       const kLineData = normalized?.data ?? rawKLineData;
-
-      // DEBUG instrumentation (Q2): the bars result that goes back to the page.
-      // points=0 with no error => "chart shows but empty"; missing this log after
-      // a 'request' => the fetch threw (see catch below). rawSample vs sample show
-      // the shape before/after the OHLC normalization fix; synthesizedOHLC>0 means
-      // the API gave close-only bars (backend gap the fix worked around).
-      defaultLogger.market.chart.chartKline({
-        platform: 'native',
-        phase: 'response',
-        type: 'market',
-        symbol: (safeData.symbol as string) || tokenAddress,
-        networkId,
-        resolution,
-        points: kLineData?.points?.length ?? 0,
-        total: kLineData?.total ?? 0,
-        forcedEmpty: shouldUseEmptyKLineData,
-        willSend: Boolean(webRef.current && kLineData),
-        rawSample,
-        sample: kLineData?.points?.[0]
-          ? JSON.stringify(kLineData.points[0])
-          : 'none',
-        sampleKeys: kLineData?.points?.[0]
-          ? Object.keys(kLineData.points[0] as object).join(',')
-          : 'none',
-        closeType: kLineData?.points?.[0]
-          ? typeof (kLineData.points[0] as { c?: unknown }).c
-          : 'none',
-        synthesizedOHLC: normalized?.synthesizedOHLC ?? 0,
-      });
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({
@@ -446,17 +396,6 @@ export async function handleKLineDataRequest({
         });
       }
     } catch (error) {
-      // DEBUG instrumentation (Q2): a thrown fetch is the most likely cause of a
-      // blank market chart — the page asked for bars and got nothing back.
-      defaultLogger.market.chart.chartKline({
-        platform: 'native',
-        phase: 'error',
-        type: 'market',
-        symbol: (safeData.symbol as string) || tokenAddress,
-        networkId,
-        resolution,
-        message: error instanceof Error ? error.message : String(error),
-      });
       console.error('Failed to fetch and send kline data:', error);
     }
   }

@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -259,20 +258,6 @@ export function useTradingViewMessageHandler({
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
-      // DEBUG: log every $private method that reaches the MARKET handler, to
-      // confirm whether the page's history getKLineData actually arrives here (vs
-      // being routed to the perps handler on the shared pool -> timeout -> no
-      // history bars -> stuck loading).
-      if (data?.scope === '$private' && data?.method) {
-        defaultLogger.market.chart.chartHost({
-          platform: 'native',
-          type: 'market',
-          event: 'msgIn',
-          method: data.method,
-          symbol: tokenSymbol,
-        });
-      }
-
       // Create context for message handlers
       const context: IMessageHandlerContext = {
         tokenAddress,
@@ -293,10 +278,11 @@ export function useTradingViewMessageHandler({
 
       // Unified bars-state from the chart library's getBars — drives the chart
       // loading mask (hasBars=false => still loading / empty).
-      if (data.scope === '$private' && data.method === 'tradingview_barsState') {
-        onBarsState?.(
-          (data.data ?? {}) as { hasBars: boolean; count: number },
-        );
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_barsState'
+      ) {
+        onBarsState?.((data.data ?? {}) as { hasBars: boolean; count: number });
       }
 
       // Handle TradingView private API requests

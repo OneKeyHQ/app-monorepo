@@ -7,7 +7,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import type { IWebViewRef } from '../../../WebView/types';
@@ -175,24 +174,9 @@ export function useTradingViewV2WebSocket({
       // Q2 FIX: same numeric-OHLCV normalization as the history path, so realtime
       // updates carry valid o/h/l/c/v (the WS tick / API bar may be close-only or
       // stringy). Safe pass-through when already full numeric OHLCV.
-      const { data: dataForWebView, synthesizedOHLC } = normalizeKLineForPage(
+      const { data: dataForWebView } = normalizeKLineForPage(
         rawDataForWebView as unknown as IMarketTokenKLineResponse,
       );
-      defaultLogger.market.chart.chartKline({
-        platform: 'native',
-        phase: 'realtime',
-        type: 'market',
-        symbol: tokenAddress,
-        resolution: wsChartType,
-        points: dataForWebView.points.length,
-        rawSample: rawDataForWebView?.points?.[0]
-          ? JSON.stringify(rawDataForWebView.points[0])
-          : 'none',
-        sample: dataForWebView.points[0]
-          ? JSON.stringify(dataForWebView.points[0])
-          : 'none',
-        synthesizedOHLC,
-      });
 
       webView.sendMessageViaInjectedScript({
         type: 'autoKLineUpdate',

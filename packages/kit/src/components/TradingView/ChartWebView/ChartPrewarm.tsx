@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { ChartWebView } from '.';
 
 import { Stack } from '@onekeyhq/components';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { markChartDataReady } from '../chartDataReadyStore';
@@ -82,18 +81,6 @@ function PerpsPrewarmHost({
     },
   });
 
-  useEffect(() => {
-    defaultLogger.market.chart.chartPrewarm({
-      platform: platformEnv.appPlatform ?? 'native',
-      phase: 'mount',
-      type: 'perps',
-      symbol,
-      hasSymbol: true,
-      enabled: true,
-      handler: 'perps',
-    });
-  }, [symbol]);
-
   return (
     <ChartWebView
       params={params}
@@ -133,18 +120,6 @@ function MarketPrewarmHost({
       }
     },
   });
-
-  useEffect(() => {
-    defaultLogger.market.chart.chartPrewarm({
-      platform: platformEnv.appPlatform ?? 'native',
-      phase: 'mount',
-      type: 'market',
-      symbol,
-      hasSymbol: true,
-      enabled: true,
-      handler: 'market',
-    });
-  }, [symbol]);
 
   return (
     <ChartWebView
@@ -211,32 +186,6 @@ export function ChartPrewarm({
         : {}),
     },
   });
-
-  // DEBUG instrumentation (Q1): unmount log + disabled log. The per-host mount log
-  // (with the wired handler) lives in the host components below.
-  useEffect(() => {
-    if (!enabled) {
-      defaultLogger.market.chart.chartPrewarm({
-        platform: platformEnv.appPlatform ?? 'native',
-        phase: 'disabled',
-        type: isMarket ? 'market' : 'perps',
-        symbol: effectiveSymbol,
-        hasSymbol: !!symbol,
-        enabled,
-      });
-      return;
-    }
-    return () => {
-      defaultLogger.market.chart.chartPrewarm({
-        platform: platformEnv.appPlatform ?? 'native',
-        phase: 'unmount',
-        type: isMarket ? 'market' : 'perps',
-        symbol: effectiveSymbol,
-        hasSymbol: !!symbol,
-        enabled,
-      });
-    };
-  }, [enabled, isMarket, effectiveSymbol, symbol]);
 
   if (!enabled) return null;
 
