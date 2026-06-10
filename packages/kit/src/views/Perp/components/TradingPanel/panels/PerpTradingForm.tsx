@@ -65,6 +65,7 @@ import {
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -112,9 +113,18 @@ interface IPerpTradingFormProps {
   isMobile?: boolean;
   reserveMobileEnableTradingLayout?: boolean;
 }
+
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 type ITwapDurationInputField = 'hours' | 'minutes';
+type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
+type IOrderTypeInfoItem = {
+  description: string;
+  helpUrl?: string;
+  label: string;
+  value: IOrderTypeInfoValue;
+};
+
 const DESKTOP_TRADING_HEADER_HEIGHT =
   PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
@@ -162,6 +172,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
+const ORDER_TYPE_HELP_CENTER_URL = 'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -344,6 +355,89 @@ function SpotAvailableActionPopover({
           ) : null}
         </YStack>
       )}
+    />
+  );
+}
+
+function OrderTypeInfoContent({
+  description,
+  helpUrl,
+}: {
+  description: string;
+  helpUrl?: string;
+}) {
+  const intl = useIntl();
+  const handleOpenHelp = useCallback(() => {
+    if (helpUrl) {
+      openUrlExternal(helpUrl);
+    }
+  }, [helpUrl]);
+
+  return (
+    <YStack maxWidth={260}>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {description}
+        {helpUrl ? ' ' : null}
+        {helpUrl ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSuccess"
+            textDecorationLine="underline"
+            cursor="pointer"
+            onPress={handleOpenHelp}
+          >
+            {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          </SizableText>
+        ) : null}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function OrderTypeInfoButton({
+  description,
+  helpUrl,
+  isMobile,
+}: {
+  description: string;
+  helpUrl?: string;
+  isMobile: boolean;
+}) {
+  const trigger = (
+    <IconButton
+      testID={PerpTestIDs.OrderTypeInfoButton}
+      variant="tertiary"
+      size="small"
+      icon="InfoCircleOutline"
+      iconSize="$4"
+      iconProps={{ color: '$iconSubdued' }}
+      cursor="pointer"
+    />
+  );
+  const content = (
+    <OrderTypeInfoContent description={description} helpUrl={helpUrl} />
+  );
+
+  if (isMobile) {
+    return (
+      <Popover
+        title=""
+        showHeader={false}
+        placement="bottom-end"
+        floatingPanelProps={{ width: 360 }}
+        renderTrigger={trigger}
+        renderContent={<YStack p="$4">{content}</YStack>}
+      />
+    );
+  }
+
+  return (
+    <Tooltip
+      hovering
+      placement="bottom-end"
+      renderTrigger={trigger}
+      renderContent={<YStack p="$1">{content}</YStack>}
+      contentProps={{ maxWidth: 280 }}
     />
   );
 }
@@ -1572,6 +1666,87 @@ function PerpTradingForm({
       ...algoOrderOptions,
     ];
   }, [intl, isSpot]);
+  const orderTypeInfoItems = useMemo(
+    () =>
+      [
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+          value: 'market',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+          value: 'limit',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_market,
+          }),
+          value: ETriggerOrderType.TRIGGER_MARKET,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_limit,
+          }),
+          value: ETriggerOrderType.TRIGGER_LIMIT,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_scale_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_order__title,
+          }),
+          value: 'scale',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_twap_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_twap_order__title,
+          }),
+          value: 'twap',
+        },
+      ] as const satisfies readonly IOrderTypeInfoItem[],
+    [intl],
+  );
+  const selectedOrderTypeInfo = useMemo(() => {
+    if (isScaleMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'scale');
+    }
+    if (isTwapMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'twap');
+    }
+    if (formData.orderMode === 'trigger') {
+      return orderTypeInfoItems.find((item) => item.value === triggerOrderType);
+    }
+    return orderTypeInfoItems.find((item) => item.value === formData.type);
+  }, [
+    formData.orderMode,
+    formData.type,
+    isScaleMode,
+    isTwapMode,
+    orderTypeInfoItems,
+    triggerOrderType,
+  ]);
 
   const lastAdvancedOrderType = useMemo(
     () =>
@@ -2728,6 +2903,15 @@ function PerpTradingForm({
                   </XStack>
                 )}
               />
+              {selectedOrderTypeInfo ? (
+                <XStack ml="auto" alignItems="center">
+                  <OrderTypeInfoButton
+                    description={selectedOrderTypeInfo.description}
+                    helpUrl={selectedOrderTypeInfo.helpUrl}
+                    isMobile={isMobile}
+                  />
+                </XStack>
+              ) : null}
             </XStack>
           </YStack>
         </>

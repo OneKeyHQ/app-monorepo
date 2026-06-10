@@ -1257,11 +1257,19 @@ function SideButtonInternal({
           size: submitState.computedSizeForSide,
           positionSize: position?.szi,
           missingPositionMessage: submitState.isTwapMode
-            ? 'Reduce-only TWAP requires an opposite open position'
-            : 'Reduce-only scale requires an opposite open position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+              }),
           exceedsPositionMessage: submitState.isTwapMode
-            ? 'Reduce-only TWAP size exceeds the current position'
-            : 'Reduce-only scale size exceeds the current position',
+            ? intl.formatMessage({
+                id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+              })
+            : intl.formatMessage({
+                id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+              }),
         });
         if (reduceOnlyError) {
           Toast.message({ title: reduceOnlyError });
