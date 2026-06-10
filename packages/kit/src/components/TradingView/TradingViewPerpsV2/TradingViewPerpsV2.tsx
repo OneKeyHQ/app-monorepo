@@ -43,7 +43,9 @@ import type {
   ITVOrderPriceUpdatePayload,
   ITradeEvent,
 } from './types';
+import type { IWebViewProps } from '../../WebView';
 import type { IWebViewRef } from '../../WebView/types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -170,12 +172,17 @@ const WebViewMemoized = memo(
     onWebViewRef,
     onShouldStartLoadWithRequest,
     ...otherProps
-  }: {
+  }: Omit<
+    IWebViewProps,
+    | 'src'
+    | 'customReceiveHandler'
+    | 'onWebViewRef'
+    | 'onShouldStartLoadWithRequest'
+  > & {
     src: string;
-    customReceiveHandler: (data: any) => Promise<void>;
+    customReceiveHandler: IJsBridgeReceiveHandler;
     onWebViewRef: (ref: IWebViewRef | null) => void;
     onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
-    [key: string]: any;
   }) => (
     <WebView
       src={src}

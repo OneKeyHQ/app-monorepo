@@ -9,8 +9,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
+import {
+  normalizeKLineForPage,
+  normalizeTradingViewKLineInterval,
+} from '../messageHandlers/klineDataHandler';
+
 import type { IWebViewRef } from '../../../WebView/types';
-import { normalizeKLineForPage } from '../messageHandlers/klineDataHandler';
 
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;
@@ -29,37 +33,35 @@ interface IMarketPriceUpdatePayload {
   originalData?: unknown;
 }
 
+// The lowercase output here IS the wire format sent to the market WS backend.
+// Delegate to the canonical normalizer (single source of truth) so the interval
+// mapping lives in one place. The canonical normalizer returns one of a fixed
+// set of recognized intervals (upper-cased h/d/w); for every such known value
+// we lowercase it, producing output byte-identical to the previous explicit
+// switch. For an unknown/unrecognized interval the canonical normalizer returns
+// the raw value unchanged, which we pass through verbatim (no lowercasing) to
+// preserve the previous passthrough behavior. The `|| '1m'` fallback covers the
+// undefined/empty case.
+const RECOGNIZED_KLINE_INTERVALS = new Set([
+  '1m',
+  '5m',
+  '15m',
+  '30m',
+  '1H',
+  '4H',
+  '1D',
+  '1W',
+]);
 function normalizeMarketWsKLineInterval(interval: string | undefined): string {
-  switch (interval) {
-    case '1':
-    case '1m':
-      return '1m';
-    case '5':
-    case '5m':
-      return '5m';
-    case '15':
-    case '15m':
-      return '15m';
-    case '30':
-    case '30m':
-      return '30m';
-    case '60':
-    case '1h':
-    case '1H':
-      return '1h';
-    case '240':
-    case '4h':
-    case '4H':
-      return '4h';
-    case '1d':
-    case '1D':
-      return '1d';
-    case '1w':
-    case '1W':
-      return '1w';
-    default:
-      return interval || '1m';
+  if (!interval) {
+    return '1m';
   }
+  const normalized = normalizeTradingViewKLineInterval(interval);
+  if (RECOGNIZED_KLINE_INTERVALS.has(normalized)) {
+    return normalized.toLowerCase();
+  }
+  // Unknown interval: canonical normalizer returned the input unchanged.
+  return normalized;
 }
 
 export function useTradingViewV2WebSocket({
@@ -99,11 +101,21 @@ export function useTradingViewV2WebSocket({
       }
     }
 
-    if (enabled) {
+    // Capture whether THIS effect actually subscribed, so the cleanup only
+    // unsubscribes a subscription it made. On a ref-counted backend an
+    // unconditional unsubscribe would decrement a count this effect never
+    // incremented, potentially tearing down another component's subscription.
+    const didSubscribe = enabled;
+
+    if (didSubscribe) {
       void initWebSocket();
     }
 
     return () => {
+      if (!didSubscribe) {
+        return;
+      }
+
       async function cleanup(): Promise<void> {
         try {
           await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({

@@ -126,6 +126,11 @@ function ExportHost() {
         onWebViewRef={handleWebViewRef}
         // dom-ready guarantees localStorage is reachable via executeJavaScript.
         onDomReady={exportNow}
+        // Fast-fail on network/DNS failure of the old-origin URL so we don't sit
+        // idle until the 30s timeout (the native variant already fast-fails via
+        // onError/onHttpError). `fail` only marks the attempt + lets the next
+        // launch retry; it ignores the event arg so the signature is compatible.
+        onDidFailLoad={fail}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
       />

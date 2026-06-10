@@ -58,7 +58,7 @@ export const CHART_MIGRATION_EXPORT_INJECTED_JS = `
     for (var i = 0; i < window.localStorage.length; i += 1) {
       var k = window.localStorage.key(i);
       if (k && k.indexOf('${CHART_MIGRATION_KEY_PREFIX}') === 0) {
-        items[k] = window.localStorage.getItem(k);
+        items[k] = window.localStorage.getItem(k) || '';
       }
     }
     window.ReactNativeWebView.postMessage(
@@ -87,7 +87,7 @@ export const CHART_MIGRATION_EXPORT_EVAL_JS = `
     for (var i = 0; i < window.localStorage.length; i += 1) {
       var k = window.localStorage.key(i);
       if (k && k.indexOf('${CHART_MIGRATION_KEY_PREFIX}') === 0) {
-        items[k] = window.localStorage.getItem(k);
+        items[k] = window.localStorage.getItem(k) || '';
       }
     }
     return JSON.stringify(items);

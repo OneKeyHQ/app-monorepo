@@ -102,10 +102,15 @@ export async function initChartWebViewModeSnapshot(): Promise<void> {
   }
   try {
     // Capture the QA dev override (Part L1) into the locked snapshot too.
+    // Gate on `dev.enabled` (mirroring `ignoreServerBundleUpdate` in
+    // ServiceAppUpdate.ts) so a stale override from a once-enabled dev mode can
+    // never leak into a production build.
     const dev = await devSettingsPersistAtom.get();
     const override = dev?.settings?.chartWebViewModeOverride;
     devModeOverride =
-      override === 'offline' || override === 'legacy' ? override : undefined;
+      dev?.enabled && (override === 'offline' || override === 'legacy')
+        ? override
+        : undefined;
   } catch {
     devModeOverride = undefined;
   }

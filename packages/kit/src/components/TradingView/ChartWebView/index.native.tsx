@@ -139,7 +139,14 @@ export function ChartWebView({
   // Prewarm is iOS-only now (see ChartPrewarm.enabled); keep ownership == focus
   // for every host (the prior Android-specific `active=false` prewarm tweak is
   // moot now that Android has no prewarm host).
-  const active = isFocused;
+  //
+  // EXCEPTION: a prewarm host (also used by the hidden migration RestoreHost,
+  // which lives OUTSIDE any navigator screen so `useRouteIsFocused()` returns
+  // true) must NEVER claim native pool ownership — otherwise the offscreen
+  // restore host would evict the user's visible chart from the shared
+  // `onekey-chart-singleton` pool. Force `active=false` whenever `prewarm` is set
+  // so such a host stays offscreen and owns nothing.
+  const active = isFocused && !prewarm;
   // Effective chart mode resolved from the cold-start snapshot (Part B2). The
   // snapshot is locked for the session, so these are stable across renders; we
   // still thread them through memo deps so the rule of hooks is satisfied.
@@ -257,12 +264,22 @@ export function ChartWebView({
 
   // From origin/x: if the unified chart already finished its (one-time) load,
   // fire onLoadEnd immediately for this host so consumers don't wait again.
+  //
+  // GUARDED ON hybridReady (Fix #3): `hasUnifiedChartLoadEnded` is module-level
+  // and survives a `sourceKey` remount (mode toggle) or a native pool
+  // recreation. A stale `true` left over from a previous page could otherwise
+  // make a freshly-mounted host fire onLoadEnd BEFORE its page is actually ready.
+  // By gating on `hybridReady` (the native transport callback, which only fires
+  // once THIS host's WebView is live), a stale flag can never short-circuit a
+  // brand-new pool: when the native pool was genuinely recreated, the real
+  // onLoadEnd re-stamps the flag; when the shared pool is still warm, hybridReady
+  // arrives with the flag correctly reflecting the already-loaded page.
   useEffect(() => {
-    if (isUnified && hasUnifiedChartLoadEnded) {
+    if (isUnified && hybridReady && hasUnifiedChartLoadEnded) {
       onLoadEndRef.current?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hybridReady]);
 
   // (1) Eager: push our symbol the moment the transport is ready — BEFORE this
   // screen finishes focusing — so the chart switches during the navigation

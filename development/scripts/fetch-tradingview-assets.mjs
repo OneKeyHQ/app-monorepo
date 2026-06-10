@@ -170,6 +170,18 @@ const tarballUrl = meta?.versions?.[VERSION]?.dist?.tarball;
 if (!tarballUrl)
   fail(`version ${VERSION} not found in registry metadata for ${PKG}`);
 
+// Validate the tarball URL origin matches the expected registry before sending
+// the auth header. A poisoned/MITM'd metadata response could otherwise point
+// `tarball` at an attacker host, leaking the read:packages PAT in the Bearer
+// header of the download request below.
+const expectedOrigin = new URL(REGISTRY).origin;
+const tarballOrigin = new URL(tarballUrl).origin;
+if (tarballOrigin !== expectedOrigin) {
+  fail(
+    `tarball URL origin mismatch: expected ${expectedOrigin}, got ${tarballOrigin}`,
+  );
+}
+
 // 2. Download the tarball (.tgz).
 const tgzRes = await fetch(tarballUrl, { headers: authHeaders });
 if (!tgzRes.ok)

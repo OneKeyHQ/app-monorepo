@@ -60,9 +60,11 @@ export function ChartMigrationRestoreHost({
     }
     const ref = webRef.current;
     if (!ref) {
+      // The transport isn't wired yet — do NOT set sentRef here, or the message
+      // would be silently dropped and retries permanently blocked (state stuck
+      // at restore-pending). The next onLoadEnd / load re-invokes sendRestore.
       return;
     }
-    sentRef.current = true;
     const requestId = nextChartMigrationRequestId();
     requestIdRef.current = requestId;
     defaultLogger.market.chart.chartSource({
@@ -73,6 +75,8 @@ export function ChartMigrationRestoreHost({
     ref.sendMessageViaInjectedScript(
       buildRestoreStorageMessage({ requestId, items: blob }),
     );
+    // Only mark sent AFTER the message has actually been dispatched.
+    sentRef.current = true;
     // Diagnostic: the RESTORE_STORAGE message was sent to the offline chart.
     defaultLogger.market.chart.chartMigration({
       platform: platformEnv.appPlatform ?? 'native',
@@ -113,7 +117,14 @@ export function ChartMigrationRestoreHost({
         return;
       }
       // Match our request (defensive — the bundle echoes the requestId).
-      if (ack.requestId && ack.requestId !== requestIdRef.current) {
+      // When the ack DOES carry a requestId, it must match the one we sent this
+      // session. When it does NOT (older bundles omit it), only accept it if we
+      // actually sent a restore this session — otherwise a stale/spurious ack
+      // from a previous session could permanently mark the migration done.
+      if (ack.requestId !== undefined && ack.requestId !== requestIdRef.current) {
+        return;
+      }
+      if (ack.requestId === undefined && !sentRef.current) {
         return;
       }
       // Diagnostic: the bundle acked the restore (success or otherwise).
@@ -159,6 +170,11 @@ export function ChartMigrationRestoreHost({
         // selfDrivenSymbol keeps the host from auto-driving SYMBOL_CHANGE — we
         // only care about loading the origin, not showing a specific token.
         selfDrivenSymbol
+        // prewarm forces active=false in ChartWebView: this hidden restore host
+        // lives outside any navigator screen (so useRouteIsFocused() returns
+        // true), and without this it would claim the shared chart pool and evict
+        // the user's visible chart. With prewarm it stays offscreen / owns nothing.
+        prewarm
         flex={1}
       />
     ),

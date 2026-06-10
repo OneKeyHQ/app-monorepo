@@ -7,6 +7,7 @@ segs
 unixTime
 nodata
 tradingview
+ohlc
 ohlcv
 daysRemaining
 _j_msgid

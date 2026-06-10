@@ -448,7 +448,7 @@ class ServiceApp extends ServiceBase {
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       // Idempotent: never overwrite an already-seeded state.
       if (v?.tradingViewChartMigration) {
-        return v;
+        return (v ?? {}) as ISimpleDBAppStatus;
       }
       const launchTimes = v?.launchTimes ?? 0;
       const isFirstInstall = launchTimes === 0;
@@ -495,11 +495,15 @@ class ServiceApp extends ServiceBase {
   }) {
     const { blob } = params;
     const keyCount = Object.keys(blob).length;
+    // Captured inside the writer so the diagnostic only fires when the state
+    // transition actually occurred (the guard below can reject it as a no-op).
+    let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
-        return v as ISimpleDBAppStatus;
+        return (v ?? {}) as ISimpleDBAppStatus;
       }
       const isEmpty = keyCount === 0;
+      advanced = true;
       return {
         ...v,
         tradingViewChartMigration: {
@@ -511,12 +515,15 @@ class ServiceApp extends ServiceBase {
       };
     });
     // Diagnostic: a non-empty export advances to restore-pending; an empty one
-    // is equivalent to done (nothing to restore).
-    defaultLogger.market.chart.chartMigration({
-      platform: platformEnv.appPlatform ?? 'native',
-      event: keyCount === 0 ? 'export-empty' : 'export-ok',
-      keyCount,
-    });
+    // is equivalent to done (nothing to restore). Only emitted on a real
+    // transition (the guard above is idempotent and logs nothing on re-entry).
+    if (advanced) {
+      defaultLogger.market.chart.chartMigration({
+        platform: platformEnv.appPlatform ?? 'native',
+        event: keyCount === 0 ? 'export-empty' : 'export-ok',
+        keyCount,
+      });
+    }
   }
 
   /**
@@ -527,10 +534,14 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async markTradingViewChartMigrationAttempt(params?: { reason?: string }) {
+    // Captured inside the writer so the diagnostic only fires when the state
+    // transition actually occurred (the guard below can reject it as a no-op).
+    let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
-        return v as ISimpleDBAppStatus;
+        return (v ?? {}) as ISimpleDBAppStatus;
       }
+      advanced = true;
       return {
         ...v,
         tradingViewChartMigration: {
@@ -542,11 +553,14 @@ class ServiceApp extends ServiceBase {
     // Diagnostic: a failed export attempt (offline / timeout / load error). No
     // attempts counter is persisted (the backoff is once-per-launch via
     // lastAttemptAt), so `attempt` is omitted; `reason` is logged when supplied.
-    defaultLogger.market.chart.chartMigration({
-      platform: platformEnv.appPlatform ?? 'native',
-      event: 'export-fail',
-      reason: params?.reason,
-    });
+    // Only emitted on a real transition (the guard above is idempotent).
+    if (advanced) {
+      defaultLogger.market.chart.chartMigration({
+        platform: platformEnv.appPlatform ?? 'native',
+        event: 'export-fail',
+        reason: params?.reason,
+      });
+    }
   }
 
   /**
@@ -555,10 +569,14 @@ class ServiceApp extends ServiceBase {
    */
   @backgroundMethod()
   async setTradingViewChartMigrationDone() {
+    // Captured inside the writer so the diagnostic only fires when the state
+    // transition actually occurred (the guard below can reject it as a no-op).
+    let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
-        return v as ISimpleDBAppStatus;
+        return (v ?? {}) as ISimpleDBAppStatus;
       }
+      advanced = true;
       return {
         ...v,
         tradingViewChartMigration: {
@@ -569,10 +587,13 @@ class ServiceApp extends ServiceBase {
       };
     });
     // Diagnostic: restore acked ok by the chart bundle; migration complete.
-    defaultLogger.market.chart.chartMigration({
-      platform: platformEnv.appPlatform ?? 'native',
-      event: 'done',
-    });
+    // Only emitted on a real transition (the guard above is idempotent).
+    if (advanced) {
+      defaultLogger.market.chart.chartMigration({
+        platform: platformEnv.appPlatform ?? 'native',
+        event: 'done',
+      });
+    }
   }
 
   /**
