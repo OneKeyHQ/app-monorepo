@@ -2,6 +2,7 @@ import { useLayoutEffect } from 'react';
 
 import { getJotaiContextTrackerMap } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { okRaceLog } from '@onekeyhq/shared/src/utils/debug/okRaceLog'; // OKRACE
 
 import {
   buildJotaiContextStoreId,
@@ -13,11 +14,19 @@ export function useJotaiContextRootStore(data: IJotaiContextStoreData) {
   const storeId = buildJotaiContextStoreId(data);
 
   useLayoutEffect(() => {
-    // console.log('JotaiContextRootStore mount', storeId);
+    const okTracked =
+      storeId.includes('@swap') || storeId.includes('@perp'); // OKRACE
+    if (okTracked)
+      okRaceLog(`rootStore MOUNT ${storeId} tag=${(store as any).__okTag}`); // OKRACE
     jotaiContextStore.cancelStoreResetById(storeId, store);
     return () => {
-      // console.log('JotaiContextRootStore unmount', storeId);
       const mirrorCount = getJotaiContextTrackerMap()[storeId]?.count ?? 0;
+      if (okTracked)
+        okRaceLog(
+          `rootStore UNMOUNT ${storeId} tag=${
+            (store as any).__okTag
+          } mirrorCount=${mirrorCount} willDelete=${mirrorCount <= 0}`,
+        ); // OKRACE
       jotaiContextStore.requestStoreResetById(storeId, store);
       if (mirrorCount <= 0) {
         jotaiContextStore.completeStoreResetIfRequestedById(storeId);

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { okRaceLog } from '@onekeyhq/shared/src/utils/debug/okRaceLog'; // OKRACE
 
 import {
   AccountSelectorJotaiProvider,
@@ -56,6 +57,10 @@ export function AccountSelectorProviderMirror({
     [config.sceneName, config.sceneUrl, enabledNum],
   );
   const store = jotaiContextStore.getOrCreateStore(data);
+  if (config.sceneName === 'swap' || config.sceneName === 'perp')
+    okRaceLog(
+      `mirror scene=${config.sceneName} tag=${(store as any).__okTag}`,
+    ); // OKRACE
 
   return (
     <>

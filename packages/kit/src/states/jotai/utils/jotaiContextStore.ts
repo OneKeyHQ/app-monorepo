@@ -3,8 +3,12 @@ import { createStore } from 'jotai';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
+import { okRaceLog } from '@onekeyhq/shared/src/utils/debug/okRaceLog'; // OKRACE
 
 import type { IJotaiContextStore } from './createJotaiContext';
+
+const okIsTracked = (id: string) =>
+  id.includes('@swap') || id.includes('@perp'); // OKRACE
 
 export function buildJotaiContextStoreId(data: IJotaiContextStoreData) {
   const { storeName, accountSelectorInfo } = data;
@@ -31,6 +35,7 @@ function setStoreColdStartScopeKey({
   ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__ = `store:${storeId}`;
 }
 
+const okRaceTag = { n: 0 }; // OKRACE
 // AccountSelectorStore
 class JotaiContextStore {
   storeCache = new Map<string, IJotaiContextStore>();
@@ -41,6 +46,9 @@ class JotaiContextStore {
     const id = buildJotaiContextStoreId(data);
     const store = createStore();
     setStoreColdStartScopeKey({ store, storeId: id });
+    (store as any).__okTag = (okRaceTag.n += 1); // OKRACE
+    if (okIsTracked(id))
+      okRaceLog(`createStore ${id} tag=${(store as any).__okTag}`); // OKRACE
     this.storeCache.set(id, store);
     return store;
   }
@@ -92,6 +100,10 @@ class JotaiContextStore {
     this.storeResetRequests.delete(id);
     if (this.storeCache.get(id) === resetStore) {
       this.storeCache.delete(id);
+      if (okIsTracked(id))
+        okRaceLog(
+          `completeReset DELETE ${id} tag=${(resetStore as any).__okTag}`,
+        ); // OKRACE
       console.log('JotaiContextStore removeStore', id);
     }
   }

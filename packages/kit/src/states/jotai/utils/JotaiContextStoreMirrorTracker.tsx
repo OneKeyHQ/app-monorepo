@@ -17,6 +17,7 @@ import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import { okRaceLog } from '@onekeyhq/shared/src/utils/debug/okRaceLog'; // OKRACE
 import { isSwapColdStartAllNetworkContextNetworkId } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
@@ -175,10 +176,19 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
         toMergeMap[key] = value;
       }
 
-      setMap({
+      const okNextMap = {
         ...mapCache,
         ...toMergeMap,
-      });
+      };
+      if (storeId.includes('@swap') || storeId.includes('@perp'))
+        okRaceLog(
+          `map ${action} ${storeId} count=${value.count} keys=[${Object.keys(
+            okNextMap,
+          )
+            .filter((k) => k.includes('@swap') || k.includes('@perp'))
+            .join(',')}]`,
+        ); // OKRACE
+      setMap(okNextMap);
 
       if (action === 'remove' && value.count <= 0) {
         jotaiContextStore.completeStoreResetIfRequestedById(storeId);
