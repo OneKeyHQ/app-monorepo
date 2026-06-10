@@ -10,6 +10,7 @@ import {
   isTaprootPath,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type {
+  IBtcForkNetwork,
   IBtcInput,
   IBtcOutput,
   IEncodedTxBtc,
@@ -209,6 +210,83 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     };
   };
 
+  // Shared by OneKey and Ledger PSBT signing: map each PSBT address to its
+  // real derivation path/pubkey via prepareBtcSignExtraInfo (which already
+  // covers fresh and claimed find-address paths), falling back to the
+  // account-level path/pubkey for unknown addresses.
+  protected async resolvePsbtAddressDerivation({
+    unsignedTx,
+    dbAccount,
+    btcNetwork,
+    addresses,
+  }: {
+    unsignedTx: ISignTransactionParams['unsignedTx'];
+    dbAccount: IDBUtxoAccount;
+    btcNetwork: IBtcForkNetwork;
+    addresses: Array<string | undefined>;
+  }): Promise<{
+    resolvePubkeyHexByAddress: (params: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }) => string;
+    resolvePathByAddress: (address: string | undefined) => string;
+  }> {
+    const vault = this.vault as VaultBtc;
+    const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
+      unsignedTx,
+    });
+    const addressToPath = btcExtraInfo?.addressToPath ?? {};
+    const fallbackPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+
+    const relPathsToDerive = new Set<string>();
+    addresses.forEach((address) => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      if (relPath) {
+        relPathsToDerive.add(relPath);
+      }
+    });
+
+    let derivedPublicKeys: Record<string, string> = {};
+    if (relPathsToDerive.size && dbAccount.xpub) {
+      try {
+        const { encoding } = await vault.validateAddress(dbAccount.address);
+        const xpubAddressInfo = await checkIsDefined(
+          this.coreApi,
+        ).getAddressFromXpub({
+          network: btcNetwork,
+          xpub: dbAccount.xpub,
+          relativePaths: Array.from(relPathsToDerive),
+          addressEncoding: encoding,
+        });
+        derivedPublicKeys = xpubAddressInfo.publicKeys;
+      } catch (e) {
+        // fall back to the account-level pubkey/path below. log the message
+        // only: the raw error may embed request context (addresses) that
+        // must stay out of local logs
+        console.error(
+          'resolvePsbtAddressDerivation ERROR:',
+          (e as Error | undefined)?.message,
+        );
+      }
+    }
+
+    const resolvePubkeyHexByAddress = ({
+      address,
+      fallbackPubkeyHex,
+    }: {
+      address: string | undefined;
+      fallbackPubkeyHex: string;
+    }): string => {
+      const relPath = address ? addressToPath[address]?.relPath : undefined;
+      const derivedPubkey = relPath ? derivedPublicKeys[relPath] : undefined;
+      return derivedPubkey ?? fallbackPubkeyHex;
+    };
+    const resolvePathByAddress = (address: string | undefined): string =>
+      (address ? addressToPath[address]?.fullPath : undefined) ?? fallbackPath;
+
+    return { resolvePubkeyHexByAddress, resolvePathByAddress };
+  }
+
   async signPsbt(params: ISignTransactionParams): Promise<ISignedTxPro> {
     const { unsignedTx, signOnly } = params;
     const { psbtHex, inputsToSign } = unsignedTx.encodedTx as IEncodedTxBtc;
@@ -260,53 +338,17 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     // spends from the account's main address. Inputs from fresh or claimed
     // (find-address) addresses would otherwise be fed the wrong derivation
     // path and the device would produce an invalid signature.
-    const vault = this.vault as VaultBtc;
-    const { btcExtraInfo } = await vault.prepareBtcSignExtraInfo({
-      unsignedTx,
-    });
-    const addressToPath = btcExtraInfo?.addressToPath ?? {};
-    const fallbackPath = `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
+    const { resolvePubkeyHexByAddress, resolvePathByAddress } =
+      await this.resolvePsbtAddressDerivation({
+        unsignedTx,
+        dbAccount,
+        btcNetwork,
+        addresses: [
+          ...inputsToSign.map((input) => input.address),
+          ...psbt.txOutputs.map((output) => output.address),
+        ],
+      });
 
-    const relPathsToDerive = new Set<string>();
-    const collectRelPath = (address: string | undefined) => {
-      const relPath = address ? addressToPath[address]?.relPath : undefined;
-      if (relPath) {
-        relPathsToDerive.add(relPath);
-      }
-    };
-    inputsToSign.forEach((input) => collectRelPath(input.address));
-    psbt.txOutputs.forEach((output) => collectRelPath(output.address));
-
-    let derivedPublicKeys: Record<string, string> = {};
-    if (relPathsToDerive.size && dbAccount.xpub) {
-      try {
-        const { encoding } = await vault.validateAddress(dbAccount.address);
-        const xpubAddressInfo = await checkIsDefined(
-          this.coreApi,
-        ).getAddressFromXpub({
-          network: btcNetwork,
-          xpub: dbAccount.xpub,
-          relativePaths: Array.from(relPathsToDerive),
-          addressEncoding: encoding,
-        });
-        derivedPublicKeys = xpubAddressInfo.publicKeys;
-      } catch (e) {
-        // fall back to the account-level pubkey/path below
-        console.error('signPsbt derive per-input pubkeys ERROR:', e);
-      }
-    }
-
-    const resolvePubkeyHexByAddress = ({
-      address,
-      fallbackPubkeyHex,
-    }: {
-      address: string | undefined;
-      fallbackPubkeyHex: string;
-    }): string => {
-      const relPath = address ? addressToPath[address]?.relPath : undefined;
-      const derivedPubkey = relPath ? derivedPublicKeys[relPath] : undefined;
-      return derivedPubkey ?? fallbackPubkeyHex;
-    };
     const resolveTapBip32Derivation = ({
       address,
       fallbackPubkeyHex,
@@ -322,9 +364,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         {
           masterFingerprint: Buffer.from(fingerprint, 'hex'),
           pubkey: Buffer.from(pubkeyHex, 'hex').subarray(1, 33),
-          path:
-            (address ? addressToPath[address]?.fullPath : undefined) ??
-            fallbackPath,
+          path: resolvePathByAddress(address),
           leafHashes: [],
         },
       ];
