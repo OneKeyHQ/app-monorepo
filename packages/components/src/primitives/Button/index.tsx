@@ -104,7 +104,7 @@ const BUTTON_VARIANTS: Record<
   },
   accent: {
     color: '$textInverse',
-    iconColor: '$iconOnColor',
+    iconColor: '$iconInverse',
     bg: '$bgAccent',
     hoverBg: '$bgAccentHover',
     activeBg: '$bgAccentActive',
