@@ -30,6 +30,7 @@ import { PERPS_FILTERED_LEDGER_TYPES } from '@onekeyhq/shared/src/consts/perp';
 import {
   PERPS_COLD_START_MARKET_CACHE_MAX_AGE_MS,
   PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS,
+  PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
 } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -96,6 +97,7 @@ import {
   perpsAllAssetCtxsAtom,
   perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
+  perpsL2BookColdCacheAtom,
   perpsLedgerUpdatesAtom,
   perpsOpenOrdersByCoinAtomCache,
   perpsTokenSearchAliasesAtom,
@@ -145,6 +147,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+let lastL2BookColdCacheWriteAt = 0;
 
 type ITwapHistoryLoadResult =
   | {
@@ -241,6 +244,10 @@ function getLedgerUpdateKey(update: HL.IUserNonFundingLedgerUpdate): string {
     update.hash ||
     `${update.time}:${update.delta.type}:${JSON.stringify(update.delta)}`
   );
+}
+
+function hasL2BookCacheableLevels(data: HL.IBook | undefined) {
+  return Boolean(data?.levels?.[0]?.length && data?.levels?.[1]?.length);
 }
 
 function sortAndLimitLedgerUpdates(
@@ -1339,7 +1346,39 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         bidLevels: data.levels?.[0]?.length ?? 0,
         askLevels: data.levels?.[1]?.length ?? 0,
       });
-      set(l2BookAtom(), withPerpsL2BookLocalReceivedAt(data));
+      const nextBook = withPerpsL2BookLocalReceivedAt(data);
+      set(l2BookAtom(), nextBook);
+      const now = Date.now();
+      if (
+        hasL2BookCacheableLevels(nextBook) &&
+        now - lastL2BookColdCacheWriteAt >=
+          PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS
+      ) {
+        lastL2BookColdCacheWriteAt = now;
+        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+          coin: data.coin,
+          options: get(orderBookTickOptionsAtom()),
+        });
+        const keys = getPerpsL2BookSnapshotCacheKeys({
+          coin: data.coin,
+          nSigFigs: storedTickOptions?.nSigFigs ?? null,
+          mantissa:
+            storedTickOptions?.mantissa === undefined
+              ? undefined
+              : storedTickOptions.mantissa,
+        });
+        const updatedAt = nextBook.localReceivedAt ?? now;
+        const nextColdCache = Object.fromEntries(
+          keys.map((key) => [
+            key,
+            {
+              data: nextBook,
+              updatedAt,
+            },
+          ]),
+        );
+        set(perpsL2BookColdCacheAtom(), nextColdCache);
+      }
     } else {
       const currentBook = get(l2BookAtom());
       if (

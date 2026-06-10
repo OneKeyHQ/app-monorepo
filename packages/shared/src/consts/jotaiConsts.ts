@@ -12,6 +12,7 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   perpsTokenSearchAliasesAtom: 'ctx:perpsTokenSearchAliasesAtom',
   perpsMaxBuilderFeeAtom: 'ctx:perpsMaxBuilderFeeAtom',
   perpsActiveAssetCtxColdCacheAtom: 'ctx:perpsActiveAssetCtxColdCacheAtom',
+  perpsL2BookColdCacheAtom: 'ctx:perpsL2BookColdCacheAtom',
   perpsActivePositionAtom: 'ctx:perpsActivePositionAtom',
   perpsActiveOpenOrdersAtom: 'ctx:perpsActiveOpenOrdersAtom',
   swapTipsStateAtom: 'ctx:swapTipsStateAtom',

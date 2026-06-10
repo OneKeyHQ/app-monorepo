@@ -49,6 +49,12 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
+function reloadFromStorage(): void {
+  flush();
+  _cache = undefined;
+  loadStore();
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
   try {
@@ -330,7 +336,13 @@ export const swrKeys = {
     [NS.perpsL2BookSnapshot, 'v1', coin, nSigFigs ?? '', mantissa ?? ''].join(
       ':',
     ),
+  perpsL2BookSnapshotLatest: ({ coin }: { coin: string }) =>
+    [NS.perpsL2BookSnapshot, 'v1', coin, 'latest'].join(':'),
 };
+
+function uniqueCacheKeys(keys: string[]) {
+  return Array.from(new Set(keys));
+}
 
 export function getPerpsL2BookSnapshotCacheKeys({
   coin,
@@ -341,13 +353,16 @@ export function getPerpsL2BookSnapshotCacheKeys({
   nSigFigs?: number | null;
   mantissa?: number | null;
 }) {
-  return [
+  return uniqueCacheKeys([
     swrKeys.perpsL2BookSnapshot({
       coin,
       nSigFigs,
       mantissa,
     }),
-  ];
+    swrKeys.perpsL2BookSnapshotLatest({
+      coin,
+    }),
+  ]);
 }
 
 export const swrCacheUtils = {
@@ -359,4 +374,5 @@ export const swrCacheUtils = {
   isFresh,
   clearAll,
   flushNow,
+  reloadFromStorage,
 };
