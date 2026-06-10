@@ -31,7 +31,7 @@ export function useSyncedMarketTab(
     if (!shouldResync) {
       pendingPageSyncRef.current = false;
     }
-  }, [shouldResync]);
+  }, [shouldResync, targetTabName]);
 
   useEffect(() => {
     const currentTabsRef = resolvedTabsRef.current;
@@ -51,7 +51,6 @@ export function useSyncedMarketTab(
           currentTabName,
         })
       ) {
-        setActiveTabName(targetTabName);
         return;
       }
       onBeforeJumpToTab?.(targetTabName);
