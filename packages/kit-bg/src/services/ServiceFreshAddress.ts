@@ -1013,22 +1013,44 @@ class ServiceFreshAddress extends ServiceBase {
       accountId,
       addedFindAddresses: { [item.relPath]: item.address },
     });
+    await this.clearClaimedUtxosCache({ accountId, networkId });
     appEventBus.emit(EAppEventBusNames.BtcFindAddressUpdated, undefined);
     return { item, alreadyDiscovered: false };
+  }
+
+  private async clearClaimedUtxosCache({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    try {
+      const vault = (await vaultFactory.getVault({
+        networkId,
+        accountId,
+      })) as VaultBtc;
+      vault._collectClaimedUtxosWithCache.clear();
+    } catch {
+      // non-fatal
+    }
   }
 
   @backgroundMethod()
   async unclaimBtcFindAddress({
     accountId,
+    networkId,
     relPath,
   }: {
     accountId: string;
+    networkId: string;
     relPath: string;
   }): Promise<void> {
     await localDb.updateAccountFindAddresses({
       accountId,
       removedRelPaths: [relPath],
     });
+    await this.clearClaimedUtxosCache({ accountId, networkId });
     appEventBus.emit(EAppEventBusNames.BtcFindAddressUpdated, undefined);
   }
 
@@ -1074,6 +1096,7 @@ class ServiceFreshAddress extends ServiceBase {
         accountId,
         removedRelPaths: discoveredRelPaths,
       });
+      await this.clearClaimedUtxosCache({ accountId, networkId });
       entries = entries.filter(
         ([relPath]) => !discoveredRelPaths.includes(relPath),
       );

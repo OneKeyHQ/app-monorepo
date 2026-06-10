@@ -1637,9 +1637,13 @@ class ServiceAccountProfile extends ServiceBase {
   public async getAccountUtxos({
     accountId,
     networkId,
+    includeClaimedAddresses,
   }: {
     accountId: string;
     networkId: string;
+    // btc find-address feature: opt-in display of claimed off-gap UTXOs,
+    // they are never included by default
+    includeClaimedAddresses?: boolean;
   }) {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -1651,9 +1655,28 @@ class ServiceAccountProfile extends ServiceBase {
         'CoinControl is not supported for this network',
       );
     }
-    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
+    const btcVault = vault as BTCVault;
+    const { utxoList } = await btcVault._collectUTXOsInfoByApi();
 
-    return utxoList;
+    if (!includeClaimedAddresses) {
+      return utxoList;
+    }
+
+    const { utxoList: claimedUtxos } =
+      await btcVault._collectClaimedUtxosInfo();
+    if (!claimedUtxos.length) {
+      return utxoList;
+    }
+    // a claimed address that later got discovered by the gap scan is already
+    // part of the main pool, dedupe by txid:vout and prefer the main entry
+    const existingUtxoKeys = new Set(
+      utxoList.map((utxo) => `${utxo.txid}:${utxo.vout}`),
+    );
+    return utxoList.concat(
+      claimedUtxos.filter(
+        (utxo) => !existingUtxoKeys.has(`${utxo.txid}:${utxo.vout}`),
+      ),
+    );
   }
 
   // Get wallet type

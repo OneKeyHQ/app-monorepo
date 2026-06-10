@@ -92,6 +92,18 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       }
     }
 
+    // btc find-address feature: inputs spending claimed off-gap addresses
+    // are not in the gap-scanned utxo pool, resolve paths from findAddresses
+    const dbAccountForClaimed =
+      (await this.vault.getAccount()) as unknown as IDBUtxoAccount;
+    for (const [relPath, claimedAddress] of Object.entries(
+      dbAccountForClaimed.findAddresses || {},
+    )) {
+      if (addresses.has(claimedAddress) && !signers[claimedAddress]) {
+        signers[claimedAddress] = `${dbAccountForClaimed.path}/${relPath}`;
+      }
+    }
+
     const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
       Boolean,
     );
