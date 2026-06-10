@@ -46,7 +46,7 @@ class JotaiContextStore {
     const id = buildJotaiContextStoreId(data);
     const store = createStore();
     setStoreColdStartScopeKey({ store, storeId: id });
-    (store as any).__okTag = (okRaceTag.n += 1); // OKRACE
+    (store as any).__okTag = okRaceTag.n += 1; // OKRACE
     if (okIsTracked(id))
       okRaceLog(`createStore ${id} tag=${(store as any).__okTag}`); // OKRACE
     this.storeCache.set(id, store);

@@ -14,8 +14,7 @@ export function useJotaiContextRootStore(data: IJotaiContextStoreData) {
   const storeId = buildJotaiContextStoreId(data);
 
   useLayoutEffect(() => {
-    const okTracked =
-      storeId.includes('@swap') || storeId.includes('@perp'); // OKRACE
+    const okTracked = storeId.includes('@swap') || storeId.includes('@perp'); // OKRACE
     if (okTracked)
       okRaceLog(`rootStore MOUNT ${storeId} tag=${(store as any).__okTag}`); // OKRACE
     jotaiContextStore.cancelStoreResetById(storeId, store);

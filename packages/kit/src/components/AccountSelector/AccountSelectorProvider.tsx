@@ -58,9 +58,7 @@ export function AccountSelectorProviderMirror({
   );
   const store = jotaiContextStore.getOrCreateStore(data);
   if (config.sceneName === 'swap' || config.sceneName === 'perp')
-    okRaceLog(
-      `mirror scene=${config.sceneName} tag=${(store as any).__okTag}`,
-    ); // OKRACE
+    okRaceLog(`mirror scene=${config.sceneName} tag=${(store as any).__okTag}`); // OKRACE
 
   return (
     <>
