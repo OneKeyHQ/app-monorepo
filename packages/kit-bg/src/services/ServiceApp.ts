@@ -448,7 +448,7 @@ class ServiceApp extends ServiceBase {
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       // Idempotent: never overwrite an already-seeded state.
       if (v?.tradingViewChartMigration) {
-        return (v ?? {}) as ISimpleDBAppStatus;
+        return v ?? {};
       }
       const launchTimes = v?.launchTimes ?? 0;
       const isFirstInstall = launchTimes === 0;
@@ -500,7 +500,7 @@ class ServiceApp extends ServiceBase {
     let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
-        return (v ?? {}) as ISimpleDBAppStatus;
+        return v ?? {};
       }
       const isEmpty = keyCount === 0;
       advanced = true;
@@ -539,7 +539,7 @@ class ServiceApp extends ServiceBase {
     let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
-        return (v ?? {}) as ISimpleDBAppStatus;
+        return v ?? {};
       }
       advanced = true;
       return {
@@ -574,7 +574,7 @@ class ServiceApp extends ServiceBase {
     let advanced = false;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
-        return (v ?? {}) as ISimpleDBAppStatus;
+        return v ?? {};
       }
       advanced = true;
       return {

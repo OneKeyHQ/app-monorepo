@@ -121,7 +121,10 @@ export function ChartMigrationRestoreHost({
       // session. When it does NOT (older bundles omit it), only accept it if we
       // actually sent a restore this session — otherwise a stale/spurious ack
       // from a previous session could permanently mark the migration done.
-      if (ack.requestId !== undefined && ack.requestId !== requestIdRef.current) {
+      if (
+        ack.requestId !== undefined &&
+        ack.requestId !== requestIdRef.current
+      ) {
         return;
       }
       if (ack.requestId === undefined && !sentRef.current) {
