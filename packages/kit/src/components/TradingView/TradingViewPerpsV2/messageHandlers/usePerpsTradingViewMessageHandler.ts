@@ -354,7 +354,8 @@ export function usePerpsTradingViewMessageHandler({
       switch (messageData.method) {
         case 'tradingview_barsState':
           // Unified bars-state from the chart library's getBars — drives the
-          // chart loading mask (hasBars=false => still loading / empty).
+          // chart loading mask. Any event means getBars resolved (data present
+          // or empty), which clears the mask.
           onBarsState?.(
             messageData.data as { hasBars: boolean; count: number },
           );

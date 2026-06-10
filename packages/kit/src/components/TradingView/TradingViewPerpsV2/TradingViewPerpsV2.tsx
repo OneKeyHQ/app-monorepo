@@ -579,10 +579,10 @@ export function TradingViewPerpsV2(
     onOrderDraftCreate,
     onOrderPriceUpdate,
     onTouchScroll,
-    onBarsState: ({ hasBars }) => {
-      if (hasBars) {
-        markChartDataReady(symbol);
-      }
+    onBarsState: () => {
+      // Any bars-state event means getBars resolved for this symbol (data
+      // present OR confirmed empty) — stop showing the loading mask.
+      markChartDataReady(symbol);
     },
   });
 

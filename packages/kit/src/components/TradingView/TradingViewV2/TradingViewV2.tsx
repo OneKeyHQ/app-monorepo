@@ -172,10 +172,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
-    onBarsState: ({ hasBars }) => {
-      if (hasBars) {
-        markChartDataReady(symbol);
-      }
+    onBarsState: () => {
+      // Any bars-state event means getBars resolved for this symbol (data
+      // present OR confirmed empty) — stop showing the loading mask.
+      markChartDataReady(symbol);
     },
   });
 

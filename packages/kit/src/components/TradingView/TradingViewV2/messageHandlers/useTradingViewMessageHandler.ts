@@ -277,7 +277,8 @@ export function useTradingViewMessageHandler({
       };
 
       // Unified bars-state from the chart library's getBars — drives the chart
-      // loading mask (hasBars=false => still loading / empty).
+      // loading mask. Any event means getBars resolved (data present or empty),
+      // which clears the mask.
       if (
         data.scope === '$private' &&
         data.method === 'tradingview_barsState'

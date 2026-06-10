@@ -78,10 +78,10 @@ function PerpsPrewarmHost({
     // can be THIS offscreen prewarm (esp. on Android, which has no warmDriver
     // fallback) — without this it would be dropped and the detail would stay on
     // the loading mask forever.
-    onBarsState: ({ hasBars }) => {
-      if (hasBars) {
-        markChartDataReady(symbol);
-      }
+    onBarsState: () => {
+      // Any bars-state event means getBars resolved for this symbol (data
+      // present OR confirmed empty) — stop showing the loading mask.
+      markChartDataReady(symbol);
     },
   });
 
@@ -118,10 +118,10 @@ function MarketPrewarmHost({
     networkId: networkId ?? '',
     tokenSymbol: symbol,
     webRef,
-    onBarsState: ({ hasBars }) => {
-      if (hasBars) {
-        markChartDataReady(symbol);
-      }
+    onBarsState: () => {
+      // Any bars-state event means getBars resolved for this symbol (data
+      // present OR confirmed empty) — stop showing the loading mask.
+      markChartDataReady(symbol);
     },
   });
 
