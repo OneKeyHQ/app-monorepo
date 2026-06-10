@@ -45,6 +45,37 @@ type ISwapAmountInputState = {
   isInput?: boolean;
 };
 
+function hasSwapUserInputAmount({
+  fromTokenAmount,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    (fromTokenAmount?.isInput && fromTokenAmount.value) ||
+    (toTokenAmount?.isInput && toTokenAmount.value),
+  );
+}
+
+export function shouldPreserveSwapUserInputAmountOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    !hasImportParams &&
+    hasSwapUserInputAmount({
+      fromTokenAmount,
+      toTokenAmount,
+    }),
+  );
+}
+
 export function shouldPreserveSwapUserInputOnAccountSwitch({
   fromTokenAmount,
   hasImportParams,
@@ -56,11 +87,14 @@ export function shouldPreserveSwapUserInputOnAccountSwitch({
   hasSelectedTokens: boolean;
   toTokenAmount?: ISwapAmountInputState;
 }) {
-  const hasUserInputAmount = Boolean(
-    (fromTokenAmount?.isInput && fromTokenAmount.value) ||
-    (toTokenAmount?.isInput && toTokenAmount.value),
+  return Boolean(
+    hasSelectedTokens &&
+    shouldPreserveSwapUserInputAmountOnAccountSwitch({
+      fromTokenAmount,
+      hasImportParams,
+      toTokenAmount,
+    }),
   );
-  return Boolean(!hasImportParams && hasSelectedTokens && hasUserInputAmount);
 }
 
 export function buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(

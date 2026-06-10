@@ -29,6 +29,7 @@ import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   shouldHandleSwapColdStartHomeAccountUpdate,
+  shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
 
@@ -129,6 +130,15 @@ function SwapColdStartCacheSync() {
         eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
         eventPayload.num !== 0
       ) {
+        return;
+      }
+      if (
+        shouldPreserveSwapUserInputAmountOnAccountSwitch({
+          fromTokenAmount: fromTokenAmountRef.current,
+          toTokenAmount: toTokenAmountRef.current,
+        })
+      ) {
+        markInitialSelectedTokensSynced();
         return;
       }
       if (

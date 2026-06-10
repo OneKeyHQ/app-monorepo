@@ -49,7 +49,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
-import { shouldPreserveSwapUserInputOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -801,11 +801,8 @@ export function useSwapQuote() {
           ) {
             // reset tab quote data when swap modal is open and tab quote data is fetching
             const shouldPreserveUserInputAmount =
-              shouldPreserveSwapUserInputOnAccountSwitch({
+              shouldPreserveSwapUserInputAmountOnAccountSwitch({
                 fromTokenAmount: fromTokenAmountRef.current,
-                hasSelectedTokens: Boolean(
-                  fromTokenRef.current || toTokenRef.current,
-                ),
                 toTokenAmount: toTokenAmountRef.current,
               });
             closeQuoteEvent();

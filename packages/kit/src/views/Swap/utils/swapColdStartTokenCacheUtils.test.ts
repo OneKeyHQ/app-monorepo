@@ -22,6 +22,7 @@ import {
   shouldClearSwapSelectedTokensOnHomeAccountUpdate,
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldMarkSwapInitialSelectedTokensSynced,
+  shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
@@ -130,6 +131,20 @@ describe('swap cold-start selected token context', () => {
         hasSelectedTokens: true,
       }),
     ).toBe(false);
+    expect(
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+        hasSelectedTokens: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('preserves swap user input amount even when selected token refs are temporarily empty', () => {
+    expect(
+      shouldPreserveSwapUserInputAmountOnAccountSwitch({
+        fromTokenAmount: { value: '0.01', isInput: true },
+      }),
+    ).toBe(true);
     expect(
       shouldPreserveSwapUserInputOnAccountSwitch({
         fromTokenAmount: { value: '0.01', isInput: true },
@@ -1200,6 +1215,30 @@ describe('swap cold-start selected token context', () => {
         hasSelectedTokens: true,
         initialSelectedTokensSynced: false,
         preserveSelectedTokens: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('keeps the root listener from rewriting default tokens when amount exists before selected token refs are ready', () => {
+    const eventPayload = {
+      sceneName: EAccountSelectorSceneName.home,
+      num: 0,
+      selectedAccount: buildSelectedAccount({
+        indexedAccountId: 'indexed-account-2',
+        networkId: 'sol--101',
+      }),
+    };
+
+    expect(
+      shouldHandleSwapColdStartHomeAccountUpdate({
+        cachedContext: undefined,
+        eventPayload,
+        hasSelectedTokens: false,
+        initialSelectedTokensSynced: false,
+        preserveSelectedTokens:
+          shouldPreserveSwapUserInputAmountOnAccountSwitch({
+            fromTokenAmount: { value: '1.23', isInput: true },
+          }),
       }),
     ).toBe(false);
   });

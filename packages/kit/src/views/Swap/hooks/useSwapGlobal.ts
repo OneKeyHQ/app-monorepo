@@ -67,6 +67,7 @@ import {
   isSwapTokenSupportedBySwapType,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldMarkSwapInitialSelectedTokensSynced,
+  shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
@@ -251,6 +252,19 @@ export function useSwapInit(params?: ISwapInitParams) {
     undefined,
   );
   const hasSyncedSwapSelectedAccountFromHomeStorageRef = useRef(false);
+  const shouldPreserveUserInputAmount = useCallback(() => {
+    const hasImportParams = Boolean(
+      params?.importFromToken ||
+      params?.importToToken ||
+      params?.importNetworkId,
+    );
+    return shouldPreserveSwapUserInputAmountOnAccountSwitch({
+      fromTokenAmount: fromTokenAmountRef.current,
+      hasImportParams,
+      toTokenAmount: toTokenAmountRef.current,
+    });
+  }, [params?.importFromToken, params?.importNetworkId, params?.importToToken]);
+
   const shouldPreserveUserInputSelectedTokens = useCallback(() => {
     const hasImportParams = Boolean(
       params?.importFromToken ||
@@ -428,7 +442,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           hasSelectedTokens,
           homeSelectedAccount,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
-          preserveSelectedTokens: shouldPreserveUserInputSelectedTokens(),
+          preserveSelectedTokens: shouldPreserveUserInputAmount(),
           swapSelectedAccount: swapSelectedAccountRef.current,
         })
       ) {
@@ -464,7 +478,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     },
     [
       clearSelectedTokensColdStartCache,
-      shouldPreserveUserInputSelectedTokens,
+      shouldPreserveUserInputAmount,
       updateSelectedAccount,
     ],
   );
@@ -909,6 +923,22 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     }
     if (
+      shouldPreserveUserInputAmount() &&
+      (!hasSelectedTokens ||
+        getSelectedTokensColdStartLimitSupport({
+          swapType: swapTypeSwitchRef.current,
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+          swapNetworks: swapNetworksRef.current,
+        }) !== false)
+    ) {
+      if (hasSelectedTokens) {
+        syncSelectedTokensColdStartSwapType();
+      }
+      markInitialSelectedTokensSynced();
+      return;
+    }
+    if (
       hasSelectedTokens &&
       shouldPreserveUserInputSelectedTokens() &&
       getSelectedTokensColdStartLimitSupport({
@@ -1195,6 +1225,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     syncSelectedTokensColdStartSwapType,
     clearSelectedTokensColdStartCache,
     markInitialSelectedTokensSynced,
+    shouldPreserveUserInputAmount,
     switchSwapTypeIfNeeded,
     syncSwapSelectedAccountFromLatestHomeStorage,
     shouldPreserveUserInputSelectedTokens,
