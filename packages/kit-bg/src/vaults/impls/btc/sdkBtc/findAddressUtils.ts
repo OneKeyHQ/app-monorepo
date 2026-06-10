@@ -1,7 +1,32 @@
 import type { IUtxoInfo } from '../../../types';
 
-function buildUtxoKey(utxo: IUtxoInfo): string {
+export function buildUtxoKey(utxo: IUtxoInfo): string {
   return `${utxo.txid}:${utxo.vout}`;
+}
+
+// merge claimed (find-address) relPath entries into an address→path map
+// used by signing flows. pool-resolved entries always win so a claimed
+// address that was already discovered by the gap scan keeps its pool path.
+export function appendClaimedAddressPaths({
+  addressPathMap,
+  accountPath,
+  findAddresses,
+  filterAddresses,
+}: {
+  addressPathMap: Record<string, string>;
+  accountPath: string;
+  findAddresses: Record<string, string> | undefined;
+  filterAddresses?: (address: string) => boolean;
+}): Record<string, string> {
+  Object.entries(findAddresses || {}).forEach(([relPath, claimedAddress]) => {
+    if (
+      !addressPathMap[claimedAddress] &&
+      (!filterAddresses || filterAddresses(claimedAddress))
+    ) {
+      addressPathMap[claimedAddress] = `${accountPath}/${relPath}`;
+    }
+  });
+  return addressPathMap;
 }
 
 // merge claimed (find-address) UTXOs into a gap-scanned UTXO list,

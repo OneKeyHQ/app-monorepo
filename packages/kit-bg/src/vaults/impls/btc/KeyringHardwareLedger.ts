@@ -34,6 +34,7 @@ import {
 } from '../../base/ledgerFingerprintUtils';
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
+import { appendClaimedAddressPaths } from './sdkBtc/findAddressUtils';
 
 import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
@@ -258,14 +259,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
       // btc find-address feature: inputs spending claimed off-gap addresses
       // are not in the gap-scanned utxo pool, resolve paths from
       // findAddresses (prefer the pool entry when both exist)
-      for (const [claimedRelPath, claimedAddress] of Object.entries(
-        (dbAccount as IDBUtxoAccount).findAddresses || {},
-      )) {
-        if (!addressPathMap[claimedAddress]) {
-          addressPathMap[claimedAddress] =
-            `${dbAccount.path}/${claimedRelPath}`;
-        }
-      }
+      appendClaimedAddressPaths({
+        addressPathMap,
+        accountPath: dbAccount.path,
+        findAddresses: (dbAccount as IDBUtxoAccount).findAddresses,
+      });
 
       // Fetch full previous transactions
       const prevTxids = [...new Set(inputs.map((i) => i.txid).filter(Boolean))];

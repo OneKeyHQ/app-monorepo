@@ -1,4 +1,8 @@
-import { buildBtcSendUtxoPool, mergeClaimedUtxos } from './findAddressUtils';
+import {
+  appendClaimedAddressPaths,
+  buildBtcSendUtxoPool,
+  mergeClaimedUtxos,
+} from './findAddressUtils';
 
 import type { IUtxoInfo } from '../../../types';
 
@@ -60,6 +64,42 @@ describe('buildBtcSendUtxoPool', () => {
       selectedUtxoKeys: ['tx-claimed:1'],
     });
     expect(pool).toEqual([normalUtxo, claimedUtxo]);
+  });
+});
+
+describe('appendClaimedAddressPaths', () => {
+  test('adds claimed paths without overriding pool-resolved entries', () => {
+    const addressPathMap: Record<string, string> = {
+      'bc1q-pool': "m/84'/0'/0'/0/1",
+    };
+    appendClaimedAddressPaths({
+      addressPathMap,
+      accountPath: "m/84'/0'/0'",
+      findAddresses: { '0/1': 'bc1q-pool', '0/100': 'bc1q-claimed' },
+    });
+    expect(addressPathMap).toEqual({
+      'bc1q-pool': "m/84'/0'/0'/0/1",
+      'bc1q-claimed': "m/84'/0'/0'/0/100",
+    });
+  });
+
+  test('honors the address filter and tolerates missing findAddresses', () => {
+    const addressPathMap: Record<string, string> = {};
+    appendClaimedAddressPaths({
+      addressPathMap,
+      accountPath: "m/84'/0'/0'",
+      findAddresses: { '0/100': 'bc1q-claimed', '0/101': 'bc1q-other' },
+      filterAddresses: (address) => address === 'bc1q-claimed',
+    });
+    expect(addressPathMap).toEqual({ 'bc1q-claimed': "m/84'/0'/0'/0/100" });
+
+    expect(
+      appendClaimedAddressPaths({
+        addressPathMap: {},
+        accountPath: "m/84'/0'/0'",
+        findAddresses: undefined,
+      }),
+    ).toEqual({});
   });
 });
 

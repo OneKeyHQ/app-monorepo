@@ -36,6 +36,8 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
+import { appendClaimedAddressPaths } from './sdkBtc/findAddressUtils';
+
 import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
 import type {
@@ -97,13 +99,12 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     // are not in the gap-scanned utxo pool, resolve paths from findAddresses
     const dbAccountForClaimed =
       (await this.vault.getAccount()) as unknown as IDBUtxoAccount;
-    for (const [relPath, claimedAddress] of Object.entries(
-      dbAccountForClaimed.findAddresses || {},
-    )) {
-      if (addresses.has(claimedAddress) && !signers[claimedAddress]) {
-        signers[claimedAddress] = `${dbAccountForClaimed.path}/${relPath}`;
-      }
-    }
+    appendClaimedAddressPaths({
+      addressPathMap: signers,
+      accountPath: dbAccountForClaimed.path,
+      findAddresses: dbAccountForClaimed.findAddresses,
+      filterAddresses: (address) => addresses.has(address),
+    });
 
     const prevTxids = Array.from(new Set(inputs.map((i) => i.txid))).filter(
       Boolean,

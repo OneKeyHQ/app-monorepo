@@ -328,10 +328,13 @@ class ServiceFreshAddress extends ServiceBase {
     accountId,
     networkId,
     deriveType,
+    dbAccount: prefetchedDbAccount,
   }: {
     accountId: string;
     networkId: string;
     deriveType?: IAccountDeriveTypes;
+    // optional prefetched account to avoid a duplicate db read
+    dbAccount?: IDBUtxoAccount;
   }): Promise<
     | {
         dbAccount: IDBUtxoAccount;
@@ -343,9 +346,11 @@ class ServiceFreshAddress extends ServiceBase {
     if (!accountId || !networkId) return undefined;
     if (!networkUtils.isBTCNetwork(networkId)) return undefined;
 
-    const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
-      accountId,
-    })) as IDBUtxoAccount | undefined;
+    const dbAccount =
+      prefetchedDbAccount ??
+      ((await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      })) as IDBUtxoAccount | undefined);
     if (!dbAccount) return undefined;
 
     let xpubSegwit =
@@ -954,21 +959,26 @@ class ServiceFreshAddress extends ServiceBase {
   private async buildBtcDiscoveredAddressChecker({
     accountId,
     networkId,
+    dbAccount: prefetchedDbAccount,
   }: {
     accountId: string;
     networkId: string;
+    // optional prefetched account to avoid a duplicate db read
+    dbAccount?: IDBUtxoAccount;
   }): Promise<(address: string) => boolean> {
     const discovered = new Set<string>();
 
     const ctx = await this.resolveBtcAddressContext({
       accountId,
       networkId,
+      dbAccount: prefetchedDbAccount,
     });
 
     // local-first: the main address plus gap-scanned/custom addresses are
     // already visible even when the fresh-address cache was never fetched
     const dbAccount =
       ctx?.dbAccount ??
+      prefetchedDbAccount ??
       ((await this.backgroundApi.serviceAccount
         .getDBAccount({ accountId })
         .catch(() => undefined)) as IDBUtxoAccount | undefined);
@@ -1121,6 +1131,7 @@ class ServiceFreshAddress extends ServiceBase {
     const isDiscovered = await this.buildBtcDiscoveredAddressChecker({
       accountId,
       networkId,
+      dbAccount,
     });
     const discoveredRelPaths = entries
       .filter(([, address]) => isDiscovered(address))

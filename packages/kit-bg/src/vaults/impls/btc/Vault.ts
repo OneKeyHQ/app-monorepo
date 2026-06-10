@@ -103,7 +103,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
-import { buildBtcSendUtxoPool } from './sdkBtc/findAddressUtils';
+import { buildBtcSendUtxoPool, buildUtxoKey } from './sdkBtc/findAddressUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
@@ -1014,9 +1014,7 @@ export default class VaultBtc extends VaultBase {
 
       // never log claimed (find-address) outpoints: a txid:vout resolves
       // on-chain back to the user's hidden address
-      const claimedUtxoKeys = new Set(
-        claimedUtxos.map((utxo) => `${utxo.txid}:${utxo.vout}`),
-      );
+      const claimedUtxoKeys = new Set(claimedUtxos.map(buildUtxoKey));
       defaultLogger.transaction.send.coinControlSelected({
         network: network.id,
         selectedUtxoCount: utxosInfo.length,
