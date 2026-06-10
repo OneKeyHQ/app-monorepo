@@ -45,6 +45,8 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
 
   public customAddresses?: Realm.Dictionary<string>;
 
+  public findAddresses?: Realm.Dictionary<string>;
+
   public connectedAddresses?: Realm.Dictionary<string>;
 
   public selectedAddress?: Realm.Dictionary<number>;
@@ -76,6 +78,11 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
       address: 'string?',
       addresses: { type: 'dictionary', default: {}, objectType: 'string' },
       customAddresses: {
+        type: 'dictionary',
+        default: {},
+        objectType: 'string',
+      },
+      findAddresses: {
         type: 'dictionary',
         default: {},
         objectType: 'string',
@@ -130,6 +137,8 @@ class RealmSchemaAccount extends RealmObjectBase<IDBAccount> {
         (this.addresses?.toJSON() as any) || {};
       (ret as IDBUtxoAccount).customAddresses =
         (this.customAddresses?.toJSON() as any) || {};
+      (ret as IDBUtxoAccount).findAddresses =
+        (this.findAddresses?.toJSON() as any) || {};
     }
 
     if (this.connectedAddresses) {

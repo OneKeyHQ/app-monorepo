@@ -323,6 +323,9 @@ export type IDBUtxoAccount = IDBBaseAccount & {
   // oxlint-disable-next-line @cspell/spellchecker
   addresses: Record<string, string>; // { "0/0": "xxxx" }
   customAddresses?: Record<string, string>; // for btc dynamic custom address
+  // btc find-address feature: user-claimed off-gap receive addresses
+  // local-only field, MUST NOT be added to any cloud sync payload
+  findAddresses?: Record<string, string>; // { "0/100": "xxxx" }
 };
 export type IDBVariantAccount = IDBBaseAccount & {
   pub: string;
