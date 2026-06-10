@@ -88,6 +88,21 @@ describe('classifyThirdPartyHwCreateFailures', () => {
     expect(result.allAppNotInstalled).toBe(false);
     expect(result.genuineFailures).toEqual([deviceOutOfMemory]);
   });
+
+  it('keeps unknown failures when at least one account succeeded', () => {
+    const unknownFailure = {
+      error: {
+        code: ThirdPartyHwErrorCode.UnknownError,
+      },
+    };
+    const result = classifyThirdPartyHwCreateFailures({
+      addedCount: 1,
+      failedAccounts: [unknownFailure],
+    });
+
+    expect(result.allAppNotInstalled).toBe(false);
+    expect(result.genuineFailures).toEqual([unknownFailure]);
+  });
 });
 
 describe('filterThirdPartyHwCreateFailureToasts', () => {

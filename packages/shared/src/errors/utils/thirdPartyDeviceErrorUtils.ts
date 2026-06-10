@@ -194,13 +194,11 @@ export function classifyThirdPartyHwCreateFailures<
   const genuineFailures = failedAccounts.filter((f) => {
     if (f.error.code === ThirdPartyHwErrorCode.AppNotInstalled) return false;
     if (isThirdPartyInstallAppUserCancelCode(f.error.code)) return false;
-    // If at least one chain succeeded, transient mid-flow errors (re-pair with
-    // changed BLE/USB connectId → DeviceNotFound; SDK-unclassified disconnect
-    // tags like WebHidSendReportError → UnknownError) shouldn't fail the flow.
+    // If at least one chain succeeded, transient mid-flow re-pair errors with
+    // changed BLE/USB connectId shouldn't fail the flow.
     if (
       addedCount > 0 &&
-      (f.error.code === ThirdPartyHwErrorCode.DeviceNotFound ||
-        f.error.code === ThirdPartyHwErrorCode.UnknownError)
+      f.error.code === ThirdPartyHwErrorCode.DeviceNotFound
     ) {
       return false;
     }
