@@ -245,6 +245,10 @@ export function useMarketTokenList({
           }),
         );
 
+        if (currentQueryKeyRef.current !== requestQueryKey) {
+          return;
+        }
+
         // Track network loading analytics for load more
         trackNetworkLoading(networkId, response.list.length);
 

@@ -92,6 +92,7 @@ import {
   ManagePageV2ReceiveInput,
 } from '../ManagePageV2ReceiveInput';
 import { EarnActionIcon } from '../ProtocolDetails/EarnActionIcon';
+import { EarnPlatformBonusSection } from '../ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../ProtocolDetails/EarnText';
 import { EarnTooltip } from '../ProtocolDetails/EarnTooltip';
 import { EarnValidatorSelect } from '../ProtocolDetails/EarnValidatorSelect';
@@ -1985,6 +1986,40 @@ export function UniversalStake({
     showPendleTransactionSection,
   });
 
+  const tradeOrBuyContent = isPendleProvider ? null : (
+    <TradeOrBuy
+      token={tokenInfo?.token as IToken}
+      accountId={accountId}
+      networkId={networkId}
+      containerStyle={{
+        pt: '$0',
+      }}
+    />
+  );
+
+  const shouldShowPlatformBonus = Boolean(
+    transactionConfirmation?.platformBonus,
+  );
+
+  const platformBonusContent = transactionConfirmation?.platformBonus ? (
+    <EarnPlatformBonusSection
+      platformBonus={transactionConfirmation.platformBonus}
+      protocolInfo={protocolInfo}
+      tokenInfo={tokenInfo}
+      footer={tradeOrBuyContent}
+    />
+  ) : null;
+
+  // When entering from the trending list, the protocol selector is rendered as a
+  // standalone (border-less) card above the summary card. The bordered summary
+  // card should then only render when it actually has body content, otherwise it
+  // would show up as an empty bordered box.
+  const summaryCardHasBodyContent = Boolean(
+    summaryContent ||
+    ongoingValidator ||
+    (!shouldShowPlatformBonus && tradeOrBuyContent),
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative">
@@ -2101,26 +2136,26 @@ export function UniversalStake({
         </>
       ) : null}
 
-      {shouldShowSummaryCard ? (
+      {protocolSwitchConfig ? (
+        <ProtocolSwitcher
+          tokenSymbol={actionSymbol}
+          accountId={accountId}
+          fallbackProviderName={providerName}
+          fallbackProviderLogoUri={providerLogo}
+          fallbackAprText={apyDetail?.description?.text}
+          protocolSwitchConfig={protocolSwitchConfig}
+        />
+      ) : null}
+
+      {shouldShowSummaryCard &&
+      (!protocolSwitchConfig || summaryCardHasBodyContent) ? (
         <YStack
           p="$3.5"
-          pt={protocolSwitchConfig ? '$3.5' : '$5'}
+          pt="$5"
           borderRadius="$3"
           borderWidth={StyleSheet.hairlineWidth}
           borderColor="$borderSubdued"
         >
-          {protocolSwitchConfig ? (
-            <YStack mb="$3.5">
-              <ProtocolSwitcher
-                tokenSymbol={actionSymbol}
-                accountId={accountId}
-                fallbackProviderName={providerName}
-                fallbackProviderLogoUri={providerLogo}
-                fallbackAprText={apyDetail?.description?.text}
-                protocolSwitchConfig={protocolSwitchConfig}
-              />
-            </YStack>
-          ) : null}
           {showApyHeader && apyDetail && !protocolSwitchConfig ? (
             <XStack gap="$1" ai="center" mb="$3.5">
               <EarnText
@@ -2234,19 +2269,11 @@ export function UniversalStake({
                 </Accordion.Item>
               </Accordion>
             ) : null}
-            {isPendleProvider ? null : (
-              <TradeOrBuy
-                token={tokenInfo?.token as IToken}
-                accountId={accountId}
-                networkId={networkId}
-                containerStyle={{
-                  pt: '$0',
-                }}
-              />
-            )}
+            {shouldShowPlatformBonus ? null : tradeOrBuyContent}
           </YStack>
         </YStack>
       ) : null}
+      {platformBonusContent}
       {beforeFooter}
       {isInModalContext ? (
         <Page.Footer>

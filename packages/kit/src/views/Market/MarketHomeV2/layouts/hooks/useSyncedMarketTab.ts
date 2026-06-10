@@ -3,11 +3,21 @@ import type { RefObject } from 'react';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 
+interface IUseSyncedMarketTabOptions {
+  onBeforeJumpToTab?: (targetTabName: string) => void;
+  shouldDeferJumpToTab?: (params: {
+    targetTabName: string;
+    currentTabName: string;
+  }) => boolean;
+}
+
 export function useSyncedMarketTab(
   targetTabName: string,
   tabsRef?: RefObject<ITabContainerRef | null>,
   shouldResync = false,
+  options?: IUseSyncedMarketTabOptions,
 ) {
+  const { onBeforeJumpToTab, shouldDeferJumpToTab } = options ?? {};
   const internalTabsRef = useRef<ITabContainerRef | null>(null);
   const resolvedTabsRef = tabsRef ?? internalTabsRef;
   const [activeTabName, setActiveTabName] = useState(targetTabName);
@@ -21,7 +31,7 @@ export function useSyncedMarketTab(
     if (!shouldResync) {
       pendingPageSyncRef.current = false;
     }
-  }, [shouldResync, targetTabName]);
+  }, [shouldResync]);
 
   useEffect(() => {
     const currentTabsRef = resolvedTabsRef.current;
@@ -34,6 +44,17 @@ export function useSyncedMarketTab(
       if (shouldResync) {
         pendingPageSyncRef.current = true;
       }
+      if (
+        shouldResync &&
+        shouldDeferJumpToTab?.({
+          targetTabName,
+          currentTabName,
+        })
+      ) {
+        setActiveTabName(targetTabName);
+        return;
+      }
+      onBeforeJumpToTab?.(targetTabName);
       currentTabsRef?.jumpToTab(targetTabName);
       if (!shouldResync) {
         setActiveTabName(targetTabName);
@@ -41,7 +62,13 @@ export function useSyncedMarketTab(
       return;
     }
     setActiveTabName(targetTabName);
-  }, [resolvedTabsRef, shouldResync, targetTabName]);
+  }, [
+    onBeforeJumpToTab,
+    resolvedTabsRef,
+    shouldDeferJumpToTab,
+    shouldResync,
+    targetTabName,
+  ]);
 
   useEffect(() => {
     if (!shouldResync || !pendingPageSyncRef.current) {
@@ -73,6 +100,19 @@ export function useSyncedMarketTab(
       }
 
       pendingPageSyncRef.current = true;
+      if (
+        shouldDeferJumpToTab?.({
+          targetTabName,
+          currentTabName,
+        })
+      ) {
+        timeoutId = setTimeout(() => {
+          rafId = requestAnimationFrame(runResync);
+        }, 32);
+        return;
+      }
+
+      onBeforeJumpToTab?.(targetTabName);
       currentTabsRef.jumpToTab(targetTabName);
 
       retryCount += 1;
@@ -99,7 +139,13 @@ export function useSyncedMarketTab(
         cancelAnimationFrame(rafId);
       }
     };
-  }, [resolvedTabsRef, shouldResync, targetTabName]);
+  }, [
+    onBeforeJumpToTab,
+    resolvedTabsRef,
+    shouldDeferJumpToTab,
+    shouldResync,
+    targetTabName,
+  ]);
 
   useEffect(() => {
     wasResyncEnabledRef.current = shouldResync;

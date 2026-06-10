@@ -6,7 +6,6 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
   SizableText,
   Stack,
   Toast,
@@ -39,10 +38,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  equalTokenNoCaseSensitive,
-  getTokenPriceChangeStyle,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -61,10 +57,24 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
+import {
+  getPopularTradingMetricColumns,
+  renderPopularTradingRightMetrics,
+  renderPopularTradingStockBadges,
+  renderPopularTradingTokenSubtitle,
+} from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
-import { getTokenKey } from './utils';
+import {
+  getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayPrice,
+  getMarketTokenDisplayPriceChange24h,
+  getMarketTokenDisplayVolume24h,
+  getTokenKey,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
@@ -116,6 +126,7 @@ function RecommendCardItem({
         />
         <YStack
           flexShrink={1}
+          minWidth={0}
           {...(platformEnv.isNativeAndroid
             ? {
                 width: '$20',
@@ -124,16 +135,18 @@ function RecommendCardItem({
               }
             : {})}
         >
-          <XStack>
+          <XStack alignItems="center" gap="$1" minWidth={0}>
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={1}
+              flexShrink={1}
               $sm={{
                 size: '$bodyMdMedium',
               }}
             >
               {token.symbol}
             </SizableText>
+            {renderPopularTradingStockBadges(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -171,8 +184,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
-  const { minLiquidity, spotCategories: apiSpotCategories } =
-    useMarketBasicConfig();
+  const {
+    minLiquidity,
+    homeTab: apiHomeTabs,
+    spotCategories: apiSpotCategories,
+  } = useMarketBasicConfig();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
   );
@@ -213,25 +229,56 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return DEFAULT_SPOT_CATEGORIES;
   }, [apiSpotCategories]);
 
-  const homeCategories = useMemo<IMarketCategoryItem[]>(
-    () => [
-      {
-        id: FAVORITES_CATEGORY_ID,
-        name: intl.formatMessage({ id: ETranslations.global_favorites }),
-        iconName: 'StarOutline',
-        iconOnly: true,
-      },
-      ...marketCategories,
-    ],
-    [intl, marketCategories],
+  const favoritesCategory = useMemo<IMarketCategoryItem>(
+    () => ({
+      id: FAVORITES_CATEGORY_ID,
+      name: intl.formatMessage({ id: ETranslations.global_favorites }),
+      iconName: 'StarOutline',
+      iconOnly: true,
+    }),
+    [intl],
   );
 
-  const selectedMarketCategoryId =
-    selectedCategoryId === FAVORITES_CATEGORY_ID
-      ? undefined
-      : selectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
+  const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
+    if (apiHomeTabs.length > 0) {
+      return apiHomeTabs.map((tab) => {
+        if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
+          return {
+            ...favoritesCategory,
+            name: tab.name,
+          };
+        }
 
-  const isMarketCategoryTokenInWatchList = useCallback(
+        return {
+          id: tab.type,
+          name: tab.name,
+          icon: tab.icon,
+        };
+      });
+    }
+
+    return [favoritesCategory, ...marketCategories];
+  }, [apiHomeTabs, favoritesCategory, marketCategories]);
+
+  const resolvedSelectedCategoryId = useMemo(() => {
+    if (homeCategories.some((category) => category.id === selectedCategoryId)) {
+      return selectedCategoryId;
+    }
+
+    return homeCategories[0]?.id ?? FAVORITES_CATEGORY_ID;
+  }, [homeCategories, selectedCategoryId]);
+
+  const selectedMarketCategoryId =
+    resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
+      ? undefined
+      : resolvedSelectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
+
+  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
+    minLiquidity,
+    selectedMarketCategoryId,
+  });
+
+  const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) =>
       watchListItems.some((item) =>
         equalTokenNoCaseSensitive({
@@ -250,7 +297,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      const checked = isMarketCategoryTokenInWatchList(record);
+      const checked = isTokenInWatchList(record);
 
       try {
         if (checked) {
@@ -306,7 +353,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }
     },
-    [intl, isMarketCategoryTokenInWatchList, watchListItems],
+    [intl, isTokenInWatchList, watchListItems],
+  );
+
+  const useStockMetadataColumns = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(favoriteTokens),
+    [favoriteTokens],
   );
 
   // Columns for table layout (only used when user has favorites)
@@ -340,14 +392,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   networkId={record.perpsCoin ? undefined : record.chainId}
                   showNetworkIcon={!record.perpsCoin}
                 />
-                <YStack>
-                  <XStack alignItems="center" gap="$1">
-                    <SizableText size="$bodyLgMedium">
+                <YStack minWidth={0}>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
                       {record.symbol}
                     </SizableText>
                     {record.maxLeverage ? (
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
+                    {renderPopularTradingStockBadges(record)}
                   </XStack>
                   <SizableText
                     size="$bodyMd"
@@ -362,56 +420,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             </XStack>
           ),
         },
-        {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="price"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {record.price ?? '-'}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => {
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: record.priceChange24h ?? 0,
-              });
-            return (
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyLgMedium"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            );
-          },
-        },
-        {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {!record.volume24h ? '--' : record.volume24h}
-            </NumberSizeableText>
-          ),
-        },
+        ...getPopularTradingMetricColumns({
+          intl,
+          useStockMetadataColumns,
+        }),
       ];
     }
 
@@ -441,24 +453,22 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 networkId={record.perpsCoin ? undefined : record.chainId}
                 showNetworkIcon={!record.perpsCoin}
               />
-              <YStack>
-                <XStack alignItems="center" gap="$1">
-                  <SizableText size="$bodyLgMedium">
+              <YStack minWidth={0}>
+                <XStack alignItems="center" gap="$1" minWidth={0}>
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    flexShrink={1}
+                  >
                     {record.symbol}
                   </SizableText>
                   {record.maxLeverage ? (
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
+                  {renderPopularTradingStockBadges(record)}
                 </XStack>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  formatterOptions={{
-                    currency: '$',
-                  }}
-                >
-                  {!record.volume24h ? '--' : record.volume24h}
-                </NumberSizeableText>
+                {renderPopularTradingTokenSubtitle(record)}
               </YStack>
             </XStack>
           </XStack>
@@ -467,40 +477,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
-        render: (_: unknown, record: IFavoriteTokenDisplay) => {
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange: record.priceChange24h ?? 0,
-          });
-          return (
-            <YStack alignItems="flex-end">
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="price"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {record.price ?? '-'}
-              </NumberSizeableText>
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyMd"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            </YStack>
-          );
-        },
+        render: (_: unknown, record: IFavoriteTokenDisplay) =>
+          renderPopularTradingRightMetrics(record, useStockMetadataColumns),
       },
     ];
-  }, [intl, tableLayout]);
-
-  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
-    minLiquidity,
-    selectedMarketCategoryId,
-  });
+  }, [intl, tableLayout, useStockMetadataColumns]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -618,10 +599,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -675,7 +657,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
 
         const displayTokens: IFavoriteTokenDisplay[] = targetList
-          .map((targetItem) => {
+          .map((targetItem): IFavoriteTokenDisplay | null => {
             const { normalizedAddress } = getNativeTokenInfo(
               targetItem.isNative,
               targetItem.contractAddress,
@@ -691,10 +673,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -1032,7 +1015,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             tokens={categoryTokens}
             isLoading={isCategoryLoading}
             tableLayout={tableLayout}
-            isTokenInWatchList={isMarketCategoryTokenInWatchList}
+            isTokenInWatchList={isTokenInWatchList}
             onStarPress={handleMarketCategoryStarPress}
             onTokenPress={handleTokenPress}
             onViewMore={handleViewMore}
@@ -1076,7 +1059,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         <YStack px={tableLayout ? '$pagePadding' : undefined}>
           <CategorySelector
             categories={homeCategories}
-            selectedCategoryId={selectedCategoryId}
+            selectedCategoryId={resolvedSelectedCategoryId}
             onSelectCategory={setSelectedCategoryId}
             showBorder={false}
             showHorizontalPadding={false}
@@ -1096,12 +1079,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     homeCategories,
     intl,
     isCategoryLoading,
-    isMarketCategoryTokenInWatchList,
+    isTokenInWatchList,
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,
-    selectedCategoryId,
     selectedMarketCategoryId,
+    resolvedSelectedCategoryId,
     tableLayout,
   ]);
 

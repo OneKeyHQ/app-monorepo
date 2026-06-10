@@ -33,6 +33,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -42,6 +43,10 @@ import type {
   IMarketHomeTabValue,
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+import type {
+  PageScrollStateChangedNativeEvent,
+  PagerViewProps,
+} from 'react-native-pager-view';
 
 interface IMobileLayoutProps {
   filterBarProps: IMarketFilterBarProps;
@@ -61,6 +66,8 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
+  stockDataCategoryMap: Record<string, boolean>;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -71,16 +78,18 @@ const TabBarDynamicContext = createContext<ITabBarDynamicContext | null>(null);
 
 interface IMarketHomeTabBarProps extends TabBarProps<string> {
   watchlistTabName: string;
-  spotTabName: string;
   perpsTabName: string;
 }
 
 const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
-const MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT = 120;
+const MARKET_ANDROID_COLUMN_HEADER_HEIGHT = 36;
+const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
+const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
+const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
+type IMarketPagerProps = Omit<PagerViewProps, 'onPageScroll' | 'initialPage'>;
 
 function MarketHomeTabBar({
   watchlistTabName,
-  spotTabName,
   perpsTabName,
   ...tabBarProps
 }: IMarketHomeTabBarProps) {
@@ -88,7 +97,21 @@ function MarketHomeTabBar({
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
   const showWatchlistSubHeader = currentFocusedTabName === watchlistTabName;
-  const showSpotSubHeader = currentFocusedTabName === spotTabName;
+  const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
+    currentFocusedTabName,
+  );
+  const showSpotSubHeader = Boolean(currentSpotCategoryId);
+  const currentSpotCategoryHasStockData = Boolean(
+    currentSpotCategoryId &&
+    (isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) ||
+      ctx.stockDataCategoryMap[currentSpotCategoryId]),
+  );
+  const showSpotFilterBar = Boolean(
+    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+  );
   const showPerpsSubHeader = currentFocusedTabName === perpsTabName;
   const fixedSecondaryHeaderHeight = useMemo(() => {
     if (!platformEnv.isNativeAndroid) {
@@ -99,12 +122,17 @@ function MarketHomeTabBar({
       return 0;
     }
 
-    if (showSpotSubHeader) {
-      return MARKET_ANDROID_SPOT_SECONDARY_HEADER_HEIGHT;
+    if (showSpotSubHeader && !showSpotFilterBar) {
+      return MARKET_ANDROID_COLUMN_HEADER_HEIGHT;
     }
 
     return MARKET_ANDROID_SECONDARY_HEADER_HEIGHT;
-  }, [ctx.isWatchlistEmpty, showSpotSubHeader, showWatchlistSubHeader]);
+  }, [
+    ctx.isWatchlistEmpty,
+    showSpotFilterBar,
+    showSpotSubHeader,
+    showWatchlistSubHeader,
+  ]);
 
   const renderWatchlistSubHeaderContent = useCallback(
     () => (
@@ -145,11 +173,18 @@ function MarketHomeTabBar({
   const renderSpotSubHeaderContent = useCallback(
     () => (
       <>
-        <MarketFilterBarSmall {...ctx.filterBarProps} />
+        {showSpotFilterBar ? (
+          <MarketFilterBarSmall
+            selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+            timeRange={ctx.filterBarProps.timeRange}
+            onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+            onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+          />
+        ) : null}
         <MarketListColumnHeader />
       </>
     ),
-    [ctx.filterBarProps],
+    [ctx.filterBarProps, showSpotFilterBar],
   );
 
   const renderPerpsSubHeaderContent = useCallback(
@@ -173,7 +208,10 @@ function MarketHomeTabBar({
 
   return (
     <YStack bg="$bgApp">
-      <Tabs.TabBar {...tabBarProps} />
+      <Tabs.TabBar
+        {...tabBarProps}
+        directTabPressAnimation={platformEnv.isNativeIOS}
+      />
       <YStack
         height={fixedSecondaryHeaderHeight}
         overflow={platformEnv.isNativeAndroid ? 'hidden' : undefined}
@@ -238,12 +276,17 @@ function MobileLayoutComponent({
   const [chartPredicted] = useChartPredictedSymbolAtom();
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    getSpotCategoryIdByTabName,
     selectedTabName,
-  } = useMarketTabsLogic(onTabChange);
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
 
   const tabBarHeight = useTabBarHeight();
   const tabContainerWidth = useTabContainerWidth() as number | undefined;
@@ -256,6 +299,23 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -282,13 +342,91 @@ function MobileLayoutComponent({
     }
   }, [initialCategoryId, selectedCategoryId]);
 
+  const expectedTabChangeTargetRef = useRef<string | undefined>(undefined);
+  const expectedTabChangeTargetStartedAtRef = useRef(0);
+  const lastPagerDraggingAtRef = useRef(0);
+  const lastAcceptedTabChangeNameRef = useRef<string | undefined>(undefined);
+  const expectedTabChangeTargetTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  const clearExpectedTabChangeTargetTimer = useCallback(() => {
+    if (expectedTabChangeTargetTimerRef.current) {
+      clearTimeout(expectedTabChangeTargetTimerRef.current);
+      expectedTabChangeTargetTimerRef.current = undefined;
+    }
+  }, []);
+  const clearExpectedTabChangeTarget = useCallback(() => {
+    clearExpectedTabChangeTargetTimer();
+    expectedTabChangeTargetRef.current = undefined;
+    expectedTabChangeTargetStartedAtRef.current = 0;
+  }, [clearExpectedTabChangeTargetTimer]);
+  const scheduleExpectedTabChangeTargetClear = useCallback(
+    (tabName: string, delayMs: number) => {
+      clearExpectedTabChangeTargetTimer();
+      expectedTabChangeTargetTimerRef.current = setTimeout(() => {
+        if (expectedTabChangeTargetRef.current === tabName) {
+          expectedTabChangeTargetRef.current = undefined;
+          expectedTabChangeTargetStartedAtRef.current = 0;
+        }
+        expectedTabChangeTargetTimerRef.current = undefined;
+      }, delayMs);
+    },
+    [clearExpectedTabChangeTargetTimer],
+  );
+  const markExpectedTabChangeTarget = useCallback(
+    (tabName: string) => {
+      clearExpectedTabChangeTarget();
+      expectedTabChangeTargetRef.current = tabName;
+      expectedTabChangeTargetStartedAtRef.current = Date.now();
+      lastAcceptedTabChangeNameRef.current = undefined;
+      scheduleExpectedTabChangeTargetClear(
+        tabName,
+        MARKET_TAB_CHANGE_TARGET_GUARD_MS,
+      );
+    },
+    [clearExpectedTabChangeTarget, scheduleExpectedTabChangeTargetClear],
+  );
+  const shouldDeferJumpToTab = useCallback(
+    ({ targetTabName }: { targetTabName: string; currentTabName: string }) => {
+      if (expectedTabChangeTargetRef.current !== targetTabName) {
+        return false;
+      }
+
+      const startedAt = expectedTabChangeTargetStartedAtRef.current;
+      return (
+        startedAt > 0 && Date.now() - startedAt < MARKET_TAB_SYNC_JUMP_DEFER_MS
+      );
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      clearExpectedTabChangeTarget();
+    },
+    [clearExpectedTabChangeTarget],
+  );
+
   const {
     activeTabName,
     setActiveTabName,
     tabsRef: currentTabsRef,
-  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused);
+  } = useSyncedMarketTab(selectedTabName, tabsRef, isFocused, {
+    onBeforeJumpToTab: markExpectedTabChangeTarget,
+    shouldDeferJumpToTab,
+  });
   const setActiveTabNameRef = useRef(setActiveTabName);
   setActiveTabNameRef.current = setActiveTabName;
+  const handleTabChangeRef = useRef(handleTabChange);
+  handleTabChangeRef.current = handleTabChange;
+  const latestTabStateRef = useRef({
+    activeTabName,
+    selectedTabName,
+  });
+  latestTabStateRef.current = {
+    activeTabName,
+    selectedTabName,
+  };
   const useNativeHeaderAnimation = platformEnv.isNativeAndroid
     ? !nestedPager
     : false;
@@ -331,6 +469,7 @@ function MobileLayoutComponent({
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
+        markExpectedTabChangeTarget(name);
         setActiveTabNameRef.current(name);
         tabBarProps.onTabPress?.(name);
       };
@@ -340,20 +479,67 @@ function MobileLayoutComponent({
           {...tabBarProps}
           onTabPress={handleTabPress}
           watchlistTabName={watchlistTabName}
-          spotTabName={spotTabName}
           perpsTabName={perpsTabName}
         />
       );
     },
-    [perpsTabName, spotTabName, watchlistTabName],
+    [markExpectedTabChangeTarget, perpsTabName, watchlistTabName],
   );
 
   const onTabChangeHandler = useCallback(
     ({ tabName }: { tabName: string }) => {
-      setActiveTabName(tabName);
-      handleTabChange(tabName);
+      const latestTabState = latestTabStateRef.current;
+      const focusedTab = currentTabsRef.current?.getFocusedTab();
+      const expectedTabName = expectedTabChangeTargetRef.current;
+      const lastPagerDraggingAt = lastPagerDraggingAtRef.current;
+      const pagerDragElapsedMs =
+        lastPagerDraggingAt > 0 ? Date.now() - lastPagerDraggingAt : undefined;
+      const isRecentPagerDrag =
+        pagerDragElapsedMs !== undefined &&
+        pagerDragElapsedMs < MARKET_TAB_USER_DRAG_ACCEPT_MS;
+      if (expectedTabName && tabName !== expectedTabName) {
+        if (isRecentPagerDrag && focusedTab === tabName) {
+          clearExpectedTabChangeTarget();
+        } else {
+          return;
+        }
+      }
+
+      if (!expectedTabName && focusedTab && focusedTab !== tabName) {
+        return;
+      }
+
+      if (
+        tabName === lastAcceptedTabChangeNameRef.current &&
+        latestTabState.activeTabName === tabName
+      ) {
+        return;
+      }
+
+      lastAcceptedTabChangeNameRef.current = tabName;
+      setActiveTabNameRef.current(tabName);
+      handleTabChangeRef.current(tabName);
     },
-    [handleTabChange, setActiveTabName],
+    [clearExpectedTabChangeTarget, currentTabsRef],
+  );
+
+  const handlePagerScrollStateChanged = useCallback(
+    (event: PageScrollStateChangedNativeEvent) => {
+      const { pageScrollState } = event.nativeEvent;
+      if (pageScrollState !== 'dragging') {
+        return;
+      }
+
+      lastPagerDraggingAtRef.current = Date.now();
+    },
+    [],
+  );
+  const pagerProps = useMemo<IMarketPagerProps>(
+    () => ({
+      ...(nestedPager ? { nestedScrollEnabled: true } : {}),
+      onPageScrollStateChanged: handlePagerScrollStateChanged,
+    }),
+    [handlePagerScrollStateChanged, nestedPager],
   );
   const dynamicCtx = useMemo<ITabBarDynamicContext>(
     () => ({
@@ -363,6 +549,8 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -374,11 +562,43 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
     ],
   );
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <MobileMarketWatchlistFlatList
+        selectedFilter={watchlistFilter}
+        listContainerProps={listContainerProps}
+      />
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => (
+      <Tabs.Tab key={item.categoryId} name={item.tabName}>
+        <MobileMarketTokenFlatList
+          networkId={selectedNetworkId}
+          selectedCategory={item.categoryId}
+          timeRange={filterBarProps.timeRange}
+          listContainerProps={listContainerProps}
+          onStockDataChange={handleStockDataChange}
+        />
+      </Tabs.Tab>
+    )),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <MobileMarketPerpsFlatList
+              selectedCategoryId={selectedCategoryId}
+              listContainerProps={listContainerProps}
+            />
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <TabBarDynamicContext.Provider value={dynamicCtx}>
@@ -390,33 +610,10 @@ function MobileLayoutComponent({
         initialTabName={selectedTabName}
         onTabChange={onTabChangeHandler}
         useNativeHeaderAnimation={useNativeHeaderAnimation}
-        pagerProps={
-          nestedPager ? ({ nestedScrollEnabled: true } as any) : undefined
-        }
+        pagerProps={pagerProps}
         {...containerProps}
       >
-        <Tabs.Tab name={watchlistTabName}>
-          <MobileMarketWatchlistFlatList
-            selectedFilter={watchlistFilter}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        <Tabs.Tab name={spotTabName}>
-          <MobileMarketTokenFlatList
-            networkId={selectedNetworkId}
-            selectedCategory={filterBarProps.selectedCategory}
-            timeRange={filterBarProps.timeRange}
-            listContainerProps={listContainerProps}
-          />
-        </Tabs.Tab>
-        {showPerpsTab ? (
-          <Tabs.Tab name={perpsTabName}>
-            <MobileMarketPerpsFlatList
-              selectedCategoryId={selectedCategoryId}
-              listContainerProps={listContainerProps}
-            />
-          </Tabs.Tab>
-        ) : null}
+        {tabElements}
       </Tabs.Container>
       {/* Boot + pre-position the shared unified chart WebView while the user
           browses the list, so opening a token is instant. Hidden + offscreen. */}

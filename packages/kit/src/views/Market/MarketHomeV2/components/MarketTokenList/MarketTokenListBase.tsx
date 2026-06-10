@@ -36,7 +36,10 @@ import { StickyHeaderPortal } from '../StickyHeaderPortal';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
-import { shouldShowStockSubtitleForTokens } from './utils/tokenListHelpers';
+import {
+  shouldShowStockSubtitleForTokens,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils/tokenListHelpers';
 
 const SPINNER_HEIGHT = 52;
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
@@ -74,6 +77,12 @@ const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
   mc: ESortWay.MC,
   v24hUSD: ESortWay.Volume,
 };
+
+const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
+  'marketCap',
+  'liquidity',
+  'turnover',
+]);
 
 export type IMarketTokenListResult = {
   data: IMarketToken[];
@@ -198,6 +207,13 @@ function MarketTokenListBase({
 
     return shouldShowStockSubtitleForTokens(rawData);
   }, [rawData, showStockSubtitle]);
+  const useStockMetadataColumns = useMemo(
+    () =>
+      (showStockSubtitle === 'auto' ||
+        (isWatchlistMode && showStockSubtitle !== false)) &&
+      shouldUseStockMetadataColumnsForTokens(rawData),
+    [isWatchlistMode, rawData, showStockSubtitle],
+  );
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -209,6 +225,7 @@ function MarketTokenListBase({
     resolvedShowStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
+    useStockMetadataColumns,
   );
 
   // Client-side sorting: sort data locally when clientSort is enabled
@@ -348,6 +365,13 @@ function MarketTokenListBase({
         return undefined;
       }
 
+      if (
+        useStockMetadataColumns &&
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+      ) {
+        return undefined;
+      }
+
       // Client sort mode uses all numeric columns,
       // watchlist mode uses restricted server-side sortable columns
       const columnsMap = clientSort
@@ -375,6 +399,7 @@ function MarketTokenListBase({
       clientSort,
       currentSortBy,
       currentSortType,
+      useStockMetadataColumns,
     ],
   );
 

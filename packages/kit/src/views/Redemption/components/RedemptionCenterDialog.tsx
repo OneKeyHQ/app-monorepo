@@ -20,6 +20,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IRedemptionCenterSource } from '@onekeyhq/shared/src/logger/scopes/referral/scenes/redemption';
 import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import {
   EModalReferFriendsRoutes,
@@ -36,12 +37,14 @@ interface IRedemptionFormValues {
 
 export interface IRedemptionCenterDialogProps {
   initialCode?: string;
+  source?: IRedemptionCenterSource;
   onClose?: () => Promise<void> | void;
   onSuccess?: () => void;
 }
 
 function RedemptionCenterDialogContent({
   initialCode,
+  source = 'unknown',
   onClose,
   onSuccess,
 }: IRedemptionCenterDialogProps) {
@@ -58,6 +61,7 @@ function RedemptionCenterDialogContent({
   });
 
   const codeValue = form.watch('code');
+  const hasInitialCode = Boolean(initialCode?.trim());
 
   const handleHistoryPress = useCallback(async () => {
     await onClose?.();
@@ -68,10 +72,10 @@ function RedemptionCenterDialogContent({
 
   const performRedeem = useCallback(
     async (code: string, preventClose?: () => void) => {
-      defaultLogger.referral.redemption.startRedeem(code);
-
       setIsSubmitting(true);
       form.clearErrors('code');
+      let isLegacyFallback = false;
+      let hasLoggedBtcVerifyResult = false;
 
       try {
         // Server has no unified endpoint, so dispatch between the two
@@ -84,6 +88,13 @@ function RedemptionCenterDialogContent({
           });
 
         if (btcResult.success) {
+          defaultLogger.referral.redemption.btcRewardCodeVerifyResult({
+            result: 'success',
+            source,
+            hasInitialCode,
+          });
+          hasLoggedBtcVerifyResult = true;
+
           // verify-code only validates the code; the actual redemption is the
           // commit at the end of the BTC reward flow. Log success there.
           await onClose?.();
@@ -109,17 +120,33 @@ function RedemptionCenterDialogContent({
         // BTC path so a real BTC code during a BTC outage is not sent
         // down the legacy channel.
         if (btcResult.error.code !== EBtcRewardErrorCode.CodeNotFound) {
+          defaultLogger.referral.redemption.btcRewardCodeVerifyResult({
+            result: 'failed',
+            source,
+            hasInitialCode,
+            errorCode: btcResult.error.code,
+          });
+          hasLoggedBtcVerifyResult = true;
+
           const message =
             btcResult.error.code === EBtcRewardErrorCode.Unknown
               ? intl.formatMessage({
                   id: ETranslations.redemption_btc_confirm_error_desc,
                 })
               : btcResult.error.message;
-          defaultLogger.referral.redemption.redeemFailed(code, message);
           form.setError('code', { message });
           preventClose?.();
           return;
         }
+
+        defaultLogger.referral.redemption.btcRewardCodeVerifyResult({
+          result: 'not_found',
+          source,
+          hasInitialCode,
+          errorCode: btcResult.error.code,
+        });
+        hasLoggedBtcVerifyResult = true;
+        isLegacyFallback = true;
 
         // legacy redeemCode requires OneKey ID auth; prompt login before the
         // fallback so logged-out users can still redeem a legacy rebate code
@@ -135,6 +162,8 @@ function RedemptionCenterDialogContent({
             throw loginError;
           }
         }
+
+        defaultLogger.referral.redemption.startRedeem(code);
 
         const result = await backgroundApiProxy.serviceReferralCode.redeemCode({
           code,
@@ -171,7 +200,16 @@ function RedemptionCenterDialogContent({
         const errorMessage =
           axiosError?.response?.data?.message ??
           (error instanceof Error ? error.message : String(error));
-        defaultLogger.referral.redemption.redeemError(code, errorMessage);
+        if (isLegacyFallback) {
+          defaultLogger.referral.redemption.redeemError(code, errorMessage);
+        } else if (!hasLoggedBtcVerifyResult) {
+          defaultLogger.referral.redemption.btcRewardCodeVerifyResult({
+            result: 'failed',
+            source,
+            hasInitialCode,
+            errorCode: EBtcRewardErrorCode.Unknown,
+          });
+        }
         form.setError('code', {
           message:
             errorMessage ??
@@ -184,7 +222,17 @@ function RedemptionCenterDialogContent({
         setIsSubmitting(false);
       }
     },
-    [form, intl, isLoggedIn, loginOneKeyId, navigation, onClose, onSuccess],
+    [
+      form,
+      hasInitialCode,
+      intl,
+      isLoggedIn,
+      loginOneKeyId,
+      navigation,
+      onClose,
+      onSuccess,
+      source,
+    ],
   );
 
   const handleRedeem = useCallback(
@@ -277,13 +325,18 @@ function RedemptionCenterDialogContent({
 export function showRedemptionCenterDialog(
   props: Omit<IRedemptionCenterDialogProps, 'onClose'> = {},
 ): IDialogInstance {
-  const { initialCode, onSuccess } = props;
+  const { initialCode, onSuccess, source = 'unknown' } = props;
+  defaultLogger.referral.redemption.redemptionCenterOpen({
+    source,
+    hasInitialCode: Boolean(initialCode?.trim()),
+  });
 
   const dialog = Dialog.show({
     showFooter: false,
     renderContent: (
       <RedemptionCenterDialogContent
         initialCode={initialCode}
+        source={source}
         onSuccess={onSuccess}
         onClose={async () => {
           await dialog.close();

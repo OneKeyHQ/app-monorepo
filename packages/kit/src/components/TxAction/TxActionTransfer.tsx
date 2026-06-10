@@ -78,6 +78,25 @@ function getPrivateSendCreateTokenAccountFee(decodedTx: IDecodedTx) {
   return createTokenAccountFee;
 }
 
+function getPositiveNumberValue(value?: string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
+}
+
+function getPrivateSendNativePriceFromFee(decodedTx: IDecodedTx) {
+  const totalFeeInNativeBN = getPositiveNumberValue(decodedTx.totalFeeInNative);
+  const totalFeeFiatValueBN = getPositiveNumberValue(
+    decodedTx.totalFeeFiatValue,
+  );
+  if (!totalFeeInNativeBN || !totalFeeFiatValueBN) {
+    return undefined;
+  }
+
+  return totalFeeFiatValueBN.div(totalFeeInNativeBN).toFixed();
+}
+
 function hasPrivateSendCreateTokenAccountFeeTransfer({
   transfers,
   createTokenAccountFee,
@@ -118,6 +137,7 @@ function buildPrivateSendDisplaySends({
   ) {
     return sends;
   }
+  const nativePrice = getPrivateSendNativePriceFromFee(decodedTx);
   return [
     ...sends,
     {
@@ -131,6 +151,7 @@ function buildPrivateSendDisplaySends({
       isNFT: false,
       isNative: true,
       networkId: decodedTx.networkId,
+      price: nativePrice,
     },
   ];
 }
@@ -507,7 +528,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     : sends;
   const isSendLikeHistory = isSendLikeHistoryTxType(type);
   const descriptionTarget = isPrivateSend
-    ? (payload?.privateSend?.originalRecipient ?? transferTarget)
+    ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
   const description = {
     prefix: '',

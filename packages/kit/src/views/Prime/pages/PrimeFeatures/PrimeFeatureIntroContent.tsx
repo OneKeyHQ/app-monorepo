@@ -42,6 +42,7 @@ import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useBulkSendModeDialog } from '../../../BulkSend/hooks/useBulkSendModeDialog';
@@ -444,7 +445,12 @@ export function PrimeFeatureIntroContent({
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
-  const { isLoggedIn, isPrimeSubscriptionActive } = useOneKeyAuth();
+  const {
+    isReady: isAuthReady,
+    isLoggedIn,
+    isPrimeSubscriptionActive,
+    isPrimeActive,
+  } = useOneKeyAuth();
   const {
     activeAccount: { wallet, account, network, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -461,6 +467,8 @@ export function PrimeFeatureIntroContent({
   );
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const goToFeatureIndexRef = useRef<((index: number) => void) | null>(null);
+  const loggedUpsellFeatureIdsRef = useRef(new Set<EPrimeFeatures>());
+  const featureActionSubmittingRef = useRef(false);
   const usePageFooter = mode === 'page';
   const useDialogFooter = mode === 'dialog';
   const shouldShowExtensionPagination = platformEnv.isExtensionUiPopup && !gtMd;
@@ -486,12 +494,32 @@ export function PrimeFeatureIntroContent({
   }, [shouldDelayVideoLoad]);
 
   const activeFeature = features[activeIndex] ?? features[0];
+  const activeFeatureId = activeFeature?.id;
   const subscriptionPeriod = selectedSubscriptionPeriod ?? 'P1Y';
   const [isFooterActionLoading, setIsFooterActionLoading] = useState(false);
 
   useEffect(() => {
     setIsFooterActionLoading(false);
-  }, [activeFeature?.id]);
+    featureActionSubmittingRef.current = false;
+  }, [activeFeatureId]);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+    if (!activeFeatureId) {
+      return;
+    }
+    if (loggedUpsellFeatureIdsRef.current.has(activeFeatureId)) {
+      return;
+    }
+    loggedUpsellFeatureIdsRef.current.add(activeFeatureId);
+    defaultLogger.prime.subscription.primeUpsellShow({
+      featureName: activeFeatureId,
+      entryPoint: 'primePage',
+      isPrimeActive,
+    });
+  }, [activeFeatureId, isAuthReady, isPrimeActive]);
 
   const ctaKind = getPrimeFeatureIntroCtaKind({
     featureId: activeFeature?.id,
@@ -517,10 +545,29 @@ export function PrimeFeatureIntroContent({
     await onClose?.();
   }, [onClose]);
 
+  const closeIntroForFeatureAction = useCallback(async () => {
+    try {
+      await closeIntro();
+    } catch (error) {
+      featureActionSubmittingRef.current = false;
+      throw error;
+    }
+  }, [closeIntro]);
+
   const handleFeatureAction = useCallback(async () => {
     if (!activeFeature?.action) {
       return;
     }
+    if (featureActionSubmittingRef.current) {
+      return;
+    }
+    featureActionSubmittingRef.current = true;
+
+    defaultLogger.prime.subscription.primeFeatureCtaClick({
+      featureName: activeFeature.id,
+      entryPoint: 'primePage',
+      isPrimeActive,
+    });
 
     if (activeFeature.action === 'bulkCopyAddresses') {
       if (platformEnv.isWebDappMode) {
@@ -529,6 +576,7 @@ export function PrimeFeatureIntroContent({
             id: ETranslations.global_web_feature_not_available_go_to_app,
           }),
         });
+        featureActionSubmittingRef.current = false;
         return;
       }
       const fallbackNetworkId = networkUtils.toNetworkIdFallback({
@@ -536,9 +584,10 @@ export function PrimeFeatureIntroContent({
         allNetworkFallbackToBtc: true,
       });
       if (!fallbackNetworkId) {
+        featureActionSubmittingRef.current = false;
         return;
       }
-      await closeIntro();
+      await closeIntroForFeatureAction();
       navigation.navigate(EModalRoutes.BulkCopyAddressesModal, {
         screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
         params: {
@@ -548,7 +597,7 @@ export function PrimeFeatureIntroContent({
       return;
     }
 
-    await closeIntro();
+    await closeIntroForFeatureAction();
 
     if (activeFeature.action === 'bulkSend') {
       showBulkSendModeDialog({
@@ -587,14 +636,20 @@ export function PrimeFeatureIntroContent({
     }
 
     if (activeFeature.action === 'browser') {
-      navigation.switchTab(ETabRoutes.Discovery);
+      if (platformEnv.isDesktop) {
+        navigation.switchTab(ETabRoutes.MultiTabBrowser);
+        return;
+      }
+
+      openUrlUtils.gotoDiscoveryTab();
     }
   }, [
     account?.id,
     activeFeature,
-    closeIntro,
+    closeIntroForFeatureAction,
     indexedAccount?.id,
     intl,
+    isPrimeActive,
     navigateToApprovalList,
     navigateToBulkSend,
     navigation,

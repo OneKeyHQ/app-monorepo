@@ -127,6 +127,7 @@ export interface ISwapInitParams {
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
+  swapSource?: ESwapSource;
 }
 
 // token & network

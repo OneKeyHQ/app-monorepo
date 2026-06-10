@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   IconButton,
-  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
@@ -17,11 +16,17 @@ import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
+import {
+  getPopularTradingMetricColumns,
+  renderPopularTradingRightMetrics,
+  renderPopularTradingStockBadges,
+  renderPopularTradingTokenSubtitle,
+} from './metricColumns';
+import { shouldUseStockMetadataColumnsForTokens } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 
@@ -46,6 +51,10 @@ function MarketCategoryTokenList({
 }: IMarketCategoryTokenListProps) {
   const intl = useIntl();
   const { md } = useMedia();
+  const useStockMetadataColumns = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(tokens),
+    [tokens],
+  );
 
   const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
     if (tableLayout) {
@@ -83,10 +92,18 @@ function MarketCategoryTokenList({
                     networkId={record.chainId}
                     showNetworkIcon
                   />
-                  <YStack>
-                    <SizableText size="$bodyLgMedium">
-                      {record.symbol}
-                    </SizableText>
+                  <YStack minWidth={0}>
+                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                      <SizableText
+                        size="$bodyLgMedium"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        flexShrink={1}
+                      >
+                        {record.symbol}
+                      </SizableText>
+                      {renderPopularTradingStockBadges(record)}
+                    </XStack>
                     <SizableText
                       size="$bodyMd"
                       color="$textSubdued"
@@ -101,56 +118,10 @@ function MarketCategoryTokenList({
             );
           },
         },
-        {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="price"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {record.price ?? '-'}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => {
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: record.priceChange24h ?? 0,
-              });
-            return (
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyLgMedium"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            );
-          },
-        },
-        {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {!record.volume24h ? '--' : record.volume24h}
-            </NumberSizeableText>
-          ),
-        },
+        ...getPopularTradingMetricColumns({
+          intl,
+          useStockMetadataColumns,
+        }),
       ];
     }
 
@@ -186,19 +157,19 @@ function MarketCategoryTokenList({
                   networkId={record.chainId}
                   showNetworkIcon
                 />
-                <YStack>
-                  <SizableText size="$bodyLgMedium">
-                    {record.symbol}
-                  </SizableText>
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    formatter="marketCap"
-                    formatterOptions={{
-                      currency: '$',
-                    }}
-                  >
-                    {!record.volume24h ? '--' : record.volume24h}
-                  </NumberSizeableText>
+                <YStack minWidth={0}>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
+                      {record.symbol}
+                    </SizableText>
+                    {renderPopularTradingStockBadges(record)}
+                  </XStack>
+                  {renderPopularTradingTokenSubtitle(record)}
                 </YStack>
               </XStack>
             </XStack>
@@ -208,35 +179,17 @@ function MarketCategoryTokenList({
       {
         dataIndex: 'price',
         title: intl.formatMessage({ id: ETranslations.global_price }),
-        render: (_: unknown, record: IFavoriteTokenDisplay) => {
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange: record.priceChange24h ?? 0,
-          });
-          return (
-            <YStack alignItems="flex-end">
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="price"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {record.price ?? '-'}
-              </NumberSizeableText>
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyMd"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            </YStack>
-          );
-        },
+        render: (_: unknown, record: IFavoriteTokenDisplay) =>
+          renderPopularTradingRightMetrics(record, useStockMetadataColumns),
       },
     ];
-  }, [intl, isTokenInWatchList, onStarPress, tableLayout]);
+  }, [
+    intl,
+    isTokenInWatchList,
+    onStarPress,
+    tableLayout,
+    useStockMetadataColumns,
+  ]);
 
   if (isLoading !== false && tokens.length === 0) {
     return (
