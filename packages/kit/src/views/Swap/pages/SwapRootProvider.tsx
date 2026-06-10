@@ -26,6 +26,7 @@ import {
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
 import { getSwapDefaultSelectedTokensFromGlobalHomeSnapshot } from '../hooks/useSwapColdStartDisplayTokens';
 import {
+  SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapDefaultSelectedTokensFromHomeAccount,
   shouldHandleSwapColdStartHomeAccountUpdate,
   shouldPreserveSwapUserInputOnAccountSwitch,
@@ -124,6 +125,12 @@ function SwapColdStartCacheSync() {
       sceneName: EAccountSelectorSceneName;
       num: number;
     }) => {
+      if (
+        eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
+        eventPayload.num !== 0
+      ) {
+        return;
+      }
       if (
         shouldPreserveSwapUserInputOnAccountSwitch({
           fromTokenAmount: fromTokenAmountRef.current,

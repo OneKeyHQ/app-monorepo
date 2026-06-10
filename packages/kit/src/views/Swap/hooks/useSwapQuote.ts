@@ -141,6 +141,7 @@ export function useSwapQuote() {
   );
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  const shouldRefreshPreservedInputQuoteOnFocusRef = useRef(false);
   if (
     fromTokenAmountRef.current?.value !== fromTokenAmount.value ||
     fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
@@ -772,6 +773,25 @@ export function useSwapQuote() {
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
+          if (shouldRefreshPreservedInputQuoteOnFocusRef.current) {
+            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+            const quoteKind =
+              swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
+              toTokenAmountRef.current.isInput &&
+              toTokenAmountRef.current.value
+                ? ESwapQuoteKind.BUY
+                : ESwapQuoteKind.SELL;
+            void quoteAction(
+              swapSlippageRef.current,
+              activeAccountRef.current?.address,
+              activeAccountRef.current?.accountInfo?.account?.id,
+              undefined,
+              undefined,
+              quoteKind,
+              undefined,
+              swapToAddressInfoRef.current.address,
+            );
+          }
         } else if (isHiddenModel) {
           if (
             swapQuoteFetchingRef.current ||
@@ -795,6 +815,8 @@ export function useSwapQuote() {
             setSwapQuoteResultList([]);
             if (!shouldPreserveUserInputAmount) {
               setFromTokenAmount({ value: '', isInput: true });
+            } else {
+              shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
             }
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);

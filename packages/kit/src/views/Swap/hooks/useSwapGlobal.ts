@@ -919,7 +919,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       }) !== false
     ) {
       syncSelectedTokensColdStartSwapType();
-      updateSelectedTokensColdStartContext();
       markInitialSelectedTokensSynced();
       return;
     }
@@ -1194,7 +1193,6 @@ export function useSwapInit(params?: ISwapInitParams) {
     needChangeToken,
     validateSelectedTokensColdStartContext,
     syncSelectedTokensColdStartSwapType,
-    updateSelectedTokensColdStartContext,
     clearSelectedTokensColdStartCache,
     markInitialSelectedTokensSynced,
     switchSwapTypeIfNeeded,
