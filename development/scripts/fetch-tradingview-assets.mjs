@@ -68,7 +68,7 @@ const required = !!process.env.TRADINGVIEW_ASSETS_REQUIRED;
 // when no env token is set. Lets a locally-authenticated dev just run the script
 // (no manual token wiring) as long as their gh login carries read:packages.
 // Best-effort only — silently yields '' if gh is missing / not logged in, so CI
-// behaviour (which sets NPM_GITHUB_READ_TOKEN explicitly) is unaffected.
+// behavior (which sets NPM_GITHUB_READ_TOKEN explicitly) is unaffected.
 function ghAuthToken() {
   try {
     return execFileSync('gh', ['auth', 'token'], {
@@ -113,7 +113,8 @@ function ghTokenMissingReadPackages() {
 // fallback for local devs who already export it (we never *set* NODE_AUTH_TOKEN
 // ourselves, to avoid colliding with npm/yarn's registry-auth use of that name).
 // Finally fall back to the GitHub CLI token for locally-authenticated devs.
-const envToken = process.env.NPM_GITHUB_READ_TOKEN || process.env.NODE_AUTH_TOKEN;
+const envToken =
+  process.env.NPM_GITHUB_READ_TOKEN || process.env.NODE_AUTH_TOKEN;
 const token = envToken || ghAuthToken();
 const tokenFromGh = !envToken && !!token;
 
