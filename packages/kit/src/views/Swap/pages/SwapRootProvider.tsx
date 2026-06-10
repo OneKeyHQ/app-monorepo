@@ -10,6 +10,11 @@ import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   ProviderJotaiContextSwap,
+  swapInitialSelectedTokensSyncedAtom,
+  swapSelectFromTokenAtom,
+  swapSelectToTokenAtom,
+  swapSelectedTokensColdStartContextAtom,
+  swapTypeSwitchAtom,
   useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -17,10 +22,38 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
+import { getSwapDefaultSelectedTokensFromGlobalHomeSnapshot } from '../hooks/useSwapColdStartDisplayTokens';
 import {
   buildSwapDefaultSelectedTokensFromHomeAccount,
   shouldHandleSwapColdStartHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
+
+type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
+
+export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
+  store: ISwapContextStore,
+) {
+  const hasSelectedTokens = Boolean(
+    store.get(swapSelectFromTokenAtom()) || store.get(swapSelectToTokenAtom()),
+  );
+  if (hasSelectedTokens || store.get(swapInitialSelectedTokensSyncedAtom())) {
+    return false;
+  }
+
+  const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+    allNetworksOnly: true,
+    swapType: store.get(swapTypeSwitchAtom()),
+  });
+  if (!defaultTokens) {
+    return false;
+  }
+
+  store.set(swapSelectFromTokenAtom(), defaultTokens.fromToken);
+  store.set(swapSelectToTokenAtom(), defaultTokens.toToken);
+  store.set(swapSelectedTokensColdStartContextAtom(), defaultTokens.context);
+  store.set(swapTypeSwitchAtom(), defaultTokens.swapType);
+  return true;
+}
 
 function SwapColdStartCacheSync() {
   const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -136,6 +169,11 @@ export function useSwapContextStoreInitData(
 export const SwapRootProvider = memo(() => {
   const data = useSwapContextStoreInitData(EJotaiContextStoreNames.swap);
   const store = useJotaiContextRootStore(data);
+  const hasHydratedAllNetworkDefaultsRef = useRef(false);
+  if (!hasHydratedAllNetworkDefaultsRef.current) {
+    hasHydratedAllNetworkDefaultsRef.current = true;
+    hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(store);
+  }
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />

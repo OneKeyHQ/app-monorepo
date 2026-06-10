@@ -8,7 +8,10 @@ import {
   isSwapColdStartAllNetworkContextNetworkId,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapTabSwitchType,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { buildSwapDefaultSelectedTokensFromHomeAccount } from '../utils/swapColdStartTokenCacheUtils';
 
@@ -229,7 +232,7 @@ function getRawSwapSelectedTokensFromSnapshot(
 
 function getDefaultSwapSelectedTokensFromHomeSnapshot(
   snapshot: Record<string, unknown>,
-): IDisplayTokens {
+) {
   const homeSelectedAccount = getSelectedAccountFromSnapshot({
     snapshot,
     coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
@@ -242,6 +245,35 @@ function getDefaultSwapSelectedTokensFromHomeSnapshot(
     fromToken: defaultTokens?.fromToken,
     toToken: defaultTokens?.toToken,
   };
+}
+
+export function getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+  allNetworksOnly = false,
+  swapType,
+}: {
+  allNetworksOnly?: boolean;
+  swapType?: ESwapTabSwitchType;
+} = {}) {
+  for (const snapshot of getColdStartSnapshotCandidatesFromGlobal()) {
+    const homeSelectedAccount = getSelectedAccountFromSnapshot({
+      snapshot,
+      coldStartScopeKey: ACCOUNT_SELECTOR_HOME_SCOPE_KEY,
+    });
+    const shouldUseSnapshot =
+      !allNetworksOnly ||
+      isSwapColdStartAllNetworkContextNetworkId(homeSelectedAccount?.networkId);
+    if (shouldUseSnapshot) {
+      const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount,
+        swapType,
+      });
+      if (defaultTokens?.fromToken?.symbol || defaultTokens?.toToken?.symbol) {
+        return defaultTokens;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function hasDisplayToken(tokens: IDisplayTokens) {
