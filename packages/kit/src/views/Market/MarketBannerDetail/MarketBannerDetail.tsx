@@ -173,6 +173,9 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     if (isPerps) {
       return <PerpsTokenListSection tokenListId={tokenListId} />;
     }
+    const change24hColumnTitle = intl.formatMessage({
+      id: ETranslations.dexmarket_banner_token_24hchange,
+    });
     // Native mobile: use FlatList + TokenListItem to match watchlist layout
     if (platformEnv.isNative && !gtMd) {
       if (tickerIsLoading && mobileSortedData.length === 0) {
@@ -180,6 +183,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
           <Stack flex={1}>
             <MarketListColumnHeader
               changeSortType={changeSortType}
+              change24hColumnTitle={change24hColumnTitle}
               changeSortTestID={MarketTestIDs.sortByChange}
               onChangeSortPress={handleChangeSortPress}
             />
@@ -191,6 +195,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <Stack flex={1}>
           <MarketListColumnHeader
             changeSortType={changeSortType}
+            change24hColumnTitle={change24hColumnTitle}
             changeSortTestID={MarketTestIDs.sortByChange}
             onChangeSortPress={handleChangeSortPress}
           />
@@ -232,9 +237,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         watchlistFrom={EWatchlistFrom.BannerList}
         copyFrom={ECopyFrom.BannerList}
         showEndReachedIndicator
-        change24hColumnTitle={intl.formatMessage({
-          id: ETranslations.dexmarket_banner_token_24hchange,
-        })}
+        change24hColumnTitle={change24hColumnTitle}
       />
     );
     if (platformEnv.isNative) {
