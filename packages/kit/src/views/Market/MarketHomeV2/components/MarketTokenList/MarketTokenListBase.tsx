@@ -577,7 +577,7 @@ function MarketTokenListBase({
 
   const tableContentContainerStyle = tabIntegrated
     ? {
-        paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
+        paddingTop: 4 + (platformEnv.isNative ? 195 : 0),
         paddingBottom: integratedContentPaddingBottom,
       }
     : {

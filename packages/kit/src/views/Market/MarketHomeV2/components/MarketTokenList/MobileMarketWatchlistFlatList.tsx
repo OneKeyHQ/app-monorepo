@@ -391,7 +391,7 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+      ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,
