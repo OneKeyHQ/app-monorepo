@@ -154,15 +154,18 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
 
 function getTwapHistoryStatusText(
   status: ITwapHistoryRecord['status']['status'],
+  intl: IntlShape,
 ) {
-  const statusTextMap: Record<ITwapHistoryRecord['status']['status'], string> =
-    {
-      activated: 'Activated',
-      error: 'Error',
-      finished: 'Finished',
-      terminated: 'Terminated',
-    };
-  return statusTextMap[status];
+  const statusTextMap: Record<
+    ITwapHistoryRecord['status']['status'],
+    ETranslations
+  > = {
+    activated: ETranslations.perp_twap_status_activated__title,
+    error: ETranslations.perp_twap_status_error__title,
+    finished: ETranslations.perp_twap_status_finished__title,
+    terminated: ETranslations.perp_twap_status_terminated__title,
+  };
+  return intl.formatMessage({ id: statusTextMap[status] });
 }
 
 function getTableRowBgColor({
@@ -615,12 +618,15 @@ function TwapHistoryRow({
   const statusText = useMemo(() => {
     const statusDescription =
       record.status.status === 'error' ? record.status.description : undefined;
-    const translatedStatus = getTwapHistoryStatusText(record.status.status);
+    const translatedStatus = getTwapHistoryStatusText(
+      record.status.status,
+      intl,
+    );
     if (statusDescription) {
       return `${translatedStatus}: ${statusDescription}`;
     }
     return translatedStatus;
-  }, [record.status]);
+  }, [intl, record.status]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
