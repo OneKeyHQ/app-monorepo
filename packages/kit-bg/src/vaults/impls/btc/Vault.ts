@@ -1012,11 +1012,18 @@ export default class VaultBtc extends VaultBase {
         });
       }
 
+      // never log claimed (find-address) outpoints: a txid:vout resolves
+      // on-chain back to the user's hidden address
+      const claimedUtxoKeys = new Set(
+        claimedUtxos.map((utxo) => `${utxo.txid}:${utxo.vout}`),
+      );
       defaultLogger.transaction.send.coinControlSelected({
         network: network.id,
         selectedUtxoCount: utxosInfo.length,
         totalUtxoCount,
-        selectedUtxoKeys,
+        selectedUtxoKeys: selectedUtxoKeys.filter(
+          (key) => !claimedUtxoKeys.has(key),
+        ),
       });
     }
 
@@ -1395,8 +1402,13 @@ export default class VaultBtc extends VaultBase {
             );
           } catch (e) {
             // non-fatal: a failed single-address query only makes this
-            // claimed UTXO temporarily unavailable for coin control
-            console.error('collectClaimedUtxos ERROR:', e);
+            // claimed UTXO temporarily unavailable for coin control. log
+            // the message only: the raw error carries the request config
+            // and would write the claimed address into local logs
+            console.error(
+              'collectClaimedUtxos ERROR:',
+              (e as Error | undefined)?.message,
+            );
           }
         }),
       );
