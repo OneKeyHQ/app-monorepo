@@ -4,7 +4,6 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
-  getSwapDisabledNetworkIdsForPairToken,
   getSwapExecutionType,
   getSwapNetworkSupportTabSwitchTypes,
   getSwapSupportCheckType,
@@ -57,66 +56,5 @@ describe('swapTypeUtils', () => {
         supportCrossChainSwap: true,
       }),
     ).toEqual([ESwapTabSwitchType.SWAP, ESwapTabSwitchType.BRIDGE]);
-  });
-
-  it('allows same-network single swap and cross-network bridge-capable pairs in unified swap', () => {
-    expect(
-      getSwapDisabledNetworkIdsForPairToken({
-        pairedNetworkId: 'evm--1',
-        networks: [
-          {
-            networkId: 'all-network',
-            name: 'All',
-            symbol: 'ALL',
-            isAllNetworks: true,
-          },
-          {
-            networkId: 'evm--1',
-            name: 'Ethereum',
-            symbol: 'ETH',
-            supportSingleSwap: true,
-            supportCrossChainSwap: true,
-          },
-          {
-            networkId: 'sol--101',
-            name: 'Solana',
-            symbol: 'SOL',
-            supportSingleSwap: false,
-            supportCrossChainSwap: true,
-          },
-          {
-            networkId: 'btc--0',
-            name: 'Bitcoin',
-            symbol: 'BTC',
-            supportSingleSwap: true,
-            supportCrossChainSwap: false,
-          },
-        ],
-      }),
-    ).toEqual(['btc--0']);
-  });
-
-  it('blocks same-network selection when the paired network is bridge-only', () => {
-    expect(
-      getSwapDisabledNetworkIdsForPairToken({
-        pairedNetworkId: 'sol--101',
-        networks: [
-          {
-            networkId: 'sol--101',
-            name: 'Solana',
-            symbol: 'SOL',
-            supportSingleSwap: false,
-            supportCrossChainSwap: true,
-          },
-          {
-            networkId: 'evm--1',
-            name: 'Ethereum',
-            symbol: 'ETH',
-            supportSingleSwap: true,
-            supportCrossChainSwap: true,
-          },
-        ],
-      }),
-    ).toEqual(['sol--101']);
   });
 });

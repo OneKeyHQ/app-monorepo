@@ -77,7 +77,6 @@ import {
 } from '../utils/swapNetworkCacheUtils';
 import {
   getSwapNetworkSupportTabSwitchTypes,
-  getSwapSupportCheckType,
   getVisibleSwapTabSwitchType,
 } from '../utils/swapTypeUtils';
 
@@ -268,19 +267,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       fromToken: fromTokenRef.current,
       toToken: toTokenRef.current,
     });
-    if (nextSwapType === swapTypeSwitchRef.current) {
+    const nextVisibleSwapType =
+      getVisibleSwapTabSwitchType(nextSwapType) ?? nextSwapType;
+    const currentVisibleSwapType =
+      getVisibleSwapTabSwitchType(swapTypeSwitchRef.current) ??
+      swapTypeSwitchRef.current;
+    if (nextVisibleSwapType === currentVisibleSwapType) {
       return;
     }
-    void swapTypeSwitchAction(nextSwapType, fromTokenRef.current?.networkId);
+    void swapTypeSwitchAction(
+      nextVisibleSwapType,
+      fromTokenRef.current?.networkId,
+    );
   }, [swapTypeSwitchAction]);
 
   const switchSwapTypeIfNeeded = useCallback(
     (nextSwapType: ESwapTabSwitchType, networkId?: string) => {
-      if (nextSwapType === swapTypeSwitchRef.current) {
+      const nextVisibleSwapType =
+        getVisibleSwapTabSwitchType(nextSwapType) ?? nextSwapType;
+      const currentVisibleSwapType =
+        getVisibleSwapTabSwitchType(swapTypeSwitchRef.current) ??
+        swapTypeSwitchRef.current;
+      if (nextVisibleSwapType === currentVisibleSwapType) {
         return;
       }
-      swapTypeSwitchRef.current = nextSwapType;
-      void swapTypeSwitchAction(nextSwapType, networkId);
+      swapTypeSwitchRef.current = nextVisibleSwapType;
+      void swapTypeSwitchAction(nextVisibleSwapType, networkId);
     },
     [swapTypeSwitchAction],
   );
@@ -750,9 +762,8 @@ export function useSwapInit(params?: ISwapInitParams) {
           (net) => net.networkId === params?.importToToken?.networkId,
         ))
     ) {
-      const importTokenSupportCheckType = getSwapSupportCheckType(
-        params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
-      );
+      const importTokenSupportCheckType =
+        normalizedSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
       const isImportFromTokenSupported = Boolean(
         params?.importFromToken &&
         importTokenSupportCheckType &&
@@ -790,10 +801,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         !params?.importToToken &&
         didSetImportFromToken
       ) {
-        const defaultTokenSwapType =
-          params?.swapTabSwitchType === ESwapTabSwitchType.BRIDGE
-            ? ESwapTabSwitchType.BRIDGE
-            : (importTokenSupportCheckType ?? ESwapTabSwitchType.SWAP);
+        const defaultTokenSwapType = importTokenSupportCheckType;
         const needSetToToken = needChangeToken({
           token: params.importFromToken,
           swapTypeSwitchValue: defaultTokenSwapType,
@@ -907,9 +915,8 @@ export function useSwapInit(params?: ISwapInitParams) {
             defaultFromTokenWithLogo,
           );
           const defaultSwapTypes = [
-            params?.swapTabSwitchType,
+            normalizedSwapTabSwitchType,
             swapTypeSwitch,
-            ESwapTabSwitchType.BRIDGE,
             ESwapTabSwitchType.SWAP,
             ESwapTabSwitchType.LIMIT,
           ].filter(
@@ -974,6 +981,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
     params?.swapTabSwitchType,
+    normalizedSwapTabSwitchType,
     skipSyncDefaultSelectedToken,
     setFromTokenAmount,
     syncNetworksSort,

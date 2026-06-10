@@ -152,6 +152,17 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   });
 
 export const {
+  atom: swapLastNonLimitSelectedTokensAtom,
+  use: useSwapLastNonLimitSelectedTokensAtom,
+} = contextAtom<
+  | {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
+export const {
   atom: swapSelectedTokensColdStartContextAtom,
   use: useSwapSelectedTokensColdStartContextAtom,
 } = contextAtom<ISwapSelectedTokensColdStartContext | undefined>(undefined, {

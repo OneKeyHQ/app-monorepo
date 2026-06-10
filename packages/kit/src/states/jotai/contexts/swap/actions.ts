@@ -22,10 +22,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import {
-  getSwapSupportCheckType,
-  getVisibleSwapTabSwitchType,
-} from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   checkWrappedTokenPair,
@@ -83,6 +80,7 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
+  swapLastNonLimitSelectedTokensAtom,
   swapLimitExpirationTimeAtom,
   swapLimitPartiallyFillAtom,
   swapLimitPriceUseRateAtom,
@@ -2436,6 +2434,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
     ) => {
       const oldType = get(swapTypeSwitchAtom());
+      const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
+      const currentFromToken = get(swapSelectFromTokenAtom());
+      const currentToToken = get(swapSelectToTokenAtom());
+      if (
+        oldType !== ESwapTabSwitchType.LIMIT &&
+        normalizedType === ESwapTabSwitchType.LIMIT &&
+        (currentFromToken || currentToToken)
+      ) {
+        set(swapLastNonLimitSelectedTokensAtom(), {
+          fromToken: currentFromToken,
+          toToken: currentToToken,
+        });
+      }
       if (
         platformEnv.isNative &&
         (oldType === ESwapTabSwitchType.LIMIT ||
@@ -2450,11 +2461,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapQuoteCurrentEventReceivedCountAtom(), 0);
       set(swapQuoteEventCompletedAtom(), false);
       set(swapQuoteEventTotalCountAtom(), { count: 0 });
-      const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
-      const supportCheckType = getSwapSupportCheckType(type) ?? type;
       set(swapTypeSwitchAtom(), normalizedType);
       if (platformEnv.isNative && normalizedType === ESwapTabSwitchType.LIMIT) {
         return;
+      }
+      if (
+        oldType === ESwapTabSwitchType.LIMIT &&
+        normalizedType !== ESwapTabSwitchType.LIMIT
+      ) {
+        const lastNonLimitSelectedTokens = get(
+          swapLastNonLimitSelectedTokensAtom(),
+        );
+        const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
+        const isFromTokenSupported =
+          !lastNonLimitSelectedTokens?.fromToken ||
+          swapSupportNetworks.some(
+            (net) =>
+              net.networkId === lastNonLimitSelectedTokens.fromToken?.networkId,
+          );
+        const isToTokenSupported =
+          !lastNonLimitSelectedTokens?.toToken ||
+          swapSupportNetworks.some(
+            (net) =>
+              net.networkId === lastNonLimitSelectedTokens.toToken?.networkId,
+          );
+        if (
+          lastNonLimitSelectedTokens &&
+          (lastNonLimitSelectedTokens.fromToken ||
+            lastNonLimitSelectedTokens.toToken) &&
+          isFromTokenSupported &&
+          isToTokenSupported
+        ) {
+          this.cleanManualSelectQuoteProviders.call(set);
+          set(swapSelectFromTokenAtom(), lastNonLimitSelectedTokens.fromToken);
+          set(swapSelectToTokenAtom(), lastNonLimitSelectedTokens.toToken);
+          const sortNetworkId =
+            lastNonLimitSelectedTokens.fromToken?.networkId ??
+            lastNonLimitSelectedTokens.toToken?.networkId;
+          if (sortNetworkId) {
+            void this.syncNetworksSort.call(set, sortNetworkId);
+          }
+          return;
+        }
       }
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
@@ -2466,10 +2514,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapFromTokenAmountAtom(), (o) => ({ ...o, isInput: true }));
       }
       this.cleanManualSelectQuoteProviders.call(set);
-      const swapSupportNetworks =
-        supportCheckType === ESwapTabSwitchType.BRIDGE
-          ? get(swapNetworks()).filter((net) => net.supportCrossChainSwap)
-          : get(swapNetworksIncludeAllNetworkAtom());
+      const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromNetworkDefault =
@@ -2493,29 +2538,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (net) => net.networkId === swapAccountNetworkId,
         )
       ) {
-        if (supportCheckType === ESwapTabSwitchType.BRIDGE) {
-          let shouldSetFromToken = null;
-          if (fromToken) {
-            shouldSetFromToken = fromToken;
-          }
-          if (!fromToken && toToken?.networkId !== swapAccountNetworkId) {
-            if (fromNetworkDefault?.fromToken?.isNative) {
-              shouldSetFromToken = fromNetworkDefault?.fromToken;
-              set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
-            }
-          }
-          if (shouldSetFromToken) {
-            const needChangeToToken = this.needChangeToken({
-              token: shouldSetFromToken,
-              toToken,
-              swapTypeSwitchValue: type,
-            });
-            if (needChangeToToken) {
-              set(swapSelectToTokenAtom(), needChangeToToken);
-              void this.syncNetworksSort.call(set, needChangeToToken.networkId);
-            }
-          }
-        } else if (normalizedType === ESwapTabSwitchType.SWAP) {
+        if (normalizedType === ESwapTabSwitchType.SWAP) {
           if (
             !fromToken &&
             fromNetworkDefault?.fromToken?.isNative &&

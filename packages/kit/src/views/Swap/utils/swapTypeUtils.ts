@@ -2,10 +2,7 @@ import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
-import type {
-  IFetchQuoteResult,
-  ISwapNetwork,
-} from '@onekeyhq/shared/types/swap/types';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 export {
   getSwapSupportCheckType,
@@ -60,34 +57,4 @@ export function getSwapExecutionTypeFromQuoteResult(
     fromNetworkId: quoteResult?.fromTokenInfo.networkId,
     toNetworkId: quoteResult?.toTokenInfo.networkId,
   });
-}
-
-export function getSwapDisabledNetworkIdsForPairToken({
-  networks,
-  pairedNetworkId,
-}: {
-  networks: ISwapNetwork[];
-  pairedNetworkId?: string;
-}) {
-  if (!pairedNetworkId) {
-    return [];
-  }
-
-  const pairedNetwork = networks.find(
-    (network) => network.networkId === pairedNetworkId,
-  );
-
-  return networks
-    .filter((network) => {
-      if (network.isAllNetworks) {
-        return false;
-      }
-      if (network.networkId === pairedNetworkId) {
-        return !pairedNetwork?.supportSingleSwap;
-      }
-      return !(
-        pairedNetwork?.supportCrossChainSwap && network.supportCrossChainSwap
-      );
-    })
-    .map((network) => network.networkId);
 }

@@ -77,7 +77,6 @@ import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
-import { getSwapDisabledNetworkIdsForPairToken } from '../../utils/swapTypeUtils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -167,41 +166,18 @@ const SwapTokenSelectPage = ({
             (item: ISwapNetwork) => item.networkId === networkId,
           )
         : undefined;
-      const pairedNetworkId =
-        type === ESwapDirectionType.TO
-          ? fromToken?.networkId
-          : toToken?.networkId;
-      const disabledNetworkIds =
-        swapTypeSwitch === ESwapTabSwitchType.SWAP
-          ? getSwapDisabledNetworkIdsForPairToken({
-              networks: swapNetworksIncludeAllNetwork,
-              pairedNetworkId,
-            })
-          : [];
 
-      if (
-        preferredNetwork &&
-        !disabledNetworkIds.includes(preferredNetwork.networkId)
-      ) {
+      if (preferredNetwork) {
         return preferredNetwork;
       }
 
       return (
         swapNetworksIncludeAllNetwork.find(
           (network) => network.isAllNetworks,
-        ) ??
-        swapNetworksIncludeAllNetwork.find(
-          (network) => !disabledNetworkIds.includes(network.networkId),
-        )
+        ) ?? swapNetworksIncludeAllNetwork[0]
       );
     },
-    [
-      fromToken?.networkId,
-      swapNetworksIncludeAllNetwork,
-      swapTypeSwitch,
-      toToken?.networkId,
-      type,
-    ],
+    [swapNetworksIncludeAllNetwork],
   );
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
@@ -428,30 +404,8 @@ const SwapTokenSelectPage = ({
     ) {
       res = networkIds.filter((net) => net !== fromToken?.networkId);
     }
-    if (
-      type === ESwapDirectionType.TO &&
-      fromToken &&
-      swapTypeSwitch === ESwapTabSwitchType.BRIDGE
-    ) {
-      res = networkIds.filter((net) => net === fromToken?.networkId);
-    }
-
-    if (
-      type === ESwapDirectionType.FROM &&
-      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
-      toToken
-    ) {
-      res = networkIds.filter((net) => net === toToken?.networkId);
-    }
-    if (swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-      const pairedToken = type === ESwapDirectionType.TO ? fromToken : toToken;
-      res = getSwapDisabledNetworkIdsForPairToken({
-        networks: swapNetworksIncludeAllNetwork,
-        pairedNetworkId: pairedToken?.networkId,
-      });
-    }
     return res;
-  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, toToken, type]);
+  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, type]);
   const renderItem = useCallback(
     ({
       item,

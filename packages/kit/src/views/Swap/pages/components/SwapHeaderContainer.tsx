@@ -162,10 +162,13 @@ const SwapHeaderContainer = ({
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
     gtLg && pageType !== 'modal' && !platformEnv.isNative;
+  const swapBridgeLabel = `${intl.formatMessage({
+    id: ETranslations.swap_page_swap,
+  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
 
   const segmentOptions = [
     {
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+      label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
     },
     {
@@ -230,7 +233,7 @@ const SwapHeaderContainer = ({
             }
           }}
         >
-          {intl.formatMessage({ id: ETranslations.swap_page_swap })}
+          {swapBridgeLabel}
         </CustomTabItem>
         <CustomTabItem
           isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
