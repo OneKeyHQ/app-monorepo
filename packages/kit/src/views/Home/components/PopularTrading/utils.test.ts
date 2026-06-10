@@ -14,6 +14,7 @@ describe('PopularTrading market token display utils', () => {
       address: '0x44f161ae29361e332dea039dfa2f404e0bc5b5cc',
       name: 'Humanity',
       symbol: 'H',
+      logoUrls: ['primary.png', 'fallback.png'],
       decimals: 18,
       price: '0.00137840543892581329',
       priceChange24hPercent: '-',
@@ -29,5 +30,6 @@ describe('PopularTrading market token display utils', () => {
     const displayToken = mapMarketTokenToDisplay(item);
     expect(displayToken?.priceChange24h).toBe(0);
     expect(Number.isNaN(displayToken?.priceChange24h)).toBe(false);
+    expect(displayToken?.logoUrls).toEqual(item.logoUrls);
   });
 });

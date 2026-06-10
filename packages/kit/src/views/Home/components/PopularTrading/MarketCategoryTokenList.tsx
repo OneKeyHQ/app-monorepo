@@ -89,6 +89,7 @@ function MarketCategoryTokenList({
                   <Token
                     size="md"
                     tokenImageUri={record.logoUrl}
+                    tokenImageUris={record.logoUrls}
                     networkId={record.chainId}
                     showNetworkIcon
                   />
@@ -154,6 +155,7 @@ function MarketCategoryTokenList({
                 <Token
                   size="lg"
                   tokenImageUri={record.logoUrl}
+                  tokenImageUris={record.logoUrls}
                   networkId={record.chainId}
                   showNetworkIcon
                 />
