@@ -147,6 +147,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_MIN_ORDER_NOTIONAL = Number(SCALE_ORDER_MIN_NOTIONAL);
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TWAP_SLICE_FILLS_MAX_COUNT = 2000;
 let lastL2BookColdCacheWriteAt = 0;
 
 type ITwapHistoryLoadResult =
@@ -330,12 +331,14 @@ function sortAndDedupeTwapSliceFills(
   for (const record of records) {
     map.set(getTwapSliceFillKey(record), record);
   }
-  return Array.from(map.values()).toSorted(
-    (a, b) =>
-      b.fill.time - a.fill.time ||
-      (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
-      b.twapId - a.twapId,
-  );
+  return Array.from(map.values())
+    .toSorted(
+      (a, b) =>
+        b.fill.time - a.fill.time ||
+        (b.fill.tid ?? 0) - (a.fill.tid ?? 0) ||
+        b.twapId - a.twapId,
+    )
+    .slice(0, TWAP_SLICE_FILLS_MAX_COUNT);
 }
 
 async function clearMatchedDepositOrders(
