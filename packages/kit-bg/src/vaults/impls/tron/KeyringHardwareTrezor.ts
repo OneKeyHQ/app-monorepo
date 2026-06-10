@@ -161,6 +161,22 @@ export function buildTrezorTronContract(
   }
 }
 
+export function buildTrezorTronSignedRawTx({
+  encodedTx,
+  signature,
+  serializedTx,
+}: {
+  encodedTx: IEncodedTxTron;
+  signature: string;
+  serializedTx?: string;
+}) {
+  return JSON.stringify({
+    ...encodedTx,
+    raw_data_hex: serializedTx || encodedTx.raw_data_hex,
+    signature: [signature],
+  });
+}
+
 // Trezor TRON keyring. Address methods mirror the EVM/SOL Trezor keyrings.
 // signTransaction maps the decoded raw_data contract onto Trezor's STRUCTURED
 // contract shape (vs Ledger's rawTxHex): addresses stay hex 0x41-prefixed (the
@@ -285,10 +301,10 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     return {
       txid: encodedTx.txID,
       encodedTx,
-      rawTx: JSON.stringify({
-        ...encodedTx,
-        raw_data_hex: serializedTx || encodedTx.raw_data_hex,
-        signature: [signature],
+      rawTx: buildTrezorTronSignedRawTx({
+        encodedTx,
+        signature,
+        serializedTx,
       }),
     };
   }

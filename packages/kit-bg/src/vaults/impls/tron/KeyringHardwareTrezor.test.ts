@@ -3,6 +3,7 @@ import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors
 
 import {
   buildTrezorTronContract,
+  buildTrezorTronSignedRawTx,
   buildTrezorTronSignTransactionParams,
 } from './KeyringHardwareTrezor';
 
@@ -232,5 +233,58 @@ describe('buildTrezorTronSignTransactionParams', () => {
         },
       },
     });
+  });
+});
+
+describe('buildTrezorTronSignedRawTx', () => {
+  it('uses the original raw_data_hex when Trezor does not return serializedTx', () => {
+    const encodedTx = {
+      txID: 'txid',
+      raw_data_hex: 'originalRawData',
+      raw_data: {
+        ref_block_bytes: 'e942',
+        ref_block_hash: '6394747da9fee421',
+        expiration: 1_752_562_632_000,
+        timestamp: 1_752_562_572_000,
+        contract: [],
+      },
+    } as unknown as IEncodedTxTron;
+
+    expect(
+      JSON.parse(
+        buildTrezorTronSignedRawTx({
+          encodedTx,
+          signature: 'signature',
+        }),
+      ),
+    ).toEqual({
+      ...encodedTx,
+      raw_data_hex: 'originalRawData',
+      signature: ['signature'],
+    });
+  });
+
+  it('prefers Trezor serializedTx when it is returned', () => {
+    const encodedTx = {
+      txID: 'txid',
+      raw_data_hex: 'originalRawData',
+      raw_data: {
+        ref_block_bytes: 'e942',
+        ref_block_hash: '6394747da9fee421',
+        expiration: 1_752_562_632_000,
+        timestamp: 1_752_562_572_000,
+        contract: [],
+      },
+    } as unknown as IEncodedTxTron;
+
+    expect(
+      JSON.parse(
+        buildTrezorTronSignedRawTx({
+          encodedTx,
+          signature: 'signature',
+          serializedTx: 'trezorRawData',
+        }),
+      ).raw_data_hex,
+    ).toBe('trezorRawData');
   });
 });
