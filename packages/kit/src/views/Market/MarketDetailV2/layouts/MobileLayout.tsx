@@ -20,8 +20,8 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
-  CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
+  getChartWebViewMode,
 } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/constants';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -332,7 +332,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                       // per-token remount/skeleton-flash. Legacy WebView still
                       // needs the per-token key to reload its URL.
                       key={
-                        CHART_WEBVIEW_MODE !== 'legacy' &&
+                        getChartWebViewMode() !== 'legacy' &&
                         CHART_WEBVIEW_SCENE === 'unified'
                           ? 'unified-market-chart'
                           : `${networkId}:${tokenAddress}:${tokenSymbol}`

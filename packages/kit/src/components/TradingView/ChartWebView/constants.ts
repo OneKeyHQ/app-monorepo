@@ -1,27 +1,25 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
-
-/**
- * Code-level switch for how the chart is rendered (no runtime toggle / UI).
- *
- * - 'legacy'  : keep the existing kit WebView (current behavior, unchanged).
- * - 'offline' : load the app-bundled chart via the chart-webview native module
- *               (assets/tradingview-assets, fetched by
- *               development/scripts/fetch-tradingview-assets.mjs).
- * - 'online'  : load the remote TradingView URL via the chart-webview module.
- *
- * Native only — on web TradingView always uses 'legacy' (the module is native).
- *
- * Gated purely on whether this is a PRODUCTION build (build-time constant from
- * buildTimeEnv.js, no runtime env vars): production ships the offline bundle, so
- * it loads offline; dev/internal builds don't stage the assets (loading offline
- * would white-screen), so they use the chart-webview module against the online
- * URL — still exercising the new path without the bundle.
- */
-export const CHART_WEBVIEW_MODE: IChartWebViewMode = platformEnv.isProduction
-  ? 'offline'
-  : 'online';
+// How the chart is rendered:
+//
+// - 'legacy'  : keep the existing kit WebView (current behavior, unchanged).
+// - 'offline' : load the app-bundled chart via the chart-webview native module
+//               (assets/tradingview-assets, fetched by
+//               development/scripts/fetch-tradingview-assets.mjs).
+// - 'online'  : load the remote TradingView URL via the chart-webview module.
+//
+// Native only — on web TradingView always uses 'legacy' (the module is native).
+//
+// ⚠️ This is NO LONGER a build-time constant. The mode is resolved at runtime
+// from the server-driven decision read into the cold-start snapshot
+// (Part B2). Read it via `getChartWebViewMode()` — NEVER cache the result at
+// module-import time (the snapshot is populated during cold-start init, which
+// can run after this module is first imported). The resolver + ready barrier
+// live in kit-bg; re-exported here so existing call sites keep one import.
+export {
+  getChartWebViewMode,
+  isChartBootSnapshotInitialized,
+  useChartBootSnapshotReady,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+export type { IChartWebViewMode } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 /**
  * Desktop offline chart switch (code-level, no runtime toggle).
@@ -31,7 +29,7 @@ export const CHART_WEBVIEW_MODE: IChartWebViewMode = platformEnv.isProduction
  * chart from the local onekey-chart:// virtual origin instead of the remote URL.
  * Otherwise (flag off, or no bundle on open-source / no-token builds) desktop
  * keeps using the online chart. Native is governed separately by
- * CHART_WEBVIEW_MODE; this flag is desktop-only and the renderer reads it
+ * `getChartWebViewMode()`; this flag is desktop-only and the renderer reads it
  * through useTradingViewUrl.
  */
 export const CHART_WEBVIEW_DESKTOP_OFFLINE_ENABLED = true;

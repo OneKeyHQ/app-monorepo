@@ -8,30 +8,49 @@ import {
 import { type HybridView, callback } from 'react-native-nitro-modules';
 
 import { Stack } from '@onekeyhq/components';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   CHART_WEBVIEW_ENTRY,
   CHART_WEBVIEW_LOCAL_BUNDLE,
-  CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_POOLED,
   CHART_WEBVIEW_REUSE_KEY,
   CHART_WEBVIEW_SCENE,
   CHART_WEBVIEW_UNIFIED_APP_GLOBAL_KEYS,
   CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL,
+  getChartWebViewMode,
 } from './constants';
 
 import type { IChartWebViewProps } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 
 // Unified scene only applies to the native offline/local bundle (online keys its
-// source by URL, which fights the constant-source reuse). Both inputs are module
-// constants, so this resolves once.
-const IS_UNIFIED =
-  CHART_WEBVIEW_MODE !== 'online' && CHART_WEBVIEW_SCENE === 'unified';
+// source by URL, which fights the constant-source reuse). The mode comes from
+// the cold-start snapshot resolver, so this is computed per render (the snapshot
+// is locked for the session, so the value is stable) rather than at import.
+function isUnifiedMode(): boolean {
+  return (
+    getChartWebViewMode() !== 'online' && CHART_WEBVIEW_SCENE === 'unified'
+  );
+}
+
+// Android-only `assetHost` (Part G): the offline bundle mounts the OLD chart
+// origin so the legacy `tradingview_*_market_*` keys (written by the previous
+// remote chart) are read directly from the same-process WebView storage — i.e.
+// zero migration. The host is derived from the same prod/test URLs the online
+// chart uses, picked by platformEnv.isProduction. iOS/desktop never set this
+// (the module ignores it on iOS; falls back to appassets.androidplatform.net).
+const ANDROID_ASSET_HOST: string | undefined = platformEnv.isNativeAndroid
+  ? new URL(platformEnv.isProduction ? TRADING_VIEW_URL : TRADING_VIEW_URL_TEST)
+      .host
+  : undefined;
 
 let hasUnifiedChartLoadEnded = false;
 
@@ -61,7 +80,12 @@ function buildUnifiedParamsJson(params: Record<string, string>): string {
   // rather than this boot-time namespace; the app-side SYMBOL_CHANGE payload
   // carries no storageNamespace, so it cannot be done here without regressing the
   // no-reload reuse.
-  constant.storageNamespace = 'unified';
+  //
+  // VALUE = 'market' (not 'unified'): the native single pool means market+perps
+  // share ONE bucket; we point it at the LEGACY 'market' namespace so that, when
+  // the Android offline bundle mounts the old origin (Part G assetHost), the
+  // pre-existing `tradingview_*_market_*` keys are read directly — zero migration.
+  constant.storageNamespace = 'market';
   constant.type = 'market';
   constant.symbol = CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL;
   constant.decimal = '2';
@@ -116,6 +140,11 @@ export function ChartWebView({
   // for every host (the prior Android-specific `active=false` prewarm tweak is
   // moot now that Android has no prewarm host).
   const active = isFocused;
+  // Effective chart mode resolved from the cold-start snapshot (Part B2). The
+  // snapshot is locked for the session, so these are stable across renders; we
+  // still thread them through memo deps so the rule of hooks is satisfied.
+  const mode = getChartWebViewMode();
+  const isUnified = isUnifiedMode();
   // Honor the app's "Enable Native Webview Debugging" dev-mode toggle for the
   // chart webview, exactly like the main react-native-webview (NativeWebView.tsx).
   // Fallback mirrors that component: default to platformEnv.isDev when unset.
@@ -126,7 +155,7 @@ export function ChartWebView({
   // When the consumer drives its own symbol switching (e.g. perps sends a richer
   // SYMBOL_CHANGE with source/displayNames + ready-gating), the host must NOT
   // also auto-post one — that would double-send and race.
-  const autoDriveSymbol = IS_UNIFIED && !selfDrivenSymbol;
+  const autoDriveSymbol = isUnified && !selfDrivenSymbol;
 
   // Latest values for use inside Nitro callbacks (which capture once).
   const paramsRef = useRef(params);
@@ -229,7 +258,7 @@ export function ChartWebView({
   // From origin/x: if the unified chart already finished its (one-time) load,
   // fire onLoadEnd immediately for this host so consumers don't wait again.
   useEffect(() => {
-    if (IS_UNIFIED && hasUnifiedChartLoadEnded) {
+    if (isUnified && hasUnifiedChartLoadEnded) {
       onLoadEndRef.current?.();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,7 +292,7 @@ export function ChartWebView({
   ]);
 
   const source = useMemo(() => {
-    if (CHART_WEBVIEW_MODE === 'online') {
+    if (mode === 'online') {
       return { uri: onlineUrl };
     }
     // Offline asset-presence fallback (white-screen guard).
@@ -291,13 +320,13 @@ export function ChartWebView({
     // an empty `uri` falls through to the localBundle regardless of whether its
     // files exist. So this guard only takes effect once the native module is
     // updated to read `fallbackUri`; until then asset-less builds still need the
-    // release pipeline to either stage assets or flip CHART_WEBVIEW_MODE to
-    // 'online'. `fallbackUri` is app-global (the same remote chart URL), so it does
+    // release pipeline to either stage assets or resolve the mode to 'online'.
+    // `fallbackUri` is app-global (the same remote chart URL), so it does
     // NOT taint the byte-identical unified source: localBundle/entry/paramsJson —
     // the keys that drive the shared WebView's load + reuse — stay identical across
     // market and perps hosts. Only emitted when an online URL actually exists.
     const fallbackUri = onlineUrl ? { fallbackUri: onlineUrl } : {};
-    if (IS_UNIFIED) {
+    if (isUnified) {
       // uri:'' so the source keys never flip absent (Nitro rejects that).
       return {
         uri: '',
@@ -313,7 +342,7 @@ export function ChartWebView({
       entry: CHART_WEBVIEW_ENTRY,
       paramsJson: JSON.stringify(params),
     };
-  }, [onlineUrl, params]);
+  }, [onlineUrl, params, mode, isUnified]);
 
   // Pooling: ONE warm WebView shared across the whole app (market + perps), kept
   // alive across navigation by the native singleton pool. The focused screen
@@ -321,26 +350,26 @@ export function ChartWebView({
   // Gated to offline — online mode keys its source by URL, which would fight the
   // shared-WebView reuse.
   const reuseKey =
-    CHART_WEBVIEW_POOLED && CHART_WEBVIEW_MODE !== 'online'
+    CHART_WEBVIEW_POOLED && mode !== 'online'
       ? CHART_WEBVIEW_REUSE_KEY
       : undefined;
 
   // Diagnostic: confirm whether this native chart resolves to the offline
   // app-bundled assets or the remote online URL (see market.chart scene). Logs
   // intent only — JS has no asset-presence signal on native, so 'offline' here
-  // means CHART_WEBVIEW_MODE selected the localBundle, not that the files exist.
-  const sourceKind = CHART_WEBVIEW_MODE === 'online' ? 'online' : 'offline';
+  // means the resolved mode selected the localBundle, not that the files exist.
+  const sourceKind = mode === 'online' ? 'online' : 'offline';
   useEffect(() => {
     defaultLogger.market.chart.chartSource({
       platform: platformEnv.appPlatform ?? 'native',
       type: paramsRef.current.type,
-      mode: CHART_WEBVIEW_MODE,
+      mode,
       sourceKind,
       scene: CHART_WEBVIEW_SCENE,
       pooled: !!reuseKey,
       hasOnlineFallback: !!onlineUrl,
     });
-  }, [sourceKind, reuseKey, onlineUrl]);
+  }, [mode, sourceKind, reuseKey, onlineUrl]);
 
   // Nitro requires function props wrapped with callback(). The hybridRef callback
   // hands us a ref whose .current is the live HybridObject (postMessage/reload).
@@ -394,7 +423,7 @@ export function ChartWebView({
           type: paramsRef.current.type,
           sourceKind,
         });
-        if (IS_UNIFIED) {
+        if (isUnified) {
           hasUnifiedChartLoadEnded = true;
         }
         // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
@@ -412,7 +441,7 @@ export function ChartWebView({
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).
         onLoadEndRef.current?.();
       }),
-    [sendSymbolChange, sourceKind],
+    [sendSymbolChange, sourceKind, isUnified],
   );
 
   // DEBUG instrumentation: surface native WKWebView load failures (didFail /
@@ -435,8 +464,7 @@ export function ChartWebView({
   // Remount when the source mode/url changes so the new source loads cleanly.
   // Unified keeps a constant key so a token switch never remounts (it reloads via
   // SYMBOL_CHANGE instead).
-  const sourceKey =
-    CHART_WEBVIEW_MODE === 'online' ? `online:${onlineUrl}` : 'offline';
+  const sourceKey = mode === 'online' ? `online:${onlineUrl}` : 'offline';
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -444,6 +472,7 @@ export function ChartWebView({
         key={sourceKey}
         style={{ flex: 1 }}
         {...source}
+        assetHost={ANDROID_ASSET_HOST}
         pooled={!!reuseKey}
         reuseKey={reuseKey}
         active={active}

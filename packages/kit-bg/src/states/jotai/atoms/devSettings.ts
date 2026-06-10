@@ -107,6 +107,15 @@ export interface IDevSettings {
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // QA-only chart-webview mode override (Part L1). Forces the resolved chart
+  // mode regardless of the server/snapshot decision:
+  // - 'offline' → the shared pooled ChartWebView module.
+  // - 'legacy'  → the original single (non-pooled) kit WebView.
+  // - undefined → follow the server-driven cold-start snapshot (default).
+  // Read FIRST by `getChartWebViewMode()` and captured into the cold-start
+  // snapshot, so a change only takes effect after an app restart (the mode is
+  // locked for the session to keep the pooled WebView's source invariant).
+  chartWebViewModeOverride?: 'offline' | 'legacy';
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

@@ -10,7 +10,11 @@ import { useTradingViewUrl } from '../hooks';
 import { usePerpsTradingViewMessageHandler } from '../TradingViewPerpsV2/messageHandlers';
 import { useTradingViewMessageHandler } from '../TradingViewV2/messageHandlers';
 
-import { CHART_WEBVIEW_MODE, CHART_WEBVIEW_SCENE } from './constants';
+import {
+  CHART_WEBVIEW_SCENE,
+  getChartWebViewMode,
+  useChartBootSnapshotReady,
+} from './constants';
 
 import type { IWebViewRef } from '../../WebView/types';
 
@@ -162,9 +166,15 @@ export function ChartPrewarm({
   // offscreen (CPU/GPU/RAM burn -> OOM) AND its symbol-driving contended the
   // visible chart's switch (market stuck on the wrong symbol). Disabled on Android
   // pending a cheaper warm strategy.
+  // Ready barrier (Gate 2): do NOT prewarm until the cold-start chart-mode
+  // snapshot is populated, otherwise the prewarm host could read an
+  // uninitialized snapshot (bootstrap init is fire-and-forget and prewarm can
+  // out-race it).
+  const bootSnapshotReady = useChartBootSnapshotReady();
   const enabled =
+    bootSnapshotReady &&
     platformEnv.isNativeIOS &&
-    CHART_WEBVIEW_MODE !== 'legacy' &&
+    getChartWebViewMode() !== 'legacy' &&
     CHART_WEBVIEW_SCENE === 'unified';
 
   // Always drive a symbol (real one, or the neutral reset) so focusing this

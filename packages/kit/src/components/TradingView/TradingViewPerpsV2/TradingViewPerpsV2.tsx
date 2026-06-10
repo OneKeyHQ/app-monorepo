@@ -26,8 +26,9 @@ import WebView from '../../WebView';
 import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import {
-  CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
+  getChartWebViewMode,
+  useChartBootSnapshotReady,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
@@ -302,9 +303,15 @@ export function TradingViewPerpsV2(
   // page is loaded once globally, so per-load chartReady/perpsReady don't re-fire
   // for a later perps host — treat the chart as ready (the page's listeners are
   // already up) so lines still sync.
+  // Ready barrier (Gate 2): on native, the chart-webview mode comes from the
+  // cold-start snapshot — wait for it before treating this as a unified host
+  // (which mounts the chart-webview), so it never reads an uninitialized
+  // snapshot. Desktop's overlay readiness is governed separately.
+  const bootSnapshotReady = useChartBootSnapshotReady();
   const useUnifiedHost =
     (platformEnv.isNative &&
-      CHART_WEBVIEW_MODE !== 'legacy' &&
+      bootSnapshotReady &&
+      getChartWebViewMode() !== 'legacy' &&
       CHART_WEBVIEW_SCENE === 'unified') ||
     // Desktop warm overlay is always unified (constant onekey-chart:// source).
     getDesktopOfflineChartReady();

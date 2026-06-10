@@ -14,10 +14,13 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { ChartLoadingMask } from '../ChartLoadingMask';
 import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
+import { ChartLoadingMask } from '../ChartLoadingMask';
 import { ChartWebView } from '../ChartWebView';
-import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
+import {
+  getChartWebViewMode,
+  useChartBootSnapshotReady,
+} from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
@@ -426,11 +429,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ],
   );
 
-  // New chart-webview path: native via the chart-webview module (CHART_WEBVIEW_MODE),
-  // desktop via the warm onekey-chart:// overlay when the offline bundle shipped.
-  // Web keeps legacy.
+  // New chart-webview path: native via the chart-webview module (mode resolved
+  // from the cold-start snapshot), desktop via the warm onekey-chart:// overlay
+  // when the offline bundle shipped. Web keeps legacy.
+  //
+  // Ready barrier (Gate 2): on native, wait for the cold-start chart-mode
+  // snapshot before mounting the chart-webview, so it never reads an
+  // uninitialized snapshot (bootstrap init is fire-and-forget). Until then we
+  // render the legacy WebView placeholder; the chart-webview mounts once the
+  // snapshot resolves. Desktop's overlay readiness is governed separately.
+  const bootSnapshotReady = useChartBootSnapshotReady();
   const useChartWebView =
-    (platformEnv.isNative && CHART_WEBVIEW_MODE !== 'legacy') ||
+    (platformEnv.isNative &&
+      bootSnapshotReady &&
+      getChartWebViewMode() !== 'legacy') ||
     (!preferLegacyChart && getDesktopOfflineChartReady());
 
   const chartWebView = useMemo(

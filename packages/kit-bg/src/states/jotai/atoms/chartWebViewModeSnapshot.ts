@@ -1,0 +1,128 @@
+import { useSyncExternalStore } from 'react';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { devSettingsPersistAtom } from './devSettings';
+import { chartSourcePersistAtom } from './tradingView';
+
+import type { IChartSourcePersistAtom } from './tradingView';
+
+// Cold-start snapshot of the persisted chart-source decision (Part B2).
+//
+// `CHART_WEBVIEW_MODE` used to be a build-time constant. It is now resolved at
+// runtime from the server-driven decision persisted in `chartSourcePersistAtom`
+// — BUT it must NOT be read as an async atom inside render (that would jitter
+// and break the pooled single-WebView's source invariance). Instead the
+// decision is read ONCE early in cold start into this synchronous module
+// snapshot, and every consumer reads the snapshot synchronously.
+//
+// The snapshot is LOCKED for the whole session: a fresh API result is persisted
+// for next cold start, never hot-applied (the pooled singleton is long-lived
+// across hosts, so the source/namespace/reuseKey must stay stable).
+
+export type IChartWebViewMode = 'legacy' | 'offline' | 'online';
+
+// Mirrors the offline default of `chartSourcePersistAtom`.
+const DEFAULT_SNAPSHOT: IChartSourcePersistAtom = {
+  online: false,
+  decidedForVersion: '',
+  fetchedAt: 0,
+};
+
+let snapshot: IChartSourcePersistAtom = DEFAULT_SNAPSHOT;
+// QA-only dev override (Part L1), captured ONCE into the cold-start snapshot
+// alongside the server decision. `undefined` = follow the snapshot logic;
+// 'offline'/'legacy' force the mode. Locked for the session like the snapshot,
+// so flipping it in dev settings only takes effect after an app restart.
+let devModeOverride: 'offline' | 'legacy' | undefined;
+// Whether the cold-start read has completed. Chart / prewarm hosts MUST NOT
+// mount until this is true, so they never read an uninitialized snapshot (the
+// ready barrier — Gate 2). `serviceBootstrap.init()` is fire-and-forget and
+// prewarm can out-race it, hence the explicit barrier.
+let initialized = false;
+
+const listeners = new Set<() => void>();
+
+function emit() {
+  listeners.forEach((l) => l());
+}
+
+/**
+ * Resolve the effective chart-webview mode from the cold-start snapshot.
+ *
+ * - dev (non-production): always `'online'` (dev/internal builds don't stage
+ *   the offline assets, so loading offline would white-screen) — unchanged.
+ * - prod: `'online'` only when the server decided online FOR THIS EXACT app
+ *   version (the version match is the reset safety net — a stale decision from a
+ *   previous version is ignored and falls back to offline); otherwise
+ *   `'offline'`.
+ *
+ * Reads the synchronous snapshot, so it is safe to call inside render. The
+ * value is locked for the session (snapshot does not change after init).
+ */
+export function getChartWebViewMode(): IChartWebViewMode {
+  // Part L1: the QA dev override wins over everything (server/snapshot/dev
+  // default). Captured into the cold-start snapshot, so it is stable for the
+  // whole session (only an app restart re-reads it).
+  if (devModeOverride === 'legacy' || devModeOverride === 'offline') {
+    return devModeOverride;
+  }
+  if (!platformEnv.isProduction) {
+    return 'online';
+  }
+  const s = snapshot;
+  return s.online && s.decidedForVersion === platformEnv.version
+    ? 'online'
+    : 'offline';
+}
+
+// True once the cold-start snapshot read has completed (the ready barrier).
+export function isChartBootSnapshotInitialized(): boolean {
+  return initialized;
+}
+
+/**
+ * Read the persisted decision ONCE into the synchronous module snapshot and
+ * flip the ready barrier. Called early in cold start
+ * (`ServiceBootstrap.initCritical()`, right after `localDb.readyDb`) so it runs
+ * before any chart / prewarm host mounts. Idempotent and never throws — on any
+ * failure it keeps the offline default and still marks the snapshot ready (so
+ * the chart never deadlocks waiting on a failed read).
+ */
+export async function initChartWebViewModeSnapshot(): Promise<void> {
+  if (initialized) {
+    return;
+  }
+  try {
+    snapshot = await chartSourcePersistAtom.get();
+  } catch {
+    // Keep the offline default — never block the ready barrier on a read error.
+    snapshot = DEFAULT_SNAPSHOT;
+  }
+  try {
+    // Capture the QA dev override (Part L1) into the locked snapshot too.
+    const dev = await devSettingsPersistAtom.get();
+    const override = dev?.settings?.chartWebViewModeOverride;
+    devModeOverride =
+      override === 'offline' || override === 'legacy' ? override : undefined;
+  } catch {
+    devModeOverride = undefined;
+  }
+  initialized = true;
+  emit();
+}
+
+/**
+ * Subscribe to the ready barrier so React hosts re-render when the cold-start
+ * snapshot becomes available. Chart / prewarm hosts gate their mount on this.
+ */
+export function useChartBootSnapshotReady(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+    () => initialized,
+    () => initialized,
+  );
+}

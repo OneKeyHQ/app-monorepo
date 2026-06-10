@@ -43,7 +43,10 @@ import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 import ServiceBase from './ServiceBase';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
 
-import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
+import type {
+  ISimpleDBAppStatus,
+  ITradingViewChartMigration,
+} from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 
 @backgroundClass()
 class ServiceApp extends ServiceBase {
@@ -411,6 +414,147 @@ class ServiceApp extends ServiceBase {
   async getLaunchTimesLastReset() {
     const v = await simpleDb.appStatus.getRawData();
     return v?.launchTimesLastReset ?? 0;
+  }
+
+  /**
+   * TradingView cross-origin chart-data migration (Part D, iOS + Desktop only).
+   *
+   * Atomically seeds the migration state from the OLD `launchTimes` in ONE
+   * `setRawData` update (avoids a read-then-write race, codex#7):
+   *   - uninitialized & launchTimes 0/undefined → `skipped-first-install`
+   *     (brand-new install, no legacy origin data ever existed).
+   *   - uninitialized & launchTimes > 0 → `export-deferred` (existing user,
+   *     may have legacy chart data on the old origin; export when online).
+   *   - already initialized → no-op (idempotent).
+   *
+   * MUST run BEFORE `updateLaunchTimes()` increments the counter, so the
+   * first-install detection sees the pre-increment value. Hooked in
+   * `ServiceBootstrap.initCritical()` right after `localDb.readyDb`, behind the
+   * same cold-start ready barrier as the chart-mode snapshot (Part B2 / Gate 2).
+   *
+   * Android never calls this (it reuses the old origin via Part G → zero
+   * migration), so the state stays absent there.
+   */
+  @backgroundMethod()
+  async initTradingViewChartMigrationState() {
+    // iOS + Desktop only. Android reuses the legacy origin (Part G) so it must
+    // never seed a migration state.
+    if (!(platformEnv.isNativeIOS || platformEnv.isDesktop)) {
+      return;
+    }
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      // Idempotent: never overwrite an already-seeded state.
+      if (v?.tradingViewChartMigration) {
+        return v;
+      }
+      const isFirstInstall = (v?.launchTimes ?? 0) === 0;
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          state: isFirstInstall ? 'skipped-first-install' : 'export-deferred',
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
+  async getTradingViewChartMigration(): Promise<{
+    migration?: ITradingViewChartMigration;
+    blob?: Record<string, string>;
+  }> {
+    const v = await simpleDb.appStatus.getRawData();
+    return {
+      migration: v?.tradingViewChartMigration,
+      blob: v?.tradingViewChartMigrationBlob,
+    };
+  }
+
+  /**
+   * Persist the exported blob and advance the state:
+   *   - non-empty blob → `restore-pending` (waiting for the offline chart load).
+   *   - empty blob → `export-empty` (nothing to restore; equivalent to done).
+   * No-op unless the current state is `export-deferred` (idempotent re-entry).
+   */
+  @backgroundMethod()
+  async setTradingViewChartMigrationExported(params: {
+    blob: Record<string, string>;
+  }) {
+    const { blob } = params;
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
+        return v as ISimpleDBAppStatus;
+      }
+      const isEmpty = Object.keys(blob).length === 0;
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          state: isEmpty ? 'export-empty' : 'restore-pending',
+          lastAttemptAt: Date.now(),
+          exportedAt: Date.now(),
+        },
+        tradingViewChartMigrationBlob: isEmpty ? undefined : blob,
+      };
+    });
+  }
+
+  /**
+   * Export attempt failed (offline / timeout / load error). Only update
+   * `lastAttemptAt` for the once-per-launch backoff and KEEP `export-deferred`
+   * — never permanently give up, so long-offline users still migrate later
+   * (codex#2). No attempts cap, no `skipped`.
+   */
+  @backgroundMethod()
+  async markTradingViewChartMigrationAttempt() {
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
+        return v as ISimpleDBAppStatus;
+      }
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          ...v.tradingViewChartMigration,
+          lastAttemptAt: Date.now(),
+        },
+      };
+    });
+  }
+
+  /**
+   * Restore acked ok by the chart bundle → mark `done` and drop the blob. Only
+   * advances from `restore-pending` (idempotent). `done` never re-runs.
+   */
+  @backgroundMethod()
+  async setTradingViewChartMigrationDone() {
+    await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
+      if (v?.tradingViewChartMigration?.state !== 'restore-pending') {
+        return v as ISimpleDBAppStatus;
+      }
+      return {
+        ...v,
+        tradingViewChartMigration: {
+          ...v.tradingViewChartMigration,
+          state: 'done',
+        },
+        tradingViewChartMigrationBlob: undefined,
+      };
+    });
+  }
+
+  /**
+   * QA-only (Part L2): wipe the TradingView chart migration state + blob so the
+   * next cold start re-seeds it (`initTradingViewChartMigrationState`: a
+   * launched-before user → `export-deferred` → migration runs again). Lets QA
+   * re-test the migration flow repeatedly.
+   */
+  @backgroundMethod()
+  async resetTradingViewChartMigrationState() {
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        tradingViewChartMigration: undefined,
+        tradingViewChartMigrationBlob: undefined,
+      }),
+    );
   }
 
   @backgroundMethod()

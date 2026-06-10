@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { type ComponentType, useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
@@ -47,6 +47,20 @@ const PageTrackerContainer = LazyLoad(
   100,
 );
 
+// TradingView cross-origin chart-data migration host (Part D, iOS + Desktop).
+// Self-gates internally (effective offline mode + migration state) and renders
+// nothing otherwise; lazy + delayed so it never touches cold-start. Web/Android
+// resolve to the no-op stub.
+const ChartMigrationContainer = LazyLoad(
+  () =>
+    import('../../components/TradingView/ChartMigration').then((m) => ({
+      default: m.ChartMigration,
+    })) as unknown as Promise<{
+      default: ComponentType<Record<string, unknown>>;
+    }>,
+  1000,
+);
+
 function GlobalRootAppNavigationUpdate() {
   const navigation = useAppNavigation();
   appGlobals.$rootAppNavigation = navigation;
@@ -85,6 +99,7 @@ function DetailRouter() {
       <WebPerformanceMonitorContainer />
       <PasswordVerifyPortalContainer />
       <RookieShareContainer />
+      <ChartMigrationContainer />
     </NavigationContainer>
   );
 }
