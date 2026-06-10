@@ -847,7 +847,9 @@ export function TabBar({
       indexDecimal &&
       targetIndex >= 0 &&
       currentIndex >= 0 &&
-      targetIndex !== currentIndex;
+      targetIndex !== currentIndex &&
+      (directTabPressAnimationMode === 'instant' ||
+        Math.abs(targetIndex - currentIndex) > 1);
     const shouldAnimateDirectPress =
       shouldHoldDirectPress &&
       directTabPressAnimationMode === 'timing' &&

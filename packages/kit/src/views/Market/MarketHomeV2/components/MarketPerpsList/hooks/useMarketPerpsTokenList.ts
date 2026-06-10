@@ -93,7 +93,7 @@ export function useMarketPerpsTokenList({
 
   const isCategoryPending = !requestCategoryId;
   const isInitialLoading = Boolean(
-    requestCategoryId && !hasCurrentCategoryData,
+    requestCategoryId && isLoading && !hasCurrentCategoryData,
   );
   const hasRealTimeData =
     hasCurrentCategoryData && (apiData?.tokenListData?.tokens?.length ?? 0) > 0;
