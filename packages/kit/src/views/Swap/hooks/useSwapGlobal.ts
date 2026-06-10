@@ -66,6 +66,7 @@ import {
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
+  shouldMarkSwapInitialSelectedTokensSynced,
   shouldSkipSwapDefaultSelectedTokenSync,
   shouldSyncSwapSelectedAccountOnHomeAccountUpdate,
 } from '../utils/swapColdStartTokenCacheUtils';
@@ -458,6 +459,23 @@ export function useSwapInit(params?: ISwapInitParams) {
     return syncSwapSelectedAccountFromHome(homeSelectedAccount);
   }, [syncSwapSelectedAccountFromHome]);
 
+  const syncSwapSelectedAccountFromHomeStoragePromiseRef = useRef<
+    ReturnType<typeof syncSwapSelectedAccountFromLatestHome> | undefined
+  >(undefined);
+
+  const syncSwapSelectedAccountFromLatestHomeStorage = useCallback(async () => {
+    if (syncSwapSelectedAccountFromHomeStoragePromiseRef.current) {
+      return syncSwapSelectedAccountFromHomeStoragePromiseRef.current;
+    }
+
+    const promise = syncSwapSelectedAccountFromLatestHome().finally(() => {
+      hasSyncedSwapSelectedAccountFromHomeStorageRef.current = true;
+      syncSwapSelectedAccountFromHomeStoragePromiseRef.current = undefined;
+    });
+    syncSwapSelectedAccountFromHomeStoragePromiseRef.current = promise;
+    return promise;
+  }, [syncSwapSelectedAccountFromLatestHome]);
+
   useEffect(() => {
     const handleAccountSelectorSelectedAccountUpdate = (
       eventPayload: Parameters<
@@ -506,9 +524,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (hasSyncedSwapSelectedAccountFromHomeStorageRef.current) {
       return;
     }
-    hasSyncedSwapSelectedAccountFromHomeStorageRef.current = true;
-    void syncSwapSelectedAccountFromLatestHome();
-  }, [syncSwapSelectedAccountFromLatestHome]);
+    void syncSwapSelectedAccountFromLatestHomeStorage();
+  }, [syncSwapSelectedAccountFromLatestHomeStorage]);
 
   const fetchSwapNetworks = useCallback(async () => {
     const currentSwapNetworks = swapNetworksRef.current;
@@ -708,7 +725,8 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
       return;
     }
-    const homeAccountSyncResult = await syncSwapSelectedAccountFromLatestHome();
+    const homeAccountSyncResult =
+      await syncSwapSelectedAccountFromLatestHomeStorage();
     if (homeAccountSyncResult.synced) {
       if (homeAccountSyncResult.clearedSelectedTokens) {
         hasSelectedTokens = false;
@@ -995,17 +1013,28 @@ export function useSwapInit(params?: ISwapInitParams) {
     clearSelectedTokensColdStartCache,
     markInitialSelectedTokensSynced,
     switchSwapTypeIfNeeded,
-    syncSwapSelectedAccountFromLatestHome,
+    syncSwapSelectedAccountFromLatestHomeStorage,
   ]);
 
   useEffect(() => {
     if (initialSelectedTokensSyncedRef.current) {
       return;
     }
-    if (!fromTokenRef.current && !toTokenRef.current) {
+    const hasSelectedTokens = Boolean(
+      fromTokenRef.current || toTokenRef.current,
+    );
+    if (!hasSelectedTokens) {
       return;
     }
-    if (validateSelectedTokensColdStartContext()) {
+    if (
+      shouldMarkSwapInitialSelectedTokensSynced({
+        hasSelectedTokens,
+        hasSyncedSwapSelectedAccountFromHomeStorage:
+          hasSyncedSwapSelectedAccountFromHomeStorageRef.current,
+        selectedTokensColdStartContextValid:
+          validateSelectedTokensColdStartContext(),
+      })
+    ) {
       markInitialSelectedTokensSynced();
     }
   }, [

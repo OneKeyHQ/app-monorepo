@@ -824,7 +824,12 @@ function TxActionTransferListView(props: ITxActionProps) {
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
-      kytRiskLevel={decodedTx.kytRiskLevel}
+      kytRiskLevel={
+        // Hide the KYT risk badge for watch-only accounts.
+        accountUtils.isWatchingAccount({ accountId: decodedTx.accountId })
+          ? undefined
+          : decodedTx.kytRiskLevel
+      }
       compact={compact}
       {...componentProps}
     />
