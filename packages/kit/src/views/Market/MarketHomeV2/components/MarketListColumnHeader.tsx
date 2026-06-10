@@ -8,12 +8,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 type IMarketListColumnHeaderProps = {
   changeSortType?: 'asc' | 'desc';
   changeSortTestID?: string;
+  change24hColumnTitle?: string;
   onChangeSortPress?: () => void;
 };
 
 function MarketListColumnHeaderBase({
   changeSortType,
   changeSortTestID,
+  change24hColumnTitle,
   onChangeSortPress,
 }: IMarketListColumnHeaderProps) {
   const intl = useIntl();
@@ -70,9 +72,10 @@ function MarketListColumnHeaderBase({
               numberOfLines={1}
               flexShrink={1}
             >
-              {intl.formatMessage({
-                id: ETranslations.dexmarket_token_change,
-              })}
+              {change24hColumnTitle ??
+                intl.formatMessage({
+                  id: ETranslations.dexmarket_token_change,
+                })}
             </SizableText>
             {onChangeSortPress ? (
               <Icon name={sortIconName} color="$iconSubdued" size="$4" />
