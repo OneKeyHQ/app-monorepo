@@ -57,7 +57,7 @@
     "@onekeyfe/react-native-app-update": "3.0.53",
     "@onekeyfe/react-native-auto-size-input": "3.0.53",
     "@onekeyfe/react-native-background-thread": "3.0.53",
-    "@onekeyfe/react-native-ble-utils": "0.1.4",
+    "@onekeyfe/react-native-ble-utils": "0.1.5",
     "@onekeyfe/react-native-bundle-crypto": "3.0.53",
     "@onekeyfe/react-native-bundle-update": "3.0.53",
     "@onekeyfe/react-native-chart-webview": "3.0.53",
