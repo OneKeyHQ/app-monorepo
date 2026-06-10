@@ -50,9 +50,9 @@ import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddre
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   BtcFindAddressSection,
-  findAddressCopy,
   showBtcFindAddressDialog,
 } from '../components/BtcFindAddress';
+import { findAddressCopy } from '../components/btcFindAddressCopy';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';

@@ -37,7 +37,7 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
-import { findAddressCopy } from '../../../Receive/components/BtcFindAddress';
+import { findAddressCopy } from '../../../Receive/components/btcFindAddressCopy';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 import { SendTestIDs } from '../../testIDs';
 

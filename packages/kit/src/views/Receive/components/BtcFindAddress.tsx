@@ -29,34 +29,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { ReceiveTestIDs } from '../testIDs';
 
-// TODO(i18n): OK-55653 copy is pending Lokalise keys and final UX naming,
-// keep all temporary strings here so the swap is a one-file change
-export const findAddressCopy = {
-  entryLabel: 'Find address',
-  dialogTitle: 'Find address',
-  warningTitle: 'Remember your path settings',
-  warningDesc:
-    'To recover funds on a custom-index address you must remember its settings (address type + account + index), otherwise the assets cannot be found again.',
-  accountLabel: 'Account',
-  addressTypeLabel: 'Address type',
-  indexLabel: 'Address index',
-  pathPreviewLabel: 'Full path',
-  confirmText: 'Find',
-  invalidIndex: `Enter an integer between 0 and ${BTC_FIND_ADDRESS_MAX_INDEX}`,
-  alreadyDiscovered:
-    'This address is already in your account, no need to recover it manually.',
-  addedToast: 'Added',
-  sectionTitle: 'Manually recovered',
-  sectionDesc:
-    'Funds on these addresses can only be spent by selecting them in Coin Control when sending.',
-  removeConfirmTitle: 'Remove this address?',
-  removeConfirmDesc:
-    'After removal the address is hidden again. To use it later, find it again by its index.',
-  balanceError: 'Failed to load balance',
-  indexBadge: (index: number) => `#${index}`,
-  claimedUtxoLabel: 'Manually recovered',
-};
+import { findAddressCopy } from './btcFindAddressCopy';
 
 function parseIndexText(indexText: string): number | undefined {
   if (!/^\d+$/.test(indexText)) {
@@ -177,6 +152,7 @@ function FindAddressDialogContent({
         </SizableText>
         <Input
           autoFocus
+          testID={ReceiveTestIDs.BtcFindAddressIndexInput}
           size="large"
           $gtMd={{ size: 'medium' }}
           keyboardType="number-pad"
@@ -368,6 +344,7 @@ function FindAddressRow({
         symbol={symbol}
       />
       <IconButton
+        testID={ReceiveTestIDs.BtcFindAddressCopyButton}
         variant="tertiary"
         size="small"
         icon="Copy3Outline"
@@ -377,6 +354,7 @@ function FindAddressRow({
         }}
       />
       <IconButton
+        testID={ReceiveTestIDs.BtcFindAddressRemoveButton}
         variant="tertiary"
         size="small"
         icon="DeleteOutline"
