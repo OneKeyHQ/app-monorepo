@@ -23,6 +23,7 @@ import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
   getPopularTradingMetricColumns,
   renderPopularTradingRightMetrics,
+  renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
 } from './metricColumns';
 import { shouldUseStockMetadataColumnsForTokens } from './utils';
@@ -88,13 +89,22 @@ function MarketCategoryTokenList({
                   <Token
                     size="md"
                     tokenImageUri={record.logoUrl}
+                    tokenImageUris={record.logoUrls}
                     networkId={record.chainId}
                     showNetworkIcon
                   />
-                  <YStack>
-                    <SizableText size="$bodyLgMedium">
-                      {record.symbol}
-                    </SizableText>
+                  <YStack minWidth={0}>
+                    <XStack alignItems="center" gap="$1" minWidth={0}>
+                      <SizableText
+                        size="$bodyLgMedium"
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        flexShrink={1}
+                      >
+                        {record.symbol}
+                      </SizableText>
+                      {renderPopularTradingStockBadges(record)}
+                    </XStack>
                     <SizableText
                       size="$bodyMd"
                       color="$textSubdued"
@@ -145,17 +155,23 @@ function MarketCategoryTokenList({
                 <Token
                   size="lg"
                   tokenImageUri={record.logoUrl}
+                  tokenImageUris={record.logoUrls}
                   networkId={record.chainId}
                   showNetworkIcon
                 />
-                <YStack>
-                  <SizableText size="$bodyLgMedium">
-                    {record.symbol}
-                  </SizableText>
-                  {renderPopularTradingTokenSubtitle(
-                    record,
-                    useStockMetadataColumns,
-                  )}
+                <YStack minWidth={0}>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
+                      {record.symbol}
+                    </SizableText>
+                    {renderPopularTradingStockBadges(record)}
+                  </XStack>
+                  {renderPopularTradingTokenSubtitle(record)}
                 </YStack>
               </XStack>
             </XStack>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
+import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketToken } from './MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../types';
@@ -29,6 +30,7 @@ interface IMobileMarketTokenFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -38,6 +40,7 @@ function MobileMarketTokenFlatListBase({
   selectedCategory,
   timeRange,
   listContainerProps,
+  onStockDataChange,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -58,6 +61,17 @@ function MobileMarketTokenFlatListBase({
     type: selectedCategory,
     timeRange,
   });
+
+  const isStockData = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(data),
+    [data],
+  );
+
+  useEffect(() => {
+    if (selectedCategory) {
+      onStockDataChange?.(selectedCategory, isStockData);
+    }
+  }, [isStockData, onStockDataChange, selectedCategory]);
 
   // Render item callback
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(

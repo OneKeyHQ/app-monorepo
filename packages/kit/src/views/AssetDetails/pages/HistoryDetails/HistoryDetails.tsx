@@ -44,6 +44,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -1179,7 +1180,16 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (isLoading && !historyInit.current && !historyTxParam) {
+    // On the notification path no `historyTx` is passed in, so the detail is
+    // fetched on mount. `isLoading` starts as `undefined` and, because the
+    // request is debounced, only flips to `true` after the debounce window —
+    // during that gap the previous `isLoading &&` guard fell through and
+    // rendered the detail skeleton whose empty (undefined) status shows as
+    // "Pending", flashing a brief "待处理" frame before the spinner. Treat
+    // "fetch path, not yet initialized, loading not settled to false" as
+    // loading so the spinner shows immediately and the pending placeholder is
+    // never rendered.
+    if (!historyTxParam && !historyInit.current && isLoading !== false) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -1216,12 +1226,14 @@ function HistoryDetails() {
             />
           </InfoItemGroup>
 
-          {/* KYT Risk Check */}
-          <TxKYTRiskCheck
-            kyt={kytResult}
-            transfers={kytReceives}
-            networkName={network?.name}
-          />
+          {/* KYT Risk Check — hidden for watch-only accounts */}
+          {accountId && accountUtils.isWatchingAccount({ accountId }) ? null : (
+            <TxKYTRiskCheck
+              kyt={kytResult}
+              transfers={kytReceives}
+              networkName={network?.name}
+            />
+          )}
 
           {/* Notification account */}
           {notificationAccountId ? (
@@ -1351,6 +1363,7 @@ function HistoryDetails() {
     renderAssetsChange,
     kytResult,
     kytReceives,
+    accountId,
   ]);
 
   return (

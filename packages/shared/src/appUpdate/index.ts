@@ -328,6 +328,14 @@ export const markWhatsNewShown = (isJsBundleUpdate?: boolean): void => {
   });
 };
 
+// Dev/testing helper: wipe the "what's new shown" marker so the post-update
+// changelog dialog can be re-triggered on the next launch without bumping the
+// app version. Production code never calls this — the marker is meant to be
+// sticky per version/bundle.
+export const clearWhatsNewShown = (): void => {
+  syncStorage.delete(EAppSyncStorageKeys.onekey_whats_new_shown);
+};
+
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   // App shell version is equal to the latest version, check js bundle version
   if (

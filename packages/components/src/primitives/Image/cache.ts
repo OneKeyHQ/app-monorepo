@@ -1,5 +1,7 @@
 import { Image } from 'expo-image';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import type { ImageLoadOptions, ImageRef, ImageSource } from 'expo-image';
 
 const IMAGE_CACHE_MAP = new Map<string, string>();
@@ -165,6 +167,18 @@ export async function refreshCachedImageRef(
   options?: ImageLoadOptions,
 ) {
   if (!uri) {
+    return undefined;
+  }
+  // The decoded ImageRef cache is iOS-only. On Android expo-image (Glide) cannot
+  // safely reuse a decoded SharedRef across views — it crashes with a SIGSEGV in
+  // folly::dynamic::destroy() (see patches/expo-image+3.0.10.patch and commit
+  // 7ec61c435c), so useImage() never reads this cache back on Android. Decoding
+  // here would therefore be wasted work, and worse: it calls Image.loadAsync on a
+  // bare local cache path (no file:// scheme) which Glide rejects, and it leaves
+  // released/invalidated refs in the shared map that poison later same-URI renders
+  // (e.g. Perps prewarm breaking the Swap tab -> white screen). Android keeps fast
+  // image loading via Image.prefetch warming Glide's native disk+memory cache.
+  if (platformEnv.isNativeAndroid) {
     return undefined;
   }
   const cachedImageRef = getCachedImageRef(uri);

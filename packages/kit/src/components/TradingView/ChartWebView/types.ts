@@ -18,7 +18,8 @@ export interface IChartWebViewBaseProps {
   // reload) backed by the chart-webview module, so existing hooks work unchanged.
   onWebViewRef?: (ref: IWebViewRef | null) => void;
   // Fired when the underlying page finishes loading (forwarded from the module).
-  // For the shared unified WebView this only fires on the first (cold) load.
+  // For the shared unified WebView this fires on the first cold load, or
+  // immediately when the shared pool has already finished loading.
   onLoadEnd?: () => void;
   // Opt out of the host's automatic unified SYMBOL_CHANGE so the consumer can
   // drive its own (e.g. perps: source:'hyperliquid' + displayNames + ready
