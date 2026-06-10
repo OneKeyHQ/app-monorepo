@@ -83,8 +83,8 @@ interface IMarketHomeTabBarProps extends TabBarProps<string> {
   perpsTabName: string;
 }
 
-const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 85;
-const MARKET_ANDROID_COLUMN_HEADER_HEIGHT = 36;
+const MARKET_ANDROID_SECONDARY_HEADER_HEIGHT = 76;
+const MARKET_ANDROID_COLUMN_HEADER_HEIGHT = 30;
 const MARKET_TAB_CHANGE_TARGET_GUARD_MS = platformEnv.isNativeIOS ? 1000 : 350;
 const MARKET_TAB_SYNC_JUMP_DEFER_MS = platformEnv.isNativeIOS ? 180 : 0;
 const MARKET_TAB_USER_DRAG_ACCEPT_MS = platformEnv.isNativeIOS ? 700 : 350;
