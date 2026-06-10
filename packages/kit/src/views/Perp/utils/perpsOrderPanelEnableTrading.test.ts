@@ -563,6 +563,20 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
       }),
     ).toBe(true);
   });
+
+  it('keeps insufficient-margin buttons pressable so the press can show a toast', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButton({
+        isTradingStatusDisabled: false,
+        shouldEnableTradingBeforeOrder: false,
+        isNoEnoughMargin: true,
+        isAccountLoading: false,
+        isSubmitting: false,
+        hasBboPriceError: false,
+        isServerActionDisabled: false,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('shouldSkipPerpsOrderPanelComputedSizeValidation', () => {
