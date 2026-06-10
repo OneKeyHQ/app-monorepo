@@ -32,6 +32,8 @@ import type { IWebViewRef } from '../../WebView/types';
 const IS_UNIFIED =
   CHART_WEBVIEW_MODE !== 'online' && CHART_WEBVIEW_SCENE === 'unified';
 
+let hasUnifiedChartLoadEnded = false;
+
 // The constant unified source: keep ONLY app-global keys (in a fixed order) and
 // inject the fixed unified scene + boot symbol. Token/business-independent and
 // deterministic, so market and perps hosts produce a byte-identical source and
@@ -157,6 +159,12 @@ export function ChartWebView({
       onWebViewRef?.(null);
     };
   }, [onWebViewRef]);
+
+  useEffect(() => {
+    if (IS_UNIFIED && hasUnifiedChartLoadEnded) {
+      onLoadEndRef.current?.();
+    }
+  }, []);
 
   // (1) Eager: push our symbol the moment the transport is ready — BEFORE this
   // screen finishes focusing — so the chart switches during the navigation
@@ -294,6 +302,9 @@ export function ChartWebView({
           type: paramsRef.current.type,
           sourceKind,
         });
+        if (IS_UNIFIED) {
+          hasUnifiedChartLoadEnded = true;
+        }
         // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
         // eager send, so re-assert now that it is.
         if (autoDriveSymbolRef.current && isFocusedRef.current) {
