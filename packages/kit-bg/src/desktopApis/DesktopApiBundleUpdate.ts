@@ -1391,6 +1391,152 @@ class DesktopApiAppBundleUpdate {
     return results;
   }
 
+  // Parse "{appVersion}-{bundleVersion}" using the IDENTICAL convention as
+  // listLocalBundles(): split on the LAST dash so semver appVersions that
+  // themselves contain dashes (e.g. "6.4.0-beta") stay intact and behavior
+  // matches the rest of the codebase.
+  private parseAppVersionFromName(name: string): string | null {
+    // Strip the known download-artifact suffixes so the same parser works for
+    // both extract dir names and download file names.
+    let base = name;
+    for (const suffix of ['.progress.json', '.partial', '.zip'] as const) {
+      if (base.endsWith(suffix)) {
+        base = base.slice(0, -suffix.length);
+      }
+    }
+    const lastDash = base.lastIndexOf('-');
+    if (lastDash <= 0) {
+      return null;
+    }
+    const appVersion = base.substring(0, lastDash);
+    const bundleVersion = base.substring(lastDash + 1);
+    if (!appVersion || !bundleVersion) {
+      return null;
+    }
+    return appVersion;
+  }
+
+  /**
+   * Prune downloaded OTA artifacts whose appVersion != the running native
+   * binary version (app.getVersion()). KEEP everything matching the current
+   * appVersion (current + same-version fallbacks + pending install — OTA never
+   * crosses native version). Cleans:
+   *   - onekey-bundle/{appV}-{bV}/                         (extract dirs)
+   *   - onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
+   *   - store fallback entries with appV != currentAppV   (disk<->store sync)
+   *
+   * Safety net: never deletes the current appVersion's artifacts, and never
+   * the active currentBundleVersion from getUpdateBundleData(). Tolerates
+   * already-missing files (fs.rmSync force:true).
+   *
+   * @returns count of deleted version directories.
+   */
+  async pruneStaleAppVersionBundles(): Promise<number> {
+    const currentAppV = app.getVersion();
+    // The active install — its dir must survive even if it somehow shared an
+    // appVersion mismatch (defense in depth; it will normally match currentAppV).
+    const activeBundleData = store.getUpdateBundleData();
+    const activeAppV = activeBundleData?.appVersion;
+    const activeBundleV = activeBundleData?.bundleVersion;
+
+    let deletedDirCount = 0;
+
+    // 1) Extract dirs: onekey-bundle/{appV}-{bV}/
+    const bundleDir = getBundleDirName();
+    if (fs.existsSync(bundleDir)) {
+      const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const appV = entry.isDirectory()
+          ? this.parseAppVersionFromName(entry.name)
+          : null;
+        // Safety net: keep current appVersion AND the active install dir.
+        const isActiveInstall = Boolean(
+          activeAppV &&
+          activeBundleV &&
+          entry.name === `${activeAppV}-${activeBundleV}`,
+        );
+        if (appV && appV !== currentAppV && !isActiveInstall) {
+          const dirPath = path.join(bundleDir, entry.name);
+          try {
+            fs.rmSync(dirPath, { recursive: true, force: true });
+            deletedDirCount += 1;
+            logger.info(
+              'bundle-prune',
+              `Deleted stale extract dir: ${entry.name}`,
+            );
+          } catch (error) {
+            logger.error(
+              'bundle-prune',
+              `Failed to delete stale extract dir ${entry.name}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    // 2) Download artifacts: onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
+    const downloadDir = this.getDownloadDir();
+    if (fs.existsSync(downloadDir)) {
+      const downloadEntries = fs.readdirSync(downloadDir, {
+        withFileTypes: true,
+      });
+      for (const entry of downloadEntries) {
+        const appV = entry.isFile()
+          ? this.parseAppVersionFromName(entry.name)
+          : null;
+        // Safety net: never delete current appVersion's download artifacts.
+        if (appV && appV !== currentAppV) {
+          const filePath = path.join(downloadDir, entry.name);
+          try {
+            fs.rmSync(filePath, { force: true });
+            logger.info(
+              'bundle-prune',
+              `Deleted stale download artifact: ${entry.name}`,
+            );
+          } catch (error) {
+            logger.error(
+              'bundle-prune',
+              `Failed to delete stale download artifact ${entry.name}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    // 3) Store fallback entries: drop appVersion != currentAppV so the store
+    // stays consistent with disk (no ghost dev-switcher entries, no orphan asc
+    // bookkeeping). Keeps the current appVersion's fallbacks untouched.
+    try {
+      const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
+      const keptFallback = fallbackUpdateBundleData.filter(
+        (item) => item?.appVersion === currentAppV,
+      );
+      if (keptFallback.length !== fallbackUpdateBundleData.length) {
+        store.setFallbackUpdateBundleData(keptFallback);
+        logger.info(
+          'bundle-prune',
+          `Pruned ${
+            fallbackUpdateBundleData.length - keptFallback.length
+          } stale fallback entries`,
+        );
+      }
+    } catch (error) {
+      logger.error(
+        'bundle-prune',
+        'Failed to prune fallback store data:',
+        error,
+      );
+    }
+
+    logger.info(
+      'bundle-prune',
+      `pruneStaleAppVersionBundles done, currentAppV=${currentAppV}, deletedDirCount=${deletedDirCount}`,
+    );
+    return deletedDirCount;
+  }
+
   async verifyExtractedBundle(
     appVersion: string,
     bundleVersion: string,
