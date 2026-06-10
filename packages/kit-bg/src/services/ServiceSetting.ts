@@ -592,9 +592,25 @@ class ServiceSetting extends ServiceBase {
         decidedForVersion: platformEnv.version ?? '',
         fetchedAt: Date.now(),
       }));
-    } catch {
+      // Diagnostic only (silent): the fetch succeeded and the decision was
+      // persisted. LogToLocal, no toast / no throw.
+      defaultLogger.market.chart.chartSourceFetch({ ok: true, online });
+    } catch (e) {
       // Silent by design: keep the previous persisted decision (or the offline
       // default when none exists). Never toast / throw / report.
+      // Diagnostic only (LogToLocal): record the failure + which fallback the
+      // resolver lands on — a previously persisted decision (fetchedAt > 0) is
+      // kept, otherwise the offline default stays in place.
+      try {
+        const prev = await chartSourcePersistAtom.get();
+        defaultLogger.market.chart.chartSourceFetch({
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+          fallback: prev.fetchedAt > 0 ? 'kept-previous' : 'default-offline',
+        });
+      } catch {
+        // Never let the diagnostic itself break the silent contract.
+      }
     }
   }
 

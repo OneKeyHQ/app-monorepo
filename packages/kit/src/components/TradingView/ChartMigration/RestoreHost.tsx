@@ -73,6 +73,13 @@ export function ChartMigrationRestoreHost({
     ref.sendMessageViaInjectedScript(
       buildRestoreStorageMessage({ requestId, items: blob }),
     );
+    // Diagnostic: the RESTORE_STORAGE message was sent to the offline chart.
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'restore-sent',
+      requestId,
+      keyCount: Object.keys(blob).length,
+    });
     // If the ack never arrives this session, allow a retry on the next load by
     // clearing the sent flag (state stays restore-pending in SimpleDB).
     if (ackTimerRef.current) {
@@ -81,6 +88,13 @@ export function ChartMigrationRestoreHost({
     ackTimerRef.current = setTimeout(() => {
       if (!doneRef.current) {
         sentRef.current = false;
+        // Diagnostic: the bundle never acked within the window — the state
+        // stays restore-pending and is retried next load / launch.
+        defaultLogger.market.chart.chartMigration({
+          platform: platformEnv.appPlatform ?? 'native',
+          event: 'restore-timeout',
+          requestId,
+        });
       }
     }, CHART_MIGRATION_RESTORE_ACK_TIMEOUT_MS);
   }, [blob]);
@@ -102,6 +116,15 @@ export function ChartMigrationRestoreHost({
       if (ack.requestId && ack.requestId !== requestIdRef.current) {
         return;
       }
+      // Diagnostic: the bundle acked the restore (success or otherwise).
+      defaultLogger.market.chart.chartMigration({
+        platform: platformEnv.appPlatform ?? 'native',
+        event: 'restore-ack',
+        ok: !!ack.ok,
+        restoredCount: ack.restoredCount,
+        skippedCount: ack.skippedKeys?.length,
+        requestId: ack.requestId,
+      });
       if (ack.ok) {
         doneRef.current = true;
         if (ackTimerRef.current) {

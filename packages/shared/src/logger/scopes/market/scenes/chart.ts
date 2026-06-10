@@ -24,6 +24,81 @@ export class ChartScene extends BaseScene {
     pooled?: boolean;
     // An online URL is available as the fallback source.
     hasOnlineFallback?: boolean;
+    // Android-only: the offline bundle mounts the legacy chart origin (Part G)
+    // so the old localStorage keys are read with zero migration. iOS/desktop
+    // leave this undefined.
+    assetHost?: string;
+  }) {
+    return params;
+  }
+
+  // Diagnostic: the one-shot chart-mode decision computed at cold start (Part
+  // B2). Logged ONCE from the snapshot init (never from getChartWebViewMode,
+  // which runs in render). Captures every input that feeds the offline / online
+  // / legacy resolution so a release build's decision can be reconstructed.
+  @LogToLocal({ level: 'info' })
+  public chartModeDecision(params: {
+    platform: string;
+    isProduction: boolean;
+    // Whether the server decided online for the persisted decision.
+    serverOnline: boolean;
+    // The app version the persisted decision was made for.
+    decidedForVersion: string;
+    // The current app version (platformEnv.version).
+    currentVersion: string;
+    // decidedForVersion === currentVersion (the stale-decision reset net).
+    versionMatch: boolean;
+    // QA dev override (Part L1), when set.
+    devOverride?: 'offline' | 'legacy';
+    // The effective mode, identical to getChartWebViewMode().
+    resolvedMode: 'offline' | 'online' | 'legacy';
+  }) {
+    return params;
+  }
+
+  // Diagnostic: the server-driven chart-source fetch (online vs offline). The
+  // fetch is silent by contract (no toast / no throw), so this LogToLocal is the
+  // only signal of whether the decision was refreshed or fell back.
+  @LogToLocal({ level: 'info' })
+  public chartSourceFetch(params: {
+    ok: boolean;
+    // The server's online decision (only on a successful, valid response).
+    online?: boolean;
+    // On failure: whether the previous persisted decision was kept, or the
+    // offline default is left in place because none existed.
+    fallback?: 'kept-previous' | 'default-offline';
+    error?: string;
+  }) {
+    return params;
+  }
+
+  // Diagnostic: the TradingView chart-data migration state machine (Part D).
+  // Tracks the export -> restore lifecycle across cold starts so a stuck or
+  // skipped migration can be diagnosed from the device/desktop log.
+  @LogToLocal({ level: 'info' })
+  public chartMigration(params: {
+    platform: string;
+    event:
+      | 'init-skip-first-install'
+      | 'init-deferred'
+      | 'export-start'
+      | 'export-ok'
+      | 'export-empty'
+      | 'export-fail'
+      | 'restore-sent'
+      | 'restore-ack'
+      | 'restore-timeout'
+      | 'done'
+      | 'reset';
+    launchTimes?: number;
+    keyCount?: number;
+    attempt?: number;
+    requestId?: string;
+    ok?: boolean;
+    restoredCount?: number;
+    skippedCount?: number;
+    reason?: string;
+    state?: string;
   }) {
     return params;
   }

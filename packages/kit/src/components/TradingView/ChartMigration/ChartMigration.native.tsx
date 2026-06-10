@@ -8,6 +8,7 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ChartMigrationRestoreHost } from './RestoreHost';
@@ -81,6 +82,12 @@ function ExportHost() {
   }, []);
 
   useEffect(() => {
+    // Diagnostic: the offscreen export webview is mounting against the old
+    // origin — the export phase is starting (iOS).
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'export-start',
+    });
     timerRef.current = setTimeout(fail, CHART_MIGRATION_EXPORT_TIMEOUT_MS);
     return () => {
       if (timerRef.current) {

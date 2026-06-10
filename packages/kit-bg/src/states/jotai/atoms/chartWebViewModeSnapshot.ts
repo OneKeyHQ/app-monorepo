@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { devSettingsPersistAtom } from './devSettings';
@@ -109,6 +110,30 @@ export async function initChartWebViewModeSnapshot(): Promise<void> {
     devModeOverride = undefined;
   }
   initialized = true;
+  // Diagnostic (Part B2): log the one-shot mode decision exactly ONCE, here in
+  // the snapshot init (never in getChartWebViewMode, which runs in render and
+  // would flood the log). resolvedMode mirrors getChartWebViewMode()'s logic
+  // exactly: dev override > !isProduction => online > server-online &&
+  // version-match => online > offline.
+  const versionMatch = snapshot.decidedForVersion === platformEnv.version;
+  let resolvedMode: IChartWebViewMode;
+  if (devModeOverride === 'legacy' || devModeOverride === 'offline') {
+    resolvedMode = devModeOverride;
+  } else if (!platformEnv.isProduction) {
+    resolvedMode = 'online';
+  } else {
+    resolvedMode = snapshot.online && versionMatch ? 'online' : 'offline';
+  }
+  defaultLogger.market.chart.chartModeDecision({
+    platform: platformEnv.appPlatform ?? 'native',
+    isProduction: !!platformEnv.isProduction,
+    serverOnline: snapshot.online,
+    decidedForVersion: snapshot.decidedForVersion,
+    currentVersion: platformEnv.version ?? '',
+    versionMatch,
+    devOverride: devModeOverride,
+    resolvedMode,
+  });
   emit();
 }
 

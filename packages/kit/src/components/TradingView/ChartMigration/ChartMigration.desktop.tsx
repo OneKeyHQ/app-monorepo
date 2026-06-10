@@ -6,6 +6,7 @@ import {
   TRADING_VIEW_URL,
   TRADING_VIEW_URL_TEST,
 } from '@onekeyhq/shared/src/config/appConfig';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
@@ -58,6 +59,12 @@ function ExportHost() {
     if (settledRef.current) {
       return;
     }
+    // Diagnostic: the hidden export webview reached dom-ready — the export
+    // phase is starting (Desktop).
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'export-start',
+    });
     const inner = (webRef.current as unknown as { innerRef?: unknown })
       ?.innerRef as IElectronWebViewWithEval | undefined;
     if (!inner?.executeJavaScript) {

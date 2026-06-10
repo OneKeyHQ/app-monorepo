@@ -368,6 +368,8 @@ export function ChartWebView({
       scene: CHART_WEBVIEW_SCENE,
       pooled: !!reuseKey,
       hasOnlineFallback: !!onlineUrl,
+      // Android-only legacy origin (Part G); iOS/desktop leave it undefined.
+      assetHost: ANDROID_ASSET_HOST,
     });
   }, [mode, sourceKind, reuseKey, onlineUrl]);
 

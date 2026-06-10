@@ -442,12 +442,17 @@ class ServiceApp extends ServiceBase {
     if (!(platformEnv.isNativeIOS || platformEnv.isDesktop)) {
       return;
     }
+    // Captured inside the writer for a single post-write diagnostic (only on
+    // the first seed; re-entry is idempotent and logs nothing).
+    let seeded: { isFirstInstall: boolean; launchTimes: number } | undefined;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       // Idempotent: never overwrite an already-seeded state.
       if (v?.tradingViewChartMigration) {
         return v;
       }
-      const isFirstInstall = (v?.launchTimes ?? 0) === 0;
+      const launchTimes = v?.launchTimes ?? 0;
+      const isFirstInstall = launchTimes === 0;
+      seeded = { isFirstInstall, launchTimes };
       return {
         ...v,
         tradingViewChartMigration: {
@@ -455,6 +460,15 @@ class ServiceApp extends ServiceBase {
         },
       };
     });
+    if (seeded) {
+      defaultLogger.market.chart.chartMigration({
+        platform: platformEnv.appPlatform ?? 'native',
+        event: seeded.isFirstInstall
+          ? 'init-skip-first-install'
+          : 'init-deferred',
+        launchTimes: seeded.launchTimes,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -480,11 +494,12 @@ class ServiceApp extends ServiceBase {
     blob: Record<string, string>;
   }) {
     const { blob } = params;
+    const keyCount = Object.keys(blob).length;
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
         return v as ISimpleDBAppStatus;
       }
-      const isEmpty = Object.keys(blob).length === 0;
+      const isEmpty = keyCount === 0;
       return {
         ...v,
         tradingViewChartMigration: {
@@ -495,6 +510,13 @@ class ServiceApp extends ServiceBase {
         tradingViewChartMigrationBlob: isEmpty ? undefined : blob,
       };
     });
+    // Diagnostic: a non-empty export advances to restore-pending; an empty one
+    // is equivalent to done (nothing to restore).
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: keyCount === 0 ? 'export-empty' : 'export-ok',
+      keyCount,
+    });
   }
 
   /**
@@ -504,7 +526,7 @@ class ServiceApp extends ServiceBase {
    * (codex#2). No attempts cap, no `skipped`.
    */
   @backgroundMethod()
-  async markTradingViewChartMigrationAttempt() {
+  async markTradingViewChartMigrationAttempt(params?: { reason?: string }) {
     await simpleDb.appStatus.setRawData((v): ISimpleDBAppStatus => {
       if (v?.tradingViewChartMigration?.state !== 'export-deferred') {
         return v as ISimpleDBAppStatus;
@@ -516,6 +538,14 @@ class ServiceApp extends ServiceBase {
           lastAttemptAt: Date.now(),
         },
       };
+    });
+    // Diagnostic: a failed export attempt (offline / timeout / load error). No
+    // attempts counter is persisted (the backoff is once-per-launch via
+    // lastAttemptAt), so `attempt` is omitted; `reason` is logged when supplied.
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'export-fail',
+      reason: params?.reason,
     });
   }
 
@@ -538,6 +568,11 @@ class ServiceApp extends ServiceBase {
         tradingViewChartMigrationBlob: undefined,
       };
     });
+    // Diagnostic: restore acked ok by the chart bundle; migration complete.
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'done',
+    });
   }
 
   /**
@@ -555,6 +590,11 @@ class ServiceApp extends ServiceBase {
         tradingViewChartMigrationBlob: undefined,
       }),
     );
+    // Diagnostic (QA, Part L2): the migration state was wiped for a re-test.
+    defaultLogger.market.chart.chartMigration({
+      platform: platformEnv.appPlatform ?? 'native',
+      event: 'reset',
+    });
   }
 
   @backgroundMethod()
