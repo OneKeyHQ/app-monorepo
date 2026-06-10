@@ -23,7 +23,11 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
+import {
+  getPerpsChartReadyKey,
+  markChartDataReady,
+  useChartHasData,
+} from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import {
   CHART_WEBVIEW_SCENE,
@@ -340,11 +344,13 @@ export function TradingViewPerpsV2(
     setUnifiedReadyConfirmation((prev) => prev + 1);
   }, []);
 
-  // Chart loading mask: shown until the shared chart has data for THIS symbol.
-  // Symbol-keyed global store so re-entering an already-loaded pair reveals
-  // immediately and switching pairs shows loading until the new bars arrive — no
-  // explicit reset needed (symbol mismatch == loading).
-  const hasChartData = useChartHasData(symbol);
+  // Chart loading mask: shown until the shared chart has data for THIS chart.
+  // Identity-keyed global store (namespaced `perps:` so a perps pair is never
+  // mistaken for a same-named market token) so re-entering an already-loaded pair
+  // reveals immediately and switching pairs shows loading until the new bars
+  // arrive — no explicit reset needed (key mismatch == loading).
+  const chartReadyKey = getPerpsChartReadyKey(symbol);
+  const hasChartData = useChartHasData(chartReadyKey);
 
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
@@ -580,9 +586,9 @@ export function TradingViewPerpsV2(
     onOrderPriceUpdate,
     onTouchScroll,
     onBarsState: () => {
-      // Any bars-state event means getBars resolved for this symbol (data
+      // Any bars-state event means getBars resolved for this chart (data
       // present OR confirmed empty) — stop showing the loading mask.
-      markChartDataReady(symbol);
+      markChartDataReady(chartReadyKey);
     },
   });
 

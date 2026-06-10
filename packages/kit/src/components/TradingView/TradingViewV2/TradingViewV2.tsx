@@ -14,7 +14,11 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { markChartDataReady, useChartHasData } from '../chartDataReadyStore';
+import {
+  getMarketChartReadyKey,
+  markChartDataReady,
+  useChartHasData,
+} from '../chartDataReadyStore';
 import { ChartLoadingMask } from '../ChartLoadingMask';
 import { ChartWebView } from '../ChartWebView';
 import {
@@ -138,9 +142,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   // `const { symbol } = props` to a hoisted `var symbol`), so hasChartData was
   // permanently false and the market chart hung on the loading spinner forever
   // (perps was fine because TradingViewPerpsV2 destructures before this hook).
-  // Symbol-keyed global store so re-entering an already-loaded token reveals
-  // immediately and switching tokens shows loading until the new token's bars arrive.
-  const hasChartData = useChartHasData(symbol);
+  // Identity-keyed global store (surface + network + address + symbol) so
+  // re-entering an already-loaded token reveals immediately, switching tokens
+  // shows loading until the new token's bars arrive, and a same-named token on a
+  // different chain is NOT mistaken for this one.
+  const chartReadyKey = getMarketChartReadyKey({
+    networkId,
+    tokenAddress,
+    symbol,
+  });
+  const hasChartData = useChartHasData(chartReadyKey);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -173,9 +184,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
     onBarsState: () => {
-      // Any bars-state event means getBars resolved for this symbol (data
+      // Any bars-state event means getBars resolved for this chart (data
       // present OR confirmed empty) — stop showing the loading mask.
-      markChartDataReady(symbol);
+      markChartDataReady(chartReadyKey);
     },
   });
 

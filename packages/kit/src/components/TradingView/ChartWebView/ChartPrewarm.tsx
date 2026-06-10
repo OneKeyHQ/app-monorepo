@@ -5,7 +5,11 @@ import { ChartWebView } from '.';
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { markChartDataReady } from '../chartDataReadyStore';
+import {
+  getMarketChartReadyKey,
+  getPerpsChartReadyKey,
+  markChartDataReady,
+} from '../chartDataReadyStore';
 import { useTradingViewUrl } from '../hooks';
 import { usePerpsTradingViewMessageHandler } from '../TradingViewPerpsV2/messageHandlers';
 import { useTradingViewMessageHandler } from '../TradingViewV2/messageHandlers';
@@ -77,11 +81,11 @@ function PerpsPrewarmHost({
     // signal is routed to whichever host owns the WebView when it fires, which
     // can be THIS offscreen prewarm (esp. on Android, which has no warmDriver
     // fallback) — without this it would be dropped and the detail would stay on
-    // the loading mask forever.
+    // the loading mask forever. Key must match the perps detail host exactly.
     onBarsState: () => {
-      // Any bars-state event means getBars resolved for this symbol (data
+      // Any bars-state event means getBars resolved for this chart (data
       // present OR confirmed empty) — stop showing the loading mask.
-      markChartDataReady(symbol);
+      markChartDataReady(getPerpsChartReadyKey(symbol));
     },
   });
 
@@ -118,10 +122,14 @@ function MarketPrewarmHost({
     networkId: networkId ?? '',
     tokenSymbol: symbol,
     webRef,
+    // Key must match the market detail host exactly (surface + network + address
+    // + symbol) so this prewarm's bars-state clears the detail's mask.
     onBarsState: () => {
-      // Any bars-state event means getBars resolved for this symbol (data
+      // Any bars-state event means getBars resolved for this chart (data
       // present OR confirmed empty) — stop showing the loading mask.
-      markChartDataReady(symbol);
+      markChartDataReady(
+        getMarketChartReadyKey({ networkId, tokenAddress: address, symbol }),
+      );
     },
   });
 

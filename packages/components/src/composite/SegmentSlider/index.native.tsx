@@ -137,11 +137,34 @@ function SegmentSliderComponent({
     [bgPrimary, neutral5, bg, borderStrong],
   );
 
+  // Always holds the latest external `value`, so the hybridRef callback can push
+  // it once the native view attaches even if `value` changed before that.
+  const latestValueRef = useRef(value);
+  // Last value the native side reported, or that we successfully pushed in. Lets
+  // us skip the post-drag re-render's setValue (value already matches) and any
+  // other no-op. Declared before hybridRef so the callback can read it.
+  const lastValueRef = useRef(value);
+  // True between onSlideStart/onSlideComplete; gates the value-sync effect so a
+  // re-render mid-drag (the parent echoing our own onChange back as `value`)
+  // doesn't call setValue and cancel the in-flight drag.
+  const draggingRef = useRef(false);
+
   const sliderRef = useRef<ISegmentSliderHybridRef | null>(null);
   const hybridRef = useMemo(
     () =>
       callback((node: ISegmentSliderHybridRef) => {
         sliderRef.current = node;
+        // Catch-up: the native view's `defaultValue` only captures the FIRST
+        // value. If `value` advanced before this ref attached (async native view
+        // creation), the value-sync effect's setValue was a no-op against a null
+        // ref — push the latest value now so it isn't lost.
+        if (
+          !draggingRef.current &&
+          latestValueRef.current !== lastValueRef.current
+        ) {
+          lastValueRef.current = latestValueRef.current;
+          node.setValue(latestValueRef.current);
+        }
       }),
     [],
   );
@@ -149,13 +172,6 @@ function SegmentSliderComponent({
   // Value captured ONCE for the uncontrolled native view's `defaultValue`.
   // Subsequent external changes are pushed via `setValue` in the effect below.
   const initialValueRef = useRef(value);
-  // True between onSlideStart/onSlideComplete; gates the value-sync effect so a
-  // re-render mid-drag (the parent echoing our own onChange back as `value`)
-  // doesn't call setValue and cancel the in-flight drag.
-  const draggingRef = useRef(false);
-  // Last value the native side reported, or that we pushed in. Lets us skip the
-  // post-drag re-render's setValue (value already matches) and any other no-op.
-  const lastValueRef = useRef(value);
 
   const handleChange = useCallback(
     (next: number) => {
@@ -176,12 +192,19 @@ function SegmentSliderComponent({
   }, [onSlideComplete]);
 
   useEffect(() => {
+    latestValueRef.current = value;
     // Skip the initial mount (covered by defaultValue, value === lastValueRef),
     // any update while dragging, and no-op echoes of the native value.
     if (draggingRef.current) return;
     if (value === lastValueRef.current) return;
+    const node = sliderRef.current;
+    if (!node) {
+      // Ref not ready yet: leave lastValueRef stale so the hybridRef callback
+      // pushes this value once the native view attaches (else it'd be lost).
+      return;
+    }
     lastValueRef.current = value;
-    sliderRef.current?.setValue(value);
+    node.setValue(value);
   }, [value]);
 
   return (
