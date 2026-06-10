@@ -2,6 +2,8 @@ import { useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
@@ -26,6 +28,20 @@ export type IHomeBalanceState = 'unknown' | 'zero' | 'positive';
 // would let the header (still latched) and a freshly mounted action row
 // disagree mid-refresh. Keyed by `${accountId}__${networkId}`.
 const fundedOwners = new Set<string>();
+
+// `account.id` is deterministically derived from key material (HD:
+// `${walletId}--${path}`, imported: `imported--${coinType}--${publicKey}`), so
+// deleting a wallet and re-importing the same seed in one session reuses the
+// identical id. Without eviction, an address emptied before that re-import
+// would hit a stale "funded" latch and wrongly show Send/Swap instead of the
+// Add-money state — the opposite of this hook's intent. Clear wholesale on
+// removal (cheap; still-funded owners re-latch on their next render where the
+// live scan sees their balance). Registered once at module load; mirrors the
+// cache-eviction pattern in ServiceFreshAddress / ServiceNotification. NOT
+// cleared on WalletUpdate — that fires on renames etc. and would defeat the
+// anti-flap latch during routine refreshes.
+appEventBus.on(EAppEventBusNames.WalletRemove, () => fundedOwners.clear());
+appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 
 // Three sources:
 //   1. Held tokens (risk-filtered token list) — a "funded" override, latched
