@@ -207,6 +207,11 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 
 function JotaiContextRootProvidersAutoMountCmp() {
   const [map] = useJotaiContextStoreMapAtom();
+  okRaceLog(
+    `AutoMount render asKeys=[${Object.keys(map)
+      .filter((k) => k.includes('@swap') || k.includes('@perp'))
+      .join(',')}]`,
+  ); // OKRACE — shows what the auto-mount's (cross-runtime) map atom contains
   const mapEntries = useMemo(() => Object.entries(map), [map]);
   const shouldMountSwapColdStartRootProvider = useMemo(
     () => hasSwapColdStartSnapshot(),
