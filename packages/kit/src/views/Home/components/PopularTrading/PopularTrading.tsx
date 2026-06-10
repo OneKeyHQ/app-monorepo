@@ -63,11 +63,14 @@ import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
   getPopularTradingMetricColumns,
   renderPopularTradingRightMetrics,
+  renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
 } from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
 import {
   getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayPrice,
+  getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
   shouldUseStockMetadataColumnsForTokens,
@@ -123,6 +126,7 @@ function RecommendCardItem({
         />
         <YStack
           flexShrink={1}
+          minWidth={0}
           {...(platformEnv.isNativeAndroid
             ? {
                 width: '$20',
@@ -131,16 +135,18 @@ function RecommendCardItem({
               }
             : {})}
         >
-          <XStack>
+          <XStack alignItems="center" gap="$1" minWidth={0}>
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={1}
+              flexShrink={1}
               $sm={{
                 size: '$bodyMdMedium',
               }}
             >
               {token.symbol}
             </SizableText>
+            {renderPopularTradingStockBadges(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -386,14 +392,20 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                   networkId={record.perpsCoin ? undefined : record.chainId}
                   showNetworkIcon={!record.perpsCoin}
                 />
-                <YStack>
-                  <XStack alignItems="center" gap="$1">
-                    <SizableText size="$bodyLgMedium">
+                <YStack minWidth={0}>
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    <SizableText
+                      size="$bodyLgMedium"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      flexShrink={1}
+                    >
                       {record.symbol}
                     </SizableText>
                     {record.maxLeverage ? (
                       <LeverageBadge leverage={record.maxLeverage} />
                     ) : null}
+                    {renderPopularTradingStockBadges(record)}
                   </XStack>
                   <SizableText
                     size="$bodyMd"
@@ -441,19 +453,22 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 networkId={record.perpsCoin ? undefined : record.chainId}
                 showNetworkIcon={!record.perpsCoin}
               />
-              <YStack>
-                <XStack alignItems="center" gap="$1">
-                  <SizableText size="$bodyLgMedium">
+              <YStack minWidth={0}>
+                <XStack alignItems="center" gap="$1" minWidth={0}>
+                  <SizableText
+                    size="$bodyLgMedium"
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    flexShrink={1}
+                  >
                     {record.symbol}
                   </SizableText>
                   {record.maxLeverage ? (
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
+                  {renderPopularTradingStockBadges(record)}
                 </XStack>
-                {renderPopularTradingTokenSubtitle(
-                  record,
-                  useStockMetadataColumns,
-                )}
+                {renderPopularTradingTokenSubtitle(record)}
               </YStack>
             </XStack>
           </XStack>
@@ -584,8 +599,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
               stock: item.stock,
@@ -658,8 +673,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
               marketCap: getMarketTokenDisplayMarketCap(item),
               volume24h: getMarketTokenDisplayVolume24h(item),
               stock: item.stock,

@@ -31,6 +31,7 @@ import {
 import { MobileMarketTokenFlatList } from '../components/MarketTokenList/MobileMarketTokenFlatList';
 import { MobileMarketWatchlistFlatList } from '../components/MarketTokenList/MobileMarketWatchlistFlatList';
 import { useOpenMarketWatchlistEditDialog } from '../components/MarketTokenList/useOpenMarketWatchlistEditDialog';
+import { isMarketStockCategoryById } from '../utils';
 
 import { useMarketTabsLogic, useSyncedMarketTab } from './hooks';
 
@@ -59,7 +60,8 @@ interface ITabBarDynamicContext {
   isWatchlistEmpty: boolean;
   isTokenCacheReady: boolean;
   onEditWatchlist: () => void;
-  isSpotTabName: (tabName: string) => boolean;
+  getSpotCategoryIdByTabName: (tabName: string) => string | undefined;
+  stockDataCategoryMap: Record<string, boolean>;
   perpsCategories: { tabId: string; name: string }[];
   selectedCategoryId: string;
   onSelectCategory: (categoryId: string) => void;
@@ -81,7 +83,21 @@ function MarketHomeTabBar({
   const ctx = useContext(TabBarDynamicContext)!;
   const { activeTabName } = ctx;
   const currentFocusedTabName = activeTabName || tabBarProps.tabNames[0] || '';
-  const showSpotSubHeader = ctx.isSpotTabName(currentFocusedTabName);
+  const currentSpotCategoryId = ctx.getSpotCategoryIdByTabName(
+    currentFocusedTabName,
+  );
+  const showSpotSubHeader = Boolean(currentSpotCategoryId);
+  const currentSpotCategoryHasStockData = Boolean(
+    currentSpotCategoryId &&
+    (isMarketStockCategoryById(
+      ctx.filterBarProps.categories,
+      currentSpotCategoryId,
+    ) ||
+      ctx.stockDataCategoryMap[currentSpotCategoryId]),
+  );
+  const showSpotFilterBar = Boolean(
+    currentSpotCategoryId && !currentSpotCategoryHasStockData,
+  );
 
   // Watchlist sub-header: conditional rendering (hidden when empty).
   // Spot & Perps sub-headers: display toggling keeps both mounted across
@@ -124,12 +140,14 @@ function MarketHomeTabBar({
         </>
       ) : null}
       <YStack display={isSpotOrPerps && showSpotSubHeader ? 'flex' : 'none'}>
-        <MarketFilterBarSmall
-          selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
-          timeRange={ctx.filterBarProps.timeRange}
-          onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
-          onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
-        />
+        {showSpotFilterBar ? (
+          <MarketFilterBarSmall
+            selectedNetworkId={ctx.filterBarProps.selectedNetworkId}
+            timeRange={ctx.filterBarProps.timeRange}
+            onNetworkIdChange={ctx.filterBarProps.onNetworkIdChange}
+            onTimeRangeChange={ctx.filterBarProps.onTimeRangeChange}
+          />
+        ) : null}
         <MarketListColumnHeader />
       </YStack>
       <YStack
@@ -171,7 +189,7 @@ function MobileLayoutComponent({
     perpsTabName,
     showPerpsTab,
     handleTabChange,
-    isSpotTabName,
+    getSpotCategoryIdByTabName,
     selectedTabName,
   } = useMarketTabsLogic(onTabChange, {
     spotCategories: filterBarProps.categories,
@@ -190,6 +208,23 @@ function MobileLayoutComponent({
   // Watchlist category filter state
   const [watchlistFilter, setWatchlistFilter] =
     useState<IWatchlistFilterType>('all');
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
 
   // Perps category state (lifted from MobileMarketPerpsFlatList)
   const { perpsCategories: rawPerpsCategories } = useMarketBasicConfig();
@@ -294,7 +329,8 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       onEditWatchlist: openMarketWatchlistEditDialog,
-      isSpotTabName,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       onSelectCategory: setSelectedCategoryId,
@@ -306,7 +342,8 @@ function MobileLayoutComponent({
       isWatchlistEmpty,
       isTokenCacheReady,
       openMarketWatchlistEditDialog,
-      isSpotTabName,
+      getSpotCategoryIdByTabName,
+      stockDataCategoryMap,
       perpsCategories,
       selectedCategoryId,
       activeTabName,
@@ -327,6 +364,7 @@ function MobileLayoutComponent({
           selectedCategory={item.categoryId}
           timeRange={filterBarProps.timeRange}
           listContainerProps={listContainerProps}
+          onStockDataChange={handleStockDataChange}
         />
       </Tabs.Tab>
     )),

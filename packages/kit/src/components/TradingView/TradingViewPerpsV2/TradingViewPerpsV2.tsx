@@ -300,11 +300,11 @@ export function TradingViewPerpsV2(
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
 
-  // Unified: perps shares the single warm pooled WebView (no cold load, no
-  // spinner) and the host auto-drives SYMBOL_CHANGE (source:'hyperliquid', from
-  // params.type='perps'). The shared page is loaded once globally, so per-load
-  // chartReady/perpsReady don't re-fire for a later perps host — treat the chart
-  // as ready (the page's listeners are already up) so lines still sync.
+  // Unified: perps shares the single warm pooled WebView and the host auto-drives
+  // SYMBOL_CHANGE (source:'hyperliquid', from params.type='perps'). The shared
+  // page is loaded once globally, so per-load chartReady/perpsReady don't re-fire
+  // for a later perps host — treat the chart as ready (the page's listeners are
+  // already up) so lines still sync.
   const useUnifiedHost =
     (platformEnv.isNative &&
       CHART_WEBVIEW_MODE !== 'legacy' &&

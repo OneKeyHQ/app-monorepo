@@ -17,6 +17,7 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
+  clearWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -325,6 +326,25 @@ export default function DevAppUpdateTestModal() {
 
           <Button variant="secondary" onPress={showFailedTestsDialog}>
             Auto Update Failed Tests
+          </Button>
+
+          <Divider />
+
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              // Wipe the "what's new" marker and force the update status off
+              // `done` so that isFirstLaunchAfterUpdated() + isWhatsNewShown()
+              // both pass on the next cold start, replaying the changelog dialog.
+              clearWhatsNewShown();
+              await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+              Toast.success({
+                title: "What's New reset",
+                message: 'Restart the app to replay the changelog dialog.',
+              });
+            }}
+          >
+            {`Reset "What's New" (replay changelog)`}
           </Button>
 
           <Divider />

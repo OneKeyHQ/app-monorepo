@@ -1,5 +1,9 @@
-import { NumberSizeableText, YStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
+import {
+  StockSourceLogo,
+  SubtitleBadge,
+} from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -117,23 +121,46 @@ function getPopularTradingMetricColumns({
   ];
 }
 
-function renderPopularTradingTokenSubtitle(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns: boolean,
-) {
+function renderPopularTradingTokenSubtitle(record: IFavoriteTokenDisplay) {
+  if (record.stock) {
+    return (
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxWidth={200}
+      >
+        {record.name}
+      </SizableText>
+    );
+  }
+
   return (
     <NumberSizeableText
       size="$bodyMd"
       formatter="marketCap"
       formatterOptions={{
         currency: '$',
-        ...(useStockMetadataColumns ? { capAtMaxT: true } : undefined),
       }}
     >
-      {useStockMetadataColumns
-        ? getMarketCapValue(record, useStockMetadataColumns)
-        : getVolume24hValue(record, useStockMetadataColumns)}
+      {getVolume24hValue(record)}
     </NumberSizeableText>
+  );
+}
+
+function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
+  if (!record.stock) {
+    return null;
+  }
+
+  return (
+    <>
+      <StockSourceLogo stock={record.stock} />
+      {record.stock.subtitle ? (
+        <SubtitleBadge subtitle={record.stock.subtitle} />
+      ) : null}
+    </>
   );
 }
 
@@ -189,5 +216,6 @@ function renderPopularTradingRightMetrics(
 export {
   getPopularTradingMetricColumns,
   renderPopularTradingRightMetrics,
+  renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,
 };

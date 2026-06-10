@@ -62,8 +62,13 @@ import type {
   IAccountDeriveInfo,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -82,6 +87,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type { IAddressValidateStatus } from '@onekeyhq/shared/types/address';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -435,6 +441,7 @@ function SendAmountInputContainer() {
   const {
     result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
     isLoading: isLoadingAssets,
+    run: refreshTokenDetails,
   } = usePromiseResult(
     async () => {
       if (!account?.id || !network?.id) return;
@@ -498,7 +505,15 @@ function SendAmountInputContainer() {
       tokenInfo,
       settings.inscriptionProtection,
     ],
-    { watchLoading: true, alwaysSetState: true },
+    {
+      watchLoading: true,
+      alwaysSetState: true,
+      // Keep the balance fresh while the user lingers on this page: poll on the
+      // standard token interval and refetch when the page regains focus. The
+      // event subscription below adds second-level refresh on tx/push updates.
+      pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
+      revalidateOnFocus: true,
+    },
   );
 
   // Calculate balanceParsed if not provided
@@ -507,6 +522,27 @@ function SendAmountInputContainer() {
       .shiftedBy(tokenDetails.info.decimals * -1)
       .toFixed();
   }
+
+  // Balance can change elsewhere (incoming transfer, a tx the user just sent, a
+  // push notification) while the user stays on this amount page. Polling and
+  // revalidateOnFocus cover the slow / return-to-page paths; subscribing to the
+  // balance-refresh events makes the displayed available balance update within
+  // seconds of those changes too. The input value is intentionally left
+  // untouched here — only the available balance display and the validation
+  // react to the new balance.
+  useEffect(() => {
+    const refresh = () => {
+      void refreshTokenDetails({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.RefreshTokenList, refresh);
+    appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshTokenList, refresh);
+      appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, refresh);
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
+    };
+  }, [refreshTokenDetails]);
 
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
@@ -646,9 +682,14 @@ function SendAmountInputContainer() {
 
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
+    // Backend may report "--" for an unknown price, which parses to NaN. Guard
+    // the multiplication the same way the linkedAmount conversion does so the
+    // UTXO-selected fiat balance never renders as "NaN".
+    const priceBN = new BigNumber(tokenDetails.price ?? 0);
     if (
       currentSelectedUtxoInfo?.totalValue &&
-      tokenDetails.price &&
+      priceBN.isFinite() &&
+      priceBN.isGreaterThan(0) &&
       tokenDetails.info
     ) {
       const balanceInToken = new BigNumber(
@@ -657,7 +698,7 @@ function SendAmountInputContainer() {
           token: tokenDetails.info,
         }),
       );
-      return balanceInToken.times(tokenDetails.price).toFixed();
+      return balanceInToken.times(priceBN).toFixed();
     }
     return tokenDetails.fiatValue ?? '0';
   }, [tokenDetails, currentSelectedUtxoInfo?.totalValue]);
@@ -671,9 +712,14 @@ function SendAmountInputContainer() {
         ? new BigNumber(chainValueUtils.convertBtcToSats(amountBN.toFixed()))
         : amountBN;
 
+    // Backend returns "--" (and 0) for "no price"; new BigNumber("--") is NaN.
+    // Treat any non-finite / non-positive price as unusable so neither the
+    // fiat→token division nor the token→fiat multiplication can yield NaN.
+    const price = new BigNumber(tokenDetails?.price ?? 0);
+    const hasPrice = price.isFinite() && price.isGreaterThan(0);
+
     if (isUseFiat) {
-      const price = new BigNumber(tokenDetails?.price ?? 0);
-      if (price.isZero()) {
+      if (!hasPrice) {
         return { originalAmount: '0', linkedAmount: '0' };
       }
       // fiat / pricePerSat = sats. Convert to BTC if lnUnit is BTC.
@@ -692,7 +738,9 @@ function SendAmountInputContainer() {
         linkedAmount: amountBN.toFixed(),
       };
     }
-    const price = new BigNumber(tokenDetails?.price ?? 0);
+    if (!hasPrice) {
+      return { originalAmount: amountBN.toFixed(), linkedAmount: '0' };
+    }
     const linkedAmountValue = amountForPrice.multipliedBy(price);
     return {
       originalAmount: amountBN.toFixed(),
@@ -706,6 +754,17 @@ function SendAmountInputContainer() {
     tokenDetails?.info.decimals,
     tokenDetails?.price,
   ]);
+
+  // Usable price gate for the fiat/token toggle. Defined here (before the
+  // toggle handler) so handleToggleFiatMode can guard on it. Backend may send
+  // "--" for an unknown price, which parses to NaN downstream.
+  const hasUsablePrice = useMemo(() => {
+    // Match the finite + positive check used by linkedAmount / maxBalanceFiat so
+    // the three "is the price usable" gates can't drift apart. "--" parses to
+    // NaN (non-finite), so it is correctly treated as unusable.
+    const priceBN = new BigNumber(tokenDetails?.price ?? 0);
+    return priceBN.isFinite() && priceBN.isGreaterThan(0);
+  }, [tokenDetails?.price]);
 
   const privateSendAmount = useMemo(
     () => (isUseFiat ? linkedAmount.originalAmount : amount),
@@ -956,6 +1015,13 @@ function SendAmountInputContainer() {
   ]);
 
   const handleToggleFiatMode = useCallback(() => {
+    // No usable price → the fiat conversion is NaN. Refuse to ENTER fiat mode
+    // so NaN is never written into the input. Exiting fiat mode stays allowed:
+    // polling can drop the price mid-session while the user sits in fiat mode,
+    // and without this escape hatch they'd be locked there until the price
+    // recovers. The exit path is NaN-safe — `linkedAmount.originalAmount`
+    // collapses to '0' when the price is unusable.
+    if (!hasUsablePrice && !isUseFiat) return;
     // When currently in fiat mode (isUseFiat=true), switching to token mode -> use originalAmount
     // When currently in token mode (isUseFiat=false), switching to fiat mode -> use linkedAmount
     let amountValue = isUseFiat
@@ -984,6 +1050,7 @@ function SendAmountInputContainer() {
     form.setValue('amount', amountValue);
   }, [
     form,
+    hasUsablePrice,
     isLightningNetwork,
     isUseFiat,
     linkedAmount.linkedAmount,
@@ -1301,12 +1368,17 @@ function SendAmountInputContainer() {
     validationEffectiveMinAmount,
   ]);
 
-  // Fiat input needs a usable price to convert it to a token amount. Single
-  // source of truth for the fiat-mode guards below.
-  const hasUsablePrice = useMemo(
-    () => new BigNumber(tokenDetails?.price ?? 0).isGreaterThan(0),
-    [tokenDetails?.price],
-  );
+  // Balance just refreshed in the background (polling / events). Re-run the
+  // field validator so the vault-level checks (gas-aware insufficient balance)
+  // and form.isValid stay in sync with the new balance — the button-level
+  // isInsufficientBalance memo updates on its own, but the form validator
+  // otherwise only re-runs on user input. The trigger effect above covers
+  // PRIVATE mode only. `maxBalance` / `balanceParsed` are stable strings, so
+  // this only fires when the balance value actually changes, not on every poll.
+  useEffect(() => {
+    if (!form.getValues('amount')) return;
+    void form.trigger('amount');
+  }, [form, maxBalance, tokenDetails?.balanceParsed]);
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
@@ -2873,6 +2945,17 @@ function SendAmountInputContainer() {
       minAmountHint ?? (hasAmountError ? NEUTRAL_AMOUNT_HINT : undefined);
   }
 
+  // Fiat/token equivalent shown beneath the input. Backend may report "--" for
+  // an unknown price (NaN once parsed); show the unavailable placeholder and
+  // disable the toggle below instead of surfacing NaN or carrying it into the
+  // input.
+  let fiatTokenEquivalentValue = UNAVAILABLE_DISPLAY;
+  if (hasUsablePrice) {
+    fiatTokenEquivalentValue = isUseFiat
+      ? linkedAmount.originalAmount
+      : linkedAmount.linkedAmount;
+  }
+
   const renderAmountInput = useMemo(
     () => (
       <>
@@ -2889,14 +2972,17 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible={!isInvoiceAmountLocked}
+            reversible={!isInvoiceAmountLocked && (hasUsablePrice || isUseFiat)}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-              value: isUseFiat
-                ? linkedAmount.originalAmount
-                : linkedAmount.linkedAmount,
-              onPress: handleToggleFiatMode,
+              // Unknown price → show "--" and disable entering fiat mode so NaN
+              // can't be carried into the input. When already IN fiat mode the
+              // toggle stays live as an escape hatch back to token mode (the
+              // price may have dropped to "--" mid-session via polling).
+              value: fiatTokenEquivalentValue,
+              onPress:
+                hasUsablePrice || isUseFiat ? handleToggleFiatMode : undefined,
             }}
             inputProps={{
               inputAccessoryViewID: platformEnv.isNativeIOS
@@ -2943,17 +3029,17 @@ function SendAmountInputContainer() {
     [
       amountHint,
       currencySymbol,
+      fiatTokenEquivalentValue,
       handleAmountInputChange,
       handleAmountInputBlur,
       handleAmountInputFocus,
       handleToggleFiatMode,
       handleValidateTokenAmount,
+      hasUsablePrice,
       intl,
       isIntegerAmount,
       isInvoiceAmountLocked,
       isUseFiat,
-      linkedAmount.linkedAmount,
-      linkedAmount.originalAmount,
       tokenSymbol,
     ],
   );
@@ -3068,7 +3154,19 @@ function SendAmountInputContainer() {
   ]);
 
   const renderBalanceRowContent = useCallback(() => {
-    if (isLoadingAssets) {
+    // Only show the skeleton before the first balance load. During polling /
+    // event-driven refreshes `isLoadingAssets` toggles true again, but the
+    // existing balance stays visible and updates silently to avoid a periodic
+    // skeleton flash. The `balanceAccountId` clause covers in-place account
+    // switches (auto derive-type switch): the previous account's balance stays
+    // in `tokenDetails` until the new fetch lands, and without it that stale
+    // balance — and a tappable Max fed by it — would briefly render as if it
+    // belonged to the new account. Regular polls keep `balanceAccountId ===
+    // currentAccountId`, so they never re-trigger the skeleton.
+    if (
+      (isLoadingAssets && !tokenDetails && !nftDetails) ||
+      balanceAccountId !== currentAccountId
+    ) {
       return (
         <>
           <Skeleton w="$10" h="$10" radius="round" mr="$3" />
@@ -3171,7 +3269,9 @@ function SendAmountInputContainer() {
       </>
     );
   }, [
+    balanceAccountId,
     balanceInfoContent,
+    currentAccountId,
     form,
     intl,
     isLoadingAssets,
@@ -3179,7 +3279,9 @@ function SendAmountInputContainer() {
     maxBalance,
     maxBalanceFiat,
     network?.logoURI,
+    nftDetails,
     sendMode,
+    tokenDetails,
     tokenInfo?.logoURI,
     tokenSymbol,
   ]);
