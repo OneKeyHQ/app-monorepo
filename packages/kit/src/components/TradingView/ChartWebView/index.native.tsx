@@ -192,6 +192,10 @@ export function ChartWebView({
   const switchAckedRef = useRef(false);
   const resentRef = useRef(false);
   const resendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The coin we last drove (raw symbol, e.g. "ETH"). Used to make the ack below
+  // symbol-aware for perps so the stale boot symbol's data can't false-ack the
+  // self-heal (see onMessageProp).
+  const drivenSymbolRef = useRef<string>('');
 
   const sendSymbolChange = useCallback(() => {
     const ref = hybridRefHolder.current;
@@ -200,6 +204,7 @@ export function ChartWebView({
     ref.postMessage(JSON.stringify(buildSymbolChangeMessage(current)));
     // Arm the 3s self-heal (see FALLBACK note above).
     const drivenSymbol = current.symbol;
+    drivenSymbolRef.current = drivenSymbol;
     switchAckedRef.current = false;
     resentRef.current = false;
     if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
@@ -406,10 +411,31 @@ export function ChartWebView({
     () =>
       callback((raw: string) => {
         try {
-          // FALLBACK ack (see sendSymbolChange): any of these messages means the
-          // page is actively fetching/rendering for the CURRENT symbol, i.e. the
-          // SYMBOL_CHANGE took — so cancel the pending 3s force-resend.
-          if (
+          // FALLBACK ack (see sendSymbolChange): a page->native message means the
+          // page is fetching/rendering — i.e. the SYMBOL_CHANGE took — so cancel the
+          // pending 3s force-resend.
+          //
+          // PERPS must verify the message is for OUR driven coin, not the stale boot
+          // symbol (HL:BTC). The page emits barsState/renderReady for whatever symbol
+          // it is CURRENTLY showing, so a symbol-blind ack lets the boot symbol's
+          // data cancel the force:true self-heal and leave the chart permanently
+          // stuck on the wrong coin (observed: perps ETHUSDC showing BTC candles).
+          // Perps data requests (Hyperliquid price-scale / marks) carry the raw coin
+          // as `"symbol":"<coin>"`, so gate the ack on an exact match. Market
+          // messages don't reliably echo our symbol param and market switching
+          // already works, so keep the looser type-only ack there.
+          if (paramsRef.current.type === 'perps') {
+            const sym = drivenSymbolRef.current;
+            if (
+              !!sym &&
+              raw.includes(`"symbol":"${sym}"`) &&
+              (raw.includes('tradingview_getHyperliquidPriceScale') ||
+                raw.includes('tradingview_getMarks') ||
+                raw.includes('tradingview_getKLineData'))
+            ) {
+              switchAckedRef.current = true;
+            }
+          } else if (
             raw.includes('tradingview_barsState') ||
             raw.includes('tradingview_renderReady') ||
             raw.includes('tradingview_getKLineData')
