@@ -24,6 +24,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -78,12 +79,14 @@ function FindAddressDialogContent({
   accountName,
   accountPath,
   addressTypeLabel,
+  deriveType,
 }: {
   accountId: string;
   networkId: string;
   accountName: string;
   accountPath: string;
   addressTypeLabel: string;
+  deriveType: string;
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
@@ -113,6 +116,10 @@ function FindAddressDialogContent({
           title: findAddressCopy.alreadyDiscovered,
         });
       } else {
+        defaultLogger.transaction.findAddress.findAddressClaimed({
+          networkId,
+          deriveType,
+        });
         Toast.success({
           title: `${findAddressCopy.addedToast} · ${findAddressCopy.indexBadge(
             item.index,
@@ -126,7 +133,14 @@ function FindAddressDialogContent({
     } finally {
       setSubmitting(false);
     }
-  }, [accountId, networkId, parsedIndex, submitting, dialogInstance]);
+  }, [
+    accountId,
+    networkId,
+    deriveType,
+    parsedIndex,
+    submitting,
+    dialogInstance,
+  ]);
 
   const renderReadonlyRow = (label: string, value: string) => (
     <XStack justifyContent="space-between" alignItems="center" gap="$3">
@@ -198,12 +212,14 @@ export function showBtcFindAddressDialog({
   accountName,
   accountPath,
   addressTypeLabel,
+  deriveType,
 }: {
   accountId: string;
   networkId: string;
   accountName: string;
   accountPath: string;
   addressTypeLabel: string;
+  deriveType: string;
 }) {
   Dialog.show({
     title: findAddressCopy.dialogTitle,
@@ -214,6 +230,7 @@ export function showBtcFindAddressDialog({
         accountName={accountName}
         accountPath={accountPath}
         addressTypeLabel={addressTypeLabel}
+        deriveType={deriveType}
       />
     ),
     showFooter: false,
@@ -317,6 +334,9 @@ function FindAddressRow({
           accountId,
           networkId,
           relPath: item.relPath,
+        });
+        defaultLogger.transaction.findAddress.claimedAddressRemoved({
+          networkId,
         });
       },
     });

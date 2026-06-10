@@ -29,6 +29,7 @@ import {
 import type { IUtxoInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { COIN_CONTROL_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalSendRoutes,
   IModalSendParamList,
@@ -231,6 +232,18 @@ function CoinControlPage() {
 
   // Done button handler
   const handleDone = useCallback(() => {
+    const claimedSelectedCount = utxoList.filter(
+      (utxo) =>
+        utxo.isCustomClaimed &&
+        selectedUTXOs.has(generateUtxoKey(utxo.txid, utxo.vout)),
+    ).length;
+    if (claimedSelectedCount > 0) {
+      defaultLogger.transaction.findAddress.spendFromClaimed({
+        networkId,
+        claimedUtxoCount: claimedSelectedCount,
+      });
+    }
+
     // Save selected UTXOs and strategy to atom
     updateSelectedUTXOs({
       networkId,
@@ -244,6 +257,7 @@ function CoinControlPage() {
     // Navigate back to SendDataInput page
     navigation.pop();
   }, [
+    utxoList,
     selectedUTXOs,
     totalValueRaw,
     strategy,

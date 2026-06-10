@@ -35,6 +35,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -667,12 +668,14 @@ function BtcAddresses() {
   const onPressFindAddress = useCallback(() => {
     const accountPath = currentAccount?.path ?? account?.path;
     if (!accountPath) return;
+    defaultLogger.transaction.findAddress.findAddressOpened({ networkId });
     showBtcFindAddressDialog({
       accountId: effectiveAccountId,
       networkId,
       accountName: currentAccount?.name ?? account?.name ?? '',
       accountPath,
       addressTypeLabel,
+      deriveType: currentDeriveType ?? '',
     });
   }, [
     account?.name,
@@ -680,12 +683,16 @@ function BtcAddresses() {
     addressTypeLabel,
     currentAccount?.name,
     currentAccount?.path,
+    currentDeriveType,
     effectiveAccountId,
     networkId,
   ]);
 
   const copyFindAddress = useCallback(
     (item: IBtcFindAddressItem) => {
+      defaultLogger.transaction.findAddress.claimedAddressCopied({
+        networkId,
+      });
       copyAddress({
         key: item.relPath,
         address: item.address,
@@ -696,7 +703,7 @@ function BtcAddresses() {
         name: item.address,
       });
     },
-    [copyAddress],
+    [copyAddress, networkId],
   );
 
   const headerRight = useMemo(() => {

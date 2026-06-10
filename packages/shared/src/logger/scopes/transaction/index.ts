@@ -2,6 +2,7 @@ import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
 import { CoinSelectScene } from './scenes/coinselect';
+import { FindAddressScene } from './scenes/findAddress';
 import { ReceiveScene } from './scenes/receive';
 import { SendScene } from './scenes/send';
 
@@ -13,4 +14,6 @@ export class TransactionScope extends BaseScope {
   send = this.createScene('send', SendScene);
 
   coinSelect = this.createScene('coinSelect', CoinSelectScene);
+
+  findAddress = this.createScene('findAddress', FindAddressScene);
 }
