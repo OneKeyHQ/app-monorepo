@@ -7,6 +7,7 @@ segs
 unixTime
 nodata
 tradingview
+ohlc
 ohlcv
 daysRemaining
 _j_msgid
@@ -1481,3 +1482,8 @@ neighbour
 KHTML
 Leons
 symbolicated
+acked
+androidplatform
+appassets
+destructures
+unwired

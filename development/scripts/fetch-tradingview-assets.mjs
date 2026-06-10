@@ -49,7 +49,7 @@ import { fileURLToPath } from 'node:url';
 
 // ── Pinned version (single source of truth) ──────────────────────────────────
 const PKG = '@onekeyhq/tradingview-charting-library';
-const VERSION = '0.1.14-test.1';
+const VERSION = '0.1.17';
 const REGISTRY = 'https://npm.pkg.github.com';
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -63,14 +63,77 @@ const DEST_DIRS = [
 ];
 
 const required = !!process.env.TRADINGVIEW_ASSETS_REQUIRED;
+
+// Last-resort local fallback: pull a token from the GitHub CLI (`gh auth token`)
+// when no env token is set. Lets a locally-authenticated dev just run the script
+// (no manual token wiring) as long as their gh login carries read:packages.
+// Best-effort only — silently yields '' if gh is missing / not logged in, so CI
+// behavior (which sets NPM_GITHUB_READ_TOKEN explicitly) is unaffected.
+function ghAuthToken() {
+  try {
+    return execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+// How to grant read:packages to the gh CLI login. Shown when the gh-derived
+// token is missing that scope (the package is private on GitHub Packages).
+const GH_SCOPE_HINT =
+  'Your GitHub CLI login is missing the `read:packages` scope. Grant it with:\n' +
+  '  gh auth refresh -h github.com -s read:packages';
+
+// Inspect the gh login's token scopes via `gh auth status`, which prints a
+// "Token scopes: 'a', 'b', ..." line for classic OAuth tokens (gh's own login
+// token is one). Returns true only when we can positively read the scope list
+// AND it lacks read:packages. Returns false when scopes can't be determined
+// (gh missing, fine-grained PAT with no scope line, parse failure) so we never
+// block on uncertainty — the actual HTTP request stays the source of truth.
+function ghTokenMissingReadPackages() {
+  try {
+    const out = execFileSync('gh', ['auth', 'status'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const line = out.split('\n').find((l) => l.includes('Token scopes:'));
+    if (!line) {
+      return false;
+    }
+
+    return !line.includes('read:packages');
+  } catch {
+    return false;
+  }
+}
+
 // Prefer the dedicated NPM_GITHUB_READ_TOKEN; NODE_AUTH_TOKEN is only a tolerated
 // fallback for local devs who already export it (we never *set* NODE_AUTH_TOKEN
 // ourselves, to avoid colliding with npm/yarn's registry-auth use of that name).
-const token = process.env.NPM_GITHUB_READ_TOKEN || process.env.NODE_AUTH_TOKEN;
+// Finally fall back to the GitHub CLI token for locally-authenticated devs.
+const envToken =
+  process.env.NPM_GITHUB_READ_TOKEN || process.env.NODE_AUTH_TOKEN;
+const token = envToken || ghAuthToken();
+const tokenFromGh = !envToken && !!token;
+
+// If we fell back to the gh CLI but that login lacks read:packages, the request
+// below would 403 — surface the actionable fix up front instead.
+if (tokenFromGh && ghTokenMissingReadPackages()) {
+  const msg = `[tradingview-assets] ${GH_SCOPE_HINT}`;
+  if (required) {
+    console.error(msg);
+    process.exit(1);
+  }
+  console.warn(`${msg}\nSkipping — the app will use the online chart.`);
+  process.exit(0);
+}
+
 if (!token) {
   const msg =
-    `[tradingview-assets] NPM_GITHUB_READ_TOKEN not set — cannot fetch the offline chart bundle. ` +
-    `Set a read:packages token to bundle ${PKG}@${VERSION}.`;
+    `[tradingview-assets] NPM_GITHUB_READ_TOKEN not set (and no gh CLI token) — cannot fetch the offline chart bundle. ` +
+    `Set a read:packages token or run \`gh auth login\` to bundle ${PKG}@${VERSION}.`;
   if (required) {
     // Release builds opt into strict mode: a missing token must fail the build,
     // not silently ship the online-fallback chart.
@@ -91,15 +154,34 @@ function fail(msg) {
 // 1. Resolve the tarball URL from package metadata.
 const metaRes = await fetch(`${REGISTRY}/${PKG}`, { headers: authHeaders });
 if (!metaRes.ok) {
+  // 401/403 on a gh-derived token almost always means the gh login is missing
+  // read:packages (the upfront scope check can't read scopes for fine-grained
+  // tokens, so catch it here too).
+  const scopeHint =
+    tokenFromGh && (metaRes.status === 401 || metaRes.status === 403)
+      ? `\n${GH_SCOPE_HINT}`
+      : '';
   fail(
     `metadata request failed: ${metaRes.status} ${metaRes.statusText}. ` +
-      `Check the token has read:packages and the package grants this repo access.`,
+      `Check the token has read:packages and the package grants this repo access.${scopeHint}`,
   );
 }
 const meta = await metaRes.json();
 const tarballUrl = meta?.versions?.[VERSION]?.dist?.tarball;
 if (!tarballUrl)
   fail(`version ${VERSION} not found in registry metadata for ${PKG}`);
+
+// Validate the tarball URL origin matches the expected registry before sending
+// the auth header. A poisoned/MITM'd metadata response could otherwise point
+// `tarball` at an attacker host, leaking the read:packages PAT in the Bearer
+// header of the download request below.
+const expectedOrigin = new URL(REGISTRY).origin;
+const tarballOrigin = new URL(tarballUrl).origin;
+if (tarballOrigin !== expectedOrigin) {
+  fail(
+    `tarball URL origin mismatch: expected ${expectedOrigin}, got ${tarballOrigin}`,
+  );
+}
 
 // 2. Download the tarball (.tgz).
 const tgzRes = await fetch(tarballUrl, { headers: authHeaders });

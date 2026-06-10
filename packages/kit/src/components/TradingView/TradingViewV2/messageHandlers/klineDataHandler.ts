@@ -8,11 +8,14 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IMarketAccountTokenTransaction,
+  IMarketTokenKLineDataPoint,
   IMarketTokenKLineResponse,
 } from '@onekeyhq/shared/types/marketV2';
 
 import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
-import { fetchTradingViewV2DataWithSlicing } from '../hooks';
+// Import directly from the source module (not the `../hooks` barrel) to avoid an
+// import cycle: hooks/index -> useTradingViewV2WebSocket -> this file -> hooks/index.
+import { fetchTradingViewV2DataWithSlicing } from '../hooks/useTradingViewV2';
 
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
@@ -84,6 +87,50 @@ function buildEmptyKLineData(): IMarketTokenKLineResponse {
     points: [],
     total: 0,
   };
+}
+
+// Q2 FIX: the market kline API (/utility/v2/market/token/kline) returns each bar
+// as { c: "<string close>", t } — only a STRING close + timestamp, no numeric
+// o/h/l/v. The chart page's datafeed expects numeric OHLCV, so the candles never
+// render (the y-axis collapses to a default ~[-0.4, 0.6] empty scale). Normalize
+// every bar to numeric o/h/l/c/v: parse strings to numbers, and when o/h/l are
+// absent synthesize them from the close (flat bar) and default v to 0. Safe no-op
+// when the API already returns full numeric OHLCV. Returns the count of bars that
+// needed OHLC synthesis so we can flag a backend gap in the logs.
+export function normalizeKLineForPage(data: IMarketTokenKLineResponse): {
+  data: IMarketTokenKLineResponse;
+  synthesizedOHLC: number;
+} {
+  let synthesizedOHLC = 0;
+  const toNum = (v: unknown): number | undefined => {
+    if (v === null || v === undefined || v === '') return undefined;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const points = (data.points ?? [])
+    .map((raw): IMarketTokenKLineDataPoint | null => {
+      const p = raw as unknown as Record<string, unknown>;
+      const t = toNum(p.t);
+      // Drop bars with a non-numeric timestamp: a NaN/0 `t` would place the bar
+      // at epoch 1970 and corrupt the chart's time axis.
+      if (t === undefined) {
+        return null;
+      }
+      const c = toNum(p.c) ?? 0;
+      let o = toNum(p.o);
+      let h = toNum(p.h);
+      let l = toNum(p.l);
+      const v = toNum(p.v) ?? 0;
+      if (o === undefined || h === undefined || l === undefined) {
+        synthesizedOHLC += 1;
+        o = o ?? c;
+        h = h ?? c;
+        l = l ?? c;
+      }
+      return { o, h, l, c, v, t } as IMarketTokenKLineDataPoint;
+    })
+    .filter((point): point is IMarketTokenKLineDataPoint => point !== null);
+  return { data: { points, total: data.total }, synthesizedOHLC };
 }
 
 function formatAmount(amount: string) {
@@ -312,9 +359,15 @@ export async function handleKLineDataRequest({
       const shouldUseEmptyKLineData =
         shouldForceEmptyKLineData ||
         (shouldSuppressKLineError && !fetchedKLineData);
-      const kLineData = shouldUseEmptyKLineData
+      const rawKLineData = shouldUseEmptyKLineData
         ? buildEmptyKLineData()
         : fetchedKLineData;
+
+      // Q2 FIX: normalize to numeric OHLCV before handing bars to the page.
+      const normalized = rawKLineData
+        ? normalizeKLineForPage(rawKLineData)
+        : undefined;
+      const kLineData = normalized?.data ?? rawKLineData;
 
       if (webRef.current && kLineData) {
         webRef.current.sendMessageViaInjectedScript({

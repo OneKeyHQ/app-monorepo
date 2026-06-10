@@ -9,28 +9,48 @@ import { type HybridView, callback } from 'react-native-nitro-modules';
 
 import { Stack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   CHART_WEBVIEW_ENTRY,
   CHART_WEBVIEW_LOCAL_BUNDLE,
-  CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_POOLED,
   CHART_WEBVIEW_REUSE_KEY,
   CHART_WEBVIEW_SCENE,
   CHART_WEBVIEW_UNIFIED_APP_GLOBAL_KEYS,
   CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL,
+  getChartWebViewMode,
 } from './constants';
 
 import type { IChartWebViewProps } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 
 // Unified scene only applies to the native offline/local bundle (online keys its
-// source by URL, which fights the constant-source reuse). Both inputs are module
-// constants, so this resolves once.
-const IS_UNIFIED =
-  CHART_WEBVIEW_MODE !== 'online' && CHART_WEBVIEW_SCENE === 'unified';
+// source by URL, which fights the constant-source reuse). The mode comes from
+// the cold-start snapshot resolver, so this is computed per render (the snapshot
+// is locked for the session, so the value is stable) rather than at import.
+function isUnifiedMode(): boolean {
+  return (
+    getChartWebViewMode() !== 'online' && CHART_WEBVIEW_SCENE === 'unified'
+  );
+}
+
+// Android-only `assetHost` (Part G): the offline bundle mounts the OLD chart
+// origin so the legacy `tradingview_*_market_*` keys (written by the previous
+// remote chart) are read directly from the same-process WebView storage — i.e.
+// zero migration. The host is derived from the same prod/test URLs the online
+// chart uses, picked by platformEnv.isProduction. iOS/desktop never set this
+// (the module ignores it on iOS; falls back to appassets.androidplatform.net).
+const ANDROID_ASSET_HOST: string | undefined = platformEnv.isNativeAndroid
+  ? new URL(platformEnv.isProduction ? TRADING_VIEW_URL : TRADING_VIEW_URL_TEST)
+      .host
+  : undefined;
 
 let hasUnifiedChartLoadEnded = false;
 
@@ -60,7 +80,12 @@ function buildUnifiedParamsJson(params: Record<string, string>): string {
   // rather than this boot-time namespace; the app-side SYMBOL_CHANGE payload
   // carries no storageNamespace, so it cannot be done here without regressing the
   // no-reload reuse.
-  constant.storageNamespace = 'unified';
+  //
+  // VALUE = 'market' (not 'unified'): the native single pool means market+perps
+  // share ONE bucket; we point it at the LEGACY 'market' namespace so that, when
+  // the Android offline bundle mounts the old origin (Part G assetHost), the
+  // pre-existing `tradingview_*_market_*` keys are read directly — zero migration.
+  constant.storageNamespace = 'market';
   constant.type = 'market';
   constant.symbol = CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL;
   constant.decimal = '2';
@@ -100,21 +125,48 @@ export function ChartWebView({
   onWebViewRef,
   onLoadEnd,
   selfDrivenSymbol,
+  prewarm,
   ...stackStyle
 }: IChartWebViewProps) {
   const hybridRefHolder = useRef<ChartWebviewMethods | null>(null);
-  const isFocused = useRouteIsFocused();
+  const isFocusedRaw = useRouteIsFocused();
+  // A prewarm host NEVER claims native ownership: it warm-loads + drives the
+  // symbol + prefetches data via the warmDriver path, but `active=false` so the
+  // native pauseIfIdle can pause the offscreen renderer (Android doesn't throttle
+  // offscreen WebViews). `isFocused` keeps the prewarm's symbol-driving effects
+  // running while its home is focused; only OWNERSHIP is suppressed.
+  const isFocused = isFocusedRaw;
+  // Prewarm is iOS-only now (see ChartPrewarm.enabled); keep ownership == focus
+  // for every host (the prior Android-specific `active=false` prewarm tweak is
+  // moot now that Android has no prewarm host).
+  //
+  // EXCEPTION: a prewarm host (also used by the hidden migration RestoreHost,
+  // which lives OUTSIDE any navigator screen so `useRouteIsFocused()` returns
+  // true) must NEVER claim native pool ownership — otherwise the offscreen
+  // restore host would evict the user's visible chart from the shared
+  // `onekey-chart-singleton` pool. Force `active=false` whenever `prewarm` is set
+  // so such a host stays offscreen and owns nothing.
+  const active = isFocused && !prewarm;
+  // Effective chart mode resolved from the cold-start snapshot (Part B2). The
+  // snapshot is locked for the session, so these are stable across renders; we
+  // still thread them through memo deps so the rule of hooks is satisfied.
+  const mode = getChartWebViewMode();
+  const isUnified = isUnifiedMode();
+  // Honor the app's "Enable Native Webview Debugging" dev-mode toggle for the
+  // chart webview, exactly like the main react-native-webview (NativeWebView.tsx).
+  // Fallback mirrors that component: default to platformEnv.isDev when unset.
+  const [devSettings] = useDevSettingsPersistAtom();
+  const webviewDebuggingEnabled =
+    devSettings.settings?.webviewDebuggingEnabled ?? platformEnv.isDev;
 
   // When the consumer drives its own symbol switching (e.g. perps sends a richer
   // SYMBOL_CHANGE with source/displayNames + ready-gating), the host must NOT
   // also auto-post one — that would double-send and race.
-  const autoDriveSymbol = IS_UNIFIED && !selfDrivenSymbol;
+  const autoDriveSymbol = isUnified && !selfDrivenSymbol;
 
   // Latest values for use inside Nitro callbacks (which capture once).
   const paramsRef = useRef(params);
   paramsRef.current = params;
-  const isFocusedRef = useRef(isFocused);
-  isFocusedRef.current = isFocused;
   const autoDriveSymbolRef = useRef(autoDriveSymbol);
   autoDriveSymbolRef.current = autoDriveSymbol;
   const onLoadEndRef = useRef(onLoadEnd);
@@ -126,12 +178,54 @@ export function ChartWebView({
   // before postMessage is wired. Gate sends on this and re-run when it flips true.
   const [hybridReady, setHybridReady] = useState(false);
 
+  // ⚠️ FALLBACK / 兜底方案 — NOT a root-cause fix.
+  // Symptom: on Android, the first force:false SYMBOL_CHANGE intermittently does
+  // NOT take — the shared page stays on the PREVIOUS token (no getKLineData /
+  // barsState for the new symbol) and the chart hangs on the loading mask. CDP
+  // confirmed the page is still drawing the old symbol while the new token's data
+  // streams in. The real bug lives in the offline chart bundle's SYMBOL_CHANGE
+  // handler (it drops/ignores the switch under a rapid-switch race); fixing it
+  // there is the proper solution. Until then this is a DEFENSIVE retry: after a
+  // drive, if the page hasn't acknowledged the switch within 3s, re-send ONCE with
+  // force:true. One-shot per drive so an empty-data token (never emits barsState)
+  // can't cause an endless resend loop. Remove once the chart bundle is fixed.
+  const switchAckedRef = useRef(false);
+  const resentRef = useRef(false);
+  const resendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const sendSymbolChange = useCallback(() => {
     const ref = hybridRefHolder.current;
     const current = paramsRef.current;
     if (!ref || !current.symbol) return;
     ref.postMessage(JSON.stringify(buildSymbolChangeMessage(current)));
+    // Arm the 3s self-heal (see FALLBACK note above).
+    const drivenSymbol = current.symbol;
+    switchAckedRef.current = false;
+    resentRef.current = false;
+    if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
+    resendTimerRef.current = setTimeout(() => {
+      if (switchAckedRef.current || resentRef.current) return;
+      const r = hybridRefHolder.current;
+      const c = paramsRef.current;
+      if (!r || c.symbol !== drivenSymbol) return; // symbol moved on / gone
+      resentRef.current = true;
+      const forced = buildSymbolChangeMessage(c);
+      (forced.payload as { force: boolean }).force = true;
+      r.postMessage(JSON.stringify(forced));
+    }, 3000);
   }, []);
+
+  // Stable VALUE key for the symbol-change payload. `params` is a fresh object
+  // every render, so effects that depend on it (the focused resync) used to fire
+  // on EVERY re-render — flooding the bridge with SYMBOL_CHANGE and churning the
+  // page (the chart re-applied its symbol ~per frame). Depending on this string
+  // instead means the resync only runs when the symbol payload actually changes
+  // (or focus flips), not on unrelated parent re-renders (price/orderbook ticks).
+  const symbolChangeKey = useMemo(
+    () =>
+      params.symbol ? JSON.stringify(buildSymbolChangeMessage(params)) : '',
+    [params],
+  );
 
   // Adapter exposing the IWebViewRef surface used by TradingView hooks/handlers
   // (sendMessageViaInjectedScript / reload), backed by the chart-webview
@@ -161,10 +255,31 @@ export function ChartWebView({
   }, [onWebViewRef]);
 
   useEffect(() => {
-    if (IS_UNIFIED && hasUnifiedChartLoadEnded) {
+    return () => {
+      // Clear the FALLBACK self-heal timer (see sendSymbolChange) on teardown.
+      if (resendTimerRef.current) clearTimeout(resendTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // From origin/x: if the unified chart already finished its (one-time) load,
+  // fire onLoadEnd immediately for this host so consumers don't wait again.
+  //
+  // GUARDED ON hybridReady (Fix #3): `hasUnifiedChartLoadEnded` is module-level
+  // and survives a `sourceKey` remount (mode toggle) or a native pool
+  // recreation. A stale `true` left over from a previous page could otherwise
+  // make a freshly-mounted host fire onLoadEnd BEFORE its page is actually ready.
+  // By gating on `hybridReady` (the native transport callback, which only fires
+  // once THIS host's WebView is live), a stale flag can never short-circuit a
+  // brand-new pool: when the native pool was genuinely recreated, the real
+  // onLoadEnd re-stamps the flag; when the shared pool is still warm, hybridReady
+  // arrives with the flag correctly reflecting the already-loaded page.
+  useEffect(() => {
+    if (isUnified && hybridReady && hasUnifiedChartLoadEnded) {
       onLoadEndRef.current?.();
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hybridReady]);
 
   // (1) Eager: push our symbol the moment the transport is ready — BEFORE this
   // screen finishes focusing — so the chart switches during the navigation
@@ -175,7 +290,7 @@ export function ChartWebView({
     if (!autoDriveSymbol || !hybridReady || didEagerSendRef.current) return;
     didEagerSendRef.current = true;
     sendSymbolChange();
-  }, [autoDriveSymbol, hybridReady, sendSymbolChange]);
+  }, [autoDriveSymbol, hybridReady, isFocused, sendSymbolChange]);
 
   // (2) Focused resync: re-assert our symbol whenever we hold focus or our symbol
   // changes while focused — the shared page may have been moved by another host.
@@ -183,10 +298,18 @@ export function ChartWebView({
   useEffect(() => {
     if (!autoDriveSymbol || !hybridReady || !isFocused) return;
     sendSymbolChange();
-  }, [autoDriveSymbol, hybridReady, isFocused, params, sendSymbolChange]);
+    // symbolChangeKey (stable value) instead of `params` (new object每render) so
+    // this only re-asserts on focus or an actual symbol change, not every render.
+  }, [
+    autoDriveSymbol,
+    hybridReady,
+    isFocused,
+    symbolChangeKey,
+    sendSymbolChange,
+  ]);
 
   const source = useMemo(() => {
-    if (CHART_WEBVIEW_MODE === 'online') {
+    if (mode === 'online') {
       return { uri: onlineUrl };
     }
     // Offline asset-presence fallback (white-screen guard).
@@ -214,13 +337,13 @@ export function ChartWebView({
     // an empty `uri` falls through to the localBundle regardless of whether its
     // files exist. So this guard only takes effect once the native module is
     // updated to read `fallbackUri`; until then asset-less builds still need the
-    // release pipeline to either stage assets or flip CHART_WEBVIEW_MODE to
-    // 'online'. `fallbackUri` is app-global (the same remote chart URL), so it does
+    // release pipeline to either stage assets or resolve the mode to 'online'.
+    // `fallbackUri` is app-global (the same remote chart URL), so it does
     // NOT taint the byte-identical unified source: localBundle/entry/paramsJson —
     // the keys that drive the shared WebView's load + reuse — stay identical across
     // market and perps hosts. Only emitted when an online URL actually exists.
     const fallbackUri = onlineUrl ? { fallbackUri: onlineUrl } : {};
-    if (IS_UNIFIED) {
+    if (isUnified) {
       // uri:'' so the source keys never flip absent (Nitro rejects that).
       return {
         uri: '',
@@ -236,7 +359,7 @@ export function ChartWebView({
       entry: CHART_WEBVIEW_ENTRY,
       paramsJson: JSON.stringify(params),
     };
-  }, [onlineUrl, params]);
+  }, [onlineUrl, params, mode, isUnified]);
 
   // Pooling: ONE warm WebView shared across the whole app (market + perps), kept
   // alive across navigation by the native singleton pool. The focused screen
@@ -244,26 +367,28 @@ export function ChartWebView({
   // Gated to offline — online mode keys its source by URL, which would fight the
   // shared-WebView reuse.
   const reuseKey =
-    CHART_WEBVIEW_POOLED && CHART_WEBVIEW_MODE !== 'online'
+    CHART_WEBVIEW_POOLED && mode !== 'online'
       ? CHART_WEBVIEW_REUSE_KEY
       : undefined;
 
   // Diagnostic: confirm whether this native chart resolves to the offline
   // app-bundled assets or the remote online URL (see market.chart scene). Logs
   // intent only — JS has no asset-presence signal on native, so 'offline' here
-  // means CHART_WEBVIEW_MODE selected the localBundle, not that the files exist.
-  const sourceKind = CHART_WEBVIEW_MODE === 'online' ? 'online' : 'offline';
+  // means the resolved mode selected the localBundle, not that the files exist.
+  const sourceKind = mode === 'online' ? 'online' : 'offline';
   useEffect(() => {
     defaultLogger.market.chart.chartSource({
       platform: platformEnv.appPlatform ?? 'native',
       type: paramsRef.current.type,
-      mode: CHART_WEBVIEW_MODE,
+      mode,
       sourceKind,
       scene: CHART_WEBVIEW_SCENE,
       pooled: !!reuseKey,
       hasOnlineFallback: !!onlineUrl,
+      // Android-only legacy origin (Part G); iOS/desktop leave it undefined.
+      assetHost: ANDROID_ASSET_HOST,
     });
-  }, [sourceKind, reuseKey, onlineUrl]);
+  }, [mode, sourceKind, reuseKey, onlineUrl]);
 
   // Nitro requires function props wrapped with callback(). The hybridRef callback
   // hands us a ref whose .current is the live HybridObject (postMessage/reload).
@@ -281,9 +406,24 @@ export function ChartWebView({
     () =>
       callback((raw: string) => {
         try {
+          // FALLBACK ack (see sendSymbolChange): any of these messages means the
+          // page is actively fetching/rendering for the CURRENT symbol, i.e. the
+          // SYMBOL_CHANGE took — so cancel the pending 3s force-resend.
+          if (
+            raw.includes('tradingview_barsState') ||
+            raw.includes('tradingview_renderReady') ||
+            raw.includes('tradingview_getKLineData')
+          ) {
+            switchAckedRef.current = true;
+          }
           // Module delivers the chart's $private.request payload as a raw JSON
           // string; legacy handlers expect it wrapped as { data: payload }.
-          void customReceiveHandler?.({ data: JSON.parse(raw) });
+          // A host with no customReceiveHandler (e.g. the prewarm host) drops the
+          // page's $private data request here.
+          if (!customReceiveHandler) {
+            return;
+          }
+          void customReceiveHandler({ data: JSON.parse(raw) });
         } catch {
           // ignore malformed messages
         }
@@ -302,25 +442,48 @@ export function ChartWebView({
           type: paramsRef.current.type,
           sourceKind,
         });
-        if (IS_UNIFIED) {
+        if (isUnified) {
           hasUnifiedChartLoadEnded = true;
         }
         // Cold first load: the page's SYMBOL_CHANGE listener wasn't up for the
         // eager send, so re-assert now that it is.
-        if (autoDriveSymbolRef.current && isFocusedRef.current) {
+        // Q1 FIX (data): drive the symbol on load even when NOT focused. This
+        // callback only runs on the host that owns the page at load time (incl.
+        // the provisional warm owner). The page just finished loading and is blank
+        // — it MUST be told a symbol now, or it sits idle until a focused host
+        // claims (the observed ~5s no-data gap). Dropping the isFocused gate here
+        // is safe: a real focused host re-asserts its own symbol on focus (same
+        // symbol -> idempotent), and only the load-time owner reaches this point.
+        if (autoDriveSymbolRef.current) {
           sendSymbolChange();
         }
         // Forward to the consumer (perps re-syncs its own symbol + enables lines).
         onLoadEndRef.current?.();
       }),
-    [sendSymbolChange, sourceKind],
+    [sendSymbolChange, sourceKind, isUnified],
+  );
+
+  // DEBUG instrumentation: surface native WKWebView load failures (didFail /
+  // didFailProvisional). This was previously unwired on the JS side, so a failed
+  // offline load produced NO log at all — the only hint was a missing
+  // chartLoadEnd. Now it is explicit (Q1/Q2).
+  const onErrorProp = useMemo(
+    () =>
+      callback((message: string) => {
+        defaultLogger.market.chart.chartError({
+          platform: platformEnv.appPlatform ?? 'native',
+          type: paramsRef.current.type,
+          sourceKind,
+          message,
+        });
+      }),
+    [sourceKind],
   );
 
   // Remount when the source mode/url changes so the new source loads cleanly.
   // Unified keeps a constant key so a token switch never remounts (it reloads via
   // SYMBOL_CHANGE instead).
-  const sourceKey =
-    CHART_WEBVIEW_MODE === 'online' ? `online:${onlineUrl}` : 'offline';
+  const sourceKey = mode === 'online' ? `online:${onlineUrl}` : 'offline';
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
@@ -328,12 +491,15 @@ export function ChartWebView({
         key={sourceKey}
         style={{ flex: 1 }}
         {...source}
+        assetHost={ANDROID_ASSET_HOST}
         pooled={!!reuseKey}
         reuseKey={reuseKey}
-        active={isFocused}
+        active={active}
+        webviewDebuggingEnabled={webviewDebuggingEnabled}
         hybridRef={hybridRefProp}
         onMessage={onMessageProp}
         onLoadEnd={onLoadEndProp}
+        onError={onErrorProp}
       />
     </Stack>
   );

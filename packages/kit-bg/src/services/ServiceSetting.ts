@@ -68,6 +68,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  chartSourcePersistAtom,
   currencyPersistAtom,
   desktopBluetoothAtom,
 } from '../states/jotai/atoms';
@@ -546,6 +547,71 @@ class ServiceSetting extends ServiceBase {
     }
     // When key is missing or JSON is invalid, origins is [], clearing the whitelist (server revocation)
     await this.applyFiatPaySiteWhitelist(origins);
+  }
+
+  // Fetch the TradingView chart-source decision (online vs offline) for the
+  // current app version and persist it.
+  //
+  // ⚠️ This MUST be fully silent and always resolve. Any failure (network /
+  // timeout / non-2xx / parse / missing field) must NOT toast, NOT throw, and
+  // NOT hit the global error/Sentry path:
+  //   - `autoHandleError: false` disables the axios interceptor's auto-toast
+  //     + thrown OneKeyServerApiError on non-zero server codes.
+  //   - The whole body is wrapped in try/catch so even transport errors are
+  //     swallowed.
+  // On any failure: keep the previous persisted decision if present; otherwise
+  // leave the offline default in place. The decision only ever changes on a
+  // confirmed successful response.
+  //
+  // The server reads the app version from the `X-Onekey-Request-Version`
+  // header (attached automatically by the request interceptor), so no query
+  // param is sent.
+  @backgroundMethod()
+  public async fetchChartUseOnline(): Promise<void> {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      // Silent: `autoHandleError: false` disables the OneKey axios
+      // interceptor's auto-toast + thrown error on non-zero server codes. It is
+      // read off the request config via `(config as any)` in the interceptor
+      // and is not a declared AxiosRequestConfig property, so it is passed via
+      // a spread to satisfy the excess-property check (matching
+      // ServiceMarketV2's usage).
+      const requestConfig: Record<string, unknown> = { autoHandleError: false };
+      const response = await client.get<{
+        data: { online?: boolean };
+      }>('/utility/v1/chart-source', { ...requestConfig });
+      const online = response.data.data?.online;
+      // Missing / non-boolean field → treat as a failed decision and keep the
+      // previous persisted value untouched.
+      if (typeof online !== 'boolean') {
+        return;
+      }
+      await chartSourcePersistAtom.set((prev) => ({
+        ...prev,
+        online,
+        decidedForVersion: platformEnv.version ?? '',
+        fetchedAt: Date.now(),
+      }));
+      // Diagnostic only (silent): the fetch succeeded and the decision was
+      // persisted. LogToLocal, no toast / no throw.
+      defaultLogger.market.chart.chartSourceFetch({ ok: true, online });
+    } catch (e) {
+      // Silent by design: keep the previous persisted decision (or the offline
+      // default when none exists). Never toast / throw / report.
+      // Diagnostic only (LogToLocal): record the failure + which fallback the
+      // resolver lands on — a previously persisted decision (fetchedAt > 0) is
+      // kept, otherwise the offline default stays in place.
+      try {
+        const prev = await chartSourcePersistAtom.get();
+        defaultLogger.market.chart.chartSourceFetch({
+          ok: false,
+          error: e instanceof Error ? e.message : String(e),
+          fallback: prev.fetchedAt > 0 ? 'kept-previous' : 'default-offline',
+        });
+      } catch {
+        // Never let the diagnostic itself break the silent contract.
+      }
+    }
   }
 
   @backgroundMethod()

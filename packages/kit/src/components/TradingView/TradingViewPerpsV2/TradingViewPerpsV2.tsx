@@ -17,16 +17,23 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
+import {
+  getPerpsChartReadyKey,
+  markChartDataReady,
+  useChartHasData,
+} from '../chartDataReadyStore';
 import { ChartWebView } from '../ChartWebView';
 import {
-  CHART_WEBVIEW_MODE,
   CHART_WEBVIEW_SCENE,
+  getChartWebViewMode,
+  useChartBootSnapshotReady,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
@@ -41,7 +48,9 @@ import type {
   ITVOrderPriceUpdatePayload,
   ITradeEvent,
 } from './types';
+import type { IWebViewProps } from '../../WebView';
 import type { IWebViewRef } from '../../WebView/types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -168,12 +177,17 @@ const WebViewMemoized = memo(
     onWebViewRef,
     onShouldStartLoadWithRequest,
     ...otherProps
-  }: {
+  }: Omit<
+    IWebViewProps,
+    | 'src'
+    | 'customReceiveHandler'
+    | 'onWebViewRef'
+    | 'onShouldStartLoadWithRequest'
+  > & {
     src: string;
-    customReceiveHandler: (data: any) => Promise<void>;
+    customReceiveHandler: IJsBridgeReceiveHandler;
     onWebViewRef: (ref: IWebViewRef | null) => void;
     onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
-    [key: string]: any;
   }) => (
     <WebView
       src={src}
@@ -293,8 +307,6 @@ export function TradingViewPerpsV2(
   >(null);
   const [chartContentReadyWebviewKey, setChartContentReadyWebviewKey] =
     useState<string | null>(null);
-  const [chartLoadingReadyWebviewKey, setChartLoadingReadyWebviewKey] =
-    useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
 
@@ -303,9 +315,15 @@ export function TradingViewPerpsV2(
   // page is loaded once globally, so per-load chartReady/perpsReady don't re-fire
   // for a later perps host — treat the chart as ready (the page's listeners are
   // already up) so lines still sync.
+  // Ready barrier (Gate 2): on native, the chart-webview mode comes from the
+  // cold-start snapshot — wait for it before treating this as a unified host
+  // (which mounts the chart-webview), so it never reads an uninitialized
+  // snapshot. Desktop's overlay readiness is governed separately.
+  const bootSnapshotReady = useChartBootSnapshotReady();
   const useUnifiedHost =
     (platformEnv.isNative &&
-      CHART_WEBVIEW_MODE !== 'legacy' &&
+      bootSnapshotReady &&
+      getChartWebViewMode() !== 'legacy' &&
       CHART_WEBVIEW_SCENE === 'unified') ||
     // Desktop warm overlay is always unified (constant onekey-chart:// source).
     getDesktopOfflineChartReady();
@@ -313,6 +331,22 @@ export function TradingViewPerpsV2(
   useEffect(() => {
     if (useUnifiedHost) setUnifiedReady(true);
   }, [useUnifiedHost]);
+  // Diagnostic: record which chart branch this perps host actually rendered.
+  // Logged once per mount and again only when the branch decision flips (e.g.
+  // the cold-start snapshot resolves and the gate switches from legacy to the
+  // unified native host) — gated on the effect deps so it never floods on every
+  // render. See chartHostRender in the market chart logger scope.
+  useEffect(() => {
+    defaultLogger.market.chart.chartHostRender({
+      scene: 'perps',
+      symbol,
+      component: useUnifiedHost ? 'unified-native' : 'legacy-webview',
+      useUnifiedHost,
+      bootSnapshotReady,
+      mode: getChartWebViewMode(),
+      platform: platformEnv.appPlatform ?? 'native',
+    });
+  }, [useUnifiedHost, bootSnapshotReady, symbol]);
   // The optimistic mount-time unifiedReady keeps the warm/prewarmed host fast,
   // but on a genuine cold start the chart page's perps listener may not be
   // registered yet, so the first full line sync can be silently dropped. The
@@ -326,6 +360,14 @@ export function TradingViewPerpsV2(
     setUnifiedReady(true);
     setUnifiedReadyConfirmation((prev) => prev + 1);
   }, []);
+
+  // Chart loading mask: shown until the shared chart has data for THIS chart.
+  // Identity-keyed global store (namespaced `perps:` so a perps pair is never
+  // mistaken for a same-named market token) so re-entering an already-loaded pair
+  // reveals immediately and switching pairs shows loading until the new bars
+  // arrive — no explicit reset needed (key mismatch == loading).
+  const chartReadyKey = getPerpsChartReadyKey(symbol);
+  const hasChartData = useChartHasData(chartReadyKey);
 
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
@@ -342,7 +384,6 @@ export function TradingViewPerpsV2(
       hasPerpsReadyRef.current = false;
       setChartLinesReadyWebviewKey(null);
       setChartContentReadyWebviewKey(null);
-      setChartLoadingReadyWebviewKey(null);
       prevWebviewKeyRef.current = _webviewKey;
     }
   }, [_webviewKey]);
@@ -448,38 +489,25 @@ export function TradingViewPerpsV2(
     if (!hasPerpsReadyRef.current) {
       setChartLinesReadyWebviewKey(null);
       setChartContentReadyWebviewKey(null);
-      setChartLoadingReadyWebviewKey(null);
       webRef.current?.reload();
     }
   }, [restoreNonce]);
-
-  const markChartLoadingReady = useCallback(() => {
-    setChartLoadingReadyWebviewKey(_webviewKey);
-  }, [_webviewKey]);
-
-  useEffect(() => {
-    if (useUnifiedHost && unifiedReadyConfirmation > 0) {
-      markChartLoadingReady();
-    }
-  }, [markChartLoadingReady, unifiedReadyConfirmation, useUnifiedHost]);
 
   const onChartLinesReady = useCallback(() => {
     hasPerpsReadyRef.current = true;
     setChartContentReadyWebviewKey(_webviewKey);
     setChartLinesReadyWebviewKey(_webviewKey);
-    markChartLoadingReady();
     // Unified mode gates line sync on the optimistic unifiedReady; a real READY
     // ACK from the page confirms its perps listener is up, so force a full
     // resend to recover any cold-start sync the page dropped before it was ready.
     if (useUnifiedHost) {
       confirmUnifiedReady();
     }
-  }, [_webviewKey, useUnifiedHost, confirmUnifiedReady, markChartLoadingReady]);
+  }, [_webviewKey, useUnifiedHost, confirmUnifiedReady]);
 
   const onChartReady = useCallback(() => {
     setChartContentReadyWebviewKey(_webviewKey);
-    markChartLoadingReady();
-  }, [_webviewKey, markChartLoadingReady]);
+  }, [_webviewKey]);
 
   const onOrderCancel = useCallback(
     async (payload: ITVOrderCancelPayload) => {
@@ -574,6 +602,11 @@ export function TradingViewPerpsV2(
     onOrderDraftCreate,
     onOrderPriceUpdate,
     onTouchScroll,
+    onBarsState: () => {
+      // Any bars-state event means getBars resolved for this chart (data
+      // present OR confirmed empty) — stop showing the loading mask.
+      markChartDataReady(chartReadyKey);
+    },
   });
 
   // Chart lines management (liquidation, position, orders)
@@ -619,16 +652,20 @@ export function TradingViewPerpsV2(
   // Cold first load of the shared page; mark ready (covers the rare case where
   // the optimistic mount-time ready guessed wrong) and forward to the caller.
   const handleUnifiedLoadEnd = useCallback(() => {
-    markChartLoadingReady();
     confirmUnifiedReady();
     onLoadEnd?.();
-  }, [confirmUnifiedReady, markChartLoadingReady, onLoadEnd]);
+  }, [confirmUnifiedReady, onLoadEnd]);
 
   const onShouldStartLoadWithRequest = useCallback(
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
-  const showChartLoadingMask = chartLoadingReadyWebviewKey !== _webviewKey;
+  // Show the loading mask until real (non-empty) bars arrive — for BOTH the
+  // unified pooled host and the legacy per-instance WebView. Driven by
+  // `hasChartData` (unified bars-state signal). This replaces the old
+  // unified-skips-mask behavior so a switch/cold-open never exposes a blank or
+  // flat-candle chart while data is still loading or missing.
+  const showChartLoadingMask = !hasChartData;
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>

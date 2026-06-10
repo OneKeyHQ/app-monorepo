@@ -44,6 +44,7 @@ interface IUseTradingViewMessageHandlerParams {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
+  onBarsState?: (state: { hasBars: boolean; count: number }) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -253,17 +254,10 @@ export function useTradingViewMessageHandler({
   primaryKLineDataUnavailable,
   onPrimaryKLineDataUnavailable,
   onPriceUpdate,
+  onBarsState,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
-      // Debug: Log all incoming messages
-      // console.log('🔍 TradingView message received:', {
-      //   scope: data.scope,
-      //   method: data.method,
-      //   origin: data.origin,
-      //   dataKeys: data.data ? Object.keys(data.data) : 'no data',
-      // });
-
       // Create context for message handlers
       const context: IMessageHandlerContext = {
         tokenAddress,
@@ -281,6 +275,16 @@ export function useTradingViewMessageHandler({
         primaryKLineDataUnavailable,
         onPrimaryKLineDataUnavailable,
       };
+
+      // Unified bars-state from the chart library's getBars — drives the chart
+      // loading mask. Any event means getBars resolved (data present or empty),
+      // which clears the mask.
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_barsState'
+      ) {
+        onBarsState?.((data.data ?? {}) as { hasBars: boolean; count: number });
+      }
 
       // Handle TradingView private API requests
       if (
@@ -303,8 +307,6 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method?.startsWith('tradingview_analytics_')
       ) {
-        console.log('🔍 TradingView analytics message received:', data);
-
         await handleAnalyticsEvent(data.method, { data, context });
       }
 
@@ -395,6 +397,7 @@ export function useTradingViewMessageHandler({
       primaryKLineDataUnavailable,
       onPrimaryKLineDataUnavailable,
       onPriceUpdate,
+      onBarsState,
     ],
   );
 
