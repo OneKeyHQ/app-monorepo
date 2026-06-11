@@ -155,6 +155,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   });
   const hasChartData = useChartHasData(chartReadyKey);
 
+  // The symbol actually driven into the shared chart: the HL coin for HL-backed
+  // market tokens, else the token symbol. This is what the app sends as the
+  // SYMBOL_CHANGE displayCoin, so the host/mask match the chart's echo against
+  // it. Computed here (before the message handler) so it can be passed in.
+  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
+    useHyperLiquidKlineSource(networkId, tokenAddress);
+  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
+  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
+
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
     (resolution: string) => {
@@ -174,6 +183,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPanesCountChange,
     accountAddress,
     tokenSymbol: symbol,
+    drivenSymbol: chartSymbol,
     marksTimeRange,
     currentKLineResolution,
     onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
@@ -192,10 +202,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
   });
 
-  const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
-    useHyperLiquidKlineSource(networkId, tokenAddress);
-  const useHyperLiquid = Boolean(isHyperLiquidSource && hyperLiquidSymbol);
-  const chartSymbol = useHyperLiquid ? (hyperLiquidSymbol ?? symbol) : symbol;
   const effectiveDataSource =
     dataSource === 'websocket' && !tokenAddress ? 'polling' : dataSource;
   const mockEmptyKLineEnabled =

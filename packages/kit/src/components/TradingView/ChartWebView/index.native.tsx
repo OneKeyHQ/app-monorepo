@@ -19,6 +19,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { buildSymbolChangeMessage } from './buildSymbolChangeMessage';
 import {
+  acquireChartFocus,
+  allocateChartHostId,
+  releaseChartFocus,
+  useIsChartOwner,
+} from './chartOwnershipRecency';
+import { isSymbolSwitchAck, unwrapChartMessage } from './chartSwitchAck';
+import {
   CHART_WEBVIEW_ENTRY,
   CHART_WEBVIEW_LOCAL_BUNDLE,
   CHART_WEBVIEW_POOLED,
@@ -125,7 +132,27 @@ export function ChartWebView({
   // restore host would evict the user's visible chart from the shared
   // `onekey-chart-singleton` pool. Force `active=false` whenever `prewarm` is set
   // so such a host stays offscreen and owns nothing.
-  const active = isFocused && !prewarm;
+  //
+  // Focus-recency ownership (see chartOwnershipRecency.ts): a modal overlay and
+  // the screen behind it can BOTH be route-focused at once, so plain `isFocused`
+  // makes both claim the single shared WebView (last-writer-wins in the native
+  // pool) and the modal renders blank. Instead, ownership follows stacking order:
+  // each host takes a fresh sequence on the transition INTO focus, and only the
+  // most-recently-focused (topmost) host stays `active`. A re-render does not
+  // refresh the sequence (the acquire is gated by effect deps), so a background
+  // host can't steal the WebView back while a higher layer is open; on
+  // blur/unmount it releases and the next-highest focused host reclaims.
+  const hostIdRef = useRef<number | null>(null);
+  if (hostIdRef.current === null) hostIdRef.current = allocateChartHostId();
+  const hostId = hostIdRef.current;
+  const wantsFocusOwnership = isFocused && !prewarm;
+  useEffect(() => {
+    if (!wantsFocusOwnership) return undefined;
+    acquireChartFocus(hostId);
+    return () => releaseChartFocus(hostId);
+  }, [wantsFocusOwnership, hostId]);
+  const isOwner = useIsChartOwner(hostId);
+  const active = wantsFocusOwnership && isOwner;
   // Effective chart mode resolved from the cold-start snapshot (Part B2). The
   // snapshot is locked for the session, so these are stable across renders; we
   // still thread them through memo deps so the rule of hooks is satisfied.
@@ -385,13 +412,13 @@ export function ChartWebView({
     () =>
       callback((raw: string) => {
         try {
-          // FALLBACK ack (see sendSymbolChange): any of these messages means the
-          // page is actively fetching/rendering for the CURRENT symbol, i.e. the
-          // SYMBOL_CHANGE took — so cancel the pending 3s force-resend.
+          // FALLBACK ack (see sendSymbolChange): confirm the page is
+          // fetching/rendering for OUR symbol (symbol-aware via the chart's
+          // echoed displayCoin), then cancel the pending 3s force-resend. The
+          // boot placeholder's own barsState no longer falsely confirms. Falls
+          // back to symbol-blind on an old chart bundle (no displayCoin).
           if (
-            raw.includes('tradingview_barsState') ||
-            raw.includes('tradingview_renderReady') ||
-            raw.includes('tradingview_getKLineData')
+            isSymbolSwitchAck(unwrapChartMessage(raw), paramsRef.current.symbol)
           ) {
             switchAckedRef.current = true;
           }

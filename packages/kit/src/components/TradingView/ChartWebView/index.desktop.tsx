@@ -8,6 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebView from '../../WebView';
 
 import { buildSymbolChangeMessage } from './buildSymbolChangeMessage';
+import { isSymbolSwitchAck, unwrapChartMessage } from './chartSwitchAck';
 import { buildUnifiedChartUrl } from './unifiedUrl';
 
 import type { IChartWebViewProps } from './types';
@@ -163,21 +164,22 @@ export function ChartWebView({
         key={`chart:${unifiedUrl}`}
         src={unifiedUrl}
         customReceiveHandler={async (data) => {
-          // ACK for the self-heal retry: any of these messages means the page is
-          // actively fetching/rendering for the CURRENT symbol, i.e. the
-          // SYMBOL_CHANGE took — so cancel the pending 3s force-resend. Mirrors
-          // index.native.tsx's ack list.
+          // ACK for the self-heal retry: confirm the page is fetching/rendering
+          // for OUR symbol (symbol-aware via the chart's echoed displayCoin),
+          // then cancel the pending 3s force-resend. The boot placeholder's own
+          // barsState no longer falsely confirms. Falls back to symbol-blind on
+          // an old chart bundle (no displayCoin). Mirrors index.native.tsx.
           try {
-            const raw = typeof data === 'string' ? data : JSON.stringify(data);
             if (
-              raw.includes('tradingview_barsState') ||
-              raw.includes('tradingview_renderReady') ||
-              raw.includes('tradingview_getKLineData')
+              isSymbolSwitchAck(
+                unwrapChartMessage(data),
+                paramsRef.current.symbol,
+              )
             ) {
               switchAckedRef.current = true;
             }
           } catch {
-            // ignore stringify failures
+            // ignore parse failures
           }
           await customReceiveHandler?.(data as never);
         }}

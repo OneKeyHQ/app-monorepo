@@ -33,6 +33,11 @@ interface IUseTradingViewMessageHandlerParams {
   onPanesCountChange?: (count: number) => void;
   accountAddress?: string;
   tokenSymbol?: string;
+  // The symbol actually driven into the shared chart (chartSymbol — HL coin for
+  // HL-backed market tokens, else === tokenSymbol). Used to gate the loading
+  // mask on bars for OUR symbol, so the unified boot placeholder's barsState
+  // can't clear it. Falls back to tokenSymbol when omitted.
+  drivenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
   onCurrentKLineResolutionChange?: (resolution: string) => void;
@@ -243,6 +248,7 @@ export function useTradingViewMessageHandler({
   onPanesCountChange,
   accountAddress,
   tokenSymbol,
+  drivenSymbol,
   marksTimeRange,
   currentKLineResolution,
   onCurrentKLineResolutionChange,
@@ -277,13 +283,28 @@ export function useTradingViewMessageHandler({
       };
 
       // Unified bars-state from the chart library's getBars — drives the chart
-      // loading mask. Any event means getBars resolved (data present or empty),
-      // which clears the mask.
+      // loading mask. getBars resolving (data present or empty) clears the mask.
+      // Symbol-aware: a NEW chart bundle tags barsState with the app's own
+      // displayCoin, so the unified boot placeholder's (or another symbol's) bars
+      // no longer clear THIS host's mask. An OLD bundle omits displayCoin — then
+      // clear as before (back-compat).
       if (
         data.scope === '$private' &&
         data.method === 'tradingview_barsState'
       ) {
-        onBarsState?.((data.data ?? {}) as { hasBars: boolean; count: number });
+        const barsState = (data.data ?? {}) as {
+          hasBars: boolean;
+          count: number;
+          displayCoin?: string;
+        };
+        const expectedSymbol = drivenSymbol ?? tokenSymbol;
+        if (
+          barsState.displayCoin === undefined ||
+          !expectedSymbol ||
+          barsState.displayCoin === expectedSymbol
+        ) {
+          onBarsState?.(barsState);
+        }
       }
 
       // Handle TradingView private API requests
@@ -386,6 +407,7 @@ export function useTradingViewMessageHandler({
       onPanesCountChange,
       accountAddress,
       tokenSymbol,
+      drivenSymbol,
       marksTimeRange,
       currentKLineResolution,
       onCurrentKLineResolutionChange,

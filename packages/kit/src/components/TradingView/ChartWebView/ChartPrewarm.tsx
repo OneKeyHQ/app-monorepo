@@ -121,6 +121,9 @@ function MarketPrewarmHost({
     tokenAddress: address ?? '',
     networkId: networkId ?? '',
     tokenSymbol: symbol,
+    // Prewarm drives `symbol` directly into the shared chart (it IS the params
+    // symbol here), so the mask gate matches the chart's echoed displayCoin.
+    drivenSymbol: symbol,
     webRef,
     // Key must match the market detail host exactly (surface + network + address
     // + symbol) so this prewarm's bars-state clears the detail's mask.
