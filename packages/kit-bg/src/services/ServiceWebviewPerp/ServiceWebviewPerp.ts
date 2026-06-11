@@ -783,7 +783,6 @@ class ServiceWebviewPerp extends ServiceBase {
     }
     const customLocalStorage: Record<string, any> = {
       'hyperliquid.coin_selector.tab': `"perps"`, // "perps", "all", "spot"
-      'activeCoin': 'BTC', // do not use `"BTC"`
       ...hyperliquidCustomLocalStorage,
     };
     if (localeStr) {
