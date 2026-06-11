@@ -42,6 +42,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
     setCurrentUpdateAttemptId: jest.fn(),
+    pruneStaleArtifacts: jest.fn().mockResolvedValue(undefined),
   };
   const dev = {
     getSkipBundleGPGVerification: jest.fn(),
