@@ -250,9 +250,12 @@ Repo checkout (read-only): <WT> at commit <PIN>.
    The ENTIRE worktree is readable. When a verdict depends on cross-file
    context — callers, imported helpers, list sizes, whether code sits on a
    startup/hot path — follow the references and read those related files too.
-   Related files are CONTEXT only: findings must be anchored to your ASSIGNED
-   files (coverage accounting depends on it; unassigned files get their own
-   turn via the cursor).
+   Anchor each finding at the location that best identifies the ROOT CAUSE:
+   usually inside your assigned files, but if the real problem lives in a
+   related file (e.g. a shared helper with the hot loop), anchor it THERE —
+   that is what makes the report actionable. Possible duplicates with that
+   file's own future scan are fine; the batch summary dedups by
+   path+category+line.
 3. Report only issues tied to specific code, with category keys from the
    checklist. No style nits, no refactor opinions, no fixes — findings only.
    An empty findings list is a perfectly good answer.
