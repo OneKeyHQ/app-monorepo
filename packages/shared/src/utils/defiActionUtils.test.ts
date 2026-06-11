@@ -567,11 +567,12 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xstakedusde');
   });
 
-  it('hides pool-address-gated withdraw actions when metadata is missing', () => {
+  it('hides non-Polygon pool-address-gated withdraw actions when only groupId has an address', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'fluid',
       protocolName: 'Fluid',
       category: 'yield',
+      groupId: '0x1111111111111111111111111111111111111111#vault',
       assets: [
         makeAsset({
           symbol: 'fUSDC',

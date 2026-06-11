@@ -414,21 +414,31 @@ function mergeExtraParams(
   return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
-function getPoolAddress(
-  position: IDeFiPosition | undefined,
-  asset: IDeFiAsset,
-) {
-  return (
-    pickStringFromSources({
-      sources: [asset, position],
-      directKeys: ['poolAddress', 'pool_address', 'pool'],
-      nestedKeys: [
-        { containerKey: 'contracts', keys: ['poolAddress', 'pool'] },
-        { containerKey: 'extraParams', keys: ['poolAddress', 'pool'] },
-        { containerKey: 'meta', keys: ['poolAddress', 'pool_address', 'pool'] },
-      ],
-    }) ?? getPoolAddressFromGroupId(position?.groupId)
-  );
+function getPoolAddress({
+  protocolId,
+  position,
+  asset,
+}: {
+  protocolId: string;
+  position: IDeFiPosition | undefined;
+  asset: IDeFiAsset;
+}) {
+  const explicitPoolAddress = pickStringFromSources({
+    sources: [asset, position],
+    directKeys: ['poolAddress', 'pool_address', 'pool'],
+    nestedKeys: [
+      { containerKey: 'contracts', keys: ['poolAddress', 'pool'] },
+      { containerKey: 'extraParams', keys: ['poolAddress', 'pool'] },
+      { containerKey: 'meta', keys: ['poolAddress', 'pool_address', 'pool'] },
+    ],
+  });
+  if (explicitPoolAddress) return explicitPoolAddress;
+
+  if (isNormalizedProtocolId(protocolId, 'polygon_staking')) {
+    return getPoolAddressFromGroupId(position?.groupId);
+  }
+
+  return undefined;
 }
 
 function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {
@@ -733,7 +743,11 @@ function buildResolvedAsset({
   if (groupId) {
     extraParams = mergeExtraParams(extraParams, { groupId });
   }
-  const poolAddress = getPoolAddress(sourcePosition, asset);
+  const poolAddress = getPoolAddress({
+    protocolId,
+    position: sourcePosition,
+    asset,
+  });
 
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     const tokenId = getTokenId(sourcePosition, asset);
