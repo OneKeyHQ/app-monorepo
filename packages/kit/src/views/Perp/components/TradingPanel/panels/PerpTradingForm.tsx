@@ -98,7 +98,10 @@ import {
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
-import { SizeInput } from '../inputs/SizeInput';
+import {
+  type ISizeInputDisplayValueChangePayload,
+  SizeInput,
+} from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
@@ -118,6 +121,7 @@ type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 type ITwapDurationInputField = 'hours' | 'minutes';
 type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
+type ISizeInputDraft = ISizeInputDisplayValueChangePayload;
 type IOrderTypeInfoItem = {
   description: string;
   helpUrl?: string;
@@ -462,6 +466,9 @@ function PerpTradingForm({
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const tradingComputed = useTradingFormSizeInputComputed();
   const advancedComputedSizeBN = useTradingFormComputedSize();
+  const [sizeInputDraft, setSizeInputDraft] = useState<
+    ISizeInputDraft | undefined
+  >();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const shouldUseLiveTradingPrice = Boolean(
@@ -560,6 +567,27 @@ function PerpTradingForm({
   const isSelectedTradeAssetCtxReady = isSpot
     ? isSpotActiveAssetCtxReady
     : isPerpsActiveAssetCtxReady;
+  const handleSizeInputDisplayValueChange = useCallback(
+    (payload: ISizeInputDraft) => {
+      setSizeInputDraft(payload.displayValue.trim() ? payload : undefined);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setSizeInputDraft(undefined);
+  }, [
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.mode,
+    formData.side,
+    selectedTradeAsset?.coin,
+  ]);
+
+  useEffect(() => {
+    if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+      setSizeInputDraft(undefined);
+    }
+  }, [formData.sizeInputMode]);
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -1049,6 +1077,45 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
+  const twapEstimatedOrderNotional = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+    if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+      return undefined;
+    }
+
+    const draft = sizeInputDraft;
+    const draftDisplayValue = draft?.displayValue?.trim();
+    if (draft && draftDisplayValue) {
+      const draftDisplayValueBN = new BigNumber(draftDisplayValue);
+      if (draftDisplayValueBN.isFinite() && draftDisplayValueBN.gt(0)) {
+        if (draft.inputMode === 'usd') {
+          return draftDisplayValueBN;
+        }
+        if (draft.inputMode === 'margin') {
+          const leverageBN = new BigNumber(formData.leverage ?? 1);
+          return draftDisplayValueBN.multipliedBy(
+            leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : 1,
+          );
+        }
+        return draftDisplayValueBN.multipliedBy(midPriceBN);
+      }
+    }
+
+    if (!advancedComputedSizeBN.isFinite() || advancedComputedSizeBN.lte(0)) {
+      return undefined;
+    }
+
+    return advancedComputedSizeBN.multipliedBy(midPriceBN);
+  }, [
+    advancedComputedSizeBN,
+    formData.leverage,
+    isTwapMode,
+    midPriceBN,
+    sizeInputDraft,
+  ]);
+
   const twapEstimatedSliceNotional = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
@@ -1058,10 +1125,9 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !advancedComputedSizeBN.isFinite() ||
-      advancedComputedSizeBN.lte(0) ||
-      !midPriceBN.isFinite() ||
-      midPriceBN.lte(0)
+      !twapEstimatedOrderNotional ||
+      !twapEstimatedOrderNotional.isFinite() ||
+      twapEstimatedOrderNotional.lte(0)
     ) {
       return undefined;
     }
@@ -1070,20 +1136,14 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = advancedComputedSizeBN
-      .multipliedBy(midPriceBN)
-      .dividedBy(estimatedSlices);
+    const estimatedSliceNotional =
+      twapEstimatedOrderNotional.dividedBy(estimatedSlices);
     if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
       return undefined;
     }
 
     return estimatedSliceNotional;
-  }, [
-    formData.twapDurationMinutes,
-    isTwapMode,
-    midPriceBN,
-    advancedComputedSizeBN,
-  ]);
+  }, [formData.twapDurationMinutes, isTwapMode, twapEstimatedOrderNotional]);
 
   const twapEstimatedSliceNotionalDisplay = useMemo(() => {
     if (!twapEstimatedSliceNotional) {
@@ -3016,6 +3076,7 @@ function PerpTradingForm({
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
+        onDisplayValueChange={handleSizeInputDisplayValueChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}
