@@ -2,10 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { FlatList } from 'react-native';
 
 import {
-  ListEndIndicator,
   NavBackButton,
   Page,
   SizableText,
@@ -15,7 +13,6 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderButtonGroup } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { HeaderNotificationIconButton } from '@onekeyhq/kit/src/components/TabPageHeader/components/HeaderNotificationIconButton';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,14 +33,12 @@ import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useMarketDetailBackNavigation } from '../MarketDetailV2/hooks/useMarketDetailBackNavigation';
-import { MarketListColumnHeader } from '../MarketHomeV2/components/MarketListColumnHeader';
-import { TokenListItem } from '../MarketHomeV2/components/MarketTokenList/components/TokenListItem';
-import { TokenListSkeleton } from '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketTokenListBase } from '../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 
+import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
 import { PerpsTokenListSection } from './PerpsTokenListSection';
 import { useMarketBannerDetail } from './useMarketBannerDetail';
 
@@ -65,15 +60,16 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const toDetailPage = useToDetailPage({ from: EEnterWay.BannerList });
   const { handleBackPress } = useMarketDetailBackNavigation();
   const { top } = useSafeAreaInsets();
-  const tabBarHeight = useTabBarHeight();
   const { gtMd } = useMedia();
 
   const isWebDesktop = (platformEnv.isWeb || platformEnv.isDesktop) && gtMd;
   const {
     changeSortType,
     handleChangeSortPress,
+    handlePriceSortPress,
     listResult,
-    mobileSortedData,
+    mobileData,
+    priceSortType,
     tickerIsLoading,
   } = useMarketBannerDetail({ tokenListId, isPerps });
 
@@ -113,15 +109,6 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     },
     [toDetailPage],
   );
-
-  const renderBannerItem = useCallback(
-    ({ item }: { item: IMarketToken }) => (
-      <TokenListItem item={item} onPress={() => handleItemPress(item)} />
-    ),
-    [handleItemPress],
-  );
-
-  const bannerKeyExtractor = useCallback((item: IMarketToken) => item.id, []);
 
   const renderPageHeader = useMemo(() => {
     if (isWebDesktop) {
@@ -170,61 +157,34 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   }, [isWebDesktop, gtMd, renderHeaderTitle, renderHeaderLeft]);
 
   const renderTokenList = useMemo(() => {
-    if (isPerps) {
-      return <PerpsTokenListSection tokenListId={tokenListId} />;
-    }
     const change24hColumnTitle = intl.formatMessage({
       id: ETranslations.dexmarket_banner_token_24hchange,
     });
+    if (isPerps) {
+      return (
+        <PerpsTokenListSection
+          tokenListId={tokenListId}
+          priceSortType={priceSortType}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onPriceSortPress={handlePriceSortPress}
+          onChangeSortPress={handleChangeSortPress}
+        />
+      );
+    }
     // Native mobile: use FlatList + TokenListItem to match watchlist layout
     if (platformEnv.isNative && !gtMd) {
-      if (tickerIsLoading && mobileSortedData.length === 0) {
-        return (
-          <Stack flex={1}>
-            <MarketListColumnHeader
-              changeSortType={changeSortType}
-              change24hColumnTitle={change24hColumnTitle}
-              changeSortTestID={MarketTestIDs.sortByChange}
-              onChangeSortPress={handleChangeSortPress}
-            />
-            <TokenListSkeleton count={15} />
-          </Stack>
-        );
-      }
       return (
-        <Stack flex={1}>
-          <MarketListColumnHeader
-            changeSortType={changeSortType}
-            change24hColumnTitle={change24hColumnTitle}
-            changeSortTestID={MarketTestIDs.sortByChange}
-            onChangeSortPress={handleChangeSortPress}
-          />
-          <FlatList<IMarketToken>
-            style={{ flex: 1 }}
-            data={mobileSortedData}
-            renderItem={renderBannerItem}
-            keyExtractor={bannerKeyExtractor}
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={15}
-            maxToRenderPerBatch={20}
-            contentContainerStyle={{ paddingBottom: tabBarHeight }}
-            ListEmptyComponent={
-              <Stack
-                flex={1}
-                alignItems="center"
-                justifyContent="center"
-                p="$8"
-              >
-                <SizableText size="$bodyLg" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.global_no_data })}
-                </SizableText>
-              </Stack>
-            }
-            ListFooterComponent={
-              mobileSortedData.length > 0 ? <ListEndIndicator /> : null
-            }
-          />
-        </Stack>
+        <BannerDetailTokenFlatList
+          data={mobileData}
+          isLoading={tickerIsLoading}
+          priceSortType={priceSortType}
+          changeSortType={changeSortType}
+          change24hColumnTitle={change24hColumnTitle}
+          onPriceSortPress={handlePriceSortPress}
+          onChangeSortPress={handleChangeSortPress}
+          onItemPress={handleItemPress}
+        />
       );
     }
 
@@ -261,12 +221,11 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     handleItemPress,
     gtMd,
     tickerIsLoading,
-    mobileSortedData,
+    mobileData,
+    priceSortType,
     changeSortType,
+    handlePriceSortPress,
     handleChangeSortPress,
-    renderBannerItem,
-    bannerKeyExtractor,
-    tabBarHeight,
     intl,
   ]);
 
