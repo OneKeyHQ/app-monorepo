@@ -171,7 +171,9 @@ export default class Vault extends VaultBase {
     });
 
     return {
-      rawTx: transaction.serialize(),
+      // resolve coinWithBalance intents locally so rawTx only contains
+      // standard commands for downstream consumers (fee estimation, signing)
+      rawTx: await transaction.toJSON({ client }),
       sender: account.address,
     };
   }
@@ -385,7 +387,7 @@ export default class Vault extends VaultBase {
       });
       const newEncodedTx = {
         ...encodedTx,
-        rawTx: newTx.serialize(),
+        rawTx: await newTx.toJSON({ client }),
       };
       return {
         ...unsignedTx,
