@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { EChartUnifiedStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/constants';
 import {
   type ITradingViewDisabledFeature,
   TRADING_VIEW_DISABLED_FEATURES,
@@ -61,7 +62,8 @@ import {
   isKnownSwapKLineUnsupportedToken,
 } from './swapKLineTokenUtils';
 
-const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
+const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE =
+  EChartUnifiedStorageNamespace.SwapKline;
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
@@ -908,15 +910,15 @@ function SwapKLineContentBody({
     >
       <TradingViewV2
         // No per-token key: keying on network/address/symbol remounted the whole
-        // WebView on every ETH<->USDC switch, which on desktop tears down and
-        // rebuilds the Electron webContents and re-initializes the TradingView
-        // widget (re-downloading the library when no offline bundle shipped) —
-        // i.e. a cold chart open on every switch. TradingViewV2 already reuses its
-        // instance and reloads in place on symbol/param change (inner WebView keyed
-        // on theme only; desktop <webview src>/web <iframe src> auto-reload; native
-        // loadURL effect), and the loading mask is driven by a symbol-keyed global
-        // ready store, so switching tokens shows loading until the new token's bars
-        // arrive without a remount. See OK-55539.
+        // TradingViewV2 (and its WebView) on every ETH<->USDC switch. On desktop
+        // that tore down + rebuilt the Electron webContents and re-bootstrapped the
+        // entire TradingView library — a cold chart open on every switch (verified
+        // via CDP: the chart webContents target id changed on each switch). The
+        // chart now rides the in-flow unified host (scene=unified) where token
+        // switches are delivered via SYMBOL_CHANGE with NO page reload; a per-token
+        // key here would remount that host and defeat it. The loading mask is driven
+        // by a symbol-keyed global ready store, so switching tokens still shows
+        // loading until the new token's bars arrive. See OK-55539.
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}
@@ -929,9 +931,6 @@ function SwapKLineContentBody({
         kLineDataFallback={state.kLineDataFallback}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
-        // In a modal: the app-root chart overlay would render behind it, so use
-        // the legacy per-instance WebView (offline URL) here on desktop.
-        preferLegacyChart
         w="100%"
         h="100%"
       />

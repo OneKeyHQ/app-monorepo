@@ -73,6 +73,16 @@ export const CHART_WEBVIEW_SCENE: 'classic' | 'unified' = 'unified';
 // arrives immediately via SYMBOL_CHANGE. Replaced before the user sees it.
 export const CHART_WEBVIEW_UNIFIED_INITIAL_SYMBOL = 'HL:BTC';
 
+// storageNamespace for a unified host: isolates each consumer's chart settings.
+// Market and Perps are the per-domain defaults; SwapKline is the Swap K-line
+// modal's own isolated bucket (it overrides the default via
+// params.storageNamespace). Single source of truth for every namespace value.
+export enum EChartUnifiedStorageNamespace {
+  Market = 'market',
+  Perps = 'perps',
+  SwapKline = 'swap-kline',
+}
+
 // The ONLY param keys kept in the constant unified source — app-global values
 // (identical for market and perps). Everything business/token-specific (symbol,
 // type, storageNamespace, decimal, enablePerpsTradingUi, ...) is dropped here and
