@@ -493,6 +493,33 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('does not use the SUI same-network default to token when initializing Bridge', () => {
+    const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+      homeSelectedAccount: buildSelectedAccount({
+        networkId: 'sui--mainnet',
+      }),
+      swapType: ESwapTabSwitchType.BRIDGE,
+      now: 1,
+    });
+
+    expect(defaultTokens).toEqual({
+      fromToken: expect.objectContaining({
+        networkId: 'sui--mainnet',
+        symbol: 'SUI',
+      }),
+      toToken: expect.objectContaining({
+        networkId: expect.not.stringMatching(/^sui--mainnet$/),
+      }),
+      context: expect.objectContaining({
+        accountKey: 'wallet-1|indexed-account-1|default',
+        networkId: 'sui--mainnet',
+        swapType: ESwapTabSwitchType.BRIDGE,
+        updatedAt: 1,
+      }),
+      swapType: ESwapTabSwitchType.BRIDGE,
+    });
+  });
+
   it('preselects the BTC cold-start default pair on bridge', () => {
     const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
       homeSelectedAccount: buildSelectedAccount({
