@@ -227,6 +227,30 @@ const SwapTokenSelectPage = ({
     });
   }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
 
+  useEffect(() => {
+    if (!currentSelectNetwork?.networkId) {
+      return;
+    }
+
+    const latestNetwork = swapNetworksIncludeAllNetwork.find(
+      (network) => network.networkId === currentSelectNetwork.networkId,
+    );
+    if (!latestNetwork || latestNetwork === currentSelectNetwork) {
+      return;
+    }
+
+    setCurrentSelectNetwork((prev) => {
+      if (!prev || prev.networkId !== latestNetwork.networkId) {
+        return prev;
+      }
+      return latestNetwork;
+    });
+  }, [
+    currentSelectNetwork,
+    setCurrentSelectNetwork,
+    swapNetworksIncludeAllNetwork,
+  ]);
+
   useEffect(
     () => () => {
       setCurrentSelectNetwork(undefined);

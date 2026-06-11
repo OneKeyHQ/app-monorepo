@@ -542,7 +542,9 @@ export default class ServiceSwap extends ServiceBase {
         clearCache: options?.refreshClientNetworks,
       });
     const deFiEnabledNetworksMapState =
-      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState();
+      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+        syncIfEmpty: false,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(

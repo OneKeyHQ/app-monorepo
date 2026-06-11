@@ -27,7 +27,15 @@ export function isSwapNetworkCacheCompatible(networks?: ISwapNetwork[] | null) {
 export function isSwapNetworkCacheReadyForBasicList(
   networks?: ISwapNetwork[] | null,
 ) {
-  return isSwapNetworkCacheCompatible(networks);
+  return (
+    !!networks?.length &&
+    networks.every(
+      (network) =>
+        typeof network.networkId === 'string' &&
+        network.networkId.length > 0 &&
+        hasSwapNetworkSupportFields(network),
+    )
+  );
 }
 
 export function canUseSwapNetworkCacheAsSortSource(
