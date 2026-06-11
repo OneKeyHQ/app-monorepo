@@ -157,10 +157,3 @@ apps/mobile/android/app/src/main/assets/modules.json
 /_bmad/
 /_bmad-output/
 /.skillshare/skills/bmad-*
-
-# Offline TradingView chart bundle (fetched by
-# development/scripts/fetch-tradingview-assets.mjs, bundled into the native
-# apps + desktop asar at build time, never committed).
-apps/mobile/tradingview-assets/
-apps/mobile/android/app/src/main/assets/tradingview-assets/
-apps/desktop/app/tradingview-assets/

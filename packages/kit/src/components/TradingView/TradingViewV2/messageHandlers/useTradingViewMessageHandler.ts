@@ -44,7 +44,6 @@ interface IUseTradingViewMessageHandlerParams {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
-  onBarsState?: (state: { hasBars: boolean; count: number }) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -254,7 +253,6 @@ export function useTradingViewMessageHandler({
   primaryKLineDataUnavailable,
   onPrimaryKLineDataUnavailable,
   onPriceUpdate,
-  onBarsState,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async ({ data }: ICustomReceiveHandlerData) => {
@@ -275,16 +273,6 @@ export function useTradingViewMessageHandler({
         primaryKLineDataUnavailable,
         onPrimaryKLineDataUnavailable,
       };
-
-      // Unified bars-state from the chart library's getBars — drives the chart
-      // loading mask. Any event means getBars resolved (data present or empty),
-      // which clears the mask.
-      if (
-        data.scope === '$private' &&
-        data.method === 'tradingview_barsState'
-      ) {
-        onBarsState?.((data.data ?? {}) as { hasBars: boolean; count: number });
-      }
 
       // Handle TradingView private API requests
       if (
@@ -397,7 +385,6 @@ export function useTradingViewMessageHandler({
       primaryKLineDataUnavailable,
       onPrimaryKLineDataUnavailable,
       onPriceUpdate,
-      onBarsState,
     ],
   );
 

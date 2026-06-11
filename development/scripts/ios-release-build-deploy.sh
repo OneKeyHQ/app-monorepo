@@ -175,76 +175,6 @@ cmd_logs() {
   grep -A999 "$LAST_START.*hostDidStart fired" "$LOG" | grep -E "$FILTER" | head -30
 }
 
-# --- Chart diagnostic logs (DEBUG instrumentation) ---
-# Dumps the full chart lifecycle chain (native ChartWV + JS market => chart => *)
-# from the simulator's app-latest.log. Pass `tail` to follow live, or a number to
-# limit lines (default 200).
-cmd_chart_logs() {
-  local SIM_ID
-  SIM_ID=$(detect_simulator)
-  local APP_DATA
-  APP_DATA=$(xcrun simctl get_app_container "$SIM_ID" so.onekey.wallet data 2>/dev/null)
-  [ -z "$APP_DATA" ] && { echo "❌ App not installed"; exit 1; }
-  local LOG="$APP_DATA/Library/Caches/logs/app-latest.log"
-  [ ! -f "$LOG" ] && { echo "❌ No log file found at $LOG"; exit 1; }
-
-  # ChartWV          = native (ChartWebview.swift)
-  # chartSource/...  = JS (market => chart => *)
-  local CHART_RE='ChartWV|market => chart =>|chartSource|chartLoadEnd|chartError|chartPrewarm|chartHost|chartKline'
-  echo "📈 $LOG"
-  if [ "$1" = "tail" ]; then
-    echo "=== following chart events (Ctrl-C to stop) ==="
-    tail -f "$LOG" | grep --line-buffered -E "$CHART_RE"
-  else
-    local N="${1:-200}"
-    grep -E "$CHART_RE" "$LOG" | tail -"$N"
-  fi
-}
-
-# --- Sync instrumented native module from app-modules into node_modules ---
-# The native chart-webview lives in the app-modules repo but the iOS build
-# compiles it from node_modules/@onekeyfe/react-native-chart-webview (see
-# Podfile.lock: `from ../../../node_modules/...`). After editing the Swift there,
-# run this to mirror it in, then `pods` (only if the podspec dep list changed)
-# and `xcode`.
-cmd_sync_native() {
-  local SRC="$REPO_ROOT/../app-modules/native-views/react-native-chart-webview"
-  local DST="$REPO_ROOT/node_modules/@onekeyfe/react-native-chart-webview"
-  [ ! -d "$SRC" ] && { echo "❌ app-modules source not found at $SRC"; exit 1; }
-  [ ! -d "$DST" ] && { echo "❌ node_modules target not found at $DST"; exit 1; }
-  echo "$(timestamp) 🔄 Syncing native chart-webview: app-modules -> node_modules"
-  rsync -a "$SRC/ios/" "$DST/ios/"
-  rsync -a "$SRC/android/" "$DST/android/"
-  cp "$SRC/ChartWebview.podspec" "$DST/ChartWebview.podspec"
-  echo "   synced ios/ + android/ + ChartWebview.podspec"
-  echo "   ⚠️  if the podspec dependency list changed, run '$0 pods' next"
-}
-
-# --- Build the TradingView chart library locally and stage its dist into the
-# --- app's tradingview-assets (offline chart bundle). Needed after editing the
-# --- tradingview-charting-library repo. Run 'xcode' afterwards so the Podfile
-# --- Run Script copies the staged assets into the .app.
-cmd_stage_tv() {
-  local TV_DIR="$REPO_ROOT/../tradingview-charting-library"
-  local DEST="$MOBILE_DIR/tradingview-assets"
-  [ ! -d "$TV_DIR" ] && { echo "❌ tradingview-charting-library not found at $TV_DIR"; exit 1; }
-  echo "$(timestamp) 🏗  Building chart library (build:local)..."
-  ( cd "$TV_DIR" && yarn build:local )
-  [ ! -d "$TV_DIR/dist" ] && { echo "❌ no dist/ produced by build:local"; exit 1; }
-  echo "   staging dist -> $DEST"
-  rm -rf "$DEST"; mkdir -p "$DEST"
-  cp -R "$TV_DIR/dist/." "$DEST/"
-  echo "   ✅ staged ($(ls "$DEST" | tr '\n' ' '))"
-  echo "   ⚠️  run '$0 xcode' next so the Podfile copies it into the .app"
-}
-
-# --- Reinstall pods (needed once after a podspec dependency change) ---
-cmd_pods() {
-  cd "$MOBILE_DIR/ios"
-  echo "$(timestamp) 📦 pod install..."
-  bundle exec pod install 2>/dev/null || pod install
-}
-
 # --- Main ---
 COMMAND="${1:-all}"
 
@@ -266,30 +196,13 @@ case "$COMMAND" in
     shift
     cmd_logs "$@"
     ;;
-  chart-logs)
-    shift
-    cmd_chart_logs "$@"
-    ;;
-  sync-native)
-    cmd_sync_native
-    ;;
-  stage-tv)
-    cmd_stage_tv
-    ;;
-  pods)
-    cmd_pods
-    ;;
   *)
-    echo "Usage: $0 [build|deploy|all|xcode|logs|chart-logs|sync-native|stage-tv|pods]"
-    echo ""
-    echo "  Native change loop:  sync-native -> pods (only if dep changed) -> xcode -> deploy"
-    echo "  JS change loop:      build -> deploy   (fast, no xcode)"
-    echo "  Inspect:             chart-logs [N|tail]"
+    echo "Usage: $0 [build|deploy|all|xcode|logs]"
     exit 1
     ;;
 esac
 
-if [ "$COMMAND" != "logs" ] && [ "$COMMAND" != "chart-logs" ]; then
+if [ "$COMMAND" != "logs" ]; then
   TOTAL_TIME=$(( $(date +%s) - SCRIPT_START_TIME ))
   echo ""
   echo "$(timestamp) Total time: $((TOTAL_TIME / 60))m $((TOTAL_TIME % 60))s"
