@@ -397,26 +397,39 @@ function useProtocolPositionActionSubmit({
           );
         }
 
-        await navigationToTxConfirm({
-          unsignedTxs,
-          gasAccountScenario: 'earn',
-          onSuccess: async () => {
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.feedback_transaction_submitted,
-              }),
-              message: intl.formatMessage({
-                id: ETranslations.earn_pending_transactions_data_out_of_sync,
-              }),
-            });
-            await onSuccess?.({ accountId, networkId });
-          },
-          onFail: (error: Error) => {
-            Toast.error({
-              title: getErrorMessage(error),
-            });
-          },
-        });
+        let txConfirmInitError: Error | undefined;
+        let isTxConfirmInitializing = true;
+        try {
+          await navigationToTxConfirm({
+            unsignedTxs,
+            gasAccountScenario: 'earn',
+            onSuccess: async () => {
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.feedback_transaction_submitted,
+                }),
+                message: intl.formatMessage({
+                  id: ETranslations.earn_pending_transactions_data_out_of_sync,
+                }),
+              });
+              await onSuccess?.({ accountId, networkId });
+            },
+            onFail: (error: Error) => {
+              if (isTxConfirmInitializing) {
+                txConfirmInitError = error;
+                return;
+              }
+              Toast.error({
+                title: getErrorMessage(error),
+              });
+            },
+          });
+        } finally {
+          isTxConfirmInitializing = false;
+        }
+        if (txConfirmInitError) {
+          throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
+        }
       } catch (error) {
         Toast.error({
           title: getErrorMessage(error),
