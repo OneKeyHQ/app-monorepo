@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 
 import { type IntlShape, useIntl } from 'react-intl';
 
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Anchor,
+  Button,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -156,6 +162,10 @@ const CREATE_CARD_BG_GEOM = {
   shimmerHeight: 220,
 };
 
+// MOCK: external "learn more" target for the SeedCard card — placeholder until
+// the real product-page URL is wired.
+const SEED_CARD_LEARN_URL = 'https://onekey.so';
+
 function getSetupStepContent(
   intl: IntlShape,
   setup: IMockSetupSubStatus | undefined,
@@ -200,12 +210,19 @@ function getSetupStepContent(
               id: ETranslations.device_setup_create_seedcard_desc,
             })}
           </SizableText>
-          <SizableText size="$bodyMd" color="$text">
+          {/* External link — Anchor adds the underline + ↗ and opens the URL
+              (web: <a target=_blank>, native: Linking.openURL). */}
+          <Anchor
+            href={SEED_CARD_LEARN_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            size="$bodyMd"
+            color="$textInfo"
+          >
             {intl.formatMessage({
               id: ETranslations.device_setup_create_seedcard_link,
-            })}{' '}
-            ↗
-          </SizableText>
+            })}
+          </Anchor>
         </MediaCardBody>
       ),
     };
