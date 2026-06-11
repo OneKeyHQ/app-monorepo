@@ -258,9 +258,7 @@ const ProtocolPositionActionButton = memo(
       string | undefined
     >(undefined);
     const isActionAccount =
-      !!accountId &&
-      !accountUtils.isWatchingAccount({ accountId }) &&
-      !accountUtils.isUrlAccountFn({ accountId });
+      !!accountId && !accountUtils.isUrlAccountFn({ accountId });
     const actions = useMemo(
       () =>
         isActionAccount
