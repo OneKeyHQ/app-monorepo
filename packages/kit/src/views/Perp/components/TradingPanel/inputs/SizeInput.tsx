@@ -209,6 +209,11 @@ export const SizeInput = memo(
         setUsdAmount('');
         setMarginAmount('');
         setIsUserTyping(false);
+        onDisplayValueChange?.({
+          inputMode,
+          displayValue: '',
+          tokenValue: '',
+        });
         return;
       }
 
@@ -234,6 +239,7 @@ export const SizeInput = memo(
       marginAmount,
       calcUsdFromToken,
       calcMarginFromToken,
+      onDisplayValueChange,
     ]);
 
     // Effect: Leverage change handling

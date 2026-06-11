@@ -569,7 +569,7 @@ function PerpTradingForm({
     : isPerpsActiveAssetCtxReady;
   const handleSizeInputDisplayValueChange = useCallback(
     (payload: ISizeInputDraft) => {
-      setSizeInputDraft(payload);
+      setSizeInputDraft(payload.displayValue.trim() ? payload : undefined);
     },
     [],
   );
