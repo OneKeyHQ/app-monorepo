@@ -247,6 +247,12 @@ Repo checkout (read-only): <WT> at commit <PIN>.
    and severity framework.
 2. Read each assigned file COMPLETELY (paths relative to <WT>):
    <path (lines)> ...
+   The ENTIRE worktree is readable. When a verdict depends on cross-file
+   context — callers, imported helpers, list sizes, whether code sits on a
+   startup/hot path — follow the references and read those related files too.
+   Related files are CONTEXT only: findings must be anchored to your ASSIGNED
+   files (coverage accounting depends on it; unassigned files get their own
+   turn via the cursor).
 3. Report only issues tied to specific code, with category keys from the
    checklist. No style nits, no refactor opinions, no fixes — findings only.
    An empty findings list is a perfectly good answer.
