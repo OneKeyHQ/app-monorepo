@@ -62,6 +62,7 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
+  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
   getPopularTradingMetricColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
@@ -191,6 +192,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const {
+    isLoading: isMarketBasicConfigLoading,
     minLiquidity,
     homeTab: apiHomeTabs,
     spotCategories: apiSpotCategories,
@@ -211,6 +213,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const initializedRef = useRef(false);
+  const hasShownCategorySelectorRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -374,6 +377,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         {
           dataIndex: 'symbol',
           title: intl.formatMessage({ id: ETranslations.global_name }),
+          columnProps: { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH },
           render: (
             _: unknown,
             record: IFavoriteTokenDisplay,
@@ -726,6 +730,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   refreshDataRef.current = refreshData;
 
+  const isMarketConfigInitialLoading =
+    isMarketBasicConfigLoading !== false &&
+    apiHomeTabs.length === 0 &&
+    apiSpotCategories.length === 0;
+  const isFavoritesInitialLoading =
+    !selectedMarketCategoryId && !initializedRef.current && isLoading !== false;
+  const isCategoryInitialLoading =
+    Boolean(selectedMarketCategoryId) &&
+    categoryTokens.length === 0 &&
+    isCategoryLoading;
+  const shouldHideCategorySelector =
+    !hasShownCategorySelectorRef.current &&
+    (isMarketConfigInitialLoading ||
+      isFavoritesInitialLoading ||
+      isCategoryInitialLoading);
+
+  useEffect(() => {
+    if (!shouldHideCategorySelector) {
+      hasShownCategorySelectorRef.current = true;
+    }
+  }, [shouldHideCategorySelector]);
+
   // Initialize selected tokens when favorites load (for empty state)
   useEffect(() => {
     if (!hasUserFavorites && favoriteTokens.length > 0) {
@@ -1058,7 +1084,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
       }
 
-      if (!initializedRef.current && isLoading) {
+      if (!initializedRef.current && isLoading !== false) {
         return (
           <ListLoading
             listCount={displayCount}
@@ -1091,7 +1117,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
+        <YStack
+          px={shouldUseTableLayout ? '$pagePadding' : undefined}
+          opacity={shouldHideCategorySelector ? 0 : 1}
+          pointerEvents={shouldHideCategorySelector ? 'none' : 'auto'}
+        >
           <CategorySelector
             categories={homeCategories}
             selectedCategoryId={resolvedSelectedCategoryId}
@@ -1120,6 +1150,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     renderUserFavoritesList,
     selectedMarketCategoryId,
     resolvedSelectedCategoryId,
+    shouldHideCategorySelector,
     shouldUseTableLayout,
   ]);
 
