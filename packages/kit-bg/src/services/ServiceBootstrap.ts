@@ -5,7 +5,6 @@ import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
 import localDb from '../dbs/local/localDb';
-import { initChartWebViewModeSnapshot } from '../states/jotai/atoms/chartWebViewModeSnapshot';
 
 import ServiceBase from './ServiceBase';
 
@@ -39,27 +38,6 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     await this.timed('localDb.readyDb', () => localDb.readyDb);
-    // Read the persisted chart-source decision into the synchronous cold-start
-    // snapshot BEFORE any chart / prewarm host mounts (the ready barrier —
-    // Gate 2). Must run after `localDb.readyDb` (the persist atom needs storage
-    // ready) and is itself silent / always resolves.
-    await this.timed('initChartWebViewModeSnapshot', () =>
-      initChartWebViewModeSnapshot(),
-    );
-    // Seed the TradingView chart-data migration state (Part D, iOS + Desktop
-    // only) BEFORE `updateLaunchTimes()` runs, so first-install detection sees
-    // the pre-increment `launchTimes`. Behind the same cold-start barrier as the
-    // mode snapshot (Gate 2). Silent — never blocks bootstrap on a failure.
-    try {
-      await this.timed('initTradingViewChartMigrationState', () =>
-        this.backgroundApi.serviceApp.initTradingViewChartMigrationState(),
-      );
-    } catch (_error) {
-      defaultLogger.app.bootstrap.initCriticalStep(
-        'initTradingViewChartMigrationState (FAILED)',
-        0,
-      );
-    }
     try {
       await this.timed('initSystemLocale', () =>
         this.backgroundApi.serviceSetting.initSystemLocale(),
@@ -117,9 +95,6 @@ class ServiceBootstrap extends ServiceBase {
         ),
         timedDeferred('serviceSetting.fetchReviewControl', () =>
           this.backgroundApi.serviceSetting.fetchReviewControl(),
-        ),
-        timedDeferred('serviceSetting.fetchChartUseOnline', () =>
-          this.backgroundApi.serviceSetting.fetchChartUseOnline(),
         ),
         timedDeferred(
           'servicePassword.addExtIntervalCheckLockStatusListener',
