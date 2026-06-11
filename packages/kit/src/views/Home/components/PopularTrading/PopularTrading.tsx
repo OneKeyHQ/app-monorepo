@@ -1139,18 +1139,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack
-          px={shouldUseTableLayout ? '$pagePadding' : undefined}
-          opacity={shouldHideCategorySelector ? 0 : 1}
-          pointerEvents={shouldHideCategorySelector ? 'none' : 'auto'}
-        >
-          <CategorySelector
-            categories={homeCategories}
-            selectedCategoryId={resolvedSelectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            showBorder={false}
-            showHorizontalPadding={false}
-          />
+        <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
+          {shouldHideCategorySelector ? (
+            <Stack h="$10" />
+          ) : (
+            <CategorySelector
+              categories={homeCategories}
+              selectedCategoryId={resolvedSelectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              showBorder={false}
+              showHorizontalPadding={false}
+            />
+          )}
         </YStack>
         {listContent}
       </YStack>
