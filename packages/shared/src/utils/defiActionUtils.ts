@@ -40,6 +40,10 @@ function normalizeMatchValue(value?: string) {
 const CATEGORY_ALIAS_MAP: Record<string, string> = {
   asset: 'deposit',
   collateral: 'deposit',
+  // Temporary compatibility with the remote Earn branch typo. Remove after the
+  // service contract has been deployed with the corrected category.
+  // oxlint-disable-next-line @cspell/spellchecker
+  deopsit: 'deposit',
   supplied: 'deposit',
   supply: 'deposit',
   deposit: 'deposit',
@@ -624,6 +628,17 @@ function getSupportedAssetCategory(
   return supportedAction.assetCategory;
 }
 
+function isSupportedByCurrentActionUi(
+  supportedAction: IDeFiSupportedProtocolAction,
+) {
+  if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
+    // Requires a min-receive quote/display contract before the App can expose
+    // this as a safe signing flow.
+    return false;
+  }
+  return true;
+}
+
 function getCandidateAssets({
   position,
   supportedAction,
@@ -771,6 +786,7 @@ function resolveDeFiPositionActions({
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
+      isSupportedByCurrentActionUi(supportedAction) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 

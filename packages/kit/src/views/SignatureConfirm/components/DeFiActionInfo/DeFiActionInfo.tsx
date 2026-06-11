@@ -66,7 +66,6 @@ function DeFiActionInfo(props: IProps) {
                 <NumberSizeableText
                   size="$bodyMd"
                   formatter="balance"
-                  formatterOptions={{ tokenSymbol: info.assetSymbol }}
                   numberOfLines={1}
                 >
                   {info.assetAmount}

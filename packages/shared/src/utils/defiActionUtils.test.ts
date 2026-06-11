@@ -115,7 +115,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
-  it('preserves Debank groupId for Uniswap removeLiquidity', () => {
+  it('hides Uniswap removeLiquidity until the min-receive contract is ready', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -143,14 +143,10 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].assets[0].extraParams?.groupId).toBe(
-      '0x1111111111111111111111111111111111111111#123',
-    );
-    expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
+    expect(actions).toHaveLength(0);
   });
 
-  it('resolves multiple Uniswap removeLiquidity assets from grouped source positions', () => {
+  it('hides grouped Uniswap removeLiquidity assets until the action is safe to expose', () => {
     const firstSourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -190,11 +186,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].assets).toHaveLength(2);
-    expect(
-      actions[0].assets.map((asset) => asset.extraParams?.tokenId),
-    ).toEqual(['123', '456']);
+    expect(actions).toHaveLength(0);
   });
 
   it('resolves Polygon claimWithdrawal with pool and unbond nonce metadata', () => {
@@ -236,6 +228,45 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
     // oxlint-disable-next-line @cspell/spellchecker
     expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
+  });
+
+  it('matches the remote Everstake claimWithdrawal category typo defensively', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'everstake',
+      protocolName: 'Everstake',
+      category: 'locked',
+      groupId: 'everstake-eth-withdrawal',
+      name: 'Everstake Pending Withdrawal',
+      assets: [
+        makeAsset({
+          symbol: 'ETH',
+          address: '0xeth',
+          category: 'deposit',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'everstake',
+        networkId: 'evm--1',
+        positionCategory: 'locked',
+        // oxlint-disable-next-line @cspell/spellchecker
+        assetCategory: 'deopsit',
+        action: EDeFiPositionAction.ClaimWithdrawal,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'everstake',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].symbol).toBe('ETH');
   });
 
   it('passes only one Polygon unbond nonce per claimWithdrawal transaction', () => {

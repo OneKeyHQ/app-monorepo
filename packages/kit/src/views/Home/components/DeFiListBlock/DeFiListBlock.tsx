@@ -183,6 +183,34 @@ function convertDeFiOverviewValues(
   };
 }
 
+function sortDeFiProtocolsByNetWorth({
+  protocols,
+  protocolMap,
+}: {
+  protocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+}) {
+  return protocols.toSorted((a, b) =>
+    new BigNumber(
+      protocolMap[
+        defiUtils.buildProtocolMapKey({
+          protocol: b.protocol,
+          networkId: b.networkId,
+        })
+      ]?.netWorth ?? 0,
+    ).comparedTo(
+      new BigNumber(
+        protocolMap[
+          defiUtils.buildProtocolMapKey({
+            protocol: a.protocol,
+            networkId: a.networkId,
+          })
+        ]?.netWorth ?? 0,
+      ),
+    ),
+  );
+}
+
 function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
@@ -1183,7 +1211,7 @@ function DeFiListBlock({
       // refreshed ones. Aggregated overview is recomputed from the merged
       // protocolMap so the header total stays in sync.
       const prefix = `${payload.networkId}-`;
-      const nextProtocols = protocolsRef.current
+      const refreshedProtocols = protocolsRef.current
         .filter((p) => p.networkId !== payload.networkId)
         .concat(payload.protocols);
 
@@ -1192,6 +1220,10 @@ function DeFiListBlock({
         if (!k.startsWith(prefix)) nextProtocolMap[k] = v;
       }
       Object.assign(nextProtocolMap, payload.protocolMap);
+      const nextProtocols = sortDeFiProtocolsByNetWorth({
+        protocols: refreshedProtocols,
+        protocolMap: nextProtocolMap,
+      });
 
       let totalValueBN = new BigNumber(0);
       let totalDebtBN = new BigNumber(0);

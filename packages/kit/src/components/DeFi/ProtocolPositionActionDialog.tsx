@@ -66,7 +66,23 @@ function getActionAssetExtraLabel(asset: IResolvedDeFiPositionActionAsset) {
   return undefined;
 }
 
+function getActionExtraLabel({
+  action,
+  asset,
+}: {
+  action: EDeFiPositionAction;
+  asset: IResolvedDeFiPositionActionAsset;
+}) {
+  const labels = [
+    getActionAssetExtraLabel(asset),
+    isPercentageAction(action) ? '100%' : undefined,
+  ].filter((label): label is string => Boolean(label));
+
+  return labels.length > 0 ? labels.join(' / ') : undefined;
+}
+
 function ProtocolPositionActionAssetRow({
+  action,
   asset,
   index,
   isSelected,
@@ -74,6 +90,7 @@ function ProtocolPositionActionAssetRow({
   priceUnavailableLabel,
   onSelect,
 }: {
+  action: EDeFiPositionAction;
   asset: IResolvedDeFiPositionActionAsset;
   index: number;
   isSelected: boolean;
@@ -81,7 +98,7 @@ function ProtocolPositionActionAssetRow({
   priceUnavailableLabel: string;
   onSelect: (index: number, selected: boolean) => void;
 }) {
-  const extraLabel = getActionAssetExtraLabel(asset);
+  const extraLabel = getActionExtraLabel({ action, asset });
 
   return (
     <XStack
@@ -193,7 +210,10 @@ function buildDeFiActionTxConfirmInfo({
     assetAmount: selectedAsset.amount,
     assetSymbol: selectedAsset.symbol,
     assetLogoUrl: selectedAsset.asset.meta?.logoUrl,
-    extraLabel: getActionAssetExtraLabel(selectedAsset),
+    extraLabel: getActionExtraLabel({
+      action: action.action,
+      asset: selectedAsset,
+    }),
   };
 }
 
@@ -494,6 +514,7 @@ function ProtocolPositionActionDialogContent({
           {action.assets.map((asset, index) => (
             <ProtocolPositionActionAssetRow
               key={`${asset.tokenAddress ?? asset.symbol}-${index}`}
+              action={action.action}
               asset={asset}
               index={index}
               isSelected={selectedAssetIndexes.includes(index)}
