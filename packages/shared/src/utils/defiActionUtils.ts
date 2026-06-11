@@ -283,6 +283,11 @@ function isPolygonStakedPosition(position?: IDeFiPosition) {
   return position?.groupId?.trim().toLowerCase().endsWith('#staked') ?? false;
 }
 
+function getPoolAddressFromGroupId(groupId?: string) {
+  const [poolAddress] = groupId?.trim().split('#') ?? [];
+  return normalizeEvmAddress(poolAddress);
+}
+
 function parseCooldownQueueNonce(value?: string) {
   const match = value?.match(/cooldown[^\d]*(\d+)/i);
   return normalizeQueueNonce(match?.[1]);
@@ -413,15 +418,17 @@ function getPoolAddress(
   position: IDeFiPosition | undefined,
   asset: IDeFiAsset,
 ) {
-  return pickStringFromSources({
-    sources: [asset, position],
-    directKeys: ['poolAddress', 'pool_address', 'pool'],
-    nestedKeys: [
-      { containerKey: 'contracts', keys: ['poolAddress', 'pool'] },
-      { containerKey: 'extraParams', keys: ['poolAddress', 'pool'] },
-      { containerKey: 'meta', keys: ['poolAddress', 'pool_address', 'pool'] },
-    ],
-  });
+  return (
+    pickStringFromSources({
+      sources: [asset, position],
+      directKeys: ['poolAddress', 'pool_address', 'pool'],
+      nestedKeys: [
+        { containerKey: 'contracts', keys: ['poolAddress', 'pool'] },
+        { containerKey: 'extraParams', keys: ['poolAddress', 'pool'] },
+        { containerKey: 'meta', keys: ['poolAddress', 'pool_address', 'pool'] },
+      ],
+    }) ?? getPoolAddressFromGroupId(position?.groupId)
+  );
 }
 
 function getTokenId(position: IDeFiPosition | undefined, asset: IDeFiAsset) {

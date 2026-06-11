@@ -269,6 +269,98 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
   });
 
+  it('resolves Polygon withdraw pool address from Debank staked groupId prefix', () => {
+    const validatorShareAddress = '0x8f846c443cfa44a6e95aacd2ac362b6cf4fd4335';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      groupId: `${validatorShareAddress}#staked`,
+      name: 'Staked',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'deposit',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(
+      validatorShareAddress,
+    );
+  });
+
+  it('resolves Polygon claim pool address from Debank staked groupId prefix', () => {
+    const validatorShareAddress = '0x8f846c443cfa44a6e95aacd2ac362b6cf4fd4335';
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      groupId: `${validatorShareAddress}#staked`,
+      name: 'Staked',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'deposit',
+          poolAddress: undefined,
+        }),
+      ],
+      rewards: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'liquidity-mining',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'liquidity-mining',
+        action: EDeFiPositionAction.Claim,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(
+      validatorShareAddress,
+    );
+  });
+
   it('hides Polygon withdraw for Debank unbonded groupId assets', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
@@ -309,19 +401,20 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
   });
 
   it('resolves Polygon claimWithdrawal from Debank unbonded groupId assets', () => {
+    const validatorShareAddress = '0x8f846c443cfa44a6e95aacd2ac362b6cf4fd4335';
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
       category: 'staking',
       // oxlint-disable-next-line @cspell/spellchecker
-      groupId: 'validator#new_version_unbonded_10',
+      groupId: `${validatorShareAddress}#new_version_unbonded_10`,
       name: 'Polygon Withdrawal',
       assets: [
         makeAsset({
           symbol: 'POL',
           address: '0xpol',
           category: 'deposit',
-          poolAddress: '0xvalidator',
+          poolAddress: undefined,
         }),
       ],
     });
@@ -345,7 +438,9 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     });
 
     expect(actions).toHaveLength(1);
-    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe(
+      validatorShareAddress,
+    );
     // oxlint-disable-next-line @cspell/spellchecker
     expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['10']);
   });
