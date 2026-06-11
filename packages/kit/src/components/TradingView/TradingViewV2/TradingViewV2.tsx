@@ -28,7 +28,10 @@ import {
   useChartBootSnapshotReady,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
-import { TRADING_VIEW_MARKET_HYPERLIQUID_SCENE } from '../constants';
+import {
+  TRADING_VIEW_MARKET_HYPERLIQUID_SCENE,
+  isLegacyChartEnabled,
+} from '../constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -167,11 +170,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   // Computed BEFORE useChartHasData so the legacy branch can pick the shorter
   // mask timeout (legacy never emits the precise bars-state ack).
   const bootSnapshotReady = useChartBootSnapshotReady();
+  // Legacy kill switch (default app-wide): force the v6.3.0 remote WebView path
+  // and never mount the unified/offline chart-webview.
   const useChartWebView =
-    (platformEnv.isNative &&
+    !isLegacyChartEnabled() &&
+    ((platformEnv.isNative &&
       bootSnapshotReady &&
       getChartWebViewMode() !== 'legacy') ||
-    (!preferLegacyChart && getDesktopOfflineChartReady());
+      (!preferLegacyChart && getDesktopOfflineChartReady()));
 
   const hasChartData = useChartHasData(
     chartReadyKey,

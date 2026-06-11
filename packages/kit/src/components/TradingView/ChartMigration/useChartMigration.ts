@@ -4,6 +4,8 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { ITradingViewChartMigration } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAppStatus';
 import { useChartBootSnapshotReady } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { isLegacyChartEnabled } from '../constants';
+
 import {
   CHART_MIGRATION_EXPORT_MIN_RETRY_INTERVAL_MS,
   isChartMigrationEffectivelyOffline,
@@ -37,6 +39,11 @@ export function useChartMigration(): {
 
   useEffect(() => {
     if (!bootReady) {
+      return;
+    }
+    // Legacy kill switch (default app-wide): the offline chart origin is never
+    // rendered, so there is nothing to migrate to/from — stay idle.
+    if (isLegacyChartEnabled()) {
       return;
     }
     // Only the offline path migrates; the online path keeps data on the old

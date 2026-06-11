@@ -37,6 +37,7 @@ import {
   useChartBootSnapshotReady,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
+import { isLegacyChartEnabled } from '../constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { MESSAGE_TYPES } from './constants/messageTypes';
@@ -321,13 +322,16 @@ export function TradingViewPerpsV2(
   // (which mounts the chart-webview), so it never reads an uninitialized
   // snapshot. Desktop's overlay readiness is governed separately.
   const bootSnapshotReady = useChartBootSnapshotReady();
+  // Legacy kill switch (default app-wide): force the v6.3.0 remote WebView path
+  // and never mount the unified/offline chart-webview.
   const useUnifiedHost =
-    (platformEnv.isNative &&
+    !isLegacyChartEnabled() &&
+    ((platformEnv.isNative &&
       bootSnapshotReady &&
       getChartWebViewMode() !== 'legacy' &&
       CHART_WEBVIEW_SCENE === 'unified') ||
-    // Desktop warm overlay is always unified (constant onekey-chart:// source).
-    getDesktopOfflineChartReady();
+      // Desktop warm overlay is always unified (constant onekey-chart:// source).
+      getDesktopOfflineChartReady());
   const [unifiedReady, setUnifiedReady] = useState(false);
   useEffect(() => {
     if (useUnifiedHost) setUnifiedReady(true);

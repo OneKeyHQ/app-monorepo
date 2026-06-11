@@ -10,6 +10,7 @@ import {
   getPerpsChartReadyKey,
   markChartDataReady,
 } from '../chartDataReadyStore';
+import { isLegacyChartEnabled } from '../constants';
 import { useTradingViewUrl } from '../hooks';
 import { usePerpsTradingViewMessageHandler } from '../TradingViewPerpsV2/messageHandlers';
 import { useTradingViewMessageHandler } from '../TradingViewV2/messageHandlers';
@@ -183,6 +184,8 @@ export function ChartPrewarm({
   // out-race it).
   const bootSnapshotReady = useChartBootSnapshotReady();
   const enabled =
+    // Legacy kill switch (default app-wide): never prewarm the unified host.
+    !isLegacyChartEnabled() &&
     bootSnapshotReady &&
     platformEnv.isNativeIOS &&
     getChartWebViewMode() !== 'legacy' &&

@@ -14,6 +14,20 @@ export const TRADING_VIEW_DISABLED_FEATURES = {
 
 export const TRADING_VIEW_DISABLED_FEATURES_URL_PARAM = 'disabledFeatures';
 
+// Single source of truth for the legacy-chart kill switch. While `true`, the
+// whole app falls back to the v6.3.0 chart: the remote-hosted TradingView
+// WebView (no unified singleton, no desktop/native offline bundle, no prewarm/
+// migration). Only the chart's RENDER/LOAD path is gated — the shared data-layer
+// hooks (kline normalize, fallback, WS) are left untouched, since on the legacy
+// path their new params are default no-ops and the unconditional ones are bug
+// fixes we want to keep.
+//
+// Defaults to `true` (app-wide legacy). Wire this to a dev setting / remote gate
+// later; keep it a function so callers re-read it instead of capturing a const.
+export function isLegacyChartEnabled(): boolean {
+  return true;
+}
+
 // Market chart localStorage buckets (chart-side `storageNamespace`). Callers
 // pass these explicitly — TradingViewV2 no longer falls back to a default.
 export const MARKET_TRADING_VIEW_STORAGE_NAMESPACE = 'market';

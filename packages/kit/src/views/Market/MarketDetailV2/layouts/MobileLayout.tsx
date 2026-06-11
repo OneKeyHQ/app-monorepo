@@ -23,6 +23,7 @@ import {
   CHART_WEBVIEW_SCENE,
   getChartWebViewMode,
 } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/constants';
+import { isLegacyChartEnabled } from '@onekeyhq/kit/src/components/TradingView/constants';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -332,6 +333,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                       // per-token remount/skeleton-flash. Legacy WebView still
                       // needs the per-token key to reload its URL.
                       key={
+                        !isLegacyChartEnabled() &&
                         getChartWebViewMode() !== 'legacy' &&
                         CHART_WEBVIEW_SCENE === 'unified'
                           ? 'unified-market-chart'
