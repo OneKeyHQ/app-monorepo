@@ -16,6 +16,7 @@ import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import {
+  LEGACY_CHART_LOADING_MASK_TIMEOUT_MS,
   getMarketChartReadyKey,
   markChartDataReady,
   useChartHasData,
@@ -153,7 +154,33 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     symbol,
   });
-  const hasChartData = useChartHasData(chartReadyKey);
+
+  // New chart-webview path: native via the chart-webview module (mode resolved
+  // from the cold-start snapshot), desktop via the warm onekey-chart:// overlay
+  // when the offline bundle shipped. Web keeps legacy.
+  //
+  // Ready barrier (Gate 2): on native, wait for the cold-start chart-mode
+  // snapshot before mounting the chart-webview, so it never reads an
+  // uninitialized snapshot (bootstrap init is fire-and-forget). Until then we
+  // render the legacy WebView placeholder; the chart-webview mounts once the
+  // snapshot resolves. Desktop's overlay readiness is governed separately.
+  // Computed BEFORE useChartHasData so the legacy branch can pick the shorter
+  // mask timeout (legacy never emits the precise bars-state ack).
+  const bootSnapshotReady = useChartBootSnapshotReady();
+  const useChartWebView =
+    (platformEnv.isNative &&
+      bootSnapshotReady &&
+      getChartWebViewMode() !== 'legacy') ||
+    (!preferLegacyChart && getDesktopOfflineChartReady());
+
+  const hasChartData = useChartHasData(
+    chartReadyKey,
+    // Legacy WebView path serves the remote bundle, which never emits
+    // `tradingview_barsState`, so the mask always rides the timeout fallback.
+    // Use the shorter legacy timeout so it reveals ~1s after load instead of
+    // making the user wait out the longer general cushion.
+    useChartWebView ? undefined : LEGACY_CHART_LOADING_MASK_TIMEOUT_MS,
+  );
 
   // The symbol actually driven into the shared chart: the HL coin for HL-backed
   // market tokens, else the token symbol. This is what the app sends as the
@@ -473,22 +500,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     lastLoadedUrlRef.current = tradingViewUrlWithParams;
     webRef.current?.loadURL(tradingViewUrlWithParams);
   }, [tradingViewUrlWithParams]);
-
-  // New chart-webview path: native via the chart-webview module (mode resolved
-  // from the cold-start snapshot), desktop via the warm onekey-chart:// overlay
-  // when the offline bundle shipped. Web keeps legacy.
-  //
-  // Ready barrier (Gate 2): on native, wait for the cold-start chart-mode
-  // snapshot before mounting the chart-webview, so it never reads an
-  // uninitialized snapshot (bootstrap init is fire-and-forget). Until then we
-  // render the legacy WebView placeholder; the chart-webview mounts once the
-  // snapshot resolves. Desktop's overlay readiness is governed separately.
-  const bootSnapshotReady = useChartBootSnapshotReady();
-  const useChartWebView =
-    (platformEnv.isNative &&
-      bootSnapshotReady &&
-      getChartWebViewMode() !== 'legacy') ||
-    (!preferLegacyChart && getDesktopOfflineChartReady());
 
   // Diagnostic: record which chart branch this market host actually rendered.
   // Logged once per mount and again only when the branch decision flips (e.g.

@@ -6,7 +6,14 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 // fire and the mask would cover the chart forever. Reveal the chart after this
 // many ms even when no bars-state arrived. Kept long enough that a normal kline
 // fetch resolves (and clears the mask precisely) well before the fallback.
-const CHART_LOADING_MASK_TIMEOUT_MS = 8000;
+const CHART_LOADING_MASK_TIMEOUT_MS = 3500;
+
+// Shorter fallback for the legacy remote bundle, which NEVER emits
+// `tradingview_barsState` — so it ALWAYS rides this timeout rather than a precise
+// ack. The general 3500ms cushion only matters for bundles that might still emit
+// the signal late; legacy can't, so waiting that long just leaves the user
+// staring at the mask after the chart already rendered. Drop it to ~1s.
+export const LEGACY_CHART_LOADING_MASK_TIMEOUT_MS = 1000;
 
 // Tracks WHICH chart identity the shared chart currently has data for, so the
 // loading mask can be derived as `readyKey !== currentKey`. This is GLOBAL (not
@@ -74,8 +81,13 @@ export function markChartDataReady(key: string | undefined) {
 }
 
 // True when the shared chart currently has data for `key`. Drives the mask: show
-// the loading mask while this is false.
-export function useChartHasData(key: string | undefined): boolean {
+// the loading mask while this is false. `timeoutMs` overrides the fallback-reveal
+// delay — the legacy path passes LEGACY_CHART_LOADING_MASK_TIMEOUT_MS because it
+// never emits a precise bars-state ack and so always rides the timeout.
+export function useChartHasData(
+  key: string | undefined,
+  timeoutMs: number = CHART_LOADING_MASK_TIMEOUT_MS,
+): boolean {
   const ready = useSyncExternalStore(
     (cb) => {
       listeners.add(cb);
@@ -96,12 +108,9 @@ export function useChartHasData(key: string | undefined): boolean {
     if (!key || hasData) {
       return;
     }
-    const timer = setTimeout(
-      () => setRevealedByTimeout(true),
-      CHART_LOADING_MASK_TIMEOUT_MS,
-    );
+    const timer = setTimeout(() => setRevealedByTimeout(true), timeoutMs);
     return () => clearTimeout(timer);
-  }, [key, hasData]);
+  }, [key, hasData, timeoutMs]);
 
   return hasData || revealedByTimeout;
 }
