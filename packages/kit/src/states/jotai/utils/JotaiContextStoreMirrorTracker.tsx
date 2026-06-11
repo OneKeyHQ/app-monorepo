@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { uniq } from 'lodash';
 
@@ -10,7 +10,7 @@ import type {
 import {
   EJotaiContextStoreNames,
   getJotaiContextTrackerMap,
-  useJotaiContextStoreMapAtom,
+  subscribeJotaiContextTrackerMap,
   useJotaiContextTrackerMap,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
@@ -206,12 +206,21 @@ export function JotaiContextStoreMirrorTracker(data: IJotaiContextStoreData) {
 }
 
 function JotaiContextRootProvidersAutoMountCmp() {
-  const [map] = useJotaiContextStoreMapAtom();
+  // Read the UI-local tracker map synchronously (not the cross-runtime
+  // globalAtom) so a mirror's store add reliably re-renders this auto-mount and
+  // mounts the new root provider. The globalAtom write round-trips through the
+  // background and its sync-back can fail to re-render here under cold-start
+  // churn (Perps->Swap white screen). See jotaiContextStoreMap.ts.
+  const map = useSyncExternalStore(
+    subscribeJotaiContextTrackerMap,
+    getJotaiContextTrackerMap,
+    getJotaiContextTrackerMap,
+  );
   okRaceLog(
     `AutoMount render asKeys=[${Object.keys(map)
       .filter((k) => k.includes('@swap') || k.includes('@perp'))
       .join(',')}]`,
-  ); // OKRACE — shows what the auto-mount's (cross-runtime) map atom contains
+  ); // OKRACE — shows what the auto-mount's map contains
   const mapEntries = useMemo(() => Object.entries(map), [map]);
   const shouldMountSwapColdStartRootProvider = useMemo(
     () => hasSwapColdStartSnapshot(),
