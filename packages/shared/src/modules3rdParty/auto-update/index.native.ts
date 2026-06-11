@@ -33,6 +33,7 @@ const isAppUpdateAvailable =
 // between the value export and the type re-export from the package.
 interface IReactNativeAppUpdateNative {
   clearCache(): Promise<void>;
+  clearApkCache(): Promise<void>;
   downloadAPK(params: {
     downloadUrl: string;
     notificationTitle: string;
@@ -86,6 +87,16 @@ const clearPackage: IClearPackage = async () => {
     return;
   }
   await getReactNativeAppUpdate().clearCache();
+};
+
+// Android: wipe the standalone APK cache (cacheDir/apks). iOS exposes a
+// native no-op stub. Channels without the AppUpdate native module
+// (Google Play / Huawei) resolve immediately.
+const clearApkCache = async (): Promise<void> => {
+  if (!isAppUpdateAvailable) {
+    return;
+  }
+  await getReactNativeAppUpdate().clearApkCache();
 };
 
 const downloadPackage: IDownloadPackage = async ({
@@ -226,6 +237,7 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+  clearApkCache,
 };
 
 export const BundleUpdate: IBundleUpdate = {
@@ -302,6 +314,8 @@ export const BundleUpdate: IBundleUpdate = {
   },
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
+  pruneStaleAppVersionBundles: () =>
+    ReactNativeBundleUpdate.pruneStaleAppVersionBundles(),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),

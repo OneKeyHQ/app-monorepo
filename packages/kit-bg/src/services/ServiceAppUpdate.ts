@@ -12,6 +12,7 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
   normalizeFeaturedChangelog,
   resolveUpdateDecision,
@@ -1563,30 +1564,56 @@ class ServiceAppUpdate extends ServiceBase {
         };
       });
 
-      // Auto-trigger silent download for rollback decisions so the user does
-      // not need to manually initiate the update.  The download flow will
-      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      // Auto-trigger the background download so the user does not need to
+      // manually initiate the update. Two cases qualify:
+      //   1. jsBundleRollback — always auto-downloaded; a rollback is a
+      //      corrective action, independent of the server-provided strategy.
+      //   2. A normal upgrade (jsBundleUpgrade / appShellUpdate) whose server
+      //      strategy is silent/seamless (isAutoUpdateStrategy). Without this,
+      //      an update discovered mid-session only flips status to `notify`
+      //      and the silent download never starts until the next cold start
+      //      re-runs the once-per-launch first-launch dispatch in
+      //      AppUpdateForeground — i.e. "must restart the app before the
+      //      download begins" (OK-55397). This mirrors that cold-start
+      //      auto-download path so mid-session discovery is handled the same
+      //      way. (Store-based app-shell updates are shipped as `manual` by
+      //      the server, so isAutoUpdateStrategy excludes them here.)
+      // The download flow eventually calls readyToInstall →
+      // syncPendingInstallTask → relaunch.
+      const shouldAutoDownload =
+        decision.decision === 'jsBundleRollback' ||
+        (isAutoUpdateStrategy(releaseInfo.updateStrategy) &&
+          (decision.decision === 'jsBundleUpgrade' ||
+            decision.decision === 'appShellUpdate'));
       if (
-        decision.decision === 'jsBundleRollback' &&
+        shouldAutoDownload &&
         (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
       ) {
-        // Verify target is not frozen/ignored before auto-triggering download
-        const rollbackTargetKey =
-          releaseInfo.version && releaseInfo.jsBundleVersion
+        // Verify target is not frozen/ignored before auto-triggering download.
+        // Mirror the freeze-check target key built above (line ~1442) so the
+        // app-shell fallback to the current bundleVersion stays consistent.
+        const autoDownloadTargetKey =
+          releaseInfo.version &&
+          (releaseInfo.jsBundleVersion ||
+            decision.decision === 'appShellUpdate')
             ? this.getTargetKey({
                 targetAppVersion: releaseInfo.version,
-                targetBundleVersion: releaseInfo.jsBundleVersion,
+                targetBundleVersion:
+                  decision.decision === 'appShellUpdate'
+                    ? releaseInfo.jsBundleVersion ||
+                      String(platformEnv.bundleVersion || '')
+                    : releaseInfo.jsBundleVersion!,
               })
             : null;
-        const rollbackBlocked = rollbackTargetKey
+        const autoDownloadBlocked = autoDownloadTargetKey
           ? await this.shouldSkipTargetByControl(
-              rollbackTargetKey,
+              autoDownloadTargetKey,
               traceId,
               requestSeq,
               false,
             )
           : false;
-        if (!rollbackBlocked) {
+        if (!autoDownloadBlocked) {
           // Use setTimeout to avoid blocking the current fetch flow.
           // Re-check status inside the callback: if the UI hook already
           // called downloadPackage(), status will be 'downloadPackage'
@@ -1598,7 +1625,7 @@ class ServiceAppUpdate extends ServiceBase {
                 return;
               }
               defaultLogger.app.appUpdate.log(
-                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+                `fetchAppUpdateInfo: auto-starting silent download for ${decision.decision}`,
               );
               void this.downloadPackage();
             })();
@@ -1806,6 +1833,159 @@ class ServiceAppUpdate extends ServiceBase {
         (b.ciBundleVersion || '').toLowerCase().includes(needle),
     );
     return match ? [{ version: currentVersion, bundle: match }] : [];
+  }
+
+  // Statuses that mean an OTA bundle / app-shell update transfer or install
+  // is mid-flight. While in any of these, the bundle prune is skipped so we
+  // never delete a directory that is actively being written / installed.
+  // The native / desktop prune additionally hard-refuses to delete the
+  // current appVersion, so this is a second, conservative belt.
+  static IN_PROGRESS_STATUSES: EAppUpdateStatus[] = [
+    EAppUpdateStatus.downloadPackage,
+    EAppUpdateStatus.downloadASC,
+    EAppUpdateStatus.verifyASC,
+    EAppUpdateStatus.verifyPackage,
+    EAppUpdateStatus.ready,
+  ];
+
+  // Persistent rate-limit window for pruneStaleArtifacts: at most one sweep
+  // per 24h across launches (the per-launch flag only dedupes within a
+  // single process).
+  static PRUNE_STALE_ARTIFACTS_MIN_INTERVAL = 24 * 60 * 60 * 1000;
+
+  // Volatile per-launch debounce: pruneStaleArtifacts is a cold-start idle
+  // sweep that must run at most once per app launch.
+  private hasPrunedStaleArtifactsThisLaunch = false;
+
+  /**
+   * Cold-start idle cleanup of stale download artifacts (called once per
+   * launch from the post-first-render idle hook). Never throws — cleanup
+   * must never crash boot.
+   *
+   * - Bundle: always attempts BundleUpdate.pruneStaleAppVersionBundles()
+   *   (native / desktop self-contained: keeps every artifact whose
+   *   appVersion == running native binary, deletes the rest, hard-refuses
+   *   to delete the current appVersion). Skipped while an OTA
+   *   download/install is in progress.
+   * - APK (Android only): only when there is NO update available
+   *   (status === done and no running pending-install task) do we wipe the
+   *   standalone APK cache. If an update is available / downloading /
+   *   downloaded-pending-install, the apk wipe is skipped so the pending
+   *   package survives.
+   */
+  @backgroundMethod()
+  public async pruneStaleArtifacts(): Promise<void> {
+    if (this.hasPrunedStaleArtifactsThisLaunch) {
+      return;
+    }
+    this.hasPrunedStaleArtifactsThisLaunch = true;
+
+    const appInfo = await appUpdatePersistAtom.get();
+    const { status } = appInfo;
+
+    // Persistent 24h rate-limit (survives relaunch). The per-launch flag above
+    // only dedupes within one process; this caps the sweep to once per day
+    // across cold starts so frequent restarts don't repeatedly hit the disk.
+    const now = Date.now();
+    const lastPrunedAt = appInfo.lastPruneStaleArtifactsAt ?? 0;
+    if (
+      now - lastPrunedAt <
+      ServiceAppUpdate.PRUNE_STALE_ARTIFACTS_MIN_INTERVAL
+    ) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip — last sweep ${Math.round(
+          (now - lastPrunedAt) / 1000,
+        )}s ago (<24h)`,
+      );
+      return;
+    }
+    // Stamp the attempt up-front so a partial failure still respects the 24h
+    // window — cleanup is best-effort and must not retry every launch.
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      lastPruneStaleArtifactsAt: now,
+    }));
+
+    // An in-progress OTA transfer/install is reflected either in the
+    // app-update status machine or in a running/pending install task.
+    let pendingTaskInProgress = false;
+    try {
+      const pendingTask = await getPendingInstallTask();
+      pendingTaskInProgress = Boolean(
+        pendingTask &&
+        (pendingTask.status === EPendingInstallTaskStatus.pending ||
+          pendingTask.status === EPendingInstallTaskStatus.running ||
+          pendingTask.status ===
+            EPendingInstallTaskStatus.appliedWaitingVerify),
+      );
+    } catch (error) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: failed to read pending install task: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
+
+    const bundleUpdateInProgress =
+      ServiceAppUpdate.IN_PROGRESS_STATUSES.includes(status) ||
+      pendingTaskInProgress;
+
+    // --- Bundle prune (all platforms) ---
+    if (bundleUpdateInProgress) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip bundle prune — update in progress (status=${status}, pendingTask=${String(
+          pendingTaskInProgress,
+        )})`,
+      );
+    } else {
+      try {
+        const deletedDirCount =
+          await BundleUpdate.pruneStaleAppVersionBundles();
+        defaultLogger.app.appUpdate.log(
+          `pruneStaleArtifacts: bundle prune done, deletedDirCount=${deletedDirCount}`,
+        );
+      } catch (error) {
+        // Swallow — cleanup must never crash boot.
+        defaultLogger.app.appUpdate.log(
+          `pruneStaleArtifacts: bundle prune failed: ${
+            (error as Error)?.message ?? 'unknown'
+          }`,
+        );
+      }
+    }
+
+    // --- APK cache wipe (Android only) ---
+    // Only when there is genuinely no update available do we wipe the
+    // standalone APK cache (install-then-dead packages). Any
+    // available / downloading / downloaded-pending-install state keeps the
+    // apks so the pending package is not destroyed.
+    if (!platformEnv.isNativeAndroid) {
+      return;
+    }
+    const noUpdateAvailable =
+      status === EAppUpdateStatus.done && !pendingTaskInProgress;
+    if (!noUpdateAvailable) {
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: skip apk cache wipe — update present (status=${status}, pendingTask=${String(
+          pendingTaskInProgress,
+        )})`,
+      );
+      return;
+    }
+    try {
+      await AppUpdate.clearApkCache();
+      defaultLogger.app.appUpdate.log(
+        'pruneStaleArtifacts: apk cache wiped (no update available)',
+      );
+    } catch (error) {
+      // Swallow — cacheDir may already be reclaimed by the OS, and cleanup
+      // must never crash boot.
+      defaultLogger.app.appUpdate.log(
+        `pruneStaleArtifacts: apk cache wipe failed: ${
+          (error as Error)?.message ?? 'unknown'
+        }`,
+      );
+    }
   }
 }
 
