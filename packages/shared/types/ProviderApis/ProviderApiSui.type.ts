@@ -1,10 +1,10 @@
 import type {
   ExecuteTransactionRequestType,
+  SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui/client';
+} from '@mysten/sui/jsonRpc';
 import type {
   SignedTransaction,
-  SuiSignAndExecuteTransactionBlockOutput,
   SuiSignAndExecuteTransactionInput,
   SuiSignTransactionInput,
 } from '@mysten/wallet-standard';
@@ -112,5 +112,7 @@ export type IOneKeySuiSignAndExecuteTransactionInput = Omit<
   transaction: string;
 };
 
+// wallet-standard's SuiSignAndExecuteTransactionBlockOutput is typed against
+// its own nested sui sdk 1.x; alias to our 2.x response type (same runtime shape)
 export type IOneKeySuiSignAndExecuteTransactionOutput =
-  SuiSignAndExecuteTransactionBlockOutput;
+  SuiTransactionBlockResponse;

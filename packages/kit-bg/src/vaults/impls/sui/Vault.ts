@@ -74,7 +74,7 @@ import type {
 import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui/client';
+} from '@mysten/sui/jsonRpc';
 
 function getTransferActionAddress(addresses: string[]) {
   const uniqueAddresses = Array.from(new Set(addresses.filter(Boolean)));
@@ -109,6 +109,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
     });
     return new OneKeySuiClient({
+      network: 'mainnet',
       transport,
     });
   }
@@ -183,7 +184,7 @@ export default class Vault extends VaultBase {
     const { swapInfo } = unsignedTx;
 
     const tx = Transaction.from(encodedTx.rawTx);
-    tx.setSender(tx.blockData.sender ?? (await this.getAccountAddress()));
+    tx.setSender(tx.getData().sender ?? (await this.getAccountAddress()));
 
     const transactionType = transactionUtils.analyzeTransactionType(tx);
 
@@ -376,7 +377,7 @@ export default class Vault extends VaultBase {
       // max send logic
       const newTx = await transactionUtils.createTokenTransaction({
         client,
-        sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+        sender: oldTx.getData().sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
         amount: nativeAmountInfo.maxSendAmount,
         coinType: SUI_TYPE_ARG,
@@ -394,10 +395,8 @@ export default class Vault extends VaultBase {
 
     if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
       const newTx = Transaction.from(encodedTx.rawTx);
-      newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
-      newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
-      // newTx.setGasPrice(new BigNumber(feeInfo.gas.gasPrice).toNumber());
-      // newTx.setGasBudget(new BigNumber(feeInfo.gas.gasLimit).toNumber());
+      newTx.setGasPrice(feeInfo.gas.gasPrice);
+      newTx.setGasBudget(feeInfo.gas.gasLimit);
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),
@@ -515,6 +514,7 @@ export default class Vault extends VaultBase {
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
     const client = new OneKeySuiClient({
+      network: 'mainnet',
       url: params.rpcUrl,
     });
     const start = performance.now();
@@ -544,7 +544,7 @@ export default class Vault extends VaultBase {
         throw new OneKeyLocalError('publicKey is empty');
       }
 
-      const client = new OneKeySuiClient({ url: rpcUrl });
+      const client = new OneKeySuiClient({ network: 'mainnet', url: rpcUrl });
 
       const response = await client.executeTransactionBlock({
         transactionBlock: rawTx,
