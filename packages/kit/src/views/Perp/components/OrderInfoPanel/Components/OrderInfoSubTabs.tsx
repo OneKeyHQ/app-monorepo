@@ -4,7 +4,7 @@ function OrderInfoSubTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
-  variant = 'pill',
+  variant: _variant = 'pill',
 }: {
   tabs: {
     key: T;
