@@ -126,6 +126,7 @@ import {
   spotBalancesAtom,
   spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
+  spotPairDisplayNameMapAtom,
   spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -1968,11 +1969,17 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // UI needs synchronous @N → display name resolution (no async SimpleDb lookup)
     const displayMap: Record<string, string> = {};
+    const pairDisplayNameMap: Record<string, string> = {};
     for (const u of universes) {
       displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
       displayMap[u.baseName] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+      pairDisplayNameMap[u.name] = perpsUtils.formatSpotPairDisplayName(
+        u.baseName,
+        u.quoteName,
+      );
     }
     void spotPairDisplayMapAtom.set(displayMap);
+    void spotPairDisplayNameMapAtom.set(pairDisplayNameMap);
   }
 
   // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
