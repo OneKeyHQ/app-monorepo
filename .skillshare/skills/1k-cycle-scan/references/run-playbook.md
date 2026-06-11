@@ -158,10 +158,15 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    vs pin — see provenance note — or wrong commit).
 5. Plan the slice:
    ```bash
-   node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --cursor <state.cursor> \
-     --lines <N> --group-lines <config> --group-files <config> \
-     [--done-indices <DONE_INDICES>] --out /tmp/1k-cycle-scan-groups.json
+   node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --repo "$WT" \
+     --cursor <state.cursor> --lines <N> --group-lines <config> \
+     --group-files <config> [--done-indices <DONE_INDICES>] \
+     --out /tmp/1k-cycle-scan-groups.json
    ```
+   `--repo` enables READ PROBES: files >1800 lines get a `probeLine` whose
+   exact content the scan agent must echo back (proof it read past the Read
+   tool's ~2000-line-per-call window). Keep probe line numbers in the group
+   prompts but NEVER put the expected text anywhere near an agent prompt.
    `--lines`: the user's override converted to an integer (`100k` → `100000`),
    else `config.defaults.runLines`. The script rejects non-integers. Surface
    `strandedDoneIndices` to the user if non-empty (those files will be
@@ -175,13 +180,17 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    checkpoint COMMENT on the batch page (marker carries the run number;
    human line carries live progress). Checkpoint comment timestamps double
    as the lock heartbeat.
-7. Reconcile — compare checkpoint comments against the plan. Two DIFFERENT
+7. Reconcile — compare checkpoint comments against the plan. Three DIFFERENT
    gaps:
    a. Group has scan results but no checkpoint (posting failed) → post it now
       from the orchestrator's data.
    b. Group has NO scan result (agent died/timeout) → re-run that group once
       (scan + verify + checkpoint). Still failing → do NOT advance anything
       for it; never fabricate its checkpoint.
+   c. PROBE verification: for every probed file, compare the agent's probe
+      text against the worktree (`sed -n '<N>p' "$WT/<path>"`,
+      whitespace-trimmed). Wrong or missing → the group's reads are not
+      trustworthy: treat exactly like 7b (re-run once; then runIncomplete).
 8. Close the run:
    - All groups checkpointed → create the run report page (child of the
      batch page, template below), then release-update the state page:
@@ -246,7 +255,14 @@ Repo checkout (read-only): <WT> at commit <PIN>.
    inline content for page-sourced rules>. Respect its false-positive guards
    and severity framework.
 2. Read each assigned file COMPLETELY (paths relative to <WT>):
-   <path (lines)> ...
+   <path (lines)[, probe line N]> ...
+   READ MECHANICS: a single Read call returns at most ~2000 lines. For longer
+   files, continue with increasing offsets until the stated line count is
+   fully covered. Never skim, sample, or stop early.
+   READ PROBES: for every file marked "probe line N", include the EXACT text
+   of that line in your probes output. Probes are verified against the repo;
+   a wrong or missing probe invalidates this whole group and it gets
+   rescanned.
    The ENTIRE worktree is readable. When a verdict depends on cross-file
    context — callers, imported helpers, list sizes, whether code sits on a
    startup/hot path — follow the references and read those related files too.
@@ -268,7 +284,8 @@ Repo checkout (read-only): <WT> at commit <PIN>.
 Finding schema (Workflow `schema` option / StructuredOutput):
 
 ```json
-{ "type": "object", "required": ["findings"], "properties": { "findings": {
+{ "type": "object", "required": ["findings", "probes"], "properties": {
+  "findings": {
   "type": "array", "items": { "type": "object",
     "required": ["path", "line", "category", "severity", "title", "confidence"],
     "properties": {
@@ -278,7 +295,11 @@ Finding schema (Workflow `schema` option / StructuredOutput):
       "title": { "type": "string", "description": "one line, ≤120 chars, no angle brackets/URLs" },
       "evidence": { "type": "string", "description": "≤3 code lines" },
       "suggestion": { "type": "string", "description": "one line" },
-      "confidence": { "type": "number" } } } } } }
+      "confidence": { "type": "number" } } } },
+  "probes": { "type": "array", "description": "one entry per assigned file marked with a probe line",
+    "items": { "type": "object", "required": ["path", "line", "text"],
+      "properties": { "path": { "type": "string" }, "line": { "type": "number" },
+        "text": { "type": "string", "description": "exact content of that line" } } } } } }
 ```
 
 Refuter prompt (each finding with severity ∈ `config.defaults.verifySeverities`):

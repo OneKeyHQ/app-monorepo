@@ -16,16 +16,49 @@
  *                  [--done-indices "12,13,40"] [--out /tmp/groups.json]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Defaults calibrated 2026-06: ~50k lines per run keeps a full batch around
 // 20 runs; ~4000 lines (or 25 files) per group fits one deep-reading agent.
 const DEFAULTS = { lines: 50_000, groupLines: 4_000, groupFiles: 25 };
+
+// Read probes: the agent Read tool returns at most ~2000 lines per call, so
+// only files beyond that can be silently truncated by a lazy reader. For such
+// files we pick a deep line whose CONTENT the scan agent must echo back; the
+// orchestrator verifies it against the worktree. Position is deterministic —
+// the content is the secret, so determinism does not weaken the check.
+const PROBE_MIN_FILE_LINES = 1800;
+const PROBE_MIN_CHARS = 12;
+
+function pickProbeLine(repo, relPath, totalLines) {
+  let text;
+  try {
+    text = readFileSync(join(repo, relPath), 'utf8').split('\n');
+  } catch {
+    return null;
+  }
+  // Pick the LONGEST line in the tail window — distinctive content that
+  // cannot be guessed from generic file endings like `});`.
+  const end = Math.min(totalLines, text.length);
+  const start = Math.max(1, end - 150);
+  let best = null;
+  let bestLen = PROBE_MIN_CHARS - 1;
+  for (let ln = start; ln <= end; ln += 1) {
+    const len = (text[ln - 1] ?? '').trim().length;
+    if (len >= bestLen) {
+      best = ln;
+      bestLen = len;
+    }
+  }
+  return best;
+}
 
 function parseArgs(argv) {
   const args = { ...DEFAULTS, cursor: 0, doneIndices: [] };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--manifest') args.manifest = argv[(i += 1)];
+    else if (a === '--repo') args.repo = argv[(i += 1)];
     else if (a === '--cursor') args.cursor = Number(argv[(i += 1)]);
     else if (a === '--lines') args.lines = Number(argv[(i += 1)]);
     else if (a === '--group-lines') args.groupLines = Number(argv[(i += 1)]);
@@ -113,6 +146,18 @@ function main() {
     lastIndex = i;
   }
   flush();
+
+  // Attach read probes (requires --repo pointing at the pinned worktree).
+  if (args.repo) {
+    for (const g of groups) {
+      for (const f of g.files) {
+        if (f.lines > PROBE_MIN_FILE_LINES) {
+          const ln = pickProbeLine(args.repo, f.path, f.lines);
+          if (ln) f.probeLine = ln;
+        }
+      }
+    }
+  }
 
   // Swallow trailing already-done files so they end up behind the cursor
   // instead of being replanned (and rescanned) by the next run.
