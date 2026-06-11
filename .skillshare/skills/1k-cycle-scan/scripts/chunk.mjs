@@ -23,7 +23,7 @@ import { join } from 'node:path';
 
 // Defaults calibrated 2026-06: ~50k lines per run keeps a full batch around
 // 20 runs; ~4000 lines (or 25 files) per group fits one deep-reading agent.
-const DEFAULTS = { lines: 50_000, groupLines: 4_000, groupFiles: 25 };
+const DEFAULTS = { lines: 50_000, groupLines: 4000, groupFiles: 25 };
 
 // Read probes: the agent Read tool returns at most ~2000 lines per call, so
 // only files beyond that can be silently truncated by a lazy reader. For such
@@ -32,6 +32,12 @@ const DEFAULTS = { lines: 50_000, groupLines: 4_000, groupFiles: 25 };
 // the content is the secret, so determinism does not weaken the check.
 const PROBE_MIN_FILE_LINES = 1800;
 const PROBE_MIN_CHARS = 12;
+
+const ARG_NAME_BY_KEY = {
+  lines: 'lines',
+  groupLines: 'group-lines',
+  groupFiles: 'group-files',
+};
 
 function pickProbeLine(repo, relPath, totalLines) {
   let text;
@@ -57,7 +63,12 @@ function pickProbeLine(repo, relPath, totalLines) {
 }
 
 function parseArgs(argv) {
-  const args = { ...DEFAULTS, cursor: 0, doneIndices: [], preserveGroupIds: false };
+  const args = {
+    ...DEFAULTS,
+    cursor: 0,
+    doneIndices: [],
+    preserveGroupIds: false,
+  };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--manifest') args.manifest = argv[(i += 1)];
@@ -67,10 +78,7 @@ function parseArgs(argv) {
     else if (a === '--group-lines') args.groupLines = Number(argv[(i += 1)]);
     else if (a === '--group-files') args.groupFiles = Number(argv[(i += 1)]);
     else if (a === '--done-indices') {
-      args.doneIndices = argv[(i += 1)]
-        .split(',')
-        .filter(Boolean)
-        .map(Number);
+      args.doneIndices = argv[(i += 1)].split(',').filter(Boolean).map(Number);
     } else if (a === '--preserve-group-ids') args.preserveGroupIds = true;
     else if (a === '--out') args.out = argv[(i += 1)];
     else {
@@ -90,12 +98,16 @@ function parseArgs(argv) {
   // a NaN budget would silently plan the entire remaining manifest.
   for (const key of ['lines', 'groupLines', 'groupFiles']) {
     if (!Number.isInteger(args[key]) || args[key] <= 0) {
-      console.error(`invalid --${key === 'lines' ? 'lines' : key === 'groupLines' ? 'group-lines' : 'group-files'}: must be a positive integer (convert "100k" to 100000 first)`);
+      console.error(
+        `invalid --${ARG_NAME_BY_KEY[key]}: must be a positive integer (convert "100k" to 100000 first)`,
+      );
       process.exit(2);
     }
   }
   if (args.doneIndices.some((n) => !Number.isInteger(n) || n < 0)) {
-    console.error('invalid --done-indices: must be comma-separated non-negative integers');
+    console.error(
+      'invalid --done-indices: must be comma-separated non-negative integers',
+    );
     process.exit(2);
   }
   return args;
@@ -123,24 +135,24 @@ function buildGroups({ args, entries, done, skipDone }) {
     if (plannedLines >= args.lines) break;
     if (skipDone && done.has(i)) {
       lastIndex = i;
-      continue;
+    } else {
+      const e = entries[i];
+      if (e.i !== i) {
+        console.error(`manifest corrupt: entry at position ${i} has i=${e.i}`);
+        process.exit(2);
+      }
+      if (
+        current.files.length > 0 &&
+        (current.totalLines + e.lines > args.groupLines ||
+          current.files.length >= args.groupFiles)
+      ) {
+        flush();
+      }
+      current.files.push({ i, path: e.path, lines: e.lines });
+      current.totalLines += e.lines;
+      plannedLines += e.lines;
+      lastIndex = i;
     }
-    const e = entries[i];
-    if (e.i !== i) {
-      console.error(`manifest corrupt: entry at position ${i} has i=${e.i}`);
-      process.exit(2);
-    }
-    if (
-      current.files.length > 0 &&
-      (current.totalLines + e.lines > args.groupLines ||
-        current.files.length >= args.groupFiles)
-    ) {
-      flush();
-    }
-    current.files.push({ i, path: e.path, lines: e.lines });
-    current.totalLines += e.lines;
-    plannedLines += e.lines;
-    lastIndex = i;
   }
   flush();
 
@@ -199,7 +211,7 @@ function main() {
     plannedLines = groups.reduce((sum, g) => sum + g.totalLines, 0);
     strandedDoneIndices = [...done]
       .filter((n) => n >= proposedCursor)
-      .sort((a, b) => a - b);
+      .toSorted((a, b) => a - b);
   } else {
     const filled = buildGroups({ args, entries, done, skipDone: true });
     groups = filled.groups;
@@ -207,7 +219,7 @@ function main() {
     let lastIndex = filled.lastIndex;
 
     // Swallow trailing already-done files so they end up behind the cursor
-    // instead of being replanned (and rescanned) by the next run.
+    // instead of being replanned and scanned again by the next run.
     while (done.has(lastIndex + 1)) lastIndex += 1;
 
     proposedCursor = lastIndex + 1;
@@ -215,7 +227,7 @@ function main() {
     // WILL be replanned later. Surface them so the orchestrator can warn.
     strandedDoneIndices = [...done]
       .filter((n) => n >= proposedCursor)
-      .sort((a, b) => a - b);
+      .toSorted((a, b) => a - b);
   }
 
   attachReadProbes({ args, groups });
@@ -242,7 +254,9 @@ function main() {
   if (args.out) writeFileSync(args.out, JSON.stringify(plan, null, 1));
 
   const { groups: _omitted, ...summary } = plan;
-  summary.groupSizes = groups.map((g) => `${g.id}:${g.totalFiles}f/${g.totalLines}l`);
+  summary.groupSizes = groups.map(
+    (g) => `${g.id}:${g.totalFiles}f/${g.totalLines}l`,
+  );
   console.log(JSON.stringify(summary, null, 1));
 }
 

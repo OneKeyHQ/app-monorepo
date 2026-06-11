@@ -28,7 +28,7 @@ function parseArgs(argv) {
     console.error('--schema must be one of: scan, refute');
     process.exit(2);
   }
-  if (args.groupId != null && !Number.isInteger(args.groupId)) {
+  if (args.groupId !== undefined && !Number.isInteger(args.groupId)) {
     console.error('--group-id must be an integer');
     process.exit(2);
   }
@@ -38,9 +38,11 @@ function parseArgs(argv) {
 function readJsonInput(file) {
   const raw = file ? readFileSync(file, 'utf8') : readFileSync(0, 'utf8');
   try {
-    return JSON.parse(raw);
+    return { value: JSON.parse(raw) };
   } catch (e) {
-    throw new Error(`invalid JSON: ${e.message}. Output must be raw JSON only; no markdown fences or prose.`);
+    return {
+      error: `invalid JSON: ${e.message}. Output must be raw JSON only; no markdown fences or prose.`,
+    };
   }
 }
 
@@ -79,15 +81,20 @@ function extractCategoryKeys(rulesFile) {
   return keys;
 }
 
-function readGroup(groupFile, groupId) {
+function readGroup(groupFile, groupId, errors) {
   if (!groupFile) return null;
   const body = JSON.parse(readFileSync(groupFile, 'utf8'));
   if (body.files) return body;
   if (Array.isArray(body.groups)) {
-    if (groupId != null) return body.groups.find((g) => g.id === groupId) ?? null;
+    if (groupId !== undefined) {
+      return body.groups.find((g) => g.id === groupId) ?? null;
+    }
     if (body.groups.length === 1) return body.groups[0];
   }
-  throw new Error('--group must point to one group object, or pass --group-id for a plan file');
+  errors.push(
+    '--group must point to one group object, or pass --group-id for a plan file',
+  );
+  return null;
 }
 
 function lineText(repo, relPath, line) {
@@ -99,14 +106,28 @@ function validateFinding(f, index, categories, errors) {
   const path = `findings[${index}]`;
   exactKeys(
     f,
-    ['path', 'line', 'category', 'severity', 'title', 'evidence', 'suggestion', 'confidence'],
+    [
+      'path',
+      'line',
+      'category',
+      'severity',
+      'title',
+      'evidence',
+      'suggestion',
+      'confidence',
+    ],
     [],
     path,
     errors,
   );
-  if (!isRelativeRepoPath(f.path)) errors.push(`${path}.path: expected repo-relative path`);
-  if (!Number.isInteger(f.line) || f.line < 1) errors.push(`${path}.line: expected positive integer`);
-  if (typeof f.category !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(f.category)) {
+  if (!isRelativeRepoPath(f.path))
+    errors.push(`${path}.path: expected repo-relative path`);
+  if (!Number.isInteger(f.line) || f.line < 1)
+    errors.push(`${path}.line: expected positive integer`);
+  if (
+    typeof f.category !== 'string' ||
+    !/^[a-z0-9][a-z0-9-]*$/.test(f.category)
+  ) {
     errors.push(`${path}.category: expected kebab-case category key`);
   } else if (categories && !categories.has(f.category)) {
     errors.push(`${path}.category: unknown category "${f.category}"`);
@@ -114,20 +135,37 @@ function validateFinding(f, index, categories, errors) {
   if (!['P0', 'P1', 'P2'].includes(f.severity)) {
     errors.push(`${path}.severity: expected P0, P1, or P2`);
   }
-  if (typeof f.title !== 'string' || f.title.length === 0 || f.title.length > 120) {
+  if (
+    typeof f.title !== 'string' ||
+    f.title.length === 0 ||
+    f.title.length > 120
+  ) {
     errors.push(`${path}.title: expected non-empty string <=120 chars`);
   } else if (/[<>]/.test(f.title) || /https?:\/\//i.test(f.title)) {
     errors.push(`${path}.title: no angle brackets or bare URLs`);
   }
-  if (typeof f.evidence !== 'string' || f.evidence.length === 0 || f.evidence.length > 500) {
+  if (
+    typeof f.evidence !== 'string' ||
+    f.evidence.length === 0 ||
+    f.evidence.length > 500
+  ) {
     errors.push(`${path}.evidence: expected non-empty string <=500 chars`);
   } else if (f.evidence.split('\n').length > 3) {
     errors.push(`${path}.evidence: expected <=3 lines`);
   }
-  if (typeof f.suggestion !== 'string' || f.suggestion.length === 0 || f.suggestion.length > 240) {
+  if (
+    typeof f.suggestion !== 'string' ||
+    f.suggestion.length === 0 ||
+    f.suggestion.length > 240
+  ) {
     errors.push(`${path}.suggestion: expected non-empty string <=240 chars`);
   }
-  if (typeof f.confidence !== 'number' || !Number.isFinite(f.confidence) || f.confidence < 0 || f.confidence > 1) {
+  if (
+    typeof f.confidence !== 'number' ||
+    !Number.isFinite(f.confidence) ||
+    f.confidence < 0 ||
+    f.confidence > 1
+  ) {
     errors.push(`${path}.confidence: expected number between 0 and 1`);
   }
 }
@@ -144,22 +182,29 @@ function validateProbes(probes, group, repo, errors) {
     }
   }
   if (group && probes.length !== expected.size) {
-    errors.push(`probes: expected ${expected.size} probe entries, got ${probes.length}`);
+    errors.push(
+      `probes: expected ${expected.size} probe entries, got ${probes.length}`,
+    );
   }
   const seen = new Set();
   probes.forEach((p, index) => {
     const path = `probes[${index}]`;
     exactKeys(p, ['path', 'line', 'text'], [], path, errors);
-    if (!isRelativeRepoPath(p.path)) errors.push(`${path}.path: expected repo-relative path`);
-    if (!Number.isInteger(p.line) || p.line < 1) errors.push(`${path}.line: expected positive integer`);
-    if (typeof p.text !== 'string') errors.push(`${path}.text: expected string`);
+    if (!isRelativeRepoPath(p.path))
+      errors.push(`${path}.path: expected repo-relative path`);
+    if (!Number.isInteger(p.line) || p.line < 1)
+      errors.push(`${path}.line: expected positive integer`);
+    if (typeof p.text !== 'string')
+      errors.push(`${path}.text: expected string`);
     const key = `${p.path}:${p.line}`;
     if (seen.has(key)) errors.push(`${path}: duplicate probe ${key}`);
     seen.add(key);
-    if (group && !expected.has(key)) errors.push(`${path}: unexpected probe ${key}`);
+    if (group && !expected.has(key))
+      errors.push(`${path}: unexpected probe ${key}`);
     if (repo && expected.has(key)) {
       const actual = lineText(repo, p.path, p.line).trim();
-      if (p.text.trim() !== actual) errors.push(`${path}.text: does not match repo line ${key}`);
+      if (p.text.trim() !== actual)
+        errors.push(`${path}.text: does not match repo line ${key}`);
     }
   });
   for (const key of expected.keys()) {
@@ -174,9 +219,11 @@ function validateScan(value, args) {
   if (!Array.isArray(value.findings)) {
     errors.push('findings: expected array');
   } else {
-    value.findings.forEach((f, index) => validateFinding(f, index, categories, errors));
+    value.findings.forEach((f, index) =>
+      validateFinding(f, index, categories, errors),
+    );
   }
-  const group = readGroup(args.group, args.groupId);
+  const group = readGroup(args.group, args.groupId, errors);
   validateProbes(value.probes, group, args.repo, errors);
   return errors;
 }
@@ -184,8 +231,13 @@ function validateScan(value, args) {
 function validateRefute(value) {
   const errors = [];
   exactKeys(value, ['refuted', 'reason'], [], '$', errors);
-  if (typeof value.refuted !== 'boolean') errors.push('refuted: expected boolean');
-  if (typeof value.reason !== 'string' || value.reason.length === 0 || value.reason.length > 500) {
+  if (typeof value.refuted !== 'boolean')
+    errors.push('refuted: expected boolean');
+  if (
+    typeof value.reason !== 'string' ||
+    value.reason.length === 0 ||
+    value.reason.length > 500
+  ) {
     errors.push('reason: expected non-empty string <=500 chars');
   }
   return errors;
@@ -195,8 +247,16 @@ function main() {
   const args = parseArgs(process.argv);
   let value;
   try {
-    value = readJsonInput(args.file);
-    const errors = args.schema === 'scan' ? validateScan(value, args) : validateRefute(value);
+    const parsed = readJsonInput(args.file);
+    if (parsed.error) {
+      console.error(parsed.error);
+      process.exit(1);
+    }
+    value = parsed.value;
+    const errors =
+      args.schema === 'scan'
+        ? validateScan(value, args)
+        : validateRefute(value);
     if (errors.length > 0) {
       console.error(errors.map((e) => `schema error: ${e}`).join('\n'));
       process.exit(1);
