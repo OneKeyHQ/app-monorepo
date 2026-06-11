@@ -419,6 +419,7 @@ export interface IMarketBasicConfigToken {
   name: string;
   symbol: string;
   logo?: string;
+  communityRecognized?: boolean;
 }
 
 export interface IMarketBasicConfigNetworkFeature {

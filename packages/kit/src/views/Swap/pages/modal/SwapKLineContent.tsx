@@ -65,6 +65,7 @@ const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
+  TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
   TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
   TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
@@ -157,6 +158,36 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
   return result;
 }
 
+function useSwapKLineTokenUsdFallbackPrice(token?: ISwapToken, enabled = true) {
+  const tokenAddress = token?.contractAddress?.trim() ?? '';
+  const networkId = token?.networkId ?? '';
+  const { result } = usePromiseResult<string | undefined>(
+    async () => {
+      if (!enabled || !networkId) {
+        return undefined;
+      }
+
+      const [tokenDetail] =
+        (await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId,
+          contractAddress: tokenAddress,
+          currency: 'usd',
+        })) ?? [];
+      return tokenDetail?.price;
+    },
+    [enabled, networkId, tokenAddress],
+    {
+      checkIsFocused: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  return result;
+}
+
 function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
@@ -232,6 +263,7 @@ function useSwapKLineChartDataSource({
         chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
           coinGeckoId,
           days,
+          { requestCurrency: 'usd' },
         );
         chartDataCacheRef.current.set(cacheKey, chartDataPromise);
       }
@@ -521,6 +553,7 @@ type ISwapKLineContentState = {
   shouldForceEmptyKLineData: boolean;
   isResolvingSelectedToken: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
+  tokenUsdFallbackPrice?: string;
   handlePrimaryKLineDataUnavailable: () => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
@@ -576,6 +609,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
+  const tokenUsdFallbackPrice = useSwapKLineTokenUsdFallbackPrice(
+    selectedToken,
+    !getNormalizedPrice(tokenMarketDetail?.price),
+  );
   const isResolvingSelectedToken = Boolean(
     !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
   );
@@ -627,6 +664,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
+      tokenUsdFallbackPrice,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
     }),
@@ -642,6 +680,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       shouldForceEmptyKLineData,
       toToken,
       tokenMarketDetail,
+      tokenUsdFallbackPrice,
       walletMarketInfo,
     ],
   );
@@ -672,17 +711,17 @@ function SwapKLineHeaderRight({
 function SwapKLineTokenPriceInfo({
   tokenMarketDetail,
   walletMarketInfo,
-  fallbackPrice,
+  fallbackUsdPrice,
   compact,
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
-  fallbackPrice?: string;
+  fallbackUsdPrice?: string;
   compact?: boolean;
 }) {
   const price =
     getNormalizedPrice(tokenMarketDetail?.price) ??
-    getNormalizedPrice(fallbackPrice);
+    getNormalizedPrice(fallbackUsdPrice);
   const priceChange =
     getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
@@ -741,12 +780,14 @@ function SwapKLineTokenInfoRow({
   token,
   tokenMarketDetail,
   walletMarketInfo,
+  fallbackUsdPrice,
   headerRight,
   compact,
 }: {
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  fallbackUsdPrice?: string;
   headerRight?: ReactNode;
   compact?: boolean;
 }) {
@@ -791,7 +832,7 @@ function SwapKLineTokenInfoRow({
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
-          fallbackPrice={token.price}
+          fallbackUsdPrice={fallbackUsdPrice}
           compact={compact}
         />
       </XStack>
@@ -885,6 +926,7 @@ function SwapKLineContentBody({
             token={selectedToken}
             tokenMarketDetail={state.tokenMarketDetail}
             walletMarketInfo={state.walletMarketInfo}
+            fallbackUsdPrice={state.tokenUsdFallbackPrice}
             compact
           />
         </YStack>
@@ -893,6 +935,7 @@ function SwapKLineContentBody({
           token={selectedToken}
           tokenMarketDetail={state.tokenMarketDetail}
           walletMarketInfo={state.walletMarketInfo}
+          fallbackUsdPrice={state.tokenUsdFallbackPrice}
           headerRight={headerRight}
         />
       );
