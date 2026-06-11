@@ -32,9 +32,17 @@ page" below always means: `updateConfluencePage` with the full new body
      IDs, write them into `config.json` (the ONE repo file this skill may
      write — bootstrap exemption), remind them to commit;
    - cloud sandbox: STOP and tell the user to bootstrap locally and commit.
-3. Confluence probe per protocol (`getConfluencePage` on the parent page).
-   Failure → STOP.
-4. `git -C <repo> rev-parse --git-dir` works; `node --version` works.
+3. Confluence probe per protocol. Try `getConfluencePage` on
+   `config.confluence.parentPageId`; if it returns 404, treat the parent as a
+   possible Confluence folder and continue with CQL discovery:
+   `space = "<spaceKey>" AND type = page AND title ~ "CycleScan"`, then exact
+   match `CycleScan · <dim>` and read that page by ID. A parent-page 404 alone
+   is NOT proof that Confluence is unreachable. STOP only when both targeted
+   page reads and CQL fail, or when the requested bootstrap has no readable
+   parent/state target to persist into.
+4. Slack is not a preflight dependency. If Slack send later fails, keep the
+   persisted Confluence state/report and mention the Slack failure to the user.
+5. `git -C <repo> rev-parse --git-dir` works; `node --version` works.
 
 Repo root = the current project root (the checkout the session runs in, or any
 worktree of it).
@@ -160,7 +168,7 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    ```bash
    node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --repo "$WT" \
      --cursor <state.cursor> --lines <N> --group-lines <config> \
-     --group-files <config> [--done-indices <DONE_INDICES>] \
+     --group-files <config> [--done-indices <DONE_INDICES> --preserve-group-ids] \
      --out /tmp/1k-cycle-scan-groups.json
    ```
    `--repo` enables READ PROBES: files >1800 lines get a `probeLine` whose
@@ -168,10 +176,34 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    tool's ~2000-line-per-call window). Keep probe line numbers in the group
    prompts but NEVER put the expected text anywhere near an agent prompt.
    `--lines`: the user's override converted to an integer (`100k` → `100000`),
-   else `config.defaults.runLines`. The script rejects non-integers. Surface
-   `strandedDoneIndices` to the user if non-empty (those files will be
-   replanned later — known double-scan).
-6. Scan groups — **ultracode**: orchestrate with the Workflow tool (template
+   else `config.defaults.runLines`. The script rejects non-integers. In
+   recovery/continuation mode, pass `--preserve-group-ids` so the original
+   interrupted run plan is reconstructed: already-checkpointed groups are
+   skipped, missing groups keep their original numbers, and the cursor advances
+   only to the original run boundary. Do not extend the same recovered run with
+   later manifest entries; the next invocation will open the next normal run.
+   Surface `strandedDoneIndices` to the user if non-empty.
+6. Strict agent-output validation:
+   - StructuredOutput/schema options are steering only. Every scan/refute
+     result MUST be serialized to a temp JSON file and validated locally:
+     ```bash
+     node "$SCRIPTS/validate-agent-output.mjs" --schema scan \
+       --file /tmp/scan-g<G>.raw.json --group /tmp/group-g<G>.json \
+       --repo "$WT" --rules <rules-file-if-local> \
+       --out /tmp/scan-g<G>.json
+     node "$SCRIPTS/validate-agent-output.mjs" --schema refute \
+       --file /tmp/refute-g<G>-f<N>.raw.json \
+       --out /tmp/refute-g<G>-f<N>.json
+     ```
+   - On validation failure, send the validator stderr plus the raw output back
+     to the SAME agent label with a repair prompt: "Your previous answer failed
+     schema validation. Return corrected raw JSON only. Do not add prose or
+     markdown fences." Retry at most twice. If it still fails, treat the group
+     as NO scan result (Flow D step 8b); never checkpoint invalid output.
+   - Probe validation belongs here too. If probe text does not match the
+     pinned worktree, the scan output is invalid and must be repaired/rerun
+     before findings are trusted.
+7. Scan groups — **ultracode**: orchestrate with the Workflow tool (template
    below); the skill mandates multi-agent orchestration and counts as the
    user's explicit opt-in. Only if the Workflow tool is genuinely absent,
    fall back to direct Agent fan-out capped at
@@ -180,7 +212,7 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    checkpoint COMMENT on the batch page (marker carries the run number;
    human line carries live progress). Checkpoint comment timestamps double
    as the lock heartbeat.
-7. Reconcile — compare checkpoint comments against the plan. Three DIFFERENT
+8. Reconcile — compare checkpoint comments against the plan. Three DIFFERENT
    gaps:
    a. Group has scan results but no checkpoint (posting failed) → post it now
       from the orchestrator's data.
@@ -190,21 +222,21 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    c. PROBE verification: for every probed file, compare the agent's probe
       text against the worktree (`sed -n '<N>p' "$WT/<path>"`,
       whitespace-trimmed). Wrong or missing → the group's reads are not
-      trustworthy: treat exactly like 7b (re-run once; then runIncomplete).
-8. Close the run:
+      trustworthy: treat exactly like 8b (re-run once; then runIncomplete).
+9. Close the run:
    - All groups checkpointed → create the run report page (child of the
      batch page, template below), then release-update the state page:
      `status=idle`, `runIncomplete=false`, `cursor=<plan.proposedCursor>`,
      `scannedLines=<plan.linesThroughProposedCursor>`, `updatedAt`, progress
      table refreshed. versionMessage: `run <R> closed · <Y>%`.
-   - Some groups failed (7b) → same, except: cursor and scannedLines stay
+   - Some groups failed (8b) → same, except: cursor and scannedLines stay
      UNCHANGED, `runIncomplete=true`, and the report page + your reply say
      exactly which groups are missing. The next invocation continues this run.
-9. Slack notify (best-effort, one line, Chinese):
+10. Slack notify (best-effort, one line, Chinese):
    `perf · R<NNN> 完成 · <X>%→<Y>% · P0×a P1×b P2×c · 报告: <report page URL>`.
-10. Reply to the user: coverage X%→Y%, P0/P1 counts with one-line examples,
+11. Reply to the user: coverage X%→Y%, P0/P1 counts with one-line examples,
     report page link, next-step hint.
-11. `plan.exhausted && !runIncomplete` → coverage is 100%: announce and run
+12. `plan.exhausted && !runIncomplete` → coverage is 100%: announce and run
     Flow E NOW (the worktree is still needed). Otherwise optionally
     `git worktree remove --force "$WT"` (skip in cloud sandboxes — ephemeral
     anyway).
@@ -212,7 +244,7 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
 ## Flow E: batch summary
 
 Route in: `cursor >= totalFiles && summaryPageId == null` (fresh invocation),
-or directly from Flow D step 11.
+or directly from Flow D step 12.
 
 1. Acquire the lock (`status=summarizing`) unless arriving from Flow D with
    the lock already held (then update status to `summarizing`).
@@ -278,66 +310,115 @@ Repo checkout (read-only): <WT> at commit <PIN>.
    Write title/evidence-notes/suggestion in CHINESE (keep code identifiers,
    paths, and category keys in English). In titles, avoid angle brackets and
    bare URLs.
+4. Return raw JSON only, exactly matching the schema below. Do not wrap it in
+   markdown fences, do not add prose, and do not add extra keys. `evidence`
+   and `suggestion` are required for every finding.
 <focus hint from the user's trailing free text, if any>
 ```
 
-Finding schema (Workflow `schema` option / StructuredOutput):
+Finding schema (Workflow `schema` option / StructuredOutput, then mandatory
+local `validate-agent-output.mjs --schema scan`):
 
 ```json
-{ "type": "object", "required": ["findings", "probes"], "properties": {
+{ "type": "object", "additionalProperties": false, "required": ["findings", "probes"], "properties": {
   "findings": {
   "type": "array", "items": { "type": "object",
-    "required": ["path", "line", "category", "severity", "title", "confidence"],
+    "additionalProperties": false,
+    "required": ["path", "line", "category", "severity", "title", "evidence", "suggestion", "confidence"],
     "properties": {
-      "path": { "type": "string" }, "line": { "type": "number" },
+      "path": { "type": "string" }, "line": { "type": "integer", "minimum": 1 },
       "category": { "type": "string" },
       "severity": { "enum": ["P0", "P1", "P2"] },
       "title": { "type": "string", "description": "one line, ≤120 chars, no angle brackets/URLs" },
       "evidence": { "type": "string", "description": "≤3 code lines" },
       "suggestion": { "type": "string", "description": "one line" },
-      "confidence": { "type": "number" } } } },
+      "confidence": { "type": "number", "minimum": 0, "maximum": 1 } } } },
   "probes": { "type": "array", "description": "one entry per assigned file marked with a probe line",
     "items": { "type": "object", "required": ["path", "line", "text"],
-      "properties": { "path": { "type": "string" }, "line": { "type": "number" },
+      "additionalProperties": false,
+      "properties": { "path": { "type": "string" }, "line": { "type": "integer", "minimum": 1 },
         "text": { "type": "string", "description": "exact content of that line" } } } } } }
 ```
 
 Refuter prompt (each finding with severity ∈ `config.defaults.verifySeverities`):
 *"Adversarially verify this finding — read <path> around line <line> in <WT>
 plus enough context to judge. Finding: <title / evidence>. Rules context:
-<category excerpt>. Default to refuted when uncertain."* Schema:
-`{refuted: boolean, reason: string}`. Refuted → drop from checkpoint, count in
-the report.
+<category excerpt>. Default to refuted when uncertain. Return raw JSON only:
+{\"refuted\": boolean, \"reason\": string}. No markdown fences or extra
+keys."* Refuter output is then validated with
+`validate-agent-output.mjs --schema refute`. Refuted → drop from checkpoint,
+count in the report.
 
 ## Workflow template (adapt, don't copy blindly)
 
 ```js
 export const meta = { name: 'cycle-scan-run', description: 'Scan one slice',
   phases: [{ title: 'Scan' }, { title: 'Verify' }] }
-// args: { groups, wt, pin, dimension, rulesLocation, focus,
-//         cloudId, batchPageId, runNumber, verifySeverities }
+// args: { groups, wt, pin, dimension, rulesLocation, rulesFile, focus,
+//         cloudId, batchPageId, runNumber, verifySeverities, scriptsDir }
 // Defensive: depending on the harness, `args` may arrive JSON-stringified.
 const ARGS = typeof args === 'string' ? JSON.parse(args) : args
 // Template-literal gotcha: to emit ```json fences inside prompts, use a
 // FENCE const ('``' + '`') — raw backticks terminate the template literal.
+async function strictAgent({ prompt, label, phase, schemaName, schema, validateArgs }) {
+  let raw = await agent(prompt, { label, phase, schema })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const validation = await validateWithLocalScript({
+      script: `${ARGS.scriptsDir}/validate-agent-output.mjs`,
+      schemaName,
+      raw,
+      validateArgs,
+    })
+    if (validation.ok) return validation.value
+    raw = await agent(
+      repairPrompt({ originalPrompt: prompt, raw, errors: validation.stderr }),
+      { label: `${label}:repair${attempt + 1}`, phase, schema },
+    )
+  }
+  return null
+}
 const results = await pipeline(
   ARGS.groups,
-  (g) => agent(scanPrompt(g), { label: `scan:g${g.id}`, phase: 'Scan', schema: FINDINGS }),
+  (g) => strictAgent({
+    prompt: scanPrompt(g),
+    label: `scan:g${g.id}`,
+    phase: 'Scan',
+    schemaName: 'scan',
+    schema: FINDINGS,
+    validateArgs: { group: g, repo: ARGS.wt, rules: ARGS.rulesFile },
+  }),
   async (res, g) => {
+    if (!res) return null
     const verdicts = await parallel(
       res.findings.filter((f) => ARGS.verifySeverities.includes(f.severity)).map((f) => () =>
-        agent(refutePrompt(f), { label: `refute:g${g.id}`, phase: 'Verify', schema: VERDICT })
+        strictAgent({
+          prompt: refutePrompt(f),
+          label: `refute:g${g.id}`,
+          phase: 'Verify',
+          schemaName: 'refute',
+          schema: VERDICT,
+          validateArgs: {},
+        })
           .then((v) => ({ f, refuted: v?.refuted ?? false }))));
     const refutedSet = new Set(verdicts.filter(Boolean).filter((v) => v.refuted).map((v) => v.f))
     const kept = res.findings.filter((f) => !refutedSet.has(f))
     // best-effort in-flight checkpoint; orchestrator reconciles afterwards
-    // (playbook Flow D step 7)
+    // (playbook Flow D step 8)
     await agent(checkpointPrompt(g, kept, ARGS), { label: `ckpt:g${g.id}`, phase: 'Verify' })
     return { group: g.id, idx: g.files.map((x) => x.i), kept,
       refuted: res.findings.length - kept.length }
   })
-return { results }  // keep nulls: a null slot = group with NO result (step 7b)
+return { results }  // keep nulls: a null slot = group with NO result (step 8b)
 ```
+
+`validateWithLocalScript` is a harness adapter, not model logic: write `raw`
+to a temp JSON file, write `validateArgs.group` to a temp group file when
+present, run `node <scriptsDir>/validate-agent-output.mjs --schema <scan|refute>
+--file <raw> ...`, then parse the validator's normalized `--out` JSON.
+`repairPrompt` must include the original prompt, the raw failed output, and the
+validator stderr; it must ask for corrected raw JSON only. If a page-sourced
+rules checklist is used, write it to a temp file and pass that file as
+`rulesFile`; otherwise omit `--rules`.
 
 `checkpointPrompt` instructs a minimal agent to load
 `mcp__claude_ai_Atlassian__createConfluenceFooterComment` via ToolSearch and

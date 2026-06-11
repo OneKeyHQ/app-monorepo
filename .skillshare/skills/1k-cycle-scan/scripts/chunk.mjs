@@ -7,13 +7,16 @@
  *
  * Resume semantics: the cursor only advances when an entire run completes.
  * If a previous run died mid-way, pass the file indices already covered by
- * its checkpoint replies via --done-indices; those files are skipped and the
- * remainder of the interrupted slice is planned first.
+ * its checkpoint replies via --done-indices. With --preserve-group-ids, the
+ * original interrupted slice is reconstructed and only missing original group
+ * IDs are emitted. Without it, done files are skipped and the remaining budget
+ * is filled from later manifest entries.
  *
  * Usage:
  *   node chunk.mjs --manifest /tmp/manifest.jsonl --cursor 0
  *                  [--lines 50000] [--group-lines 4000] [--group-files 25]
- *                  [--done-indices "12,13,40"] [--out /tmp/groups.json]
+ *                  [--done-indices "12,13,40"] [--preserve-group-ids]
+ *                  [--out /tmp/groups.json]
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -54,7 +57,7 @@ function pickProbeLine(repo, relPath, totalLines) {
 }
 
 function parseArgs(argv) {
-  const args = { ...DEFAULTS, cursor: 0, doneIndices: [] };
+  const args = { ...DEFAULTS, cursor: 0, doneIndices: [], preserveGroupIds: false };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === '--manifest') args.manifest = argv[(i += 1)];
@@ -68,7 +71,8 @@ function parseArgs(argv) {
         .split(',')
         .filter(Boolean)
         .map(Number);
-    } else if (a === '--out') args.out = argv[(i += 1)];
+    } else if (a === '--preserve-group-ids') args.preserveGroupIds = true;
+    else if (a === '--out') args.out = argv[(i += 1)];
     else {
       console.error(`unknown argument: ${a}`);
       process.exit(2);
@@ -97,14 +101,7 @@ function parseArgs(argv) {
   return args;
 }
 
-function main() {
-  const args = parseArgs(process.argv);
-  const entries = readFileSync(args.manifest, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((l) => JSON.parse(l));
-
-  const done = new Set(args.doneIndices);
+function buildGroups({ args, entries, done, skipDone }) {
   const groups = [];
   let current = { files: [], totalLines: 0 };
   let plannedLines = 0;
@@ -124,7 +121,7 @@ function main() {
 
   for (let i = args.cursor; i < entries.length; i += 1) {
     if (plannedLines >= args.lines) break;
-    if (done.has(i)) {
+    if (skipDone && done.has(i)) {
       lastIndex = i;
       continue;
     }
@@ -147,6 +144,10 @@ function main() {
   }
   flush();
 
+  return { groups, plannedLines, lastIndex };
+}
+
+function attachReadProbes({ args, groups }) {
   // Attach read probes (requires --repo pointing at the pinned worktree).
   if (args.repo) {
     for (const g of groups) {
@@ -158,20 +159,71 @@ function main() {
       }
     }
   }
+}
 
-  // Swallow trailing already-done files so they end up behind the cursor
-  // instead of being replanned (and rescanned) by the next run.
-  while (done.has(lastIndex + 1)) lastIndex += 1;
-
-  const proposedCursor = lastIndex + 1;
-  // Done indices the budget did not reach: they stay ahead of the cursor and
-  // WILL be replanned later. Surface them so the orchestrator can warn.
-  const strandedDoneIndices = [...done].filter((n) => n >= proposedCursor).sort((a, b) => a - b);
+function sumLinesThrough(entries, proposedCursor) {
   let linesThroughProposedCursor = 0;
-  for (let i = 0; i < proposedCursor; i += 1) linesThroughProposedCursor += entries[i].lines;
+  for (let i = 0; i < proposedCursor; i += 1) {
+    linesThroughProposedCursor += entries[i].lines;
+  }
+  return linesThroughProposedCursor;
+}
+
+function main() {
+  const args = parseArgs(process.argv);
+  const entries = readFileSync(args.manifest, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => JSON.parse(l));
+
+  const done = new Set(args.doneIndices);
+  let groups;
+  let plannedLines;
+  let proposedCursor;
+  let strandedDoneIndices;
+
+  if (args.preserveGroupIds) {
+    const original = buildGroups({ args, entries, done, skipDone: false });
+    proposedCursor = original.lastIndex + 1;
+    groups = original.groups
+      .map((g) => {
+        const files = g.files.filter((f) => !done.has(f.i));
+        return {
+          ...g,
+          files,
+          totalFiles: files.length,
+          totalLines: files.reduce((sum, f) => sum + f.lines, 0),
+        };
+      })
+      .filter((g) => g.files.length > 0);
+    plannedLines = groups.reduce((sum, g) => sum + g.totalLines, 0);
+    strandedDoneIndices = [...done]
+      .filter((n) => n >= proposedCursor)
+      .sort((a, b) => a - b);
+  } else {
+    const filled = buildGroups({ args, entries, done, skipDone: true });
+    groups = filled.groups;
+    plannedLines = filled.plannedLines;
+    let lastIndex = filled.lastIndex;
+
+    // Swallow trailing already-done files so they end up behind the cursor
+    // instead of being replanned (and rescanned) by the next run.
+    while (done.has(lastIndex + 1)) lastIndex += 1;
+
+    proposedCursor = lastIndex + 1;
+    // Done indices the budget did not reach: they stay ahead of the cursor and
+    // WILL be replanned later. Surface them so the orchestrator can warn.
+    strandedDoneIndices = [...done]
+      .filter((n) => n >= proposedCursor)
+      .sort((a, b) => a - b);
+  }
+
+  attachReadProbes({ args, groups });
+  const linesThroughProposedCursor = sumLinesThrough(entries, proposedCursor);
 
   const plan = {
     cursor: args.cursor,
+    resumeMode: args.preserveGroupIds ? 'preserve-group-ids' : 'fill-budget',
     // Cursor value to persist once EVERY group below has a checkpoint.
     proposedCursor,
     // Absolute covered-lines value for the state message (NOT an increment):

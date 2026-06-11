@@ -49,6 +49,7 @@ percentages):
 
 1. **Preflight always**: config + Confluence reachability + git. Confluence
    unreachable → STOP before any scanning (results would be unpersistable).
+   Slack is notification-only; Slack unreachable NEVER stops a scan.
 2. `status` / `report` → Flow A (read-only).
 3. `rebuild` → Flow F (destructive; user confirmation required).
 4. No pinned state for the dimension → Flow B (bootstrap), then C.
@@ -96,12 +97,21 @@ determinism is hash-verified on every run.
   pipelines, see the playbook template). This skill instruction is the user's
   explicit opt-in to multi-agent orchestration. Fall back to direct Agent
   fan-out ONLY when the Workflow tool is genuinely absent from the harness —
-  never scan sequentially in the main loop.
+  never scan sequentially in the main loop. In Codex, the direct Agent
+  fallback is `multi_agent_v1.spawn_agent` plus `multi_agent_v1.wait_agent`,
+  capped by `config.defaults.maxConcurrentAgents`; the main agent remains the
+  orchestrator for checkpoint reconciliation, report creation, state updates,
+  and Slack notification.
 - NEVER modify repo code, commit, or push. Scanning is read-only; reports are
   the only artifact. Single exemption: writing the `confluence`/`slack`
   connection IDs into this skill's `config.json` during local bootstrap (the
   user commits it).
 - Scan agents read files from the pinned temp worktree, never the dev checkout.
+- Agent outputs are not trusted until they pass
+  `scripts/validate-agent-output.mjs`. StructuredOutput/schema options are only
+  first-pass steering; the orchestrator must validate scan/refute JSON, return
+  validation errors to the agent for repair, and accept results only after the
+  local validator succeeds.
 - One runner per dimension at a time (state lock with stale-takeover, see
   protocol).
 - Cursor advances only after a fully completed slice; partial progress lives

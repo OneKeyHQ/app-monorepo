@@ -13,6 +13,11 @@ Tools:
 - Slack (claude.ai connector): `mcp__claude_ai_Slack__slack_send_message`,
   notify-only, best-effort — a Slack failure NEVER aborts a run (state is
   already safe in Confluence); just mention it to the user.
+- Codex multi-agent fallback: when the Workflow tool is not available, use
+  `multi_agent_v1.spawn_agent` and `multi_agent_v1.wait_agent` for direct
+  scan/refute fan-out, capped by `config.defaults.maxConcurrentAgents`.
+  The main agent still owns Confluence checkpoint reconciliation and state
+  transitions.
 
 Cloud caveat: both connectors are interactively authenticated; headless runs
 must have them connected. The preflight probe catches absence before any
@@ -45,17 +50,27 @@ machine payloads (markers, JSON) and code identifiers stay English.
   decisions). Its footer comments are the append-only checkpoint event log.
 - Reports and summaries are real child pages (markdown), one per run/batch.
 
-## Discovery
+## Discovery and Confluence reachability
 
-The parent "folder" may be a Confluence FOLDER content type —
-`getConfluencePageDescendants` returns 404 on folders (verified 2026-06), so
-discovery uses CQL instead: `searchConfluenceUsingCql` with
+The configured parent may be a Confluence FOLDER content type, not a PAGE.
+Page-only APIs can return 404 for a valid folder ID; this is a content-type
+mismatch, not proof that the ID or connector is wrong. Therefore discovery
+uses CQL instead: `searchConfluenceUsingCql` with
 `space = <config.confluence.spaceKey> AND type = page AND title ~ "CycleScan"`
 → exact-match `CycleScan · <dim>` → state page. The state JSON then carries
 page IDs (`batchPageId`, …) for targeted reads — never walk the tree during
 normal operation. No state page found → dimension needs bootstrap.
 (`getConfluencePageDescendants` still works on PAGES, e.g. listing a batch
 page's report children in Flow A.)
+
+Preflight rule: `getConfluencePage(config.confluence.parentPageId)` returning
+404 is non-terminal when the parent is a folder. In that case, prove
+Confluence reachability by CQL exact-match discovery plus a targeted
+`getConfluencePage` read of the state page (when it exists). STOP before
+scanning only if Confluence cannot read/write the state targets needed for the
+run. For first-time bootstrap with no state page, a folder parent may still be
+valid for `createConfluencePage`; if creation fails, stop and ask for a PAGE
+URL or a corrected folder/page ID.
 
 ## State JSON v5 (inside the state page)
 
@@ -109,10 +124,16 @@ Page updates are not CAS, so the lock self-verifies:
 3. Wait ~5 seconds, re-read. `runnerNonce` not yours → you lost a race: STOP,
    touch nothing further.
 
-**Staleness**: the holder is dead only if BOTH are older than
+**Staleness**: by default, the holder is dead only if BOTH are older than
 `defaults.staleRunMinutes`: state `updatedAt` AND the newest checkpoint
 comment for the current run (comment created-date is the clock — checkpoint
 posting IS the heartbeat while a long Workflow blocks the orchestrator).
+Manual takeover before the timeout is allowed only when the user explicitly
+confirms in the current conversation that the prior runner has stopped. In
+that case, state the current batch/run and newest checkpoint timestamp, then
+lock the same run in recovery mode, collect DONE_INDICES from existing
+checkpoints, and scan only the missing groups. Never increment `run` for a
+manual takeover.
 
 **Release**: every abort path after acquiring the lock MUST update the state
 page back to `status=idle` (rolling back any `run` increment) before
@@ -136,10 +157,23 @@ run 3 · group 2/4 done · 11.8%
   (`&amp; &lt; &gt;`) and unescape before parsing.
 - A checkpoint asserts "these files WERE scanned". Never post one for a group
   that produced no scan result.
+- Recovery/continuation must first try to preserve the interrupted run's
+  original group IDs: re-run `chunk.mjs` with the same manifest, cursor, and
+  `runLines/groupLines/groupFiles`, plus `--done-indices` and
+  `--preserve-group-ids`. This reconstructs the original slice, emits only
+  missing groups under their original marker numbers (for example, missing
+  `group 9-12`), and advances the cursor only to the original slice boundary.
+  The next invocation starts a normal new run for later files.
+- Use a separate unused numeric range (recommended `1000 + plannedGroupId`) only
+  when original group IDs cannot be reconstructed safely, e.g. config drift,
+  missing pinned scripts, or already-conflicting checkpoint markers. If this
+  fallback is used, say so in the report. Coverage and reconciliation are still
+  based on the JSON `idx`, not the marker number.
 - Read back: `getConfluencePageFooterComments` (`sort: "-created-date"`,
   paginate), filter by marker prefix for the current run.
 - Crash recovery: collect `idx` from all checkpoints of the current `run`,
-  replan with `chunk.mjs --done-indices`, same run number.
+  replan with `chunk.mjs --done-indices --preserve-group-ids`, same run
+  number.
 
 ## Reports & summary
 
@@ -161,10 +195,16 @@ never block or roll back anything.
 
 ## Preflight probes (every invocation)
 
-1. `getConfluencePage` on `config.confluence.parentPageId`. Failure
-   (connector absent, no permission) → STOP before any scanning ("state
-   cannot be persisted").
-2. Slack is NOT probed — it is non-critical.
+1. Try `getConfluencePage` on `config.confluence.parentPageId`. Success means
+   the parent is a readable PAGE.
+2. If that read returns 404, treat it as a possible FOLDER and run CQL
+   discovery for `CycleScan` pages in `config.confluence.spaceKey`; exact-match
+   the requested state page title and read it by ID. Success means Confluence
+   is reachable for existing dimensions.
+3. Any non-404 auth/permission/network failure, or CQL/read failure for the
+   required state target, means STOP before scanning ("state cannot be
+   persisted").
+4. Slack is NOT probed — it is non-critical.
 
 ## Hard rules
 
