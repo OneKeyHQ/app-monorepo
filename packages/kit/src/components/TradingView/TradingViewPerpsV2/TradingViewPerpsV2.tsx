@@ -25,6 +25,7 @@ import { useNetworkRestore } from '../../../hooks/useNetworkRestore';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import {
+  LEGACY_CHART_LOADING_MASK_TIMEOUT_MS,
   getPerpsChartReadyKey,
   markChartDataReady,
   useChartHasData,
@@ -367,7 +368,13 @@ export function TradingViewPerpsV2(
   // reveals immediately and switching pairs shows loading until the new bars
   // arrive — no explicit reset needed (key mismatch == loading).
   const chartReadyKey = getPerpsChartReadyKey(symbol);
-  const hasChartData = useChartHasData(chartReadyKey);
+  const hasChartData = useChartHasData(
+    chartReadyKey,
+    // Legacy WebView path serves the remote bundle, which never emits
+    // `tradingview_barsState`, so the mask always rides the timeout fallback.
+    // Use the shorter legacy timeout instead of the longer general cushion.
+    useUnifiedHost ? undefined : LEGACY_CHART_LOADING_MASK_TIMEOUT_MS,
+  );
 
   const isChartLinesReady = useUnifiedHost
     ? unifiedReady
