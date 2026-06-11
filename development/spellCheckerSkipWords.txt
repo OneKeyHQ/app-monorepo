@@ -1488,3 +1488,5 @@ androidplatform
 appassets
 destructures
 unwired
+WKURL
+Datafeeds

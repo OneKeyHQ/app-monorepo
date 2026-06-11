@@ -250,9 +250,9 @@ describe('buildPreferredSpotUniverseByBaseNameMap', () => {
       },
     ]);
 
-    expect(result['UBTC'].name).toBe('@142');
-    expect(result['KHYPE'].name).toBe('@336');
-    expect(result['ONLYUSDH'].name).toBe('@999');
+    expect(result.UBTC.name).toBe('@142');
+    expect(result.KHYPE.name).toBe('@336');
+    expect(result.ONLYUSDH.name).toBe('@999');
   });
 });
 
