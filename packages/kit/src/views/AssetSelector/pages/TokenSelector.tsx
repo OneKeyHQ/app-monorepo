@@ -147,6 +147,7 @@ const TokenSelectorHeaderRight = memo(
     );
   },
 );
+TokenSelectorHeaderRight.displayName = 'TokenSelectorHeaderRight';
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,

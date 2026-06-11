@@ -114,7 +114,7 @@ jest.mock('react-native', () => ({
 // `.flush()` queuing semantics, etc.) must either `jest.unmock('lodash')`
 // or override `debounce` per-test — otherwise it will silently misbehave.
 jest.mock('lodash', () => {
-  const actualLodash = jest.requireActual('lodash');
+  const actualLodash = jest.requireActual<typeof import('lodash')>('lodash');
   return {
     ...actualLodash,
     debounce: (fn: (...args: unknown[]) => unknown) => {

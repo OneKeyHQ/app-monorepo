@@ -149,6 +149,7 @@ const SegmentMark = memo(
     );
   },
 );
+SegmentMark.displayName = 'SegmentMark';
 
 function SegmentSliderComponent({
   value,
