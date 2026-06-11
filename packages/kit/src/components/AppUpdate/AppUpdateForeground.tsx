@@ -248,6 +248,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     let cancelled = false;
     let hasTriggeredUpdateCheck = false;
     let cleanupUpdateCheck: (() => void) | undefined;
+    let cleanupPruneStaleArtifacts: (() => void) | undefined;
 
     const fetchUpdateInfo = (_trigger: string) => {
       void checkForUpdates().then(
@@ -413,10 +414,30 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
     })();
 
+    // Cold-start idle sweep of stale download artifacts (old-appVersion OTA
+    // bundles + Android APK cache when no update is pending). Deferred to
+    // after the first-render token-load settle so it never competes with
+    // boot work, and runs at most once per launch (service-side debounce +
+    // the module-level didRunFirstLaunchDispatch guard on this effect).
+    cleanupPruneStaleArtifacts = runAfterTokensDone({
+      onRun: () => {
+        if (cancelled) return;
+        void backgroundApiProxy.serviceAppUpdate
+          .pruneStaleArtifacts()
+          .catch(() => {
+            // pruneStaleArtifacts already swallows internally; this is a
+            // belt-and-braces guard so a rejected proxy call can never
+            // surface an unhandled rejection.
+          });
+      },
+    });
+
     return () => {
       cancelled = true;
       cleanupUpdateCheck?.();
       cleanupUpdateCheck = undefined;
+      cleanupPruneStaleArtifacts?.();
+      cleanupPruneStaleArtifacts = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
