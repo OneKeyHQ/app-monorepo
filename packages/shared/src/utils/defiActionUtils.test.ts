@@ -230,6 +230,126 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
   });
 
+  it('resolves Polygon withdraw only from Debank staked groupId assets', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      groupId: 'validator#staked',
+      name: 'Polygon Staked',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'deposit',
+          poolAddress: '0xvalidator',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
+  });
+
+  it('hides Polygon withdraw for Debank unbonded groupId assets', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      // oxlint-disable-next-line @cspell/spellchecker
+      groupId: 'validator#new_version_unbonded_10',
+      name: 'Polygon Withdrawal',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'deposit',
+          poolAddress: '0xvalidator',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('resolves Polygon claimWithdrawal from Debank unbonded groupId assets', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'polygon_staking',
+      protocolName: 'Polygon Staking',
+      category: 'staking',
+      // oxlint-disable-next-line @cspell/spellchecker
+      groupId: 'validator#new_version_unbonded_10',
+      name: 'Polygon Withdrawal',
+      assets: [
+        makeAsset({
+          symbol: 'POL',
+          address: '0xpol',
+          category: 'deposit',
+          poolAddress: '0xvalidator',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'polygon_staking',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'staking',
+        action: EDeFiPositionAction.ClaimWithdrawal,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'polygon_staking',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
+    // oxlint-disable-next-line @cspell/spellchecker
+    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['10']);
+  });
+
   it('matches the remote Everstake claimWithdrawal category typo defensively', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'everstake',

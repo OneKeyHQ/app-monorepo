@@ -271,6 +271,18 @@ function normalizeQueueNonce(value?: string) {
   return undefined;
 }
 
+function getPolygonQueueNonceFromGroupId(groupId?: string) {
+  // The provider marks both pending and claimable Polygon withdrawals with this
+  // suffix, so readiness is still verified by the transaction build request.
+  // oxlint-disable-next-line @cspell/spellchecker
+  const match = groupId?.trim().match(/#new_version_unbonded_(\d+)$/i);
+  return normalizeQueueNonce(match?.[1]);
+}
+
+function isPolygonStakedPosition(position?: IDeFiPosition) {
+  return position?.groupId?.trim().toLowerCase().endsWith('#staked') ?? false;
+}
+
 function parseCooldownQueueNonce(value?: string) {
   const match = value?.match(/cooldown[^\d]*(\d+)/i);
   return normalizeQueueNonce(match?.[1]);
@@ -338,6 +350,9 @@ function getPolygonQueueNonces({
     }),
   );
   if (explicitNonce) return [explicitNonce];
+
+  const groupIdNonce = getPolygonQueueNonceFromGroupId(position?.groupId);
+  if (groupIdNonce) return [groupIdNonce];
 
   const assetRecord = asRecord(asset);
   const assetMeta = asRecord(assetRecord?.meta);
@@ -678,11 +693,12 @@ function getCandidateAssets({
           if (supportedAction.action === EDeFiPositionAction.ClaimWithdrawal) {
             return isCooldownAsset;
           }
-          if (
-            supportedAction.action === EDeFiPositionAction.Withdraw &&
-            isCooldownAsset
-          ) {
-            return false;
+          if (supportedAction.action === EDeFiPositionAction.Withdraw) {
+            if (isCooldownAsset) return false;
+            return (
+              isPolygonStakedPosition(sourcePosition) &&
+              isCategoryMatch(targetCategory, asset.category)
+            );
           }
         }
 
