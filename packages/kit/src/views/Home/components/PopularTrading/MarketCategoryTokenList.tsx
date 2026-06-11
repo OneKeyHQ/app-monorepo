@@ -21,6 +21,7 @@ import { RichTable } from '../RichTable';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
+  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
   getPopularTradingMetricColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
@@ -64,6 +65,7 @@ function MarketCategoryTokenList({
         {
           dataIndex: 'symbol',
           title: intl.formatMessage({ id: ETranslations.global_name }),
+          columnProps: { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH },
           render: (
             _: unknown,
             record: IFavoriteTokenDisplay,

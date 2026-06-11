@@ -1,7 +1,8 @@
 import {
   calculateSpotHoldingPnl,
   formatSpotHoldingPnlText,
-  getTwapAssetDisplayName,
+  getOrderAssetDisplayName,
+  getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
   isSpotHoldingStableCoin,
   normalizeEpochMs,
@@ -40,9 +41,9 @@ describe('calculateSpotHoldingPnl', () => {
   });
 });
 
-describe('getTwapAssetDisplayName', () => {
+describe('order display name helpers', () => {
   it('keeps perp symbols normalized through parseDexCoin', () => {
-    expect(getTwapAssetDisplayName('kPEPE', {})).toBe('kPEPE');
+    expect(getOrderAssetDisplayName('kPEPE', {})).toBe('kPEPE');
   });
 
   it('resolves spot asset ids and pair names through the display map', () => {
@@ -50,15 +51,31 @@ describe('getTwapAssetDisplayName', () => {
     const spotPair = `U${coin}/USDC`;
     const spotDisplayMap = {
       '@107': 'HYPE',
+      [spotPair]: coin,
       [spotPair.split('/')[0]]: coin,
     };
+    const spotPairDisplayNameMap = {
+      '@107': 'HYPE/USDC',
+    };
 
-    expect(getTwapAssetDisplayName('@107', spotDisplayMap)).toBe('HYPE');
-    expect(getTwapAssetDisplayName(spotPair, spotDisplayMap)).toBe(coin);
+    expect(
+      getOrderAssetDisplayName('@107', spotDisplayMap, spotPairDisplayNameMap),
+    ).toBe('HYPE/USDC');
+    expect(getOrderAssetDisplayName(spotPair, spotDisplayMap)).toBe('BTC/USDC');
   });
 
   it('falls back to the shared spot token map for canonical pair names', () => {
-    expect(getTwapAssetDisplayName('UETH/USDC', {})).toBe('ETH');
+    expect(getOrderAssetDisplayName('UETH/USDC', {})).toBe('ETH/USDC');
+  });
+
+  it('keeps spot order quantity units base-only', () => {
+    const spotDisplayMap = {
+      '@107': 'HYPE',
+    };
+
+    expect(getOrderSizeDisplayName('@107', spotDisplayMap)).toBe('HYPE');
+    expect(getOrderSizeDisplayName('UETH/USDC', spotDisplayMap)).toBe('ETH');
+    expect(getOrderSizeDisplayName('BTC', spotDisplayMap)).toBe('BTC');
   });
 });
 

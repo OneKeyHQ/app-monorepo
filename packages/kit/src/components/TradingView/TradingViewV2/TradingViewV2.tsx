@@ -8,25 +8,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import {
-  getMarketChartReadyKey,
-  markChartDataReady,
-  useChartHasData,
-} from '../chartDataReadyStore';
-import { ChartLoadingMask } from '../ChartLoadingMask';
-import { ChartWebView } from '../ChartWebView';
-import {
-  getChartWebViewMode,
-  useChartBootSnapshotReady,
-} from '../ChartWebView/constants';
-import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -89,11 +76,6 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
-  /** Force the legacy per-instance WebView on desktop instead of the in-flow
-   * onekey-chart:// chart host. Used by the Swap K-line modal, which remounts the
-   * chart per token (its own key) so the warm unified host gives no benefit there.
-   * No effect on native (which uses its own pooled module). */
-  preferLegacyChart?: boolean;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
@@ -131,28 +113,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
-    preferLegacyChart,
     onPriceUpdate,
     onLoadStart,
     ...stackStyle
   } = props;
-
-  // Chart loading mask: shown until the shared chart has data for THIS symbol.
-  // MUST stay AFTER the props destructuring above: calling useChartHasData(symbol)
-  // before `symbol` is destructured read a hoisted `undefined` (Babel lowers the
-  // `const { symbol } = props` to a hoisted `var symbol`), so hasChartData was
-  // permanently false and the market chart hung on the loading spinner forever
-  // (perps was fine because TradingViewPerpsV2 destructures before this hook).
-  // Identity-keyed global store (surface + network + address + symbol) so
-  // re-entering an already-loaded token reveals immediately, switching tokens
-  // shows loading until the new token's bars arrive, and a same-named token on a
-  // different chain is NOT mistaken for this one.
-  const chartReadyKey = getMarketChartReadyKey({
-    networkId,
-    tokenAddress,
-    symbol,
-  });
-  const hasChartData = useChartHasData(chartReadyKey);
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -184,11 +148,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
-    onBarsState: () => {
-      // Any bars-state event means getBars resolved for this chart (data
-      // present OR confirmed empty) — stop showing the loading mask.
-      markChartDataReady(chartReadyKey);
-    },
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -231,11 +190,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams, params: tradingViewParams } =
-    useTradingViewUrl({
-      additionalParams,
-      disabledFeatures,
-    });
+  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
+    additionalParams,
+    disabledFeatures,
+  });
 
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
@@ -399,8 +357,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     );
   }, []);
 
-  // TODO(chart-webview): legacy WebView path. Kept while migrating to the
-  // chart-webview module; remove once the new path (offline/online) is verified.
   const webView = useMemo(
     () => (
       <WebView
@@ -421,13 +377,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
-        // Desktop offline build serves the chart from onekey-chart://, whose
-        // protocol handler is registered only on the persist:onekey session
-        // (apps/desktop/app/app.ts). DesktopWebView already defaults to this
-        // partition, but pin it explicitly so the offline scheme keeps
-        // resolving here (e.g. Swap K-line modal, preferLegacyChart) even if
-        // that default ever changes. No-op on native/web.
-        partition="persist:onekey"
         src={tradingViewUrlWithParams}
       />
     ),
@@ -441,64 +390,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ],
   );
 
-  // New chart-webview path: native via the chart-webview module (mode resolved
-  // from the cold-start snapshot), desktop via the warm onekey-chart:// overlay
-  // when the offline bundle shipped. Web keeps legacy.
-  //
-  // Ready barrier (Gate 2): on native, wait for the cold-start chart-mode
-  // snapshot before mounting the chart-webview, so it never reads an
-  // uninitialized snapshot (bootstrap init is fire-and-forget). Until then we
-  // render the legacy WebView placeholder; the chart-webview mounts once the
-  // snapshot resolves. Desktop's overlay readiness is governed separately.
-  const bootSnapshotReady = useChartBootSnapshotReady();
-  const useChartWebView =
-    (platformEnv.isNative &&
-      bootSnapshotReady &&
-      getChartWebViewMode() !== 'legacy') ||
-    (!preferLegacyChart && getDesktopOfflineChartReady());
-
-  // Diagnostic: record which chart branch this market host actually rendered.
-  // Logged once per mount and again only when the branch decision flips (e.g.
-  // the cold-start snapshot resolves and the gate switches from legacy to the
-  // unified native host) — gated on the effect deps so it never floods on every
-  // render. See chartHostRender in the market chart logger scope.
-  useEffect(() => {
-    defaultLogger.market.chart.chartHostRender({
-      scene: 'market',
-      symbol,
-      component: useChartWebView ? 'unified-native' : 'legacy-webview',
-      useUnifiedHost: useChartWebView,
-      bootSnapshotReady,
-      mode: getChartWebViewMode(),
-      platform: platformEnv.appPlatform ?? 'native',
-    });
-  }, [useChartWebView, bootSnapshotReady, symbol]);
-
-  const chartWebView = useMemo(
-    () => (
-      <ChartWebView
-        params={tradingViewParams}
-        onlineUrl={tradingViewUrlWithParams}
-        customReceiveHandler={async (data) => {
-          await customReceiveHandler(data);
-        }}
-        onWebViewRef={handleWebViewRef}
-        flex={1}
-      />
-    ),
-    [
-      customReceiveHandler,
-      handleWebViewRef,
-      tradingViewParams,
-      tradingViewUrlWithParams,
-    ],
-  );
-
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      {useChartWebView ? chartWebView : webView}
-
-      <ChartLoadingMask visible={!hasChartData} />
+      {webView}
 
       {mockEmptyKLineEnabled ? (
         <Stack

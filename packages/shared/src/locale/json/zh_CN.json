@@ -3306,7 +3306,7 @@
   "perp_twap_running_time__title": "运行时间",
   "perp_twap_running_time_total__title": "运行时间 / 总时长",
   "perp_twap_small_slice__msg": "预计单笔分时委托金额低于 $10，Hyperliquid 可能会拒绝。请增加数量或缩短时长。",
-  "perp_twap_status_activated__title": "执行中",
+  "perp_twap_status_activated__title": "活跃中",
   "perp_twap_status_error__title": "异常",
   "perp_twap_status_finished__title": "已完成",
   "perp_twap_status_terminated__title": "已终止",
