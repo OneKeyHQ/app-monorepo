@@ -537,7 +537,8 @@ const SwapHeaderRightActionContainer = ({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
+    !compact &&
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting);
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
