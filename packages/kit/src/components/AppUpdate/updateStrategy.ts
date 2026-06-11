@@ -14,22 +14,19 @@ import {
   EAppUpdateStatus,
   EUpdateFileType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+// Canonical `isAutoUpdateStrategy` now lives in `shared` so kit-bg services
+// can reuse it; re-export here so existing UI callers keep their import path.
+export { isAutoUpdateStrategy };
 
 /** Returns true when the strategy means "no user-visible toast on failure". */
 export const isShowToastError = (updateStrategy: EUpdateStrategy) => {
   return (
     updateStrategy !== EUpdateStrategy.silent &&
     updateStrategy !== EUpdateStrategy.seamless
-  );
-};
-
-/** Strategies that auto-download in the background without confirming. */
-export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
-  return (
-    updateStrategy === EUpdateStrategy.silent ||
-    updateStrategy === EUpdateStrategy.seamless
   );
 };
 

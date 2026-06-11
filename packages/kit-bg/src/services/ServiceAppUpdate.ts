@@ -12,6 +12,7 @@ import {
   EPendingInstallTaskType,
   EUpdateFileType,
   EUpdateStrategy,
+  isAutoUpdateStrategy,
   isFirstLaunchAfterUpdated,
   normalizeFeaturedChangelog,
   resolveUpdateDecision,
@@ -1563,30 +1564,56 @@ class ServiceAppUpdate extends ServiceBase {
         };
       });
 
-      // Auto-trigger silent download for rollback decisions so the user does
-      // not need to manually initiate the update.  The download flow will
-      // eventually call readyToInstall → syncPendingInstallTask → relaunch.
+      // Auto-trigger the background download so the user does not need to
+      // manually initiate the update. Two cases qualify:
+      //   1. jsBundleRollback — always auto-downloaded; a rollback is a
+      //      corrective action, independent of the server-provided strategy.
+      //   2. A normal upgrade (jsBundleUpgrade / appShellUpdate) whose server
+      //      strategy is silent/seamless (isAutoUpdateStrategy). Without this,
+      //      an update discovered mid-session only flips status to `notify`
+      //      and the silent download never starts until the next cold start
+      //      re-runs the once-per-launch first-launch dispatch in
+      //      AppUpdateForeground — i.e. "must restart the app before the
+      //      download begins" (OK-55397). This mirrors that cold-start
+      //      auto-download path so mid-session discovery is handled the same
+      //      way. (Store-based app-shell updates are shipped as `manual` by
+      //      the server, so isAutoUpdateStrategy excludes them here.)
+      // The download flow eventually calls readyToInstall →
+      // syncPendingInstallTask → relaunch.
+      const shouldAutoDownload =
+        decision.decision === 'jsBundleRollback' ||
+        (isAutoUpdateStrategy(releaseInfo.updateStrategy) &&
+          (decision.decision === 'jsBundleUpgrade' ||
+            decision.decision === 'appShellUpdate'));
       if (
-        decision.decision === 'jsBundleRollback' &&
+        shouldAutoDownload &&
         (await appUpdatePersistAtom.get()).status === EAppUpdateStatus.notify
       ) {
-        // Verify target is not frozen/ignored before auto-triggering download
-        const rollbackTargetKey =
-          releaseInfo.version && releaseInfo.jsBundleVersion
+        // Verify target is not frozen/ignored before auto-triggering download.
+        // Mirror the freeze-check target key built above (line ~1442) so the
+        // app-shell fallback to the current bundleVersion stays consistent.
+        const autoDownloadTargetKey =
+          releaseInfo.version &&
+          (releaseInfo.jsBundleVersion ||
+            decision.decision === 'appShellUpdate')
             ? this.getTargetKey({
                 targetAppVersion: releaseInfo.version,
-                targetBundleVersion: releaseInfo.jsBundleVersion,
+                targetBundleVersion:
+                  decision.decision === 'appShellUpdate'
+                    ? releaseInfo.jsBundleVersion ||
+                      String(platformEnv.bundleVersion || '')
+                    : releaseInfo.jsBundleVersion!,
               })
             : null;
-        const rollbackBlocked = rollbackTargetKey
+        const autoDownloadBlocked = autoDownloadTargetKey
           ? await this.shouldSkipTargetByControl(
-              rollbackTargetKey,
+              autoDownloadTargetKey,
               traceId,
               requestSeq,
               false,
             )
           : false;
-        if (!rollbackBlocked) {
+        if (!autoDownloadBlocked) {
           // Use setTimeout to avoid blocking the current fetch flow.
           // Re-check status inside the callback: if the UI hook already
           // called downloadPackage(), status will be 'downloadPackage'
@@ -1598,7 +1625,7 @@ class ServiceAppUpdate extends ServiceBase {
                 return;
               }
               defaultLogger.app.appUpdate.log(
-                'fetchAppUpdateInfo: auto-starting silent download for jsBundleRollback',
+                `fetchAppUpdateInfo: auto-starting silent download for ${decision.decision}`,
               );
               void this.downloadPackage();
             })();

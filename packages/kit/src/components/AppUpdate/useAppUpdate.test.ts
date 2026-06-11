@@ -299,8 +299,8 @@ import {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
-  isUnrecoverableDownloadError,
   isToolboxUpdateIndicatorRedundant,
+  isUnrecoverableDownloadError,
   runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
@@ -2350,7 +2350,13 @@ describe('useAppUpdateInfo useEffect', () => {
       );
     });
 
-    test('ready + silent strategy → shows silent update dialog', async () => {
+    test('ready + silent strategy → no dialog (applied on restart via pending task)', async () => {
+      // OK-55397: silent updates no longer pop a "ready" dialog. Once the
+      // silent download reaches `ready`, ServiceAppUpdate.readyToInstall has
+      // already queued a pending install task (silent is allowed past the
+      // strategy gate), which is applied on the next restart; the header /
+      // reminder update button offers an immediate restart-install. So the
+      // first-launch dispatch must NOT surface any dialog or navigation here.
       setAtom({
         status: EAppUpdateStatus.ready,
         updateStrategy: EUpdateStrategy.silent,
@@ -2362,19 +2368,13 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
-      // showSilentUpdateDialog wraps three awaits inside a setTimeout
-      // (getUpdateInfo → whenAppUnlocked → showSilentUpdateDialogUI).
-      // jest.runAllTimers() is synchronous, so awaits inside the timer
-      // callback resolve outside the act() scope and React emits
-      // "act(async () => ...) without await". runAllTimersAsync awaits
-      // each scheduled microtask between fires, keeping every state
-      // update inside the act boundary.
       await act(async () => {
         await jest.runAllTimersAsync();
       });
 
-      // showSilentUpdateDialog uses setTimeout → Dialog.show
-      expect(mockDialogShow).toHaveBeenCalled();
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(nav.pushModal).not.toHaveBeenCalled();
+      expect(nav.pushFullModal).not.toHaveBeenCalled();
     });
 
     test('ready + manual strategy → shows regular update dialog', async () => {

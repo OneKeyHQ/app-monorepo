@@ -29,7 +29,9 @@ import { whenAppUnlocked } from '../../utils/passwordUtils';
 import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { buildSoftwareUpdateParams } from './updateAnalytics';
-import { showSilentUpdateDialogUI, showUpdateDialogUI } from './updateDialogs';
+// OK-55397: showSilentUpdateDialogUI no longer used — silent updates are
+// applied via a pending install task on restart instead of a "ready" dialog.
+import { showUpdateDialogUI } from './updateDialogs';
 import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
@@ -141,23 +143,29 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     [appUpdateInfo.updateStrategy, navigation],
   );
 
-  const showSilentUpdateDialog = useCallback(() => {
-    setTimeout(async () => {
-      const currentUpdateInfo =
-        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      await whenAppUnlocked();
-      await showSilentUpdateDialogUI({
-        intl,
-        summary: currentUpdateInfo.summary || '',
-        themeVariant,
-        onConfirm: () => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.DownloadVerify,
-          });
-        },
-      });
-    }, 0);
-  }, [intl, navigation, themeVariant]);
+  // OK-55397: silent updates no longer show a "ready" dialog. The downloaded
+  // package is queued as a pending install task in
+  // ServiceAppUpdate.readyToInstall → syncPendingInstallTaskWithReleaseInfo
+  // (silent is now allowed past the strategy gate) and applied on the next
+  // restart; the header / reminder update button lets the user restart-install
+  // immediately. Dialog plumbing kept commented out for an easy revert.
+  // const showSilentUpdateDialog = useCallback(() => {
+  //   setTimeout(async () => {
+  //     const currentUpdateInfo =
+  //       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+  //     await whenAppUnlocked();
+  //     await showSilentUpdateDialogUI({
+  //       intl,
+  //       summary: currentUpdateInfo.summary || '',
+  //       themeVariant,
+  //       onConfirm: () => {
+  //         navigation.pushModal(EModalRoutes.AppUpdateModal, {
+  //           screen: EAppUpdateRoutes.DownloadVerify,
+  //         });
+  //       },
+  //     });
+  //   }, 0);
+  // }, [intl, navigation, themeVariant]);
 
   const showUpdateDialog = useCallback(
     (
@@ -400,12 +408,13 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             );
           }
         } else if (info.updateStrategy === EUpdateStrategy.silent) {
-          // Consume the module-level guard shared with the silent-ready
-          // watcher effect below, so the watcher skips on the same render
-          // tick (prevents a duplicate dialog when the persisted atom is
-          // already hydrated at first launch).
+          // OK-55397: silent no longer pops a dialog here. readyToInstall has
+          // already queued a pending install task (silent is allowed past the
+          // strategy gate), applied on the next restart; the update button
+          // offers an immediate restart-install. Keep the guard set so the
+          // (now no-op) silent-ready watcher below stays consistent.
           silentReadyDialogShown = true;
-          showSilentUpdateDialog();
+          // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
         }
@@ -457,11 +466,12 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
     silentReadyDialogShown = true;
-    showSilentUpdateDialog();
+    // OK-55397: silent-ready dialog removed — apply-on-restart is handled by
+    // the pending install task queued in readyToInstall. Nothing to show here.
+    // showSilentUpdateDialog();
     // deps: only re-run on status / strategy transitions.
     // appUpdateInfo is omitted intentionally — including the object ref
     // would re-fire on every unrelated field mutation.
-    // showSilentUpdateDialog is a stable callback ref, safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
 
