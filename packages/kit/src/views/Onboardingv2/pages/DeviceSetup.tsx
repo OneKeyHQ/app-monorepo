@@ -4,25 +4,19 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  AnimatePresence,
   Button,
   Divider,
-  HeightTransition,
-  Icon,
-  Image,
   SizableText,
-  Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
@@ -31,6 +25,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { OnboardingPage } from '../components/Layout';
+import { SetupCard, SetupCardBody } from '../components/SetupCard';
+import { makeSequencedFade } from '../components/setupMotion';
+import { SetupStatusCard } from '../components/SetupStatusCard';
 import {
   useConnectDeviceError,
   useDeviceConnect,
@@ -38,26 +35,33 @@ import {
 import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType } from '../utils';
 
+import {
+  MOCK_INITIAL_STATUS,
+  Pro2MockDevPanel,
+  Pro2OnboardingStepper,
+  mockStatusToPhase,
+  supportsDeviceDrivenOnboarding,
+} from './deviceSetupPro2Mock';
+
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
-// DEBUG(pro2): the bulk of OneKey Pro 2 onboarding work happens on this page, so
-// while it's under active development we keep an already-initialized device parked
-// on DeviceSetup instead of auto-jumping to FinalizeWalletSetup after the check
-// passes. Flip back to false (or delete the guard at its use site) to restore the
-// production flash-through behavior.
-const DEBUG_DISABLE_AUTO_FINALIZE = true;
-
+// The real-device check states. Maps onto the same three macro phases
+// (checking / needsSetup / ready) the device-driven (Pro 2) path uses.
 enum EDeviceSetupState {
-  // Initial device-status check in flight (also the brief "flash" state shown
-  // to already-initialized devices right before they jump to Finalize).
   Checking = 'checking',
-  // Device is not initialized: show the on-device setup instructions + Done.
   NeedSetup = 'needSetup',
-  // Connection / permission error surfaced via useConnectDeviceError.
   Error = 'error',
-  // Device initialized: navigating to FinalizeWalletSetup.
   Success = 'success',
 }
+
+// Macro-phase swap (checking → stepper → ready): a sequenced ("mode=wait")
+// opacity fade — see makeSequencedFade. Cross-fading these dissimilar blocks (a
+// small status card vs. the tall stepper) would ghost two shapes through each
+// other; clearing the stage first reads cleaner for a milestone moment.
+const { entering: PHASE_ENTER, exiting: PHASE_EXIT } = makeSequencedFade({
+  enterMs: 240,
+  exitMs: 180,
+});
 
 function DeviceSetupPage({
   route,
@@ -66,6 +70,14 @@ function DeviceSetupPage({
   const { deviceData, tabValue, isFirmwareVerified } = route?.params ?? {};
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
+
+  // Device-driven onboarding (Pro 2 today; Pro after its firmware migrates).
+  // MOCK: the device can't connect, so this path runs a local mock status
+  // machine driven by a dev panel instead of the real check below.
+  const isDeviceDriven = supportsDeviceDrivenOnboarding(
+    deviceData?.device as SearchDevice | undefined,
+  );
+  const [mockStatus, setMockStatus] = useState(MOCK_INITIAL_STATUS);
 
   const [currentDevice, setCurrentDevice] = useState<SearchDevice | undefined>(
     deviceData?.device as SearchDevice | undefined,
@@ -77,8 +89,8 @@ function DeviceSetupPage({
     undefined,
   );
   // Pending "jump to FinalizeWalletSetup" timer for the already-initialized
-  // flash path; cleared on unmount so a back-press mid-flash cannot navigate
-  // after this page is gone.
+  // path; cleared on unmount so a back-press mid-flash cannot navigate after
+  // this page is gone.
   const navigateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { getActiveDevice } = useDeviceConnect({ setCurrentDevice });
@@ -95,12 +107,8 @@ function DeviceSetupPage({
     }
   }, [tabValue]);
 
-  const deviceImage = useMemo(() => {
-    const device = currentDevice as SearchDevice;
-    const deviceType = device?.deviceType || EDeviceType.Pro;
-    return HwWalletAvatarImages[deviceType];
-  }, [currentDevice]);
-
+  // Legacy fallback instructions, shown for devices without the device-driven
+  // onboarding protocol (Pro / Classic / Mini / Touch).
   const DEVICE_SETUP_INSTRUCTIONS = useMemo(() => {
     const deviceType = (currentDevice as SearchDevice)?.deviceType;
     const isClassicOrMini =
@@ -124,30 +132,20 @@ function DeviceSetupPage({
     };
 
     const pinStep = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_pin,
-      }),
+      title: intl.formatMessage({ id: ETranslations.setup_pin }),
       details: [
-        intl.formatMessage({
-          id: ETranslations.setup_pin_limit,
-        }),
-        intl.formatMessage({
-          id: ETranslations.setup_pin_reminder,
-        }),
+        intl.formatMessage({ id: ETranslations.setup_pin_limit }),
+        intl.formatMessage({ id: ETranslations.setup_pin_reminder }),
       ],
     };
 
     const recoveryPhraseStep = {
-      title: intl.formatMessage({
-        id: ETranslations.setup_recovery_phrase,
-      }),
+      title: intl.formatMessage({ id: ETranslations.setup_recovery_phrase }),
       details: [
         intl.formatMessage({
           id: ETranslations.setup_recovery_phrase_write_down,
         }),
-        intl.formatMessage({
-          id: ETranslations.setup_recovery_phrase_matches,
-        }),
+        intl.formatMessage({ id: ETranslations.setup_recovery_phrase_matches }),
         intl.formatMessage({
           id: ETranslations.setup_recovery_phrase_charging,
         }),
@@ -218,31 +216,26 @@ function DeviceSetupPage({
         return;
       }
     } catch {
-      // Mirror the original CheckAndUpdate behavior: a failed status read
-      // falls back to showing the on-device setup instructions (the user can
-      // re-trigger via Done once the device finishes responding). Hard
-      // connection/permission errors are surfaced separately through
-      // useConnectDeviceError below.
+      // A failed status read falls back to the on-device setup instructions
+      // (the user can re-trigger via Done once the device responds). Hard
+      // connection/permission errors surface separately via useConnectDeviceError.
       setSetupState(EDeviceSetupState.NeedSetup);
       return;
     }
     setSetupState(EDeviceSetupState.Success);
-    // DEBUG(pro2): gate the auto-navigation so the page stays put for debugging.
-    if (!DEBUG_DISABLE_AUTO_FINALIZE) {
-      const deviceForFinalize =
-        getActiveDevice() ??
-        currentDevice ??
-        (deviceData?.device as SearchDevice | undefined);
-      navigateTimeoutRef.current = setTimeout(() => {
-        navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
-          deviceData: {
-            ...deviceData,
-            device: (deviceForFinalize ?? currentDevice) as SearchDevice,
-          },
-          isFirmwareVerified,
-        });
-      }, 1200);
-    }
+    const deviceForFinalize =
+      getActiveDevice() ??
+      currentDevice ??
+      (deviceData?.device as SearchDevice | undefined);
+    navigateTimeoutRef.current = setTimeout(() => {
+      navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
+        deviceData: {
+          ...deviceData,
+          device: (deviceForFinalize ?? currentDevice) as SearchDevice,
+        },
+        isFirmwareVerified,
+      });
+    }, 1200);
   }, [
     ensureTransportType,
     getActiveDevice,
@@ -256,10 +249,12 @@ function DeviceSetupPage({
     void checkDeviceInitialized();
   }, [checkDeviceInitialized]);
 
-  // Run the device-status check on mount. Already-initialized devices flash
-  // through to FinalizeWalletSetup; not-initialized devices land on the
-  // instructions.
+  // Run the real device-status check on mount — only for the real-device path.
+  // The device-driven (mock Pro 2) path is driven by the dev panel instead.
   useEffect(() => {
+    if (isDeviceDriven) {
+      return undefined;
+    }
     void checkDeviceInitialized();
     return () => {
       if (navigateTimeoutRef.current) {
@@ -270,9 +265,8 @@ function DeviceSetupPage({
   }, []);
 
   // Defense in depth: clear forceTransportType when this page is removed so an
-  // abandoned onboarding (exit while on DeviceSetup) cannot leak the forced
-  // transport into later device connections. CheckAndUpdate and
-  // FinalizeWalletSetup also clear on their own exits; clearing is idempotent.
+  // abandoned onboarding cannot leak the forced transport into later
+  // connections. Clearing is idempotent.
   useEffect(() => {
     const unsubscribe = reactNavigation.addListener('beforeRemove', () => {
       void backgroundApiProxy.serviceHardware.clearForceTransportType();
@@ -290,234 +284,168 @@ function DeviceSetupPage({
     ),
   );
 
+  const mockPhase = mockStatusToPhase(mockStatus);
+
+  const fallbackCard = (
+    <SetupCard
+      elevated
+      title={intl.formatMessage({ id: ETranslations.set_up_your_device })}
+    >
+      <SetupCardBody gap="$5">
+        <SizableText size="$bodyMdMedium" color="$textInfo">
+          {intl.formatMessage({ id: ETranslations.setup_device_prompt })}
+        </SizableText>
+        {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
+          <YStack key={instruction.title} gap="$5">
+            <Divider />
+            <YStack gap={instruction.details.length ? '$2' : undefined}>
+              <XStack gap="$2">
+                <YStack
+                  w="$5"
+                  h="$5"
+                  borderRadius="$1"
+                  borderCurve="continuous"
+                  bg="$bgStrong"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <SizableText textAlign="center">{idx + 1}</SizableText>
+                </YStack>
+                <SizableText size="$bodyMdMedium" flex={1}>
+                  {instruction.title}
+                </SizableText>
+              </XStack>
+              {instruction.details.map((detail) => (
+                <XStack key={detail} gap="$2">
+                  <YStack
+                    w="$5"
+                    h="$5"
+                    alignItems="center"
+                    justifyContent="center"
+                  >
+                    <YStack
+                      w={5}
+                      h={5}
+                      borderRadius="$full"
+                      bg="$iconDisabled"
+                    />
+                  </YStack>
+                  <SizableText color="$textSubdued" flex={1}>
+                    {detail}
+                  </SizableText>
+                </XStack>
+              ))}
+            </YStack>
+          </YStack>
+        ))}
+        <Button
+          testID={OnboardingTestIDs.deviceSetupDoneBtn}
+          variant="primary"
+          $platform-native={{ size: 'large' }}
+          onPress={handleDeviceSetupDone}
+        >
+          {intl.formatMessage({ id: ETranslations.global_done })}
+        </Button>
+      </SetupCardBody>
+    </SetupCard>
+  );
+
   return (
     <OnboardingPage
       testID={OnboardingTestIDs.deviceSetupPage}
-      headerTitle={intl.formatMessage({
-        id: ETranslations.check_and_update,
-      })}
+      headerTitle={intl.formatMessage({ id: ETranslations.set_up_your_device })}
       scrollable
       alignTop
       narrow
       contentContainerProps={{ gap: '$10' }}
     >
-      <YStack>
-        <XStack alignItems="center" gap="$5">
-          <YStack
-            w="$16"
-            h="$16"
-            borderRadius="$2"
-            bg="$bg"
-            borderCurve="continuous"
-            $platform-web={{
-              boxShadow:
-                '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-            }}
-            $theme-dark={{
-              bg: '$whiteA1',
-              borderWidth: 1,
-              borderColor: '$neutral3',
-            }}
-            $platform-native={{
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: '$neutral3',
-            }}
-            $platform-ios={{
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 0.5 },
-              shadowOpacity: 0.2,
-              shadowRadius: 0.5,
-            }}
-            $platform-android={{ elevation: 0.5 }}
-            alignItems="center"
-            justifyContent="center"
+      {isDeviceDriven ? (
+        <YStack>
+          {/* Keyed on the phase so checking → stepper → ready cross-fades when
+              the phase changes; the dev panel stays mounted (not faded). */}
+          <Animated.View
+            key={mockPhase}
+            entering={PHASE_ENTER}
+            exiting={PHASE_EXIT}
           >
-            <Image source={deviceImage} width={48} height={48} />
-            <YStack
-              position="absolute"
-              right={-9}
-              bottom={-9}
-              w={26}
-              h={26}
-              borderWidth={1}
-              bg="$bg"
-              borderRadius="$full"
-              borderColor="$borderSubdued"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <AnimatePresence exitBeforeEnter initial={false}>
-                {setupState === EDeviceSetupState.Checking ? (
-                  <Spinner
-                    key="spinner"
-                    size="small"
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{ scale: 0.7, opacity: 0 }}
-                    exitStyle={{ scale: 0.7, opacity: 0 }}
-                    scale={0.8}
-                  />
-                ) : null}
-                {setupState === EDeviceSetupState.Error ? (
-                  <YStack
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{ scale: 0.8, opacity: 0 }}
-                    exitStyle={{ scale: 0.8, opacity: 0 }}
-                    key="error"
-                  >
-                    <Icon
-                      name="CrossedSmallOutline"
-                      color="$iconCritical"
-                      size="$5"
-                    />
-                  </YStack>
-                ) : null}
-                {setupState === EDeviceSetupState.NeedSetup ? (
-                  <YStack
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{ scale: 0.8, opacity: 0 }}
-                    exitStyle={{ scale: 0.8, opacity: 0 }}
-                    key="warning"
-                  >
-                    <Icon
-                      name="InfoCircleOutline"
-                      color="$iconInfo"
-                      size="$5"
-                    />
-                  </YStack>
-                ) : null}
-                {setupState === EDeviceSetupState.Success ? (
-                  <YStack
-                    animation="quick"
-                    animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                    enterStyle={{ scale: 0.8, opacity: 0 }}
-                    exitStyle={{ scale: 0.8, opacity: 0 }}
-                    key="checkmark"
-                  >
-                    <Icon
-                      name="Checkmark2SmallOutline"
-                      color="$iconSuccess"
-                      size="$5"
-                    />
-                  </YStack>
-                ) : null}
-              </AnimatePresence>
-            </YStack>
-          </YStack>
-          <YStack gap="$1" flex={1}>
-            <SizableText size="$headingSm">
-              {intl.formatMessage({
-                id: ETranslations.device_setup_check_title,
-              })}
-            </SizableText>
-            <SizableText color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.device_setup_check_desc,
-              })}
-            </SizableText>
-          </YStack>
-        </XStack>
-        <HeightTransition initialHeight={0}>
-          {setupState === EDeviceSetupState.NeedSetup ? (
-            <YStack pt="$8" gap="$5">
-              <SizableText size="$bodyMdMedium" color="$textInfo">
-                {intl.formatMessage({
-                  id: ETranslations.setup_device_prompt,
+            {mockPhase === 'checking' ? (
+              <SetupStatusCard
+                tone="checking"
+                label={intl.formatMessage({
+                  id: ETranslations.global_checking,
                 })}
-              </SizableText>
-              {DEVICE_SETUP_INSTRUCTIONS.map((instruction, idx) => (
-                <YStack key={instruction.title} gap="$5">
-                  <Divider />
-                  <YStack gap={instruction.details.length ? '$2' : undefined}>
-                    <XStack gap="$2">
-                      <YStack
-                        w="$5"
-                        h="$5"
-                        borderRadius="$1"
-                        borderCurve="continuous"
-                        bg="$bgStrong"
-                        alignItems="center"
-                        justifyContent="center"
-                      >
-                        <SizableText textAlign="center">{idx + 1}</SizableText>
-                      </YStack>
-                      <SizableText size="$bodyMdMedium" flex={1}>
-                        {instruction.title}
-                      </SizableText>
-                    </XStack>
-                    {instruction.details.map((detail) => (
-                      <XStack key={detail} gap="$2">
-                        <YStack
-                          w="$5"
-                          h="$5"
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <YStack
-                            w={5}
-                            h={5}
-                            borderRadius="$full"
-                            bg="$iconDisabled"
-                          />
-                        </YStack>
-                        <SizableText color="$textSubdued" flex={1}>
-                          {detail}
-                        </SizableText>
-                      </XStack>
-                    ))}
-                  </YStack>
-                </YStack>
-              ))}
-              <Button
-                testID={OnboardingTestIDs.deviceSetupDoneBtn}
-                variant="primary"
-                $platform-native={{
-                  size: 'large',
-                }}
-                onPress={handleDeviceSetupDone}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_done,
+              />
+            ) : null}
+            {mockPhase === 'needsSetup' ? (
+              <Pro2OnboardingStepper status={mockStatus} />
+            ) : null}
+            {mockPhase === 'ready' ? (
+              <SetupStatusCard
+                tone="ready"
+                label={intl.formatMessage({
+                  id: ETranslations.your_device_is_ready,
                 })}
-              </Button>
-            </YStack>
-          ) : null}
-          {setupState === EDeviceSetupState.Error ? (
-            <XStack
-              gap="$2"
-              mt="$4"
-              pt="$4"
-              borderWidth={0}
-              borderTopWidth={StyleSheet.hairlineWidth}
-              borderTopColor="$borderSubdued"
-              alignItems="center"
-            >
-              <SizableText
-                size="$bodyMdMedium"
-                color="$textCritical"
-                flex={1}
-                textAlign="left"
-              >
-                {errorMessage ??
-                  intl.formatMessage({
-                    id: ETranslations.global_an_error_occurred,
-                  })}
-              </SizableText>
-              <Button
-                testID={OnboardingTestIDs.deviceSetupRetryBtn}
-                variant="primary"
-                onPress={handleDeviceSetupDone}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_retry,
+              />
+            ) : null}
+          </Animated.View>
+          <Pro2MockDevPanel status={mockStatus} onChange={setMockStatus} />
+        </YStack>
+      ) : (
+        <YStack>
+          {/* Keyed on the state so checking → setup → ready/error cross-fades. */}
+          <Animated.View
+            key={setupState}
+            entering={PHASE_ENTER}
+            exiting={PHASE_EXIT}
+          >
+            {setupState === EDeviceSetupState.Checking ? (
+              <SetupStatusCard
+                tone="checking"
+                label={intl.formatMessage({
+                  id: ETranslations.global_checking,
                 })}
-              </Button>
-            </XStack>
-          ) : null}
-        </HeightTransition>
-      </YStack>
+              />
+            ) : null}
+            {setupState === EDeviceSetupState.NeedSetup ? fallbackCard : null}
+            {setupState === EDeviceSetupState.Success ? (
+              <SetupStatusCard
+                tone="ready"
+                label={intl.formatMessage({
+                  id: ETranslations.your_device_is_ready,
+                })}
+              />
+            ) : null}
+            {setupState === EDeviceSetupState.Error ? (
+              <XStack
+                gap="$2"
+                pt="$4"
+                borderTopWidth={StyleSheet.hairlineWidth}
+                borderTopColor="$borderSubdued"
+                alignItems="center"
+              >
+                <SizableText
+                  size="$bodyMdMedium"
+                  color="$textCritical"
+                  flex={1}
+                  textAlign="left"
+                >
+                  {errorMessage ??
+                    intl.formatMessage({
+                      id: ETranslations.global_an_error_occurred,
+                    })}
+                </SizableText>
+                <Button
+                  testID={OnboardingTestIDs.deviceSetupRetryBtn}
+                  variant="primary"
+                  onPress={handleDeviceSetupDone}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              </XStack>
+            ) : null}
+          </Animated.View>
+        </YStack>
+      )}
     </OnboardingPage>
   );
 }

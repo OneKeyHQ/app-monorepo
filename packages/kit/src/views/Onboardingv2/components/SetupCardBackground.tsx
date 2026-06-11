@@ -27,12 +27,17 @@ export interface ISetupCardBackgroundProps {
   // Native glow geometry (forwarded to SetupCardGlow); web shimmer ignores it.
   glowSize?: number;
   glowTop?: number;
+  // Web shimmer field height in px. Clips the top-anchored canvas so its
+  // centre-out origin (canvas height / 2) sits higher — e.g. over a card's top
+  // illustration instead of the full-card centre. Native glow ignores it.
+  shimmerHeight?: number;
 }
 
 export function SetupCardBackground({
   variant,
   glowSize,
   glowTop,
+  shimmerHeight,
 }: ISetupCardBackgroundProps) {
   if (platformEnv.isNative) {
     return (
@@ -47,6 +52,9 @@ export function SetupCardBackground({
     <PixelShimmer
       autoPlay
       colors={variant === 'neutral' ? SHIMMER_NEUTRAL : undefined}
+      style={{
+        ...(shimmerHeight === undefined ? null : { height: shimmerHeight }),
+      }}
     />
   );
 }

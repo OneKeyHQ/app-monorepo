@@ -93,6 +93,8 @@ import {
   sortDevicesData,
 } from '../utils';
 
+import { Pro2MockEntryButton } from './deviceSetupPro2Mock';
+
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
@@ -966,6 +968,10 @@ function USBOrBLEConnectionIndicator({
         </ConnectionIndicator.Footer>
       </ConnectionIndicator>
       <TroubleShootingButton type="usb" />
+      <Pro2MockEntryButton
+        deviceTypeItems={deviceTypeItems}
+        tabValue={tabValue}
+      />
     </>
   );
 }
