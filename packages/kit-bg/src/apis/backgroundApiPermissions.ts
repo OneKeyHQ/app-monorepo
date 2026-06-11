@@ -1,5 +1,6 @@
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { TRADING_VIEW_LOCALHOST_ORIGIN } from '@onekeyhq/shared/src/config/appConfig';
+import { OFFLINE_CHART_PRIVATE_ORIGIN_PREFIX } from '@onekeyhq/shared/src/consts/desktopChartConsts';
 import { KEYLESS_WEB_TAB_WHITE_LIST_ORIGIN } from '@onekeyhq/shared/src/keylessWallet/keylessWebTabUrlPatternsConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -104,6 +105,11 @@ export function isProviderApiPrivateAllowedOrigin(origin?: string) {
     origin &&
     (origin?.endsWith('.onekey.so') ||
       origin?.endsWith('.onekeytest.com') ||
+      // Offline TradingView chart (desktop `onekey-chart://local` + iOS native
+      // chart-webview `onekey-chart://` scheme). Trust the whole app-registered
+      // scheme so `tradingview_*` $private bridge calls work on every host —
+      // matches the implicit `.onekey.so` grant the legacy online chart had.
+      origin?.startsWith(OFFLINE_CHART_PRIVATE_ORIGIN_PREFIX) ||
       isDevLocalhostOrigin(origin) ||
       PROVIDER_API_PRIVATE_WHITE_LIST_ORIGIN.includes(origin))
   );

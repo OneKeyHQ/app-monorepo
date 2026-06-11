@@ -907,9 +907,16 @@ function SwapKLineContentBody({
       borderTopColor={showSeparateChartDivider ? undefined : '$borderSubdued'}
     >
       <TradingViewV2
-        key={`${chartNetworkId}:${chartTokenAddress}:${
-          selectedToken?.symbol ?? ''
-        }`}
+        // No per-token key: keying on network/address/symbol remounted the whole
+        // WebView on every ETH<->USDC switch, which on desktop tears down and
+        // rebuilds the Electron webContents and re-initializes the TradingView
+        // widget (re-downloading the library when no offline bundle shipped) —
+        // i.e. a cold chart open on every switch. TradingViewV2 already reuses its
+        // instance and reloads in place on symbol/param change (inner WebView keyed
+        // on theme only; desktop <webview src>/web <iframe src> auto-reload; native
+        // loadURL effect), and the loading mask is driven by a symbol-keyed global
+        // ready store, so switching tokens shows loading until the new token's bars
+        // arrive without a remount. See OK-55539.
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}

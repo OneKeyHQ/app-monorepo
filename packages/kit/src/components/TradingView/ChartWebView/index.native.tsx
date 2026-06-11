@@ -17,6 +17,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { buildSymbolChangeMessage } from './buildSymbolChangeMessage';
 import {
   CHART_WEBVIEW_ENTRY,
   CHART_WEBVIEW_LOCAL_BUNDLE,
@@ -94,28 +95,6 @@ function buildUnifiedParamsJson(params: Record<string, string>): string {
   // source identical across hosts.
   constant.enablePerpsTradingUi = '0';
   return JSON.stringify(constant);
-}
-
-// Market tokens route by source-encoded symbol (the chart carries decimal per
-// token); perps route to the Hyperliquid datafeed. Display labels are UI-only.
-// force:false makes the message idempotent — the chart no-ops when it already
-// shows this symbol (so we can send eagerly/often without flicker) and switches
-// when it doesn't. We never need to force a re-render of the same symbol here.
-function buildSymbolChangeMessage(params: Record<string, string>) {
-  const source = params.type === 'perps' ? 'hyperliquid' : 'market';
-  return {
-    type: 'SYMBOL_CHANGE',
-    payload: {
-      source,
-      symbol: params.symbol,
-      networkId: params.networkId,
-      address: params.address,
-      decimal: params.decimal,
-      displayPair: params.symbol,
-      displayCoin: params.symbol,
-      force: false,
-    },
-  };
 }
 
 export function ChartWebView({

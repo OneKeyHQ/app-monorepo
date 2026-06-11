@@ -27,6 +27,7 @@ import {
   useChartBootSnapshotReady,
 } from '../ChartWebView/constants';
 import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
+import { TRADING_VIEW_MARKET_HYPERLIQUID_SCENE } from '../constants';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -209,18 +210,20 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
-    const finalStorageNamespace =
-      storageNamespace?.trim() ||
-      (useHyperLiquid ? 'market-hyperliquid' : 'market');
-
+    // storageNamespace is caller-owned: passed through verbatim with NO default
+    // fallback. When a caller omits it the param is simply absent (the chart
+    // uses its own default) rather than the app inventing 'market'. The market
+    // surface's hyperliquid bucket switch lives in the caller (MarketTradingView).
     return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
       symbol: chartSymbol,
       type: 'market',
-      storageNamespace: finalStorageNamespace,
-      ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
+      ...(storageNamespace ? { storageNamespace } : {}),
+      ...(useHyperLiquid
+        ? { scene: TRADING_VIEW_MARKET_HYPERLIQUID_SCENE }
+        : {}),
     };
   }, [
     chartSymbol,

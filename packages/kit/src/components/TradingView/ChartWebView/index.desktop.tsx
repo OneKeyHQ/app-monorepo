@@ -7,30 +7,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebView from '../../WebView';
 
+import { buildSymbolChangeMessage } from './buildSymbolChangeMessage';
 import { buildUnifiedChartUrl } from './unifiedUrl';
 
 import type { IChartWebViewProps } from './types';
 import type { IWebViewRef } from '../../WebView/types';
-
-// Market tokens route by source-encoded symbol; perps route to Hyperliquid.
-// force:false keeps the message idempotent so re-asserting is a no-op when the
-// page already shows the symbol. Mirrors the native host's builder.
-function buildSymbolChangeMessage(params: Record<string, string>) {
-  const source = params.type === 'perps' ? 'hyperliquid' : 'market';
-  return {
-    type: 'SYMBOL_CHANGE',
-    payload: {
-      source,
-      symbol: params.symbol,
-      networkId: params.networkId,
-      address: params.address,
-      decimal: params.decimal,
-      displayPair: params.symbol,
-      displayCoin: params.symbol,
-      force: false,
-    },
-  };
-}
 
 /**
  * Desktop chart host (in-flow).
