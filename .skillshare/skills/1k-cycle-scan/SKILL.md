@@ -57,9 +57,9 @@ percentages):
    model reviews only the suspects list), then D.
 6. `cursor >= totalFiles && summaryPageId == null` → Flow E (batch summary).
 7. Otherwise → Flow D (run): lock state (nonce protocol) → rebuild blueprint
-   → verify `manifestHash` → `chunk.mjs` slice → scan groups (Workflow tool
-   if available) → checkpoint per group → reconcile → report → advance
-   cursor → unlock.
+   → verify `manifestHash` → `chunk.mjs` slice → scan groups via Workflow
+   multi-agent orchestration (ultracode — see Hard rules) → checkpoint per
+   group → reconcile → report → advance cursor → unlock.
 
 Size overrides like `100k` must be converted to integer lines (`100000`)
 before reaching `chunk.mjs` — the script rejects anything else.
@@ -91,6 +91,12 @@ determinism is hash-verified on every run.
 
 ## Hard rules
 
+- **ultracode** — scan fan-out, adversarial verification, and batch-summary
+  review MUST be orchestrated with the Workflow tool (multi-agent subagent
+  pipelines, see the playbook template). This skill instruction is the user's
+  explicit opt-in to multi-agent orchestration. Fall back to direct Agent
+  fan-out ONLY when the Workflow tool is genuinely absent from the harness —
+  never scan sequentially in the main loop.
 - NEVER modify repo code, commit, or push. Scanning is read-only; reports are
   the only artifact. Single exemption: writing the `confluence`/`slack`
   connection IDs into this skill's `config.json` during local bootstrap (the

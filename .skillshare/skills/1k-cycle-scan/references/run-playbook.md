@@ -166,12 +166,15 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    else `config.defaults.runLines`. The script rejects non-integers. Surface
    `strandedDoneIndices` to the user if non-empty (those files will be
    replanned later — known double-scan).
-6. Scan groups — Workflow tool if available (template below), else direct
-   Agent fan-out capped at `config.defaults.maxConcurrentAgents`. Per group:
-   scan agent → refute findings whose severity ∈
-   `config.defaults.verifySeverities` → post the checkpoint COMMENT on the
-   batch page (marker carries the run number; human line carries live
-   progress). Checkpoint comment timestamps double as the lock heartbeat.
+6. Scan groups — **ultracode**: orchestrate with the Workflow tool (template
+   below); the skill mandates multi-agent orchestration and counts as the
+   user's explicit opt-in. Only if the Workflow tool is genuinely absent,
+   fall back to direct Agent fan-out capped at
+   `config.defaults.maxConcurrentAgents`. Per group: scan agent → refute
+   findings whose severity ∈ `config.defaults.verifySeverities` → post the
+   checkpoint COMMENT on the batch page (marker carries the run number;
+   human line carries live progress). Checkpoint comment timestamps double
+   as the lock heartbeat.
 7. Reconcile — compare checkpoint comments against the plan. Two DIFFERENT
    gaps:
    a. Group has scan results but no checkpoint (posting failed) → post it now
@@ -213,7 +216,8 @@ or directly from Flow D step 11.
 4. Dedup key: `path + category + floor(line/30)`. Merge duplicates (keep
    highest severity/confidence).
 5. Cluster by module (top 2–3 path segments). Per cluster, spawn a reviewer
-   agent: confirm each finding in `$WT` (refresh line refs), then check
+   agent (**ultracode**: fan these out with the Workflow tool too): confirm
+   each finding in `$WT` (refresh line refs), then check
    `git show ${LATEST}:<path>` — gone on latest x → `fixedOnMain: true`.
 6. Previous batch comparison: read `prevSummaryPageId` (its trailing compact
    JSON block) → label findings new / recurring / fixed.
