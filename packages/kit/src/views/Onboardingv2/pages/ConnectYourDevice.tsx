@@ -93,7 +93,10 @@ import {
   sortDevicesData,
 } from '../utils';
 
-import { Pro2MockEntryButton } from './deviceSetupPro2Mock';
+import {
+  Pro2MockDeviceListItem,
+  Pro2MockEntryButton,
+} from './deviceSetupPro2Mock';
 
 import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
@@ -944,6 +947,12 @@ function USBOrBLEConnectionIndicator({
             </XStack>
           </YStack>
           <HeightTransition initialHeight={0}>
+            {/* DEMO(pro2): fake found-device row — skips the connection and
+                jumps to the mocked CheckAndUpdate. Revert with the demo. */}
+            <Pro2MockDeviceListItem
+              deviceTypeItems={deviceTypeItems}
+              tabValue={tabValue}
+            />
             {sortedDevicesData.length > 0 ? (
               <>
                 {sortedDevicesData.map((data) => (

@@ -31,6 +31,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 
@@ -47,6 +48,8 @@ import {
 import { usePrepareUSBConnectForFirmwareUpdate } from '../hooks/usePrepareUSBConnectForFirmwareUpdate';
 import { OnboardingTestIDs } from '../testIDs';
 import { getDeviceLabel, getForceTransportType } from '../utils';
+
+import { supportsDeviceDrivenOnboarding } from './deviceSetupPro2Mock';
 
 import type { Features, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
 
@@ -493,6 +496,45 @@ function CheckAndUpdatePage({
   }, [reactNavigation]);
 
   const handleVerifyHardware = useCallback(async () => {
+    // DEMO(pro2): the mock Pro 2 can't talk to hardware — stage both checks
+    // visually (genuine ✓ → firmware ✓) with no device calls at all, purely to
+    // show the flow. No hardware confirmation anywhere. Revert with the demo
+    // scaffolding.
+    if (supportsDeviceDrivenOnboarding(currentDevice)) {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: ECheckAndUpdateStepState.InProgress,
+        };
+        return newSteps;
+      });
+      await timerUtils.wait(1500);
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = {
+          ...newSteps[0],
+          state: ECheckAndUpdateStepState.Success,
+        };
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.InProgress,
+        };
+        return newSteps;
+      });
+      await timerUtils.wait(1500);
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[1] = {
+          ...newSteps[1],
+          state: ECheckAndUpdateStepState.Success,
+        };
+        return newSteps;
+      });
+      isFirmwareVerifiedRef.current = true;
+      return;
+    }
+
     // Double-check: ensure device scanning is fully stopped before starting verification
     await ensureStopScan();
     await ensureTransportType();
