@@ -4,12 +4,22 @@ import platformEnv from '../platformEnv';
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
-import { EAppUpdateStatus, EUpdateFileType } from './type';
+import { EAppUpdateStatus, EUpdateFileType, EUpdateStrategy } from './type';
 
 import type { IAppUpdateInfo, IResolvedUpdateDecision } from './type';
 
 export * from './utils';
 export * from './type';
+
+/**
+ * Strategies that auto-download in the background without user confirmation
+ * (silent / seamless). Lives in `shared` so kit-bg services can gate
+ * auto-download decisions on it without importing from `kit`. The kit-side
+ * `updateStrategy.ts` re-exports this so UI callers keep their import path.
+ */
+export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) =>
+  updateStrategy === EUpdateStrategy.silent ||
+  updateStrategy === EUpdateStrategy.seamless;
 export {
   type IFeaturedItem,
   type IFeaturedChangelog,
