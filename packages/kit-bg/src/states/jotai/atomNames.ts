@@ -48,7 +48,6 @@ export enum EAtomNames {
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
   settingsFiatPaySiteWhitelistPersistAtom = 'settingsFiatPaySiteWhitelistPersistAtom',
-  chartSourcePersistAtom = 'chartSourcePersistAtom',
 
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
@@ -118,6 +117,7 @@ export enum EAtomNames {
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
+  spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   // network doctor
@@ -134,7 +134,6 @@ export enum EAtomNames {
   marketBannerListSortAtom = 'marketBannerListSortAtom',
   marketTokenSelectorConfigAtom = 'marketTokenSelectorConfigAtom',
   marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
-  chartPredictedSymbolAtom = 'chartPredictedSymbolAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',

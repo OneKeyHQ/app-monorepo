@@ -1781,51 +1781,6 @@ const BaseDevSettingsSection = () => {
                           handleOpenMockTradingViewKLineEmptyIntervalsDialog
                         }
                       />
-                      <ListItem
-                        icon="TradeOutline"
-                        title="Chart WebView 模式覆盖"
-                        subtitle="Default=跟随后端 / Offline=共享池 / Legacy=最早单 WebView。重启 App 后生效"
-                        titleProps={{ color: '$textCritical' }}
-                      >
-                        <Select
-                          title="Chart WebView 模式覆盖"
-                          value={
-                            devSettings.settings?.chartWebViewModeOverride ??
-                            'default'
-                          }
-                          items={[
-                            { label: 'Default (跟随后端)', value: 'default' },
-                            { label: 'Offline (共享池)', value: 'offline' },
-                            {
-                              label: 'Legacy (最早单 WebView)',
-                              value: 'legacy',
-                            },
-                          ]}
-                          placement="bottom-end"
-                          onChange={async (value: string) => {
-                            // 'default' sentinel → store undefined (follow the
-                            // server/snapshot decision). Takes effect on restart.
-                            await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-                              'chartWebViewModeOverride',
-                              value === 'default' ? undefined : value,
-                            );
-                            Toast.success({
-                              title: '已保存，重启 App 后生效',
-                            });
-                          }}
-                        />
-                      </ListItem>
-                      <SectionPressItem
-                        icon="DeleteOutline"
-                        title="清理 Chart 迁移记录"
-                        subtitle="重置 TradingView 图表迁移状态，重启 App 后将重新迁移"
-                        onPress={async () => {
-                          await backgroundApiProxy.serviceApp.resetTradingViewChartMigrationState();
-                          Toast.success({
-                            title: '迁移记录已清理，重启 App 后将重新迁移',
-                          });
-                        }}
-                      />
                       <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"

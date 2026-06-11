@@ -60,6 +60,7 @@ import {
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartLimitSupport,
+  getSwapDefaultToTokenForSwapType,
   getSwapSelectedTokensColdStartContextNetworkId,
   getSwapTokenSupportTypes,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -1108,9 +1109,10 @@ export function useSwapInit(params?: ISwapInitParams) {
         !isNil(swapDefaultSetTokens[netId]?.limitFromToken) ||
         !isNil(swapDefaultSetTokens[netId]?.limitToToken)
       ) {
+        const preferredDefaultSwapType =
+          params?.swapTabSwitchType ?? swapTypeSwitchRef.current;
         const shouldUseLimitDefaults =
-          (params?.swapTabSwitchType ?? swapTypeSwitchRef.current) ===
-          ESwapTabSwitchType.LIMIT;
+          preferredDefaultSwapType === ESwapTabSwitchType.LIMIT;
         if (shouldUseLimitDefaults && !netInfo.supportLimit) {
           clearSelectedTokensColdStartCache();
           markInitialSelectedTokensSynced();
@@ -1120,9 +1122,14 @@ export function useSwapInit(params?: ISwapInitParams) {
         const defaultFromToken = shouldUseLimitDefaults
           ? swapDefaultSetTokens[netId]?.limitFromToken
           : swapDefaultSetTokens[netId]?.fromToken;
-        const defaultToToken = shouldUseLimitDefaults
-          ? swapDefaultSetTokens[netId]?.limitToToken
-          : swapDefaultSetTokens[netId]?.toToken;
+        const defaultToToken = getSwapDefaultToTokenForSwapType({
+          fromToken: defaultFromToken,
+          homeNetworkId: netId,
+          preferredSwapType: preferredDefaultSwapType,
+          toToken: shouldUseLimitDefaults
+            ? swapDefaultSetTokens[netId]?.limitToToken
+            : swapDefaultSetTokens[netId]?.toToken,
+        });
         if (shouldUseLimitDefaults && !defaultFromToken && !defaultToToken) {
           clearSelectedTokensColdStartCache();
           markInitialSelectedTokensSynced();

@@ -381,6 +381,46 @@ function getBridgeDefaultToTokenForFromToken(fromToken?: ISwapToken) {
     : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
 }
 
+function shouldUseBridgeDefaultToToken({
+  homeNetworkId,
+  preferredSwapType,
+}: {
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+}) {
+  return (
+    preferredSwapType === ESwapTabSwitchType.BRIDGE &&
+    !isSwapColdStartAllNetworkContextNetworkId(homeNetworkId)
+  );
+}
+
+export function getSwapDefaultToTokenForSwapType({
+  fromToken,
+  homeNetworkId,
+  preferredSwapType,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+  toToken?: ISwapToken;
+}) {
+  if (preferredSwapType === ESwapTabSwitchType.LIMIT) {
+    return toToken;
+  }
+
+  if (
+    shouldUseBridgeDefaultToToken({
+      homeNetworkId,
+      preferredSwapType,
+    })
+  ) {
+    return getBridgeDefaultToTokenForFromToken(fromToken);
+  }
+
+  return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
+}
+
 export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
   swapType: preferredSwapType,
@@ -404,10 +444,14 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   const fromToken = useLimitDefaults
     ? defaultTokens?.limitFromToken
     : defaultTokens?.fromToken;
-  const toToken = useLimitDefaults
-    ? defaultTokens?.limitToToken
-    : (defaultTokens?.toToken ??
-      getBridgeDefaultToTokenForFromToken(fromToken));
+  const toToken = getSwapDefaultToTokenForSwapType({
+    fromToken,
+    homeNetworkId,
+    preferredSwapType,
+    toToken: useLimitDefaults
+      ? defaultTokens?.limitToToken
+      : defaultTokens?.toToken,
+  });
   if (!fromToken && !toToken) {
     return undefined;
   }

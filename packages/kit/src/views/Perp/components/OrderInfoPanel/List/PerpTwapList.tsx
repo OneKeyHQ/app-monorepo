@@ -30,6 +30,7 @@ import {
 import {
   usePerpsActiveAccountAtom,
   useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -54,7 +55,8 @@ import {
   calcCellAlign,
   getColumnStyle,
   getFillDirectionDisplayInfo,
-  getTwapAssetDisplayName,
+  getOrderAssetDisplayName,
+  getOrderSizeDisplayName,
   getTwapHistoryEventTimeMs,
   normalizeEpochMs,
 } from '../utils';
@@ -203,12 +205,14 @@ function getTwapBaseInfo({
   now,
   endTime,
   spotDisplayMap,
+  spotPairDisplayNameMap,
   intl,
 }: {
   state: ITwapState;
   now: number;
   endTime?: number;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
   intl: IntlShape;
 }) {
   const executedSize = new BigNumber(state.executedSz);
@@ -221,7 +225,12 @@ function getTwapBaseInfo({
   const avgPriceValue = avgPrice?.isFinite()
     ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
     : undefined;
-  const assetSymbol = getTwapAssetDisplayName(state.coin, spotDisplayMap);
+  const assetSymbol = getOrderAssetDisplayName(
+    state.coin,
+    spotDisplayMap,
+    spotPairDisplayNameMap,
+  );
+  const sizeSymbol = getOrderSizeDisplayName(state.coin, spotDisplayMap);
   const sizeFormatted = numberFormat(totalSize.toFixed(), balanceFormatter);
   const executedSizeFormatted = numberFormat(
     executedSize.toFixed(),
@@ -237,8 +246,8 @@ function getTwapBaseInfo({
     assetSymbol,
     sizeFormatted,
     executedSizeFormatted,
-    sizeWithSymbol: `${sizeFormatted} ${assetSymbol}`,
-    executedSizeWithSymbol: `${executedSizeFormatted} ${assetSymbol}`,
+    sizeWithSymbol: `${sizeFormatted} ${sizeSymbol}`,
+    executedSizeWithSymbol: `${executedSizeFormatted} ${sizeSymbol}`,
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
@@ -433,6 +442,7 @@ function TwapActiveRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
 }: {
   order: IPerpsActiveTwapOrder;
   now: number;
@@ -444,13 +454,21 @@ function TwapActiveRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
 }) {
   const intl = useIntl();
   const { state } = order;
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, spotDisplayMap, intl }),
-    [intl, now, spotDisplayMap, state],
+    () =>
+      getTwapBaseInfo({
+        state,
+        now,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+        intl,
+      }),
+    [intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -575,6 +593,7 @@ function TwapHistoryRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
   isMobile,
 }: {
   record: ITwapHistoryRecord;
@@ -586,6 +605,7 @@ function TwapHistoryRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
   isMobile?: boolean;
 }) {
   const intl = useIntl();
@@ -594,8 +614,16 @@ function TwapHistoryRow({
   const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, endTime, spotDisplayMap, intl }),
-    [endTime, intl, now, spotDisplayMap, state],
+    () =>
+      getTwapBaseInfo({
+        state,
+        now,
+        endTime,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+        intl,
+      }),
+    [endTime, intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
   );
   const historyTime = useMemo(
     () => formatTwapDateTime(getTwapHistoryEventTimeMs(record)),
@@ -863,6 +891,7 @@ function TwapFillRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
   builderFeeRate,
   isMobile,
 }: {
@@ -874,6 +903,7 @@ function TwapFillRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
   builderFeeRate?: number;
   isMobile?: boolean;
 }) {
@@ -881,8 +911,13 @@ function TwapFillRow({
   const { fill } = record;
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
-    () => getTwapAssetDisplayName(fill.coin, spotDisplayMap),
-    [fill.coin, spotDisplayMap],
+    () =>
+      getOrderAssetDisplayName(
+        fill.coin,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+      ),
+    [fill.coin, spotDisplayMap, spotPairDisplayNameMap],
   );
   const directionInfo = useMemo(
     () => getFillDirectionInfo(fill, intl),
@@ -1178,6 +1213,7 @@ function PerpTwapList({
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
+  const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
   const [activeTab, setActiveTab] = useState<ITwapPanelTab>(initialTab);
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
@@ -1611,9 +1647,17 @@ function PerpTwapList({
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
       />
     ),
-    [activeColumns, activeMinWidth, handleTerminate, now, spotDisplayMap],
+    [
+      activeColumns,
+      activeMinWidth,
+      handleTerminate,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const renderHistoryRow = useCallback(
@@ -1634,10 +1678,18 @@ function PerpTwapList({
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
         isMobile={isMobile}
       />
     ),
-    [historyColumns, historyMinWidth, isMobile, now, spotDisplayMap],
+    [
+      historyColumns,
+      historyMinWidth,
+      isMobile,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const renderFillRow = useCallback(
@@ -1657,11 +1709,19 @@ function PerpTwapList({
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
         builderFeeRate={builderFeeRate}
         isMobile={isMobile}
       />
     ),
-    [builderFeeRate, fillColumns, fillMinWidth, isMobile, spotDisplayMap],
+    [
+      builderFeeRate,
+      fillColumns,
+      fillMinWidth,
+      isMobile,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];

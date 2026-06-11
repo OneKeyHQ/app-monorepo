@@ -9,10 +9,6 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
-  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
-
 env:
   NODE_ENV: production
   YARN_ENABLE_GLOBAL_CACHE: true
@@ -85,12 +81,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
-
-      - name: Stage TradingView offline chart assets
-        env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRADINGVIEW_ASSETS_REQUIRED: '1'
-        run: node development/scripts/fetch-tradingview-assets.mjs
 
       - name: Compile macOS Liquid Glass Icon
         run: |

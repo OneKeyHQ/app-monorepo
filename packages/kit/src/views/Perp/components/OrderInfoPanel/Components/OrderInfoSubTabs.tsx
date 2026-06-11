@@ -1,10 +1,10 @@
-import { ScrollView, SizableText, XStack } from '@onekeyhq/components';
+import { ScrollView, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 function OrderInfoSubTabs<T extends string>({
   tabs,
   activeTab,
   onChange,
-  variant = 'pill',
+  variant: _variant = 'pill',
 }: {
   tabs: {
     key: T;
@@ -27,31 +27,23 @@ function OrderInfoSubTabs<T extends string>({
           minWidth="100%"
           pl="$5"
           pr="$5"
-          py={variant === 'underline' ? '$0' : '$2.5'}
-          gap={variant === 'underline' ? '$5' : '$2'}
-          borderBottomWidth={variant === 'underline' ? '$px' : '$0'}
+          py="$0"
+          gap="$5"
+          borderBottomWidth="$px"
           borderBottomColor="$borderSubdued"
         >
           {tabs.map((tab) => {
             const isFocused = activeTab === tab.key;
             return (
-              <XStack
+              <YStack
                 key={tab.key}
+                h={36}
+                onPress={() => onChange(tab.key)}
+                position="relative"
                 alignItems="center"
                 justifyContent="center"
-                px={variant === 'underline' ? '$0' : '$2.5'}
-                py={variant === 'underline' ? '$2.5' : '$1.5'}
-                borderRadius={variant === 'underline' ? '$0' : '$full'}
-                userSelect="none"
                 cursor="pointer"
-                backgroundColor={
-                  variant === 'pill' && isFocused ? '$bgActive' : '$transparent'
-                }
-                borderBottomWidth={
-                  variant === 'underline' && isFocused ? '$px' : '$0'
-                }
-                borderBottomColor="$borderActive"
-                onPress={() => onChange(tab.key)}
+                userSelect="none"
               >
                 <SizableText
                   numberOfLines={1}
@@ -60,7 +52,18 @@ function OrderInfoSubTabs<T extends string>({
                 >
                   {tab.label}
                 </SizableText>
-              </XStack>
+                {isFocused ? (
+                  <YStack
+                    position="absolute"
+                    bottom={0}
+                    left={0}
+                    right={0}
+                    h="$0.5"
+                    bg="$text"
+                    borderRadius={1}
+                  />
+                ) : null}
+              </YStack>
             );
           })}
         </XStack>
