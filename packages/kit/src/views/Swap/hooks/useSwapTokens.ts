@@ -18,6 +18,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
   filterTokenSelectorTokensByBackendIndexedNetworks,
+  isTokenSelectorDappTokenFilterSupportedNetworkBase,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -242,7 +243,7 @@ export function useSwapTokenList(
       return filterTokenSelectorTokensByBackendIndexedNetworks({
         tokens: supportedTokens,
         backendIndexedNetworkIds: swapSupportAllNetworks
-          .filter((net) => net.backendIndex)
+          .filter(isTokenSelectorDappTokenFilterSupportedNetworkBase)
           .map((net) => net.networkId),
       });
     },

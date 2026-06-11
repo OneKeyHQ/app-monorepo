@@ -2,6 +2,16 @@ import type { IServerNetwork } from '../../types';
 
 export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
 
+export function isTokenSelectorDappTokenFilterSupportedNetworkBase({
+  backendIndex,
+  isDeFiEnabled,
+}: {
+  backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
+}) {
+  return backendIndex === true && isDeFiEnabled === true;
+}
+
 export function isTokenSelectorDappTokenFilterSupportedNetwork({
   network,
   isDeFiEnabled,
@@ -18,7 +28,10 @@ export function isTokenSelectorDappTokenFilterSupportedNetwork({
   if (network.isAllNetworks) {
     return true;
   }
-  return network.backendIndex === true && isDeFiEnabled === true;
+  return isTokenSelectorDappTokenFilterSupportedNetworkBase({
+    backendIndex: network.backendIndex,
+    isDeFiEnabled,
+  });
 }
 
 export function filterTokenSelectorTokensByBackendIndexedNetworks<
