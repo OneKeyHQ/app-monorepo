@@ -82,6 +82,8 @@ import {
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
 
+const SWAP_NETWORK_SCHEMA_RETRY_DELAY = 30_000;
+
 function getSelectedTokensColdStartSwapType({
   currentSwapType,
   fromToken,
@@ -617,7 +619,8 @@ export function useSwapInit(params?: ISwapInitParams) {
             data: networks,
           });
           setSwapNetworks(networks);
-          hasRefreshedSwapNetworksRef.current = true;
+          hasRefreshedSwapNetworksRef.current =
+            isSwapNetworkCacheCompatible(networks);
         }
       } catch {
         // The background method shows its own toast. Keep cached networks usable.
@@ -631,6 +634,18 @@ export function useSwapInit(params?: ISwapInitParams) {
     refreshSwapNetworksPromiseRef.current = refreshPromise;
     await refreshPromise;
   }, [setSwapNetworks]);
+
+  useEffect(() => {
+    if (!swapNetworks.length || isSwapNetworkCacheCompatible(swapNetworks)) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void fetchSwapNetworks();
+    }, SWAP_NETWORK_SCHEMA_RETRY_DELAY);
+
+    return () => clearTimeout(timer);
+  }, [fetchSwapNetworks, swapNetworks]);
 
   const fetchSyncSwapProviderManager = useCallback(
     async (noFetch?: boolean) => {
@@ -1404,7 +1419,10 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (isFocus) {
-        if (!swapNetworksRef.current.length) {
+        if (
+          !swapNetworksRef.current.length ||
+          !isSwapNetworkCacheCompatible(swapNetworksRef.current)
+        ) {
           void fetchSwapNetworks();
         }
         if (swapFromMarketJumpTokenRef.current?.token) {

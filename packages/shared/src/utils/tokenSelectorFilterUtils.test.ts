@@ -1,6 +1,32 @@
-import { filterTokenSelectorTokensByBackendIndexedNetworks } from './tokenSelectorFilterUtils';
+import {
+  filterTokenSelectorTokensByBackendIndexedNetworks,
+  isTokenSelectorDappTokenFilterSupportedNetworkBase,
+} from './tokenSelectorFilterUtils';
 
 describe('tokenSelectorFilterUtils', () => {
+  describe('isTokenSelectorDappTokenFilterSupportedNetworkBase', () => {
+    it('requires backend indexing and DeFi support', () => {
+      expect(
+        isTokenSelectorDappTokenFilterSupportedNetworkBase({
+          backendIndex: true,
+          isDeFiEnabled: true,
+        }),
+      ).toBe(true);
+      expect(
+        isTokenSelectorDappTokenFilterSupportedNetworkBase({
+          backendIndex: true,
+          isDeFiEnabled: false,
+        }),
+      ).toBe(false);
+      expect(
+        isTokenSelectorDappTokenFilterSupportedNetworkBase({
+          backendIndex: false,
+          isDeFiEnabled: true,
+        }),
+      ).toBe(false);
+    });
+  });
+
   describe('filterTokenSelectorTokensByBackendIndexedNetworks', () => {
     it('keeps only tokens from backend-indexed networks', () => {
       expect(

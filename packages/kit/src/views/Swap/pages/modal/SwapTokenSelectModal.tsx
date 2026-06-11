@@ -30,7 +30,6 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -117,36 +116,26 @@ const SwapTokenSelectPage = ({
     useTokenSelectorFilterPersistAtom();
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
-  const currentSelectNetworkForDappTokenFilter = useMemo(() => {
-    if (!currentSelectNetwork) {
-      return undefined;
+  const showLpTokenFilterSwitch = useMemo(() => {
+    if (!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED || !currentSelectNetwork) {
+      return false;
     }
 
-    if (currentSelectNetwork.isAllNetworks) {
-      return {
+    return isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: {
         id: currentSelectNetwork.networkId,
-        isAllNetworks: true,
-      };
-    }
-
-    return {
-      id: currentSelectNetwork.networkId,
-      backendIndex: currentSelectNetwork.backendIndex,
-    };
-  }, [currentSelectNetwork]);
-  const isDeFiEnabled = useIsDeFiEnabled(
-    currentSelectNetwork?.networkId,
-    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
-  );
-  const showLpTokenFilterSwitch =
-    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
-    isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: currentSelectNetworkForDappTokenFilter,
-      isDeFiEnabled,
+        isAllNetworks: currentSelectNetwork.isAllNetworks,
+        backendIndex: currentSelectNetwork.backendIndex,
+      },
+      isDeFiEnabled: currentSelectNetwork.isAllNetworks
+        ? true
+        : currentSelectNetwork.isDeFiEnabled,
     });
+  }, [currentSelectNetwork]);
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
+  const requestLpToken = showLpTokenFilterSwitch ? showLpTokensOnly : undefined;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const hasUserSelectedNetworkRef = useRef(false);
@@ -238,6 +227,30 @@ const SwapTokenSelectPage = ({
     });
   }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
 
+  useEffect(() => {
+    if (!currentSelectNetwork?.networkId) {
+      return;
+    }
+
+    const latestNetwork = swapNetworksIncludeAllNetwork.find(
+      (network) => network.networkId === currentSelectNetwork.networkId,
+    );
+    if (!latestNetwork || latestNetwork === currentSelectNetwork) {
+      return;
+    }
+
+    setCurrentSelectNetwork((prev) => {
+      if (!prev || prev.networkId !== latestNetwork.networkId) {
+        return prev;
+      }
+      return latestNetwork;
+    });
+  }, [
+    currentSelectNetwork,
+    setCurrentSelectNetwork,
+    swapNetworksIncludeAllNetwork,
+  ]);
+
   useEffect(
     () => () => {
       setCurrentSelectNetwork(undefined);
@@ -267,7 +280,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
+    requestLpToken,
   );
   const alertIndex = useMemo(
     () =>
