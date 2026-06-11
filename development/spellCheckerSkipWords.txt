@@ -1487,3 +1487,4 @@ androidplatform
 appassets
 destructures
 unwired
+ETHUSDC
