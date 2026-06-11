@@ -1886,10 +1886,10 @@ class ServiceAppUpdate extends ServiceBase {
       const pendingTask = await getPendingInstallTask();
       pendingTaskInProgress = Boolean(
         pendingTask &&
-          (pendingTask.status === EPendingInstallTaskStatus.pending ||
-            pendingTask.status === EPendingInstallTaskStatus.running ||
-            pendingTask.status ===
-              EPendingInstallTaskStatus.appliedWaitingVerify),
+        (pendingTask.status === EPendingInstallTaskStatus.pending ||
+          pendingTask.status === EPendingInstallTaskStatus.running ||
+          pendingTask.status ===
+            EPendingInstallTaskStatus.appliedWaitingVerify),
       );
     } catch (error) {
       defaultLogger.app.appUpdate.log(
