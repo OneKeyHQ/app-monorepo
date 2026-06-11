@@ -1017,6 +1017,7 @@ function PerpTradingForm({
     });
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
+      const primaryIssue = validation.issues[0];
       return {
         text: getScaleOrderValidationErrorMessage({
           intl,
@@ -1025,7 +1026,10 @@ function PerpTradingForm({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
         }),
-        tone: 'error' as const,
+        tone:
+          primaryIssue?.code === 'minNotionalTooSmall'
+            ? ('info' as const)
+            : ('error' as const),
       };
     }
 
