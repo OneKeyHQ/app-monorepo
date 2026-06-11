@@ -599,6 +599,7 @@ const SwapHeaderRightActionContainer = ({
         title: intl.formatMessage({
           id: ETranslations.market_chart,
         }),
+        disableDrag: true,
         estimatedContentHeight: 460,
         contentContainerProps: {
           px: '$0',
