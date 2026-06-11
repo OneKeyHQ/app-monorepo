@@ -6,7 +6,10 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -17,7 +20,7 @@ import {
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpTestIDs } from '../../../testIDs';
-import { getTwapAssetDisplayName } from '../utils';
+import { getOrderAssetDisplayName } from '../utils';
 
 const balanceFormatter: INumberFormatProps = {
   formatter: 'balance',
@@ -82,6 +85,7 @@ const MobileTwapOpenOrdersRow = memo(
     const { twapId, state } = order;
     const [now, setNow] = useState(Date.now());
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
+    const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
 
     useEffect(() => {
       const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -89,8 +93,13 @@ const MobileTwapOpenOrdersRow = memo(
     }, []);
 
     const assetSymbol = useMemo(
-      () => getTwapAssetDisplayName(state.coin, spotDisplayMap),
-      [spotDisplayMap, state.coin],
+      () =>
+        getOrderAssetDisplayName(
+          state.coin,
+          spotDisplayMap,
+          spotPairDisplayNameMap,
+        ),
+      [spotDisplayMap, spotPairDisplayNameMap, state.coin],
     );
     const dateInfo = useMemo(() => {
       const timeDate = new Date(state.timestamp);

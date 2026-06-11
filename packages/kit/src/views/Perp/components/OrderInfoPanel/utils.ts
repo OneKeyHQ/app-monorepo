@@ -4,6 +4,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
+  formatSpotPairDisplayName,
   getSpotTokenDisplayName,
   isSpotInstrument,
   parseDexCoin,
@@ -48,7 +49,28 @@ export const getColumnStyle = (column: IColumnConfig) => {
   };
 };
 
-export const getTwapAssetDisplayName = (
+export const getOrderAssetDisplayName = (
+  coin: string,
+  spotDisplayMap: Record<string, string>,
+  spotPairDisplayNameMap: Record<string, string> = {},
+) => {
+  if (!isSpotInstrument(coin)) {
+    return parseDexCoin(coin).displayName;
+  }
+
+  if (coin.includes('/')) {
+    const [baseName, quoteName] = coin.split('/');
+    return formatSpotPairDisplayName(baseName, quoteName);
+  }
+
+  return (
+    spotPairDisplayNameMap[coin] ??
+    spotDisplayMap[coin] ??
+    getSpotTokenDisplayName(coin)
+  );
+};
+
+export const getOrderSizeDisplayName = (
   coin: string,
   spotDisplayMap: Record<string, string>,
 ) => {
@@ -56,17 +78,14 @@ export const getTwapAssetDisplayName = (
     return parseDexCoin(coin).displayName;
   }
 
-  const displayName = spotDisplayMap[coin];
-  if (displayName) {
-    return displayName;
-  }
-
   if (coin.includes('/')) {
     const [baseName] = coin.split('/');
-    return spotDisplayMap[baseName] ?? getSpotTokenDisplayName(baseName);
+    return getSpotTokenDisplayName(baseName);
   }
 
-  return coin;
+  const displayName = spotDisplayMap[coin] ?? getSpotTokenDisplayName(coin);
+  const [baseName] = displayName.split('/');
+  return baseName;
 };
 
 export function normalizeEpochMs(timestamp: number | undefined) {
