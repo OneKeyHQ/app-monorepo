@@ -404,7 +404,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={`${theme}:${tradingViewUrlWithParams}`}
+        // Key on theme only (NOT the URL) so a symbol/decimal/param change reuses
+        // this WebView instead of unmounting + rebuilding it. Putting the URL in
+        // the key (the OK-55539 fix) forced a full remount on every param change,
+        // which on native rebuilds the WKWebView + bridge + injected JS and — with
+        // cacheEnabled=false — re-downloads all TradingView assets, making the
+        // chart noticeably slower to open than v6.3.0. URL changes are now
+        // reloaded in-place (see the native loadURL effect below).
+        key={theme}
         customReceiveHandler={async (data) => {
           const receiveData = data as ICustomReceiveHandlerData;
           await customReceiveHandler(receiveData);
@@ -440,6 +447,23 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       tradingViewUrlWithParams,
     ],
   );
+
+  // Reload the legacy WebView in-place when the chart URL (its query params:
+  // symbol, decimal, theme, storageNamespace, ...) changes, replacing the old
+  // remount-via-key behavior. Native only: desktop (<webview src>) and web
+  // (<iframe src>) already reload when React updates the src attribute, so they
+  // need nothing here; iOS WKWebView treats a query-only change to the same
+  // origin as same-document and does NOT reload, which is exactly what OK-55539
+  // hit. loadURL reuses the warm instance (cheap) instead of rebuilding it.
+  // Initialized to the first URL so the initial mount (handled by the src prop)
+  // does not trigger a redundant reload.
+  const lastLoadedUrlRef = useRef(tradingViewUrlWithParams);
+  useEffect(() => {
+    if (!platformEnv.isNative) return;
+    if (lastLoadedUrlRef.current === tradingViewUrlWithParams) return;
+    lastLoadedUrlRef.current = tradingViewUrlWithParams;
+    webRef.current?.loadURL(tradingViewUrlWithParams);
+  }, [tradingViewUrlWithParams]);
 
   // New chart-webview path: native via the chart-webview module (mode resolved
   // from the cold-start snapshot), desktop via the warm onekey-chart:// overlay
