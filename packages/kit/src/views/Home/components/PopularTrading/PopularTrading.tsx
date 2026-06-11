@@ -1084,7 +1084,29 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
       }
 
-      if (!initializedRef.current && isLoading !== false) {
+      // Author intent (#12008 / OK-56230): show the <ListLoading> skeleton for
+      // the ENTIRE initial loading window — including the very first render,
+      // where usePromiseResult's `isLoading` is still `undefined` (which is why
+      // the original code used `isLoading !== false`).
+      //
+      // Bug it triggers (iOS, RN 0.81.5, Fabric/New Arch): rendering the
+      // skeleton on that first `undefined` frame and then swapping it for the
+      // real <RichTable> subtree happens WHILE the enclosing
+      // react-native-collapsible-tab-view <Tabs.ScrollView> is running its async
+      // Yoga measurement pass. That extra ListLoading→RichTable subtree swap
+      // mid-measure moves a shadow node to a new parent and trips the assertion
+      // `react_native_assert(YGNodeGetOwner(child) == &yogaNode_)` →
+      // hard crash on Home startup. (Confirmed via git bisect to #12008.)
+      //
+      // `react_native_assert` is a DEBUG-ONLY check (compiled out in Release),
+      // so production never hits this crash. Therefore we only soften the gate
+      // in dev: `isLoading` (truthy → skip the skeleton on the `undefined`
+      // frame, avoiding the extra swap) for dev, and keep the author's original
+      // `isLoading !== false` (full skeleton UX) in production.
+      const shouldShowInitialSkeleton = platformEnv.isDev
+        ? isLoading
+        : isLoading !== false;
+      if (!initializedRef.current && shouldShowInitialSkeleton) {
         return (
           <ListLoading
             listCount={displayCount}
