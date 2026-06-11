@@ -24,7 +24,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { EChartUnifiedStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/constants';
+import { EChartUnifiedStorageNamespace } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/chartStorageNamespace';
 import {
   type ITradingViewDisabledFeature,
   TRADING_VIEW_DISABLED_FEATURES,
