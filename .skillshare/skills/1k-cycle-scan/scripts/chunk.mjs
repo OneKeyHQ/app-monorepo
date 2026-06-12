@@ -16,14 +16,14 @@
  * later entries — it crosses table boundaries and is NOT valid in v6.
  *
  * Usage:
- *   node chunk.mjs --manifest /tmp/manifest.jsonl --cursor 0
+ *   node chunk.mjs --manifest "$RUN_TMP/manifest.jsonl" --cursor 0
  *                  [--lines 50000] [--group-lines 4000] [--group-files 25]
  *                  [--done-indices "12,13,40"] [--preserve-group-ids]
- *                  [--out /tmp/groups.json]
+ *                  [--out "$RUN_TMP/groups.json"]
  *
  * Run-table mode (batch planning, Flow C):
- *   node chunk.mjs --manifest /tmp/manifest.jsonl --cursor 0 --lines 50000 \
- *                  --plan-runs [--first-run 1] [--out /tmp/runs.json]
+ *   node chunk.mjs --manifest "$RUN_TMP/manifest.jsonl" --cursor 0 --lines 50000 \
+ *                  --plan-runs [--first-run 1] [--out "$RUN_TMP/runs.json"]
  * Emits the whole batch pre-sliced into runs. Boundaries use the exact same
  * accumulation rule as normal slicing, so `--cursor <start> --lines <N>`
  * reproduces each run verbatim at execution time (runners assert

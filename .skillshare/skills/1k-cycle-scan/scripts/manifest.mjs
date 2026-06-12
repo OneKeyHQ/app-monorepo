@@ -8,7 +8,7 @@
  * never needs to be persisted — only (pinnedCommit, rulesHash, cursor).
  *
  * Usage:
- *   node manifest.mjs --repo <root> [--out /tmp/manifest.jsonl] [--stats]
+ *   node manifest.mjs --repo <root> [--out "$RUN_TMP/manifest.jsonl"] [--stats]
  *                     [--hash] [--suspects] [--overrides overrides.json]
  *
  * Overrides JSON shape (per-dimension scope tuning):

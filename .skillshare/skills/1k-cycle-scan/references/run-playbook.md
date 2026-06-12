@@ -48,9 +48,18 @@ only ever done by a flow holding the batch-level state lock.
 5. `git -C <repo> rev-parse --git-dir` works; `node --version` works.
 6. State JSON `"v": 5` → run the migration retrofit
    (protocol → Migration v5 → v6) before anything else that scans.
-7. Routing is computed, not reasoned:
-   `node "$SCRIPTS/coordinate.mjs" --op route --state /tmp/state.json
-   [--index /tmp/batch-comments.json --table /tmp/runs.json]
+7. After `DIM` is known, create one private temp directory for this invocation:
+   ```bash
+   RUN_TMP="$(mktemp -d "${TMPDIR:-/tmp}/1k-cycle-scan-${DIM}.XXXXXX")"
+   ```
+   Use `$RUN_TMP` for EVERY transient JSON/raw-output file. Never write
+   manifest, run table, comment dumps, group plans, scan outputs, or refute
+   outputs to fixed `/tmp/*.json` paths: multiple local sessions on the same
+   machine can run at once. The pinned worktree `$WT` below is the only
+   intentional shared `/tmp` path.
+8. Routing is computed, not reasoned:
+   `node "$SCRIPTS/coordinate.mjs" --op route --state "$RUN_TMP/state.json"
+   [--index "$RUN_TMP/batch-comments.json" --table "$RUN_TMP/runs.json"]
    [--subcommand status|report|rebuild|scan]` → the flow to execute.
 
 Repo root = the current project root (the checkout the session runs in, or any
@@ -151,7 +160,7 @@ Route in: `batch == 0`, or batch complete with `summaryPageId != null`, or
 Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
 
 1. Acquire the batch-level state lock: new state body from
-   `coordinate.mjs --op state --transition lock --state /tmp/state.json
+   `coordinate.mjs --op state --transition lock --state "$RUN_TMP/state.json"
    --flow opening --nonce $(openssl rand -hex 4)` (the op refuses a held,
    non-stale lock and enforces the v6 version guard); write it, wait ~5s,
    re-read, verify `runnerNonce` is yours (protocol).
@@ -160,7 +169,7 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
 4. Blueprint + suspects:
    ```bash
    node "$SCRIPTS/manifest.mjs" --repo "$WT" --stats --suspects \
-     --out "/tmp/1k-cycle-scan-manifest-${DIM}.jsonl" [--overrides /tmp/ov.json]
+     --out "$RUN_TMP/manifest.jsonl" [--overrides "$RUN_TMP/overrides.json"]
    ```
    Assert the JSON's `commit` equals `$PIN`.
 5. Review ONLY the `suspects` list (≤60 entries): genuinely generated files or
@@ -169,8 +178,8 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    the manifest itself into context.
 6. Plan the run table:
    ```bash
-   node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --cursor 0 \
-     --lines <RUN_LINES> --plan-runs --out /tmp/1k-cycle-scan-runs.json
+   node "$SCRIPTS/chunk.mjs" --manifest "$RUN_TMP/manifest.jsonl" --cursor 0 \
+     --lines <RUN_LINES> --plan-runs --out "$RUN_TMP/runs.json"
    ```
    `RUN_LINES` = the user's size override converted to an integer (`100k` →
    `100000`) if this invocation opens the batch, else
@@ -190,7 +199,7 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
 9. Update the batch page body: fill every table entry's `pageId`. (Steps 7–9
    all happen under the state lock; nobody else writes these pages yet.)
 10. Release-update the state page with
-    `coordinate.mjs --op state --transition open-batch --state /tmp/state.json
+    `coordinate.mjs --op state --transition open-batch --state "$RUN_TMP/state.json"
     --batch-page-id <id> --pin $PIN --manifest-hash <h> --rules-hash <h>
     --total-files <n> --total-lines <n> --run-count <n> --run-lines <n>
     [--overrides <json>]` (the op rolls `prev*`, resets `summaryPageId`,
@@ -210,18 +219,18 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    SAVE the summary:
    ```bash
    node "$SCRIPTS/manifest.mjs" --repo "$WT" \
-     --out /tmp/1k-cycle-scan-manifest.jsonl [--overrides ...] \
-     > /tmp/1k-cycle-scan-manifest-summary.json
+     --out "$RUN_TMP/manifest.jsonl" [--overrides ...] \
+     > "$RUN_TMP/manifest-summary.json"
    ```
    No hand asserts here — `plan-run` (step 5) verifies
    commit/manifestHash/rulesHash against the state JSON and refuses to plan
    on drift, before any claim exists.
-3. Read the batch page body (run table → `/tmp/runs.json`) and dump ALL batch
-   page footer comments → `/tmp/batch-comments.json` (paginate to
+3. Read the batch page body (run table → `$RUN_TMP/runs.json`) and dump ALL batch
+   page footer comments → `$RUN_TMP/batch-comments.json` (paginate to
    exhaustion). Then:
    ```bash
-   node "$SCRIPTS/coordinate.mjs" --op pick-order --table /tmp/runs.json \
-     --index /tmp/batch-comments.json --nonce <fresh nonce> \
+   node "$SCRIPTS/coordinate.mjs" --op pick-order --table "$RUN_TMP/runs.json" \
+     --index "$RUN_TMP/batch-comments.json" --nonce <fresh nonce> \
      [--legacy-run <v5.run> --legacy-cursor <state.legacyCursor>] \
      --total-lines <state.totalLines>
    ```
@@ -251,12 +260,12 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    is still free:
    ```bash
    node "$SCRIPTS/coordinate.mjs" --op plan-run \
-     --manifest /tmp/1k-cycle-scan-manifest.jsonl \
-     --manifest-summary /tmp/1k-cycle-scan-manifest-summary.json \
-     --state /tmp/state.json --table /tmp/runs.json --run <r> \
+     --manifest "$RUN_TMP/manifest.jsonl" \
+     --manifest-summary "$RUN_TMP/manifest-summary.json" \
+     --state "$RUN_TMP/state.json" --table "$RUN_TMP/runs.json" --run <r> \
      --group-lines <g> --group-files <g> --repo "$WT" \
      [--done-indices <run-status doneIndices>] \
-     --out /tmp/1k-cycle-scan-groups.json
+     --out "$RUN_TMP/groups.json"
    ```
    The engine asserts commit/manifestHash/rulesHash against the state, runs
    chunk.mjs (adding `--preserve-group-ids` whenever `--done-indices` is
@@ -284,12 +293,12 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
      result MUST be serialized to a temp JSON file and validated locally:
      ```bash
      node "$SCRIPTS/validate-agent-output.mjs" --schema scan \
-       --file /tmp/scan-g<G>.raw.json --group /tmp/group-g<G>.json \
+       --file "$RUN_TMP/scan-g<G>.raw.json" --group "$RUN_TMP/group-g<G>.json" \
        --repo "$WT" --rules <rules-file-if-local> \
-       --out /tmp/scan-g<G>.json
+       --out "$RUN_TMP/scan-g<G>.json"
      node "$SCRIPTS/validate-agent-output.mjs" --schema refute \
-       --file /tmp/refute-g<G>-f<N>.raw.json \
-       --out /tmp/refute-g<G>-f<N>.json
+       --file "$RUN_TMP/refute-g<G>-f<N>.raw.json" \
+       --out "$RUN_TMP/refute-g<G>-f<N>.json"
      ```
    - On validation failure, send the validator stderr plus the raw output back
      to the SAME agent label with a repair prompt: "Your previous answer failed
@@ -311,8 +320,8 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
 9. Reconcile — re-dump the run page comments, then:
    ```bash
    node "$SCRIPTS/coordinate.mjs" --op reconcile \
-     --plan /tmp/1k-cycle-scan-groups.json --comments <run dump> \
-     --my-nonce <nonce> --table /tmp/runs.json --run <r> \
+     --plan "$RUN_TMP/groups.json" --comments <run dump> \
+     --my-nonce <nonce> --table "$RUN_TMP/runs.json" --run <r> \
      [--have-results "<group ids with validated results>"]
    ```
    `takenOver=true` → STOP silently (protocol). Otherwise execute the
@@ -334,7 +343,7 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
     hand-written:
     a. Report body: `--op make-report --comments <re-dumped run page>
        --state … --table … --run <r> --mode <mode> --nonce <nonce>
-       --plan /tmp/1k-cycle-scan-groups.json [--details <validated scan
+       --plan "$RUN_TMP/groups.json" [--details <validated scan
        outputs>] --missing-idx <closeArgs.missingIdx> --refuted <n>
        --closed-runs <k+1> --run-count <runCount>` → write it into the RUN
        PAGE BODY (`updateConfluencePage`). It aggregates ALL checkpoints on
@@ -371,8 +380,8 @@ Route in: every table run closed with empty `missingIdx` and
 2. Re-verify completeness AUTHORITATIVELY: dump every table run page's
    comments into a directory as `r<NNN>.json`, then
    ```bash
-   node "$SCRIPTS/coordinate.mjs" --op batch-status --table /tmp/runs.json \
-     --runs-dir /tmp/run-dumps [--legacy-run <n> --legacy-cursor <n>] \
+   node "$SCRIPTS/coordinate.mjs" --op batch-status --table "$RUN_TMP/runs.json" \
+     --runs-dir "$RUN_TMP/run-dumps" [--legacy-run <n> --legacy-cursor <n>] \
      --total-lines <state.totalLines>
    ```
    `complete=false` → release the lock (`--transition unlock`) and report

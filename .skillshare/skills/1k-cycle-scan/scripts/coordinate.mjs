@@ -22,7 +22,7 @@
  *                     --nonce ab12cd34 [--legacy-run 0] [--legacy-cursor 0]
  *                     [--total-lines N]
  *       → fence check, candidate probe order, progress (advisory, from index).
- *   --op batch-status --table runs.json --runs-dir /tmp/dumps
+ *   --op batch-status --table runs.json --runs-dir "$RUN_TMP/dumps"
  *                     [--legacy-run 0] [--legacy-cursor 0] [--total-lines N]
  *                     [--now ISO] [--stale-minutes 120]
  *       → authoritative completeness gate (reads r<NNN>.json per run).
