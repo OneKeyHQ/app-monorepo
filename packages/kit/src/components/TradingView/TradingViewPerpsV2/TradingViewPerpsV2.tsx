@@ -371,10 +371,22 @@ export function TradingViewPerpsV2(
     syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
 
+  const processedCollapseChartExpandSignalRef = useRef(0);
+
   useEffect(() => {
-    if (!collapseChartExpandSignal || !isChartContentReady || !webRef.current) {
+    if (
+      !collapseChartExpandSignal ||
+      collapseChartExpandSignal ===
+        processedCollapseChartExpandSignalRef.current
+    ) {
       return;
     }
+
+    if (!isChartContentReady || !webRef.current) {
+      return;
+    }
+
+    processedCollapseChartExpandSignalRef.current = collapseChartExpandSignal;
 
     const syncChartCollapsed = () => {
       webRef.current?.sendMessageViaInjectedScript({
