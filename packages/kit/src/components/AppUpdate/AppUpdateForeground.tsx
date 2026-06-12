@@ -16,6 +16,10 @@ import {
   isWhatsNewShown,
   markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -347,8 +351,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
         markWhatsNewShown(Boolean(info.jsBundleVersion));
+        // Auto-update strategies (silent + seamless) complete invisibly, so
+        // they must NOT pop the changelog / "what's new" page after the update
+        // applies — only user-facing (manual / force) updates do. Previously
+        // only `seamless` was excluded; `silent` is now treated identically
+        // per product requirement (silent updates must not show the changelog
+        // on completion, same as seamless).
         if (
-          info.updateStrategy !== EUpdateStrategy.seamless &&
+          !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
           onViewReleaseInfo();
@@ -474,6 +484,37 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // would re-fire on every unrelated field mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
+
+  // Mid-session auto-download bridge.
+  //
+  // When fetchAppUpdateInfo discovers an update mid-session whose strategy is
+  // auto (silent/seamless) or which is a rollback, the background service flips
+  // the persist atom to `downloadPackage` and emits StartAutoDownloadUpdate.
+  // The background cannot pull bytes — the native transfer
+  // (BundleUpdate.downloadBundle, with headers + retry/backoff) lives only in
+  // the foreground useDownloadPackage hook. The first-launch dispatch above
+  // turns a `downloadPackage` status into a real transfer, but it runs exactly
+  // once per app lifecycle, so it cannot catch a mid-session transition. This
+  // listener bridges that gap: on the event, kick the real download now instead
+  // of waiting for the 30-min watchdog or the next cold start.
+  //
+  // withDownloadMutex inside downloadPackage() collapses this with any
+  // concurrent foreground-initiated download (user click / cold-start dispatch
+  // / AppState resume) into a single in-flight transfer, so a redundant event
+  // never starts a second download.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = (payload: { decision: string }) => {
+      defaultLogger.app.appUpdate.log(
+        `StartAutoDownloadUpdate received → foreground downloadPackage (${payload?.decision})`,
+      );
+      void downloadPackage();
+    };
+    appEventBus.on(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    };
+  }, [downloadPackage, enabled]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-
