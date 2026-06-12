@@ -18,6 +18,7 @@ export function PerpSettingsButton({
       showGuideEntry={showGuideEntry}
       renderTrigger={
         <IconButton
+          testID="perp-content-icon-btn"
           icon="DotHorOutline"
           size={size}
           variant={variant}

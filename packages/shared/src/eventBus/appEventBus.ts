@@ -103,6 +103,9 @@ export interface IAppEventBusPayload {
     othersWalletAccountId?: string;
   };
   [EAppEventBusNames.LocalSystemTimeInvalid]: undefined;
+  [EAppEventBusNames.LocalSystemTimeStatusChanged]: {
+    status: 'VALID' | 'INVALID' | 'UNKNOWN';
+  };
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
   [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
@@ -278,12 +281,23 @@ export interface IAppEventBusPayload {
         accounts: {
           accountId: string;
           networkId: string;
+          // Stable across network switches for HD accounts; forwarded so a
+          // frozen token list (whose own `indexedAccount` closure may be
+          // stale) resolves aggregate hidden/custom tokens against the right
+          // indexed account. Undefined for Others (imported/watch-only).
+          indexedAccountId?: string;
         }[];
+        // When true, the home token list refreshes strictly against the
+        // provided account/network instead of its own active account. Used by
+        // emitters from a different home tab right after a network switch,
+        // when the (inactive) token list is frozen and its closures still
+        // point at the previous network.
+        refreshByProvidedAccounts?: boolean;
       };
-  [EAppEventBusNames.RefreshEarnRecommendedList]: undefined;
   [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
+  [EAppEventBusNames.InvalidateDiscoveryHomeBookmarksPrefetch]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -447,6 +461,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
+  [EAppEventBusNames.StartAutoDownloadUpdate]: {
+    // The resolved update decision (jsBundleUpgrade / appShellUpdate /
+    // jsBundleRollback) — carried for foreground logging / diagnostics only.
+    decision: string;
+  };
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
@@ -522,12 +541,21 @@ export interface IAppEventBusPayload {
     data: IRookieShareData;
   };
   [EAppEventBusNames.CreateNewBrowserTab]: undefined;
+  [EAppEventBusNames.ClearSavedBrowserActiveTab]: undefined;
   [EAppEventBusNames.NavigateModalFromBackgroundThread]: {
     screen: any;
     params: any;
   };
   [EAppEventBusNames.HomePageReady]: undefined;
   [EAppEventBusNames.TrayActionWillNavigate]: undefined;
+  [EAppEventBusNames.MemoryPressureWarning]: {
+    /** 'low' (Android only) or 'critical' (iOS + Android). See native spec. */
+    level: 'low' | 'critical';
+    /** Process RSS in bytes at the moment the warning fired; `0` if unknown. */
+    rss: number;
+    /** Wall-clock timestamp (ms since unix epoch). */
+    timestamp: number;
+  };
 }
 
 /**

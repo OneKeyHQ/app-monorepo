@@ -20,7 +20,6 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useHyperliquidActions,
-  usePerpsActivePositionAtom,
   usePerpsOpenOrdersByCoin,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -30,6 +29,7 @@ import {
   getValidPriceDecimals,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
@@ -40,10 +40,13 @@ import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
+export interface IPositionRowItem {
+  index: number;
+  activePosition: IPerpsAssetPosition;
+}
+
 interface IPositionRowProps {
-  mockedPosition: {
-    index: number;
-  };
+  mockedPosition: IPositionRowItem;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   handleViewTpslOrders: () => void;
@@ -310,6 +313,7 @@ const PositionRowDesktopPnL = memo(
             {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
           <IconButton
+            testID="perp-position-row-desktop-pn-l-icon-btn"
             variant="tertiary"
             size="small"
             icon="ShareOutline"
@@ -354,6 +358,7 @@ const PositionRowDesktopMargin = memo(
             >{`${otherInfo.marginUsedFormatted}`}</SizableText>
             {isIsolatedMode ? (
               <IconButton
+                testID="perp-position-row-desktop-margin-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="PencilOutline"
@@ -515,6 +520,7 @@ const PositionRowDesktopTPSL = memo(
           {tpslInfo.showOrder ? (
             <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
@@ -537,6 +543,7 @@ const PositionRowDesktopTPSL = memo(
           ) : (
             <XStack alignItems="center" gap="$1" cursor="default">
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
@@ -612,7 +619,7 @@ const PositionRowDesktopActions = memo(
 PositionRowDesktopActions.displayName = 'PositionRowDesktopActions';
 
 interface IPositionRowDesktopProps {
-  mockedPosition: { index: number };
+  mockedPosition: IPositionRowItem;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   assetInfo: IAssetInfo;
@@ -793,6 +800,7 @@ const PositionRowMobileHeader = memo(
           </SizableText>
         </XStack>
         <IconButton
+          testID="perp-icon-btn"
           variant="tertiary"
           size="small"
           icon="ShareOutline"
@@ -912,6 +920,7 @@ const PositionRowMobileMargin = memo(
           </SizableText>
           {isIsolatedMode ? (
             <IconButton
+              testID="perp-intl-icon-btn"
               variant="tertiary"
               size="small"
               icon="PencilOutline"
@@ -963,12 +972,7 @@ const PositionRowMobileFunding = memo(
             id: ETranslations.perp_position_funding_2,
           })}
           renderTrigger={
-            <DashText
-              size="$bodySm"
-              color="$textSubdued"
-              dashColor="$textDisabled"
-              dashThickness={0.5}
-            >
+            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
               {intl.formatMessage({
                 id: ETranslations.perp_position_funding_2,
               })}
@@ -1104,7 +1108,10 @@ PositionRowMobileTPSL.displayName = 'PositionRowMobileTPSL';
 
 const PositionRowMobileMarkPrice = memo(({ coin }: { coin: string }) => {
   const intl = useIntl();
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    source: 'display',
+  });
 
   return (
     <YStack gap="$1" flex={1} alignItems="center" position="relative">
@@ -1156,7 +1163,14 @@ const PositionRowMobileActions = memo(
         justifyContent="space-between"
         position="relative"
       >
-        <Button size="medium" variant="secondary" onPress={onSetTpsl} flex={1}>
+        <Button
+          size="medium"
+          variant="secondary"
+          onPress={onSetTpsl}
+          flex={1}
+          childrenAsText={false}
+          testID="perp-intl-btn"
+        >
           <SizableText size="$bodySm">
             {intl.formatMessage({
               id: ETranslations.perp_trade_set_tp_sl,
@@ -1164,10 +1178,12 @@ const PositionRowMobileActions = memo(
           </SizableText>
         </Button>
         <Button
+          testID="perp-intl-btn"
           size="medium"
           variant="secondary"
           onPress={() => onClosePosition('market')}
           flex={1}
+          childrenAsText={false}
         >
           <SizableText size="$bodySm">
             {intl.formatMessage({
@@ -1281,13 +1297,8 @@ const PositionRow = memo(
     const navigation = useAppNavigation();
     const actions = useHyperliquidActions();
     const intl = useIntl();
-    const [positions] = usePerpsActivePositionAtom();
-    const pos = useMemo(() => {
-      return positions.activePositions[mockedPosition.index]?.position;
-    }, [positions.activePositions, mockedPosition.index]);
-    const coin = useMemo(() => {
-      return pos?.coin;
-    }, [pos?.coin]);
+    const pos = mockedPosition.activePosition.position;
+    const coin = pos.coin;
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);

@@ -1,4 +1,4 @@
-import { cloneDeep, isNil, isPlainObject } from 'lodash';
+import { cloneDeep, isEqual, isNil, isPlainObject } from 'lodash';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -195,16 +195,15 @@ export async function jotaiInit() {
         storageValue = await onekeyJotaiStorage.getItem(storageKey, initValue);
       }
       const currentValue = await jotaiDefaultStore.get(atomObj);
-      if (currentValue !== storageValue) {
-        await jotaiDefaultStore.set(
-          atomObj,
-          isPlainObject(storageValue) && isPlainObject(initValue)
-            ? {
-                ...initValue,
-                ...storageValue,
-              }
-            : storageValue,
-        );
+      const nextValue =
+        isPlainObject(storageValue) && isPlainObject(initValue)
+          ? {
+              ...initValue,
+              ...storageValue,
+            }
+          : storageValue;
+      if (!isEqual(currentValue, nextValue)) {
+        await jotaiDefaultStore.set(atomObj, nextValue);
       }
     }),
   );

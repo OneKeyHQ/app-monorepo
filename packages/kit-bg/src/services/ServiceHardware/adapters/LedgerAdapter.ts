@@ -2,6 +2,7 @@ import { EConnectorInteraction, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
 
 import {
   EThirdPartyHardwareUiAction,
+  thirdPartyAppInstallAtom,
   thirdPartyHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -15,8 +16,18 @@ import type {
   DeviceInfo,
   IHardwareWallet,
   IThirdPartyHardwareAdapter,
+  IThirdPartyHardwareSearchOptions,
   Response,
 } from './types';
+
+const APP_INSTALL_PROGRESS_LOG_INTERVAL_MS = 5000;
+const APP_INSTALL_PROGRESS_LOG_STEP = 0.1;
+
+type IAppInstallProgressLogState = {
+  progress: number;
+  loggedAt: number;
+  completed: boolean;
+};
 
 export class LedgerAdapter
   extends BaseAdapter
@@ -24,14 +35,19 @@ export class LedgerAdapter
 {
   readonly vendor = EHardwareVendor.ledger;
 
+  readonly supportsAllNetworkGetAddress = true;
+
   readonly hw: IHardwareWallet;
+
+  private readonly appInstallProgressLogState = new Map<
+    string,
+    IAppInstallProgressLogState
+  >();
 
   constructor(hw: IHardwareWallet) {
     super();
     this.hw = hw;
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] adapter created');
 
-    // Whitelist known ui-event types; unknown ones log-only.
     this.hw.on('ui-event', (event) => {
       const eventType = (event as { type?: string }).type ?? 'unknown';
       defaultLogger.hardware.sdkLog.uiEvent(
@@ -52,7 +68,6 @@ export class LedgerAdapter
           });
           break;
         case EConnectorInteraction.UnlockDevice:
-          // Toast only; DMK handles the unlock polling and completion event.
           void thirdPartyHardwareUiStateAtom.set({
             action: EThirdPartyHardwareUiAction.unlockDevice,
             vendor: EHardwareVendor.ledger,
@@ -67,9 +82,36 @@ export class LedgerAdapter
         case EConnectorInteraction.InteractionComplete:
           void thirdPartyHardwareUiStateAtom.set(undefined);
           break;
+        case EConnectorInteraction.AppInstallProgress: {
+          // Ledger DMK install progress (0..1); throttled log avoids flooding.
+          const { connectId, appName, progress } = event.payload;
+          if (
+            this.shouldLogAppInstallProgress({ connectId, appName, progress })
+          ) {
+            defaultLogger.hardware.sdkLog.log(
+              `[3rdPartyHW][Ledger] app-install-progress appName=${appName} progress=${progress}`,
+            );
+          }
+          // Dedicated install atom (separate from the single-slot ui-state):
+          // the imperatively-shown install dialog reads progress here and
+          // coexists with any device-prompt toast.
+          void thirdPartyAppInstallAtom.set({
+            vendor: EHardwareVendor.ledger,
+            appName,
+            progress,
+          });
+          break;
+        }
         default: {
+          // Compile-time exhaustiveness guard: when the SDK adds a new
+          // EConnectorInteraction variant, `event` is no longer `never` here
+          // and the build fails until the new variant is handled above. The
+          // runtime log stays as a belt-and-suspenders for unexpected values.
+          const unhandled: never = event;
           defaultLogger.hardware.sdkLog.log(
-            `[3rdPartyHW][Ledger] Unhandled SDK ui-event type: ${eventType}`,
+            `[3rdPartyHW][Ledger] Unhandled SDK ui-event type: ${
+              (unhandled as { type?: string })?.type ?? eventType
+            }`,
           );
           break;
         }
@@ -110,13 +152,24 @@ export class LedgerAdapter
       });
     });
 
-    // SDK signals an externally-cancelled wait → drop any open dialog/toast.
+    this.hw.on(UI_REQUEST.REQUEST_INSTALL_APP, (event) => {
+      const { appName } = event.payload;
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Ledger] REQUEST_INSTALL_APP appName=${appName}`,
+      );
+      // Drive the dedicated install dialog (confirm state: no progress yet).
+      void thirdPartyAppInstallAtom.set({
+        vendor: EHardwareVendor.ledger,
+        appName,
+      });
+    });
+
     this.hw.on(UI_REQUEST.CLOSE_UI_WINDOW, () => {
       defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] CLOSE_UI_WINDOW');
       void thirdPartyHardwareUiStateAtom.set(undefined);
+      void thirdPartyAppInstallAtom.set(undefined);
     });
 
-    // Request events trust the adapter vendor, not SDK payload hints.
     this.onUiEvent((event) => {
       if (event.kind === 'request') {
         const { reason, message, path, accountIndex } = event.payload ?? {};
@@ -129,9 +182,49 @@ export class LedgerAdapter
     });
   }
 
-  async searchDevices(): Promise<DeviceInfo[]> {
+  private shouldLogAppInstallProgress({
+    connectId,
+    appName,
+    progress,
+  }: {
+    connectId: string;
+    appName: string;
+    progress: number;
+  }) {
+    const key = `${connectId || '(empty)'}:${appName}`;
+    const now = Date.now();
+    const previous = this.appInstallProgressLogState.get(key);
+    if (previous?.completed && progress >= previous.progress) {
+      return false;
+    }
+    const shouldLog =
+      !previous ||
+      progress < previous.progress ||
+      progress >= 1 ||
+      progress - previous.progress >= APP_INSTALL_PROGRESS_LOG_STEP ||
+      now - previous.loggedAt >= APP_INSTALL_PROGRESS_LOG_INTERVAL_MS;
+
+    if (shouldLog) {
+      this.appInstallProgressLogState.set(key, {
+        progress,
+        loggedAt: now,
+        completed: progress >= 1,
+      });
+    }
+    return shouldLog;
+  }
+
+  async searchDevices(
+    options?: IThirdPartyHardwareSearchOptions,
+  ): Promise<DeviceInfo[]> {
     defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Ledger] searchDevices()');
-    const devices = await this.hw.searchDevices();
+    const devices = await (
+      this.hw as IHardwareWallet & {
+        searchDevices(
+          options?: IThirdPartyHardwareSearchOptions,
+        ): Promise<DeviceInfo[]>;
+      }
+    ).searchDevices(options);
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Ledger] searchDevices -> count=${devices.length}`,
     );

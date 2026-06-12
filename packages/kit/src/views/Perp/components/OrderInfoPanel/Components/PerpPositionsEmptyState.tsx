@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useRef } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,7 +16,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useShowGuide } from '../../../hooks/useShowGuide';
+import { PerpTestIDs } from '../../../testIDs';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../../utils/mobileLayoutTrace';
 import { PerpGuidePopover } from '../../Guide/PerpGuidePopover';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function ActionButton({
   label,
@@ -23,6 +34,7 @@ function ActionButton({
   height,
   onPress,
   disabled,
+  testID,
 }: {
   label: string;
   icon: 'DownloadOutline' | 'BookOpenOutline';
@@ -30,9 +42,11 @@ function ActionButton({
   height: number;
   onPress?: () => void;
   disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <Button
+      testID={testID}
       width={width}
       borderRadius="$full"
       size="small"
@@ -53,6 +67,9 @@ function ActionButton({
 
 export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const intl = useIntl();
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
   const { gtMd } = useMedia();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { showGuide } = useShowGuide();
@@ -62,11 +79,49 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
   const buttonHeight = isMobile ? 32 : 28;
   const hasAccountAddress = Boolean(activeAccount?.accountAddress);
   const useGuidePopover = gtMd;
+
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`positionsEmpty.${name}.layout`, {
+          rect,
+          isMobile,
+          hasAccountAddress,
+          useGuidePopover,
+          buttonWidth,
+          buttonHeight,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [buttonHeight, buttonWidth, hasAccountAddress, isMobile, useGuidePopover],
+  );
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('positionsEmpty.state', {
+      isMobile,
+      hasAccountAddress,
+      useGuidePopover,
+      buttonWidth,
+      buttonHeight,
+    });
+  }, [buttonHeight, buttonWidth, hasAccountAddress, isMobile, useGuidePopover]);
+
   const guideLabel = intl.formatMessage({
     id: ETranslations.perp_guide_title,
   });
   const guideButton = (
     <ActionButton
+      testID={PerpTestIDs.PositionsEmptyGuideButton}
       width={buttonWidth}
       height={buttonHeight}
       icon="BookOpenOutline"
@@ -82,14 +137,18 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
       alignItems="center"
       px="$5"
       py="$6"
+      onLayout={(event) => handleTraceLayout('root', event)}
     >
       <YStack
         width="100%"
         maxWidth={isMobile ? 320 : 420}
-        gap="$3"
+        gap={isMobile ? '$3' : '$2'}
         alignItems="center"
+        onLayout={(event) => handleTraceLayout('content', event)}
       >
-        <Illustration name="Orders" size={isMobile ? 88 : 100} mb={-24} />
+        <YStack h={isMobile ? 64 : 96} alignItems="center" overflow="visible">
+          <Illustration name="Orders" size={isMobile ? 88 : 124} />
+        </YStack>
 
         <SizableText
           size={isMobile ? '$bodyXs' : '$bodySm'}
@@ -107,8 +166,10 @@ export function PerpPositionsEmptyState({ isMobile }: { isMobile?: boolean }) {
           flexDirection="row"
           alignItems="center"
           justifyContent="center"
+          onLayout={(event) => handleTraceLayout('actions', event)}
         >
           <ActionButton
+            testID={PerpTestIDs.PositionsEmptyDepositButton}
             width={buttonWidth}
             icon="DownloadOutline"
             height={buttonHeight}

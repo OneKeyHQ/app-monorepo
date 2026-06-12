@@ -38,6 +38,14 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.AccountSelectorStack,
     component: AccountSelectorStackPage,
+    options: {
+      headerShown: false,
+    },
+    // Web-only. This screen visually behaves like a popover; the default
+    // modal `scale(0.95) -> 1` bouncy enter animation makes avatars,
+    // right-edge action buttons, and other row content appear to jump
+    // outward during the overshoot. Disable scale so it only fades in.
+    disableEnterScaleAnimation: true,
   },
   {
     name: EAccountManagerStacksRoutes.ExportPrivateKeysPage,

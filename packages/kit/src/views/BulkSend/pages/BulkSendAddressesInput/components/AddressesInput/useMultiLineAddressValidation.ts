@@ -10,6 +10,10 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isAddressOwnedByDeactivatedBotWallet } from '@onekeyhq/kit/src/utils/botWalletAccountUtils';
 import {
+  getBotWalletDisabledMessage,
+  showBotWalletDisabledToast,
+} from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
+import {
   getBulkSendMinTransferAmount,
   getBulkSendMinTransferDisplayAmount,
 } from '@onekeyhq/kit/src/views/BulkSend/utils';
@@ -51,6 +55,7 @@ type IUseMultiLineAddressValidationParams = {
     Record<string, IBulkSendSelectorAccountItem>
   >;
   onErrorsChange?: (errors: ILineError[]) => void;
+  rejectDeactivatedBotWalletReceiver?: boolean;
 };
 
 function useMultiLineAddressValidation(
@@ -74,6 +79,7 @@ function useMultiLineAddressValidation(
     connectedDeviceIds,
     selectorAccountItemsRef,
     onErrorsChange,
+    rejectDeactivatedBotWalletReceiver = false,
   } = params;
 
   const intl = useIntl();
@@ -574,7 +580,11 @@ function useMultiLineAddressValidation(
         // account. The helper resolves owners through the regular address
         // index and falls back to fresh-address resolution for BTC, matching
         // the allowlist resolver below.
-        if (validAddresses.length > 0 && selectedNetworkId) {
+        if (
+          rejectDeactivatedBotWalletReceiver &&
+          validAddresses.length > 0 &&
+          selectedNetworkId
+        ) {
           const botWalletResults = await Promise.all(
             validAddresses.map(({ index, address }) =>
               limit(async () => {
@@ -591,13 +601,20 @@ function useMultiLineAddressValidation(
           if (isValidationStale()) {
             return true;
           }
+          let hasDeactivatedBotReceiver = false;
           for (const { index, isDeactivated } of botWalletResults) {
             if (isDeactivated) {
+              hasDeactivatedBotReceiver = true;
               lineErrors.push({
                 lineNumber: index + 1,
-                message: '该 Bot 钱包已停用，无法作为接收地址',
+                message: getBotWalletDisabledMessage('beReceiver'),
               });
             }
+          }
+          if (hasDeactivatedBotReceiver) {
+            // Show a single aggregated toast — pasting many lines should not
+            // spam one toast per row.
+            showBotWalletDisabledToast('beReceiver');
           }
         }
 
@@ -766,6 +783,7 @@ function useMultiLineAddressValidation(
       requireAmounts,
       checkDuplicates,
       checkAllowlist,
+      rejectDeactivatedBotWalletReceiver,
       resolveAccountId,
       resolveAccountIdForAddress,
       duplicateWarningMode,

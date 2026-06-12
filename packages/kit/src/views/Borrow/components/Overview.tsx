@@ -44,6 +44,7 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowHealthFactor } from '../hooks/useBorrowHealthFactor';
 import { useBorrowRewards } from '../hooks/useBorrowRewards';
 import { useUniversalBorrowClaim } from '../hooks/useUniversalBorrowHooks';
+import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowBonusTooltip } from './BorrowBonusTooltip';
 import { showBorrowClaimRewardsDialog } from './BorrowClaimRewardsDialog';
@@ -353,6 +354,7 @@ export const Overview = ({
                 color="$textText"
               />
               <IconButton
+                testID={BorrowTestIDs.overviewRefreshBtn}
                 icon="RefreshCcwOutline"
                 iconSize="$6"
                 variant="tertiary"
@@ -499,6 +501,7 @@ export const Overview = ({
                   />
                   {borrowRewards && !borrowRewards.button.disabled ? (
                     <Button
+                      testID={BorrowTestIDs.overviewClaimRewardsBtn}
                       p="0"
                       ai="center"
                       size="small"
@@ -535,6 +538,7 @@ export const Overview = ({
         }
         action={
           <IconButton
+            testID={BorrowTestIDs.overviewRefreshBtn}
             icon="RefreshCcwOutline"
             variant="tertiary"
             size="small"
@@ -619,6 +623,7 @@ export const Overview = ({
         action={
           borrowRewards && !borrowRewards.button.disabled ? (
             <Button
+              testID={BorrowTestIDs.overviewClaimRewardsBtn}
               p="0"
               ai="center"
               size="small"

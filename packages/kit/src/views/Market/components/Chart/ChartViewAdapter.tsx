@@ -6,7 +6,7 @@ import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { createChartDom, updateChartDom } from './chartUtils';
 
-import type { IChartViewAdapterProps } from './chartUtils';
+import type { IChartViewAdapterProps, IOnekeyChartApi } from './chartUtils';
 
 const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
 
@@ -19,6 +19,14 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   height,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
+  // Per-instance chart handle. The chart is created asynchronously (lazy lib
+  // load), so the data-update effect below can fire before it exists — guard on
+  // this ref instead of reading a global singleton.
+  const chartRef = useRef<IOnekeyChartApi | null>(null);
+  // Keep the latest data/colors so the async create path can render the current
+  // frame as soon as the chart is ready.
+  const latestPropsRef = useRef({ data, lineColor, topColor, bottomColor });
+  latestPropsRef.current = { data, lineColor, topColor, bottomColor };
   const theme = useTheme();
   const textSubduedColor = theme.textSubdued.val;
 
@@ -39,9 +47,14 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
         height,
         textSubduedColor,
       );
+      chartRef.current = chart as IOnekeyChartApi;
+      // Render the current frame now that the chart exists, since the update
+      // effect may have already run (and no-op'd) before this resolved.
+      updateChartDom({ chart: chartRef.current, ...latestPropsRef.current });
       cleanup = () => {
         window.removeEventListener('resize', handleResize);
         chart.remove();
+        chartRef.current = null;
       };
     });
 
@@ -53,7 +66,13 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
   }, [textSubduedColor]);
 
   useEffect(() => {
+    const chart = chartRef.current;
+    // Chart not created yet; the create effect will render the latest frame.
+    if (!chart) {
+      return;
+    }
     updateChartDom({
+      chart,
       bottomColor,
       topColor,
       lineColor,

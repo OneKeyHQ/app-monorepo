@@ -65,6 +65,7 @@ import type {
   IDBDevice,
   IDBIndexedAccount,
   IDBWallet,
+  IDBWalletIdSingleton,
 } from '../../dbs/local/types';
 import type {
   IAccountActivityNotificationSettings,
@@ -537,7 +538,12 @@ export default class ServiceNotification extends ServiceBase {
     const notificationSettingsRawData =
       await this.backgroundApi.simpleDb.notificationSettings.getRawData();
 
-    for (const account of dbAccounts) {
+    // Bot wallets must not occupy notification quota.
+    const filteredDbAccounts = dbAccounts.filter(
+      (account) => !accountUtils.isBotAccount({ accountId: account.id }),
+    );
+
+    for (const account of filteredDbAccounts) {
       const walletId = accountUtils.getWalletIdFromAccountId({
         accountId: account.id,
       });
@@ -727,10 +733,12 @@ export default class ServiceNotification extends ServiceBase {
     allIndexedAccounts,
     allWallets,
     allDevices,
+    resolveOthersWalletAccountsAddress,
   }: {
     allIndexedAccounts?: IDBIndexedAccount[] | undefined;
     allWallets?: IDBWallet[] | undefined;
     allDevices?: IDBDevice[] | undefined;
+    resolveOthersWalletAccountsAddress?: boolean;
   } = {}) {
     const result = await this.backgroundApi.serviceAccount.getWallets({
       nestedHiddenWallets: true,
@@ -740,7 +748,32 @@ export default class ServiceNotification extends ServiceBase {
       allWallets,
       allDevices,
     });
-    return result.wallets;
+    // Bot wallets must not occupy notification quota.
+    const wallets = result.wallets.filter(
+      (wallet) => !accountUtils.isBotWallet({ walletId: wallet.id }),
+    );
+    if (resolveOthersWalletAccountsAddress) {
+      // Variant-address accounts (cosmos/dot/cfx/fil) keep db `address` empty,
+      // resolve network address by the same path as the account selector,
+      // so that UI consumers can render address-based avatars
+      await Promise.all(
+        wallets.map(async (wallet) => {
+          if (
+            accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+            wallet.dbAccounts?.length
+          ) {
+            const { accounts } =
+              await this.backgroundApi.serviceAccount.getSingletonAccountsOfWallet(
+                {
+                  walletId: wallet.id as IDBWalletIdSingleton,
+                },
+              );
+            wallet.dbAccounts = accounts;
+          }
+        }),
+      );
+    }
+    return wallets;
   }
 
   getNotificationWalletName({

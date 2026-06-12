@@ -39,6 +39,7 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
@@ -109,10 +110,18 @@ function ChangeLogSection({
       >
         {({ open }: { open: boolean }) => (
           <>
-            <XStack ai="center" gap="$1.5" flex={1}>
+            <XStack
+              ai="center"
+              gap="$1.5"
+              flex={1}
+              minWidth={0}
+              flexShrink={1}
+              flexWrap="wrap"
+            >
               <SizableText
                 size="$bodyLgMedium"
                 color={open ? '$text' : '$textSubdued'}
+                flexShrink={0}
               >
                 {title}
               </SizableText>
@@ -129,6 +138,7 @@ function ChangeLogSection({
               animation="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
+              flexShrink={0}
             >
               <Icon
                 name="ChevronDownSmallOutline"
@@ -352,6 +362,9 @@ export function FirmwareChangeLogView({
           id: ETranslations.update_update_now,
         })}
         onConfirm={handleConfirmClick}
+        confirmButtonProps={{
+          testID: FirmwareUpdateTestIDs.updateNowBtn,
+        }}
       />
       {showUpdateIntroduction ? <FirmwareUpdateIntroduction /> : null}
       <FirmwareChangeFirmwareWarn result={result} />

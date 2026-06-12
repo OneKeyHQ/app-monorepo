@@ -308,7 +308,7 @@ export default function BackupWalletReminder() {
 
         <OnboardingSidebar
           gap="$4"
-          $md={{ mt: 'auto' }}
+          $md={{ mt: 'auto', pb: '$5' }}
           $gtMd={{ justifyContent: 'center', alignItems: 'center' }}
         >
           <AnimatePresence initial={false} exitBeforeEnter>
@@ -335,6 +335,7 @@ export default function BackupWalletReminder() {
                     })}
                   </SizableText>
                   <Button
+                    testID="onboardingv2-btn"
                     variant="primary"
                     size="large"
                     onPress={handleSavedPhrase}
@@ -363,6 +364,7 @@ export default function BackupWalletReminder() {
                   </SizableText>
                 ) : null}
                 <Button
+                  testID="onboardingv2-btn"
                   size="large"
                   variant="primary"
                   onPress={handleShowPhrase}

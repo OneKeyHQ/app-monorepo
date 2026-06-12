@@ -26,6 +26,11 @@ import { settingsAtom } from '../states/jotai/atoms';
 import { getVaultSettings } from '../vaults/settings';
 
 import ServiceBase from './ServiceBase';
+import {
+  isAccountSelectorHomeSyncSourceScene,
+  isAccountSelectorHomeSyncTargetScene,
+  shouldSyncAccountSelectorHomeAndSwapScenes,
+} from './utils/accountSelectorHomeSyncUtils';
 
 import type {
   IDBAccount,
@@ -62,34 +67,44 @@ class ServiceAccountSelector extends ServiceBase {
     sceneUrl?: string;
     num: number;
   }) {
-    const syncScenes: {
-      sceneName: EAccountSelectorSceneName;
-      num: number;
-    }[] = [
-      {
-        sceneName: EAccountSelectorSceneName.home,
-        num: 0,
-      },
-      {
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 0,
-      },
-    ];
-
     const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
-    if (!swapToAnotherAccountSwitchOn) {
-      syncScenes.push({
-        sceneName: EAccountSelectorSceneName.swap,
-        num: 1,
-      });
-    }
+    return isAccountSelectorHomeSyncTargetScene({
+      scene: { sceneName, sceneUrl, num },
+      swapToAnotherAccountSwitchOn,
+    });
+  }
 
-    return syncScenes.some((item) =>
-      accountSelectorUtils.isEqualAccountSelectorScene({
-        scene1: item,
-        scene2: { sceneName, sceneUrl, num },
-      }),
-    );
+  @backgroundMethod()
+  async shouldSyncWithHomeSource(params: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+  }) {
+    return isAccountSelectorHomeSyncSourceScene(params);
+  }
+
+  @backgroundMethod()
+  async shouldSyncHomeAndSwapSelectedAccount({
+    sourceScene,
+    targetScene,
+  }: {
+    sourceScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+    targetScene: {
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string;
+      num: number;
+    };
+  }) {
+    const { swapToAnotherAccountSwitchOn } = await settingsAtom.get();
+    return shouldSyncAccountSelectorHomeAndSwapScenes({
+      sourceScene,
+      targetScene,
+      swapToAnotherAccountSwitchOn,
+    });
   }
 
   @backgroundMethod()
@@ -986,10 +1001,21 @@ class ServiceAccountSelector extends ServiceBase {
       await this.backgroundApi.serviceDeFi.getAccountsLocalDeFiOverview({
         accounts,
       });
+    // Compound-key shape consumed by `calculateAccountTotalValue`; the
+    // per-address `getAllNetworkAccountsValue` would yield Record<networkId,
+    // worth> and silently miss every compound-key lookup downstream. The
+    // batched form folds N storage reads into one (the SimpleDb entity has
+    // caching disabled, so the per-account form paid a fresh
+    // deserialization per row — a 50-row selector batch turned into 50
+    // reads).
     const accountsValue =
-      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValue(
+      await this.backgroundApi.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
         {
-          accounts,
+          accounts: accounts.map((a) => ({
+            accountId: a.accountId,
+            accountAddress: a.accountAddress,
+            xpub: a.xpub,
+          })),
         },
       );
     return { accountsValue, accountsDeFiOverview };

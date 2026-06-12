@@ -1,5 +1,6 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,17 +15,23 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { calcCellAlign, getColumnStyle } from '../utils';
+import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
+import {
+  calcCellAlign,
+  formatSpotHoldingPnlText,
+  getColumnStyle,
+} from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { IBalanceDisplayItem } from '../List/SpotBalanceList';
 
-const balanceCurrencyFormatter: INumberFormatProps = {
-  formatter: 'balance',
+const valueCurrencyFormatter: INumberFormatProps = {
+  formatter: 'value',
   formatterOptions: {
     currency: '$',
   },
@@ -38,25 +45,56 @@ interface IBalanceRowProps {
   onChangeAsset?: () => void;
 }
 
-function formatPnlText(pnl?: string, pnlPercent?: number): string {
-  if (!pnl) return '--';
-
-  const numericPnl = parseFloat(pnl);
-  if (!Number.isFinite(numericPnl)) return '--';
-  if (numericPnl === 0) return '--';
-
-  const sign = numericPnl > 0 ? '+' : '';
-  const formatted = numberFormat(pnl, balanceCurrencyFormatter);
-  const pct = pnlPercent?.toFixed(1) ?? '0';
-  return `${sign}${formatted} (${sign}${pct}%)`;
-}
-
 function getPnlColor(pnl?: string): string | undefined {
   if (!pnl) return undefined;
   const val = parseFloat(pnl);
   if (val > 0) return '$green11';
   if (val < 0) return '$red11';
   return undefined;
+}
+
+function canShareSpotHolding(item: IBalanceDisplayItem): boolean {
+  const pnlBN = new BigNumber(item.pnl ?? '0');
+  return (
+    item.type === 'spot' &&
+    !!item.entryPrice &&
+    !!item.markPrice &&
+    pnlBN.isFinite() &&
+    !pnlBN.isZero()
+  );
+}
+
+function useSpotHoldingShare({
+  item,
+  label,
+}: {
+  item: IBalanceDisplayItem;
+  label: string;
+}) {
+  const { showPositionShare } = useShowPositionShare();
+  const canShare = canShareSpotHolding(item);
+
+  const handleShare = useCallback(() => {
+    if (!canShare || !item.entryPrice || !item.markPrice) {
+      return;
+    }
+
+    showPositionShare({
+      mode: 'spot',
+      side: 'long',
+      token: item.rawCoin,
+      tokenDisplayName: label,
+      tokenImageUrl: item.logoURI,
+      pnl: item.pnl ?? '0',
+      pnlPercent: String(item.pnlPercent ?? 0),
+      leverage: 1,
+      entryPrice: item.entryPrice,
+      markPrice: item.markPrice,
+      priceType: 'mark',
+    });
+  }, [canShare, item, label, showPositionShare]);
+
+  return { canShare, handleShare };
 }
 
 // Only add suffix to the perps side when the same coin appears in both spot and
@@ -93,6 +131,7 @@ function ContractAddressCell({
         {shortened}
       </SizableText>
       <IconButton
+        testID={PerpTestIDs.BalanceRowCopyContractButton}
         size="small"
         variant="tertiary"
         icon="Copy3Outline"
@@ -103,6 +142,7 @@ function ContractAddressCell({
         }}
       />
       <IconButton
+        testID={PerpTestIDs.BalanceRowOpenContractButton}
         size="small"
         variant="tertiary"
         icon="OpenOutline"
@@ -124,10 +164,11 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
       id: ETranslations.perp_label_perp,
     }),
   );
-  const pnlText = formatPnlText(item.pnl, item.pnlPercent);
+  const pnlText = formatSpotHoldingPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
   const balanceText = item.total;
+  const { canShare, handleShare } = useSpotHoldingShare({ item, label });
 
   return (
     <ListItem py="$2" px="$4" mx="$0">
@@ -184,14 +225,29 @@ function BalanceRowMobile({ item, onChangeAsset }: IBalanceRowProps) {
             {item.usdcValue}
           </NumberSizeableText>
           {pnlText ? (
-            <SizableText
-              size="$bodySm"
-              color={pnlColor}
-              numberOfLines={1}
-              textAlign="right"
-            >
-              {pnlText}
-            </SizableText>
+            <XStack gap="$1" alignItems="center" justifyContent="flex-end">
+              <SizableText
+                size="$bodySm"
+                color={pnlColor}
+                numberOfLines={1}
+                textAlign="right"
+              >
+                {pnlText}
+              </SizableText>
+              {canShare ? (
+                <IconButton
+                  testID={PerpTestIDs.BalanceRowShareButton}
+                  variant="tertiary"
+                  size="small"
+                  icon="ShareOutline"
+                  iconSize="$3.5"
+                  onPress={(e) => {
+                    e?.stopPropagation?.();
+                    handleShare();
+                  }}
+                />
+              ) : null}
+            </XStack>
           ) : null}
         </YStack>
       </XStack>
@@ -212,16 +268,17 @@ function BalanceRowDesktop({
       id: ETranslations.perp_label_perp,
     }),
   );
-  const pnlText = formatPnlText(item.pnl, item.pnlPercent);
+  const pnlText = formatSpotHoldingPnlText(item.pnl, item.pnlPercent);
   const pnlColor = getPnlColor(item.pnl);
   const isAssetClickable = !!item.isAssetClickable;
+  const { canShare, handleShare } = useSpotHoldingShare({ item, label });
 
   const cells = useMemo(() => {
     const cellValues: Record<string, string> = {
       coin: label,
       total: `${item.total} ${item.coin}`,
       available: `${item.available} ${item.coin}`,
-      usdcValue: numberFormat(item.usdcValue, balanceCurrencyFormatter),
+      usdcValue: numberFormat(item.usdcValue, valueCurrencyFormatter),
       pnl: pnlText,
       contract: '',
     };
@@ -258,6 +315,31 @@ function BalanceRowDesktop({
           >
             {cell.cellValue}
           </SizableText>
+        </XStack>
+      );
+    }
+
+    if (cell.key === 'pnl') {
+      return (
+        <XStack minWidth={0} alignItems="center" gap="$1">
+          <SizableText size="$bodySmMedium" color={pnlColor} numberOfLines={1}>
+            {cell.cellValue}
+          </SizableText>
+          {canShare ? (
+            <IconButton
+              testID={PerpTestIDs.BalanceRowShareButton}
+              variant="tertiary"
+              size="small"
+              icon="ShareOutline"
+              iconSize="$3.5"
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                handleShare();
+              }}
+              hoverStyle={null}
+              pressStyle={null}
+            />
+          ) : null}
         </XStack>
       );
     }

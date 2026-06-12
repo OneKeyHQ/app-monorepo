@@ -31,11 +31,14 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
+import { DiscoveryTestIDs } from '../testIDs';
 
 import { DiscoveryIcon } from './DiscoveryIcon';
 
 import type { ILocalDataType } from '../hooks/useSearchModalData';
 import type { IDiscoverySearchListItem } from '../utils/searchResultRanking';
+
+const URL_PROTOCOL_PREFIX_REGEXP = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//u;
 
 const LoadingSkeleton = (
   <Image.Loading>
@@ -172,7 +175,7 @@ export function SearchResultContent({
   const showLocalhostDevSettingHint =
     devSettings.enabled &&
     !devSettings.settings?.allowLocalhostUrlInDAppBrowser &&
-    uriUtils.isLocalhostUrl(searchValue);
+    uriUtils.isLocalhostOrPrivateIpUrl(searchValue);
 
   const handleOpenLocalhostDevSetting = useCallback(() => {
     navigation.pushModal(EModalRoutes.SettingModal, {
@@ -345,13 +348,32 @@ export function SearchResultContent({
         return;
       }
 
+      const trimmedSearchValue = searchValue.trim();
+      let dappToOpen = item.dapp;
+      if (
+        item.isExactUrl &&
+        trimmedSearchValue &&
+        !URL_PROTOCOL_PREFIX_REGEXP.test(trimmedSearchValue) &&
+        (uriUtils.isLocalhostUrl(trimmedSearchValue) ||
+          uriUtils.isIpAddressUrl(trimmedSearchValue))
+      ) {
+        const normalizedUrl = uriUtils.ensureHttpPrefix(trimmedSearchValue);
+        dappToOpen = {
+          ...item.dapp,
+          url: normalizedUrl,
+          name: item.dapp.name.includes(item.dapp.url)
+            ? item.dapp.name.replace(item.dapp.url, normalizedUrl)
+            : item.dapp.name,
+        };
+      }
+
       onItemClick?.({
-        url: item.dapp.url,
-        title: item.dapp.name,
-        logo: item.dapp.logo,
+        url: dappToOpen.url,
+        title: dappToOpen.name,
+        logo: dappToOpen.logo,
       });
       handleWebSite({
-        dApp: item.dapp,
+        dApp: dappToOpen,
         useCurrentWindow,
         tabId,
         enterMethod: EEnterMethod.search,
@@ -428,7 +450,6 @@ export function SearchResultContent({
       });
       return { type: 'search' };
     }
-
     return { type: 'null' };
   }, [
     selectedSection,
@@ -505,7 +526,7 @@ export function SearchResultContent({
               })}
           bg={searchIndex(index) ? '$bgActive' : undefined}
           onPress={() => handleSearchItemClick(item)}
-          testID={`dapp-search${index}`}
+          testID={DiscoveryTestIDs.dappSearchItem(index)}
         />
       )),
     [handleSearchItemClick, searchIndex],
@@ -516,8 +537,12 @@ export function SearchResultContent({
       {showLocalhostDevSettingHint ? (
         <ListItem
           icon="CodeOutline"
-          title="Local URLs are blocked by default"
-          subtitle='Enable "Allow local URLs in DApp Browser" in Developer settings'
+          title={intl.formatMessage({
+            id: ETranslations.browser_local_urls_blocked__title,
+          })}
+          subtitle={intl.formatMessage({
+            id: ETranslations.browser_local_urls_dev_setting__desc,
+          })}
           subtitleProps={{
             numberOfLines: 2,
           }}
@@ -621,7 +646,7 @@ export function SearchResultContent({
               subtitleProps={{
                 numberOfLines: 1,
               }}
-              testID={`search-modal-${item.title.toLowerCase()}`}
+              testID={DiscoveryTestIDs.searchModalItem(item.title)}
               bg={historyIndex(index) ? '$bgActive' : undefined}
               onPress={() => handleHistoryItemClick(item)}
             />

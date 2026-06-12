@@ -4,13 +4,14 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   useActiveTradeInstrumentAtom,
-  useTradingFormAtom,
+  useTradingFormCalculationParams,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getReduceOnlyPositionMaxSize } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import {
   computeMaxTradeSize,
   resolveTradingSizeBN,
@@ -18,20 +19,21 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { useLiquidationPrice } from './useLiquidationPrice';
 import { useOrderPrice } from './useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
 import { useTradingPrice } from './useTradingPrice';
 
 export function useTradingCalculationsForSide(side: 'long' | 'short') {
-  const [formData] = useTradingFormAtom();
+  const formData = useTradingFormCalculationParams();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [{ balances: spotBalances }] = useSpotBalancesAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
 
-  const { price: effectivePriceBN, error: priceError } = useOrderPrice(side);
+  const orderPrice = useOrderPrice(side);
   const { midPriceBN } = useTradingPrice();
-  const liquidationPrice = useLiquidationPrice(side);
+  const { price: effectivePriceBN, error: priceError } = orderPrice;
   const isSpot = activeTradeInstrument.mode === 'spot';
   const spotUniverse =
     activeTradeInstrument.mode === 'spot'
@@ -214,6 +216,31 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     [availableMarginBN],
   );
 
+  const scaleReduceOnlyMaxSizeBN = useMemo(() => {
+    if (isSpot || formData.orderMode !== 'scale' || !formData.scaleReduceOnly) {
+      return undefined;
+    }
+
+    const position = perpsPositions.find(
+      (pos) => pos.position.coin === activeTradeInstrument.coin,
+    )?.position;
+
+    return getReduceOnlyPositionMaxSize({
+      reduceOnly: formData.scaleReduceOnly,
+      side,
+      positionSize: position?.szi,
+      szDecimals: activeAsset?.universe?.szDecimals,
+    });
+  }, [
+    activeAsset?.universe?.szDecimals,
+    activeTradeInstrument.coin,
+    formData.orderMode,
+    formData.scaleReduceOnly,
+    isSpot,
+    perpsPositions,
+    side,
+  ]);
+
   const maxPositionSizeBN = useMemo(() => {
     if (isSpot) {
       return maxTradeSzBN.decimalPlaces(spotSzDecimals, BigNumber.ROUND_FLOOR);
@@ -222,6 +249,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       side,
       price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
       markPrice: activeAssetData?.markPx,
+      maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
@@ -231,6 +259,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     side,
     effectivePriceBN,
     activeAssetData?.markPx,
+    scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
@@ -271,6 +300,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       side,
       price: effectivePriceBN.isFinite() ? effectivePriceBN.toFixed() : '',
       markPrice: activeAssetData?.markPx,
+      maxSize: scaleReduceOnlyMaxSizeBN,
       maxTradeSzs: effectiveMaxTradeSzs,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
@@ -283,6 +313,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     side,
     effectivePriceBN,
     activeAssetData?.markPx,
+    scaleReduceOnlyMaxSizeBN,
     effectiveMaxTradeSzs,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
@@ -333,6 +364,12 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     if (formData.orderMode === 'trigger') {
       return false;
     }
+    if (
+      (formData.orderMode === 'scale' && formData.scaleReduceOnly) ||
+      (formData.orderMode === 'twap' && formData.twapReduceOnly)
+    ) {
+      return false;
+    }
 
     // No margin for this side (guard on markPxBN to skip initial loading)
     if (markPxBN.gt(0) && availableMarginBN.lte(0)) {
@@ -372,8 +409,10 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     leverage,
     markPxBN,
     formData.orderMode,
+    formData.scaleReduceOnly,
     formData.sizeInputMode,
     formData.sizePercent,
+    formData.twapReduceOnly,
     isSpot,
     orderValue,
     side,
@@ -383,7 +422,6 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
 
   return {
     computedSizeForSide,
-    liquidationPrice,
     orderValue,
     marginRequired,
     availableToTrade,

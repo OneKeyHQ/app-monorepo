@@ -59,7 +59,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
-        await decryptAsync({ password, data: privateKeyRaw })
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        })
       ).toString('hex')}`;
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);

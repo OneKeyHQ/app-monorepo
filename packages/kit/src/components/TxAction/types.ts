@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import type { ETxActionComponentType } from '@onekeyhq/shared/types';
+import type { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   EDecodedTxStatus,
@@ -21,6 +22,7 @@ export type ITxActionProps = {
   nativeTokenTransferAmountToUpdate?: string;
   showIcon?: boolean;
   replaceType?: EReplaceTxType;
+  displayStatus?: EDecodedTxStatus;
   swapInfo?: ISwapTxInfo;
   hideValue?: boolean;
   compact?: boolean;
@@ -62,6 +64,7 @@ export type ITxActionCommonListViewProps = {
   networkId: string;
   networkLogoURI?: string;
   riskyLevel?: number;
+  kytRiskLevel?: EKytRiskLevel;
   compact?: boolean;
 };
 

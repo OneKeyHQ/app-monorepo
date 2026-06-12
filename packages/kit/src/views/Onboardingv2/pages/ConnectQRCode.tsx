@@ -25,6 +25,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useCreateQrWallet } from '../../../components/AccountSelector/hooks/useCreateQrWallet';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { OnboardingPage } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 import { trackHardwareWalletConnection } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
@@ -91,6 +92,7 @@ function ConnectQRCodePage() {
 
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.connectQRCodePage}
       headerTitle={intl.formatMessage({
         id: ETranslations.connect_with_qr_code,
       })}
@@ -127,7 +129,12 @@ function ConnectQRCodePage() {
                 </SizableText>
               </XStack>
             ))}
-            <Button mt="$2" variant="primary" onPress={handleScanQRCode}>
+            <Button
+              testID={OnboardingTestIDs.connectQRCodeScanBtn}
+              mt="$2"
+              variant="primary"
+              onPress={handleScanQRCode}
+            >
               {intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
             </Button>
           </ConnectionIndicator.Content>

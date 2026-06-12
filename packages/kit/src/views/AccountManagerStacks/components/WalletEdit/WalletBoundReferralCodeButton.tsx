@@ -13,7 +13,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import type { IReferralBindDisplayStatus } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/referralBindStatusUtils';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -21,6 +23,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { AccountManagerTestIDs } from '../../testIDs';
 
 function buildButtonState({
   displayStatus,
@@ -85,6 +89,12 @@ function WalletBoundReferralCodeButtonView({
       !accountUtils.isHwHiddenWallet({
         wallet,
       }));
+  const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
+    {
+      walletId: wallet?.id,
+    },
+  );
+  const isReferralBlocked = isBotWallet && isBotWalletDeactivated;
 
   const {
     result: referralCodeButtonState,
@@ -122,6 +132,10 @@ function WalletBoundReferralCodeButtonView({
     if (isLoading) {
       return;
     }
+    if (isReferralBlocked) {
+      showBotWalletDisabledToast('referral');
+      return;
+    }
     if (!shouldBoundReferralCode) {
       return;
     }
@@ -146,6 +160,7 @@ function WalletBoundReferralCodeButtonView({
     }
   }, [
     isLoading,
+    isReferralBlocked,
     shouldBoundReferralCode,
     getReferralCodeBondStatus,
     wallet,
@@ -167,7 +182,7 @@ function WalletBoundReferralCodeButtonView({
 
   return (
     <ActionList.Item
-      testID="wallet-bound-referral-code-button"
+      testID={AccountManagerTestIDs.walletBoundReferralCode}
       icon="GiftOutline"
       label={intl.formatMessage({
         id: ETranslations.referral_wallet_edit_code,
@@ -196,7 +211,10 @@ function WalletBoundReferralCodeButtonView({
       onPress={handlePress}
       isLoading={isLoading}
       onClose={onClose}
-      disabled={Boolean(!shouldBoundReferralCode)}
+      // For deactivated bot wallets we keep the item interactive so
+      // handlePress can surface the disabled-bot-wallet toast (ActionList.Item
+      // suppresses onPress when `disabled` is true).
+      disabled={Boolean(!shouldBoundReferralCode && !isReferralBlocked)}
       extraInteractiveWhenDisabled={Boolean(isNotBindable)}
     />
   );

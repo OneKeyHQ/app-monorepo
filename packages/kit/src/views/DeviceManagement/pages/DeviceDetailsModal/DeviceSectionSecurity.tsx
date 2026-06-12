@@ -7,6 +7,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useDeviceDetailsActions } from '@onekeyhq/kit/src/states/jotai/contexts/deviceDetails';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 function DeviceSectionSecurity() {
@@ -39,6 +40,7 @@ function DeviceSectionSecurity() {
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressChangePin}
+        testID={DeviceManagementTestIDs.changePinItem}
       />
     </ListItemGroup>
   );

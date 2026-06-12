@@ -6,12 +6,8 @@ import type {
   ITabContainerProps,
   ITabContainerRef,
 } from '@onekeyhq/components';
-import {
-  Tabs,
-  XStack,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { Tabs, XStack, YStack } from '@onekeyhq/components';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IBorrowReserveDetail } from '@onekeyhq/shared/types/staking';

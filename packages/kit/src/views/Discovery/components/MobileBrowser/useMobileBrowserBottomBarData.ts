@@ -30,6 +30,8 @@ import { showTabBar } from '../../utils/tabBarUtils';
 import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
 
+export const ACTION_LIST_CLOSE_ANIMATION_DELAY_MS = 350;
+
 export interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
   onGoBackHomePage?: () => void;
@@ -65,7 +67,7 @@ export function useMobileBrowserBottomBarData({
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
+  const { setPinnedTab, closeWebTab, setSiteMode, setDisplayHomePage } =
     useBrowserTabActions().current;
 
   const {
@@ -119,16 +121,11 @@ export function useMobileBrowserBottomBarData({
     [setPinnedTab, id, intl],
   );
 
-  const handleCloseTab = useCallback(async () => {
-    // a workaround to fix this issue
-    //  that remove page includes Popover from screen before closing popover
-    setTimeout(() => {
-      closeWebTab({ tabId: id, entry: 'Menu' });
-      setCurrentWebTab(null);
-    });
-
+  const handleCloseTab = useCallback(() => {
+    closeWebTab({ tabId: id, entry: 'Menu' });
+    setDisplayHomePage(true);
     showTabBar();
-  }, [closeWebTab, setCurrentWebTab, id]);
+  }, [closeWebTab, id, setDisplayHomePage]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');

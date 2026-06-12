@@ -7,14 +7,17 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   formatSpotPairDisplayName,
   getSpotTokenDisplayName,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export function PerpCandles({
+  collapseChartExpandSignal,
   onTouchScroll,
 }: {
+  collapseChartExpandSignal?: number;
   onTouchScroll?: (deltaY: number) => void;
 }) {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -43,9 +46,11 @@ export function PerpCandles({
           webviewKey={reloadHook.toString()}
           userAddress={currentAccount?.accountAddress}
           enablePerpsTradingUi={enablePerpsTradingUi}
+          reloadOnSymbolChange={platformEnv.isNativeAndroid}
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}
           displayCoin={displayCoin}
+          collapseChartExpandSignal={collapseChartExpandSignal}
           w="100%"
           onTouchScroll={onTouchScroll}
         />

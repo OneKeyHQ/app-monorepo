@@ -44,6 +44,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActionBuy } from '../../Home/components/WalletActions/WalletActionBuy';
 import { WalletActionReceive } from '../../Home/components/WalletActions/WalletActionReceive';
+import { ReceiveTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';
 import type { RouteProp } from '@react-navigation/core';
@@ -197,6 +198,7 @@ function ReceiveSelectorContent() {
         accountId,
         indexedAccountId,
         closeAfterSelect: false,
+        showDeFiTokenSwitch: true,
         aggregateTokenSelectorScreen:
           EModalReceiveRoutes.ReceiveSelectAggregateToken,
         exchangeFilter: {
@@ -288,6 +290,7 @@ function ReceiveSelectorContent() {
           accountId,
           indexedAccountId,
           closeAfterSelect: false,
+          showDeFiTokenSwitch: true,
           aggregateTokenSelectorScreen:
             EModalReceiveRoutes.ReceiveSelectAggregateToken,
           onSelect: async (selectedToken: IToken) => {
@@ -356,7 +359,7 @@ function ReceiveSelectorContent() {
   useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
-    <Page>
+    <Page testID={ReceiveTestIDs.ReceiveSelectorPage}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
@@ -369,6 +372,7 @@ function ReceiveSelectorContent() {
               source="receiveSelector"
               renderTrigger={({ onPress, disabled }) => (
                 <ReceiveOptions
+                  testID={ReceiveTestIDs.BuyCryptoOption}
                   icon="CurrencyDollarOutline"
                   title={intl.formatMessage({
                     id: ETranslations.global_buy_crypto,
@@ -449,12 +453,13 @@ function ReceiveSelectorContent() {
             source="receiveSelector"
             renderTrigger={({ onPress, disabled }) => (
               <ReceiveOptions
+                testID={ReceiveTestIDs.ReceiveFromWalletOption}
                 icon="QrCodeOutline"
                 title={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet,
+                  id: ETranslations.receive_transfer,
                 })}
                 subtitle={intl.formatMessage({
-                  id: ETranslations.receive_from_another_wallet_desc,
+                  id: ETranslations.receive_transfer_desc,
                 })}
                 onPress={() =>
                   handleReceiveOnPress({
@@ -466,6 +471,7 @@ function ReceiveSelectorContent() {
             )}
           />
           <YStack
+            testID={ReceiveTestIDs.ExchangeList}
             bg="$neutral2"
             borderRadius="$4"
             borderCurve="continuous"
@@ -495,6 +501,7 @@ function ReceiveSelectorContent() {
             </SizableText>
             {sortedExchanges.map((config) => (
               <ListItem
+                testID={ReceiveTestIDs.ExchangeItem}
                 key={config.id}
                 drillIn
                 onPress={() => handleExchangePress(config)}

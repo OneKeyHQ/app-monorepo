@@ -41,6 +41,8 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { ICustomRpcItem } from '@onekeyhq/shared/types/customRpc';
 
+import { SettingTestIDs } from '../../testIDs';
+
 type IEditRpcParams = {
   network: IServerNetwork;
   rpcInfo?: ICustomRpcItem;
@@ -152,7 +154,7 @@ function DialogContent({
             },
           }}
         >
-          <Input autoFocus flex={1} />
+          <Input autoFocus flex={1} testID="setting-trimmed-value-input" />
         </Form.Field>
       </Form>
       <Dialog.Footer
@@ -407,6 +409,7 @@ function CustomRPC() {
       Array.isArray(customRpcData?.customRpcNetworks) &&
       customRpcData.customRpcNetworks.length > 0 ? (
         <IconButton
+          testID={SettingTestIDs.customRpcAddButton}
           title={intl.formatMessage({ id: ETranslations.custom_rpc_cta_label })}
           variant="tertiary"
           icon="PlusLargeOutline"
@@ -427,7 +430,7 @@ function CustomRPC() {
   }
 
   return (
-    <Page>
+    <Page testID={SettingTestIDs.customRpcPage}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.custom_rpc_title })}
         headerRight={headerRight}
@@ -438,8 +441,9 @@ function CustomRPC() {
           estimatedItemSize={60}
           keyExtractor={(item) => item.networkId}
           renderItem={({ item }) => (
-            <ListItem testID="CustomRpcItemContainer">
+            <ListItem testID={SettingTestIDs.customRpcItem}>
               <Switch
+                testID="setting-switch"
                 disabled={item.network.isCustomNetwork}
                 size={ESwitchSize.small}
                 value={item.enabled}
@@ -469,7 +473,11 @@ function CustomRPC() {
               <ActionList
                 title={intl.formatMessage({ id: ETranslations.global_more })}
                 renderTrigger={
-                  <IconButton icon="DotHorOutline" variant="tertiary" />
+                  <IconButton
+                    icon="DotHorOutline"
+                    variant="tertiary"
+                    testID="setting-icon-btn"
+                  />
                 }
                 items={[
                   {

@@ -13,6 +13,7 @@ import {
   type IConnectionStorageType,
 } from '@onekeyhq/shared/types/dappConnection';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
 import { DAppAccountListItem } from '../DAppAccountList';
 
 import type { IHandleAccountChangedParams } from '../../hooks/useHandleAccountChanged';
@@ -62,7 +63,7 @@ function ConnectionListItem({
     [settings.alignPrimaryAccountMode, item.storageType, item.connectionMap],
   );
   return (
-    <YStack gap="$5" p="$5">
+    <YStack gap="$5" p="$5" testID={DAppConnectionTestIDs.ConnectionListItem}>
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <XStack flex={1} alignItems="center" gap="$3">
           <Image
@@ -102,6 +103,7 @@ function ConnectionListItem({
             outlineColor: '$focusRing',
             outlineStyle: 'solid',
           }}
+          testID={DAppConnectionTestIDs.ConnectionListDisconnectButton}
           onPress={() => {
             void handleDisconnect(item.origin, item.storageType);
           }}

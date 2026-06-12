@@ -7,6 +7,8 @@ import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils'
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketPerpsTokenFromServer } from '@onekeyhq/shared/types/marketV2';
 
+import { MARKET_PERPS_DEFAULT_CATEGORY_ID } from '../constants';
+
 export interface IMarketPerpsToken {
   name: string;
   displayName: string;
@@ -47,30 +49,39 @@ export function mapServerToken(
 export function useMarketPerpsTokenList({
   selectedCategoryId,
 }: IUseMarketPerpsTokenListParams) {
+  const requestCategoryId =
+    selectedCategoryId || MARKET_PERPS_DEFAULT_CATEGORY_ID;
+
   // Fetch token list from backend (pre-sorted, pre-computed, pre-filtered by category)
   const { result: apiData, isLoading } = usePromiseResult(
     async () => {
-      // Skip fetch until category is selected (avoid request without category param)
-      if (!selectedCategoryId) {
-        return { tokenListData: { tokens: [] }, tokenSearchAliases: undefined };
-      }
       const [tokenListData, tokenSearchAliases] = await Promise.all([
         backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-          category: selectedCategoryId,
+          category: requestCategoryId,
         }),
         backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
       ]);
-      return { tokenListData, tokenSearchAliases };
+      return {
+        categoryId: requestCategoryId,
+        tokenListData,
+        tokenSearchAliases,
+      };
     },
-    [selectedCategoryId],
+    [requestCategoryId],
     {
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       watchLoading: true,
     },
   );
 
+  const hasCurrentCategoryData = apiData?.categoryId === requestCategoryId;
+
   // Map server tokens to display tokens (add subtitle from local aliases)
   const tokens = useMemo(() => {
+    if (!hasCurrentCategoryData) {
+      return [];
+    }
+
     const serverTokens = apiData?.tokenListData?.tokens;
     if (!serverTokens || serverTokens.length === 0) return [];
 
@@ -78,13 +89,18 @@ export function useMarketPerpsTokenList({
       mapServerToken(serverToken, apiData?.tokenSearchAliases),
     );
     // Already sorted by volume descending and filtered by category from backend
-  }, [apiData]);
+  }, [apiData, hasCurrentCategoryData]);
 
-  const hasRealTimeData = (apiData?.tokenListData?.tokens?.length ?? 0) > 0;
+  const isCategoryPending = !requestCategoryId;
+  const isInitialLoading = Boolean(
+    requestCategoryId && isLoading && !hasCurrentCategoryData,
+  );
+  const hasRealTimeData =
+    hasCurrentCategoryData && (apiData?.tokenListData?.tokens?.length ?? 0) > 0;
 
   return {
     tokens,
-    isLoading,
+    isLoading: Boolean(isLoading) || isCategoryPending || isInitialLoading,
     hasRealTimeData,
   };
 }

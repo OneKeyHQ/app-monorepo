@@ -230,6 +230,7 @@ function UploadCSVContent({ onUploaded }: IUploadCSVContentProps) {
           })}
         </SizableText>
         <Button
+          testID="bulk-send-btn"
           size="small"
           variant="tertiary"
           icon="DownloadOutline"

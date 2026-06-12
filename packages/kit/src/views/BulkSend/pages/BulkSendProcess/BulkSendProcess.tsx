@@ -287,6 +287,7 @@ function BulkSendProcessContent({
   const isAborted = useRef(false);
   const progressStateRef = useRef(progressState);
   const resultsRef = useRef<ISendTxOnSuccessData[]>([]);
+  const hasLoggedSuccessRef = useRef(false);
 
   // Track native balance per sender for native max-send tx updates.
   const networkStatusRef = useRef<
@@ -950,6 +951,15 @@ function BulkSendProcessContent({
       // Call callbacks
       const results = resultsRef.current;
       if (results.length > 0) {
+        if (!hasLoggedSuccessRef.current) {
+          defaultLogger.prime.usage.bulkSendSuccess({
+            recipientCount: transfersInfo.length,
+            sendMode: bulkSendMode,
+            network: networkId,
+            tokenSymbol: tokenInfo.symbol ?? '',
+          });
+          hasLoggedSuccessRef.current = true;
+        }
         onSuccess?.(results);
       } else {
         onFail?.(new Error(`All ${unsignedTxs.length} transactions failed`));
@@ -1106,6 +1116,7 @@ function BulkSendProcessContent({
               failedTxCount === 0 &&
               skippedTxCount === 0 ? undefined : (
                 <Button
+                  testID="bulk-send-status-btn"
                   $md={
                     {
                       flexGrow: 1,

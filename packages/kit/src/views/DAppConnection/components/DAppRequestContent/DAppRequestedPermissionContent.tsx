@@ -4,6 +4,8 @@ import { StyleSheet } from 'react-native';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 function DAppRequestedPermissionContent({
   requestPermissions,
 }: {
@@ -11,7 +13,7 @@ function DAppRequestedPermissionContent({
 }) {
   const intl = useIntl();
   return (
-    <YStack gap="$2">
+    <YStack gap="$2" testID={DAppConnectionTestIDs.ConnectionPermissions}>
       <SizableText color="$text" size="$headingMd">
         {intl.formatMessage({
           id: ETranslations.dapp_connect_requested_permissions,

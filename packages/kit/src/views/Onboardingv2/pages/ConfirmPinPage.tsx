@@ -14,6 +14,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useKeylessWallet } from '../../../components/KeylessWallet/useKeylessWallet';
 import { PinInputLayout } from '../components/PinInputLayout';
+import { OnboardingTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -87,6 +88,8 @@ function ConfirmPinPage() {
 
   return (
     <PinInputLayout
+      testID={OnboardingTestIDs.confirmPinPage}
+      inputTestID={OnboardingTestIDs.confirmPasscodeInput}
       title={intl.formatMessage({ id: ETranslations.confirm_your_pin })}
       description={intl.formatMessage({
         id: ETranslations.confirm_your_pin_desc,

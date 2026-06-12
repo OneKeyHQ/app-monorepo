@@ -22,6 +22,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 
 // English fallbacks kept for dev/unsynced-locale resilience.
 const HERO_SENTENCE_DEFAULT = 'Your most secure crypto wallet for {action}';
@@ -412,12 +413,14 @@ function GetStarted() {
       icon: 'PlusCircleSolid',
       onPress: handleCreateNewWallet,
       mobileButtonProps: { variant: 'primary' },
+      testID: OnboardingTestIDs.createWalletButton,
     },
     {
       labelId: ETranslations.add_existing_wallet,
       icon: 'ArrowBottomCircleSolid',
       onPress: handleMoreOptions,
       mobileButtonProps: { variant: 'secondary' },
+      testID: OnboardingTestIDs.importWalletButton,
     },
     {
       labelId: ETranslations.global_connect_hardware_wallet,
@@ -428,11 +431,13 @@ function GetStarted() {
         borderWidth: 1,
         borderColor: '$borderSubdued',
       },
+      testID: OnboardingTestIDs.connectHardwareButton,
     },
   ] as const;
 
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.getStartedPage}
       headerBack="exit"
       backgroundLayer={<HeroAtmosphere />}
       contentContainerProps={
@@ -522,6 +527,7 @@ function GetStarted() {
             {actions.map((action) => (
               <Button
                 key={action.labelId}
+                testID={action.testID}
                 size="large"
                 alignSelf="stretch"
                 onPress={action.onPress}

@@ -35,11 +35,13 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
-export const PERPS_CAMPAIGN_HELP_LINK = 'https://campaign.onekey.so/perps-s1';
+export const CREATOR_PROGRAM_URL = 'https://creator.onekey.so/';
 export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
   'https://help.onekey.so/articles/13183743';
+export const RECEIVE_RISK_MONITORING_HELP_LINK =
+  'https://help.onekey.so/articles/15338240-how-to-use-onekey-incoming-transfer-risk-monitoring-kyt';
 
 export const FRESH_ADDRESS_LEARN_MORE_URL =
   'https://help.onekey.so/articles/12620219';

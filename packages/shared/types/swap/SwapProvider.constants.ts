@@ -80,6 +80,13 @@ export const limitOrderEstimationFeePercent = 1.05;
 
 export const defaultSupportUrl = 'https://help.onekey.so/articles/11536900';
 
+export const privateSendHelpCenterUrl =
+  'https://help.onekey.so/articles/15388307';
+
+export const privateSendProvider = 'SwapRocketXPrivateSend';
+
+export const privateSendFallbackOrderIdPrefix = 'private-send-';
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,
@@ -1811,11 +1818,6 @@ export const wrappedTokens = [
     networkId: 'evm--128',
     address: '0x5545153ccfca01fbd7dd11c0b23ba694d9509a6f',
     logo: 'https://uni.onekey-asset.com/static/logo/wht.png',
-  },
-  {
-    networkId: 'evm--66',
-    address: '0x8f8526dbfd6e38e3d8307702ca8469bae6c56c15',
-    logo: 'https://uni.onekey-asset.com/static/logo/wokt.png',
   },
   {
     networkId: 'evm--10',

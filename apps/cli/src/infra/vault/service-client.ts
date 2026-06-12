@@ -6,7 +6,7 @@ import {
 
 import { apiClient } from '../api-client';
 
-import { LOCK_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from './constants';
+import { KEY_API_TIMEOUT_MS, REVOKE_TIMEOUT_MS } from './constants';
 
 export {
   BOT_WALLET_KEY_API_PATH,
@@ -185,7 +185,7 @@ export async function serviceFetch({
         headers: {
           [BOT_WALLET_KEY_API_TOKEN_HEADER]: accessToken,
         },
-        signal: signal ?? AbortSignal.timeout(LOCK_TIMEOUT_MS),
+        signal: signal ?? AbortSignal.timeout(KEY_API_TIMEOUT_MS),
       },
     );
 

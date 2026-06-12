@@ -1,8 +1,35 @@
 diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-index 135a383..d7435c3 100644
+index 135a383..2087431 100644
 --- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
 +++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
-@@ -112,34 +112,35 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -24,6 +24,13 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+ 
+     // utilities
+     private var setupResult: SetupResult = .notStarted
++    // Set once the view is removed (teardown). A late-arriving setup() task must
++    // not resurrect an already-torn-down session by calling startRunning() after
++    // cameraRemovedFromSuperview() stopped it. We cannot reuse setupResult for
++    // this because setup()'s sessionQueue block overwrites setupResult with the
++    // return value of setupCaptureSession() before checking it, which would clear
++    // any flag set here. See the guard in setup() (REACT-NATIVE-430).
++    private var isTornDown = false
+     private var isSessionRunning: Bool = false
+     private var backgroundRecordingId: UIBackgroundTaskIdentifier = .invalid
+ 
+@@ -89,6 +96,12 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+ 
+     func cameraRemovedFromSuperview() {
+         sessionQueue.async {
++            // Mark teardown BEFORE (and regardless of) stopRunning, so that any
++            // setup() task still queued on sessionQueue is blocked from calling
++            // session=/startRunning afterwards and resurrecting a torn-down
++            // session (REACT-NATIVE-430). Set unconditionally so even a
++            // non-success setupResult still latches the flag.
++            self.isTornDown = true
+             if self.setupResult == .success {
+                 self.session.stopRunning()
+                 self.removeObservers()
+@@ -112,34 +125,44 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      // MARK: - Public
  
      func setup(cameraType: CameraType, supportedBarcodeType: [CodeFormat]) {
@@ -40,27 +67,36 @@ index 135a383..d7435c3 100644
 -                if self.setupResult == .success {
 -                    self.session.startRunning()
 -                }
-+            if self.setupResult == .success {
++            // Assign the preview layer's session on the SAME sessionQueue as
++            // start/stopRunning, BEFORE startRunning. Setting previewLayer.session
++            // internally triggers beginConfiguration/commitConfiguration; serializing
++            // it on sessionQueue guarantees it never overlaps startRunning
++            // (REACT-NATIVE-1EZ) NOR the stopRunning issued from
++            // cameraRemovedFromSuperview (REACT-NATIVE-430), which also runs on
++            // sessionQueue. The previous fix dispatched this to the main thread,
++            // which left begin/commitConfiguration racing against stopRunning across
++            // threads ("stopRunning may not be called between begin/commitConfiguration").
++            // Also bail out if the view was already torn down while this setup
++            // task was queued: cameraRemovedFromSuperview() may have already run
++            // its stopRunning() on sessionQueue, and proceeding would resurrect a
++            // dead session (REACT-NATIVE-430 hardening against late setup tasks).
++            if self.setupResult == .success && !self.isTornDown {
++                self.cameraPreview.session = self.session
 +                self.session.startRunning()
 +            }
  
 -                DispatchQueue.main.async {
 -                    self.setVideoOrientationToInterfaceOrientation()
 -                }
-+            // Defer preview layer session assignment until after startRunning() completes.
-+            // Setting previewLayer.session internally triggers beginConfiguration/commitConfiguration
-+            // on the AVCaptureSession. If this overlaps with startRunning(), AVFoundation throws
-+            // NSGenericException (startRunning called between beginConfiguration and
-+            // commitConfiguration). Dispatching to main after startRunning() ensures proper
-+            // sequencing of the AVCaptureSession configuration lifecycle. (Fixes REACT-NATIVE-1EZ)
++            // Pure visual properties stay on main; they do not mutate the session
++            // configuration, so they cannot race start/stopRunning.
 +            DispatchQueue.main.async {
-+                self.cameraPreview.session = self.session
 +                self.cameraPreview.previewLayer.videoGravity = self.resizeMode == .cover ? .resizeAspectFill : .resizeAspect
 +                self.setVideoOrientationToInterfaceOrientation()
              }
          }
      }
-@@ -347,6 +348,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+@@ -347,6 +370,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
      }
  
      func update(resizeMode: ResizeMode) {

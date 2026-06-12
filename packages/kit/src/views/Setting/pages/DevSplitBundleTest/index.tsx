@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SettingTestIDs } from '@onekeyhq/kit/src/views/Setting/testIDs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // ---------------------------------------------------------------------------
@@ -190,7 +191,12 @@ function TransportStateSection() {
     <YStack gap="$3">
       <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$headingSm">Transport State</SizableText>
-        <Button size="small" variant="tertiary" onPress={refresh}>
+        <Button
+          testID={SettingTestIDs.devSplitBundleRefreshBtn}
+          size="small"
+          variant="tertiary"
+          onPress={refresh}
+        >
           Refresh
         </Button>
       </XStack>
@@ -389,6 +395,7 @@ function ServiceTestSection() {
 
       <XStack gap="$2">
         <Button
+          testID={SettingTestIDs.devSplitBundleRunTestsBtn}
           size="small"
           onPress={runTests}
           loading={running}
@@ -397,6 +404,7 @@ function ServiceTestSection() {
           Run Tests
         </Button>
         <Button
+          testID={SettingTestIDs.devSplitBundleConcurrentBtn}
           size="small"
           variant="secondary"
           onPress={runConcurrentTest}

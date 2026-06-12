@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   ESwitchSize,
@@ -16,16 +17,28 @@ import {
   Switch,
   YStack,
   startViewTransition,
+  useInModalDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useOneKeyAuthMethods } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import PassCodeProtectionSwitch from '@onekeyhq/kit/src/components/Password/container/PassCodeProtectionSwitch';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+
+import { ReceiveRiskSupportedAssetsDialogContent } from './ReceiveRiskSupportedAssets';
+import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
+
+const SUPPORTED_ASSETS_DIALOG_MAX_HEIGHT = 560;
+const SUPPORTED_ASSETS_DIALOG_MIN_HEIGHT = 360;
 
 const SettingProtectionModal = () => {
   const intl = useIntl();
@@ -34,13 +47,19 @@ const SettingProtectionModal = () => {
       tokenRiskReminder,
       protectCreateTransaction,
       protectCreateOrRemoveWallet,
+      receiveRiskMonitoringMap,
     },
     setSettings,
   ] = useSettingsPersistAtom();
+  const { isPrimeSubscriptionActive } = useOneKeyAuthMethods();
+  const [{ onekeyUserId }] = usePrimePersistAtom();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
+  const [isUpdatingReceiveRiskMonitoring, setIsUpdatingReceiveRiskMonitoring] =
+    useState(false);
   const navigation = useAppNavigation();
+  const dialog = useInModalDialog();
 
   const useIsFocused = useRouteIsFocused();
 
@@ -68,6 +87,60 @@ const SettingProtectionModal = () => {
     },
     [updateLockTimer],
   );
+
+  const handleToggleReceiveRiskMonitoring = useCallback(
+    async (value: boolean) => {
+      setIsUpdatingReceiveRiskMonitoring(true);
+      try {
+        // The background method persists the per-user enabled state only on success,
+        // so the switch flips only after the server confirms the change.
+        await backgroundApiProxy.serviceSetting.apiSetKytEnabled({
+          enabled: value,
+        });
+        // Only prompt to enable notifications when turning KYT on; disabling
+        // never triggers the notification check.
+        if (value) {
+          await promptKytNotificationPermissionIfNeeded({ navigation, intl });
+        }
+      } catch {
+        // Error toast is handled by @toastIfError in the background method;
+        // local state stays unchanged so the switch keeps its previous position.
+      } finally {
+        setIsUpdatingReceiveRiskMonitoring(false);
+        updateLockTimer();
+      }
+    },
+    [intl, navigation, updateLockTimer],
+  );
+
+  const handleOpenReceiveRiskSupportedAssets = useCallback(() => {
+    updateLockTimer();
+    dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.kyt_supported_assets__title,
+      }),
+      showFooter: false,
+      contentContainerProps: {
+        px: '$0',
+        pb: '$0',
+      },
+      floatingPanelProps: {
+        width: 480,
+      },
+      renderContent: (
+        <ReceiveRiskSupportedAssetsDialogContent
+          maxHeight={SUPPORTED_ASSETS_DIALOG_MAX_HEIGHT}
+          minHeight={SUPPORTED_ASSETS_DIALOG_MIN_HEIGHT}
+          contentContainerProps={{
+            pt: '$2',
+          }}
+        />
+      ),
+      onClose: () => {
+        updateLockTimer();
+      },
+    });
+  }, [dialog, intl, updateLockTimer]);
 
   useEffect(() => {
     if (useIsFocused) {
@@ -120,7 +193,10 @@ const SettingProtectionModal = () => {
           <Empty
             icon="UnlockedOutline"
             button={
-              <Button onPress={() => checkEnableProtection()}>
+              <Button
+                onPress={() => checkEnableProtection()}
+                testID="setting-render-enable-protection-btn"
+              >
                 {intl.formatMessage({
                   id: ETranslations.global_unlock,
                 })}
@@ -142,8 +218,12 @@ const SettingProtectionModal = () => {
             title={intl.formatMessage({
               id: ETranslations.settings_token_risk_reminder,
             })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_token_risk_reminder_desc,
+            })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={tokenRiskReminder}
               onChange={async (value) => {
@@ -153,17 +233,16 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_token_risk_reminder_desc,
-            })}
-          </SizableText>
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.settings_protection_allowlist_title,
             })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_content,
+            })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={isEnableTransferAllowList}
               onChange={async (value) => {
@@ -175,11 +254,75 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_protection_allowlist_content,
+          <Divider my="$5" mx="$5" />
+          <SectionList.SectionHeader
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
             })}
-          </SizableText>
+          />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.prime_feature_receive_risk_monitoring__desc,
+            })}
+            {...(!isPrimeSubscriptionActive && {
+              onPress: () => {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.ReceiveRiskMonitoring,
+                  entryPoint: 'settingsPage',
+                  isPrimeActive: false,
+                });
+                navigation.pushModal(EModalRoutes.PrimeModal, {
+                  screen: EPrimePages.PrimeDashboard,
+                  params: {
+                    fromFeature: EPrimeFeatures.ReceiveRiskMonitoring,
+                  },
+                });
+              },
+            })}
+          >
+            {isPrimeSubscriptionActive ? null : (
+              <Badge badgeSize="sm" badgeType="default">
+                <Badge.Text size="$bodySmMedium">
+                  {intl.formatMessage({
+                    id: ETranslations.prime_status_prime,
+                  })}
+                </Badge.Text>
+              </Badge>
+            )}
+            {isUpdatingReceiveRiskMonitoring ? (
+              <Stack w={38} h="$6" alignItems="center" justifyContent="center">
+                <Spinner size="small" />
+              </Stack>
+            ) : (
+              <Switch
+                testID="setting-receive-risk-monitoring-switch"
+                size={ESwitchSize.small}
+                value={
+                  isPrimeSubscriptionActive
+                    ? (receiveRiskMonitoringMap?.[onekeyUserId ?? ''] ?? false)
+                    : false
+                }
+                disabled={!isPrimeSubscriptionActive}
+                onChange={(value) => {
+                  void handleToggleReceiveRiskMonitoring(!!value);
+                }}
+              />
+            )}
+          </ListItem>
+          <ListItem
+            testID="setting-receive-risk-supported-assets"
+            title={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__title,
+            })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__desc,
+            })}
+            drillIn
+            onPress={handleOpenReceiveRiskSupportedAssets}
+          />
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
             title={intl.formatMessage({
@@ -192,6 +335,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={!protectCreateTransaction}
               onChange={async (value) => {
@@ -209,6 +353,7 @@ const SettingProtectionModal = () => {
             })}
           >
             <Switch
+              testID="setting-switch"
               size={ESwitchSize.small}
               value={!protectCreateOrRemoveWallet}
               onChange={async (value) => {
@@ -220,7 +365,7 @@ const SettingProtectionModal = () => {
               }}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+          <SizableText px="$5" size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.settings_passcode_bypass_desc,
             })}
@@ -235,17 +380,15 @@ const SettingProtectionModal = () => {
             title={intl.formatMessage({
               id: ETranslations.settings_reset_app,
             })}
+            subtitle={intl.formatMessage({
+              id: ETranslations.settings_reset_app_description,
+            })}
           >
             <PassCodeProtectionSwitch
               size={ESwitchSize.small}
               onTransition={handleTransition}
             />
           </ListItem>
-          <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.settings_reset_app_description,
-            })}
-          </SizableText>
         </YStack>
       </ScrollView>
     ) : (
@@ -256,12 +399,19 @@ const SettingProtectionModal = () => {
   }, [
     checkEnableProtection,
     enableProtection,
+    handleOpenReceiveRiskSupportedAssets,
+    handleToggleReceiveRiskMonitoring,
     handleTransition,
     intl,
     isEnableTransferAllowList,
     isLocked,
+    isPrimeSubscriptionActive,
+    isUpdatingReceiveRiskMonitoring,
+    navigation,
+    onekeyUserId,
     protectCreateOrRemoveWallet,
     protectCreateTransaction,
+    receiveRiskMonitoringMap,
     setSettings,
     tokenRiskReminder,
   ]);

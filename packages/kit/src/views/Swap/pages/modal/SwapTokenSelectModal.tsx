@@ -27,6 +27,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { ITokenListItemProps } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
+import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -38,7 +39,10 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -47,6 +51,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
+  isTokenSelectorDappTokenFilterSupportedNetwork,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
@@ -104,8 +112,33 @@ const SwapTokenSelectPage = ({
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [tokenSelectorFilter, setTokenSelectorFilter] =
+    useTokenSelectorFilterPersistAtom();
+  const [currentSelectNetwork, setCurrentSelectNetwork] =
+    useSwapSelectTokenNetworkAtom();
+  const showLpTokenFilterSwitch = useMemo(() => {
+    if (!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED || !currentSelectNetwork) {
+      return false;
+    }
+
+    return isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: {
+        id: currentSelectNetwork.networkId,
+        isAllNetworks: currentSelectNetwork.isAllNetworks,
+        backendIndex: currentSelectNetwork.backendIndex,
+      },
+      isDeFiEnabled: currentSelectNetwork.isAllNetworks
+        ? true
+        : currentSelectNetwork.isDeFiEnabled,
+    });
+  }, [currentSelectNetwork]);
+  const showLpTokensOnly = showLpTokenFilterSwitch
+    ? tokenSelectorFilter.swapShowLpTokensOnly
+    : false;
+  const requestLpToken = showLpTokenFilterSwitch ? showLpTokensOnly : undefined;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  const hasUserSelectedNetworkRef = useRef(false);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
@@ -159,17 +192,71 @@ const SwapTokenSelectPage = ({
     toToken?.networkId,
     type,
   ]);
-  const [currentSelectNetwork, setCurrentSelectNetwork] =
-    useSwapSelectTokenNetworkAtom();
   const listViewRef = useRef<FlatList>(null);
+  const handleLpTokenFilterChange = useCallback(
+    (value: boolean) => {
+      setTokenSelectorFilter((prev) => ({
+        ...prev,
+        swapShowLpTokensOnly: value,
+      }));
+      listViewRef.current?.scrollToOffset({
+        offset: 0,
+        animated: false,
+      });
+    },
+    [setTokenSelectorFilter],
+  );
 
   useEffect(() => {
-    setCurrentSelectNetwork(syncDefaultNetworkSelect);
-    return () => {
+    if (hasUserSelectedNetworkRef.current) {
+      return;
+    }
+    const nextNetwork = syncDefaultNetworkSelect();
+    if (!nextNetwork) {
+      return;
+    }
+    setCurrentSelectNetwork((prev) => {
+      if (
+        !prev ||
+        prev.isAllNetworks ||
+        prev.networkId === nextNetwork.networkId
+      ) {
+        return nextNetwork;
+      }
+      return prev;
+    });
+  }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
+
+  useEffect(() => {
+    if (!currentSelectNetwork?.networkId) {
+      return;
+    }
+
+    const latestNetwork = swapNetworksIncludeAllNetwork.find(
+      (network) => network.networkId === currentSelectNetwork.networkId,
+    );
+    if (!latestNetwork || latestNetwork === currentSelectNetwork) {
+      return;
+    }
+
+    setCurrentSelectNetwork((prev) => {
+      if (!prev || prev.networkId !== latestNetwork.networkId) {
+        return prev;
+      }
+      return latestNetwork;
+    });
+  }, [
+    currentSelectNetwork,
+    setCurrentSelectNetwork,
+    swapNetworksIncludeAllNetwork,
+  ]);
+
+  useEffect(
+    () => () => {
       setCurrentSelectNetwork(undefined);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setCurrentSelectNetwork]);
+    },
+    [setCurrentSelectNetwork],
+  );
 
   useEffect(() => {
     const accountNet =
@@ -193,6 +280,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
+    requestLpToken,
   );
   const alertIndex = useMemo(
     () =>
@@ -285,6 +373,7 @@ const SwapTokenSelectPage = ({
 
   const onSelectCurrentNetwork = useCallback(
     (network: ISwapNetwork) => {
+      hasUserSelectedNetworkRef.current = true;
       setCurrentSelectNetwork(network);
       listViewRef.current?.scrollToOffset({
         offset: 0,
@@ -547,6 +636,8 @@ const SwapTokenSelectPage = ({
     }
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
+  const shouldShowPopularTokens =
+    currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword;
   return (
     <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
@@ -574,19 +665,41 @@ const SwapTokenSelectPage = ({
         }}
       />
       <Page.Body>
-        <XStack px="$5" pb="$2">
-          <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
-            {intl.formatMessage({
-              id: ETranslations.token_selector_network,
-            })}
-          </SizableText>
-          <XStack>
-            <SizableText size="$bodyMd">
-              {currentSelectNetwork?.isAllNetworks
-                ? intl.formatMessage({ id: ETranslations.global_all_networks })
-                : currentSelectNetwork?.name}
+        <XStack
+          px="$5"
+          pb="$2"
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$3"
+        >
+          <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              pr="$2"
+              lineHeight={32}
+            >
+              {intl.formatMessage({
+                id: ETranslations.token_selector_network,
+              })}
             </SizableText>
+            <XStack alignItems="center" flexShrink={1} h="$8" minWidth={0}>
+              <SizableText size="$bodyMd" numberOfLines={1} lineHeight={32}>
+                {currentSelectNetwork?.isAllNetworks
+                  ? intl.formatMessage({
+                      id: ETranslations.global_all_networks,
+                    })
+                  : currentSelectNetwork?.name}
+              </SizableText>
+            </XStack>
           </XStack>
+          {showLpTokenFilterSwitch ? (
+            <TokenSelectorLpTokenSwitch
+              value={showLpTokensOnly}
+              onChange={handleLpTokenFilterChange}
+              disabled={!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED}
+            />
+          ) : null}
         </XStack>
         <NetworkToggleGroup
           onMoreNetwork={() => {
@@ -616,19 +729,16 @@ const SwapTokenSelectPage = ({
           onSelectNetwork={onSelectCurrentNetwork}
           onDisableNetworksClick={disableNetworksOnClick}
         />
-        {currentNetworkPopularTokens.length > 0 && !requestedSearchKeyword ? (
-          <Divider mt="$2" />
-        ) : null}
+        {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
         <YStack flex={1}>
           <ListView
-            useFlashList
+            useFlashList={platformEnv.isNative}
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}
             estimatedItemSize={60}
             ListHeaderComponent={
-              currentNetworkPopularTokens.length > 0 &&
-              !requestedSearchKeyword ? (
+              shouldShowPopularTokens ? (
                 <YStack px="$5" pt="$3" gap="$2">
                   <SizableText size="$bodyMd" color="$textSubdued" pr="$2">
                     {intl.formatMessage({

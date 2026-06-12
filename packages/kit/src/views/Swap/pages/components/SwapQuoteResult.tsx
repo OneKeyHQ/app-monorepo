@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -31,8 +31,15 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
+import {
+  swapSlippageDecimal,
+  swapSlippageWillAheadMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapToken,
@@ -51,6 +58,7 @@ import {
   useSwapQuoteLoading,
   useSwapQuoteProgressState,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -89,6 +97,31 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
+  const quoteDuration = formatSwapQuoteDuration({
+    estTime: quoteResult?.estTime,
+    estimatedTime: quoteResult?.estimatedTime,
+  });
+  const mobileCustomSlippageInfo = useMemo(() => {
+    if (
+      !platformEnv.isNative ||
+      slippageItem.key !== ESwapSlippageSegmentKey.CUSTOM
+    ) {
+      return undefined;
+    }
+
+    const displaySlippage = new BigNumber(slippageItem.value)
+      .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const isCaution = slippageItem.value > swapSlippageWillAheadMinValue;
+
+    return {
+      value: `${displaySlippage}%`,
+      textColor: isCaution ? ('$textCaution' as const) : ('$text' as const),
+      iconColor: isCaution
+        ? ('$iconCaution' as const)
+        : ('$iconSubdued' as const),
+    };
+  }, [slippageItem.key, slippageItem.value]);
 
   const calculateTaxItem = useCallback(
     (
@@ -187,6 +220,7 @@ const SwapQuoteResult = ({
   if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
+        testID={SwapTestIDs.approveButton}
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
           setInAppNotificationAtom((pre) => ({
@@ -229,6 +263,7 @@ const SwapQuoteResult = ({
       return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
         <YStack gap="$3">
           <SwapProviderInfoItem
+            testID={SwapTestIDs.providerSelector}
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
             isBest={quoteResult?.isBest}
@@ -248,6 +283,15 @@ const SwapQuoteResult = ({
                 : undefined
             }
           />
+          {quoteDuration ? (
+            <SwapCommonInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.provider_swap_duration,
+              })}
+              isLoading={swapQuoteLoading}
+              value={quoteDuration}
+            />
+          ) : null}
 
           <LimitExpirySelect
             currentSelectExpiryValue={swapLimitExpirySelect}
@@ -288,6 +332,10 @@ const SwapQuoteResult = ({
                 fromToken={fromToken}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
+                showBestBadge={!platformEnv.isNative}
+                customSlippageValue={mobileCustomSlippageInfo?.value}
+                customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
+                customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
                 isLoading={swapQuoteLoading}
                 refreshAction={refreshAction}
@@ -334,6 +382,15 @@ const SwapQuoteResult = ({
                         }
                       : undefined
                   }
+                />
+              ) : null}
+              {quoteDuration ? (
+                <SwapCommonInfoItem
+                  title={intl.formatMessage({
+                    id: ETranslations.provider_swap_duration,
+                  })}
+                  isLoading={swapQuoteLoading}
+                  value={quoteDuration}
                 />
               ) : null}
               {quoteResult?.toAmount &&

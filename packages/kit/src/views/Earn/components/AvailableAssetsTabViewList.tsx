@@ -36,6 +36,7 @@ import type { IEarnAvailableAsset } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 
 import { EarnNavigation, parseFormattedLiquidityValue } from '../earnUtils';
+import { EarnTestIDs } from '../testIDs';
 
 import { AprText } from './AprText';
 import { buildEarnAvailableAssetCategoryTabs } from './earnCategoryTabs';
@@ -44,7 +45,11 @@ import { NetworkFilterControl } from './NetworkFilterControl';
 
 import type { IEarnSortDirection } from './EarnMobileSortControl';
 
-export function AvailableAssetsTabViewList() {
+export function AvailableAssetsTabViewList({
+  isActive = true,
+}: {
+  isActive?: boolean;
+}) {
   const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
   const actions = useEarnActions();
   const intl = useIntl();
@@ -191,7 +196,7 @@ export function AvailableAssetsTabViewList() {
   const fetchAssetsData = useThrottledCallback(
     async (tabType: EAvailableAssetsTypeEnum) => {
       // Early return if component is unmounted
-      if (!isMountedRef.current) {
+      if (!isMountedRef.current || !isActive) {
         return [];
       }
 
@@ -228,17 +233,18 @@ export function AvailableAssetsTabViewList() {
   // Load data for the selected tab
   usePromiseResult(
     async () => {
-      if (selectedTabType) {
+      if (isActive && selectedTabType) {
         const result = await fetchAssetsData(selectedTabType);
         return result || [];
       }
       return [];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedTabType, refreshTrigger, fetchAssetsData],
+    [isActive, selectedTabType, refreshTrigger, fetchAssetsData],
     {
       watchLoading: true,
       undefinedResultIfError: false, // Return empty array instead of undefined on error
+      overrideIsFocused: (isFocused) => isFocused && isActive,
     },
   );
 
@@ -433,6 +439,7 @@ export function AvailableAssetsTabViewList() {
       const showLiquidity = isFixedRateTab && Boolean(asset.liquidity);
       return (
         <ListItem
+          testID={EarnTestIDs.assetItem(asset.symbol)}
           userSelect="none"
           onPress={() => handleRowPress(asset)}
           renderAvatar={
@@ -554,6 +561,10 @@ export function AvailableAssetsTabViewList() {
 
   // Pre-fetch all categories and open search dialog
   const handleMobileSearchPress = useCallback(() => {
+    if (!isActive) {
+      return;
+    }
+
     void (async () => {
       setSearchLoading(true);
       try {
@@ -612,6 +623,7 @@ export function AvailableAssetsTabViewList() {
   }, [
     availableAssetsByType,
     actions,
+    isActive,
     navigateToAsset,
     navigation,
     selectedTabIndex,
@@ -636,6 +648,7 @@ export function AvailableAssetsTabViewList() {
         </SizableText>
         {media.gtMd ? null : (
           <IconButton
+            testID="earn-icon-btn"
             variant="tertiary"
             icon="SearchOutline"
             iconSize="$5"
@@ -663,6 +676,7 @@ export function AvailableAssetsTabViewList() {
               onSelectionChange={handleNetworkFilterChange}
             />
             <SearchBar
+              testID={EarnTestIDs.assetSearchInput}
               size="small"
               placeholder={intl.formatMessage({
                 id: ETranslations.global_search_asset,

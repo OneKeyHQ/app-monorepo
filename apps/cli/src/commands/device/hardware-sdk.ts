@@ -32,6 +32,82 @@ export const CoreSDKLoader = async (): Promise<
 // where two concurrent ensureSDKReady() calls could both enter the init block
 // before sdkInitialized is set.
 let sdkReadyPromise: Promise<CoreApi> | null = null;
+let hardwareSDKQueueTail: Promise<void> = Promise.resolve();
+
+const SDK_QUEUE_BYPASS_METHODS = new Set<PropertyKey>([
+  'addListener',
+  'cancel',
+  'dispose',
+  'emit',
+  'eventNames',
+  'getMaxListeners',
+  'init',
+  'listenerCount',
+  'listeners',
+  'off',
+  'on',
+  'once',
+  'prependListener',
+  'prependOnceListener',
+  'rawListeners',
+  'removeListener',
+  'removeAllListeners',
+  'setMaxListeners',
+  'uiResponse',
+]);
+
+type HardwareMethod = (...args: unknown[]) => unknown;
+
+function enqueueHardwareSDKCall<T>(call: () => T | Promise<T>): Promise<T> {
+  const run = hardwareSDKQueueTail.then(call, call);
+  hardwareSDKQueueTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function resetHardwareSDKQueue() {
+  hardwareSDKQueueTail = Promise.resolve();
+}
+
+/**
+ * CLI analogue of app-monorepo's hardware processing boundary.
+ *
+ * The Node USB transport and SDK UI/passphrase state are process-wide serial
+ * resources. Returning a queued facade makes accidental concurrent SDK
+ * calls (for example Promise.all inside a signer) execute FIFO instead of
+ * interrupting the device with code 107. Queue-bypass methods must stay
+ * immediate so PIN/passphrase responses and cancel can reach the SDK.
+ */
+export function createQueuedHardwareSDK<T extends object>(sdk: T): T {
+  const methodCache = new Map<PropertyKey, unknown>();
+
+  return new Proxy(sdk, {
+    get(target, prop, receiver) {
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== 'function') {
+        return value;
+      }
+
+      const cached = methodCache.get(prop);
+      if (cached) {
+        return cached;
+      }
+
+      const method = (...args: unknown[]) => {
+        const hardwareMethod = value as HardwareMethod;
+        const call = (): unknown => Reflect.apply(hardwareMethod, target, args);
+        if (SDK_QUEUE_BYPASS_METHODS.has(prop)) {
+          return call();
+        }
+        return enqueueHardwareSDKCall(call);
+      };
+      methodCache.set(prop, method);
+      return method;
+    },
+  });
+}
 
 /**
  * Release the USB transport and dispose the SDK instance.
@@ -48,6 +124,7 @@ export async function disposeSDK(): Promise<void> {
     // ignore errors during cleanup
   } finally {
     sdkReadyPromise = null;
+    resetHardwareSDKQueue();
   }
 }
 
@@ -186,7 +263,7 @@ async function initSDK(): Promise<CoreApi> {
     },
   );
 
-  return sdk;
+  return createQueuedHardwareSDK(sdk);
 }
 
 export async function ensureSDKReady(): Promise<CoreApi> {

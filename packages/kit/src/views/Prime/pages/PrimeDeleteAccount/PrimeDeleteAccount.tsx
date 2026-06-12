@@ -248,6 +248,7 @@ export default function PrimeDeleteAccount() {
             }}
           >
             <Checkbox
+              testID="prime-checkbox"
               value={checked}
               onChange={(value) => {
                 changeChecked(!!value);

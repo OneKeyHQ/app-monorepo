@@ -99,8 +99,8 @@ function makePairingResult(): AppTransferLoginResult {
     loginMethod: 'app_transfer',
     pairingCode: 'ABCDEFGH123-ABCDE-FGHIJ-KLMNP-QRSTU-VWXYZ-12345-6789A',
     createdAt: '2026-04-06T07:00:00.000Z',
-    timeoutMs: 120_000,
-    expiresAt: '2026-04-06T07:02:00.000Z',
+    timeoutMs: 300_000,
+    expiresAt: '2026-04-06T07:05:00.000Z',
     pairingPayload: {
       roomId: 'ABCDEFGH123',
       transferType: EPrimeTransferDataType.keylessWallet,
@@ -760,6 +760,10 @@ describe('executeAuthLoginCommand', () => {
 
       expect(stderr.write).toHaveBeenCalledTimes(1);
       const writtenChunk = stderr.write.mock.calls[0][0];
+      expect(String(writtenChunk)).toContain('Open Bot Wallet export to CLI');
+      expect(String(writtenChunk)).toContain(
+        'Opening the Pairing URI on desktop may not complete the export flow.',
+      );
       expect(String(writtenChunk)).toContain('Pairing code:');
       expect(String(writtenChunk)).toContain(pairingResult.pairingCode);
       expect(output.success).toHaveBeenCalled();

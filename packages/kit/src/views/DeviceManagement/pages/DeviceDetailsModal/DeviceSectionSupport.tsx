@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFirmwareVerifyDialog } from '../../../Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import { useDeviceManagerNavigation } from '../../hooks/useDeviceManagerNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogDeviceAbout } from './dialog/DialogDeviceAbout';
@@ -72,6 +73,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressAboutDevice}
+        testID={DeviceManagementTestIDs.aboutDeviceItem}
       />
       <ListItem
         key="authRequest"
@@ -82,6 +84,7 @@ function DeviceSectionSupport({
         drillIn
         onPress={onPressAuthRequest}
         isLoading={isFirmwareVerifyDialogLoading}
+        testID={DeviceManagementTestIDs.authRequestItem}
       />
       <ListItem
         key="checkForUpdates"
@@ -91,6 +94,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={() => onPressCheckForUpdates()}
+        testID={DeviceManagementTestIDs.checkForUpdatesItem}
       />
       <ListItem
         key="troubleshooting"
@@ -100,6 +104,7 @@ function DeviceSectionSupport({
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressTroubleshooting}
+        testID={DeviceManagementTestIDs.troubleshootingItem}
       />
     </ListItemGroup>
   );

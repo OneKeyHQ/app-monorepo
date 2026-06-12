@@ -169,6 +169,7 @@ export const ReserveProtocolHeader = ({
           <SizableText size="$bodyLgMedium">{symbol}</SizableText>
           {onShare ? (
             <IconButton
+              testID="borrow-icon-btn"
               icon="ShareOutline"
               size="small"
               variant="tertiary"

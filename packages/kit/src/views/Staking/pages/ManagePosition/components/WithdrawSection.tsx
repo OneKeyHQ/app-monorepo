@@ -29,6 +29,7 @@ import {
   type IEarnAssetsList,
   type IEarnTokenInfo,
   type IEarnTokenItem,
+  type IEarnWithdrawType,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -102,37 +103,58 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
-
-  const approveSpenderAddress = useMemo(
-    () =>
-      isPendleProvider
-        ? earnUtils.resolveEarnApproveSpenderAddress({
-            providerName,
-            protocolVault: protocolInfo?.vault,
-            backendApproveTarget: protocolInfo?.approve?.approveTarget,
-          })
-        : '',
-    [
-      isPendleProvider,
-      providerName,
-      protocolInfo?.vault,
-      protocolInfo?.approve?.approveTarget,
-    ],
+  const isNativeProvider = useMemo(
+    () => earnUtils.isNativeProvider({ providerName }),
+    [providerName],
   );
+
+  const approveSpenderAddress = useMemo(() => {
+    if (isNativeProvider) {
+      return protocolInfo?.withdrawApprove?.approveTarget ?? '';
+    }
+    return isPendleProvider
+      ? earnUtils.resolveEarnApproveSpenderAddress({
+          providerName,
+          protocolVault: protocolInfo?.vault,
+          backendApproveTarget: protocolInfo?.approve?.approveTarget,
+        })
+      : '';
+  }, [
+    isPendleProvider,
+    isNativeProvider,
+    providerName,
+    protocolInfo?.vault,
+    protocolInfo?.approve?.approveTarget,
+    protocolInfo?.withdrawApprove?.approveTarget,
+  ]);
 
   const token = useMemo(
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
     [tokenInfo],
   );
+  const withdrawApproveToken = useMemo(() => {
+    if (
+      !isNativeProvider ||
+      !protocolInfo?.withdrawApprove?.tokenAddress ||
+      !token
+    ) {
+      return token;
+    }
+    return {
+      ...token,
+      address: protocolInfo.withdrawApprove.tokenAddress,
+      isNative: false,
+    };
+  }, [isNativeProvider, protocolInfo?.withdrawApprove?.tokenAddress, token]);
 
   const { result: initialAllowanceResult } = usePromiseResult(
     async () => {
       if (
-        !isPendleProvider ||
+        !(isPendleProvider || isNativeProvider) ||
         !approveSpenderAddress ||
         !accountId ||
         !networkId ||
-        token?.isNative
+        withdrawApproveToken?.isNative
       ) {
         return undefined;
       }
@@ -144,32 +166,44 @@ export const WithdrawSection = ({
             approveType: EApproveType.Legacy,
             approveSpenderAddress,
           }),
-          tokenAddress: token?.address || '',
+          tokenAddress: withdrawApproveToken?.address || '',
         });
       return { allowanceParsed };
     },
     [
       isPendleProvider,
+      isNativeProvider,
       approveSpenderAddress,
       accountId,
       networkId,
-      token?.isNative,
-      token?.address,
+      withdrawApproveToken?.isNative,
+      withdrawApproveToken?.address,
     ],
     { watchLoading: true },
   );
 
   const approveTarget = useMemo(() => {
-    if (!isPendleProvider || !approveSpenderAddress || !token) {
+    if (
+      !(isPendleProvider || isNativeProvider) ||
+      !approveSpenderAddress ||
+      !withdrawApproveToken
+    ) {
       return undefined;
     }
     return {
       accountId,
       networkId,
       spenderAddress: approveSpenderAddress,
-      token,
+      token: withdrawApproveToken,
     };
-  }, [isPendleProvider, approveSpenderAddress, accountId, networkId, token]);
+  }, [
+    isPendleProvider,
+    isNativeProvider,
+    approveSpenderAddress,
+    accountId,
+    networkId,
+    withdrawApproveToken,
+  ]);
   const [selectedAsset, setSelectedAsset] = useState<IBorrowAsset | null>(null);
   const [selectedReceiveAsset, setSelectedReceiveAsset] = useState<
     IEarnTokenItem | undefined
@@ -482,6 +516,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      withdrawType,
     }: {
       amount: string;
       withdrawAll: boolean;
@@ -490,6 +525,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      withdrawType?: IEarnWithdrawType;
     }) => {
       if (!hasRequiredData) return;
 
@@ -502,7 +538,7 @@ export const WithdrawSection = ({
       await handleWithdraw({
         amount,
         // identity,
-        protocolVault: earnUtils.isVaultBasedProvider({
+        protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
         })
           ? vault
@@ -517,6 +553,7 @@ export const WithdrawSection = ({
         effectiveApy,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
+        withdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
         signal: abortController.signal,
@@ -911,6 +948,8 @@ export const WithdrawSection = ({
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
           onConfirm={onConfirm}
           inputTitle={
             isPendleProvider
@@ -938,6 +977,9 @@ export const WithdrawSection = ({
           onQuoteRefreshingChange={onQuoteRefreshingChange}
           approveTarget={approveTarget}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
+          receiptTokenRate={
+            protocolInfo?.receiptTokenRate ?? protocolInfo?.morphoTokenRate
+          }
           pendleSlippage={pendleSlippage}
         />
       )}

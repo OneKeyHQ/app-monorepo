@@ -24,6 +24,7 @@ import { Markets } from '../components/Markets';
 import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
+import { BorrowTestIDs } from '../testIDs';
 
 import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
 
@@ -199,6 +200,7 @@ const BorrowHomeContent = memo(
             // on tab switch, which would clamp scroll position to 0.
             <YStack flex={1} gap="$5">
               <SegmentControl
+                testID={BorrowTestIDs.segmentControl}
                 value={activeTab}
                 options={tabOptions}
                 onChange={(value) => {

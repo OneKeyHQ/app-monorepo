@@ -48,6 +48,8 @@ const uniqByFn = (i: IMarketWatchListItemV2) =>
         }) || ''
       }`;
 
+const CHART_PRICE_FRESHNESS_MS = 10_000;
+
 class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   // Token Detail Actions
   setTokenDetail = contextAtomMethod(
@@ -93,6 +95,78 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(tokenDetailWebsocketAtom(), undefined);
     set(perpsInfoAtom(), undefined);
   });
+
+  applyChartPriceUpdate = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokenAddress?: string;
+        networkId?: string;
+        price: string;
+        lastUpdated?: number;
+      },
+    ) => {
+      const tokenDetail = get(tokenDetailAtom());
+      if (!tokenDetail) {
+        return;
+      }
+
+      const numericPrice = Number(payload.price);
+      if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
+        return;
+      }
+
+      if (
+        payload.networkId &&
+        tokenDetail.networkId &&
+        tokenDetail.networkId !== payload.networkId
+      ) {
+        return;
+      }
+
+      const isNative = get(isNativeAtom()) || tokenDetail.isNative;
+      if (!payload.tokenAddress && !isNative) {
+        return;
+      }
+
+      if (
+        payload.tokenAddress &&
+        !equalTokenNoCaseSensitive({
+          token1: {
+            networkId: payload.networkId || tokenDetail.networkId || '',
+            contractAddress: payload.tokenAddress,
+          },
+          token2: {
+            networkId: tokenDetail.networkId || payload.networkId || '',
+            contractAddress: tokenDetail.address || '',
+          },
+        })
+      ) {
+        return;
+      }
+
+      const chartPriceUpdatedAt = Date.now();
+      const lastUpdated =
+        payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
+
+      if (tokenDetail.price === payload.price) {
+        set(tokenDetailAtom(), {
+          ...tokenDetail,
+          lastUpdated,
+          chartPriceUpdatedAt,
+        });
+        return;
+      }
+
+      set(tokenDetailAtom(), {
+        ...tokenDetail,
+        price: payload.price,
+        lastUpdated,
+        chartPriceUpdatedAt,
+      });
+    },
+  );
 
   changeActiveToken = contextAtomMethod(
     async (
@@ -220,8 +294,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         const websocketConfig = responseData.data.websocket;
         const perpsInfo = responseData.data.perpsInfo;
 
-        // Always preserve K-line updated price if it exists, fallback to API price
-        // BUT only if we're updating the SAME token (check address and networkId)
+        // Preserve chart-updated price only while it is fresh.
         const currentTokenDetail = get(tokenDetailAtom());
         const isSameToken =
           currentTokenDetail &&
@@ -235,13 +308,19 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
               contractAddress: currentTokenDetail.address || '',
             },
           });
-        const hasKLinePrice = isSameToken && currentTokenDetail?.lastUpdated;
+        const chartPriceUpdatedAt = currentTokenDetail?.chartPriceUpdatedAt;
+        const hasFreshKLinePrice =
+          isSameToken &&
+          typeof chartPriceUpdatedAt === 'number' &&
+          Number.isFinite(chartPriceUpdatedAt) &&
+          Date.now() - chartPriceUpdatedAt < CHART_PRICE_FRESHNESS_MS;
 
-        const finalTokenData = hasKLinePrice
+        const finalTokenData = hasFreshKLinePrice
           ? {
               ...tokenData,
-              price: currentTokenDetail.price, // Always use K-line price
+              price: currentTokenDetail.price,
               lastUpdated: currentTokenDetail.lastUpdated,
+              chartPriceUpdatedAt,
             }
           : tokenData;
 
@@ -599,6 +678,7 @@ export function useTokenDetailActions() {
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
   const changeActiveToken = actions.changeActiveToken.use();
+  const applyChartPriceUpdate = actions.applyChartPriceUpdate.use();
 
   return useRef({
     setTokenDetail,
@@ -611,6 +691,7 @@ export function useTokenDetailActions() {
     fetchTokenDetail,
     clearTokenDetail,
     changeActiveToken,
+    applyChartPriceUpdate,
   });
 }
 

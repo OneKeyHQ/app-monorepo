@@ -24,6 +24,7 @@ export function GiftAction({
   const intl = useIntl();
   return (
     <HeaderIconButton
+      testID="header-gift-action"
       title={intl.formatMessage({ id: ETranslations.referral_title })}
       icon="GiftOutline"
       size={size}

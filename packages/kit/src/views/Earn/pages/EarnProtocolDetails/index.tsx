@@ -51,6 +51,7 @@ import type {
   IEarnAlert,
   IEarnText,
   IEarnTokenInfo,
+  IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
 
@@ -63,6 +64,7 @@ import {
 import { EarnActionIcon } from '../../../Staking/components/ProtocolDetails/EarnActionIcon';
 import { EarnAlert } from '../../../Staking/components/ProtocolDetails/EarnAlert';
 import { EarnIcon } from '../../../Staking/components/ProtocolDetails/EarnIcon';
+import { EarnPlatformBonusSection } from '../../../Staking/components/ProtocolDetails/EarnPlatformBonusSection';
 import { EarnText } from '../../../Staking/components/ProtocolDetails/EarnText';
 import { GridItem } from '../../../Staking/components/ProtocolDetails/GridItemV2';
 import { PendleRulesSection } from '../../../Staking/components/ProtocolDetails/PendleRulesSection';
@@ -188,6 +190,7 @@ const ProtocolHeader = ({
         />
         {onShare ? (
           <IconButton
+            testID="earn-icon-btn"
             icon="ShareOutline"
             size="small"
             variant="tertiary"
@@ -481,6 +484,7 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
 const DetailsPartComponent = ({
   detailInfo,
   tokenInfo,
+  protocolInfo,
   isLoading,
   keepSkeletonVisible,
   onRefresh,
@@ -492,6 +496,7 @@ const DetailsPartComponent = ({
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
+  protocolInfo?: IProtocolInfo;
   isLoading: boolean;
   keepSkeletonVisible: boolean;
   onRefresh: () => void;
@@ -532,6 +537,12 @@ const DetailsPartComponent = ({
                 vault={vault}
               />
             </YStack>
+            <EarnPlatformBonusSection
+              appearance="alert"
+              platformBonus={detailInfo.platformBonus}
+              protocolInfo={protocolInfo}
+              tokenInfo={tokenInfo}
+            />
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
@@ -579,6 +590,7 @@ const ManagePositionPart = ({
   tokenImageUri,
   accountId,
   indexedAccountId,
+  suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
 }: {
@@ -589,6 +601,7 @@ const ManagePositionPart = ({
   tokenImageUri?: string;
   accountId: string;
   indexedAccountId?: string;
+  suppressPlatformBonus?: boolean;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
 }) => {
@@ -604,6 +617,7 @@ const ManagePositionPart = ({
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           fallbackTokenImageUri={tokenImageUri}
+          suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
         />
@@ -681,15 +695,21 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     selectedAccount.indexedAccountId || indexedAccount?.id;
   const { networkId, symbol, provider, vault } = resolvedParams;
 
-  const { detailInfo, tokenInfo, isLoading, refreshData, refreshAccount } =
-    useProtocolDetailData({
-      accountId,
-      networkId,
-      indexedAccountId,
-      symbol,
-      provider,
-      vault,
-    });
+  const {
+    detailInfo,
+    tokenInfo,
+    protocolInfo,
+    isLoading,
+    refreshData,
+    refreshAccount,
+  } = useProtocolDetailData({
+    accountId,
+    networkId,
+    indexedAccountId,
+    symbol,
+    provider,
+    vault,
+  });
 
   useUnsupportedProtocol({
     detailInfo,
@@ -736,13 +756,14 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
 
   const handleOpenManageModal = useCallback(
     (tab?: 'deposit') => {
+      const protocolVault = detailInfo?.protocol?.vault ?? vault;
       appNavigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.ManagePosition,
         params: {
           networkId,
           symbol,
           provider,
-          vault,
+          vault: protocolVault,
           tab,
           tokenImageUri: tokenInfo?.token?.logoURI,
         },
@@ -750,6 +771,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     },
     [
       appNavigation,
+      detailInfo?.protocol?.vault,
       networkId,
       symbol,
       provider,
@@ -781,6 +803,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     if (gtMd || !shareUrl) return null;
     return (
       <IconButton
+        testID="earn-header-right-icon-btn"
         icon="ShareOutline"
         variant="tertiary"
         onPress={handleShare}
@@ -843,6 +866,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           <DetailsPart
             detailInfo={detailInfo}
             tokenInfo={tokenInfo}
+            protocolInfo={protocolInfo}
             isLoading={isLoading ?? false}
             keepSkeletonVisible={keepSkeletonVisible}
             onRefresh={refreshData}
@@ -863,6 +887,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               tokenImageUri={tokenInfo?.token?.logoURI}
               accountId={accountId}
               indexedAccountId={indexedAccountId}
+              suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleStakeWithdrawSuccess}
             />

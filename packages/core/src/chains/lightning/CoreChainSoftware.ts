@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { mnemonicToSeedSync } from 'bip39';
 import bitcoinMessage from 'bitcoinjs-message';
 import stringify from 'fast-json-stable-stringify';
 
@@ -15,7 +14,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ILNURLAuthServiceResponse } from '@onekeyhq/shared/types/lightning';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { mnemonicFromEntropy } from '../../secret';
+import { mnemonicFromEntropy, mnemonicToSeedSync } from '../../secret';
 import {
   getAddressFromXpub,
   getBitcoinBip32,
@@ -207,6 +206,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       password,
       indexes,
       networkInfo: { networkChainCode },
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     } = query;
 
     const isTestnet = networkChainCode === IMPL_LIGHTNING_TESTNET;
@@ -216,6 +218,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       hdCredential,
       password,
       isTestnet,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
     });
 
     return {

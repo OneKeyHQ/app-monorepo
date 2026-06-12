@@ -25,6 +25,7 @@ import { usePrimeTransferExit } from './components/hooks/usePrimeTransferExit';
 import { PrimeTransferDirection } from './components/PrimeTransferDirection';
 import { PrimeTransferExitPrevent } from './components/PrimeTransferExitPrevent';
 import { PrimeTransferHome } from './components/PrimeTransferHome';
+import { registerPrimeTransferImportTraceDebugGlobal } from './components/PrimeTransferImportProcessingDialog';
 
 export default function PagePrimeTransfer() {
   const [primeTransferAtom] = usePrimeTransferAtom();
@@ -41,6 +42,13 @@ export default function PagePrimeTransfer() {
   const initialCode = routeParamsCode || '';
 
   const [remotePairingCode, setRemotePairingCode] = useState(initialCode);
+
+  useEffect(() => {
+    // Chrome/AI agents can inspect the transfer-only import trace while this
+    // page is open:
+    // await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
+    registerPrimeTransferImportTraceDebugGlobal();
+  }, []);
 
   const isInitialCodeSet = useRef(false);
   useEffect(() => {
@@ -96,7 +104,16 @@ export default function PagePrimeTransfer() {
       // Disconnect WebSocket
       void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
     };
-  }, [result?.endpoint, result?.serverConfig?.serverType, isBotWalletExport]);
+    // websocketEndpointUpdatedAt is intentionally part of the deps so that
+    // user-triggered retries (which bump the timestamp without changing the
+    // endpoint URL) actually tear down the old socket and call initWebSocket
+    // again — same-endpoint retry would otherwise be a no-op.
+  }, [
+    result?.endpoint,
+    result?.serverConfig?.serverType,
+    isBotWalletExport,
+    primeTransferAtom.websocketEndpointUpdatedAt,
+  ]);
 
   useEffect(() => {
     if (platformEnv.isExtension) {
@@ -176,6 +193,7 @@ export default function PagePrimeTransfer() {
       return (
         <>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={() => {
               Dialog.debugMessage({
                 debugMessage: {
@@ -190,6 +208,7 @@ export default function PagePrimeTransfer() {
             Show Route Params
           </Button>
           <Button
+            testID="prime-debug-buttons-btn"
             onPress={async () => {
               const data =
                 await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
@@ -201,6 +220,7 @@ export default function PagePrimeTransfer() {
             Get transfer data
           </Button>
           <Button
+            testID="prime-data-btn"
             onPress={async () => {
               const data =
                 await backgroundApiProxy.servicePrimeTransfer.buildTransferData();
@@ -214,6 +234,7 @@ export default function PagePrimeTransfer() {
             Navigate to preview
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={() => {
               disableExitPrevention();
             }}
@@ -221,6 +242,7 @@ export default function PagePrimeTransfer() {
             Change shouldPreventExit to false
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={() => {
               void backgroundApiProxy.servicePrimeTransfer.disconnectWebSocket();
             }}
@@ -228,6 +250,7 @@ export default function PagePrimeTransfer() {
             Disconnect WebSocket
           </Button>
           <Button
+            testID="prime-param-btn"
             onPress={async () => {
               const endpoint2 =
                 await backgroundApiProxy.servicePrimeTransfer.getWebSocketEndpoint();

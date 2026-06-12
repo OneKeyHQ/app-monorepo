@@ -49,6 +49,12 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
+function reloadFromStorage(): void {
+  flush();
+  _cache = undefined;
+  loadStore();
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
   try {
@@ -116,6 +122,25 @@ function remove(key: string): void {
   }
 }
 
+// Drops every entry whose key starts with `prefix`. Used by bg services
+// to invalidate a whole namespace (e.g. all walletList:* slots) on a
+// mutation whose payload doesn't identify which specific slot is dirty.
+function removeByPrefix(prefix: string): void {
+  if (!prefix) return;
+  const store = loadStore();
+  let touched = false;
+  for (const key of Object.keys(store)) {
+    if (key.startsWith(prefix)) {
+      delete store[key];
+      touched = true;
+    }
+  }
+  if (touched) {
+    _dirty = true;
+    scheduleFlush();
+  }
+}
+
 function clearAll(): void {
   _cache = {};
   _dirty = true;
@@ -130,6 +155,27 @@ function flushNow(): void {
   }
   flush();
 }
+
+// --- Centralized SWR key namespaces ---
+// Leading segment of every key produced by the matching swrKeys.X(...).
+// Pair with `swrCacheUtils.removeByPrefix(prefixOf(namespace))` to
+// invalidate a whole namespace at once.
+const NS = {
+  allNetworksCompatible: 'allNetCompat',
+  unifiedNetworkSelectorMeta: 'unsMeta',
+  unifiedNetworkSelectorValues: 'unsValues',
+  networkContentData: 'netContent',
+  recentNetworks: 'recentNets',
+  walletListSideBar: 'walletList',
+  accountSelectorList: 'accSelList',
+  discoveryHomePageData: 'disHomePage',
+  discoveryHomeBookmarks: 'disHomeBookmarks',
+  perpsOrderBookTickOptions: 'perpsOrderBookTicks',
+  perpsL2BookSnapshot: 'perpsL2Book',
+} as const;
+export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
+export const swrCacheNamespaces = NS;
+export const prefixOf = (namespace: ISwrCacheNamespace) => `${namespace}:`;
 
 // --- Centralized SWR key builders ---
 export const swrKeys = {
@@ -149,7 +195,7 @@ export const swrKeys = {
     enabledNetworkIdsKey?: string;
   }) =>
     [
-      'allNetCompat',
+      NS.allNetworksCompatible,
       'v1',
       walletId,
       networkId ?? '',
@@ -168,7 +214,30 @@ export const swrKeys = {
   }: {
     walletId: string;
     accountId?: string;
-  }) => ['unsMeta', 'v1', walletId, accountId ?? ''].join(':'),
+  }) =>
+    [NS.unifiedNetworkSelectorMeta, 'v1', walletId, accountId ?? ''].join(':'),
+  // UnifiedNetworkSelector modal's balances/DeFi bundle: formatted per-network
+  // USD values + currency + DeFi overview. SWR-cached (cold-start MMKV) so the
+  // "networks with assets" section is present on the first frame, eliminating
+  // the layout jump. Currency is deliberately NOT in the key — it only labels
+  // the same primitive values. Each account keeps its own snapshot via
+  // walletId + accountId + indexedAccountId.
+  unifiedNetworkSelectorValues: ({
+    walletId,
+    accountId,
+    indexedAccountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+  }) =>
+    [
+      NS.unifiedNetworkSelectorValues,
+      'v1',
+      walletId,
+      accountId ?? '',
+      indexedAccountId ?? '',
+    ].join(':'),
   // NetworkContent (the "Network" tab inside UnifiedNetworkSelector) bundles
   // sorted chainSelectorNetworks + account balances + DeFi overview into one
   // result object. Balances/DeFi are included despite being volatile because
@@ -194,7 +263,7 @@ export const swrKeys = {
     // the post-revalidate layout for accounts whose pinned segment is
     // stable across sessions. Old v2 (empty-freq) entries are orphaned.
     [
-      'netContent',
+      NS.networkContentData,
       'v3',
       walletId ?? '',
       accountId ?? '',
@@ -226,7 +295,7 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [
-      'recentNets',
+      NS.recentNetworks,
       'v2',
       scope,
       showAllNetwork ? '1' : '0',
@@ -234,14 +303,99 @@ export const swrKeys = {
       accountId ?? '',
     ].join(':'),
   defiEnabled: (networkId: string) => `defiEnabled:${networkId}`,
+  discoveryHomePageData: () => [NS.discoveryHomePageData, 'v1'].join(':'),
+  discoveryHomeBookmarks: () => [NS.discoveryHomeBookmarks, 'v1'].join(':'),
+  // Account selector left sidebar wallet list. One slot per
+  // `hideNonBackedUpWallet` variant — every selector instance (main /
+  // send-target / dapp-connect) shares the same wallets data, so we
+  // intentionally keep this single-slot. Other inputs (HardwareFeaturesUpdate
+  // ts, passphraseProtectionChangedAt) only drive a re-fetch and must stay
+  // out of the key, otherwise prevSwrKey reset (see usePromiseResult.ts)
+  // would blank the sidebar on every device/passphrase event.
+  walletListSideBar: ({
+    hideNonBackedUpWallet,
+  }: {
+    hideNonBackedUpWallet?: boolean;
+  }) =>
+    [NS.walletListSideBar, 'v1', hideNonBackedUpWallet ? '1' : '0'].join(':'),
+  // Account selector accounts list: caches the section data that drives the
+  // wallet/account picker modal so subsequent opens render the previous
+  // structure synchronously instead of flashing the empty state. Account
+  // values are loaded separately (see useAccountSelectorValuesLoader) and
+  // intentionally NOT in this cache.
+  accountSelectorList: ({
+    focusedWallet,
+    deriveType,
+    linkedNetworkId,
+    selectedNetworkId,
+    keepAllOtherAccounts,
+  }: {
+    focusedWallet: string;
+    deriveType: string;
+    linkedNetworkId?: string;
+    selectedNetworkId?: string;
+    keepAllOtherAccounts?: boolean;
+  }) =>
+    [
+      NS.accountSelectorList,
+      'v1',
+      focusedWallet,
+      deriveType,
+      linkedNetworkId ?? '',
+      selectedNetworkId ?? '',
+      keepAllOtherAccounts ? '1' : '0',
+    ].join(':'),
+  perpsOrderBookTickOptions: () =>
+    [NS.perpsOrderBookTickOptions, 'v1'].join(':'),
+  perpsL2BookSnapshot: ({
+    coin,
+    nSigFigs,
+    mantissa,
+  }: {
+    coin: string;
+    nSigFigs?: number | null;
+    mantissa?: number | null;
+  }) =>
+    [NS.perpsL2BookSnapshot, 'v1', coin, nSigFigs ?? '', mantissa ?? ''].join(
+      ':',
+    ),
+  perpsL2BookSnapshotLatest: ({ coin }: { coin: string }) =>
+    [NS.perpsL2BookSnapshot, 'v1', coin, 'latest'].join(':'),
 };
+
+function uniqueCacheKeys(keys: string[]) {
+  return Array.from(new Set(keys));
+}
+
+export function getPerpsL2BookSnapshotCacheKeys({
+  coin,
+  nSigFigs,
+  mantissa,
+}: {
+  coin: string;
+  nSigFigs?: number | null;
+  mantissa?: number | null;
+}) {
+  return uniqueCacheKeys([
+    swrKeys.perpsL2BookSnapshot({
+      coin,
+      nSigFigs,
+      mantissa,
+    }),
+    swrKeys.perpsL2BookSnapshotLatest({
+      coin,
+    }),
+  ]);
+}
 
 export const swrCacheUtils = {
   get,
   getWithTimestamp,
   set,
+  removeByPrefix,
   remove,
   isFresh,
   clearAll,
   flushNow,
+  reloadFromStorage,
 };

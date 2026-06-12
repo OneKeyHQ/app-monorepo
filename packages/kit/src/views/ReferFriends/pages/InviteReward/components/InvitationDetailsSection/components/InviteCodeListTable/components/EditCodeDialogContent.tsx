@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { DialogContext } from '@onekeyhq/components/src/composite/Dialog/context';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReferFriendsTestIDs } from '@onekeyhq/kit/src/views/ReferFriends/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEditInviteCodeParams } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -156,6 +157,7 @@ export function EditCodeDialogContent({
           })}
         </SizableText>
         <Input
+          testID={ReferFriendsTestIDs.editCodeDialogCodeInput}
           placeholder={intl.formatMessage({
             id: ETranslations.referral_referral_code_placeholder,
           })}
@@ -186,6 +188,7 @@ export function EditCodeDialogContent({
           })}
         </SizableText>
         <Input
+          testID={ReferFriendsTestIDs.editCodeDialogNoteInput}
           placeholder={intl.formatMessage({
             id: ETranslations.referral_code_created_placeholder,
           })}
@@ -198,6 +201,7 @@ export function EditCodeDialogContent({
 
       <XStack gap="$2.5">
         <Button
+          testID={ReferFriendsTestIDs.editCodeDialogCancelBtn}
           flex={1}
           size="medium"
           onPress={handleCancel}
@@ -206,6 +210,7 @@ export function EditCodeDialogContent({
           {intl.formatMessage({ id: ETranslations.global_cancel })}
         </Button>
         <Button
+          testID={ReferFriendsTestIDs.editCodeDialogSaveBtn}
           flex={1}
           size="medium"
           variant="primary"

@@ -10,6 +10,8 @@ import {
 } from '@onekeyhq/components';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 
+import { DAppConnectionTestIDs } from '../../testIDs';
+
 import { DAppRiskyAlert } from './DAppRiskyAlert';
 import { DAppSignMessageAlert } from './DAppSignMessagAlert';
 import { DAppSiteMark } from './DAppSiteMark';
@@ -63,6 +65,7 @@ function DAppRequestLayout({
 
   return (
     <Stack
+      testID={DAppConnectionTestIDs.RequestLayout}
       $md={{
         mt: fullScreen ? top : undefined,
       }}
@@ -79,7 +82,11 @@ function DAppRequestLayout({
             favicon={favicon}
           />
           <YStack gap="$1">
-            <SizableText color="$text" size="$heading3xl">
+            <SizableText
+              testID={DAppConnectionTestIDs.RequestTitle}
+              color="$text"
+              size="$heading3xl"
+            >
               {title}
             </SizableText>
             {renderSubtitle()}

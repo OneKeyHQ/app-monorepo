@@ -9,7 +9,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useHyperliquidActions,
+  usePerpsTwapSliceFillsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
   useAppIsLockedAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsLastUsedLeverageAtom,
   useSpotPairDisplayMapAtom,
@@ -21,7 +26,10 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  ITwapSliceFill,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   usePerpTradesHistory,
@@ -34,6 +42,49 @@ import { getPerpFillDirectionType } from '../utils';
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 const TRADES_HISTORY_PAGE_SIZE = 20;
+
+type IFillWithOid = IFill & {
+  oid?: number;
+};
+
+type IFillWithTwapId = IFill & {
+  twapId?: number;
+};
+
+function isTwapTradeFill(fill: IFill): boolean {
+  return typeof (fill as IFillWithTwapId).twapId === 'number';
+}
+
+function getFillKey(fill: IFill): string {
+  const fillWithOid = fill as IFillWithOid;
+  if (typeof fill.tid === 'number') {
+    return `tid:${fill.tid}`;
+  }
+  return `${fill.hash}-${fillWithOid.oid ?? ''}-${fill.time}-${fill.coin}-${
+    fill.side
+  }-${fill.px}-${fill.sz}`;
+}
+
+function filterTwapSliceFillsFromTrades({
+  trades,
+  twapSliceFills,
+}: {
+  trades: IFill[];
+  twapSliceFills: ITwapSliceFill[];
+}): IFill[] {
+  if (twapSliceFills.length === 0) {
+    return trades.filter((fill) => !isTwapTradeFill(fill));
+  }
+
+  const twapFillKeys = new Set<string>();
+  twapSliceFills.forEach((record) => {
+    twapFillKeys.add(getFillKey(record.fill));
+  });
+
+  return trades.filter(
+    (fill) => !isTwapTradeFill(fill) && !twapFillKeys.has(getFillKey(fill)),
+  );
+}
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
@@ -53,6 +104,11 @@ function PerpTradesHistoryList({
     refreshTradesHistory,
   } = usePerpTradesHistory();
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
+  const actions = useHyperliquidActions();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [
+    { accountAddress: twapSliceFillsAccountAddress, fills: rawTwapSliceFills },
+  ] = usePerpsTwapSliceFillsAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayMapAtom();
@@ -66,6 +122,30 @@ function PerpTradesHistoryList({
         setBuilderFeeRate(fee);
       });
   }, []);
+
+  useEffect(() => {
+    void actions.current.loadTwapData();
+  }, [actions, currentUser?.accountAddress]);
+
+  const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
+  const twapSliceFills = useMemo(() => {
+    if (
+      !currentAccountAddress ||
+      twapSliceFillsAccountAddress?.toLowerCase() !== currentAccountAddress
+    ) {
+      return [];
+    }
+    return rawTwapSliceFills;
+  }, [currentAccountAddress, rawTwapSliceFills, twapSliceFillsAccountAddress]);
+
+  const nonTwapTrades = useMemo(
+    () =>
+      filterTwapSliceFillsFromTrades({
+        trades,
+        twapSliceFills,
+      }),
+    [trades, twapSliceFills],
+  );
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
@@ -313,6 +393,7 @@ function PerpTradesHistoryList({
     <CommonTableListView
       onPullToRefresh={async () => {
         await refreshTradesHistory();
+        await actions.current.loadTwapData();
       }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
@@ -325,7 +406,7 @@ function PerpTradesHistoryList({
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
-      data={trades}
+      data={nonTwapTrades}
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
@@ -340,7 +421,7 @@ function PerpTradesHistoryList({
       paginationToBottom={isMobile}
       listLoading={isLoading}
       onViewAll={
-        !isMobile && trades.length > TRADES_HISTORY_PAGE_SIZE
+        !isMobile && nonTwapTrades.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
           : undefined
       }

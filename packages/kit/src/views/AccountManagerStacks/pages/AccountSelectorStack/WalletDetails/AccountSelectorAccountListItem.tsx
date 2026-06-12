@@ -30,7 +30,7 @@ import {
   useAccountSelectorValuesMapAtom,
   useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -38,6 +38,7 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
 import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -45,6 +46,7 @@ import { AccountValueWithSpotlight } from './AccountValue';
 function PlusButton({ onPress, loading }: IButtonProps) {
   return (
     <IconButton
+      testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
@@ -94,13 +96,7 @@ export function AccountSelectorAccountListItem({
   mergeDeriveAssetsEnabled: boolean | undefined;
   hideAddress?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: IAccountDeriveTypes;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 }) {
   const actions = useAccountSelectorActions();
   const {
@@ -303,7 +299,7 @@ export function AccountSelectorAccountListItem({
       return null;
 
     return (
-      <>
+      <Stack flexShrink={1}>
         <AccountValueWithSpotlight
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
@@ -319,7 +315,7 @@ export function AccountSelectorAccountListItem({
           linkedNetworkId={avatarNetworkId ?? network?.id}
           mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
         />
-      </>
+      </Stack>
     );
   }, [
     linkNetwork,
@@ -365,7 +361,7 @@ export function AccountSelectorAccountListItem({
   return (
     <Stack>
       <ListItem
-        testID={`account-item-index-${index}`}
+        testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar

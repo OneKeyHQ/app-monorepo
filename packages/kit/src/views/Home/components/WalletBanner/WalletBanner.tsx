@@ -131,11 +131,13 @@ function BannerItem({
 
       {item.closeable ? (
         <IconButton
+          testID="home-icon-btn"
           position="absolute"
           top="$2"
           right="$2"
           size="small"
           variant="tertiary"
+          hitSlop={{ top: 12, left: 12, right: 12, bottom: 12 }}
           onPress={(event: GestureResponderEvent) => {
             event.stopPropagation();
             onDismiss(item);
@@ -210,6 +212,7 @@ function NativeBannerScroller({
       Gesture.Pan()
         .activeOffsetX([-10, 10])
         .failOffsetY([-10, 10])
+        .cancelsTouchesInView(false)
         .onStart(() => {
           'worklet';
 
@@ -406,6 +409,7 @@ function WebBannerScroller({
           }}
         >
           <IconButton
+            testID="home-icon-btn"
             size="small"
             icon="ChevronLeftOutline"
             bg="$gray3"
@@ -441,6 +445,7 @@ function WebBannerScroller({
           }}
         >
           <IconButton
+            testID="home-icon-btn"
             size="small"
             icon="ChevronRightOutline"
             onPress={handleScrollRight}
@@ -485,6 +490,7 @@ function PerpsReferralDialogContent({
       </SizableText>
 
       <Checkbox
+        testID="home-handle-snooze-change-checkbox"
         label={intl.formatMessage({
           id: ETranslations.perps__snooze_remind_later__action,
         })}
@@ -503,7 +509,7 @@ function PerpsReferralDialogContent({
   );
 }
 
-function WalletBanner() {
+function WalletBanner({ hidden = false }: { hidden?: boolean } = {}) {
   const {
     activeAccount: { account, network, wallet, vaultSettings, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -809,6 +815,10 @@ function WalletBanner() {
     },
     [handleBannerOnPress, handleReferralBannerPress, isBotWalletReceiveBlocked],
   );
+
+  if (hidden) {
+    return null;
+  }
 
   if (banners.length === 0 && !tronCard) {
     return null;

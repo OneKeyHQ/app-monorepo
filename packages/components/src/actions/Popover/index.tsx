@@ -446,6 +446,8 @@ function RawPopover({
       {...props}
     >
       <TMPopover.Trigger asChild>
+        {/* testID is carried by renderTrigger from the caller. */}
+        {/* oxlint-disable-next-line onekey/require-testid */}
         <Trigger ref={triggerRef} onPress={openPopover}>
           {renderTrigger}
         </Trigger>
@@ -638,7 +640,9 @@ function BasicPopover({
     return (
       <>
         {renderTrigger ? (
-          <Trigger onPress={openPopover}>{renderTrigger}</Trigger>
+          <Trigger testID="popover-trigger" onPress={openPopover}>
+            {renderTrigger}
+          </Trigger>
         ) : null}
         {isOpen || keepChildrenMounted ? (
           <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
@@ -683,6 +687,8 @@ function Tooltip({
 }) {
   const triggerMemo = useMemo(
     () => (
+      // testID flows through {...triggerProps} so caller controls it.
+      // oxlint-disable-next-line onekey/require-testid
       <IconButton
         iconColor="$iconSubdued"
         iconSize={iconSize}

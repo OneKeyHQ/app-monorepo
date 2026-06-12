@@ -290,7 +290,7 @@ export function ApproveBaseStake({
         symbol: token.symbol,
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        protocolVault: earnUtils.isVaultBasedProvider({ providerName })
+        protocolVault: earnUtils.shouldSendEarnProtocolVault({ providerName })
           ? approveTarget.spenderAddress
           : undefined,
         accountAddress: account?.address,
@@ -957,6 +957,7 @@ export function ApproveBaseStake({
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="staking-icon-btn"
                     icon="CoinsAddOutline"
                     size="small"
                     variant="tertiary"

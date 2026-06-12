@@ -18,6 +18,7 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 
 import SwapInputContainer from './SwapInputContainer';
 
@@ -76,6 +77,7 @@ const SwapQuoteInput = ({
         onBalanceMaxPress={onBalanceMaxPress}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
+        balanceLoading={swapTokenDetailLoading.from}
       />
       <Stack
         borderRadius="$full"
@@ -88,6 +90,7 @@ const SwapQuoteInput = ({
         }}
       >
         <IconButton
+          testID={SwapTestIDs.switchTokensButton}
           alignSelf="center"
           bg="$bgApp"
           variant="tertiary"
@@ -121,6 +124,7 @@ const SwapQuoteInput = ({
         amountValue={toInputAmount.value}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
+        balanceLoading={swapTokenDetailLoading.to}
       />
     </YStack>
   );

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ReactNativeBundleUpdate } from '@onekeyfe/react-native-bundle-update';
-import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
 
 import platformEnv from '../../platformEnv';
+import { appRestart } from '../appRestart';
+import { EAppRestartMode } from '../appRestart/types';
 
 import type {
   IAppUpdate,
@@ -33,6 +33,7 @@ const isAppUpdateAvailable =
 // between the value export and the type re-export from the package.
 interface IReactNativeAppUpdateNative {
   clearCache(): Promise<void>;
+  clearApkCache(): Promise<void>;
   downloadAPK(params: {
     downloadUrl: string;
     notificationTitle: string;
@@ -86,6 +87,16 @@ const clearPackage: IClearPackage = async () => {
     return;
   }
   await getReactNativeAppUpdate().clearCache();
+};
+
+// Android: wipe the standalone APK cache (cacheDir/apks). iOS exposes a
+// native no-op stub. Channels without the AppUpdate native module
+// (Google Play / Huawei) resolve immediately.
+const clearApkCache = async (): Promise<void> => {
+  if (!isAppUpdateAvailable) {
+    return;
+  }
+  await getReactNativeAppUpdate().clearApkCache();
 };
 
 const downloadPackage: IDownloadPackage = async ({
@@ -226,6 +237,7 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+  clearApkCache,
 };
 
 export const BundleUpdate: IBundleUpdate = {
@@ -273,16 +285,17 @@ export const BundleUpdate: IBundleUpdate = {
       bundleVersion: toNativeString(params?.bundleVersion),
       signature: toNativeString(params?.signature),
     });
-    // Reset boot_fail_count before planned restart so that the OTA bundle
-    // switch is not misinterpreted as consecutive crash-loops by BootRecovery.
-    try {
-      BootRecovery.markBootSuccess();
-    } catch {
-      /* Silently fail — recovery must not block restart */
-    }
     defaultLogger.app.appUpdate.restartRNApp();
+    // mode=All — OTA install rewrote bundle on disk; both main and bg
+    // runtimes need to come up against the new bundle so moduleId tables
+    // stay consistent. The setTimeout keeps the existing 2.5s grace
+    // window (MMKV / DB fsync, UI affordance) before reload triggers.
+    // BootRecovery.markBootSuccess() is invoked inside appRestart.
     setTimeout(() => {
-      RNRestart.restart();
+      void appRestart({
+        mode: EAppRestartMode.All,
+        reason: 'ota.installBundle',
+      });
     }, 2500);
   },
   clearBundle: () => ReactNativeBundleUpdate.clearBundle(),
@@ -291,17 +304,18 @@ export const BundleUpdate: IBundleUpdate = {
     await ReactNativeBundleUpdate.resetToBuiltInBundle();
   },
   restart: () => {
-    try {
-      BootRecovery.markBootSuccess();
-    } catch {
-      /* Silently fail — recovery must not block restart */
-    }
+    // Generic OTA-driven restart (retry path, dialog-confirmed restart).
+    // Treated as all-mode because callers expect the same semantics as a
+    // freshly-installed bundle. BootRecovery.markBootSuccess() runs inside
+    // appRestart, so no explicit call is needed here.
     setTimeout(() => {
-      RNRestart.restart();
+      void appRestart({ mode: EAppRestartMode.All, reason: 'ota.restart' });
     }, 2500);
   },
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
+  pruneStaleAppVersionBundles: () =>
+    ReactNativeBundleUpdate.pruneStaleAppVersionBundles(),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),
@@ -328,13 +342,14 @@ export const BundleUpdate: IBundleUpdate = {
   switchBundle: async (params) => {
     await ReactNativeBundleUpdate.setCurrentUpdateBundleData(params);
     if (params.appVersion && params.bundleVersion) {
-      try {
-        BootRecovery.markBootSuccess();
-      } catch {
-        /* Silently fail — recovery must not block restart */
-      }
+      // Switching bundles changes what's on disk for both main and bg;
+      // mode=All to avoid moduleId drift after the swap. BootRecovery is
+      // marked inside appRestart, so no explicit call is needed here.
       setTimeout(() => {
-        RNRestart.restart();
+        void appRestart({
+          mode: EAppRestartMode.All,
+          reason: 'ota.switchBundle',
+        });
       }, 2500);
     }
   },

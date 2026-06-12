@@ -135,6 +135,16 @@ export class KeylessScene extends BaseScene {
     return {};
   }
 
+  @LogToLocal({ level: 'error' })
+  public resetKeylessBackendShareV2MigrationFailed() {
+    return {};
+  }
+
+  @LogToLocal({ level: 'error' })
+  public restoreKeylessBackendShareV2MigrationFailed() {
+    return {};
+  }
+
   @LogToLocal({ level: 'info' })
   public restoreKeylessBackendShareRetrieved() {
     return {};

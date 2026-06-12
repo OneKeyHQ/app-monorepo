@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
 export function WalletRenameButton({
@@ -92,6 +94,8 @@ export function WalletRenameButton({
                   contentType: EChangeHistoryContentType.Name,
                 },
                 disabledMaxLengthLabel: true,
+                inputTestID: AccountManagerTestIDs.walletRenameInput,
+                confirmTestID: AccountManagerTestIDs.walletRenameConfirm,
                 onSubmit: async (name) => {
                   if (wallet?.id && name) {
                     if (accountUtils.isBotWallet({ walletId: wallet.id })) {

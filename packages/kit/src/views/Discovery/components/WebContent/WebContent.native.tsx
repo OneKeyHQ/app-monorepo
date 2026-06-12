@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Progress, Stack, useBackHandler } from '@onekeyhq/components';
 import WebView from '@onekeyhq/kit/src/components/WebView';
@@ -64,6 +64,7 @@ function WebContent({
   const [progress, setProgress] = useState(5);
   const [showBlockAccessView, setShowBlockAccessView] = useState(false);
   const [urlValidateState, setUrlValidateState] = useState<EValidateUrlEnum>();
+  const [blockedUrl, setBlockedUrl] = useState<string>();
   const [{ fiatPaySiteWhitelist }] =
     useSettingsFiatPaySiteWhitelistPersistAtom();
   const { onNavigation, gotoSite, validateWebviewSrc } =
@@ -153,6 +154,7 @@ function WebContent({
       }
       setShowBlockAccessView(true);
       setUrlValidateState(validateState);
+      setBlockedUrl(navUrl);
       return false;
     },
     [validateWebviewSrc],
@@ -173,6 +175,18 @@ function WebContent({
       }
       return false;
     }, [canGoBack, id, isCurrent]),
+  );
+
+  // Release the WebView ref when this content unmounts. This fires both on tab
+  // close and on keep-alive LRU eviction, so a stale ref never points at a
+  // torn-down WebView (which pause/back-handler/bridge calls would touch).
+  useEffect(
+    () => () => {
+      if (id !== homeTab.id) {
+        delete webviewRefs[id];
+      }
+    },
+    [id],
   );
 
   const webview = useMemo(
@@ -259,6 +273,7 @@ function WebContent({
     () => (
       <Stack position="absolute" top={0} bottom={0} left={0} right={0}>
         <BlockAccessView
+          url={blockedUrl}
           urlValidateState={urlValidateState}
           onCloseTab={() => {
             closeWebTab({ tabId: id, entry: 'BlockView' });
@@ -273,7 +288,7 @@ function WebContent({
         />
       </Stack>
     ),
-    [id, closeWebTab, setCurrentWebTab, urlValidateState],
+    [blockedUrl, id, closeWebTab, setCurrentWebTab, urlValidateState],
   );
 
   return (

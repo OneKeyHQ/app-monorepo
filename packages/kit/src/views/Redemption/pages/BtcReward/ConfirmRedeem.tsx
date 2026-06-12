@@ -16,6 +16,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EBtcRewardErrorCode } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import type { IBtcRewardCodeInfoParam } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -29,7 +30,6 @@ type IRouteParams = RouteProp<
     BtcRewardConfirm: {
       codeInfo: IBtcRewardCodeInfoParam;
       voucherCode: string;
-      displayTitle: string;
       walletAddress: string;
     };
   },
@@ -40,7 +40,7 @@ function ConfirmRedeemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const { codeInfo, voucherCode, displayTitle, walletAddress } = route.params;
+  const { codeInfo, voucherCode, walletAddress } = route.params;
   const { codeId, rewardUsd } = codeInfo;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +65,11 @@ function ConfirmRedeemPage() {
         });
 
       if (!result.success) {
+        defaultLogger.referral.redemption.btcRewardCommitResult({
+          result: 'failed',
+          errorCode: result.error.code,
+          rewardUsd,
+        });
         defaultLogger.referral.redemption.redeemFailed(
           codeId,
           result.error.message,
@@ -73,6 +78,10 @@ function ConfirmRedeemPage() {
         return;
       }
 
+      defaultLogger.referral.redemption.btcRewardCommitResult({
+        result: 'success',
+        rewardUsd,
+      });
       defaultLogger.referral.redemption.redeemSuccess(codeId);
 
       navigation.dispatch(
@@ -91,6 +100,11 @@ function ConfirmRedeemPage() {
         }),
       );
     } catch {
+      defaultLogger.referral.redemption.btcRewardCommitResult({
+        result: 'failed',
+        errorCode: EBtcRewardErrorCode.Unknown,
+        rewardUsd,
+      });
       setSubmitError(
         intl.formatMessage({
           id: ETranslations.redemption_btc_confirm_error_desc,
@@ -134,11 +148,9 @@ function ConfirmRedeemPage() {
           <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$2.5">
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.redemption_btc_label_product,
-                })}
+                {intl.formatMessage({ id: ETranslations.global_network })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">{displayTitle}</SizableText>
+              <SizableText size="$bodyMdMedium">Base</SizableText>
             </XStack>
 
             <Divider />

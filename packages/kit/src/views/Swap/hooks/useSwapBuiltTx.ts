@@ -123,6 +123,7 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
@@ -141,6 +142,30 @@ const getEthers = createLazySdkLoader(() => import('ethers'));
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+type ISwapSendTxResult = ISignedTxPro & {
+  gasFeeFiatValue?: string;
+  gasFeeInNative?: string;
+};
+
+type IEstimateNetworkFeeResult = {
+  fallbackToSeparateTxConfirm?: boolean;
+};
+
+function canFallbackToSeparateTxConfirm({
+  buildUnsignedParams,
+  approveUnsignedTxArr,
+}: {
+  buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
+  approveUnsignedTxArr?: IUnsignedTxPro[];
+}) {
+  return Boolean(
+    approveUnsignedTxArr?.length &&
+    (buildUnsignedParams.encodedTx ||
+      buildUnsignedParams.transfersInfo?.length),
+  );
+}
+
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
  *
@@ -262,6 +287,42 @@ export function useSwapBuildTx() {
   }
 
   const isModalPage = useIsOverlayPage();
+
+  const buildSeparateApproveAndSwapSteps = useCallback(
+    (quoteResult?: IFetchQuoteResult) =>
+      buildSwapApproveAndSendSteps({
+        quoteResult,
+        texts: {
+          approveAndSwap: intl.formatMessage({
+            id: ETranslations.swap_page_approve_and_swap,
+          }),
+          revokeApprove: intl.formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+            },
+          ),
+          approveTokenWithTarget: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_approve_button,
+            },
+            {
+              token: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+              target: quoteResult?.info.providerName,
+            },
+          ),
+          confirmSwap: intl.formatMessage({
+            id: ETranslations.swap_review_confirm_swap,
+          }),
+          swap: intl.formatMessage({
+            id: ETranslations.global_swap,
+          }),
+        },
+      }),
+    [fromToken?.symbol, intl],
+  );
 
   const syncRecentTokenPairs = useCallback(
     async ({
@@ -428,49 +489,42 @@ export function useSwapBuildTx() {
       if (otherFeeInfo?.length) {
         await Promise.all(
           otherFeeInfo.map(async (item) => {
-            const tokenBalanceInfo =
-              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                networkId: item.token?.networkId,
-                contractAddress: item.token?.contractAddress,
-                accountAddress: fromUserAddress,
-                accountId: fromAccountId,
+            const shouldAddFromAmount = equalTokenNoCaseSensitive({
+              token1: item.token,
+              token2: fromToken,
+            });
+            const tokenAmountBN = new BigNumber(item.amount ?? 0);
+            const fromTokenAmountBN = new BigNumber(
+              selectQuote?.fromAmount ?? 0,
+            );
+            const finalTokenAmount = shouldAddFromAmount
+              ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
+              : tokenAmountBN.toFixed();
+            const checkResult = await checkSwapLatestBalanceSufficient({
+              token: item.token,
+              amount: finalTokenAmount,
+              accountAddress: fromUserAddress,
+              accountId: fromAccountId,
+            });
+            if (!checkResult.isSufficient) {
+              Toast.error({
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_toast_insufficient_balance_title,
+                  },
+                  { token: checkResult.tokenSymbol },
+                ),
+                message: intl.formatMessage(
+                  {
+                    id: ETranslations.swap_page_toast_insufficient_balance_content,
+                  },
+                  {
+                    token: checkResult.tokenSymbol,
+                    number: numberFormat(tokenAmountBN.toFixed(), formatter),
+                  },
+                ),
               });
-            if (tokenBalanceInfo?.length) {
-              const tokenBalanceBN = new BigNumber(
-                tokenBalanceInfo[0].balanceParsed ?? 0,
-              );
-              const shouldAddFromAmount = equalTokenNoCaseSensitive({
-                token1: item.token,
-                token2: fromToken,
-              });
-
-              const tokenAmountBN = new BigNumber(item.amount ?? 0);
-              const fromTokenAmountBN = new BigNumber(
-                selectQuote?.fromAmount ?? 0,
-              );
-              const finalTokenAmount = shouldAddFromAmount
-                ? tokenAmountBN.plus(fromTokenAmountBN).toFixed()
-                : tokenAmountBN.toFixed();
-              if (tokenBalanceBN.lt(finalTokenAmount)) {
-                Toast.error({
-                  title: intl.formatMessage(
-                    {
-                      id: ETranslations.swap_page_toast_insufficient_balance_title,
-                    },
-                    { token: item.token.symbol },
-                  ),
-                  message: intl.formatMessage(
-                    {
-                      id: ETranslations.swap_page_toast_insufficient_balance_content,
-                    },
-                    {
-                      token: item.token.symbol,
-                      number: numberFormat(tokenAmountBN.toFixed(), formatter),
-                    },
-                  ),
-                });
-                checkRes = false;
-              }
+              checkRes = false;
             }
           }),
         );
@@ -544,6 +598,12 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
+        const toastId = [
+          'swap-native-balance-insufficient',
+          nativeBalanceRequirement.token.networkId,
+          checkResult.tokenSymbol,
+          nativeBalanceRequirement.reserveAmount,
+        ].join('-');
         const reserveAmountMessage = nativeBalanceRequirement.includesFromAmount
           ? undefined
           : intl.formatMessage(
@@ -566,6 +626,7 @@ export function useSwapBuildTx() {
             { token: checkResult.tokenSymbol },
           ),
           message: reserveAmountMessage,
+          toastId,
         });
         return false;
       }
@@ -811,7 +872,11 @@ export function useSwapBuildTx() {
           feeInfo: gasInfo as IFeeInfoUnit,
         },
       });
-      return res;
+      return {
+        ...res,
+        gasFeeFiatValue: totalFiatForDisplay,
+        gasFeeInNative: totalNativeForDisplay,
+      };
     },
     [checkLatestNativeTokenBalance, intl, setSwapSteps],
   );
@@ -1214,7 +1279,7 @@ export function useSwapBuildTx() {
           };
         },
       );
-      let lastTxRes: ISignedTxPro | undefined;
+      let lastTxRes: ISwapSendTxResult | undefined;
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -2315,7 +2380,13 @@ export function useSwapBuildTx() {
               needFetchGas,
             );
             if (sendTxRes) {
-              void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
+              void onBuildTxSuccess(
+                sendTxRes.txid,
+                swapInfo,
+                orderId,
+                sendTxRes.gasFeeFiatValue,
+                sendTxRes.gasFeeInNative,
+              );
             }
           }
         }
@@ -2639,7 +2710,13 @@ export function useSwapBuildTx() {
             swapFromToken: fromTokenInfo,
             swapToToken: toTokenInfo,
           });
-          void onBuildTxSuccess(sendTxRes.txid, swapInfo);
+          void onBuildTxSuccess(
+            sendTxRes.txid,
+            swapInfo,
+            undefined,
+            sendTxRes.gasFeeFiatValue,
+            sendTxRes.gasFeeInNative,
+          );
           return sendTxRes;
         }
       }
@@ -2779,7 +2856,7 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
-    ) => {
+    ): Promise<IEstimateNetworkFeeResult> => {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -2867,6 +2944,24 @@ export function useSwapBuildTx() {
               swapInfo,
               true,
             );
+            if (
+              canFallbackToSeparateTxConfirm({
+                buildUnsignedParams,
+                approveUnsignedTxArr,
+              })
+            ) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  estimateNetworkFeeLoading: false,
+                  netWorkFee: undefined,
+                },
+              }));
+              return {
+                fallbackToSeparateTxConfirm: true,
+              };
+            }
             throw e;
           }
         } else if (
@@ -3064,6 +3159,7 @@ export function useSwapBuildTx() {
         }));
         throw _e;
       }
+      return {};
     },
     [
       buildGasInfo,
@@ -3108,7 +3204,7 @@ export function useSwapBuildTx() {
             data,
           );
           const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
-          await estimateNetworkFee(
+          const estimateNetworkFeeResult = await estimateNetworkFee(
             fromAccountNetworkId ?? '',
             fromAccountId ?? '',
             {
@@ -3120,6 +3216,26 @@ export function useSwapBuildTx() {
             },
             unsignedTxArr,
           );
+          if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
+            const separateSteps = buildSeparateApproveAndSwapSteps(data);
+            if (separateSteps.length) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                steps: separateSteps,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  shouldFallback: true,
+                  needFetchGas: true,
+                  supportNetworkFeeLevel: false,
+                  netWorkFee: undefined,
+                  estimateNetworkFeeLoading: false,
+                  stepBeforeActionsLoading: false,
+                  stepBeforeActionsError: undefined,
+                },
+              }));
+              return;
+            }
+          }
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
@@ -3145,6 +3261,7 @@ export function useSwapBuildTx() {
       buildSwapAction,
       estimateNetworkFee,
       getApproveUnSignedTxArr,
+      buildSeparateApproveAndSwapSteps,
       setSwapSteps,
       slippageItem,
       fromAccountId,

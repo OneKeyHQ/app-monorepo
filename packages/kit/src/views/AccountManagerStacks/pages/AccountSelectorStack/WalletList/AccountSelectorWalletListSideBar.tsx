@@ -36,13 +36,16 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
+import { AccountManagerTestIDs } from '../../../testIDs';
 
 import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWalletButton';
 import { WalletListItem } from './WalletListItem';
 import {
   buildGroupedAccountSelectorWallets,
+  computeHwVendorProfile,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -127,6 +130,17 @@ export function AccountSelectorWalletListSideBar({
     accountSelectorStatus?.passphraseProtectionChangedAt ?? 0
   }`;
 
+  // Sidebar SWR cache. Invalidation is handled outside this component:
+  //   - Wallet/Account CRUD funnels through WalletUpdate / AccountUpdate
+  //     (see ServiceAccount emits) — listeners below call reloadWallets,
+  //     which runs the fetcher and overwrites this slot via usePromiseResult.
+  //   - HardwareFeaturesUpdate / passphrase toggle flow through
+  //     reloadWalletsHook -> useEffect refetch -> same overwrite path.
+  //   - Bulk wipes (ServiceApp.resetApp, ServiceE2E.clearWalletsAndAccounts)
+  //     clear the cold-start cache in the bg service before emitting the
+  //     wipe event, so this hook reads an empty MMKV on next mount.
+  const walletsSwrKey = swrKeys.walletListSideBar({ hideNonBackedUpWallet });
+
   const {
     result: walletsResult,
     setResult,
@@ -192,6 +206,7 @@ export function AccountSelectorWalletListSideBar({
     [serviceAccount, hideNonBackedUpWallet, reloadWalletsHook],
     {
       checkIsFocused: false,
+      swrKey: walletsSwrKey,
     },
   );
 
@@ -215,11 +230,15 @@ export function AccountSelectorWalletListSideBar({
         (wallet) => wallet.isKeyless,
       ).length;
       const appWalletCount = walletCount - hwWalletCount;
+      const { hwVendors, primaryHwVendor } = computeHwVendorProfile(wallets);
+
       analytics.updateUserProfile({
         walletCount,
         hwWalletCount,
         appWalletCount,
         keylessWalletCount,
+        hwVendors,
+        primaryHwVendor,
       });
     }
   }, [wallets]);
@@ -407,7 +426,7 @@ export function AccountSelectorWalletListSideBar({
 
   return (
     <Stack
-      testID="account-selector-wallet-list"
+      testID={AccountManagerTestIDs.walletList}
       w="$24"
       $gtMd={{
         w: '$32',

@@ -16,7 +16,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { FormatHyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
-  PERPS_CAMPAIGN_HELP_LINK,
   REFERRAL_HELP_LINK,
   buildReferralUrl,
 } from '@onekeyhq/shared/src/config/appConfig';
@@ -313,6 +312,7 @@ export const useReferFriends = () => {
                     {myReferralCode}
                   </SizableText>
                   <IconButton
+                    testID="app-get-render-content-icon-btn"
                     title={intl.formatMessage({
                       id: ETranslations.global_copy,
                     })}
@@ -352,6 +352,7 @@ export const useReferFriends = () => {
                       {copyContent}
                     </SizableText>
                     <IconButton
+                      testID="app-icon-btn"
                       title={intl.formatMessage({
                         id: ETranslations.global_copy,
                       })}
@@ -430,12 +431,10 @@ export const useReferFriends = () => {
           id: ETranslations.referral_intro_learn_more,
         }),
         onCancel: () => {
-          const learnMoreUrl =
-            source === 'Perps' ? PERPS_CAMPAIGN_HELP_LINK : REFERRAL_HELP_LINK;
           if (platformEnv.isDesktop || platformEnv.isNative) {
-            openUrlInDiscovery({ url: learnMoreUrl });
+            openUrlInDiscovery({ url: REFERRAL_HELP_LINK });
           } else {
-            openUrlExternal(learnMoreUrl);
+            openUrlExternal(REFERRAL_HELP_LINK);
           }
         },
         onConfirmText: intl.formatMessage({

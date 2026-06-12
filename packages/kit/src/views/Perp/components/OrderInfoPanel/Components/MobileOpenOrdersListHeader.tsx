@@ -10,18 +10,25 @@ import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 
 interface IMobileOpenOrdersListHeaderProps {
   totalOrderCount: number;
+  scopedAccountAddress?: string | null;
+  cancelableOrderCount?: number;
 }
 
 export function MobileOpenOrdersListHeader({
   totalOrderCount,
+  scopedAccountAddress,
+  cancelableOrderCount = totalOrderCount,
 }: IMobileOpenOrdersListHeaderProps) {
   const intl = useIntl();
   const [filterByCurrentToken, setFilterByCurrentToken] =
     useOrderFilterByCurrentTokenAtom();
+  const canCancelAll = cancelableOrderCount > 0;
 
   const handleCancelAll = useCallback(() => {
-    void showCancelAllOrdersDialog();
-  }, []);
+    if (canCancelAll) {
+      void showCancelAllOrdersDialog(undefined, scopedAccountAddress);
+    }
+  }, [canCancelAll, scopedAccountAddress]);
 
   const handleFilterChange = useCallback(
     (value: boolean | 'indeterminate') => {
@@ -45,6 +52,7 @@ export function MobileOpenOrdersListHeader({
     >
       {/* Left: Filter checkbox - same style as TP/SL checkbox in trading form */}
       <Checkbox
+        testID="perp-handle-filter-change-checkbox"
         label={intl.formatMessage({
           id: ETranslations.perps_hide_other_pairs,
         })}
@@ -56,19 +64,21 @@ export function MobileOpenOrdersListHeader({
         onChange={handleFilterChange}
       />
 
-      {/* Right: Cancel all button - disabled only when no orders to cancel */}
-      <Button
-        size="small"
-        variant="secondary"
-        disabled={totalOrderCount === 0}
-        onPress={handleCancelAll}
-      >
-        <SizableText size="$bodyXs">
-          {intl.formatMessage({
-            id: ETranslations.perp_open_orders_cancel_all,
-          })}
-        </SizableText>
-      </Button>
+      {canCancelAll ? (
+        <Button
+          testID="perp-btn"
+          size="small"
+          variant="secondary"
+          onPress={handleCancelAll}
+          childrenAsText={false}
+        >
+          <SizableText size="$bodyXs">
+            {intl.formatMessage({
+              id: ETranslations.perp_open_orders_cancel_all,
+            })}
+          </SizableText>
+        </Button>
+      ) : null}
     </XStack>
   );
 }

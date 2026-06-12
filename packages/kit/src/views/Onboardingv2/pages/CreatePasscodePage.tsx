@@ -23,6 +23,7 @@ import {
   OnboardingPage,
   OnboardingSidebar,
 } from '../components/Layout';
+import { OnboardingTestIDs } from '../testIDs';
 
 function PasscodeFormView() {
   const intl = useIntl();
@@ -103,6 +104,7 @@ function CreatePasscodePage() {
   const intl = useIntl();
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.createPasscodePage}
       contentContainerProps={{
         $gtMd: { minHeight: 600, flexDirection: 'row' },
       }}

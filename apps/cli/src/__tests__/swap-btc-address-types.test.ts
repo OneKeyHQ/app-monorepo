@@ -16,6 +16,9 @@ import { createTestProgram, extractJson, runCommand } from './test-helpers';
 
 import type { fetchSwapNetworks } from '../commands/swap/swap-networks';
 
+const SOL_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const SOL_SYSTEM_PROGRAM = '11111111111111111111111111111111';
+
 jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   withCustomUAHeaders: jest.fn(
     async (_url: string, headers: Record<string, string>) => headers,
@@ -94,6 +97,41 @@ function mockSwapNetworks(): void {
   });
 }
 
+function mockSolSwapNetworks(): void {
+  mockGet.mockImplementation(async (service) => {
+    if (service === 'swap') {
+      return [
+        {
+          networkId: 'sol--101',
+          supportSingleSwap: true,
+          supportCrossChainSwap: true,
+          supportLimit: false,
+        },
+      ] as Awaited<ReturnType<typeof fetchSwapNetworks>>;
+    }
+    if (service === 'utility') {
+      return [
+        {
+          name: 'USD Coin',
+          price: '1',
+          symbol: 'USDC',
+          address: SOL_USDC,
+          network: 'sol--101',
+          logoUrl: '',
+          isNative: false,
+          decimals: 6,
+          liquidity: '1000000',
+        },
+      ];
+    }
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      `Unexpected GET service: ${service}`,
+      'Test fixture mismatch',
+    );
+  });
+}
+
 function quoteItem(params: {
   fromNetworkId: string;
   toNetworkId: string;
@@ -153,6 +191,51 @@ function createSigner(address: string, path: string) {
     signTransaction: jest.fn(),
     signMessage: jest.fn(),
   };
+}
+
+function mockSolSecurityAndBuildTx(): void {
+  mockPost.mockImplementation(async (service, path) => {
+    if (
+      service === 'utility' &&
+      path === '/utility/v2/market/token/security/batch'
+    ) {
+      return {
+        [SOL_USDC]: {
+          trusted_token: {
+            value: 'Yes',
+            content: 'trusted token',
+            riskType: 'safe',
+          },
+        },
+      };
+    }
+    if (service === 'swap' && path === '/swap/v1/build-tx') {
+      return {
+        result: {
+          info: {
+            provider: 'test-provider',
+            providerName: 'Test Provider',
+          },
+          fromTokenInfo: {
+            networkId: 'sol--101',
+            contractAddress: SOL_SYSTEM_PROGRAM,
+          },
+          toTokenInfo: {
+            networkId: 'sol--101',
+            contractAddress: SOL_USDC,
+          },
+        },
+        OKXTxObject: {
+          data: 'sol-bs58-encoded-tx',
+        },
+      };
+    }
+    throw new AppError(
+      ERROR_CODES.NET_REQUEST_FAILED.code,
+      `Unexpected POST ${service}${path}`,
+      'Test fixture mismatch',
+    );
+  });
 }
 
 describe('swap BTC address type metadata', () => {
@@ -216,6 +299,45 @@ describe('swap BTC address type metadata', () => {
     const parsed = JSON.parse(extractJson(result.stdout));
     expect(parsed.error.code).toBe('PARAM_MISSING_REQUIRED');
     expect(parsed.error.message).toContain('--from-address-type');
+  });
+
+  it('build accepts SOL native system-program token info and persists solSwapTx', async () => {
+    mockSolSwapNetworks();
+    mockSolSecurityAndBuildTx();
+    mockGetSignerByImpl.mockResolvedValue(
+      createSigner(
+        '9RfWUGz4vKhLgjfQVzNPJEqwBd8oGnTwNjU9q5Vk8ces',
+        "m/44'/501'/0'/0'",
+      ),
+    );
+    mockQuoteSse({
+      fromNetworkId: 'sol--101',
+      toNetworkId: 'sol--101',
+      fromTokenAddress: '',
+      toTokenAddress: SOL_USDC,
+    });
+
+    const result = await runCommand(registerSwapCommands(), [
+      'swap',
+      'build',
+      '--chain',
+      'sol',
+      '--from',
+      'SOL',
+      '--to',
+      SOL_USDC,
+      '--amount',
+      '0.001',
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(extractJson(result.stdout));
+    expect(parsed.data.hasTxData).toBe(true);
+
+    const pending = loadPending(parsed.data.orderId);
+    expect(pending?.txData.solSwapTx).toEqual({
+      encodedTx: 'sol-bs58-encoded-tx',
+    });
   });
 
   it('quote rejects tbtc source before BTC address type validation', async () => {

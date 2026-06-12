@@ -41,6 +41,7 @@ const STRATEGY_OPTION_CONFIG: Array<{
 type ITriggerProps = {
   label: string;
   onPress?: () => void;
+  testID?: string;
 };
 
 type ICoinControlStrategyPopoverProps = {
@@ -49,8 +50,9 @@ type ICoinControlStrategyPopoverProps = {
   onLearnMore?: () => void;
 };
 
-const Trigger = memo(({ label, onPress }: ITriggerProps) => (
+const Trigger = memo(({ label, onPress, testID }: ITriggerProps) => (
   <XStack
+    testID={testID}
     ai="center"
     cursor="pointer"
     px="$2"
@@ -230,7 +232,9 @@ const CoinControlStrategyPopover = ({
           />
         </YStack>
       }
-      renderTrigger={<Trigger label={selectedLabel} />}
+      renderTrigger={
+        <Trigger testID="coin-control-strategy-trigger" label={selectedLabel} />
+      }
       floatingPanelProps={{
         width: platformEnv.isNative ? '$72' : 353,
         borderRadius: '$6',

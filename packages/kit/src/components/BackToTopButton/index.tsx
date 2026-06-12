@@ -33,6 +33,7 @@ export function BackToTopButton({
 
   return (
     <IconButton
+      testID="back-to-top-btn"
       icon="ArrowTopSolid"
       size="large"
       variant="secondary"

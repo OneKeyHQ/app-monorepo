@@ -26,6 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapToken,
@@ -34,6 +35,7 @@ import type {
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { getSwapMarketPendingHistoryKey } from '../../utils/swapMarketHistory';
 
 interface ISectionData {
   title: string;
@@ -58,6 +60,10 @@ const SwapMarketHistoryList = ({
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const marketPendingKey = useMemo(
+    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
+    [swapHistoryPendingList],
+  );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
       const histories =
@@ -65,11 +71,13 @@ const SwapMarketHistoryList = ({
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
+    [marketPendingKey],
     { watchLoading: true },
   );
   const sectionData = useMemo(() => {
-    let filterData = [...(swapTxHistoryList ?? [])];
+    let filterData = (swapTxHistoryList ?? []).filter(
+      (item) => !isPrivateSendSwapHistoryItem(item),
+    );
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>
@@ -175,7 +183,7 @@ const SwapMarketHistoryList = ({
     ),
     [navigation, isPushModal, swapTxHistoryList],
   );
-  if (isLoading) {
+  if (isLoading && !swapTxHistoryList?.length) {
     return Array.from({ length: 5 }).map((_, index) => (
       <ListItem key={index}>
         <Skeleton w="$10" h="$10" radius="round" />

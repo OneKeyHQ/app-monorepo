@@ -6,72 +6,59 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, Spinner } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import {
+  useConfirmHyperliquidTerms,
+  useRequestEnableTradingWithDepositFallback,
+} from '../hooks/useEnableTradingWithDepositFallback';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
-import { showHyperliquidTermsDialog } from './HyperliquidTerms';
+import { showEnableTradingStepsDialog } from './TradingPanel/modals/EnableTradingStepsDialog';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
   forceShowEnableTrading?: boolean;
+  bypassEnableTradingGuard?: boolean;
   disabled?: boolean;
+  buttonSize?: 'medium' | 'large';
 }
 
 function TradingGuardWrapperInternal({
   children,
   forceShowEnableTrading = false,
+  bypassEnableTradingGuard = false,
   disabled = false,
+  buttonSize = 'medium',
 }: ITradingGuardWrapperProps) {
   const intl = useIntl();
-  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
-  // Memoize account info to optimize callback dependencies
-  const accountInfo = useMemo(
-    () => ({
-      accountAddress: perpsAccount.accountAddress,
-      accountId: perpsAccount.accountId,
-    }),
-    [perpsAccount.accountAddress, perpsAccount.accountId],
-  );
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const enableTrading = useCallback(async () => {
-    try {
-      const didAcceptTerms = await showHyperliquidTermsDialog();
-      if (!didAcceptTerms) {
-        return;
-      }
-
-      const status =
-        await backgroundApiProxy.serviceHyperliquid.enableTrading();
-      if (
-        status?.details?.activatedOk === false &&
-        accountInfo.accountAddress &&
-        accountInfo.accountId
-      ) {
-        await showDepositWithdrawModal('deposit');
-      }
-    } catch (error) {
-      console.error('[TradingGuardWrapper] Enable trading failed:', error);
-    }
-  }, [
-    accountInfo.accountAddress,
-    accountInfo.accountId,
-    showDepositWithdrawModal,
-  ]);
 
   const shouldShowEnableTrading = useMemo(() => {
+    if (bypassEnableTradingGuard) {
+      return forceShowEnableTrading;
+    }
     return forceShowEnableTrading || isAgentReady === false;
-  }, [forceShowEnableTrading, isAgentReady]);
+  }, [bypassEnableTradingGuard, forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
+  const shouldShowEnableTradingStepsDialog =
+    enableTradingMode.requiresExplicitEnableTrading;
 
   const buttonStyles = useMemo(() => {
     const isDisabled = disabled || isEnableTradingLoading;
@@ -81,9 +68,74 @@ function TradingGuardWrapperInternal({
     };
   }, [disabled, isEnableTradingLoading]);
 
+  const handleEnableTrading = useCallback(async () => {
+    if (disabled || isEnableTradingLoading) {
+      return;
+    }
+
+    if (shouldShowEnableTradingStepsDialog) {
+      // The dialog must use a fresh status snapshot so the predicted
+      // confirmations stay aligned with the enable-trading execution path.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        return;
+      }
+      const latestPerpsAccountStatus =
+        (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+      if (
+        getEnableTradingDialogConfirmDecision(latestPerpsAccountStatus) ===
+        'deposit'
+      ) {
+        await showDepositWithdrawModal('deposit');
+        return;
+      }
+
+      await showEnableTradingStepsDialog({
+        accountStatus: latestPerpsAccountStatus,
+        onConfirm: async ({ closeDialog }) => {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return {
+              shouldContinue: false,
+              status: undefined,
+            };
+          }
+          return requestEnableTradingWithDepositFallback({
+            beforeDeposit: closeDialog,
+          });
+        },
+      });
+      return;
+    }
+
+    const didAcceptTerms = await confirmHyperliquidTerms();
+    if (!didAcceptTerms) {
+      return;
+    }
+
+    await requestEnableTradingWithDepositFallback();
+  }, [
+    confirmHyperliquidTerms,
+    disabled,
+    isEnableTradingLoading,
+    perpsAccountStatus,
+    requestEnableTradingWithDepositFallback,
+    showDepositWithdrawModal,
+    shouldShowEnableTradingStepsDialog,
+  ]);
+
   if (perpsAccountLoading.selectAccountLoading) {
     return (
-      <Button variant="primary" size="medium" disabled>
+      <Button
+        variant="primary"
+        size={buttonSize}
+        disabled
+        childrenAsText={false}
+        testID="perp-is-disabled-btn"
+      >
         <Spinner />
       </Button>
     );
@@ -91,7 +143,13 @@ function TradingGuardWrapperInternal({
 
   if (perpsAccountStatus.accountNotSupport) {
     return (
-      <Button variant="primary" size="medium" disabled>
+      <Button
+        variant="primary"
+        size={buttonSize}
+        disabled
+        childrenAsText={false}
+        testID="perp-is-disabled-btn"
+      >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {intl.formatMessage({
             id: ETranslations.perp_trade_button_account_unsupported,
@@ -104,15 +162,17 @@ function TradingGuardWrapperInternal({
   if (shouldShowEnableTrading || !children) {
     return (
       <Button
+        testID="perp-is-disabled-btn"
         variant="primary"
-        size="medium"
+        size={buttonSize}
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
-        onPress={disabled ? undefined : enableTrading}
+        onPress={disabled ? undefined : handleEnableTrading}
         bg="#18794E"
         hoverStyle={buttonStyles.hoverStyle}
         pressStyle={buttonStyles.pressStyle}
         color="$textOnColor"
+        childrenAsText={false}
       >
         <SizableText size="$bodyMdMedium" color="$textOnColor">
           {intl.formatMessage({
