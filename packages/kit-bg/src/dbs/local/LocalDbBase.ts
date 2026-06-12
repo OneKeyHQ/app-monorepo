@@ -133,8 +133,25 @@ import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/ut
 import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import {
+  LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
+  buildLocalSecretEnvelopeLayerAdapterResolver,
+  classifyLocalSecretEnvelopeMigrationCandidate,
+  cleanupLocalSecretEnvelopeLayerKeysBestEffort,
+  isLocalSecretEnvelopeString,
+  localSecretEnvelopeService,
+  parseLocalSecretEnvelopeV1,
+  unwrapLocalSecretEnvelopeV1,
+  wrapLocalSecretEnvelopeV1,
+} from './localSecretEnvelope';
 import { EIndexedDBBucketNames } from './types';
 
+import type {
+  ILocalSecretEnvelopeCredentialMigrationConfig,
+  ILocalSecretEnvelopeLayerAdapter,
+  ILocalSecretEnvelopeLayerAdapterResolver,
+  ILocalSecretEnvelopeStrength,
+} from './localSecretEnvelope';
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import type {
   IDBAccount,
@@ -174,6 +191,8 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
+const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
+const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 1;
 const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
   minute: 10,
 });
@@ -185,9 +204,49 @@ type ILocalPasswordKdfParams = {
 
 type IPreparedCredentialPasswordUpdate = {
   id: string;
+  localSecretEnvelopeLayerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
   nextCredential: string;
   originalCredential: string;
 };
+
+type ILocalSecretEnvelopeCredentialMigrationResult =
+  | {
+      migrated: true;
+    }
+  | {
+      migrated: false;
+      reason:
+        | 'changed_during_migration'
+        | 'local_secret_envelope_wrap_failed'
+        | 'already_lse'
+        | 'default_verify_string'
+        | 'empty_record_id'
+        | 'needs_kdf_upgrade'
+        | 'unsupported_prefix'
+        | 'unsupported_record_id';
+    };
+
+type ILocalSecretEnvelopeMigrationBatchResult = {
+  failedCount: number;
+  migratedCount: number;
+  remainingCount: number;
+};
+
+function buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+  envelope,
+}: {
+  envelope: string;
+}) {
+  try {
+    const parsed = parseLocalSecretEnvelopeV1(envelope);
+    const requiredLayers = parsed.wrappingLayers
+      .map((layer, index) => `${layer.kind}@${index}`)
+      .join(',');
+    return `Local secret envelope layer adapter is required: requiredLayers=${requiredLayers}`;
+  } catch {
+    return 'Local secret envelope layer adapter is required';
+  }
+}
 
 type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
@@ -230,7 +289,82 @@ function isLocalPasswordCredentialPasswordUpdateCandidate({
 }: {
   credential: IDBCredentialBase;
 }): boolean {
-  return credential.id.startsWith('imported') || credential.id.startsWith('hd');
+  const { id, credential: rawCredential } = credential;
+
+  if (isLocalSecretEnvelopeString(rawCredential)) {
+    try {
+      const parsed = parseLocalSecretEnvelopeV1(rawCredential);
+      return (
+        parsed.dataType === 'credential' &&
+        parsed.recordId === id &&
+        isLocalPasswordCredentialRecordIdSupported(id)
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  const innerPrefix = getLocalPasswordCredentialInnerPrefix(rawCredential);
+  return Boolean(
+    innerPrefix &&
+    isLocalPasswordCredentialRecordIdSupportedForInnerPrefix({
+      credentialId: id,
+      innerPrefix,
+    }),
+  );
+}
+
+function isLocalPasswordCredentialRecordIdSupported(
+  credentialId: string,
+): boolean {
+  return (
+    accountUtils.isHdWallet({ walletId: credentialId }) ||
+    accountUtils.isTonMnemonicCredentialId(credentialId) ||
+    accountUtils.isImportedAccount({ accountId: credentialId }) ||
+    credentialId.startsWith('imported')
+  );
+}
+
+function isLocalPasswordCredentialRecordIdSupportedForInnerPrefix({
+  credentialId,
+  innerPrefix,
+}: {
+  credentialId: string;
+  innerPrefix: string;
+}): boolean {
+  if (innerPrefix === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential) {
+    return (
+      accountUtils.isHdWallet({ walletId: credentialId }) ||
+      accountUtils.isTonMnemonicCredentialId(credentialId)
+    );
+  }
+
+  if (innerPrefix === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential) {
+    return (
+      accountUtils.isImportedAccount({ accountId: credentialId }) ||
+      credentialId.startsWith('imported')
+    );
+  }
+
+  return false;
+}
+
+function getLocalPasswordCredentialInnerPrefix(
+  rawCredential: string,
+): string | undefined {
+  if (
+    rawCredential.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential)
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential;
+  }
+  if (
+    rawCredential.startsWith(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential,
+    )
+  ) {
+    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;
+  }
+  return undefined;
 }
 
 function stripLocalSecretPrefix(text: string): string {
@@ -340,6 +474,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ) {
         throw new WrongPassword();
       }
+      if (!options.skipLazyUpgrade) {
+        this.runPostPasswordVerifiedLazyUpgrade({ password: verifyPassword });
+      }
     }
     return ctx;
   }
@@ -433,9 +570,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     try {
       const kdfParams = getLocalPasswordKdfParams();
+      const verifyString = await this.getContextVerifyStringInner({
+        context,
+      });
       const decrypted = await decryptVerifyString({
         password,
-        verifyString: context.verifyString,
+        verifyString,
         ...kdfParams,
       });
       return decrypted === DEFAULT_VERIFY_STRING;
@@ -460,7 +600,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
       if (isValid) {
         if (!skipLazyUpgrade) {
-          void this.lazyUpgradeLocalPasswordEncryptedRecords({ password });
+          this.runPostPasswordVerifiedLazyUpgrade({ password });
         }
         return;
       }
@@ -469,9 +609,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     throw new PasswordNotSet();
   }
 
+  runPostPasswordVerifiedLazyUpgrade({ password }: { password: string }): void {
+    void this.lazyUpgradeLocalPasswordEncryptedRecords({ password })
+      .then(() => this.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock())
+      .catch((error) => {
+        console.error('localPasswordPostUnlockLazyUpgrade error', error);
+      });
+  }
+
   _localPasswordKdfLazyUpgradeExecuted = false;
 
   _localPasswordKdfLazyUpgradePromise: Promise<void> | undefined;
+
+  _localSecretEnvelopeCredentialMigrationExecuted = false;
+
+  _localSecretEnvelopeCredentialMigrationPromise: Promise<void> | undefined;
 
   async lazyUpgradeLocalPasswordEncryptedRecords({
     password,
@@ -537,6 +689,350 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this._localPasswordKdfLazyUpgradePromise;
   }
 
+  async buildLocalSecretEnvelopeCredentialMigrationConfig(): Promise<
+    ILocalSecretEnvelopeCredentialMigrationConfig | undefined
+  > {
+    return localSecretEnvelopeService.buildCredentialMigrationConfig();
+  }
+
+  async buildLocalSecretEnvelopeCredentialLayerAdapterResolver(): Promise<
+    ILocalSecretEnvelopeLayerAdapterResolver | undefined
+  > {
+    const config =
+      await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+    return buildLocalSecretEnvelopeLayerAdapterResolver(
+      config?.layerAdapters ?? [],
+    );
+  }
+
+  async lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock(): Promise<void> {
+    const context = await this.getContext();
+    const contextVerifyStringMigrationCompleted =
+      this.isContextVerifyStringLocalSecretEnvelopeMigrationCompleted({
+        context,
+      });
+    const credentialMigrationCompleted =
+      await this.isLocalSecretEnvelopeCredentialMigrationCompleted();
+    if (
+      this._localSecretEnvelopeCredentialMigrationExecuted ||
+      (contextVerifyStringMigrationCompleted && credentialMigrationCompleted)
+    ) {
+      this._localSecretEnvelopeCredentialMigrationExecuted = true;
+      return;
+    }
+
+    if (!(await this.isLocalPasswordKdfLazyUpgradeCompleted())) {
+      return;
+    }
+
+    if (this._localSecretEnvelopeCredentialMigrationPromise) {
+      return this._localSecretEnvelopeCredentialMigrationPromise;
+    }
+
+    this._localSecretEnvelopeCredentialMigrationPromise = (async () => {
+      let completed = false;
+      let executedForSession = false;
+      try {
+        const config =
+          await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+        if (!config || !config.layerAdapters.length) {
+          executedForSession = true;
+          return;
+        }
+
+        const verifyStringResult =
+          await this.migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded(
+            config,
+          );
+        const credentialResult = credentialMigrationCompleted
+          ? { failedCount: 0, migratedCount: 0, remainingCount: 0 }
+          : await this.lazyMigrateLocalSecretEnvelopeCredentialsIfNeeded(
+              config,
+            );
+        const result = {
+          failedCount:
+            verifyStringResult.failedCount + credentialResult.failedCount,
+          migratedCount:
+            verifyStringResult.migratedCount + credentialResult.migratedCount,
+          remainingCount:
+            verifyStringResult.remainingCount + credentialResult.remainingCount,
+        };
+        if (
+          result.migratedCount > 0 ||
+          result.failedCount > 0 ||
+          result.remainingCount > 0
+        ) {
+          console.log('localSecretEnvelopeCredentialMigration done', result);
+        }
+
+        const canMarkCompleted =
+          result.failedCount === 0 && result.remainingCount === 0;
+        completed = canMarkCompleted;
+        if (canMarkCompleted || credentialResult.remainingCount === 0) {
+          completed =
+            await this.markLocalSecretEnvelopeCredentialMigrationCompleted();
+        }
+      } catch (error) {
+        console.error('localSecretEnvelopeCredentialMigration error', error);
+      } finally {
+        this._localSecretEnvelopeCredentialMigrationExecuted =
+          completed || executedForSession;
+        this._localSecretEnvelopeCredentialMigrationPromise = undefined;
+      }
+    })();
+
+    return this._localSecretEnvelopeCredentialMigrationPromise;
+  }
+
+  async isLocalSecretEnvelopeCredentialMigrationCompleted(): Promise<boolean> {
+    const ctx = await this.getContext();
+    return (
+      Boolean(ctx.localSecretEnvelopeCredentialMigrated) &&
+      (ctx.localSecretEnvelopeCredentialMigratedTargetVersion || 0) >=
+        LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION
+    );
+  }
+
+  async hasLocalSecretEnvelopeCredentialMigrationPendingCandidate(): Promise<boolean> {
+    const credentials = await this.getAllCredentials();
+    return credentials.some(
+      (credential) =>
+        classifyLocalSecretEnvelopeMigrationCandidate({
+          dataType: 'credential',
+          recordId: credential.id,
+          rawValue: credential.credential,
+        }).canMigrate,
+    );
+  }
+
+  async markLocalSecretEnvelopeCredentialMigrationCompleted(): Promise<boolean> {
+    if (
+      await this.hasLocalSecretEnvelopeCredentialMigrationPendingCandidate()
+    ) {
+      this._localSecretEnvelopeCredentialMigrationExecuted = false;
+      return false;
+    }
+
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.localSecretEnvelopeCredentialMigrated = true;
+          record.localSecretEnvelopeCredentialMigratedTargetVersion =
+            LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION;
+          record.localSecretEnvelopeCredentialMigrationLastScannedCredentialId =
+            '';
+          return record;
+        },
+      });
+    });
+    return true;
+  }
+
+  async markLocalSecretEnvelopeCredentialMigrationIncomplete(): Promise<void> {
+    this._localSecretEnvelopeCredentialMigrationExecuted = false;
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.localSecretEnvelopeCredentialMigrated = false;
+          record.localSecretEnvelopeCredentialMigratedTargetVersion = 0;
+          record.localSecretEnvelopeCredentialMigrationLastScannedCredentialId =
+            '';
+          return record;
+        },
+      });
+    });
+  }
+
+  async updateLocalSecretEnvelopeCredentialMigrationLastScannedCredentialId({
+    lastScannedCredentialId,
+  }: {
+    lastScannedCredentialId: string;
+  }): Promise<void> {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateContext({
+        tx,
+        updater: (record) => {
+          record.localSecretEnvelopeCredentialMigrationLastScannedCredentialId =
+            lastScannedCredentialId;
+          return record;
+        },
+      });
+    });
+  }
+
+  isContextVerifyStringLocalSecretEnvelopeMigrationCompleted({
+    context,
+  }: {
+    context: IDBContext;
+  }): boolean {
+    return (
+      context.verifyString === DEFAULT_VERIFY_STRING ||
+      isLocalSecretEnvelopeString(context.verifyString)
+    );
+  }
+
+  async migrateContextVerifyStringToLocalSecretEnvelopeIfNeeded({
+    layerAdapters,
+    strength,
+  }: ILocalSecretEnvelopeCredentialMigrationConfig): Promise<ILocalSecretEnvelopeMigrationBatchResult> {
+    const ctx = await this.getContext();
+    const originalVerifyString = ctx.verifyString;
+    const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+      dataType: 'verify-string',
+      recordId: DB_MAIN_CONTEXT_ID,
+      rawValue: originalVerifyString,
+    });
+    if (!candidate.canMigrate) {
+      return {
+        failedCount: 0,
+        migratedCount: 0,
+        remainingCount:
+          candidate.reason === 'already_lse' ||
+          candidate.reason === 'default_verify_string'
+            ? 0
+            : 1,
+      };
+    }
+
+    let nextVerifyString: string;
+    try {
+      nextVerifyString = await wrapLocalSecretEnvelopeV1({
+        dataType: 'verify-string',
+        layerAdapters,
+        plaintext: originalVerifyString,
+        recordId: DB_MAIN_CONTEXT_ID,
+        strength,
+      });
+    } catch {
+      return {
+        failedCount: 1,
+        migratedCount: 0,
+        remainingCount: 1,
+      };
+    }
+
+    let migrated = false;
+    try {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        await this.txUpdateContext({
+          tx,
+          updater: (record) => {
+            if (record.verifyString === originalVerifyString) {
+              record.verifyString = nextVerifyString;
+              migrated = true;
+            }
+            return record;
+          },
+        });
+      });
+    } catch (error) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextVerifyString,
+        layerAdapters,
+      });
+      throw error;
+    }
+
+    if (!migrated) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextVerifyString,
+        layerAdapters,
+      });
+    }
+
+    return {
+      failedCount: migrated ? 0 : 1,
+      migratedCount: migrated ? 1 : 0,
+      remainingCount: migrated ? 0 : 1,
+    };
+  }
+
+  async lazyMigrateLocalSecretEnvelopeCredentialsIfNeeded({
+    layerAdapters,
+    strength,
+  }: ILocalSecretEnvelopeCredentialMigrationConfig): Promise<ILocalSecretEnvelopeMigrationBatchResult> {
+    const ctx = await this.getContext();
+    const lastScannedCredentialId =
+      ctx.localSecretEnvelopeCredentialMigrationLastScannedCredentialId || '';
+    const credentials = (await this.getAllCredentials()).toSorted((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    const startIndex = lastScannedCredentialId
+      ? credentials.findIndex(
+          (credential) => credential.id > lastScannedCredentialId,
+        )
+      : 0;
+    const credentialsToScan =
+      startIndex >= 0 ? credentials.slice(startIndex) : [];
+
+    let failedCount = 0;
+    let migratedCount = 0;
+    let processedCount = 0;
+    let nextLastScannedCredentialId = lastScannedCredentialId;
+    let reachedEnd = true;
+
+    for (const credential of credentialsToScan) {
+      if (
+        processedCount >= LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE
+      ) {
+        reachedEnd = false;
+        break;
+      }
+
+      const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+        dataType: 'credential',
+        recordId: credential.id,
+        rawValue: credential.credential,
+      });
+      if (!candidate.canMigrate) {
+        nextLastScannedCredentialId = credential.id;
+      } else {
+        processedCount += 1;
+        const migrated =
+          await this.migrateCredentialToLocalSecretEnvelopeIfNeeded({
+            credential,
+            layerAdapters,
+            strength,
+          });
+
+        if (migrated.migrated) {
+          migratedCount += 1;
+          nextLastScannedCredentialId = credential.id;
+        } else if (migrated.reason === 'changed_during_migration') {
+          reachedEnd = false;
+          break;
+        } else {
+          failedCount += 1;
+          reachedEnd = false;
+          console.error(
+            'localSecretEnvelopeCredentialMigration credential error',
+            {
+              credentialId: credential.id,
+              reason: migrated.reason,
+            },
+          );
+          break;
+        }
+      }
+    }
+
+    const remainingCount = reachedEnd && failedCount === 0 ? 0 : 1;
+    let nextCheckpoint = nextLastScannedCredentialId;
+    if (remainingCount === 0) {
+      nextCheckpoint = '';
+    }
+    if (nextCheckpoint !== lastScannedCredentialId) {
+      await this.updateLocalSecretEnvelopeCredentialMigrationLastScannedCredentialId(
+        {
+          lastScannedCredentialId: nextCheckpoint,
+        },
+      );
+    }
+    return { failedCount, migratedCount, remainingCount };
+  }
+
   async isLocalPasswordKdfLazyUpgradeCompleted(): Promise<boolean> {
     const ctx = await this.getContext();
     return (
@@ -588,6 +1084,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (originalVerifyString === DEFAULT_VERIFY_STRING) {
       return false;
     }
+    if (isLocalSecretEnvelopeString(originalVerifyString)) {
+      return false;
+    }
 
     const kdfParams = getLocalPasswordKdfParams();
     // Older local verify strings are upgraded after a successful decrypt. Their
@@ -627,9 +1126,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     credential: IDBCredentialBase;
   }): boolean {
+    if (isLocalSecretEnvelopeString(credential.credential)) {
+      return false;
+    }
+
+    const innerPrefix = getLocalPasswordCredentialInnerPrefix(
+      credential.credential,
+    );
     if (
-      !credential.id.startsWith('hd') &&
-      !credential.id.startsWith('imported')
+      !innerPrefix ||
+      !isLocalPasswordCredentialRecordIdSupportedForInnerPrefix({
+        credentialId: credential.id,
+        innerPrefix,
+      })
     ) {
       return false;
     }
@@ -982,13 +1491,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     kdfParams: ILocalPasswordKdfParams;
   }): Promise<IPreparedCredentialPasswordUpdate> {
     const originalCredential = credential.credential;
+    const isOriginalLocalSecretEnvelope =
+      isLocalSecretEnvelopeString(originalCredential);
+    let innerCredential = originalCredential;
+    let localSecretEnvelopeConfig:
+      | ILocalSecretEnvelopeCredentialMigrationConfig
+      | undefined;
+
+    if (isOriginalLocalSecretEnvelope) {
+      localSecretEnvelopeConfig =
+        await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
+        localSecretEnvelopeConfig?.layerAdapters ?? [],
+      );
+      if (!resolveLayerAdapter) {
+        throw new OneKeyLocalError(
+          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: originalCredential,
+          }),
+        );
+      }
+      innerCredential = await unwrapLocalSecretEnvelopeV1({
+        envelope: originalCredential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
+        resolveLayerAdapter,
+      });
+    }
+
     let nextCredential: string | undefined;
 
     if (credential.id.startsWith('imported')) {
       if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
         const revealableSeed: IBip39RevealableSeed =
           await decryptRevealableSeed({
-            rs: originalCredential,
+            rs: innerCredential,
             password: oldPassword,
             ...kdfParams,
           });
@@ -1000,7 +1537,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       } else {
         const importedCredential: ICoreImportedCredential =
           await decryptImportedCredential({
-            credential: originalCredential,
+            credential: innerCredential,
             password: oldPassword,
             ...kdfParams,
           });
@@ -1012,7 +1549,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     } else if (credential.id.startsWith('hd')) {
       const revealableSeed: IBip39RevealableSeed = await decryptRevealableSeed({
-        rs: originalCredential,
+        rs: innerCredential,
         password: oldPassword,
         ...kdfParams,
       });
@@ -1029,8 +1566,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
 
+    if (isOriginalLocalSecretEnvelope) {
+      if (!localSecretEnvelopeConfig) {
+        throw new OneKeyLocalError(
+          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: originalCredential,
+          }),
+        );
+      }
+      nextCredential = await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters: localSecretEnvelopeConfig.layerAdapters,
+        plaintext: nextCredential,
+        recordId: credential.id,
+        strength: localSecretEnvelopeConfig.strength,
+      });
+    }
+
     return {
       id: credential.id,
+      localSecretEnvelopeLayerAdapters:
+        localSecretEnvelopeConfig?.layerAdapters,
       originalCredential,
       nextCredential,
     };
@@ -1081,18 +1637,123 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async txUpdateContextVerifyString({
+    expectedVerifyString,
     tx,
     verifyString,
   }: {
+    expectedVerifyString?: string;
     tx: ILocalDBTransaction;
     verifyString: string;
   }) {
     await this.txUpdateContext({
       tx,
       updater: (record) => {
+        if (
+          expectedVerifyString !== undefined &&
+          record.verifyString !== expectedVerifyString
+        ) {
+          throw new OneKeyLocalError(
+            'changePassword ERROR: verifyString changed during password update',
+          );
+        }
         record.verifyString = verifyString;
         return record;
       },
+    });
+  }
+
+  async wrapContextVerifyStringWithLocalSecretEnvelopeIfNeeded({
+    onWrappedLocalSecretEnvelope,
+    originalVerifyString,
+    requireLocalSecretEnvelope,
+    verifyString,
+  }: {
+    onWrappedLocalSecretEnvelope?: (params: {
+      layerAdapters: ILocalSecretEnvelopeLayerAdapter[];
+    }) => void;
+    originalVerifyString: string;
+    requireLocalSecretEnvelope: boolean;
+    verifyString: string;
+  }): Promise<string> {
+    if (
+      verifyString === DEFAULT_VERIFY_STRING ||
+      isLocalSecretEnvelopeString(verifyString)
+    ) {
+      return verifyString;
+    }
+
+    const config =
+      await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+    if (!config || !config.layerAdapters.length) {
+      if (requireLocalSecretEnvelope) {
+        throw new OneKeyLocalError(
+          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: originalVerifyString,
+          }),
+        );
+      }
+      return verifyString;
+    }
+
+    try {
+      const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
+        dataType: 'verify-string',
+        layerAdapters: config.layerAdapters,
+        plaintext: verifyString,
+        recordId: DB_MAIN_CONTEXT_ID,
+        strength: config.strength,
+      });
+      onWrappedLocalSecretEnvelope?.({
+        layerAdapters: config.layerAdapters,
+      });
+      return wrappedVerifyString;
+    } catch (error) {
+      if (requireLocalSecretEnvelope) {
+        throw error;
+      }
+      console.error('localSecretEnvelopeVerifyStringOnWrite error', error);
+      return verifyString;
+    }
+  }
+
+  async cleanupPreparedCredentialPasswordUpdateLayerKeysBestEffort({
+    preparedCredentialUpdates,
+    target,
+  }: {
+    preparedCredentialUpdates: IPreparedCredentialPasswordUpdate[];
+    target: 'next' | 'original';
+  }): Promise<void> {
+    await Promise.all(
+      preparedCredentialUpdates.map(async (prepared) => {
+        const layerAdapters = prepared.localSecretEnvelopeLayerAdapters;
+        const envelope =
+          target === 'next'
+            ? prepared.nextCredential
+            : prepared.originalCredential;
+        if (!layerAdapters?.length || !isLocalSecretEnvelopeString(envelope)) {
+          return;
+        }
+        await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+          envelope,
+          layerAdapters,
+        });
+      }),
+    );
+  }
+
+  async cleanupVerifyStringPasswordUpdateLayerKeysBestEffort({
+    layerAdapters,
+    verifyString,
+  }: {
+    layerAdapters?: ILocalSecretEnvelopeLayerAdapter[];
+    verifyString: string;
+  }): Promise<void> {
+    if (!layerAdapters?.length || !isLocalSecretEnvelopeString(verifyString)) {
+      return;
+    }
+    await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+      envelope: verifyString,
+      layerAdapters,
     });
   }
 
@@ -1126,24 +1787,81 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         })
       : [];
 
-    const verifyString = await encryptVerifyString({
+    const originalContext = await this.getContext();
+    const originalVerifyString = originalContext.verifyString;
+    let verifyStringLayerAdapters:
+      | ILocalSecretEnvelopeLayerAdapter[]
+      | undefined;
+    let verifyString = await encryptVerifyString({
       password: newPassword,
       ...kdfParams,
     });
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      if (oldPassword) {
-        await this.txUpdateAllCredentialsPassword({
-          tx,
-          preparedCredentialUpdates,
-        });
-      }
-
-      await this.txUpdateContextVerifyString({
-        tx,
+    verifyString =
+      await this.wrapContextVerifyStringWithLocalSecretEnvelopeIfNeeded({
+        originalVerifyString,
+        requireLocalSecretEnvelope:
+          isLocalSecretEnvelopeString(originalVerifyString),
         verifyString,
+        onWrappedLocalSecretEnvelope: ({ layerAdapters }) => {
+          verifyStringLayerAdapters = layerAdapters;
+        },
       });
-    });
+    const shouldMarkLocalPasswordKdfCompleted =
+      !oldPassword &&
+      Boolean(isCreateMode) &&
+      (await this.getAllCredentials()).length === 0;
+
+    try {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        if (oldPassword) {
+          await this.txUpdateAllCredentialsPassword({
+            tx,
+            preparedCredentialUpdates,
+          });
+        }
+
+        await this.txUpdateContextVerifyString({
+          expectedVerifyString: originalVerifyString,
+          tx,
+          verifyString,
+        });
+        if (shouldMarkLocalPasswordKdfCompleted) {
+          await this.txUpdateContext({
+            tx,
+            updater: (record) => {
+              record.localPasswordKdfUpgraded = true;
+              record.localPasswordKdfUpgradedTargetIterations =
+                getSecretEncryptV2LocalTargetIterations();
+              record.localPasswordKdfUpgradeLastScannedCredentialId = '';
+              return record;
+            },
+          });
+        }
+      });
+    } catch (error) {
+      await Promise.all([
+        this.cleanupPreparedCredentialPasswordUpdateLayerKeysBestEffort({
+          preparedCredentialUpdates,
+          target: 'next',
+        }),
+        this.cleanupVerifyStringPasswordUpdateLayerKeysBestEffort({
+          layerAdapters: verifyStringLayerAdapters,
+          verifyString,
+        }),
+      ]);
+      throw error;
+    }
+
+    await Promise.all([
+      this.cleanupPreparedCredentialPasswordUpdateLayerKeysBestEffort({
+        preparedCredentialUpdates,
+        target: 'original',
+      }),
+      this.cleanupVerifyStringPasswordUpdateLayerKeysBestEffort({
+        layerAdapters: verifyStringLayerAdapters,
+        verifyString: originalVerifyString,
+      }),
+    ]);
   }
 
   async getAllCredentials(): Promise<IDBCredentialBase[]> {
@@ -1167,12 +1885,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getCredential(credentialId: string): Promise<IDBCredentialBase> {
+  async getCredentialRaw(credentialId: string): Promise<IDBCredentialBase> {
     const credential = await this.getRecordById({
       name: ELocalDBStoreNames.Credential,
       id: credentialId,
     });
     return credential;
+  }
+
+  async getCredential(credentialId: string): Promise<IDBCredentialBase> {
+    return this.getCredentialRaw(credentialId);
   }
 
   async getCredentialSafe(
@@ -1182,6 +1904,200 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return await this.getCredential(credentialId);
     } catch (error) {
       return undefined;
+    }
+  }
+
+  async getContextVerifyStringInner({
+    context,
+    resolveLayerAdapter,
+  }: {
+    context: IDBContext;
+    resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
+  }): Promise<string> {
+    if (
+      context.verifyString === DEFAULT_VERIFY_STRING ||
+      !isLocalSecretEnvelopeString(context.verifyString)
+    ) {
+      return context.verifyString;
+    }
+
+    const layerAdapterResolver =
+      resolveLayerAdapter ??
+      (await this.buildLocalSecretEnvelopeCredentialLayerAdapterResolver());
+    if (!layerAdapterResolver) {
+      throw new OneKeyLocalError(
+        buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+          envelope: context.verifyString,
+        }),
+      );
+    }
+
+    return unwrapLocalSecretEnvelopeV1({
+      envelope: context.verifyString,
+      expectedDataType: 'verify-string',
+      expectedRecordId: DB_MAIN_CONTEXT_ID,
+      resolveLayerAdapter: layerAdapterResolver,
+    });
+  }
+
+  async getCredentialInner({
+    credentialId,
+    resolveLayerAdapter,
+  }: {
+    credentialId: string;
+    resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
+  }): Promise<IDBCredentialBase> {
+    const credential = await this.getCredentialRaw(credentialId);
+    if (!isLocalSecretEnvelopeString(credential.credential)) {
+      return credential;
+    }
+
+    const layerAdapterResolver =
+      resolveLayerAdapter ??
+      (await this.buildLocalSecretEnvelopeCredentialLayerAdapterResolver());
+    if (!layerAdapterResolver) {
+      throw new OneKeyLocalError(
+        buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+          envelope: credential.credential,
+        }),
+      );
+    }
+
+    return {
+      ...credential,
+      credential: await unwrapLocalSecretEnvelopeV1({
+        envelope: credential.credential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
+        resolveLayerAdapter: layerAdapterResolver,
+      }),
+    };
+  }
+
+  async migrateCredentialToLocalSecretEnvelopeIfNeeded({
+    credential,
+    layerAdapters,
+    strength,
+  }: {
+    credential: IDBCredentialBase;
+    layerAdapters: ILocalSecretEnvelopeLayerAdapter[];
+    strength: ILocalSecretEnvelopeStrength;
+  }): Promise<ILocalSecretEnvelopeCredentialMigrationResult> {
+    const originalCredential = credential.credential;
+    const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+      dataType: 'credential',
+      recordId: credential.id,
+      rawValue: originalCredential,
+    });
+    if (!candidate.canMigrate) {
+      return {
+        migrated: false,
+        reason: candidate.reason,
+      };
+    }
+
+    let nextCredential: string;
+    try {
+      nextCredential = await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters,
+        plaintext: originalCredential,
+        recordId: credential.id,
+        strength,
+      });
+    } catch {
+      return {
+        migrated: false,
+        reason: 'local_secret_envelope_wrap_failed',
+      };
+    }
+
+    let migrated = false;
+    try {
+      await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+        await this.txUpdateRecords({
+          tx,
+          name: ELocalDBStoreNames.Credential,
+          ids: [credential.id],
+          updater: (record) => {
+            if (record.credential === originalCredential) {
+              record.credential = nextCredential;
+              migrated = true;
+            }
+            return record;
+          },
+        });
+      });
+    } catch (error) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredential,
+        layerAdapters,
+      });
+      throw error;
+    }
+
+    if (!migrated) {
+      await cleanupLocalSecretEnvelopeLayerKeysBestEffort({
+        envelope: nextCredential,
+        layerAdapters,
+      });
+      return {
+        migrated: false,
+        reason: 'changed_during_migration',
+      };
+    }
+
+    return {
+      migrated: true,
+    };
+  }
+
+  async wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+    credential,
+    credentialId,
+  }: {
+    credential: string;
+    credentialId: string;
+  }): Promise<string> {
+    const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+      dataType: 'credential',
+      recordId: credentialId,
+      rawValue: credential,
+    });
+    if (!candidate.canMigrate) {
+      return credential;
+    }
+
+    if (!(await this.isLocalPasswordKdfLazyUpgradeCompleted())) {
+      return credential;
+    }
+
+    const config =
+      await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+    if (!config || !config.layerAdapters.length) {
+      if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
+        await this.markLocalSecretEnvelopeCredentialMigrationIncomplete();
+      }
+      return credential;
+    }
+
+    try {
+      return await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters: config.layerAdapters,
+        plaintext: credential,
+        recordId: credentialId,
+        strength: config.strength,
+      });
+    } catch (error) {
+      console.error('localSecretEnvelopeCredentialOnWrite error', {
+        credentialId,
+        error,
+      });
+      if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
+        await this.markLocalSecretEnvelopeCredentialMigrationIncomplete();
+      }
+      return credential;
     }
   }
 
@@ -2786,7 +3702,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // Bot wallets reuse the parent-derived wallet id, but still need a unique
     // walletNo for sorting and fallback ordering.
     const shouldConsumeNextWalletNo = !overrideWalletId || isBotWalletOverride;
-    const context = await this.getContext({ verifyPassword: password });
+    const context = await this.getContext({
+      verifyPassword: password,
+      skipLazyUpgrade: true,
+    });
     let walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
@@ -2847,6 +3766,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: initWalletName,
       avatar: initAvatarInfo ?? randomAvatar(),
     });
+
+    const credentialToCreate =
+      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+        credentialId: walletId,
+        credential: rs,
+      });
 
     if (!currentWalletToCreate) {
       throw new OneKeyLocalError('currentWalletToCreate is undefined');
@@ -2949,7 +3874,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 id: walletId,
                 // type: 'hd',
                 // TODO save object to realmDB?
-                credential: rs,
+                credential: credentialToCreate,
               },
             ],
           });
@@ -2985,10 +3910,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     });
 
-    return this.buildCreateHDAndHWWalletResult({
+    const result = await this.buildCreateHDAndHWWalletResult({
       walletId,
       addedHdAccountIndex,
     });
+    this.runPostPasswordVerifiedLazyUpgrade({ password });
+    return result;
   }
 
   async createKeylessWallet(params: IDBCreateKeylessWalletParams): Promise<{
@@ -5077,6 +6004,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
+    const importedCredentialToAdd =
+      walletId === WALLET_TYPE_IMPORTED && importedCredential && accounts[0]?.id
+        ? await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+            credentialId: accounts[0].id,
+            credential: importedCredential,
+          })
+        : importedCredential;
+
     const syncManager =
       this.backgroundApi.servicePrimeCloudSync.syncManagers.account;
     const shouldBackfillAccountSyncItemMap: Record<string, boolean> = {};
@@ -5272,7 +6207,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   records: [
                     {
                       id: addedIds[0],
-                      credential: importedCredential,
+                      credential: checkIsDefined(importedCredentialToAdd),
                     },
                   ],
                   skipIfExists: true,
@@ -5339,14 +6274,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
 
+    const credentialId = accountUtils.buildTonMnemonicCredentialId({
+      accountId,
+    });
+    const credential =
+      await this.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+        credentialId,
+        credential: rs,
+      });
+
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
         records: [
           {
-            id: accountUtils.buildTonMnemonicCredentialId({ accountId }),
-            credential: rs,
+            id: credentialId,
+            credential,
           },
         ],
         skipIfExists: true,

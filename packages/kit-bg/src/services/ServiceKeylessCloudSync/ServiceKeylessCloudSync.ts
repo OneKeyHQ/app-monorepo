@@ -568,7 +568,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
       }
       // Credential missing — re-derive from seed while password is available
       try {
-        const credentialRecord = await localDb.getCredential(walletId);
+        const credentialRecord = await localDb.getCredentialInner({
+          credentialId: walletId,
+        });
         if (!credentialRecord?.credential) {
           return;
         }

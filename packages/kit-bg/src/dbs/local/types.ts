@@ -72,6 +72,9 @@ export type IDBContext = {
   localPasswordKdfUpgraded?: boolean;
   localPasswordKdfUpgradedTargetIterations?: number;
   localPasswordKdfUpgradeLastScannedCredentialId?: string;
+  localSecretEnvelopeCredentialMigrated?: boolean;
+  localSecretEnvelopeCredentialMigratedTargetVersion?: number;
+  localSecretEnvelopeCredentialMigrationLastScannedCredentialId?: string;
   networkOrderChanged?: boolean;
   backupUUID: string; // deprecated
   nextSignatureMessageId: number;
@@ -80,6 +83,7 @@ export type IDBContext = {
 };
 export type IDBApiGetContextOptions = {
   verifyPassword?: string;
+  skipLazyUpgrade?: boolean;
 };
 
 // ---------------------------------------------- credential
@@ -114,7 +118,7 @@ export type IDBExportedCredential =
 export type IDBCredentialBase = {
   id: string;
   // type: 'imported' | 'hd';
-  credential: IBip39RevealableSeedEncryptHex;
+  credential: string;
 };
 // ---------------------------------------------- wallet
 export type IDBWalletId =

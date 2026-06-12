@@ -866,11 +866,15 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async dumpCredentials() {
     const { credentials } = await this.getAllCredentials();
-    return credentials.reduce(
-      (mapping, { id, credential }) =>
-        Object.assign(mapping, { [id]: credential }),
-      {},
+    const entries = await Promise.all(
+      credentials.map(async ({ id }) => {
+        const credential = await localDb.getCredentialInner({
+          credentialId: id,
+        });
+        return [id, credential.credential] as const;
+      }),
     );
+    return Object.fromEntries(entries);
   }
 
   @backgroundMethod()
@@ -899,7 +903,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const dbCredential = await localDb.getCredential(credentialId);
+    const dbCredential = await localDb.getCredentialInner({ credentialId });
     const { mnemonic, rs } = await this.getCredentialDecryptFromCredential({
       password,
       credential: dbCredential.credential,
@@ -4364,7 +4368,9 @@ class ServiceAccount extends ServiceBase {
       xfp: string;
     };
   }> {
-    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
+    const parentCredential = await localDb.getCredentialInner({
+      credentialId: parentKeylessWalletId,
+    });
     let parentMnemonic: string | undefined;
     let realMnemonic: string | undefined;
 
@@ -5104,7 +5110,9 @@ class ServiceAccount extends ServiceBase {
         reason,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const mnemonicRaw = await mnemonicFromEntropy(
       credential.credential,
       password,
@@ -5128,11 +5136,11 @@ class ServiceAccount extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const credential = await localDb.getCredential(
-      accountUtils.buildTonMnemonicCredentialId({
+    const credential = await localDb.getCredentialInner({
+      credentialId: accountUtils.buildTonMnemonicCredentialId({
         accountId,
       }),
-    );
+    });
     const mnemonicRaw = await tonMnemonicFromEntropy(
       credential.credential,
       password,
@@ -5147,7 +5155,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     try {
-      const credential = await localDb.getCredential(
+      const credential = await localDb.getCredentialRaw(
         accountUtils.buildTonMnemonicCredentialId({
           accountId,
         }),
@@ -6055,7 +6063,9 @@ class ServiceAccount extends ServiceBase {
             // eslint-disable-next-line no-continue
             continue;
           }
-          const credentialInfo = await localDb.getCredential(wallet.id);
+          const credentialInfo = await localDb.getCredentialInner({
+            credentialId: wallet.id,
+          });
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue
             continue;

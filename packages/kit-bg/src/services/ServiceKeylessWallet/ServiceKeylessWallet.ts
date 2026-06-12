@@ -424,7 +424,9 @@ class ServiceKeylessWallet extends ServiceBase {
 
     // Derive and persist keyless cloud sync credential
     try {
-      const credentialRecord = await localDb.getCredential(result.wallet.id);
+      const credentialRecord = await localDb.getCredentialInner({
+        credentialId: result.wallet.id,
+      });
       if (credentialRecord?.credential) {
         const revealableSeed = await decryptRevealableSeed({
           rs: credentialRecord.credential,
@@ -2470,7 +2472,9 @@ class ServiceKeylessWallet extends ServiceBase {
     password: string;
   }): Promise<string> {
     const { walletId, password } = params;
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const rs = await decryptRevealableSeed({
       rs: credential.credential,
       password,
@@ -3229,7 +3233,9 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Keyless wallet not found.');
     }
 
-    const credential = await localDb.getCredential(keylessWallet.id);
+    const credential = await localDb.getCredentialInner({
+      credentialId: keylessWallet.id,
+    });
     defaultLogger.wallet.keyless.resetKeylessCredentialVerified();
 
     const rs = await decryptRevealableSeed({

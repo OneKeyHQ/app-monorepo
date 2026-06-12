@@ -67,16 +67,18 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
           );
         hd = await revealableSeedFromMnemonic(mnemonic, password);
       } else {
-        const credential = await localDb.getCredential(
-          checkIsDefined(this.walletId),
-        );
+        const credential = await localDb.getCredentialInner({
+          credentialId: checkIsDefined(this.walletId),
+        });
         hd = credential.credential;
       }
     }
 
     // imported
     if (this.isKeyringImported()) {
-      const credential = await localDb.getCredential(this.accountId);
+      const credential = await localDb.getCredentialInner({
+        credentialId: this.accountId,
+      });
       imported = credential.credential;
     }
 

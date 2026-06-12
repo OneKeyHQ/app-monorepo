@@ -114,6 +114,7 @@ import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
   filterTransferWallets,
   getCliBotWalletTransferWalletId,
+  normalizePrimeTransferCredential,
   shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
@@ -1410,26 +1411,16 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
-    const normalizeTransferCredential = (
-      credential: { credential?: string } | string | null | undefined,
-    ) => {
-      if (typeof credential === 'string') {
-        return credential;
-      }
-      if (typeof credential?.credential === 'string') {
-        return credential.credential;
-      }
-      return undefined;
-    };
-
     const credentials = walletIds?.length
       ? Object.fromEntries(
           (
             await Promise.all(
               filteredWallets.map(async (wallet) => [
                 wallet.id,
-                normalizeTransferCredential(
-                  await localDb.getCredential(wallet.id),
+                normalizePrimeTransferCredential(
+                  await localDb.getCredentialInner({
+                    credentialId: wallet.id,
+                  }),
                 ),
               ]),
             )
@@ -1802,17 +1793,15 @@ class ServicePrimeTransfer extends ServiceBase {
       const entries = Object.entries(data.privateData.credentials || {});
       console.log('serviceCloudBackupV2__decryptCredentials');
       for (const [key, value] of entries) {
+        const credentialValue = normalizePrimeTransferCredential(
+          value as { credential?: string } | string,
+        );
+        if (typeof credentialValue !== 'string') {
+          throw new OneKeyLocalError(
+            `Invalid credential format for transfer: ${key}`,
+          );
+        }
         try {
-          const credentialRecord = value as { credential?: string } | string;
-          const credentialValue =
-            typeof credentialRecord === 'string'
-              ? credentialRecord
-              : credentialRecord?.credential;
-          if (typeof credentialValue !== 'string') {
-            throw new OneKeyLocalError(
-              `Invalid credential format for transfer: ${key}`,
-            );
-          }
           if (
             accountUtils.isHdWallet({ walletId: key }) ||
             accountUtils.isTonMnemonicCredentialId(key)
@@ -1830,18 +1819,10 @@ class ServicePrimeTransfer extends ServiceBase {
               });
           }
         } catch (error) {
-          /*
-          data not matched to encoding: hex
-          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
-          value: "|RP|17...918143"
-          */
           console.error('serviceCloudBackupV2__decryptCredentials__error', {
             error,
             key,
-            value:
-              typeof value === 'string'
-                ? `${value.slice(0, 10)}...${value.slice(-6)}`
-                : (JSON.stringify(value)?.slice(0, 120) ?? String(value)),
+            valueType: typeof value,
           });
           throw new OneKeyLocalError(
             `Failed to decrypt current credentials: ${key}`,
@@ -1857,18 +1838,6 @@ class ServicePrimeTransfer extends ServiceBase {
     ) {
       data.privateData.credentials = {};
     }
-  }
-
-  private normalizeTransferCredential(
-    credential: { credential?: string } | string | null | undefined,
-  ) {
-    if (typeof credential === 'string') {
-      return credential;
-    }
-    if (typeof credential?.credential === 'string') {
-      return credential.credential;
-    }
-    return undefined;
   }
 
   private async buildCliBotWalletExportInput({
@@ -1947,7 +1916,7 @@ class ServicePrimeTransfer extends ServiceBase {
     walletId: string;
     password: string;
   }) {
-    const credential = this.normalizeTransferCredential(
+    const credential = normalizePrimeTransferCredential(
       transferData.privateData.credentials?.[walletId],
     );
     if (!credential) {

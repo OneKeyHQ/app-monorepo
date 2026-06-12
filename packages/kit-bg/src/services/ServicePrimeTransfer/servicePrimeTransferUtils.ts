@@ -1,6 +1,11 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
+import {
+  type IPortableCredentialInput,
+  normalizePortableCredential,
+} from '../../dbs/local/localSecretEnvelope';
+
 import type { IDBWallet } from '../../dbs/local/types';
 
 export function filterTransferWallets({
@@ -74,4 +79,13 @@ export function getCliBotWalletTransferWalletId({
   }
   const [walletId] = walletIds;
   return accountUtils.isBotWallet({ walletId }) ? walletId : undefined;
+}
+
+export function normalizePrimeTransferCredential(
+  credential: IPortableCredentialInput,
+) {
+  return normalizePortableCredential({
+    credential,
+    errorMessage: 'Cannot transfer raw local secret envelope credential',
+  });
 }

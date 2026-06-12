@@ -3,6 +3,7 @@ import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTrans
 import {
   filterTransferWallets,
   getCliBotWalletTransferWalletId,
+  normalizePrimeTransferCredential,
   shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
@@ -156,5 +157,30 @@ describe('getCliBotWalletTransferWalletId', () => {
         }),
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('normalizePrimeTransferCredential', () => {
+  it('accepts portable transfer credential shapes', () => {
+    expect(normalizePrimeTransferCredential('|RP|portable-payload')).toBe(
+      '|RP|portable-payload',
+    );
+    expect(
+      normalizePrimeTransferCredential({
+        credential: '|PK|portable-payload',
+      }),
+    ).toBe('|PK|portable-payload');
+    expect(normalizePrimeTransferCredential(undefined)).toBe(undefined);
+  });
+
+  it('rejects raw LSE credentials before transfer decrypt/export', () => {
+    expect(() =>
+      normalizePrimeTransferCredential('|LSE1|{"keyRef":"indexeddb:key"}'),
+    ).toThrow('Cannot transfer raw local secret envelope credential');
+    expect(() =>
+      normalizePrimeTransferCredential({
+        credential: '|LSE1|{"keyRef":"keychain:key"}',
+      }),
+    ).toThrow('Cannot transfer raw local secret envelope credential');
   });
 });
