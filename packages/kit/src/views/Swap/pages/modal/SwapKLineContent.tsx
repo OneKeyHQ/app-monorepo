@@ -26,6 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type ITradingViewDisabledFeature,
+  type ITradingViewPriceUpdateData,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -78,10 +79,27 @@ const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
+const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
 
 type ISwapKLineWalletMarketInfo = {
   coinGeckoId?: string;
   priceChange24hPercent?: string;
+};
+
+type ISwapKLineTokenMarketInfoResult = {
+  tokenMarketDetail?: IMarketTokenDetail;
+  updatedAt?: number;
+};
+
+type ISwapKLineTokenUsdFallbackPriceResult = {
+  tokenUsdFallbackPrice?: string;
+  updatedAt?: number;
+};
+
+type ISwapKLineChartRealtimePrice = {
+  tokenKey: string;
+  price: string;
+  updatedAt: number;
 };
 
 function getSwapKLineTokenKey(token?: ISwapToken) {
@@ -126,10 +144,89 @@ function getNormalizedPercent(value?: number | string | null) {
   return getNormalizedValueText(value);
 }
 
-function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
+function getNormalizedTokenAddress(address?: string) {
+  return address?.trim().toLowerCase() ?? '';
+}
+
+function isSwapKLineChartPriceUpdateForToken({
+  data,
+  token,
+}: {
+  data: ITradingViewPriceUpdateData;
+  token: ISwapToken;
+}) {
+  if (data.networkId && data.networkId !== token.networkId) {
+    return false;
+  }
+
+  const currentTokenAddress = getNormalizedTokenAddress(token.contractAddress);
+  const updateTokenAddress = getNormalizedTokenAddress(data.tokenAddress);
+  if (updateTokenAddress) {
+    return currentTokenAddress
+      ? updateTokenAddress === currentTokenAddress
+      : false;
+  }
+
+  const updateSymbol = data.symbol?.trim();
+  if (
+    updateSymbol &&
+    token.symbol &&
+    updateSymbol.toUpperCase() !== token.symbol.trim().toUpperCase()
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function getSwapKLineDisplayPrice({
+  tokenMarketDetail,
+  tokenMarketDetailUpdatedAt,
+  tokenUsdFallbackPrice,
+  tokenUsdFallbackPriceUpdatedAt,
+  chartRealtimePrice,
+}: {
+  tokenMarketDetail?: IMarketTokenDetail;
+  tokenMarketDetailUpdatedAt?: number;
+  tokenUsdFallbackPrice?: string;
+  tokenUsdFallbackPriceUpdatedAt?: number;
+  chartRealtimePrice?: ISwapKLineChartRealtimePrice;
+}) {
+  const candidates = [
+    {
+      price: getNormalizedPrice(tokenMarketDetail?.price),
+      updatedAt: tokenMarketDetailUpdatedAt ?? 0,
+    },
+    {
+      price: getNormalizedPrice(tokenUsdFallbackPrice),
+      updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
+    },
+    {
+      price: getNormalizedPrice(chartRealtimePrice?.price),
+      updatedAt: chartRealtimePrice?.updatedAt ?? 0,
+    },
+  ].filter((item): item is { price: string; updatedAt: number } =>
+    Boolean(item.price),
+  );
+
+  return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0]?.price;
+}
+
+function useSwapKLineTokenMarketInfo(
+  token?: ISwapToken,
+  enabled = true,
+): ISwapKLineTokenMarketInfoResult {
   const tokenAddress = token?.contractAddress?.trim() ?? '';
   const networkId = token?.networkId ?? '';
-  const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
+  const tokenKey = getSwapKLineTokenKey(token);
+  const { result } = usePromiseResult<
+    | {
+        tokenKey: string;
+        tokenMarketDetail?: IMarketTokenDetail;
+        updatedAt: number;
+      }
+    | undefined
+  >(
     async () => {
       if (!enabled || !networkId) {
         return undefined;
@@ -143,25 +240,51 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
             skipConvertCurrency: true,
           },
         );
-      return response?.data?.token;
+      return {
+        tokenKey,
+        tokenMarketDetail: response?.data?.token,
+        updatedAt: Date.now(),
+      };
     },
-    [enabled, networkId, tokenAddress],
+    [enabled, networkId, tokenAddress, tokenKey],
     {
       checkIsFocused: false,
+      pollingInterval: enabled
+        ? SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL
+        : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
     },
   );
 
-  return result;
+  return useMemo(() => {
+    if (!result || result.tokenKey !== tokenKey) {
+      return {};
+    }
+
+    return {
+      tokenMarketDetail: result.tokenMarketDetail,
+      updatedAt: result.updatedAt,
+    };
+  }, [result, tokenKey]);
 }
 
-function useSwapKLineTokenUsdFallbackPrice(token?: ISwapToken, enabled = true) {
+function useSwapKLineTokenUsdFallbackPrice(
+  token?: ISwapToken,
+  enabled = true,
+): ISwapKLineTokenUsdFallbackPriceResult {
   const tokenAddress = token?.contractAddress?.trim() ?? '';
   const networkId = token?.networkId ?? '';
-  const { result } = usePromiseResult<string | undefined>(
+  const tokenKey = getSwapKLineTokenKey(token);
+  const { result } = usePromiseResult<
+    | {
+        tokenKey: string;
+        tokenUsdFallbackPrice?: string;
+        updatedAt: number;
+      }
+    | undefined
+  >(
     async () => {
       if (!enabled || !networkId) {
         return undefined;
@@ -173,19 +296,34 @@ function useSwapKLineTokenUsdFallbackPrice(token?: ISwapToken, enabled = true) {
           contractAddress: tokenAddress,
           currency: 'usd',
         })) ?? [];
-      return tokenDetail?.price;
+      return {
+        tokenKey,
+        tokenUsdFallbackPrice: tokenDetail?.price,
+        updatedAt: Date.now(),
+      };
     },
-    [enabled, networkId, tokenAddress],
+    [enabled, networkId, tokenAddress, tokenKey],
     {
       checkIsFocused: false,
+      pollingInterval: enabled
+        ? SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL
+        : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
     },
   );
 
-  return result;
+  return useMemo(() => {
+    if (!enabled || !result || result.tokenKey !== tokenKey) {
+      return {};
+    }
+
+    return {
+      tokenUsdFallbackPrice: result.tokenUsdFallbackPrice,
+      updatedAt: result.updatedAt,
+    };
+  }, [enabled, result, tokenKey]);
 }
 
 function buildSwapKLineWalletMarketInfo(
@@ -553,8 +691,10 @@ type ISwapKLineContentState = {
   shouldForceEmptyKLineData: boolean;
   isResolvingSelectedToken: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
+  displayPrice?: string;
   tokenUsdFallbackPrice?: string;
   handlePrimaryKLineDataUnavailable: () => void;
+  handleChartPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -575,6 +715,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     [fromToken, isStableTokenCheckLoading, stableTokenChecks, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
+  const [chartRealtimePrice, setChartRealtimePrice] =
+    useState<ISwapKLineChartRealtimePrice>();
   const hasTrackedOpenRef = useRef(false);
 
   const resolvedSelectedSide = useMemo(() => {
@@ -597,8 +739,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       ? fromToken
       : toToken;
   }, [fromToken, resolvedSelectedSide, toToken]);
+  const selectedTokenKey = getSwapKLineTokenKey(selectedToken);
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
-  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
+  const { tokenMarketDetail, updatedAt: tokenMarketDetailUpdatedAt } =
+    useSwapKLineTokenMarketInfo(selectedToken);
   const {
     kLineDataFallback,
     primaryKLineDataUnavailable,
@@ -609,13 +753,31 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
-  const tokenUsdFallbackPrice = useSwapKLineTokenUsdFallbackPrice(
-    selectedToken,
-    !getNormalizedPrice(tokenMarketDetail?.price),
-  );
+  const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
+    useSwapKLineTokenUsdFallbackPrice(
+      selectedToken,
+      !getNormalizedPrice(tokenMarketDetail?.price),
+    );
+  const validChartRealtimePrice =
+    chartRealtimePrice?.tokenKey === selectedTokenKey
+      ? chartRealtimePrice
+      : undefined;
+  const displayPrice = getSwapKLineDisplayPrice({
+    tokenMarketDetail,
+    tokenMarketDetailUpdatedAt,
+    tokenUsdFallbackPrice,
+    tokenUsdFallbackPriceUpdatedAt,
+    chartRealtimePrice: validChartRealtimePrice,
+  });
   const isResolvingSelectedToken = Boolean(
     !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
   );
+
+  useEffect(() => {
+    setChartRealtimePrice((prev) =>
+      prev?.tokenKey === selectedTokenKey ? prev : undefined,
+    );
+  }, [selectedTokenKey]);
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
@@ -631,6 +793,35 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       toTokenSymbol: toToken?.symbol,
     });
   }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
+
+  const handleChartPriceUpdate = useCallback(
+    (data: ITradingViewPriceUpdateData) => {
+      if (data.source === 'history' || !selectedToken || !selectedTokenKey) {
+        return;
+      }
+
+      if (
+        !isSwapKLineChartPriceUpdateForToken({
+          data,
+          token: selectedToken,
+        })
+      ) {
+        return;
+      }
+
+      const price = getNormalizedPrice(data.price);
+      if (!price) {
+        return;
+      }
+
+      setChartRealtimePrice({
+        tokenKey: selectedTokenKey,
+        price,
+        updatedAt: Date.now(),
+      });
+    },
+    [selectedToken, selectedTokenKey],
+  );
 
   const handleSelectedSideChange = useCallback(
     (side: ESwapDirectionType) => {
@@ -664,12 +855,16 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
+      displayPrice,
       tokenUsdFallbackPrice,
       handlePrimaryKLineDataUnavailable,
+      handleChartPriceUpdate,
       handleSelectedSideChange,
     }),
     [
+      displayPrice,
       fromToken,
+      handleChartPriceUpdate,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       isResolvingSelectedToken,
@@ -711,15 +906,18 @@ function SwapKLineHeaderRight({
 function SwapKLineTokenPriceInfo({
   tokenMarketDetail,
   walletMarketInfo,
+  displayPrice,
   fallbackUsdPrice,
   compact,
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  displayPrice?: string;
   fallbackUsdPrice?: string;
   compact?: boolean;
 }) {
   const price =
+    getNormalizedPrice(displayPrice) ??
     getNormalizedPrice(tokenMarketDetail?.price) ??
     getNormalizedPrice(fallbackUsdPrice);
   const priceChange =
@@ -780,6 +978,7 @@ function SwapKLineTokenInfoRow({
   token,
   tokenMarketDetail,
   walletMarketInfo,
+  displayPrice,
   fallbackUsdPrice,
   headerRight,
   compact,
@@ -787,6 +986,7 @@ function SwapKLineTokenInfoRow({
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  displayPrice?: string;
   fallbackUsdPrice?: string;
   headerRight?: ReactNode;
   compact?: boolean;
@@ -832,6 +1032,7 @@ function SwapKLineTokenInfoRow({
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
+          displayPrice={displayPrice}
           fallbackUsdPrice={fallbackUsdPrice}
           compact={compact}
         />
@@ -926,6 +1127,7 @@ function SwapKLineContentBody({
             token={selectedToken}
             tokenMarketDetail={state.tokenMarketDetail}
             walletMarketInfo={state.walletMarketInfo}
+            displayPrice={state.displayPrice}
             fallbackUsdPrice={state.tokenUsdFallbackPrice}
             compact
           />
@@ -935,6 +1137,7 @@ function SwapKLineContentBody({
           token={selectedToken}
           tokenMarketDetail={state.tokenMarketDetail}
           walletMarketInfo={state.walletMarketInfo}
+          displayPrice={state.displayPrice}
           fallbackUsdPrice={state.tokenUsdFallbackPrice}
           headerRight={headerRight}
         />
@@ -965,6 +1168,7 @@ function SwapKLineContentBody({
         kLineDataFallback={state.kLineDataFallback}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
+        onPriceUpdate={state.handleChartPriceUpdate}
         w="100%"
         h="100%"
       />
