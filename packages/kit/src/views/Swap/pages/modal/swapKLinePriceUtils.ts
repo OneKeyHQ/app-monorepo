@@ -121,20 +121,26 @@ export function getSwapKLineDisplayPrice({
 
   const candidates = [
     {
-      price: getNormalizedSwapKLinePrice(tokenMarketDetail?.price),
-      updatedAt: tokenMarketDetailUpdatedAt ?? 0,
-    },
-    {
       price: getNormalizedSwapKLinePrice(tokenUsdFallbackPrice),
       updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
+      priority: 3,
+    },
+    {
+      price: getNormalizedSwapKLinePrice(tokenMarketDetail?.price),
+      updatedAt: tokenMarketDetailUpdatedAt ?? 0,
+      priority: 2,
     },
     {
       price: chartPrice,
       updatedAt: chartRealtimePrice?.updatedAt ?? 0,
+      priority: 1,
     },
-  ].filter((item): item is { price: string; updatedAt: number } =>
-    Boolean(item.price),
+  ].filter(
+    (item): item is { price: string; updatedAt: number; priority: number } =>
+      Boolean(item.price),
   );
 
-  return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0]?.price;
+  return candidates.toSorted(
+    (a, b) => b.priority - a.priority || b.updatedAt - a.updatedAt,
+  )[0]?.price;
 }

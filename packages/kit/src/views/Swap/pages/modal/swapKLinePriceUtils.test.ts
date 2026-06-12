@@ -30,6 +30,32 @@ const createSwapToken = (overrides: Partial<ISwapToken> = {}): ISwapToken => ({
 
 describe('swapKLinePriceUtils', () => {
   describe('getSwapKLineDisplayPrice', () => {
+    it('uses the USD token detail fallback when Market detail has no price', () => {
+      const now = 100_000;
+
+      expect(
+        getSwapKLineDisplayPrice({
+          tokenUsdFallbackPrice: '58.06',
+          tokenUsdFallbackPriceUpdatedAt: now,
+          now,
+        }),
+      ).toBe('58.06');
+    });
+
+    it('uses the USD token detail fallback before the chart price updates', () => {
+      const now = 100_000;
+
+      expect(
+        getSwapKLineDisplayPrice({
+          tokenMarketDetail: createMarketTokenDetail('101'),
+          tokenMarketDetailUpdatedAt: now - 100,
+          tokenUsdFallbackPrice: '100',
+          tokenUsdFallbackPriceUpdatedAt: now - 200,
+          now,
+        }),
+      ).toBe('100');
+    });
+
     it('keeps a fresh chart price authoritative over later polling completion time', () => {
       const now = 100_000;
 
@@ -37,6 +63,8 @@ describe('swapKLinePriceUtils', () => {
         getSwapKLineDisplayPrice({
           tokenMarketDetail: createMarketTokenDetail('100'),
           tokenMarketDetailUpdatedAt: now - 100,
+          tokenUsdFallbackPrice: '99',
+          tokenUsdFallbackPriceUpdatedAt: now - 50,
           chartRealtimePrice: {
             tokenKey: 'evm--1:0xabc:contract',
             price: '101',
@@ -48,7 +76,7 @@ describe('swapKLinePriceUtils', () => {
       ).toBe('101');
     });
 
-    it('allows REST or fallback prices to take over after the chart price is stale', () => {
+    it('uses the USD token detail fallback after the chart price is stale', () => {
       const now = 100_000;
 
       expect(
@@ -65,7 +93,7 @@ describe('swapKLinePriceUtils', () => {
           },
           now,
         }),
-      ).toBe('100');
+      ).toBe('99');
     });
 
     it('ignores invalid chart prices and falls back to normalized REST price', () => {

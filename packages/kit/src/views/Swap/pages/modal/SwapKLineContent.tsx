@@ -179,7 +179,6 @@ function useSwapKLineTokenMarketInfo(
 
 function useSwapKLineTokenUsdFallbackPrice(
   token?: ISwapToken,
-  enabled = true,
 ): ISwapKLineTokenUsdFallbackPriceResult {
   const tokenAddress = token?.contractAddress?.trim() ?? '';
   const networkId = token?.networkId ?? '';
@@ -193,7 +192,7 @@ function useSwapKLineTokenUsdFallbackPrice(
     | undefined
   >(
     async () => {
-      if (!enabled || !networkId) {
+      if (!networkId) {
         return undefined;
       }
 
@@ -209,10 +208,10 @@ function useSwapKLineTokenUsdFallbackPrice(
         updatedAt: Date.now(),
       };
     },
-    [enabled, networkId, tokenAddress, tokenKey],
+    [networkId, tokenAddress, tokenKey],
     {
       checkIsFocused: false,
-      pollingInterval: enabled
+      pollingInterval: networkId
         ? SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL
         : undefined,
       revalidateOnFocus: true,
@@ -222,7 +221,7 @@ function useSwapKLineTokenUsdFallbackPrice(
   );
 
   return useMemo(() => {
-    if (!enabled || !result || result.tokenKey !== tokenKey) {
+    if (!result || result.tokenKey !== tokenKey) {
       return {};
     }
 
@@ -230,7 +229,7 @@ function useSwapKLineTokenUsdFallbackPrice(
       tokenUsdFallbackPrice: result.tokenUsdFallbackPrice,
       updatedAt: result.updatedAt,
     };
-  }, [enabled, result, tokenKey]);
+  }, [result, tokenKey]);
 }
 
 function buildSwapKLineWalletMarketInfo(
@@ -663,10 +662,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
   const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
-    useSwapKLineTokenUsdFallbackPrice(
-      selectedToken,
-      !getNormalizedSwapKLinePrice(tokenMarketDetail?.price),
-    );
+    useSwapKLineTokenUsdFallbackPrice(selectedToken);
   const validChartRealtimePrice =
     chartRealtimePrice?.tokenKey === selectedTokenKey
       ? chartRealtimePrice
