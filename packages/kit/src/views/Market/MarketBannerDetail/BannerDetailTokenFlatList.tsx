@@ -19,10 +19,8 @@ import type { FlatListProps } from 'react-native';
 type IBannerDetailTokenFlatListProps = {
   data: IMarketToken[];
   isLoading?: boolean;
-  priceSortType?: IBannerDetailSortType;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
-  onPriceSortPress: () => void;
   onChangeSortPress: () => void;
   onItemPress: (item: IMarketToken) => void;
 };
@@ -30,10 +28,8 @@ type IBannerDetailTokenFlatListProps = {
 export function BannerDetailTokenFlatList({
   data,
   isLoading,
-  priceSortType,
   changeSortType,
   change24hColumnTitle,
-  onPriceSortPress,
   onChangeSortPress,
   onItemPress,
 }: IBannerDetailTokenFlatListProps) {
@@ -41,12 +37,6 @@ export function BannerDetailTokenFlatList({
   const tabBarHeight = useTabBarHeight();
 
   const sortedData = useMemo(() => {
-    if (priceSortType) {
-      return data.toSorted((a, b) =>
-        priceSortType === 'asc' ? a.price - b.price : b.price - a.price,
-      );
-    }
-
     if (changeSortType) {
       return data.toSorted((a, b) =>
         changeSortType === 'asc'
@@ -56,7 +46,7 @@ export function BannerDetailTokenFlatList({
     }
 
     return data;
-  }, [changeSortType, data, priceSortType]);
+  }, [changeSortType, data]);
 
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
     ({ item }) => (
@@ -83,10 +73,8 @@ export function BannerDetailTokenFlatList({
   return (
     <Stack flex={1}>
       <BannerDetailListColumnHeader
-        priceSortType={priceSortType}
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
-        onPriceSortPress={onPriceSortPress}
         onChangeSortPress={onChangeSortPress}
       />
       {isLoading && sortedData.length === 0 ? (
