@@ -125,10 +125,12 @@ export enum EAppEventBusNames {
   ShowFallbackUpdateDialog = 'ShowFallbackUpdateDialog',
   // Background → foreground signal: an update was discovered mid-session and
   // its server strategy is auto (silent/seamless) or it is a rollback, so the
-  // foreground should kick off the real byte transfer. The background service
-  // can only flip the persist-atom status; the native download
-  // (BundleUpdate.downloadBundle, with headers/retry) lives exclusively in the
-  // foreground useDownloadPackage hook, so this event bridges the two.
+  // foreground should kick off the real byte transfer. The background keeps the
+  // status at `notify` and only emits this event — it cannot pull bytes nor
+  // advance the status itself. The native download (BundleUpdate.downloadBundle,
+  // with headers/retry) lives exclusively in the foreground useDownloadPackage
+  // hook, whose serviceAppUpdate.downloadPackage() flips `notify` →
+  // `downloadPackage`. This event bridges the two runtimes.
   StartAutoDownloadUpdate = 'StartAutoDownloadUpdate',
   PendingInstallTaskProcessFinished = 'PendingInstallTaskProcessFinished',
   HomePageReady = 'HomePageReady',

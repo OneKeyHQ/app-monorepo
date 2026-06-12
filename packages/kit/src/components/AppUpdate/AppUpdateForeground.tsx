@@ -488,15 +488,21 @@ export function useAppUpdateForegroundEffects(enabled = true) {
   // Mid-session auto-download bridge.
   //
   // When fetchAppUpdateInfo discovers an update mid-session whose strategy is
-  // auto (silent/seamless) or which is a rollback, the background service flips
-  // the persist atom to `downloadPackage` and emits StartAutoDownloadUpdate.
-  // The background cannot pull bytes — the native transfer
-  // (BundleUpdate.downloadBundle, with headers + retry/backoff) lives only in
-  // the foreground useDownloadPackage hook. The first-launch dispatch above
-  // turns a `downloadPackage` status into a real transfer, but it runs exactly
-  // once per app lifecycle, so it cannot catch a mid-session transition. This
-  // listener bridges that gap: on the event, kick the real download now instead
-  // of waiting for the 30-min watchdog or the next cold start.
+  // auto (silent/seamless) or which is a rollback, the background keeps the
+  // persist atom at `notify` and only emits StartAutoDownloadUpdate — it
+  // cannot pull bytes. The native transfer (BundleUpdate.downloadBundle, with
+  // headers + retry/backoff) lives only in the foreground useDownloadPackage
+  // hook, and it is that hook's serviceAppUpdate.downloadPackage() call which
+  // actually flips `notify` → `downloadPackage` (notify ∈
+  // DOWNLOAD_ENTRY_STATUSES, so it is accepted) and starts the transfer.
+  //
+  // This listener is the only thing that drives a *mid-session* transition:
+  // the first-launch dispatch above also calls downloadPackage(), but it runs
+  // exactly once per app lifecycle so it cannot catch an in-session discovery.
+  // On the event we kick the real download now instead of waiting for the next
+  // cold start. (If the app is killed before this fires, status is still
+  // `notify`, and the next cold start's checkForUpdates re-detects and
+  // re-triggers downloadPackage() — no update is lost.)
   //
   // withDownloadMutex inside downloadPackage() collapses this with any
   // concurrent foreground-initiated download (user click / cold-start dispatch
