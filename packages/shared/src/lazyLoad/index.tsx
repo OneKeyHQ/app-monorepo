@@ -27,13 +27,22 @@ const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_TIMEOUT',
 ]);
 
-// Exported for unit testing. A split-bundle segment timeout is TRANSIENT
-// (installProdBundleLoader marks it retryable and does NOT cache it); only these
-// re-attempt. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR / IO_ERROR / NOT_FOUND
-// / SHA256_MISMATCH) are non-retryable and must surface immediately.
+// Exported for unit testing. A split-bundle segment timeout is normally
+// TRANSIENT, so it re-attempts. Real eval failures (SPLIT_BUNDLE_EVAL_ERROR /
+// IO_ERROR / NOT_FOUND / SHA256_MISMATCH) are non-retryable and surface
+// immediately.
+//
+// IMPORTANT: installProdBundleLoader exhausts its own retry budget
+// (MAX_RETRYABLE_ATTEMPTS) and then PERMANENTLY caches the failure with
+// `retryable` cleared to false. An explicit `retryable === false` is therefore
+// AUTHORITATIVE and must win over a transient-looking code/message — otherwise a
+// permanently-dead route would burn a full retry round (fallback spinner +
+// guaranteed-failing attempts) on every re-navigation instead of going fatal at
+// once.
 export function isRetryableLazyError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
   const e = err as { code?: unknown; retryable?: unknown; message?: unknown };
+  if (e.retryable === false) return false;
   if (e.retryable === true) return true;
   if (typeof e.code === 'string' && RETRYABLE_CODES.has(e.code)) return true;
   return (
@@ -95,24 +104,39 @@ class LazyRetryBoundary extends Component<
     );
     const backoff =
       RETRY_BACKOFF_MS[Math.min(nextRetries - 1, RETRY_BACKOFF_MS.length - 1)];
-    const fire = () => {
+    const runRetry = () => {
       this.props.onRetry(); // regenerate the lazy() object in the parent
       this.setState({ phase: 'ok', error: undefined, retries: nextRetries });
     };
-    if (getCurrentVisibilityState()) {
-      this.retryTimer = setTimeout(fire, backoff);
-    } else {
-      // Backgrounded (the suspend false-positive window): defer until foreground,
-      // when the buffered runtime executor is about to flush; retrying while
-      // suspended just burns the budget.
-      this.unsubscribe = onVisibilityStateChange((visible) => {
-        if (visible) {
-          this.unsubscribe?.();
-          this.unsubscribe = undefined;
-          this.retryTimer = setTimeout(fire, backoff);
+    const scheduleRetry = () => {
+      // Fire re-checks visibility: the app may have flipped back to background
+      // during the backoff window. Retrying while backgrounded is the exact
+      // suspend false-positive case we want to avoid, so re-defer instead of
+      // spending the attempt.
+      const fire = () => {
+        if (getCurrentVisibilityState()) {
+          runRetry();
+        } else {
+          scheduleRetry();
         }
-      });
-    }
+      };
+      if (getCurrentVisibilityState()) {
+        this.retryTimer = setTimeout(fire, backoff);
+      } else {
+        // Backgrounded (the suspend false-positive window): defer until
+        // foreground, when the buffered runtime executor is about to flush;
+        // retrying while suspended just burns the budget. Only one subscription
+        // is ever live (cleared before the timer is armed, and on unmount).
+        this.unsubscribe = onVisibilityStateChange((visible) => {
+          if (visible) {
+            this.unsubscribe?.();
+            this.unsubscribe = undefined;
+            this.retryTimer = setTimeout(fire, backoff);
+          }
+        });
+      }
+    };
+    scheduleRetry();
   }
 
   override componentWillUnmount() {

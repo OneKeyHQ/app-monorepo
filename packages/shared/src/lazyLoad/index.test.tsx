@@ -129,6 +129,25 @@ describe('isRetryableLazyError', () => {
   it('does NOT treat retryable === false as retryable', () => {
     expect(isRetryableLazyError({ retryable: false, code: 'X' })).toBe(false);
   });
+
+  it('treats retryable === false as AUTHORITATIVE over a retryable code/message (permanently cached)', () => {
+    // installProdBundleLoader clears `retryable` to false when it permanently
+    // caches a budget-exhausted failure, even though the code/message still look
+    // transient. That must surface as non-retryable so a dead route goes fatal
+    // immediately instead of burning a retry round on every re-navigation.
+    expect(
+      isRetryableLazyError({
+        retryable: false,
+        code: 'SPLIT_BUNDLE_TIMEOUT',
+      }),
+    ).toBe(false);
+    expect(
+      isRetryableLazyError({
+        retryable: false,
+        message: '[SplitBundle] seg eval timed out after 30s',
+      }),
+    ).toBe(false);
+  });
 });
 
 describe('LazyLoad self-heal', () => {
@@ -258,6 +277,52 @@ describe('LazyLoad self-heal', () => {
     // Foreground transition releases the deferred retry.
     setMockVisible(true);
 
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('loaded')).not.toBeNull();
+      },
+      { timeout: 4000 },
+    );
+    expect(calls.count).toBe(2);
+  });
+
+  it('re-defers instead of retrying if the app re-backgrounds during the backoff window', async () => {
+    mockVisible = false; // start backgrounded
+    const err = { code: 'SPLIT_BUNDLE_TIMEOUT', message: 'timed out' };
+    const { factory, calls } = makeFactory(err, 1);
+    const Lazy = LazyLoad<Record<string, never>>(
+      factory as any,
+      undefined,
+      <div data-testid="fallback">loading</div>,
+    );
+
+    render(<Lazy />);
+
+    // First failure is caught and deferred (backgrounded).
+    await waitFor(() => {
+      expect(mockWrite).toHaveBeenCalledWith(
+        'WARNING',
+        expect.stringContaining('[LazyLoad] retryable segment error'),
+      );
+    });
+    expect(calls.count).toBe(1);
+
+    // Foreground briefly: the defer subscription arms the backoff timer...
+    setMockVisible(true);
+    // ...but the app re-backgrounds before that timer fires (no active
+    // subscriber to notify at this instant — model it as a raw visibility flip).
+    mockVisible = false;
+
+    // After the backoff window, `fire` must observe it's hidden and RE-DEFER
+    // rather than retry in the background — so the factory is NOT called again.
+    await new Promise((resolve) => {
+      setTimeout(resolve, 400);
+    });
+    expect(calls.count).toBe(1);
+    expect(screen.queryByTestId('loaded')).toBeNull();
+
+    // A stable foreground finally lets the single retry through.
+    setMockVisible(true);
     await waitFor(
       () => {
         expect(screen.queryByTestId('loaded')).not.toBeNull();
