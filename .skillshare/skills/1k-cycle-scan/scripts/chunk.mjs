@@ -2,21 +2,32 @@
 /**
  * 1k-cycle-scan slice planner.
  *
- * Takes the deterministic manifest plus the persisted cursor and emits the
- * next slice of files, pre-grouped into line-balanced agent workloads.
+ * Takes the deterministic manifest plus a run's start cursor and emits that
+ * run's files, pre-grouped into line-balanced agent workloads.
  *
- * Resume semantics: the cursor only advances when an entire run completes.
- * If a previous run died mid-way, pass the file indices already covered by
- * its checkpoint replies via --done-indices. With --preserve-group-ids, the
- * original interrupted slice is reconstructed and only missing original group
- * IDs are emitted. Without it, done files are skipped and the remaining budget
- * is filled from later manifest entries.
+ * v6 semantics: run boundaries are FIXED by the batch's run table
+ * (--plan-runs below); execution replays one table run via
+ * `--cursor <run.start> --lines <table.runLines>` and asserts
+ * proposedCursor == run.end. Repair/takeover of a partially scanned run
+ * passes the already-checkpointed indices via --done-indices TOGETHER WITH
+ * --preserve-group-ids: the original slice is reconstructed and only missing
+ * original group IDs are emitted. The fill-budget mode (--done-indices
+ * without --preserve-group-ids) skips done files and refills the budget from
+ * later entries — it crosses table boundaries and is NOT valid in v6.
  *
  * Usage:
  *   node chunk.mjs --manifest /tmp/manifest.jsonl --cursor 0
  *                  [--lines 50000] [--group-lines 4000] [--group-files 25]
  *                  [--done-indices "12,13,40"] [--preserve-group-ids]
  *                  [--out /tmp/groups.json]
+ *
+ * Run-table mode (batch planning, Flow C):
+ *   node chunk.mjs --manifest /tmp/manifest.jsonl --cursor 0 --lines 50000 \
+ *                  --plan-runs [--first-run 1] [--out /tmp/runs.json]
+ * Emits the whole batch pre-sliced into runs. Boundaries use the exact same
+ * accumulation rule as normal slicing, so `--cursor <start> --lines <N>`
+ * reproduces each run verbatim at execution time (runners assert
+ * proposedCursor == end).
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -68,6 +79,8 @@ function parseArgs(argv) {
     cursor: 0,
     doneIndices: [],
     preserveGroupIds: false,
+    planRuns: false,
+    firstRun: 1,
   };
   for (let i = 2; i < argv.length; i += 1) {
     const a = argv[i];
@@ -80,6 +93,8 @@ function parseArgs(argv) {
     else if (a === '--done-indices') {
       args.doneIndices = argv[(i += 1)].split(',').filter(Boolean).map(Number);
     } else if (a === '--preserve-group-ids') args.preserveGroupIds = true;
+    else if (a === '--plan-runs') args.planRuns = true;
+    else if (a === '--first-run') args.firstRun = Number(argv[(i += 1)]);
     else if (a === '--out') args.out = argv[(i += 1)];
     else {
       console.error(`unknown argument: ${a}`);
@@ -110,7 +125,45 @@ function parseArgs(argv) {
     );
     process.exit(2);
   }
+  if (!Number.isInteger(args.firstRun) || args.firstRun <= 0) {
+    console.error(`invalid --first-run: ${args.firstRun}`);
+    process.exit(2);
+  }
+  if (args.planRuns && (args.doneIndices.length > 0 || args.preserveGroupIds)) {
+    console.error(
+      '--plan-runs plans a whole batch; it cannot be combined with --done-indices/--preserve-group-ids',
+    );
+    process.exit(2);
+  }
   return args;
+}
+
+function planRuns({ args, entries }) {
+  // Boundary rule MUST mirror buildGroups: files keep being added while the
+  // accumulated line count is still below the budget, so the file that
+  // crosses the budget is INCLUDED and the run ends after it. This identity
+  // is what lets `--cursor <start> --lines <runLines>` reproduce each run at
+  // execution time.
+  const runs = [];
+  let start = args.cursor;
+  let r = args.firstRun;
+  while (start < entries.length) {
+    let planned = 0;
+    let i = start;
+    while (i < entries.length && planned < args.lines) {
+      const e = entries[i];
+      if (e.i !== i) {
+        console.error(`manifest corrupt: entry at position ${i} has i=${e.i}`);
+        process.exit(2);
+      }
+      planned += e.lines;
+      i += 1;
+    }
+    runs.push({ r, start, end: i, files: i - start, lines: planned });
+    start = i;
+    r += 1;
+  }
+  return runs;
 }
 
 function buildGroups({ args, entries, done, skipDone }) {
@@ -188,6 +241,22 @@ function main() {
     .filter(Boolean)
     .map((l) => JSON.parse(l));
 
+  if (args.planRuns) {
+    const runs = planRuns({ args, entries });
+    const table = {
+      cursor: args.cursor,
+      runLines: args.lines,
+      firstRun: args.firstRun,
+      runCount: runs.length,
+      totalFilesInManifest: entries.length,
+      totalLinesInManifest: entries.reduce((s, e) => s + e.lines, 0),
+      runs,
+    };
+    if (args.out) writeFileSync(args.out, JSON.stringify(table, null, 1));
+    console.log(JSON.stringify(table, null, 1));
+    return;
+  }
+
   const done = new Set(args.doneIndices);
   let groups;
   let plannedLines;
@@ -236,10 +305,9 @@ function main() {
   const plan = {
     cursor: args.cursor,
     resumeMode: args.preserveGroupIds ? 'preserve-group-ids' : 'fill-budget',
-    // Cursor value to persist once EVERY group below has a checkpoint.
+    // v6: assert proposedCursor == the table run's `end` (drift guard).
     proposedCursor,
-    // Absolute covered-lines value for the state message (NOT an increment):
-    // sum of all manifest lines below proposedCursor. Crash-recovery safe.
+    // Absolute covered-lines through proposedCursor (NOT an increment).
     linesThroughProposedCursor,
     strandedDoneIndices,
     totalFilesInManifest: entries.length,

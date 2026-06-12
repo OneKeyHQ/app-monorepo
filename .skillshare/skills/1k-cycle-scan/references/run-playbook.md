@@ -1,11 +1,12 @@
 # Run Playbook
 
 Detailed flows. `SKILL.md` decides which flow applies; this file is the
-authoritative procedure for each. Page tree, state schema, locking,
+authoritative procedure for each. Page tree, state schema, locks/claims,
 staleness, checkpoint comments, Slack notify:
 see [persistence-protocol.md](persistence-protocol.md). "Update the state
 page" below always means: `updateConfluencePage` with the full new body
-(progress table + state JSON) and a meaningful `versionMessage`.
+(progress snapshot + state JSON) and a meaningful `versionMessage` — and is
+only ever done by a flow holding the batch-level state lock.
 
 ## Contents
 - Preflight (every invocation)
@@ -27,11 +28,13 @@ page" below always means: `updateConfluencePage` with the full new body
    `verifySeverities`, `staleRunMinutes`, `maxConcurrentAgents` — and
    `mainBranch` for every fetch. Values hardcoded in scripts/templates are
    fallbacks only; config wins.
-2. `confluence.cloudId/spaceId/parentPageId` null →
+2. `confluence.cloudId/spaceId/spaceKey/parentPageId` null →
    - local session: ask the user for the parent page URL once, resolve the
      IDs, write them into `config.json` (the ONE repo file this skill may
      write — bootstrap exemption), remind them to commit;
    - cloud sandbox: STOP and tell the user to bootstrap locally and commit.
+   (`spaceKey` is required by the CQL discovery fallback — its absence must
+   fail here, not get misdiagnosed as "Confluence unreachable" later.)
 3. Confluence probe per protocol. Try `getConfluencePage` on
    `config.confluence.parentPageId`; if it returns 404, treat the parent as a
    possible Confluence folder and continue with CQL discovery:
@@ -43,14 +46,28 @@ page" below always means: `updateConfluencePage` with the full new body
 4. Slack is not a preflight dependency. If Slack send later fails, keep the
    persisted Confluence state/report and mention the Slack failure to the user.
 5. `git -C <repo> rev-parse --git-dir` works; `node --version` works.
+6. State JSON `"v": 5` → run the migration retrofit
+   (protocol → Migration v5 → v6) before anything else that scans.
+7. Routing is computed, not reasoned:
+   `node "$SCRIPTS/coordinate.mjs" --op route --state /tmp/state.json
+   [--index /tmp/batch-comments.json --table /tmp/runs.json]
+   [--subcommand status|report|rebuild|scan]` → the flow to execute.
 
 Repo root = the current project root (the checkout the session runs in, or any
 worktree of it).
 
+**Engine discipline (applies to every flow below)**: protocol decisions —
+ownership, pickability, staleness, breakers, completeness, progress, comment
+bodies, state transitions, routing — are computed by
+`scripts/coordinate.mjs`; the model only dumps Confluence data to JSON files
+(ALWAYS paginate comment reads to exhaustion) and executes the engine's
+output. Comment dumps are arrays of `{ "body", "createdAt" }`. Prefer the
+PINNED tree's coordinate.mjs (same provenance rule as the other scripts).
+
 ## Shared: materialize the pinned tree
 
-Idempotent; used by Flows C, D, E. Abort (and release the lock) on ANY
-assertion failure — never swallow errors here.
+Idempotent; used by Flows C, D, E. Abort (and void any claim / release any
+lock you hold) on ANY assertion failure — never swallow errors here.
 
 ```bash
 PIN=<pinned commit>; DIM=<dimension>
@@ -68,6 +85,11 @@ WT="/tmp/1k-cycle-scan-wt-${DIM}"
 [ "$(git -C "$WT" rev-parse HEAD)" = "$PIN" ]  # hard assert
 ```
 
+Parallel-session note: each session materializes its own `$WT` path — they
+are different sandboxes/machines in the normal case. Two sessions on the SAME
+machine share `$WT` safely because both pin the same commit (the hash asserts
+catch any divergence).
+
 **Script provenance**: a batch's blueprint algorithm must be frozen with the
 pin, or any merged change to `manifest.mjs` would hash-strand every in-flight
 batch. Always prefer the pinned tree's copy:
@@ -81,14 +103,20 @@ Scan agents read files from `$WT`, never from the dev checkout.
 
 ## Flow A: status & report
 
-**status**: discover each dimension's state page (protocol) → one line per
-dimension from its state JSON:
-`perf · batch 2 · run 7 · 10.3% (581/5623 files) · idle · updated 2h ago`.
-No state page → explain nothing exists yet and show the invocation grammar.
+**status**: discover each dimension's state page (protocol) → for an open v6
+batch, dump the batch page comments and run
+`coordinate.mjs --op pick-order --table … --index … --nonce <any>` — its
+`progress` is the display source. Print one line per dimension:
+`perf · B002 · 已关 8/19 run · 已覆盖 41.2% 行 · 进行中/待认领其余 · summary 未生成 · state 更新于 2h 前`.
+The state page's own progress snapshot may lag (it only refreshes under the
+batch lock) — the index is the live source. `"v": 5` state → show its v5
+fields and note the dimension migrates on the next scan invocation (with
+user confirmation, see protocol Migration). No state page → explain nothing
+exists yet and show the invocation grammar.
 
-**report**: from the state JSON, list the batch page's children
-(`getConfluencePageDescendants` on `batchPageId`) → link the newest run
-report page and, if `summaryPageId`, the summary page. Read-only — no lock.
+**report**: from the run table, link the newest closed run page (pick via the
+run-closed index) and, if `summaryPageId`, the summary page. Read-only — no
+lock, no claim.
 
 ## Flow B: dimension bootstrap (no state page for the requested dimension)
 
@@ -98,9 +126,7 @@ report page and, if `summaryPageId`, the summary page. Read-only — no lock.
    - `security` (semi-built-in): generate `security-rules.md` content by
      distilling `.claude/skills/1k-code-review-pr` (security sections) and
      `.claude/skills/1k-auditing-pre-release-security`; same category format
-     as perf-rules.md. Persist as a rules page
-     (`CycleScan · security · Rules v1`, child of the state page once it
-     exists — create state page first, then rules page);
+     as perf-rules.md. Persisted as a rules page in step 3;
      `rulesSource: "page:<pageId>"`.
    - Anything else: treat the free text as the dimension charter. Propose a
      short kebab-case slug and a 10–25 category checklist (grounded in repo
@@ -108,17 +134,27 @@ report page and, if `summaryPageId`, the summary page. Read-only — no lock.
 2. Decide manifest overrides (e.g. security probably wants
    `disableRules: ["preset-networks-data"]` — config data IS security-
    relevant). Default: none.
-3. Create the STATE PAGE (`CycleScan · <dim>`, child of the parent page):
-   v5 state JSON with `status=idle`, `batch=0`, `cursor=0`, `rulesSource`,
-   `overrides`, page IDs null.
+3. Create the pages, in this order (idempotency rule on every create —
+   a title conflict means a concurrent/earlier bootstrap: adopt and continue):
+   a. STATE PAGE (`CycleScan · <dim>`, child of the parent page), body from
+      `coordinate.mjs --op state --transition init --dimension <dim>
+      [--rules-source <path-or-placeholder>] [--overrides <json>]`.
+   b. Rules page (`CycleScan · <dim> · Rules v1`, child of the state page) —
+      runtime dimensions only.
+   c. Runtime dimensions: update the state page, backfilling
+      `rulesSource: "page:<pageId>"`.
 4. Continue to Flow C.
 
 ## Flow C: batch start
 
-Route in: `batch == 0`, or `cursor >= totalFiles && summaryPageId != null`,
-or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
+Route in: `batch == 0`, or batch complete with `summaryPageId != null`, or
+Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
 
-1. Acquire the lock on the state page (protocol; `status=running`).
+1. Acquire the batch-level state lock: new state body from
+   `coordinate.mjs --op state --transition lock --state /tmp/state.json
+   --flow opening --nonce $(openssl rand -hex 4)` (the op refuses a held,
+   non-stale lock and enforces the v6 version guard); write it, wait ~5s,
+   re-read, verify `runnerNonce` is yours (protocol).
 2. `git fetch origin <config.mainBranch>` → `PIN=$(git rev-parse FETCH_HEAD)`.
 3. Materialize the pinned tree; resolve `SCRIPTS`.
 4. Blueprint + suspects:
@@ -131,59 +167,114 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
    data-as-code → add to `overrides.addExclude`; big real-code files are fine
    (they are exactly what we scan). Rerun with updated overrides. Do NOT read
    the manifest itself into context.
-6. Create the BATCH PAGE (`… · batch-<NNN>`, child of the state page): pin
-   commit, hashes, totals, suspects-review decisions, `forcedRebuild` note
-   when arriving via Flow F.
-7. Release-update the state page: `batch+1`, `batchPageId=<new page>`,
-   `run=0`, `runIncomplete=false`, `cursor=0`, `scannedLines=0`, new
-   `pinnedCommit`/`manifestHash`/`rulesHash`/`overrides`/`totalFiles`/
-   `totalLines`, `prevBatchPageId=<old batchPageId>`,
-   `prevSummaryPageId=<old summaryPageId>`, `summaryPageId=null`,
-   `status=idle`. versionMessage: `batch <B> open`.
-8. Tell the user the new batch is open, then continue into Flow D in the same
-   invocation.
+6. Plan the run table:
+   ```bash
+   node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --cursor 0 \
+     --lines <RUN_LINES> --plan-runs --out /tmp/1k-cycle-scan-runs.json
+   ```
+   `RUN_LINES` = the user's size override converted to an integer (`100k` →
+   `100000`) if this invocation opens the batch, else
+   `config.defaults.runLines`. This fixes the slice size for the WHOLE batch
+   — per-run overrides no longer exist (parallel claims replace them as the
+   speed lever). Sanity: `runCount > 40` → confirm with the user before
+   creating that many run pages (suggest a larger `RUN_LINES`).
+7. Create the BATCH PAGE (`… · B<NNN>`, child of the state page; idempotency
+   rule — a title conflict means a crashed earlier Flow C: adopt the page and
+   resume): pin commit, hashes (`manifestHash`/`rulesHash` come from the
+   manifest.mjs output JSON — never hash files yourself), totals,
+   suspects-review decisions, `forcedRebuild` note when arriving via Flow F,
+   plus the run-table JSON block (protocol) with `pageId: null` placeholders.
+8. Pre-create one RUN PAGE per table entry (child of the batch page, title
+   `CycleScan · <dim> · B<NNN> · R<NNN>`, placeholder body template below;
+   idempotency rule per page). Collect the page IDs.
+9. Update the batch page body: fill every table entry's `pageId`. (Steps 7–9
+   all happen under the state lock; nobody else writes these pages yet.)
+10. Release-update the state page with
+    `coordinate.mjs --op state --transition open-batch --state /tmp/state.json
+    --batch-page-id <id> --pin $PIN --manifest-hash <h> --rules-hash <h>
+    --total-files <n> --total-lines <n> --run-count <n> --run-lines <n>
+    [--overrides <json>]` (the op rolls `prev*`, resets `summaryPageId`,
+    bumps `batch`, unlocks).
+11. Tell the user the new batch is open (mention runCount and that parallel
+    sessions can each claim a run), then continue into Flow D in the same
+    invocation.
 
-## Flow D: run
+## Flow D: run (pick → claim → scan → close)
 
-1. Read the state page; determine the mode:
-   - `status != idle` and not stale (protocol: state heartbeat AND newest
-     current-run checkpoint comment both old) → abort: a runner is live.
-   - `status != idle` and stale → **recovery mode**.
-   - `status = idle` and `runIncomplete` → **continuation mode**.
-   - else → **normal mode**.
-   In recovery/continuation: keep the run number and collect DONE_INDICES
-   from the batch page's checkpoint comments for that run.
-2. Acquire the lock (state page update). Normal mode also sets `run+=1` in
-   the same update.
-3. Materialize the pinned tree; resolve `SCRIPTS`.
-4. Rebuild blueprint:
+1. Read the state page. `v==5` → migration retrofit first (protocol). If
+   `status` is `opening|summarizing|rebuilding` and not stale → abort: a
+   structural flow is live; scanning would race it. (Never "clean up" a
+   stale structural lock from Flow D — the next structural flow self-verifies
+   its own lock.)
+2. Materialize the pinned tree; resolve `SCRIPTS`. Rebuild the blueprint:
    ```bash
    node "$SCRIPTS/manifest.mjs" --repo "$WT" --out /tmp/...jsonl [--overrides ...]
    ```
-   Assert `commit == state.pinnedCommit` and
-   `manifestHash == state.manifestHash`. Mismatch → release the lock (update:
-   `status=idle`, `run` rolled back) and STOP with a diagnostic (script drift
-   vs pin — see provenance note — or wrong commit).
-5. Plan the slice:
+   Assert `commit == state.pinnedCommit`, `manifestHash ==
+   state.manifestHash`, and `rulesHash == state.rulesHash` (all three from
+   the manifest.mjs output JSON). Mismatch → STOP with a diagnostic (script
+   drift vs pin — see provenance note — or wrong commit). No claim exists
+   yet, so nothing needs releasing.
+3. Read the batch page body (run table → `/tmp/runs.json`) and dump ALL batch
+   page footer comments → `/tmp/batch-comments.json` (paginate to
+   exhaustion). Then:
+   ```bash
+   node "$SCRIPTS/coordinate.mjs" --op pick-order --table /tmp/runs.json \
+     --index /tmp/batch-comments.json --nonce <fresh nonce> \
+     [--legacy-run <v5.run> --legacy-cursor <state.legacyCursor>] \
+     --total-lines <state.totalLines>
+   ```
+   `fence` non-null → STOP (stale local state; re-read the state page).
+   `allClosedPerIndex` → verify with Flow E's authoritative gate instead.
+   RIGHT BEFORE probing, re-read the state page and assert `batchPageId`
+   unchanged (protocol Batch fence; step 2 may have taken minutes).
+4. Probe `candidates` in the engine's order (it shuffles per-session so
+   parallel arrivals do not pile onto the same run): dump that run page's
+   comments → `coordinate.mjs --op run-status --comments <dump> --my-nonce
+   <nonce>`:
+   - `pickable: scan|repair|voided|takeover` → claim it (step 5).
+     `repair`/`voided`/`takeover` need no extra waiting — only live owners
+     are protected by the staleness window.
+   - `pickable: none` + `closed.complete` and the run had no index entry →
+     post the missing `run-closed` index comment (make-comment, best-effort),
+     next candidate.
+   - `pickable: none` + `repairBreaker`/`voidBreaker` → STOP and surface the
+     engine's `pickableReason` verbatim — it lists the user's options
+     (orchestrator scans the group itself / user-confirmed waiver close /
+     next-batch overrides exclude / Flow F rebuild as last resort).
+   - `pickable: none` otherwise → busy; next candidate.
+   - No candidate left → report `N run 进行中,无可认领 run;最早解锁时间
+     <min(staleAt)>` and stop. This is the lock working as intended — its
+     scope is the run, not the batch.
+5. Claim it: post the comment from
+   ```bash
+   node "$SCRIPTS/coordinate.mjs" --op make-comment --kind claim \
+     --dim <dim> --batch <B> --run <r> --nonce <nonce> --mode <pickable> \
+     --group-lines <g> --group-files <g> [--focus "<hint>"]
+   ```
+   (`scan` mode: group params from config + the user's focus hint;
+   `repair`/`takeover`/`voided`-with-checkpoints: copy `originalClaim`'s
+   params from run-status). Wait ~10s, re-dump, re-run
+   `run-status --my-nonce`: `ownedByMe=false` → post `void` (make-comment),
+   back to step 4 for the next candidate.
+6. Plan the slice:
    ```bash
    node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --repo "$WT" \
-     --cursor <state.cursor> --lines <N> --group-lines <config> \
-     --group-files <config> [--done-indices <DONE_INDICES> --preserve-group-ids] \
+     --cursor <run.start> --lines <table.runLines> \
+     --group-lines <claim.groupLines> --group-files <claim.groupFiles> \
+     [--done-indices <run-status doneIndices> --preserve-group-ids] \
      --out /tmp/1k-cycle-scan-groups.json
    ```
+   Assert `proposedCursor == run.end` — the table-drift guard. Failure →
+   post `void` and STOP with a diagnostic. For `repair`/`takeover` (and
+   `voided` with prior checkpoints), `--done-indices` comes from run-status
+   `doneIndices`; missing groups keep their original marker numbers. Surface
+   `strandedDoneIndices` to the user if non-empty.
    `--repo` enables READ PROBES: files >1800 lines get a `probeLine` whose
    exact content the scan agent must echo back (proof it read past the Read
    tool's ~2000-line-per-call window). Keep probe line numbers in the group
    prompts but NEVER put the expected text anywhere near an agent prompt.
-   `--lines`: the user's override converted to an integer (`100k` → `100000`),
-   else `config.defaults.runLines`. The script rejects non-integers. In
-   recovery/continuation mode, pass `--preserve-group-ids` so the original
-   interrupted run plan is reconstructed: already-checkpointed groups are
-   skipped, missing groups keep their original numbers, and the cursor advances
-   only to the original run boundary. Do not extend the same recovered run with
-   later manifest entries; the next invocation will open the next normal run.
-   Surface `strandedDoneIndices` to the user if non-empty.
-6. Strict agent-output validation:
+7. Strict agent-output validation:
    - StructuredOutput/schema options are steering only. Every scan/refute
      result MUST be serialized to a temp JSON file and validated locally:
      ```bash
@@ -199,83 +290,118 @@ or Flow F. (`cursor >= totalFiles && summaryPageId == null` → Flow E first.)
      to the SAME agent label with a repair prompt: "Your previous answer failed
      schema validation. Return corrected raw JSON only. Do not add prose or
      markdown fences." Retry at most twice. If it still fails, treat the group
-     as NO scan result (Flow D step 8b); never checkpoint invalid output.
+     as NO scan result (step 9b); never checkpoint invalid output.
    - Probe validation belongs here too. If probe text does not match the
      pinned worktree, the scan output is invalid and must be repaired/rerun
      before findings are trusted.
-7. Scan groups — **ultracode**: orchestrate with the Workflow tool (template
+8. Scan groups — **ultracode**: orchestrate with the Workflow tool (template
    below); the skill mandates multi-agent orchestration and counts as the
    user's explicit opt-in. Only if the Workflow tool is genuinely absent,
    fall back to direct Agent fan-out capped at
    `config.defaults.maxConcurrentAgents`. Per group: scan agent → refute
    findings whose severity ∈ `config.defaults.verifySeverities` → post the
-   checkpoint COMMENT on the batch page (marker carries the run number;
-   human line carries live progress). Checkpoint comment timestamps double
-   as the lock heartbeat.
-8. Reconcile — compare checkpoint comments against the plan. Three DIFFERENT
-   gaps:
+   checkpoint COMMENT on the RUN page (body generated by
+   `make-comment --kind ckpt`, which embeds your claim nonce — the heartbeat
+   is nonce-attributed).
+9. Reconcile — re-dump the run page comments, `run-status --my-nonce`:
+   `ownedByMe=false` → taken over while the Workflow blocked → STOP silently
+   (protocol). Otherwise compare `doneIndices`/checkpoints against the plan;
+   three DIFFERENT gaps:
    a. Group has scan results but no checkpoint (posting failed) → post it now
-      from the orchestrator's data.
+      from the orchestrator's data (make-comment).
    b. Group has NO scan result (agent died/timeout) → re-run that group once
-      (scan + verify + checkpoint). Still failing → do NOT advance anything
-      for it; never fabricate its checkpoint.
-   c. PROBE verification: for every probed file, compare the agent's probe
-      text against the worktree (`sed -n '<N>p' "$WT/<path>"`,
-      whitespace-trimmed). Wrong or missing → the group's reads are not
-      trustworthy: treat exactly like 8b (re-run once; then runIncomplete).
-9. Close the run:
-   - All groups checkpointed → create the run report page (child of the
-     batch page, template below), then release-update the state page:
-     `status=idle`, `runIncomplete=false`, `cursor=<plan.proposedCursor>`,
-     `scannedLines=<plan.linesThroughProposedCursor>`, `updatedAt`, progress
-     table refreshed. versionMessage: `run <R> closed · <Y>%`.
-   - Some groups failed (8b) → same, except: cursor and scannedLines stay
-     UNCHANGED, `runIncomplete=true`, and the report page + your reply say
-     exactly which groups are missing. The next invocation continues this run.
-10. Slack notify (best-effort, one line, Chinese):
-   `perf · R<NNN> 完成 · <X>%→<Y>% · P0×a P1×b P2×c · 报告: <report page URL>`.
-11. Reply to the user: coverage X%→Y%, P0/P1 counts with one-line examples,
-    report page link, next-step hint.
-12. `plan.exhausted && !runIncomplete` → coverage is 100%: announce and run
-    Flow E NOW (the worktree is still needed). Otherwise optionally
+      (scan + verify + checkpoint). Still failing → it becomes `missingIdx`
+      in the close; never fabricate its checkpoint.
+   c. PROBE verification — backstop only: the step-7 validator already
+      verifies probes (`--repo`). Apply 9c by hand (compare probe text via
+      `sed -n '<N>p' "$WT/<path>"`, whitespace-trimmed) only for the direct
+      Agent fallback or orchestrator-reposted checkpoints whose validation
+      could not run. Wrong or missing probe → treat exactly like 9b (re-run
+      once; then `missingIdx`).
+10. Close the run (protocol order): re-dump + `run-status --my-nonce` one
+    last time (`ownedByMe=false` → STOP silently) → write the run report into
+    the RUN PAGE BODY (`updateConfluencePage`, template below; findings =
+    `run-status.findings`, i.e. ALL checkpoints on the page — a takeover
+    report includes the dead runner's groups) → post the close comment
+    (`make-comment --kind close`, `missingIdx` = files of groups failed in
+    9b/9c, normally `[]`) → if the batch page dump from step 3 had no fence,
+    post the index comment (`make-comment --kind run-closed`, best-effort) →
+    Slack notify (best-effort, one line, Chinese; skip iff
+    `run-status.slackDedup` or `config.slack.notify=false`):
+    `perf · B<NNN> R<NNN> 完成 · 范围 [<start>,<end>) · P0×a P1×b P2×c · 已关 <k>/<runCount> · <run page URL>`
+    (部分完成 wording for a `missingIdx` close — make-comment's human line is
+    the reference).
+11. Reply to the user: range covered, batch progress (`已关 k/runCount`,
+    covered-lines % from the engine), P0/P1 counts with one-line examples,
+    run page link, `missingIdx` warning if non-empty, next-step hint (more
+    parallel sessions can claim remaining runs).
+12. Re-dump the batch index; if it now shows every table run closed-complete
+    → run the authoritative gate (Flow E step 2) and continue into Flow E NOW
+    (the worktree is still needed). Otherwise optionally
     `git worktree remove --force "$WT"` (skip in cloud sandboxes — ephemeral
-    anyway).
+    anyway; skip when other local sessions may share `$WT`).
 
 ## Flow E: batch summary
 
-Route in: `cursor >= totalFiles && summaryPageId == null` (fresh invocation),
-or directly from Flow D step 12.
+Route in: every table run closed with empty `missingIdx` and
+`summaryPageId == null` (fresh invocation or Flow D step 12).
 
-1. Acquire the lock (`status=summarizing`) unless arriving from Flow D with
-   the lock already held (then update status to `summarizing`).
-2. Materialize the pinned tree (a fresh sandbox arriving here has nothing).
+1. Acquire the batch-level state lock
+   (`--op state --transition lock --flow summarizing --nonce …`; write, wait
+   ~5s, re-read, verify nonce). Flow D does NOT hold this lock, so always
+   acquire it here.
+2. Re-verify completeness AUTHORITATIVELY: dump every table run page's
+   comments into a directory as `r<NNN>.json`, then
+   ```bash
+   node "$SCRIPTS/coordinate.mjs" --op batch-status --table /tmp/runs.json \
+     --runs-dir /tmp/run-dumps [--legacy-run <n> --legacy-cursor <n>] \
+     --total-lines <state.totalLines>
+   ```
+   `complete=false` → release the lock (`--transition unlock`) and report
+   `openRuns` verbatim. Surface `waived` files — they go into the summary's
+   未覆盖 list.
+3. Materialize the pinned tree (a fresh sandbox arriving here has nothing).
    Also `git fetch origin <config.mainBranch>` and keep
    `LATEST=$(git rev-parse FETCH_HEAD)`; read current-x file content via
    `git show ${LATEST}:<path>` (no second worktree needed).
-3. Collect ALL checkpoint comments from the batch page (every run of this
-   batch). Unescape, parse, flatten.
-4. Dedup key: `path + category + floor(line/30)`. Merge duplicates (keep
+4. Collect ALL checkpoint comments from every RUN page (loop the run table's
+   `pageId`s). For a retrofitted batch (`legacyCursor > 0`), ALSO collect the
+   legacy checkpoints from the batch page comments. Unescape, parse, flatten.
+5. Dedup key: `path + category + floor(line/30)`. Merge duplicates (keep
    highest severity/confidence).
-5. Cluster by module (top 2–3 path segments). Per cluster, spawn a reviewer
+6. Cluster by module (top 2–3 path segments). Per cluster, spawn a reviewer
    agent (**ultracode**: fan these out with the Workflow tool too): confirm
    each finding in `$WT` (refresh line refs), then check
    `git show ${LATEST}:<path>` — gone on latest x → `fixedOnMain: true`.
-6. Previous batch comparison: read `prevSummaryPageId` (its trailing compact
+7. Previous batch comparison: read `prevSummaryPageId` (its trailing compact
    JSON block) → label findings new / recurring / fixed.
-7. Create the summary page (child of the batch page, template below; body
-   ends with the compact open-findings JSON block). Slack notify one line.
-8. Release-update the state page: `summaryPageId=<new page>`, `status=idle`.
-   versionMessage: `batch <B> complete · summary ready`. Remove the temp
-   worktree. The next invocation routes to Flow C.
+8. Create the summary page (child of the batch page, idempotency rule on
+   retry, template below; body ends with the compact open-findings JSON
+   block, plus a 未覆盖 section when `waived` is non-empty). Slack notify one
+   line (respect `config.slack.notify`).
+9. Release-update the state page via
+   `--op state --transition close-summary --summary-page-id <id>` (sets
+   `summaryPageId`, unlocks); refresh the progress snapshot in the body.
+   Remove the temp worktree. The next invocation routes to Flow C.
 
 ## Flow F: rebuild (`/1k-cycle-scan <dim> rebuild`)
 
 Destructive: abandons the current batch's remaining coverage. Requires
-explicit user confirmation in-conversation (state the current batch, coverage,
-and that unscanned files will only be covered by the NEXT batch's blueprint).
-Then execute Flow C; note `forcedRebuild · abandoned at <X>%` on both the old
-batch page (append a panel) and the new batch page. Do NOT create a summary
-for the abandoned batch.
+explicit user confirmation in-conversation (state the current batch, closed
+runs/runCount, in-flight claims if any, and that unscanned files will only be
+covered by the NEXT batch's blueprint). Then:
+
+1. Acquire the batch-level state lock
+   (`--op state --transition lock --flow rebuilding --nonce …`).
+2. Post the `batch-closed` fence comment on the old batch page
+   (`make-comment --kind batch-closed --reason forcedRebuild`) and append a
+   `forcedRebuild · abandoned at <k>/<runCount> runs` panel to its body.
+   In-flight runners will waste their slice at most — they only write their
+   own run pages.
+3. Execute Flow C steps 2–11 under the held `rebuilding` lock (the
+   `open-batch` transition accepts it — no unlock/relock window). Note
+   `forcedRebuild` on the new batch page. Do NOT create a summary for the
+   abandoned batch.
 
 ## Scan agent prompt (per group)
 
@@ -352,16 +478,19 @@ count in the report.
 ## Workflow template (adapt, don't copy blindly)
 
 ```js
-export const meta = { name: 'cycle-scan-run', description: 'Scan one slice',
+export const meta = { name: 'cycle-scan-run', description: 'Scan one claimed run',
   phases: [{ title: 'Scan' }, { title: 'Verify' }] }
 // args: { groups, wt, pin, dimension, rulesLocation, rulesFile, focus,
-//         cloudId, batchPageId, runNumber, verifySeverities, scriptsDir }
+//         cloudId, runPageId, batch, runNumber, claimNonce, verifySeverities,
+//         scriptsDir }
 // Defensive: depending on the harness, `args` may arrive JSON-stringified.
 const ARGS = typeof args === 'string' ? JSON.parse(args) : args
 // Template-literal gotcha: to emit ```json fences inside prompts, use a
 // FENCE const ('``' + '`') — raw backticks terminate the template literal.
 async function strictAgent({ prompt, label, phase, schemaName, schema, validateArgs }) {
   let raw = await agent(prompt, { label, phase, schema })
+  // Validates original + repair1 + repair2; after the second failed repair,
+  // give up WITHOUT spending another agent call ("retry at most twice").
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const validation = await validateWithLocalScript({
       script: `${ARGS.scriptsDir}/validate-agent-output.mjs`,
@@ -370,6 +499,7 @@ async function strictAgent({ prompt, label, phase, schemaName, schema, validateA
       validateArgs,
     })
     if (validation.ok) return validation.value
+    if (attempt === 2) break
     raw = await agent(
       repairPrompt({ originalPrompt: prompt, raw, errors: validation.stderr }),
       { label: `${label}:repair${attempt + 1}`, phase, schema },
@@ -403,12 +533,12 @@ const results = await pipeline(
     const refutedSet = new Set(verdicts.filter(Boolean).filter((v) => v.refuted).map((v) => v.f))
     const kept = res.findings.filter((f) => !refutedSet.has(f))
     // best-effort in-flight checkpoint; orchestrator reconciles afterwards
-    // (playbook Flow D step 8)
+    // (playbook Flow D step 9)
     await agent(checkpointPrompt(g, kept, ARGS), { label: `ckpt:g${g.id}`, phase: 'Verify' })
-    return { group: g.id, idx: g.files.map((x) => x.i), kept,
+    return { group: g.id, idx: g.files.map((x) => x.i), kept, probes: res.probes,
       refuted: res.findings.length - kept.length }
   })
-return { results }  // keep nulls: a null slot = group with NO result (step 8b)
+return { results }  // keep nulls: a null slot = group with NO result (step 9b)
 ```
 
 `validateWithLocalScript` is a harness adapter, not model logic: write `raw`
@@ -420,29 +550,43 @@ validator stderr; it must ask for corrected raw JSON only. If a page-sourced
 rules checklist is used, write it to a temp file and pass that file as
 `rulesFile`; otherwise omit `--rules`.
 
-`checkpointPrompt` instructs a minimal agent to load
+`checkpointPrompt` instructs a minimal agent to (1) write the kept findings
+to a temp JSON file, (2) generate the comment body with
+`node ARGS.scriptsDir/coordinate.mjs --op make-comment --kind ckpt --dim …
+--batch … --run ARGS.runNumber --group <g> --nonce ARGS.claimNonce --idx
+"<i,i,…>" --lines <n> --findings-file <tmp>` (never hand-format the marker or
+payload), then (3) load
 `mcp__claude_ai_Atlassian__createConfluenceFooterComment` via ToolSearch and
-post the checkpoint comment (marker + compact JSON + human progress line,
-markdown contentFormat) on `ARGS.batchPageId` with `ARGS.cloudId`. If unsure
-it succeeded, say so — the orchestrator's reconciliation re-posts.
+post that body on `ARGS.runPageId` (the claimed RUN page, NOT the batch page)
+with `ARGS.cloudId`. If unsure it succeeded, say so — the orchestrator's
+reconciliation re-posts.
 
 ## Report templates
 
 Reports are written in CHINESE (the user-facing deliverable); keep code
 identifiers, paths, category keys, markers, and JSON in English.
 
-Run report page (`CycleScan · <dim> · B<NNN> · R<NNN>`, child of the batch
-page, markdown; numbers zero-padded to 3 digits):
+Run page placeholder body (created by Flow C, replaced at close):
+
+```markdown
+状态:待认领
+计划范围:manifest [<start>, <end>) — <files> 个文件,约 <lines> 行
+认领方式:在本页评论区发 claim 评论(协议见 persistence-protocol.md);
+checkpoint、close 评论也都发在本页。
+```
+
+Run report (REPLACES the run page body at close via `updateConfluencePage`):
 
 ```markdown
 | | |
 |---|---|
 | 日期 / commit | <date> / `<pin sha12>` |
-| 本轮范围 | manifest [<from>, <to>) — <files> 个文件,<lines> 行 |
-| 覆盖率 | <X>% → <Y>%(<cursor>/<totalFiles> 文件) |
-| 发现 | P0 <n> · P1 <n> · P2 <n>(对抗校验驳回 <n> 个) |
+| 本轮范围 | manifest [<start>, <end>) — <files> 个文件,<lines> 行 |
+| 批次进度 | 本轮关闭后已关 <k>/<runCount> run(约 <Y>% 行) |
+| 发现 | P0 <n> · P1 <n> · P2 <n>(本次执行驳回 <n> 个;继承组不可统计) |
+| 执行 | <scan|repair|takeover> · claim <nonce> |
 | 本轮关注点 | <用户附加提示词,或 —> |
-| 未完成分组 | <无,或待续扫的 group id> |
+| 缺失分组 | <无,或 missingIdx 对应的 group 与文件数> |
 
 ## P0
 - `path:line` **[category]** 中文问题描述(置信度 0.9)
@@ -458,7 +602,7 @@ page, markdown; numbers zero-padded to 3 digits):
 Batch summary page (`CycleScan · <dim> · B<NNN> · Summary`):
 
 ```markdown
-Pinned `<sha12>` · <runs> 轮 · <files>/<lines> 全覆盖(100%)· <起止日期>
+Pinned `<sha12>` · <runCount> 轮 · <files>/<lines> 全覆盖(100%)· <起止日期>
 
 ## TOP 问题(已结合代码评审)
 排序清单:严重级别、path:line、中文描述、所属模块、是否已在最新 x 修复
