@@ -1482,3 +1482,8 @@ neighbour
 KHTML
 Leons
 symbolicated
+
+# Split-bundle native reject code classification
+ivar
+RCTJS
+retryably

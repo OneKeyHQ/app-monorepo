@@ -55,6 +55,68 @@ const globalLoading = new Set<string>();
 // the log when the same async-require is invoked repeatedly.
 const eagerFallbackWarned = new Set<string>();
 
+// ---------------------------------------------------------------------------
+// Retryable-vs-fatal native reject classification (H3)
+// ---------------------------------------------------------------------------
+
+// Native reject codes that indicate a TRANSIENT condition: the runtime/host
+// simply wasn't ready yet (no runtime) or the buffered runtime executor never
+// ran in time (timeout, e.g. a segment load requested before the entry bundle
+// finished evaluating). For the first MAX_RETRYABLE_ATTEMPTS-1 attempts these
+// are NOT cached as failures — so an early `import()` during startup/reload is
+// re-attempted on the next call instead of poisoning the segment for the whole
+// process. Only on the FINAL attempt does the circuit-breaker (see
+// MAX_RETRYABLE_ATTEMPTS below) cache the failure to stop a permanently wedged
+// runtime from re-attempting forever; `retrySegment()` clears that cache.
+//
+// This set is EXACTLY { SPLIT_BUNDLE_NO_RUNTIME, SPLIT_BUNDLE_TIMEOUT } and is
+// shared verbatim with the Android loader. Every native producer emits DISTINCT
+// per-cause reject codes, each mapped EXPLICITLY (no silent fall-through that
+// could misclassify a fatal failure as retryable):
+//   - iOS main runtime: SplitBundleLoader.mm maps its ESegmentEvalError codes
+//     (incl. ivar-missing → fatal SPLIT_BUNDLE_NATIVE_UNAVAILABLE).
+//   - iOS background runtime: BackgroundThread.loadSegmentInBackground maps the
+//     manager's EBgMgrSegmentEvalError codes (fix 1) — a missing bg segment file
+//     surfaces as fatal SPLIT_BUNDLE_NOT_FOUND, a renamed ivar as fatal
+//     SPLIT_BUNDLE_NATIVE_UNAVAILABLE, and only not-started / nil-instance /
+//     timeout are retryable.
+//   - Android: its watchdog rejects with SPLIT_BUNDLE_TIMEOUT.
+// A real bg EVAL/IO/NOT_FOUND/structural failure therefore surfaces as its own
+// fatal code and is correctly NOT retried.
+const RETRYABLE_NATIVE_REJECT_CODES = new Set<string>([
+  'SPLIT_BUNDLE_NO_RUNTIME',
+  'SPLIT_BUNDLE_TIMEOUT',
+]);
+
+// Fatal native reject codes are everything else (e.g. SPLIT_BUNDLE_EVAL_ERROR
+// — a real bug in the segment's own JS; SPLIT_BUNDLE_IO_ERROR;
+// SPLIT_BUNDLE_NATIVE_UNAVAILABLE — a native primitive was unavailable
+// (Android-only producer); SPLIT_BUNDLE_SHA256_MISMATCH; SPLIT_BUNDLE_NOT_FOUND;
+// SPLIT_BUNDLE_INVALID_PATH). These keep the existing cache-as-failed behavior:
+// retrying just reproduces the same failure.
+
+// Bounds the number of times a retryable reject re-attempts the SAME segment
+// before we give up and cache it as a permanent failure. Without this cap a
+// truly wedged runtime (one that keeps reporting NO_RUNTIME / TIMEOUT) would
+// re-attempt on every `import()` forever. Reset to 0 once the segment loads
+// successfully.
+const MAX_RETRYABLE_ATTEMPTS = 3;
+const retryableAttempts = new Map<string, number>();
+
+/**
+ * Read the native reject `code` from a thrown error. RN TurboModule rejections
+ * (`reject(code, message, nsError)`) surface `code` as the JS Error's `.code`
+ * string (see RCTJSErrorFromCodeMessageAndNSError). Returns undefined for our
+ * own SegmentLoadError / non-native throws.
+ */
+function getNativeRejectCode(error: unknown): string | undefined {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
 /**
  * Log a diagnostic without letting it propagate — used in the eager
  * fallback path, which must never fail the async require.
@@ -88,12 +150,27 @@ const segmentStats = {
 // ---------------------------------------------------------------------------
 
 class SegmentLoadError extends Error {
+  // Native reject `code` that ultimately caused this failure (own or
+  // propagated from a failing dependency). Preserved (fix C) so a PARENT
+  // segment whose dep rejected can still read the underlying native code — the
+  // raw RN TurboModule error carries `.code`, but once we wrap it in a
+  // SegmentLoadError that `.code` is lost unless we copy it here.
+  public code?: string;
+
+  // Whether `code` is in the retryable set. Cached on the error so the parent's
+  // failure handler can propagate retryable-ness WITHOUT re-deriving it (and
+  // without needing the original native error object, which it never sees).
+  public retryable: boolean;
+
   constructor(
     public segmentKey: string,
     message: string,
+    options?: { code?: string; retryable?: boolean },
   ) {
     super(`[SplitBundle] ${segmentKey}: ${message}`);
     this.name = 'SegmentLoadError';
+    this.code = options?.code;
+    this.retryable = options?.retryable ?? false;
   }
 }
 
@@ -278,20 +355,71 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
 
   try {
     await promise;
+    // Success clears any retry bookkeeping for this segment.
+    retryableAttempts.delete(segmentKey);
   } catch (error) {
+    segmentStats.failures += 1;
+    segmentStates.set(segmentKey, 'failed');
+
+    // Classify retryable-ness from EITHER source (fix C):
+    //   (a) a DIRECT native reject — the raw RN TurboModule error carries
+    //       `.code`; map it against the retryable set; or
+    //   (b) a PROPAGATED dep failure — `loadSegmentInternal(dep)` already
+    //       wrapped its native error in a SegmentLoadError that lost the raw
+    //       `.code`, but it copied the native `code` + `retryable` flag onto
+    //       the SegmentLoadError. Without this branch the parent would see a
+    //       codeless SegmentLoadError, treat the failure as fatal, and write
+    //       ITSELF into failedSegments permanently — poisoning the parent even
+    //       though the dep failure was a transient runtime-not-ready / timeout
+    //       that should clear on retry.
+    let nativeCode: string | undefined;
+    let isRetryable: boolean;
+    if (error instanceof SegmentLoadError) {
+      nativeCode = error.code;
+      isRetryable = error.retryable;
+    } else {
+      nativeCode = getNativeRejectCode(error);
+      isRetryable =
+        nativeCode !== undefined &&
+        RETRYABLE_NATIVE_REJECT_CODES.has(nativeCode);
+    }
+
+    // Wrap (or reuse) as a SegmentLoadError, threading the resolved
+    // code/retryable through so THIS segment's parent (if it is itself a dep)
+    // can propagate the same classification one level up.
     const segError =
       error instanceof SegmentLoadError
         ? error
         : new SegmentLoadError(
             segmentKey,
             error instanceof Error ? error.message : String(error),
+            { code: nativeCode, retryable: isRetryable },
           );
-    segmentStats.failures += 1;
-    segmentStates.set(segmentKey, 'failed');
+
+    const attempts = (retryableAttempts.get(segmentKey) ?? 0) + 1;
+
+    if (isRetryable && attempts < MAX_RETRYABLE_ATTEMPTS) {
+      // Skip failedSegments so the NEXT __loadBundleAsync re-attempts (rather
+      // than throwing the cached failure forever). State is reset to 'idle' and
+      // the attempt counter bumped so a wedged runtime can't loop unbounded.
+      retryableAttempts.set(segmentKey, attempts);
+      segmentStates.set(segmentKey, 'idle');
+      NativeLogger.write(
+        LogLevel.Warning,
+        `[SplitBundle] SEGMENT LOAD FAILED (retryable, attempt ${attempts}/${MAX_RETRYABLE_ATTEMPTS}, code=${nativeCode}); NOT caching as permanent — next load will re-attempt: ${segError.message}`,
+      );
+      throw segError;
+    }
+
+    // Non-retryable, or retryable budget exhausted → cache as permanent failure
+    // (existing behavior). Only retrySegment() clears it from here.
+    retryableAttempts.delete(segmentKey);
     failedSegments.set(segmentKey, segError);
     NativeLogger.write(
       LogLevel.Error,
-      `[SplitBundle] SEGMENT LOAD FAILED: ${segError.message}`,
+      `[SplitBundle] SEGMENT LOAD FAILED${
+        isRetryable ? ' (retryable budget exhausted)' : ''
+      }${nativeCode ? ` code=${nativeCode}` : ''}: ${segError.message}`,
     );
     throw segError;
   } finally {
@@ -362,6 +490,7 @@ async function loadBundleRequest(request: IBundlePathRequest): Promise<void> {
 export async function retrySegment(segmentKey: string): Promise<void> {
   failedSegments.delete(segmentKey);
   segmentStates.delete(segmentKey);
+  retryableAttempts.delete(segmentKey);
   return loadSegmentInternal(segmentKey);
 }
 
