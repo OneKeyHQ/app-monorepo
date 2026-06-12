@@ -319,4 +319,24 @@ describe('jotaiContextStore reset flow', () => {
     expect(queryAllByTestId('swap-root-provider')).toHaveLength(1);
     expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
   });
+
+  it('mounts the perps cold-start root when only the L2 book cache snapshot exists', () => {
+    const globalCache = globalThis as IGlobalColdStartSnapshot;
+    globalCache.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [`store:${EJotaiContextStoreNames.perps}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom}`]:
+        {
+          'perpsL2Book:v1:ETH:latest': {
+            data: { coin: 'ETH', levels: [[], []], time: 1 },
+            updatedAt: 1,
+          },
+        },
+    };
+    platformEnv.isNative = true;
+
+    const { queryAllByTestId } = render(
+      createElement(JotaiContextRootProvidersAutoMount),
+    );
+
+    expect(queryAllByTestId('perps-root-provider')).toHaveLength(1);
+  });
 });

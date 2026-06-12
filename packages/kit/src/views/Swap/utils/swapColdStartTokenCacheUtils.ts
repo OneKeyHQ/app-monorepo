@@ -40,6 +40,63 @@ type ISwapHomeSelectedAccountForDefaults = ISwapSelectedAccountKeySource & {
   networkId?: string;
 };
 
+type ISwapAmountInputState = {
+  value?: string;
+  isInput?: boolean;
+};
+
+function hasSwapUserInputAmount({
+  fromTokenAmount,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    (fromTokenAmount?.isInput && fromTokenAmount.value) ||
+    (toTokenAmount?.isInput && toTokenAmount.value),
+  );
+}
+
+export function shouldPreserveSwapUserInputAmountOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    !hasImportParams &&
+    hasSwapUserInputAmount({
+      fromTokenAmount,
+      toTokenAmount,
+    }),
+  );
+}
+
+export function shouldPreserveSwapUserInputOnAccountSwitch({
+  fromTokenAmount,
+  hasImportParams,
+  hasSelectedTokens,
+  toTokenAmount,
+}: {
+  fromTokenAmount?: ISwapAmountInputState;
+  hasImportParams?: boolean;
+  hasSelectedTokens: boolean;
+  toTokenAmount?: ISwapAmountInputState;
+}) {
+  return Boolean(
+    hasSelectedTokens &&
+    shouldPreserveSwapUserInputAmountOnAccountSwitch({
+      fromTokenAmount,
+      hasImportParams,
+      toTokenAmount,
+    }),
+  );
+}
+
 export function buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount(
   selectedAccount?: ISwapSelectedAccountKeySource,
 ) {
@@ -222,6 +279,7 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
   eventPayload,
   hasSelectedTokens,
   initialSelectedTokensSynced,
+  preserveSelectedTokens,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   eventPayload: {
@@ -231,7 +289,12 @@ export function shouldHandleSwapColdStartHomeAccountUpdate({
   };
   hasSelectedTokens?: boolean;
   initialSelectedTokensSynced: boolean;
+  preserveSelectedTokens?: boolean;
 }) {
+  if (preserveSelectedTokens) {
+    return false;
+  }
+
   if (initialSelectedTokensSynced) {
     return false;
   }
@@ -318,6 +381,46 @@ function getBridgeDefaultToTokenForFromToken(fromToken?: ISwapToken) {
     : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
 }
 
+function shouldUseBridgeDefaultToToken({
+  homeNetworkId,
+  preferredSwapType,
+}: {
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+}) {
+  return (
+    preferredSwapType === ESwapTabSwitchType.BRIDGE &&
+    !isSwapColdStartAllNetworkContextNetworkId(homeNetworkId)
+  );
+}
+
+export function getSwapDefaultToTokenForSwapType({
+  fromToken,
+  homeNetworkId,
+  preferredSwapType,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  homeNetworkId?: string;
+  preferredSwapType?: ESwapTabSwitchType;
+  toToken?: ISwapToken;
+}) {
+  if (preferredSwapType === ESwapTabSwitchType.LIMIT) {
+    return toToken;
+  }
+
+  if (
+    shouldUseBridgeDefaultToToken({
+      homeNetworkId,
+      preferredSwapType,
+    })
+  ) {
+    return getBridgeDefaultToTokenForFromToken(fromToken);
+  }
+
+  return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
+}
+
 export function buildSwapDefaultSelectedTokensFromHomeAccount({
   homeSelectedAccount,
   swapType: preferredSwapType,
@@ -341,10 +444,14 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   const fromToken = useLimitDefaults
     ? defaultTokens?.limitFromToken
     : defaultTokens?.fromToken;
-  const toToken = useLimitDefaults
-    ? defaultTokens?.limitToToken
-    : (defaultTokens?.toToken ??
-      getBridgeDefaultToTokenForFromToken(fromToken));
+  const toToken = getSwapDefaultToTokenForSwapType({
+    fromToken,
+    homeNetworkId,
+    preferredSwapType,
+    toToken: useLimitDefaults
+      ? defaultTokens?.limitToToken
+      : defaultTokens?.toToken,
+  });
   if (!fromToken && !toToken) {
     return undefined;
   }
@@ -479,15 +586,21 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   hasSelectedTokens,
   homeSelectedAccount,
   initialSelectedTokensSynced,
+  preserveSelectedTokens,
   swapSelectedAccount,
 }: {
   cachedContext?: ISwapSelectedTokensColdStartContext;
   hasSelectedTokens: boolean;
   homeSelectedAccount?: IAccountSelectorSelectedAccount;
   initialSelectedTokensSynced?: boolean;
+  preserveSelectedTokens?: boolean;
   swapSelectedAccount?: IAccountSelectorSelectedAccount;
 }) {
   if (!hasSelectedTokens) {
+    return false;
+  }
+
+  if (preserveSelectedTokens) {
     return false;
   }
 
@@ -584,6 +697,7 @@ export function getSwapSelectedTokensColdStartContextNetworkId({
 export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
   activeAccount,
   fromToken,
+  preserveSelectedTokens,
   selectedTokensColdStartContext,
   toToken,
 }: {
@@ -591,10 +705,14 @@ export function isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
     typeof buildSwapSelectedTokensColdStartContext
   >[0]['activeAccount'];
   fromToken?: ISwapToken;
+  preserveSelectedTokens?: boolean;
   selectedTokensColdStartContext?: ISwapSelectedTokensColdStartContext;
   toToken?: ISwapToken;
 }) {
   if (!fromToken && !toToken) {
+    return true;
+  }
+  if (preserveSelectedTokens) {
     return true;
   }
   if (!selectedTokensColdStartContext) {

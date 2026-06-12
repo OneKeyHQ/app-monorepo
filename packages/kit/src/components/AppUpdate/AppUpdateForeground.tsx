@@ -16,6 +16,10 @@ import {
   isWhatsNewShown,
   markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,7 +33,9 @@ import { whenAppUnlocked } from '../../utils/passwordUtils';
 import { tryShowFeaturedDialog } from '../../views/AppUpdate/dialogs/tryShowFeaturedDialog';
 
 import { buildSoftwareUpdateParams } from './updateAnalytics';
-import { showSilentUpdateDialogUI, showUpdateDialogUI } from './updateDialogs';
+// OK-55397: showSilentUpdateDialogUI no longer used — silent updates are
+// applied via a pending install task on restart instead of a "ready" dialog.
+import { showUpdateDialogUI } from './updateDialogs';
 import { isAutoUpdateStrategy, isForceUpdateStrategy } from './updateStrategy';
 import { useDownloadPackage } from './useDownloadPackage';
 
@@ -141,23 +147,29 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     [appUpdateInfo.updateStrategy, navigation],
   );
 
-  const showSilentUpdateDialog = useCallback(() => {
-    setTimeout(async () => {
-      const currentUpdateInfo =
-        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      await whenAppUnlocked();
-      await showSilentUpdateDialogUI({
-        intl,
-        summary: currentUpdateInfo.summary || '',
-        themeVariant,
-        onConfirm: () => {
-          navigation.pushModal(EModalRoutes.AppUpdateModal, {
-            screen: EAppUpdateRoutes.DownloadVerify,
-          });
-        },
-      });
-    }, 0);
-  }, [intl, navigation, themeVariant]);
+  // OK-55397: silent updates no longer show a "ready" dialog. The downloaded
+  // package is queued as a pending install task in
+  // ServiceAppUpdate.readyToInstall → syncPendingInstallTaskWithReleaseInfo
+  // (silent is now allowed past the strategy gate) and applied on the next
+  // restart; the header / reminder update button lets the user restart-install
+  // immediately. Dialog plumbing kept commented out for an easy revert.
+  // const showSilentUpdateDialog = useCallback(() => {
+  //   setTimeout(async () => {
+  //     const currentUpdateInfo =
+  //       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+  //     await whenAppUnlocked();
+  //     await showSilentUpdateDialogUI({
+  //       intl,
+  //       summary: currentUpdateInfo.summary || '',
+  //       themeVariant,
+  //       onConfirm: () => {
+  //         navigation.pushModal(EModalRoutes.AppUpdateModal, {
+  //           screen: EAppUpdateRoutes.DownloadVerify,
+  //         });
+  //       },
+  //     });
+  //   }, 0);
+  // }, [intl, navigation, themeVariant]);
 
   const showUpdateDialog = useCallback(
     (
@@ -248,6 +260,7 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     let cancelled = false;
     let hasTriggeredUpdateCheck = false;
     let cleanupUpdateCheck: (() => void) | undefined;
+    let cleanupPruneStaleArtifacts: (() => void) | undefined;
 
     const fetchUpdateInfo = (_trigger: string) => {
       void checkForUpdates().then(
@@ -338,8 +351,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
         markWhatsNewShown(Boolean(info.jsBundleVersion));
+        // Auto-update strategies (silent + seamless) complete invisibly, so
+        // they must NOT pop the changelog / "what's new" page after the update
+        // applies — only user-facing (manual / force) updates do. Previously
+        // only `seamless` was excluded; `silent` is now treated identically
+        // per product requirement (silent updates must not show the changelog
+        // on completion, same as seamless).
         if (
-          info.updateStrategy !== EUpdateStrategy.seamless &&
+          !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
           onViewReleaseInfo();
@@ -399,12 +418,13 @@ export function useAppUpdateForegroundEffects(enabled = true) {
             );
           }
         } else if (info.updateStrategy === EUpdateStrategy.silent) {
-          // Consume the module-level guard shared with the silent-ready
-          // watcher effect below, so the watcher skips on the same render
-          // tick (prevents a duplicate dialog when the persisted atom is
-          // already hydrated at first launch).
+          // OK-55397: silent no longer pops a dialog here. readyToInstall has
+          // already queued a pending install task (silent is allowed past the
+          // strategy gate), applied on the next restart; the update button
+          // offers an immediate restart-install. Keep the guard set so the
+          // (now no-op) silent-ready watcher below stays consistent.
           silentReadyDialogShown = true;
-          showSilentUpdateDialog();
+          // showSilentUpdateDialog();
         } else {
           showUpdateDialog();
         }
@@ -413,10 +433,30 @@ export function useAppUpdateForegroundEffects(enabled = true) {
       }
     })();
 
+    // Cold-start idle sweep of stale download artifacts (old-appVersion OTA
+    // bundles + Android APK cache when no update is pending). Deferred to
+    // after the first-render token-load settle so it never competes with
+    // boot work, and runs at most once per launch (service-side debounce +
+    // the module-level didRunFirstLaunchDispatch guard on this effect).
+    cleanupPruneStaleArtifacts = runAfterTokensDone({
+      onRun: () => {
+        if (cancelled) return;
+        void backgroundApiProxy.serviceAppUpdate
+          .pruneStaleArtifacts()
+          .catch(() => {
+            // pruneStaleArtifacts already swallows internally; this is a
+            // belt-and-braces guard so a rejected proxy call can never
+            // surface an unhandled rejection.
+          });
+      },
+    });
+
     return () => {
       cancelled = true;
       cleanupUpdateCheck?.();
       cleanupUpdateCheck = undefined;
+      cleanupPruneStaleArtifacts?.();
+      cleanupPruneStaleArtifacts = undefined;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -436,13 +476,51 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     if (appUpdateInfo.status !== EAppUpdateStatus.ready) return;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) return;
     silentReadyDialogShown = true;
-    showSilentUpdateDialog();
+    // OK-55397: silent-ready dialog removed — apply-on-restart is handled by
+    // the pending install task queued in readyToInstall. Nothing to show here.
+    // showSilentUpdateDialog();
     // deps: only re-run on status / strategy transitions.
     // appUpdateInfo is omitted intentionally — including the object ref
     // would re-fire on every unrelated field mutation.
-    // showSilentUpdateDialog is a stable callback ref, safe to omit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
+
+  // Mid-session auto-download bridge.
+  //
+  // When fetchAppUpdateInfo discovers an update mid-session whose strategy is
+  // auto (silent/seamless) or which is a rollback, the background keeps the
+  // persist atom at `notify` and only emits StartAutoDownloadUpdate — it
+  // cannot pull bytes. The native transfer (BundleUpdate.downloadBundle, with
+  // headers + retry/backoff) lives only in the foreground useDownloadPackage
+  // hook, and it is that hook's serviceAppUpdate.downloadPackage() call which
+  // actually flips `notify` → `downloadPackage` (notify ∈
+  // DOWNLOAD_ENTRY_STATUSES, so it is accepted) and starts the transfer.
+  //
+  // This listener is the only thing that drives a *mid-session* transition:
+  // the first-launch dispatch above also calls downloadPackage(), but it runs
+  // exactly once per app lifecycle so it cannot catch an in-session discovery.
+  // On the event we kick the real download now instead of waiting for the next
+  // cold start. (If the app is killed before this fires, status is still
+  // `notify`, and the next cold start's checkForUpdates re-detects and
+  // re-triggers downloadPackage() — no update is lost.)
+  //
+  // withDownloadMutex inside downloadPackage() collapses this with any
+  // concurrent foreground-initiated download (user click / cold-start dispatch
+  // / AppState resume) into a single in-flight transfer, so a redundant event
+  // never starts a second download.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = (payload: { decision: string }) => {
+      defaultLogger.app.appUpdate.log(
+        `StartAutoDownloadUpdate received → foreground downloadPackage (${payload?.decision})`,
+      );
+      void downloadPackage();
+    };
+    appEventBus.on(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    };
+  }, [downloadPackage, enabled]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-

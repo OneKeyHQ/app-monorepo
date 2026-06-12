@@ -483,11 +483,13 @@ const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
   iconColor,
+  compact,
   marketPresetSettings,
 }: {
   pageType?: EPageType;
   iconSize?: number | `$${string}`;
   iconColor?: ColorTokens;
+  compact?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
 }) => {
   const navigation =
@@ -535,7 +537,8 @@ const SwapHeaderRightActionContainer = ({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
+    !compact &&
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting);
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
@@ -554,6 +557,8 @@ const SwapHeaderRightActionContainer = ({
     }
     return null;
   }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
+  const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
+  const resolvedButtonSize = compact ? 'small' : 'medium';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -593,6 +598,7 @@ const SwapHeaderRightActionContainer = ({
         title: intl.formatMessage({
           id: ETranslations.market_chart,
         }),
+        disableDrag: true,
         estimatedContentHeight: 460,
         contentContainerProps: {
           px: '$0',
@@ -655,15 +661,15 @@ const SwapHeaderRightActionContainer = ({
     });
   }, [intl, marketPresetSettings, swapStoreName]);
   return (
-    <HeaderButtonGroup>
+    <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
       {showKLineButton ? (
         <HeaderIconButton
           testID={SwapTestIDs.kLineButton}
           icon="TradingViewCandlesOutline"
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
-          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
-          size="medium"
+          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          size={resolvedButtonSize}
         />
       ) : null}
 
@@ -674,9 +680,9 @@ const SwapHeaderRightActionContainer = ({
           borderRadius="$3"
           bg="$bgSubdued"
           cursor="pointer"
-          px="$2"
+          px={compact ? '$1.5' : '$2'}
           py="$1"
-          gap="$1"
+          gap={compact ? '$0.5' : '$1'}
           alignItems="center"
           justifyContent="center"
           hoverStyle={{
@@ -689,7 +695,7 @@ const SwapHeaderRightActionContainer = ({
           {slippageTitle}
           <Icon
             name="SliderHorOutline"
-            size={iconSize ?? 20}
+            size={resolvedIconSize}
             color={iconColor ?? '$icon'}
           />
         </XStack>
@@ -698,14 +704,14 @@ const SwapHeaderRightActionContainer = ({
           testID={SwapTestIDs.settingsButton}
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{ size: iconSize ?? 20, color: iconColor }}
-          size="medium"
+          iconProps={{ size: resolvedIconSize, color: iconColor }}
+          size={resolvedButtonSize}
         />
       )}
 
       {historyBadgeCount > 0 ? (
         <Stack
-          m="$0.5"
+          m={compact ? '$0' : '$0.5'}
           w="$5"
           h="$5"
           userSelect="none"
@@ -736,8 +742,8 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{ size: iconSize ?? 20, color: iconColor ?? '$icon' }}
-          size="medium"
+          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          size={resolvedButtonSize}
         />
       )}
     </HeaderButtonGroup>

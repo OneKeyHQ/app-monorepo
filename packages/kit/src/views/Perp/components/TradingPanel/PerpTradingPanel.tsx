@@ -91,7 +91,7 @@ function PerpEnableTradingButtonLite() {
         borderRadius="$full"
         testID={PerpTestIDs.EnableTradingButton}
         variant="primary"
-        loading={isAccountLoading}
+        disabled={isAccountLoading}
         onPress={async () => {
           await enableTrading();
         }}
@@ -120,7 +120,7 @@ function PerpTradingDisabledPlaceOrderButton() {
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [tradingMode] = useTradingModeAtom();
 
-  const universalLoading = useMemo(() => {
+  const disabledForAccountLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading;
   }, [perpsAccountLoading?.selectAccountLoading]);
 
@@ -226,7 +226,7 @@ function PerpTradingDisabledPlaceOrderButton() {
 
   return (
     <PerpTradingButton
-      loading={universalLoading}
+      disabledForAccountLoading={disabledForAccountLoading}
       handleShowConfirm={handleShowConfirm}
       formData={formData}
       computedSize={computedSizeBN}

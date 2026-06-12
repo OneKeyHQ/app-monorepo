@@ -235,6 +235,20 @@ function getIndicatorsDialogOpenState(
   return undefined;
 }
 
+function normalizeTradingViewMessagePayload({
+  data,
+  scope,
+}: ICustomReceiveHandlerData): ICustomReceiveHandlerData['data'] {
+  if (data.scope || !scope) {
+    return data;
+  }
+
+  return {
+    ...data,
+    scope,
+  };
+}
+
 export function useTradingViewMessageHandler({
   tokenAddress = '',
   networkId = '',
@@ -255,15 +269,8 @@ export function useTradingViewMessageHandler({
   onPriceUpdate,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
-    async ({ data }: ICustomReceiveHandlerData) => {
-      // Debug: Log all incoming messages
-      // console.log('🔍 TradingView message received:', {
-      //   scope: data.scope,
-      //   method: data.method,
-      //   origin: data.origin,
-      //   dataKeys: data.data ? Object.keys(data.data) : 'no data',
-      // });
-
+    async (payload: ICustomReceiveHandlerData) => {
+      const data = normalizeTradingViewMessagePayload(payload);
       // Create context for message handlers
       const context: IMessageHandlerContext = {
         tokenAddress,
@@ -303,8 +310,6 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method?.startsWith('tradingview_analytics_')
       ) {
-        console.log('🔍 TradingView analytics message received:', data);
-
         await handleAnalyticsEvent(data.method, { data, context });
       }
 

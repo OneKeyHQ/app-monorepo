@@ -336,8 +336,10 @@ export function PerpMobileLayout() {
         pb="$4"
         onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}
       >
+        {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
         <YStack
           flex={35}
+          flexBasis={0}
           minWidth={0}
           onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
         >
@@ -345,6 +347,7 @@ export function PerpMobileLayout() {
         </YStack>
         <YStack
           flex={65}
+          flexBasis={0}
           minWidth={0}
           onLayout={(event) => handleTraceLayout('tradingPanelColumn', event)}
         >

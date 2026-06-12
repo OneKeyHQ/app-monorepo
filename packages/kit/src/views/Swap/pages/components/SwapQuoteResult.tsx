@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -31,9 +31,15 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatSwapQuoteDuration } from '@onekeyhq/shared/src/utils/swapQuoteDurationUtils';
 import {
+  swapSlippageDecimal,
+  swapSlippageWillAheadMinValue,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
   EProtocolOfExchange,
+  ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapToken,
@@ -95,6 +101,27 @@ const SwapQuoteResult = ({
     estTime: quoteResult?.estTime,
     estimatedTime: quoteResult?.estimatedTime,
   });
+  const mobileCustomSlippageInfo = useMemo(() => {
+    if (
+      !platformEnv.isNative ||
+      slippageItem.key !== ESwapSlippageSegmentKey.CUSTOM
+    ) {
+      return undefined;
+    }
+
+    const displaySlippage = new BigNumber(slippageItem.value)
+      .decimalPlaces(swapSlippageDecimal, BigNumber.ROUND_DOWN)
+      .toFixed();
+    const isCaution = slippageItem.value > swapSlippageWillAheadMinValue;
+
+    return {
+      value: `${displaySlippage}%`,
+      textColor: isCaution ? ('$textCaution' as const) : ('$text' as const),
+      iconColor: isCaution
+        ? ('$iconCaution' as const)
+        : ('$iconSubdued' as const),
+    };
+  }, [slippageItem.key, slippageItem.value]);
 
   const calculateTaxItem = useCallback(
     (
@@ -305,6 +332,10 @@ const SwapQuoteResult = ({
                 fromToken={fromToken}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
+                showBestBadge={!platformEnv.isNative}
+                customSlippageValue={mobileCustomSlippageInfo?.value}
+                customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
+                customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
                 isLoading={swapQuoteLoading}
                 refreshAction={refreshAction}

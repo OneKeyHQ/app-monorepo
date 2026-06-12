@@ -147,6 +147,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   shortcode?: string;
   logoURI?: string;
   backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
   isAllNetworks?: boolean;
 }
 

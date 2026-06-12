@@ -126,6 +126,7 @@ import {
   spotBalancesAtom,
   spotExternalMarketCapsAtom,
   spotPairDisplayMapAtom,
+  spotPairDisplayNameMapAtom,
   spotTokenFavoritesPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -1946,9 +1947,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     const baseNameToAssetId: Record<string, number> = {};
     const baseNameToSzDecimals: Record<string, number> = {};
     const baseNameToPairName: Record<string, string> = {};
+    const preferredUniverseByBaseName =
+      perpsUtils.buildPreferredSpotUniverseByBaseNameMap(universes);
 
     for (const u of universes) {
       pairToBaseName[u.name] = u.baseName;
+    }
+
+    for (const u of Object.values(preferredUniverseByBaseName)) {
       baseNameToAssetId[u.baseName] = u.assetId;
       baseNameToSzDecimals[u.baseName] = u.baseSzDecimals;
       baseNameToPairName[u.baseName] = u.name;
@@ -1963,11 +1969,17 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     // UI needs synchronous @N → display name resolution (no async SimpleDb lookup)
     const displayMap: Record<string, string> = {};
+    const pairDisplayNameMap: Record<string, string> = {};
     for (const u of universes) {
       displayMap[u.name] = perpsUtils.getSpotTokenDisplayName(u.baseName);
       displayMap[u.baseName] = perpsUtils.getSpotTokenDisplayName(u.baseName);
+      pairDisplayNameMap[u.name] = perpsUtils.formatSpotPairDisplayName(
+        u.baseName,
+        u.quoteName,
+      );
     }
     void spotPairDisplayMapAtom.set(displayMap);
+    void spotPairDisplayNameMapAtom.set(pairDisplayNameMap);
   }
 
   // Service may restart without refreshSpotMeta — rebuild from SimpleDb on first access
@@ -2602,41 +2614,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         // So account value displays correctly before enable trading
         void this.fetchUserAbstraction(accountAddress);
 
-        // Builder fee check and rebate binding check are independent — run in parallel.
-        // Both must complete before checkAgentStatus (builder fee must be approved,
-        // and credentials may be cleared based on rebate result).
-        const [, isRebateBound] = await Promise.all([
-          this.checkBuilderFeeStatus({
-            accountAddress,
-            accountId: selectedAccount.accountId,
-            isEnableTradingTrigger,
-            statusDetails,
-          }),
-          this.checkInternalRebateBindingStatusWithCache({
-            accountId: selectedAccount.accountId,
-            accountAddress,
-          }),
-        ]);
+        await this.checkBuilderFeeStatus({
+          accountAddress,
+          accountId: selectedAccount.accountId,
+          isEnableTradingTrigger,
+          statusDetails,
+        });
 
-        // Clear local credentials to force new agent creation for rebate binding.
-        // Gate on isEnableTradingTrigger: rebate binding is best-effort and must
-        // not clear a working agent on background refreshes (would block trading).
-        if (!isRebateBound && isEnableTradingTrigger) {
-          await this.clearLocalAgentCredentials({
-            userAddress: accountAddress,
-          });
-          // Binding triggered via reportAgentApprovalToBackend after agent creation
-          statusDetails.internalRebateBoundOk = false;
-          defaultLogger.perp.agentLifeCycle.trackReason({
-            reason: 'internal_rebate_not_bound',
-            accountAddress,
-            accountId: selectedAccount.accountId,
-            isEnableTradingTrigger,
-            statusDetails: { ...statusDetails },
-          });
-        } else {
-          statusDetails.internalRebateBoundOk = true;
-        }
+        // Perps no longer gates account status on the legacy rebate batch-check
+        // result. Keep bind-wallet reporting in reportAgentApprovalToBackend,
+        // but do not issue that request while entering Perps.
+        statusDetails.internalRebateBoundOk = true;
 
         agentCredential = await this.checkAgentStatus({
           accountAddress,
@@ -2770,7 +2758,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (credentialsToDelete.length > 0) {
         await localDb.removeCredentials({ credentials: credentialsToDelete });
         this.fetchExtraAgentsWithCache.clear();
-        this.checkInternalRebateBindingStatusWithCache.clear();
       }
     } catch (error) {
       console.error('[clearLocalAgentCredentials] Error:', error);
@@ -3192,86 +3179,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return { walletId, referenceAddress, referenceNetworkId };
   }
 
-  checkInternalRebateBindingStatusWithCache = cacheUtils.memoizee(
-    async ({
-      accountId,
-      accountAddress,
-    }: {
-      accountId: string | null;
-      accountAddress: IHex;
-    }) => {
-      return this.checkInternalRebateBindingStatus({
-        accountId,
-        accountAddress,
-      });
-    },
-    {
-      max: 20,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
-      promise: true,
-    },
-  );
-
-  private async checkInternalRebateBindingStatus({
-    accountId,
-    accountAddress,
-  }: {
-    accountId: string | null;
-    accountAddress: IHex;
-  }): Promise<boolean> {
-    const refInfo = await this.getRebateBindingReferenceInfo({
-      accountId,
-      signerAddress: accountAddress,
-    });
-
-    if (!refInfo) {
-      return true;
-    }
-
-    const { referenceAddress, referenceNetworkId } = refInfo;
-    const isFirstAccount =
-      referenceAddress.toLowerCase() === accountAddress.toLowerCase();
-
-    try {
-      // First account: skip binding check
-      if (isFirstAccount) {
-        return true;
-      }
-
-      // Non-first account: batch check both current and first account binding status
-      const batchResult =
-        await this.backgroundApi.serviceReferralCode.batchCheckWalletsBoundReferralCode(
-          [
-            { address: accountAddress, networkId: referenceNetworkId },
-            { address: referenceAddress, networkId: referenceNetworkId },
-          ],
-        );
-
-      const currentAccountKey = `${referenceNetworkId}:${accountAddress}`;
-      const firstAccountKey = `${referenceNetworkId}:${referenceAddress}`;
-      const isCurrentAccountBound = batchResult[currentAccountKey] ?? false;
-      const isFirstAccountBound = batchResult[firstAccountKey] ?? false;
-
-      if (isCurrentAccountBound) {
-        return true;
-      }
-
-      if (isFirstAccountBound) {
-        // First account is bound, current account needs binding too
-        return false;
-      }
-
-      // First account is not bound, skip binding for current account
-      return true;
-    } catch (error) {
-      console.error(
-        '[checkInternalRebateBindingStatus] Failed to check binding status',
-        error,
-      );
-      return true;
-    }
-  }
-
   private async checkBuilderFeeStatus({
     accountAddress,
     accountId,
@@ -3391,9 +3298,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         referenceAddress: refInfo.referenceAddress,
         signerAddress: signatureInfo.signerAddress,
       });
-
-      // Clear cache after successful binding
-      this.checkInternalRebateBindingStatusWithCache.clear();
     } catch (error) {
       console.error('[reportAgentApprovalToBackend] Error:', error);
     }

@@ -3,10 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
   Divider,
   Empty,
+  IconButton,
   Page,
   ScrollView,
   SizableText,
@@ -126,7 +129,26 @@ function NetworkAssetSection({
   );
 }
 
-const ReceiveRiskSupportedAssetsPage = () => {
+type IReceiveRiskSupportedAssetsContentProps = {
+  maxHeight?: number;
+  minHeight?: number;
+  contentContainerProps?: IYStackProps;
+};
+
+function openReceiveRiskMonitoringHelpLink(intl: ReturnType<typeof useIntl>) {
+  openUrlInApp(
+    RECEIVE_RISK_MONITORING_HELP_LINK,
+    intl.formatMessage({
+      id: ETranslations.prime_feature_receive_risk_monitoring__title,
+    }),
+  );
+}
+
+export function ReceiveRiskSupportedAssetsContent({
+  maxHeight,
+  minHeight,
+  contentContainerProps,
+}: IReceiveRiskSupportedAssetsContentProps) {
   const intl = useIntl();
   const [sections, setSections] = useState<ISupportedNetworkSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,34 +172,25 @@ const ReceiveRiskSupportedAssetsPage = () => {
     void fetchSupportedAssets();
   }, [fetchSupportedAssets]);
 
-  const headerRight = useCallback(
-    () => (
-      <HeaderIconButton
-        icon="QuestionmarkOutline"
-        onPress={() => {
-          openUrlInApp(
-            RECEIVE_RISK_MONITORING_HELP_LINK,
-            intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__title,
-            }),
-          );
-        }}
-      />
-    ),
-    [intl],
-  );
-
   const renderBody = useCallback(() => {
     if (isLoading) {
       return (
-        <Stack flex={1} alignItems="center" justifyContent="center">
+        <Stack
+          {...(maxHeight ? { minHeight: minHeight ?? maxHeight } : { flex: 1 })}
+          alignItems="center"
+          justifyContent="center"
+        >
           <Spinner size="large" />
         </Stack>
       );
     }
     if (isError) {
       return (
-        <Stack flex={1} alignItems="center" justifyContent="center">
+        <Stack
+          {...(maxHeight ? { minHeight: minHeight ?? maxHeight } : { flex: 1 })}
+          alignItems="center"
+          justifyContent="center"
+        >
           <Empty
             icon="BrokenLinkOutline"
             title={intl.formatMessage({
@@ -202,15 +215,76 @@ const ReceiveRiskSupportedAssetsPage = () => {
       );
     }
     return (
-      <ScrollView>
-        <YStack py="$4" pb="$10" gap="$3">
+      <ScrollView
+        maxHeight={maxHeight}
+        nestedScrollEnabled={Boolean(maxHeight)}
+      >
+        <YStack py="$4" pb="$10" gap="$3" {...contentContainerProps}>
           {sections.map((section) => (
             <NetworkAssetSection key={section.networkId} section={section} />
           ))}
         </YStack>
       </ScrollView>
     );
-  }, [fetchSupportedAssets, intl, isError, isLoading, sections]);
+  }, [
+    fetchSupportedAssets,
+    intl,
+    isError,
+    isLoading,
+    maxHeight,
+    minHeight,
+    contentContainerProps,
+    sections,
+  ]);
+
+  return renderBody();
+}
+
+export function ReceiveRiskSupportedAssetsDialogContent(
+  props: IReceiveRiskSupportedAssetsContentProps,
+) {
+  const intl = useIntl();
+  const handleOpenHelp = useCallback(() => {
+    openReceiveRiskMonitoringHelpLink(intl);
+  }, [intl]);
+
+  return (
+    <>
+      <Dialog.Header>
+        <XStack alignItems="center" gap="$2">
+          <Dialog.Title flex={1} numberOfLines={1}>
+            {intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__title,
+            })}
+          </Dialog.Title>
+          <IconButton
+            icon="QuestionmarkOutline"
+            iconProps={{ color: '$iconSubdued' }}
+            size="small"
+            testID="receive-risk-supported-assets-help"
+            variant="tertiary"
+            onPress={handleOpenHelp}
+          />
+        </XStack>
+      </Dialog.Header>
+      <ReceiveRiskSupportedAssetsContent {...props} />
+    </>
+  );
+}
+
+const ReceiveRiskSupportedAssetsPage = () => {
+  const intl = useIntl();
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        onPress={() => {
+          openReceiveRiskMonitoringHelpLink(intl);
+        }}
+      />
+    ),
+    [intl],
+  );
 
   return (
     <Page>
@@ -220,7 +294,9 @@ const ReceiveRiskSupportedAssetsPage = () => {
         })}
         headerRight={headerRight}
       />
-      <Page.Body>{renderBody()}</Page.Body>
+      <Page.Body>
+        <ReceiveRiskSupportedAssetsContent />
+      </Page.Body>
     </Page>
   );
 };

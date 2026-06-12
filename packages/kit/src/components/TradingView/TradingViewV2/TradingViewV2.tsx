@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -14,9 +14,6 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { ChartWebView } from '../ChartWebView';
-import { CHART_WEBVIEW_MODE } from '../ChartWebView/constants';
-import { getDesktopOfflineChartReady } from '../ChartWebView/ready';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
@@ -79,11 +76,6 @@ interface IBaseTradingViewV2Props {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
-  /** Force the legacy per-instance WebView on desktop instead of the in-flow
-   * onekey-chart:// chart host. Used by the Swap K-line modal, which remounts the
-   * chart per token (its own key) so the warm unified host gives no benefit there.
-   * No effect on native (which uses its own pooled module). */
-  preferLegacyChart?: boolean;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
@@ -97,6 +89,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
   const theme = useThemeVariant();
+  const themeColors = useTheme();
+  const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [
@@ -121,7 +115,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
-    preferLegacyChart,
     onPriceUpdate,
     onLoadStart,
     ...stackStyle
@@ -199,11 +192,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams, params: tradingViewParams } =
-    useTradingViewUrl({
-      additionalParams,
-      disabledFeatures,
-    });
+  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
+    additionalParams,
+    disabledFeatures,
+  });
+  const tradingViewWebViewStyleProps = useMemo(
+    () => ({
+      containerStyle: { backgroundColor: tradingViewBackgroundColor },
+      style: { backgroundColor: tradingViewBackgroundColor },
+    }),
+    [tradingViewBackgroundColor],
+  );
 
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
@@ -367,12 +366,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     );
   }, []);
 
-  // TODO(chart-webview): legacy WebView path. Kept while migrating to the
-  // chart-webview module; remove once the new path (offline/online) is verified.
   const webView = useMemo(
     () => (
       <WebView
         key={`${theme}:${tradingViewUrlWithParams}`}
+        containerProps={{ bg: '$bgApp' }}
+        containerStyle={tradingViewWebViewStyleProps.containerStyle}
+        style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={async (data) => {
           const receiveData = data as ICustomReceiveHandlerData;
           await customReceiveHandler(receiveData);
@@ -389,13 +389,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
         decelerationRate="normal"
-        // Desktop offline build serves the chart from onekey-chart://, whose
-        // protocol handler is registered only on the persist:onekey session
-        // (apps/desktop/app/app.ts). DesktopWebView already defaults to this
-        // partition, but pin it explicitly so the offline scheme keeps
-        // resolving here (e.g. Swap K-line modal, preferLegacyChart) even if
-        // that default ever changes. No-op on native/web.
-        partition="persist:onekey"
         src={tradingViewUrlWithParams}
       />
     ),
@@ -406,39 +399,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       onShouldStartLoadWithRequest,
       theme,
       tradingViewUrlWithParams,
-    ],
-  );
-
-  // New chart-webview path: native via the chart-webview module (CHART_WEBVIEW_MODE),
-  // desktop via the warm onekey-chart:// overlay when the offline bundle shipped.
-  // Web keeps legacy.
-  const useChartWebView =
-    (platformEnv.isNative && CHART_WEBVIEW_MODE !== 'legacy') ||
-    (!preferLegacyChart && getDesktopOfflineChartReady());
-
-  const chartWebView = useMemo(
-    () => (
-      <ChartWebView
-        params={tradingViewParams}
-        onlineUrl={tradingViewUrlWithParams}
-        customReceiveHandler={async (data) => {
-          await customReceiveHandler(data);
-        }}
-        onWebViewRef={handleWebViewRef}
-        flex={1}
-      />
-    ),
-    [
-      customReceiveHandler,
-      handleWebViewRef,
-      tradingViewParams,
-      tradingViewUrlWithParams,
+      tradingViewWebViewStyleProps,
     ],
   );
 
   return (
     <Stack position="relative" flex={1} {...stackStyle}>
-      {useChartWebView ? chartWebView : webView}
+      {webView}
 
       {mockEmptyKLineEnabled ? (
         <Stack

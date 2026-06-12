@@ -1,8 +1,17 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, ComponentType, ReactNode } from 'react';
 
-import { SegmentSliderView } from '@onekeyfe/react-native-segment-slider';
+import {
+  type SegmentSliderMethods,
+  type SegmentSliderProps,
+  SegmentSliderView,
+} from '@onekeyfe/react-native-segment-slider';
 import { StyleSheet } from 'react-native';
+import {
+  type HybridRef,
+  type NitroViewWrappedCallback,
+  callback,
+} from 'react-native-nitro-modules';
 
 import { useTheme } from '../../hooks/useStyle';
 
@@ -10,18 +19,20 @@ import { useTheme } from '../../hooks/useStyle';
 const HIT_AREA_HEIGHT = 24;
 const DEFAULT_TRACK_HEIGHT = 4;
 
-// The native view's `epoch` token is only meant to suppress the thumb-scale
-// animation on a hard reset — but that scale animation fires solely on touch
-// (drag start/end), never on a controlled `value` change, which already
-// applies instantly without animation. So no caller of this slider needs to
-// bump it; keep it fixed. Re-expose as a prop if a future caller ever needs
-// the reset semantics.
-const FIXED_EPOCH = 0;
+// Handle to the underlying Nitro hybrid object, used to drive the (now
+// uncontrolled) native view imperatively via `setValue`.
+type ISegmentSliderHybridRef = HybridRef<
+  SegmentSliderProps,
+  SegmentSliderMethods
+>;
 
+// The module wrapper types its props as `SegmentSliderProps & ViewProps`, which
+// omits the Nitro-injected `hybridRef`. Re-add it so we can grab the ref. (It
+// must be wrapped with `callback(...)` to cross the JSI boundary.)
 type ISegmentSliderNativeViewProps = ComponentProps<
   typeof SegmentSliderView
 > & {
-  snapTapToSegment?: boolean;
+  hybridRef?: NitroViewWrappedCallback<(ref: ISegmentSliderHybridRef) => void>;
 };
 
 const SegmentSliderNativeView =
@@ -80,6 +91,14 @@ export interface ISegmentSliderProps {
  * natively, so a drag never crosses the JS bridge per frame. Colors are
  * resolved from the Tamagui theme here and passed in as hex strings, mirroring
  * the web variant (`./index.tsx`) 1:1.
+ *
+ * The native view is UNCONTROLLED: it takes the initial value via `defaultValue`
+ * (applied once at mount) and afterwards owns the value, reporting drags through
+ * `onChange`. This wrapper keeps the public `value` prop controlled — like the
+ * web variant — by pushing external value changes back into the native view
+ * imperatively through `setValue` on the hybrid ref. The sync is skipped while
+ * the user is dragging (so a re-render from the in-flight `onChange` can't yank
+ * the thumb away from the finger) and on no-op updates.
  */
 function SegmentSliderComponent({
   value,
@@ -118,10 +137,81 @@ function SegmentSliderComponent({
     [bgPrimary, neutral5, bg, borderStrong],
   );
 
+  // Always holds the latest external `value`, so the hybridRef callback can push
+  // it once the native view attaches even if `value` changed before that.
+  const latestValueRef = useRef(value);
+  // Last value the native side reported, or that we successfully pushed in. Lets
+  // us skip the post-drag re-render's setValue (value already matches) and any
+  // other no-op. Declared before hybridRef so the callback can read it.
+  const lastValueRef = useRef(value);
+  // True between onSlideStart/onSlideComplete; gates the value-sync effect so a
+  // re-render mid-drag (the parent echoing our own onChange back as `value`)
+  // doesn't call setValue and cancel the in-flight drag.
+  const draggingRef = useRef(false);
+
+  const sliderRef = useRef<ISegmentSliderHybridRef | null>(null);
+  const hybridRef = useMemo(
+    () =>
+      callback((node: ISegmentSliderHybridRef) => {
+        sliderRef.current = node;
+        // Catch-up: the native view's `defaultValue` only captures the FIRST
+        // value. If `value` advanced before this ref attached (async native view
+        // creation), the value-sync effect's setValue was a no-op against a null
+        // ref — push the latest value now so it isn't lost.
+        if (
+          !draggingRef.current &&
+          latestValueRef.current !== lastValueRef.current
+        ) {
+          lastValueRef.current = latestValueRef.current;
+          node.setValue(latestValueRef.current);
+        }
+      }),
+    [],
+  );
+
+  // Value captured ONCE for the uncontrolled native view's `defaultValue`.
+  // Subsequent external changes are pushed via `setValue` in the effect below.
+  const initialValueRef = useRef(value);
+
+  const handleChange = useCallback(
+    (next: number) => {
+      lastValueRef.current = next;
+      onChange(next);
+    },
+    [onChange],
+  );
+
+  const handleSlideStart = useCallback(() => {
+    draggingRef.current = true;
+    onSlideStart?.();
+  }, [onSlideStart]);
+
+  const handleSlideComplete = useCallback(() => {
+    draggingRef.current = false;
+    onSlideComplete?.();
+  }, [onSlideComplete]);
+
+  useEffect(() => {
+    latestValueRef.current = value;
+    // Skip the initial mount (covered by defaultValue, value === lastValueRef),
+    // any update while dragging, and no-op echoes of the native value.
+    if (draggingRef.current) return;
+    if (value === lastValueRef.current) return;
+    const node = sliderRef.current;
+    if (!node) {
+      // Ref not ready yet: leave lastValueRef stale so the hybridRef callback
+      // pushes this value once the native view attaches (else it'd be lost).
+      return;
+    }
+    lastValueRef.current = value;
+    node.setValue(value);
+  }, [value]);
+
   return (
     <SegmentSliderNativeView
       style={styles.slider}
-      value={value}
+      hybridRef={hybridRef}
+      defaultValue={initialValueRef.current}
       min={min}
       max={max}
       segments={segments}
@@ -130,10 +220,9 @@ function SegmentSliderComponent({
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}
-      epoch={FIXED_EPOCH}
-      onChange={onChange}
-      onSlideStart={onSlideStart}
-      onSlideComplete={onSlideComplete}
+      onChange={handleChange}
+      onSlideStart={handleSlideStart}
+      onSlideComplete={handleSlideComplete}
       {...colors}
     />
   );
