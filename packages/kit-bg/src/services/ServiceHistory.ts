@@ -94,7 +94,6 @@ type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
   IHistoryDecodedAction['assetTransfer']
 >['sends'][number];
-type IPrivateSendSwapHistoryToken = ISwapTxHistory['baseInfo']['fromToken'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -223,42 +222,8 @@ function hasPrivateSendTransferPrice(transfer?: IHistoryDecodedTransfer) {
   return !!getPrivateSendPositivePriceValue(transfer?.price);
 }
 
-function hasPrivateSendSwapHistoryTokenPrice(
-  token?: IPrivateSendSwapHistoryToken,
-) {
-  return !!getPrivateSendPositivePriceValue(token?.price);
-}
-
 function normalizePrivateSendTransferTokenId(tokenId?: string) {
   return tokenId?.trim().toLowerCase() ?? '';
-}
-
-function isSamePrivateSendTransferSwapToken({
-  transfer,
-  token,
-}: {
-  transfer: IHistoryDecodedTransfer;
-  token?: IPrivateSendSwapHistoryToken;
-}) {
-  if (!token) {
-    return false;
-  }
-
-  if (
-    normalizePrivateSendTransferTokenId(transfer.tokenIdOnNetwork) &&
-    normalizePrivateSendTransferTokenId(transfer.tokenIdOnNetwork) ===
-      normalizePrivateSendTransferTokenId(token.contractAddress)
-  ) {
-    return true;
-  }
-
-  return Boolean(
-    (!transfer.networkId ||
-      !token.networkId ||
-      transfer.networkId === token.networkId) &&
-    (transfer.isNative || !transfer.tokenIdOnNetwork) &&
-    (token.isNative || !token.contractAddress),
-  );
 }
 
 function isSamePrivateSendTransferForPrice({
@@ -396,111 +361,6 @@ function mergePrivateSendActionTransferPrices({
   });
 
   return { actions, updated };
-}
-
-function applyPrivateSendSwapHistoryTokenPriceToTransfers({
-  transfers,
-  token,
-}: {
-  transfers: IHistoryDecodedTransfer[];
-  token: IPrivateSendSwapHistoryToken;
-}) {
-  if (!hasPrivateSendSwapHistoryTokenPrice(token)) {
-    return { transfers, updated: false };
-  }
-
-  let updated = false;
-  const nextTransfers = transfers.map((transfer) => {
-    if (
-      hasPrivateSendTransferPrice(transfer) ||
-      !isSamePrivateSendTransferSwapToken({ transfer, token })
-    ) {
-      return transfer;
-    }
-
-    updated = true;
-    return {
-      ...transfer,
-      price: token.price,
-    };
-  });
-
-  return { transfers: nextTransfers, updated };
-}
-
-function applyPrivateSendSwapHistoryTokenPricesToActions({
-  actions,
-  swapHistory,
-}: {
-  actions?: IHistoryDecodedAction[];
-  swapHistory: ISwapTxHistory;
-}) {
-  if (!actions?.length) {
-    return { actions, updated: false };
-  }
-
-  let updated = false;
-  const nextActions = actions.map((action) => {
-    const { assetTransfer } = action;
-    if (!assetTransfer) {
-      return action;
-    }
-
-    const sendsResult = applyPrivateSendSwapHistoryTokenPriceToTransfers({
-      transfers: assetTransfer.sends,
-      token: swapHistory.baseInfo.fromToken,
-    });
-    const receivesResult = applyPrivateSendSwapHistoryTokenPriceToTransfers({
-      transfers: assetTransfer.receives,
-      token: swapHistory.baseInfo.toToken,
-    });
-    if (!sendsResult.updated && !receivesResult.updated) {
-      return action;
-    }
-
-    updated = true;
-    return {
-      ...action,
-      assetTransfer: {
-        ...assetTransfer,
-        sends: sendsResult.transfers,
-        receives: receivesResult.transfers,
-      },
-    };
-  });
-
-  return { actions: nextActions, updated };
-}
-
-function applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
-  tx,
-  swapHistory,
-}: {
-  tx: IAccountHistoryTx;
-  swapHistory: ISwapTxHistory;
-}) {
-  const actionsResult = applyPrivateSendSwapHistoryTokenPricesToActions({
-    actions: tx.decodedTx.actions,
-    swapHistory,
-  });
-  const outputActionsResult = applyPrivateSendSwapHistoryTokenPricesToActions({
-    actions: tx.decodedTx.outputActions,
-    swapHistory,
-  });
-  if (!actionsResult.updated && !outputActionsResult.updated) {
-    return tx;
-  }
-
-  return {
-    ...tx,
-    decodedTx: {
-      ...tx.decodedTx,
-      ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
-      ...(outputActionsResult.updated
-        ? { outputActions: outputActionsResult.actions }
-        : {}),
-    },
-  };
 }
 
 function normalizePrivateSendHistoryAddress(address?: string) {
@@ -682,23 +542,18 @@ class ServiceHistory extends ServiceBase {
           tx,
           swapHistory,
         });
-      const txWithSwapHistoryTokenPrices =
-        applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
-          tx: txWithSwapHistoryRecipient,
-          swapHistory,
-        });
 
       const displayStatus = getPrivateSendHistoryDisplayStatus({
-        historyTx: txWithSwapHistoryTokenPrices,
+        historyTx: txWithSwapHistoryRecipient,
         swapHistory,
       });
 
       if (!displayStatus || displayStatus === tx.decodedTx.status) {
-        return this.clearHistoryTxDisplayStatus(txWithSwapHistoryTokenPrices);
+        return this.clearHistoryTxDisplayStatus(txWithSwapHistoryRecipient);
       }
 
       return {
-        ...txWithSwapHistoryTokenPrices,
+        ...txWithSwapHistoryRecipient,
         displayStatus,
         displayStatusSource: 'privateSendOrder',
       };
