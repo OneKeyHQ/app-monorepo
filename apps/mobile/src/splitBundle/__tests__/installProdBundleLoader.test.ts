@@ -359,6 +359,176 @@ describe('installProdBundleLoader', () => {
     expect(isSegmentLoaded('seg:test.a')).toBe(true);
   });
 
+  // H3: a transient runtime-not-ready / timeout reject must NOT poison the
+  // segment as a permanent failure — the next __loadBundleAsync re-attempts
+  // without retrySegment().
+  it('does NOT cache retryable rejects (SPLIT_BUNDLE_NO_RUNTIME) — auto re-attempts', async () => {
+    const mock = createMockNativeLoader();
+    const retryableErr = Object.assign(new Error('Runtime not available'), {
+      code: 'SPLIT_BUNDLE_NO_RUNTIME',
+    });
+    mock.loadSegment.mockRejectedValueOnce(retryableErr);
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    // First attempt rejects (runtime not ready yet)...
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    // ...but it was NOT cached, so a second call hits native again and succeeds.
+    mock.loadSegment.mockResolvedValueOnce(undefined);
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(mock.loadSegment).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats SPLIT_BUNDLE_TIMEOUT as retryable too', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValueOnce(
+      Object.assign(new Error('timed out'), { code: 'SPLIT_BUNDLE_TIMEOUT' }),
+    );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    mock.loadSegment.mockResolvedValueOnce(undefined);
+    await loadSegment('seg:test.a');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+  });
+
+  it('caps retryable re-attempts and eventually caches as a permanent failure', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValue(
+      Object.assign(new Error('Runtime not available'), {
+        code: 'SPLIT_BUNDLE_NO_RUNTIME',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+    // MAX_RETRYABLE_ATTEMPTS = 3: attempts 1 and 2 re-hit native; attempt 3
+    // exhausts the budget and caches as failed, so a 4th call rejects WITHOUT
+    // calling native again.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    // Cached now — native NOT called a 4th time.
+    expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+  });
+
+  it('caches a non-retryable EVAL_ERROR immediately (does not re-attempt)', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValueOnce(
+      Object.assign(new Error('segment bug'), {
+        code: 'SPLIT_BUNDLE_EVAL_ERROR',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    // Fatal code → cached immediately; second call must NOT hit native.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix 1 (NO-SHIP blocker): a missing bg segment file is real packaging/OTA
+  // corruption. iOS BackgroundThread now maps EBgMgrSegmentEvalErrorFileNotFound
+  // → SPLIT_BUNDLE_NOT_FOUND (fatal), instead of letting raw code 2 fall through
+  // the boundary's default to retryable NO_RUNTIME. JS MUST classify it FATAL —
+  // cached immediately, never auto re-attempted (retrying just re-misses).
+  it('treats SPLIT_BUNDLE_NOT_FOUND as FATAL (iOS bg file-not-found)', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValueOnce(
+      Object.assign(new Error('Segment file not found: /x/seg.hbc'), {
+        code: 'SPLIT_BUNDLE_NOT_FOUND',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    // Fatal → cached; second call must NOT hit native again.
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // Fix 2: a STRUCTURAL ivar-missing failure (an RN version bump renamed the
+  // private `_instance` / `_rctInstance` field our reflection depends on) is
+  // permanent. Both iOS main (SplitBundleLoader.mm) and iOS bg
+  // (BackgroundThreadManager.mm) map it → SPLIT_BUNDLE_NATIVE_UNAVAILABLE
+  // (fatal), NOT retryable NO_RUNTIME — retrying can never recreate a renamed
+  // ivar. JS MUST classify it fatal so it doesn't loop on a permanently-broken
+  // native build.
+  it('treats SPLIT_BUNDLE_NATIVE_UNAVAILABLE as FATAL (structural ivar-missing)', async () => {
+    const mock = createMockNativeLoader();
+    mock.loadSegment.mockRejectedValueOnce(
+      Object.assign(new Error('_instance ivar not found'), {
+        code: 'SPLIT_BUNDLE_NATIVE_UNAVAILABLE',
+      }),
+    );
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    await expect(loadSegment('seg:test.a')).rejects.toThrow();
+    expect(mock.loadSegment).toHaveBeenCalledTimes(1);
+  });
+
+  // C: a RETRYABLE failure in a DEPENDENCY must not permanently poison the
+  // PARENT. seg:test.b dependsOn seg:test.a. When the dep (seg:test.a) rejects
+  // with a retryable code, the parent (seg:test.b) must NOT be cached as failed —
+  // a subsequent load re-attempts the whole chain and succeeds.
+  it('does NOT poison the parent when a retryable DEP failure propagates (fix C)', async () => {
+    const mock = createMockNativeLoader();
+    // First native call is for the dep (seg:test.a) — make it reject retryably.
+    mock.loadSegment.mockImplementationOnce(() =>
+      Promise.reject(
+        Object.assign(new Error('runtime not ready'), {
+          code: 'SPLIT_BUNDLE_NO_RUNTIME',
+        }),
+      ),
+    );
+    const { installProdBundleLoader, loadSegment, isSegmentLoaded } =
+      getLoader();
+    installProdBundleLoader(mock);
+
+    // Parent load fails because its dep failed (retryably).
+    await expect(loadSegment('seg:test.b')).rejects.toThrow();
+    // Neither parent nor dep should be marked loaded yet.
+    expect(isSegmentLoaded('seg:test.a')).toBe(false);
+    expect(isSegmentLoaded('seg:test.b')).toBe(false);
+
+    // CRUCIAL: the parent was NOT cached as a permanent failure. A second load
+    // re-attempts the dep (now succeeding) and then the parent — both load.
+    await loadSegment('seg:test.b');
+    expect(isSegmentLoaded('seg:test.a')).toBe(true);
+    expect(isSegmentLoaded('seg:test.b')).toBe(true);
+  });
+
+  // C: a NON-retryable (fatal) DEP failure DOES cache the parent as failed (the
+  // existing behavior is preserved for genuine segment bugs).
+  it('poisons the parent when a FATAL dep failure propagates', async () => {
+    const mock = createMockNativeLoader();
+    // The dep (seg:test.a) rejects with a fatal eval error on EVERY call.
+    mock.loadSegment.mockImplementation((req: { segmentKey: string }) => {
+      if (req.segmentKey === 'seg:test.a') {
+        return Promise.reject(
+          Object.assign(new Error('dep segment bug'), {
+            code: 'SPLIT_BUNDLE_EVAL_ERROR',
+          }),
+        );
+      }
+      return Promise.resolve(undefined);
+    });
+    const { installProdBundleLoader, loadSegment } = getLoader();
+    installProdBundleLoader(mock);
+
+    await expect(loadSegment('seg:test.b')).rejects.toThrow();
+    const callsAfterFirst = mock.loadSegment.mock.calls.length;
+    // Second parent load short-circuits on the cached failure — native is NOT
+    // hit again for either the parent or its (fatally-failed) dep.
+    await expect(loadSegment('seg:test.b')).rejects.toThrow();
+    expect(mock.loadSegment.mock.calls.length).toBe(callsAfterFirst);
+  });
+
   it('installs global __loadBundleAsync and routes it to segment loading', async () => {
     const mock = createMockNativeLoader();
     const { installProdBundleLoader, isSegmentLoaded } = getLoader();
