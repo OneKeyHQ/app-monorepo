@@ -217,9 +217,13 @@ async function softRestartRenderer() {
     hadTrayWindow: !!getTrayWindow(),
   });
   try {
-    // Reset the consecutive-boot-fail counter: a soft restart is intentional,
-    // not a crash, and createMainWindow({ isSoftRestart }) also skips the
-    // increment so repeated soft restarts never trip the recovery page.
+    // Give the newly installed bundle a fresh boot-fail budget (the bundle-level
+    // analog of createMainWindow's app-version-change reset). createMainWindow
+    // then increments to 1 — the soft restart still COUNTS, so a new bundle that
+    // crashes on boot accumulates toward the recovery page just like a cold boot,
+    // while repeated SUCCESSFUL soft restarts can't trip recovery (each resets
+    // here, then markBootSuccess clears it). This keeps the crash self-heal /
+    // auto-rollback path alive on MAS where app.relaunch() is unavailable.
     store.resetConsecutiveBootFailCount();
     // destroy() force-terminates the old renderer process (same as today's hard
     // restart), giving the recreated window a clean customElements registry and
@@ -618,36 +622,41 @@ const minHeight = 800;
 async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
-  // A MAS soft restart is an intentional in-process renderer swap (bundle
-  // update), not a cold boot, so it must NOT count toward the consecutive
-  // boot-fail counter — otherwise a few successful soft restarts would trip
-  // the recovery page. The soft-restart entry already reset the counter.
-  if (!isSoftRestart) {
-    const currentAppVersion = app.getVersion();
-    const storedFailVersion = store.getBootFailAppVersion();
-    if (storedFailVersion && storedFailVersion !== currentAppVersion) {
-      store.resetConsecutiveBootFailCount();
-      logger.info(
-        'Boot fail counter reset due to version change',
-        storedFailVersion,
-        '→',
-        currentAppVersion,
-      );
-    }
-    store.setBootFailAppVersion(currentAppVersion);
-    const bootFailCount = store.incrementConsecutiveBootFailCount();
-    logger.info('Boot fail count:', bootFailCount);
-    if (bootFailCount >= 3) {
-      logger.error('Recovery page triggered', {
-        crashCount: bootFailCount,
-        appVersion: currentAppVersion,
-      });
-      const recoveryWin = createRecoveryWindow();
-      recoveryWin.on('closed', () => {
-        mainWindow = null;
-      });
-      return recoveryWin;
-    }
+  // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
+  // attempt to bring up the (newly installed) bundle, so it MUST count toward
+  // crash detection — otherwise a bundle that crashes the renderer on init
+  // would, on MAS (no app.relaunch()), leave a dead white window with no path
+  // to the recovery page / auto-rollback. softRestartRenderer resets the
+  // counter to 0 right before calling this (the bundle-version analog of the
+  // app-version-change reset below — a new bundle deserves a fresh budget), so
+  // a soft restart starts the new bundle at count 1: repeated SUCCESSFUL soft
+  // restarts can't accumulate (each resets, then markBootSuccess clears it),
+  // while a new bundle that keeps crashing accumulates across subsequent
+  // launches and reaches the recovery page at 3, exactly like a cold boot.
+  const currentAppVersion = app.getVersion();
+  const storedFailVersion = store.getBootFailAppVersion();
+  if (storedFailVersion && storedFailVersion !== currentAppVersion) {
+    store.resetConsecutiveBootFailCount();
+    logger.info(
+      'Boot fail counter reset due to version change',
+      storedFailVersion,
+      '→',
+      currentAppVersion,
+    );
+  }
+  store.setBootFailAppVersion(currentAppVersion);
+  const bootFailCount = store.incrementConsecutiveBootFailCount();
+  logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
+  if (bootFailCount >= 3) {
+    logger.error('Recovery page triggered', {
+      crashCount: bootFailCount,
+      appVersion: currentAppVersion,
+    });
+    const recoveryWin = createRecoveryWindow();
+    recoveryWin.on('closed', () => {
+      mainWindow = null;
+    });
+    return recoveryWin;
   }
 
   // https://github.com/electron/electron/issues/16168
