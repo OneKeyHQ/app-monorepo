@@ -6,21 +6,17 @@ import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IImageProps, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
   Dialog,
   DialogContainer,
   HeightTransition,
-  Icon,
-  Image,
   SizableText,
-  Spinner,
   Theme,
   XStack,
   YStack,
-  useThemeName,
 } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -39,6 +35,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useFirmwareUpdateActions } from '../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import {
+  CheckStepIllustration,
+  type ICheckStepIllustrationTone,
+} from '../components/CheckStepIllustration';
 import { Confetti } from '../components/Confetti';
 import { OnboardingPage } from '../components/Layout';
 import {
@@ -67,6 +67,16 @@ enum ECheckAndUpdateStepId {
   FirmwareCheck = 'firmware-check',
 }
 
+// Illustration glyph tint per step state (idle / in progress stay neutral).
+const STEP_STATE_TONE: Partial<
+  Record<ECheckAndUpdateStepState, ICheckStepIllustrationTone>
+> = {
+  [ECheckAndUpdateStepState.Success]: 'success',
+  [ECheckAndUpdateStepState.Warning]: 'warning',
+  [ECheckAndUpdateStepState.Skipped]: 'warning',
+  [ECheckAndUpdateStepState.Error]: 'critical',
+};
+
 function CheckAndUpdatePage({
   route: routeParams,
 }: IPageScreenProps<
@@ -76,7 +86,6 @@ function CheckAndUpdatePage({
   const intl = useIntl();
   const { deviceData, tabValue } = routeParams?.params || {};
   console.log('deviceData', deviceData);
-  const themeVariant = useThemeName();
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
   const isFirmwareVerifiedRef = useRef<boolean | undefined>(undefined);
@@ -129,7 +138,6 @@ function CheckAndUpdatePage({
 
   const [steps, setSteps] = useState<
     {
-      image: IImageProps['source'];
       id: ECheckAndUpdateStepId;
       title: string;
       description?: string;
@@ -139,10 +147,6 @@ function CheckAndUpdatePage({
   >(() => [
     {
       id: ECheckAndUpdateStepId.GenuineCheck,
-      image:
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/onboarding/genuine-check.png')
-          : require('@onekeyhq/kit/assets/onboarding/genuine-check-dark.png'),
       title: intl.formatMessage({
         id: ETranslations.device_auth_request_title,
       }),
@@ -156,10 +160,6 @@ function CheckAndUpdatePage({
     },
     {
       id: ECheckAndUpdateStepId.FirmwareCheck,
-      image:
-        themeVariant === 'light'
-          ? require('@onekeyhq/kit/assets/onboarding/firmware-check.png')
-          : require('@onekeyhq/kit/assets/onboarding/firmware-check-dark.png'),
       title: intl.formatMessage({
         id: ETranslations.firmware_check,
       }),
@@ -733,6 +733,9 @@ function CheckAndUpdatePage({
         // the description. The genuine title interpolates the product model
         // name (e.g. "OneKey Pro"), not the BLE label.
         const isStepSuccess = step.state === ECheckAndUpdateStepState.Success;
+        // Glyph tint per state; the border beam runs only while in progress.
+        const illustrationTone: ICheckStepIllustrationTone =
+          (step.state && STEP_STATE_TONE[step.state]) || 'neutral';
         const successTitle =
           step.id === ECheckAndUpdateStepId.GenuineCheck
             ? intl.formatMessage(
@@ -790,13 +793,13 @@ function CheckAndUpdatePage({
                 />
               ) : null}
             </AnimatePresence>
-            {/* connected line */}
+            {/* connected line — anchored to the 56px illustration's centre */}
             {index !== steps.length - 1 ? (
               <YStack
                 w={2}
                 position="absolute"
-                left={31}
-                top={64}
+                left={27}
+                top={56}
                 bottom={-40}
                 gap="$1"
                 overflow="hidden"
@@ -813,112 +816,17 @@ function CheckAndUpdatePage({
               </YStack>
             ) : null}
             <XStack alignItems="center" gap="$5">
-              <YStack
-                w="$16"
-                h="$16"
-                borderRadius="$2"
-                bg="$bg"
-                borderCurve="continuous"
-                $platform-web={{
-                  boxShadow:
-                    '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                }}
-                $theme-dark={{
-                  bg: '$whiteA1',
-                  borderWidth: 1,
-                  borderColor: '$neutral3',
-                }}
-                $platform-native={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$neutral3',
-                }}
-                $platform-ios={{
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 0.5 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 0.5,
-                }}
-                $platform-android={{ elevation: 0.5 }}
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Image source={step.image} width={64} height={64} />
-                {step.state !== ECheckAndUpdateStepState.Idle ? (
-                  <YStack
-                    position="absolute"
-                    right={-9}
-                    bottom={-9}
-                    w={26}
-                    h={26}
-                    borderWidth={1}
-                    bg="$bg"
-                    borderRadius="$full"
-                    borderColor="$borderSubdued"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <AnimatePresence exitBeforeEnter initial={false}>
-                      {step.state === ECheckAndUpdateStepState.InProgress ? (
-                        <Spinner
-                          key="spinner"
-                          size="small"
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.7, opacity: 0 }}
-                          exitStyle={{ scale: 0.7, opacity: 0 }}
-                          scale={0.8}
-                        />
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Error ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="error"
-                        >
-                          <Icon
-                            name="CrossedSmallOutline"
-                            color="$iconCritical"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Warning ||
-                      step.state === ECheckAndUpdateStepState.Skipped ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="warning"
-                        >
-                          <Icon
-                            name="InfoCircleOutline"
-                            color="$iconInfo"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                      {step.state === ECheckAndUpdateStepState.Success ? (
-                        <YStack
-                          animation="quick"
-                          animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
-                          enterStyle={{ scale: 0.8, opacity: 0 }}
-                          exitStyle={{ scale: 0.8, opacity: 0 }}
-                          key="checkmark"
-                        >
-                          <Icon
-                            name="Checkmark2SmallOutline"
-                            color="$iconSuccess"
-                            size="$5"
-                          />
-                        </YStack>
-                      ) : null}
-                    </AnimatePresence>
-                  </YStack>
-                ) : null}
-              </YStack>
+              {/* No corner state badge — the glyph tint + border beam already
+                  carry the state. */}
+              <CheckStepIllustration
+                kind={
+                  step.id === ECheckAndUpdateStepId.GenuineCheck
+                    ? 'genuine'
+                    : 'firmware'
+                }
+                tone={illustrationTone}
+                beaming={step.state === ECheckAndUpdateStepState.InProgress}
+              />
               <YStack gap="$1" flex={1}>
                 <SizableText size="$headingSm">{displayTitle}</SizableText>
                 {displayDescription ? (
