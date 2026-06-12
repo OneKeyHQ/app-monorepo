@@ -49,26 +49,14 @@ const SORTABLE_COLUMNS = {
   turnover: 'v24hUSD',
 } as const;
 
-// Client sort mode: all numeric columns are sortable (client-side sort)
+// Client sort mode is used by banner detail and only supports 24h change.
 const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
-  ...SORTABLE_COLUMNS,
-  price: 'price',
   change24h: 'change24h',
-  transactions: 'transactions',
-  uniqueTraders: 'uniqueTraders',
-  holders: 'holders',
 };
 
 // Sort key → IMarketToken field mapping for client-side sorting
 const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
-  price: 'price',
   change24h: 'change24h',
-  mc: 'marketCap',
-  liquidity: 'liquidity',
-  v24hUSD: 'turnover',
-  transactions: 'transactions',
-  uniqueTraders: 'uniqueTraders',
-  holders: 'holders',
 };
 
 // Map sort keys to ESortWay enum values for logging
@@ -372,8 +360,8 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Client sort mode uses all numeric columns,
-      // watchlist mode uses restricted server-side sortable columns
+      // Client sort mode is used by banner detail for 24h change sorting,
+      // watchlist mode uses restricted server-side sortable columns.
       const columnsMap = clientSort
         ? CLIENT_SORTABLE_COLUMNS
         : SORTABLE_COLUMNS;

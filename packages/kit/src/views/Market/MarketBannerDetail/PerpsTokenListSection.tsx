@@ -30,17 +30,13 @@ function safeNumber(value: string | number | undefined) {
 
 export function PerpsTokenListSection({
   tokenListId,
-  priceSortType,
   changeSortType,
   change24hColumnTitle,
-  onPriceSortPress,
   onChangeSortPress,
 }: {
   tokenListId: string;
-  priceSortType?: IBannerDetailSortType;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
-  onPriceSortPress: () => void;
   onChangeSortPress: () => void;
 }) {
   const { navigateToPerps } = usePerpsNavigation(
@@ -129,10 +125,8 @@ export function PerpsTokenListSection({
       <BannerDetailTokenFlatList
         data={mobileTokens}
         isLoading={showSkeleton}
-        priceSortType={priceSortType}
         changeSortType={changeSortType}
         change24hColumnTitle={change24hColumnTitle}
-        onPriceSortPress={onPriceSortPress}
         onChangeSortPress={onChangeSortPress}
         onItemPress={handleMobileItemPress}
       />

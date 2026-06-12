@@ -11,19 +11,13 @@ import {
 
 import type { IMarketTokenListResult } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenListBase';
 
-const BANNER_DETAIL_PRICE_SORT_BY = 'price';
 const BANNER_DETAIL_CHANGE_SORT_BY = 'change24h';
-type IBannerDetailSortBy =
-  | typeof BANNER_DETAIL_PRICE_SORT_BY
-  | typeof BANNER_DETAIL_CHANGE_SORT_BY;
+type IBannerDetailSortBy = typeof BANNER_DETAIL_CHANGE_SORT_BY;
 
 function isBannerDetailSortBy(
   sortBy: string | undefined,
 ): sortBy is IBannerDetailSortBy {
-  return (
-    sortBy === BANNER_DETAIL_PRICE_SORT_BY ||
-    sortBy === BANNER_DETAIL_CHANGE_SORT_BY
-  );
+  return sortBy === BANNER_DETAIL_CHANGE_SORT_BY;
 }
 
 type IUseMarketBannerDetailParams = {
@@ -71,8 +65,6 @@ export function useMarketBannerDetail({
     ? bannerSort.sortBy
     : undefined;
   const currentSortType = currentSortBy ? bannerSort.sortType : undefined;
-  const priceSortType =
-    currentSortBy === BANNER_DETAIL_PRICE_SORT_BY ? currentSortType : undefined;
   const changeSortType =
     currentSortBy === BANNER_DETAIL_CHANGE_SORT_BY
       ? currentSortType
@@ -118,10 +110,6 @@ export function useMarketBannerDetail({
     [setBannerSort],
   );
 
-  const handlePriceSortPress = useCallback(() => {
-    toggleSort(BANNER_DETAIL_PRICE_SORT_BY);
-  }, [toggleSort]);
-
   const handleChangeSortPress = useCallback(() => {
     toggleSort(BANNER_DETAIL_CHANGE_SORT_BY);
   }, [toggleSort]);
@@ -132,26 +120,24 @@ export function useMarketBannerDetail({
       isLoading: tickerIsLoading,
       setSortBy,
       setSortType,
-      currentSortBy: bannerSort.sortBy,
-      currentSortType: bannerSort.sortType,
+      currentSortBy,
+      currentSortType,
     }),
     [
       transformedData,
       tickerIsLoading,
       setSortBy,
       setSortType,
-      bannerSort.sortBy,
-      bannerSort.sortType,
+      currentSortBy,
+      currentSortType,
     ],
   );
 
   return {
     changeSortType,
     handleChangeSortPress,
-    handlePriceSortPress,
     listResult,
     mobileData: transformedData,
-    priceSortType,
     tickerIsLoading,
   };
 }

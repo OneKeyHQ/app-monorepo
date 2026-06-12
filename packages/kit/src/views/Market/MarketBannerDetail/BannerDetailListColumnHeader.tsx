@@ -20,20 +20,15 @@ function getBannerSortIconName(sortType?: IBannerDetailSortType) {
 }
 
 export function BannerDetailListColumnHeader({
-  priceSortType,
   changeSortType,
   change24hColumnTitle,
-  onPriceSortPress,
   onChangeSortPress,
 }: {
-  priceSortType?: IBannerDetailSortType;
   changeSortType?: IBannerDetailSortType;
   change24hColumnTitle: string;
-  onPriceSortPress: () => void;
   onChangeSortPress: () => void;
 }) {
   const intl = useIntl();
-  const priceSortIconName = getBannerSortIconName(priceSortType);
   const changeSortIconName = getBannerSortIconName(changeSortType);
 
   return (
@@ -61,12 +56,6 @@ export function BannerDetailListColumnHeader({
             gap="$1"
             flex={1}
             minWidth={0}
-            onPress={onPriceSortPress}
-            pressStyle={{ opacity: 0.8 }}
-            cursor="pointer"
-            testID={MarketTestIDs.sortByPrice}
-            hitSlop={BANNER_SORT_HIT_SLOP}
-            accessibilityRole="button"
           >
             <SizableText
               color="$textSubdued"
@@ -77,7 +66,6 @@ export function BannerDetailListColumnHeader({
             >
               {intl.formatMessage({ id: ETranslations.global_price })}
             </SizableText>
-            <Icon name={priceSortIconName} color="$iconSubdued" size="$4" />
           </XStack>
           <XStack
             alignItems="center"

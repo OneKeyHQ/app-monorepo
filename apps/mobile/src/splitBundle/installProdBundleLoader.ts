@@ -361,6 +361,19 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
     segmentStats.failures += 1;
     segmentStates.set(segmentKey, 'failed');
 
+    // A PROPAGATED dependency failure (the error belongs to a DIFFERENT segment,
+    // thrown by loadSegmentInternal(dep)) must NOT spend or cache THIS segment's
+    // retry budget — only the segment that directly received the native reject
+    // owns its budget. Otherwise a parent gets its budget exhausted (and itself
+    // permanently cached) for a child's transient failure. Re-throw the dep error
+    // verbatim: it already carries the correct code + retryable classification for
+    // our own parent / the boundary to propagate one level up.
+    if (error instanceof SegmentLoadError && error.segmentKey !== segmentKey) {
+      // Leave THIS segment re-attemptable when the dep is still transient.
+      segmentStates.set(segmentKey, error.retryable ? 'idle' : 'failed');
+      throw error;
+    }
+
     // Classify retryable-ness from EITHER source (fix C):
     //   (a) a DIRECT native reject — the raw RN TurboModule error carries
     //       `.code`; map it against the retryable set; or
@@ -411,9 +424,14 @@ async function loadSegmentInternal(segmentKey: string): Promise<void> {
       throw segError;
     }
 
-    // Non-retryable, or retryable budget exhausted → cache as permanent failure
-    // (existing behavior). Only retrySegment() clears it from here.
+    // Non-retryable, or retryable budget exhausted → cache as permanent failure.
+    // Clear `retryable` on the cached error: a budget-exhausted failure is, by
+    // definition, no longer retryable, so downstream consumers (e.g. the lazy
+    // self-heal boundary) treat a later re-navigation as immediately fatal
+    // instead of burning a fresh retry round against this permanently-cached
+    // rejection. Only retrySegment() clears it from here.
     retryableAttempts.delete(segmentKey);
+    segError.retryable = false;
     failedSegments.set(segmentKey, segError);
     NativeLogger.write(
       LogLevel.Error,

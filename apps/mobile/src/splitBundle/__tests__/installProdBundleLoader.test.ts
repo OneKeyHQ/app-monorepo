@@ -681,4 +681,74 @@ describe('installProdBundleLoader', () => {
       'Circular dependency detected',
     );
   });
+
+  describe('retryable budget exhaustion + dependency propagation', () => {
+    it('clears `retryable` when a segment is permanently cached (budget exhausted)', async () => {
+      const mock = createMockNativeLoader();
+      const timeout = Object.assign(new Error('eval timed out'), {
+        code: 'SPLIT_BUNDLE_TIMEOUT',
+      });
+      mock.loadSegment.mockRejectedValue(timeout);
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+
+      // attempts 1 & 2: retryable, not cached, still flagged retryable.
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: true,
+      });
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: true,
+      });
+      // attempt 3: budget exhausted → permanently cached with retryable CLEARED.
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+
+      // subsequent loads are served from the cache (no new native dispatch) and
+      // remain non-retryable so the boundary goes fatal immediately.
+      await expect(loadSegment('seg:test.a')).rejects.toMatchObject({
+        retryable: false,
+      });
+      expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not charge or cache a PARENT segment for a dependency failure', async () => {
+      const mock = createMockNativeLoader();
+      const timeout = Object.assign(new Error('dep eval timed out'), {
+        code: 'SPLIT_BUNDLE_TIMEOUT',
+      });
+      // Dependency seg:test.a always fails; the parent seg:test.b would succeed.
+      mock.loadSegment.mockImplementation(
+        ({ segmentKey }: { segmentKey: string }) =>
+          segmentKey === 'seg:test.a'
+            ? Promise.reject(timeout)
+            : Promise.resolve(undefined),
+      );
+      const { installProdBundleLoader, loadSegment } = getLoader();
+      installProdBundleLoader(mock);
+
+      // Load the parent 3x; each fails because the dep fails. By the 3rd the dep
+      // exhausts ITS budget and is permanently cached — the parent must NOT be
+      // charged/cached for that.
+      for (let i = 0; i < 3; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await expect(loadSegment('seg:test.b')).rejects.toBeTruthy();
+      }
+
+      // The parent is NOT permanently cached: a further load still recurses into
+      // the dep (now cache-throwing) and propagates the DEP's error verbatim, so
+      // the surfaced error belongs to seg:test.a — not a parent seg:test.b cache.
+      let caught: any;
+      try {
+        await loadSegment('seg:test.b');
+      } catch (e) {
+        caught = e;
+      }
+      expect(caught?.segmentKey).toBe('seg:test.a');
+      // The dep's own native load was attempted exactly MAX_RETRYABLE_ATTEMPTS
+      // times, then cached (no further native dispatch).
+      expect(mock.loadSegment).toHaveBeenCalledTimes(3);
+    });
+  });
 });
