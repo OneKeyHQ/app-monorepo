@@ -1,5 +1,3 @@
-import { getDeviceType, getDeviceUUID } from '@onekeyfe/hd-core';
-
 import { AppError } from '../../errors';
 
 import { ensureSDKReady, unwrapSDKResult } from './hardware-sdk';
@@ -15,6 +13,7 @@ interface ISearchedDevice {
   uuid?: string;
   name?: string;
   label?: string;
+  firmwareVersion?: [number, number, number] | null;
   features?: {
     onekey_device_type?: string;
     onekey_serial?: string;
@@ -24,6 +23,10 @@ interface ISearchedDevice {
     unlocked?: boolean;
     passphrase_protection?: boolean;
   };
+}
+
+function formatVersion(version?: [number, number, number] | null): string {
+  return Array.isArray(version) ? version.join('.') : '';
 }
 
 export function registerDeviceSearchCommand(parent: Command): void {
@@ -49,9 +52,17 @@ export function registerDeviceSearchCommand(parent: Command): void {
             connectId: d.connectId,
             deviceId: d.deviceId ?? '',
             name: d.name ?? d.label ?? 'Unknown',
-            model: d.deviceType ?? getDeviceType(d.features as any) ?? 'Unknown',
-            serial: d.uuid ?? (d.features ? getDeviceUUID(d.features as any) : ''),
-            firmware: d.features?.onekey_firmware_version ?? '',
+            model: d.deviceType ?? d.features?.onekey_device_type ?? 'Unknown',
+            serial:
+              d.uuid ??
+              d.features?.onekey_serial_no ??
+              d.features?.onekey_serial ??
+              d.features?.serial_no ??
+              '',
+            firmware:
+              formatVersion(d.firmwareVersion) ||
+              d.features?.onekey_firmware_version ||
+              '',
             unlocked: d.features?.unlocked ?? null,
             passphraseProtection: d.features?.passphrase_protection ?? false,
           };

@@ -300,12 +300,14 @@ export async function executeHardwareLoginCommand({
       ) as Array<{
         connectId?: string;
         deviceId?: string;
+        sessionId?: string;
         features?: { session_id?: string; device_id?: string };
       }>;
       const targetDevice = refreshedDevices.find(
         (d) => d.connectId === connectId,
       );
-      resolvedSessionId = targetDevice?.features?.session_id;
+      resolvedSessionId =
+        targetDevice?.sessionId ?? targetDevice?.features?.session_id;
       resolvedDeviceId = targetDevice?.deviceId || deviceId;
     }
     if (resolvedSessionId) {
