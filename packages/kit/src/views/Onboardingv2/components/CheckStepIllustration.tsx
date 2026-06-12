@@ -17,7 +17,7 @@ import Svg, { G, Path } from 'react-native-svg';
 
 import { LinearGradient, YStack } from '@onekeyhq/components';
 
-import { SETUP_CARD_SHADOW } from './SetupCard';
+import { BG_SHEEN, SETUP_CARD_SHADOW } from './SetupCard';
 
 // The CheckAndUpdate step illustrations (Figma "Illustrations", node
 // 24951:25784), drawn fully in code — no more themed PNG assets. Every value
@@ -41,9 +41,8 @@ const RING = BOX - RING_INSET * 2;
 const RING_RADIUS = 8;
 const RING_STROKE = 1;
 
-// Container fill: $gray3 base with a white sheen washing down from the top
-// (12% → 0%), rather than two baked greys — so the base stays a theme token.
-const BG_SHEEN = ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0)'];
+// Container fill: $gray3 base with the shared white sheen (BG_SHEEN) washing
+// down from the top, rather than two baked greys — so the base stays a token.
 const GRADIENT_TOP = { x: 0.5, y: 0 };
 const GRADIENT_BOTTOM = { x: 0.5, y: 1 };
 

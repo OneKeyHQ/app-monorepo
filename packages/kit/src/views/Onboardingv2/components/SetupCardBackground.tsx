@@ -53,6 +53,7 @@ export function SetupCardBackground({
       autoPlay
       colors={variant === 'neutral' ? SHIMMER_NEUTRAL : undefined}
       style={{
+        opacity: 0.5,
         ...(shimmerHeight === undefined ? null : { height: shimmerHeight }),
       }}
     />

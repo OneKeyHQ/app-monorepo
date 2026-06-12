@@ -45,6 +45,11 @@ import type { ImageSourcePropType, LayoutChangeEvent } from 'react-native';
 export const SETUP_CARD_SHADOW =
   'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.16), 0 1px 1px -0.5px rgba(0, 0, 0, 0.18), 0 3px 3px -1.5px rgba(0, 0, 0, 0.18), 0 6px 6px -3px rgba(0, 0, 0, 0.18), 0 12px 12px -6px rgba(0, 0, 0, 0.18)';
 
+// White sheen wash for elevated card surfaces: 12% → 0% white, laid over a
+// $gray3 base as a LinearGradient (the gradient direction is per-card).
+// Shared by the onboarding illustrations.
+export const BG_SHEEN = ['rgba(255, 255, 255, 0.12)', 'rgba(255, 255, 255, 0)'];
+
 const CARD_RADIUS = 24;
 
 // A reanimated-driven Tamagui YStack so the card can animate its own height as

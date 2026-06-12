@@ -7,6 +7,7 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Anchor,
   Button,
+  Image,
   Portal,
   SizableText,
   XStack,
@@ -29,6 +30,7 @@ import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { SeedCardIllustration } from '../components/SeedCardIllustration';
 import { SetupCardBody } from '../components/SetupCard';
 import { SetupCardBackground } from '../components/SetupCardBackground';
 import { SetupStepItem } from '../components/SetupStepItem';
@@ -142,26 +144,20 @@ function OptionRow({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-// A "Create New Wallet" sub-card body: a 90×90 illustration placeholder + title
-// + description (the glow/shimmer background is supplied via backgroundSlot).
+// A "Create New Wallet" sub-card body: a 90×90 illustration + title +
+// description (the glow/shimmer background is supplied via backgroundSlot).
 function MediaCardBody({
   title,
+  illustration,
   children,
 }: {
   title: string;
+  illustration: ReactNode;
   children: ReactNode;
 }) {
   return (
     <SetupCardBody alignItems="center" gap="$5">
-      <YStack
-        w={90}
-        h={90}
-        bg="$gray5"
-        borderWidth={1}
-        borderColor="$borderStrong"
-        borderStyle="dashed"
-        borderCurve="continuous"
-      />
+      {illustration}
       <YStack gap="$2" w="100%">
         <SizableText size="$bodyMdMedium">{title}</SizableText>
         {children}
@@ -209,6 +205,13 @@ function getSetupStepContent(
           title={intl.formatMessage({
             id: ETranslations.global_recovery_phrase,
           })}
+          illustration={
+            <Image
+              source={require('@onekeyhq/kit/assets/onboarding/recovery-phrase-setup.png')}
+              width={90}
+              height={90}
+            />
+          }
         >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
@@ -227,7 +230,10 @@ function getSetupStepContent(
       ),
       body: (
         // "OneKey SeedCard" is a product name — untranslatable, so hardcoded.
-        <MediaCardBody title="OneKey SeedCard">
+        <MediaCardBody
+          title="OneKey SeedCard"
+          illustration={<SeedCardIllustration />}
+        >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.device_setup_create_seedcard_desc,
