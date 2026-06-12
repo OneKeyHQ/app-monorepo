@@ -59,6 +59,7 @@ const SwapQuoteResultRate = ({
 }: ISwapQuoteResultRateProps) => {
   const intl = useIntl();
   const [isReverse, setIsReverse] = useState(false);
+  const shouldUseInlineSlippageLayout = Boolean(customSlippageValue);
   const rateIsExit = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
     return !rateBN.isZero();
@@ -87,9 +88,9 @@ const SwapQuoteResultRate = ({
       <XStack
         gap="$2"
         alignItems="center"
-        flex={1}
-        flexBasis={0}
-        minWidth={0}
+        flex={shouldUseInlineSlippageLayout ? 1 : undefined}
+        flexBasis={shouldUseInlineSlippageLayout ? 0 : undefined}
+        minWidth={shouldUseInlineSlippageLayout ? 0 : undefined}
         hoverStyle={{
           opacity: 0.5,
         }}
@@ -99,7 +100,15 @@ const SwapQuoteResultRate = ({
         }}
         cursor="pointer"
       >
-        <SizableText size="$bodyMd" flex={1} flexBasis={0} minWidth={0}>
+        <SizableText
+          size="$bodyMd"
+          flex={shouldUseInlineSlippageLayout ? 1 : undefined}
+          flexBasis={shouldUseInlineSlippageLayout ? 0 : undefined}
+          minWidth={shouldUseInlineSlippageLayout ? 0 : undefined}
+          maxWidth={shouldUseInlineSlippageLayout ? undefined : 240}
+          $gtMd={shouldUseInlineSlippageLayout ? undefined : { maxWidth: 240 }}
+          textAlign={shouldUseInlineSlippageLayout ? undefined : 'right'}
+        >
           {`1 ${
             isReverse
               ? (toToken?.symbol?.toUpperCase() ?? '-')
@@ -119,9 +128,22 @@ const SwapQuoteResultRate = ({
         </SizableText>
       </XStack>
     );
-  }, [fromToken, intl, isReverse, onOpenResult, rate, rateIsExit, toToken]);
+  }, [
+    fromToken,
+    intl,
+    isReverse,
+    onOpenResult,
+    rate,
+    rateIsExit,
+    toToken,
+    shouldUseInlineSlippageLayout,
+  ]);
   return (
-    <XStack alignItems="center" gap="$2" width="100%">
+    <XStack
+      alignItems="center"
+      gap={shouldUseInlineSlippageLayout ? '$2' : '$5'}
+      width={shouldUseInlineSlippageLayout ? '100%' : undefined}
+    >
       {isLoading ? (
         <XStack gap="$2">
           <SizableText size="$bodyMd" color="$text">
@@ -134,10 +156,10 @@ const SwapQuoteResultRate = ({
         <XStack
           gap="$1"
           alignItems="center"
-          flexGrow={1}
-          flexShrink={1}
-          flexBasis={0}
-          minWidth={0}
+          flexGrow={shouldUseInlineSlippageLayout ? 1 : undefined}
+          flexShrink={shouldUseInlineSlippageLayout ? 1 : undefined}
+          flexBasis={shouldUseInlineSlippageLayout ? 0 : undefined}
+          minWidth={shouldUseInlineSlippageLayout ? 0 : undefined}
         >
           <Stack flexShrink={0}>
             <SwapRefreshButton refreshAction={refreshAction} />
@@ -146,7 +168,13 @@ const SwapQuoteResultRate = ({
         </XStack>
       )}
 
-      <XStack alignItems="center" userSelect="none" gap="$1" flexShrink={0}>
+      <XStack
+        alignItems="center"
+        userSelect="none"
+        gap="$1"
+        flex={shouldUseInlineSlippageLayout ? undefined : 1}
+        flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
+      >
         {!providerIcon ||
         !fromToken ||
         !toToken ||
@@ -154,15 +182,23 @@ const SwapQuoteResultRate = ({
         quoting ? null : (
           <XStack
             alignItems="center"
-            gap="$2"
-            flexShrink={0}
+            gap={shouldUseInlineSlippageLayout ? '$2' : undefined}
+            flex={shouldUseInlineSlippageLayout ? undefined : 1}
+            flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
+            justifyContent={
+              shouldUseInlineSlippageLayout ? undefined : 'flex-end'
+            }
             animation="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             y={openResult ? '$1' : '$0'}
             opacity={openResult ? 0 : 1}
           >
             {isBest && showBestBadge ? (
-              <Badge badgeSize="sm" badgeType="success">
+              <Badge
+                badgeSize="sm"
+                badgeType="success"
+                marginRight={shouldUseInlineSlippageLayout ? undefined : '$2'}
+              >
                 {intl.formatMessage({
                   id: ETranslations.global_best,
                 })}
@@ -222,7 +258,11 @@ const SwapQuoteResultRate = ({
             />
           </Stack>
         ) : (
-          <XStack justifyContent="flex-end" flexShrink={0}>
+          <XStack
+            justifyContent="flex-end"
+            flex={shouldUseInlineSlippageLayout ? undefined : 1}
+            flexShrink={shouldUseInlineSlippageLayout ? 0 : undefined}
+          >
             {quoting ? (
               <LottieView
                 source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
