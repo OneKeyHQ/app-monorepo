@@ -39,13 +39,14 @@ type ITradingViewData =
   | ITradingViewPriceUpdateData;
 
 interface ITradingViewMessage {
-  scope: string;
+  scope?: string;
   method: string;
   origin: string;
   data: ITradingViewData;
 }
 
 export interface ICustomReceiveHandlerData {
+  scope?: string;
   data: ITradingViewMessage;
 }
 
