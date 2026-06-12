@@ -44,6 +44,10 @@ const DISABLED_FEATURE_OPTIONS: {
     label: 'Drawing Toolbar',
     value: TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
   },
+  {
+    label: 'Volume',
+    value: TRADING_VIEW_DISABLED_FEATURES.VOLUME,
+  },
 ];
 
 const DEFAULT_DISABLED_FEATURES = DISABLED_FEATURE_OPTIONS.map(
