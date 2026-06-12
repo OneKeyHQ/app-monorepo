@@ -563,14 +563,6 @@ function getPositiveTokenPrice(value?: number | string) {
   return valueBN.toFixed();
 }
 
-function getPrivateSendTransferPrice({
-  transfer,
-}: {
-  transfer: IDecodedTxTransferInfo;
-}) {
-  return getPositiveTokenPrice(transfer.price);
-}
-
 function getPrivateSendDisplayPriceKey({
   networkId,
   tokenAddress,
@@ -1017,11 +1009,7 @@ const SwapHistoryDetailModal = () => {
                     : ''),
                 isNFT: transfer.isNFT,
                 isNative: transfer.isNative,
-                price:
-                  displayPrice ??
-                  (privateSendTokenDisplayPriceMap
-                    ? getPrivateSendTransferPrice({ transfer })
-                    : undefined),
+                price: displayPrice,
               };
 
               return (
@@ -1323,7 +1311,9 @@ const SwapHistoryDetailModal = () => {
           .toFixed();
       }
     }
-    const finalGasFeeFiatValue = privateSendGasFeeFiatValue ?? gasFeeFiatValue;
+    const finalGasFeeFiatValue = isPrivateSendHistory
+      ? privateSendGasFeeFiatValue
+      : gasFeeFiatValue;
     const finalGasFeeFiatValueBN = new BigNumber(finalGasFeeFiatValue ?? '');
     const shouldRenderGasFeeFiatValue =
       !finalGasFeeFiatValueBN.isNaN() && finalGasFeeFiatValueBN.isFinite();
