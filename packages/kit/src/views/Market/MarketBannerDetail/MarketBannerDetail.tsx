@@ -66,10 +66,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
   const {
     changeSortType,
     handleChangeSortPress,
-    handlePriceSortPress,
     listResult,
     mobileData,
-    priceSortType,
     tickerIsLoading,
   } = useMarketBannerDetail({ tokenListId, isPerps });
 
@@ -164,10 +162,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       return (
         <PerpsTokenListSection
           tokenListId={tokenListId}
-          priceSortType={priceSortType}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
-          onPriceSortPress={handlePriceSortPress}
           onChangeSortPress={handleChangeSortPress}
         />
       );
@@ -178,10 +174,8 @@ function MarketBannerDetailContent({ title }: { title: string }) {
         <BannerDetailTokenFlatList
           data={mobileData}
           isLoading={tickerIsLoading}
-          priceSortType={priceSortType}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
-          onPriceSortPress={handlePriceSortPress}
           onChangeSortPress={handleChangeSortPress}
           onItemPress={handleItemPress}
         />
@@ -222,9 +216,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     gtMd,
     tickerIsLoading,
     mobileData,
-    priceSortType,
     changeSortType,
-    handlePriceSortPress,
     handleChangeSortPress,
     intl,
   ]);
