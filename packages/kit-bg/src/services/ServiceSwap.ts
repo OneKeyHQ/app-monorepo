@@ -216,9 +216,7 @@ function mergePrivateSendOrderDetailToken({
   return {
     ...currentToken,
     ...orderDetailToken,
-    price: isSameToken
-      ? (orderDetailToken.price ?? currentToken.price)
-      : orderDetailToken.price,
+    price: isSameToken ? currentToken.price : undefined,
   };
 }
 
