@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -1874,7 +1878,11 @@ describe('ServiceAppUpdate state transitions', () => {
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
-      const downloadSpy = jest.spyOn(service, 'downloadPackage');
+      // The background cannot pull bytes; mid-session auto-download is driven
+      // by emitting StartAutoDownloadUpdate so the mounted foreground hook
+      // (useDownloadPackage) advances the status. Status stays at `notify`
+      // until the foreground picks it up.
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       await service.fetchAppUpdateInfo(true);
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
@@ -1882,8 +1890,11 @@ describe('ServiceAppUpdate state transitions', () => {
       // Flush the deferred auto-download.
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(downloadSpy).toHaveBeenCalledTimes(1);
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'jsBundleUpgrade' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
     test('auto-starts download for a seamless appShell upgrade discovered mid-session', async () => {
@@ -1895,15 +1906,18 @@ describe('ServiceAppUpdate state transitions', () => {
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
-      const downloadSpy = jest.spyOn(service, 'downloadPackage');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       await service.fetchAppUpdateInfo(true);
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
 
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(downloadSpy).toHaveBeenCalledTimes(1);
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellUpdate' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
     test('does NOT auto-start download for a manual upgrade (waits for user)', async () => {
@@ -1920,12 +1934,15 @@ describe('ServiceAppUpdate state transitions', () => {
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
-      const downloadSpy = jest.spyOn(service, 'downloadPackage');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       await service.fetchAppUpdateInfo(true);
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(downloadSpy).not.toHaveBeenCalled();
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        expect.anything(),
+      );
       expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
@@ -1946,12 +1963,15 @@ describe('ServiceAppUpdate state transitions', () => {
       // Both the pre-notify freeze gate and the auto-download gate consult
       // this; returning true keeps the upgrade out of `notify` entirely.
       jest.spyOn(service, 'shouldSkipTargetByControl').mockResolvedValue(true);
-      const downloadSpy = jest.spyOn(service, 'downloadPackage');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       await service.fetchAppUpdateInfo(true);
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(downloadSpy).not.toHaveBeenCalled();
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        expect.anything(),
+      );
       expect(atomValue.status).not.toBe(EAppUpdateStatus.downloadPackage);
     });
 
@@ -1969,13 +1989,16 @@ describe('ServiceAppUpdate state transitions', () => {
       });
       jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
       jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
-      const downloadSpy = jest.spyOn(service, 'downloadPackage');
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
 
       await service.fetchAppUpdateInfo(true);
       await jest.advanceTimersByTimeAsync(0);
 
-      expect(downloadSpy).toHaveBeenCalledTimes(1);
-      expect(atomValue.status).toBe(EAppUpdateStatus.downloadPackage);
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'jsBundleRollback' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
     test('jsBundle update clears stale storeUrl and downloadUrl from previous config', async () => {

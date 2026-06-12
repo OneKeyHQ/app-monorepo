@@ -23,6 +23,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -1627,7 +1631,19 @@ class ServiceAppUpdate extends ServiceBase {
               defaultLogger.app.appUpdate.log(
                 `fetchAppUpdateInfo: auto-starting silent download for ${decision.decision}`,
               );
-              void this.downloadPackage();
+              // Drive the real transfer via the foreground. The background
+              // cannot pull bytes — the native transfer
+              // (BundleUpdate.downloadBundle, with request headers and
+              // retry/backoff) plus the persist-atom `downloadPackage` flip
+              // both live in the foreground useDownloadPackage hook. Emit a
+              // bg→foreground event so the mounted AppUpdateForeground kicks it
+              // off immediately; the status stays at `notify` until the
+              // foreground hook advances it. Without this, a mid-session
+              // discovery would sit at `notify` until the next cold start —
+              // "detected the server push but never started downloading".
+              appEventBus.emit(EAppEventBusNames.StartAutoDownloadUpdate, {
+                decision: decision.decision,
+              });
             })();
           }, 0);
         }
