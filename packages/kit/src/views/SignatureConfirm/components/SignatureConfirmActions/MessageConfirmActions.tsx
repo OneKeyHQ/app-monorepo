@@ -32,6 +32,7 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { useHyperliquidReferralPromotion } from '../../hooks/useHyperliquidReferralPromotion';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 type IProps = {
   accountId: string;
@@ -332,8 +333,12 @@ function MessageConfirmActions(props: IProps) {
   });
 
   return (
-    <Page.Footer disableKeyboardAnimation>
+    <Page.Footer
+      disableKeyboardAnimation
+      testID={SignatureConfirmTestIDs.MessageConfirmFooter}
+    >
       <Page.FooterActions
+        testID={SignatureConfirmTestIDs.MessageConfirmActions}
         onConfirmText={intl.formatMessage({
           id: ETranslations.dapp_connect_confirm,
         })}
@@ -349,6 +354,7 @@ function MessageConfirmActions(props: IProps) {
         <Stack gap="$3" flexShrink={1}>
           {showTakeRiskAlert ? (
             <Checkbox
+              testID={SignatureConfirmTestIDs.MessageConfirmRiskCheckbox}
               label={intl.formatMessage({
                 id: ETranslations.dapp_connect_proceed_at_my_own_risk,
               })}
@@ -361,6 +367,7 @@ function MessageConfirmActions(props: IProps) {
           ) : null}
           {shouldShowReferralCheckbox ? (
             <Checkbox
+              testID={SignatureConfirmTestIDs.MessageConfirmReferralCheckbox}
               label={intl.formatMessage({
                 id: ETranslations.wallet_use_onekey_hl_discount,
               })}

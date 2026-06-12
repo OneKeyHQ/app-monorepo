@@ -12,7 +12,9 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDecodedTxsInitAtom,
+  useEffectiveFeePayerAtom,
   useSignatureConfirmActions,
+  useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -49,6 +51,7 @@ import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
+import { SignatureConfirmTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -86,6 +89,8 @@ function TxConfirm() {
   const [settings] = useSettingsPersistAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const [decodedTxsInit] = useDecodedTxsInitAtom();
+  const [effectiveFeePayer] = useEffectiveFeePayerAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const txConfirmParamsInit = useRef(false);
   const visitReceiveSelectorRef = useRef<boolean>(false);
 
@@ -377,6 +382,18 @@ function TxConfirm() {
     }
   }, [sourceInfo, accountId]);
 
+  // Pre-warm the device while the user reviews, so Sign can skip Initialize.
+  // Fire-and-forget; the service no-ops for non-hardware wallets.
+  useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    void backgroundApiProxy.serviceHardware.preInitializeDeviceForSign({
+      walletId,
+    });
+  }, [accountId]);
+
   const renderTxConfirmContent = useCallback(() => {
     if (
       (isBuildingDecodedTxs || !decodedTxs || decodedTxs.length === 0) &&
@@ -432,15 +449,25 @@ function TxConfirm() {
 
   const renderHeaderRight = useCallback(
     () => (
-      <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
+      <TxConfirmHeaderRight
+        decodedTxs={decodedTxs}
+        unsignedTxs={unsignedTxs}
+        effectiveFeePayer={effectiveFeePayer}
+        txFeeInfoInit={txFeeInfoInit}
+      />
     ),
-    [decodedTxs, unsignedTxs],
+    [decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit],
   );
 
   return (
-    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
+    <Page
+      scrollEnabled
+      onClose={handleOnClose}
+      safeAreaEnabled
+      testID={SignatureConfirmTestIDs.TxConfirmPage}
+    >
       <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
-      <Page.Body testID="tx-confirmation-body" px="$5">
+      <Page.Body testID={SignatureConfirmTestIDs.TxConfirmBody} px="$5">
         {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>

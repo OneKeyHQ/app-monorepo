@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from 'react';
 
@@ -35,11 +36,16 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   formatSpotPairDisplayName,
   formatSpotPriceToValid,
@@ -101,6 +107,7 @@ const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
 const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
+const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
 const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function isSpotAssetCtxEntryEqual(
@@ -227,61 +234,60 @@ export const FavoriteButton = memo(
       : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
-      const mode: 'perp' | 'spot' = isSpot ? 'spot' : 'perp';
-      const toggleFavorites = (prev: string[]) => {
-        const removing = prev.includes(coin);
-        return removing ? prev.filter((f) => f !== coin) : [...prev, coin];
-      };
-      const wasFavorited = isSpot
-        ? spotFavs.favorites.includes(coin)
-        : perpFavs.favorites.includes(coin);
+      const mode = isSpot ? 'spot' : 'perp';
+      const action = isFavorite ? 'remove' : 'add';
+      const updateFavorites = (favorites: string[]) =>
+        updateTokenSelectorFavoriteCoins({
+          favorites,
+          coin,
+          action,
+        }).favorites;
+
       if (isSpot) {
         setSpotFavs((prev) => ({
           ...prev,
-          favorites: toggleFavorites(prev.favorites),
+          favorites: updateFavorites(prev.favorites),
         }));
       } else {
-        setPerpFavs((prev) => {
-          const removing = prev.favorites.includes(coin);
-          void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
-            coin,
-            action: removing ? 'remove' : 'add',
-          });
-          return {
-            ...prev,
-            favorites: toggleFavorites(prev.favorites),
-          };
-        });
+        setPerpFavs((prev) => ({
+          ...prev,
+          favorites: updateFavorites(prev.favorites),
+        }));
       }
-      // FavoritesBar's passive sync would eventually backfill, but writing
-      // directly here avoids a one-frame flicker on add/remove.
-      setFavoritesOrder((prev) => {
-        if (wasFavorited) {
-          return {
-            sequence: prev.sequence.filter(
-              (e) => !(e.mode === mode && e.coinName === coin),
-            ),
-          };
-        }
-        if (prev.sequence.some((e) => e.mode === mode && e.coinName === coin)) {
-          return prev;
-        }
-        return {
-          sequence: [...prev.sequence, { mode, coinName: coin }],
-        };
+
+      const nextPerpFavorites = isSpot
+        ? perpFavs.favorites
+        : updateFavorites(perpFavs.favorites);
+      const nextSpotFavorites = isSpot
+        ? updateFavorites(spotFavs.favorites)
+        : spotFavs.favorites;
+      setFavoritesOrder((prev) => ({
+        sequence: reconcileTokenSelectorFavoritesOrder({
+          sequence: prev.sequence,
+          perpFavorites: nextPerpFavorites,
+          spotFavorites: nextSpotFavorites,
+        }),
+      }));
+
+      void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+        mode,
+        coin,
+        action,
       });
     }, [
       coin,
+      isFavorite,
       isSpot,
+      perpFavs.favorites,
+      setFavoritesOrder,
       setPerpFavs,
       setSpotFavs,
-      setFavoritesOrder,
-      perpFavs.favorites,
       spotFavs.favorites,
     ]);
 
     return (
       <IconButton
+        testID="perp-already-favorite-icon-btn"
         icon={isFavorite ? 'StarSolid' : 'StarOutline'}
         variant="tertiary"
         size="small"
@@ -298,7 +304,7 @@ export const FavoriteButton = memo(
 
 FavoriteButton.displayName = 'FavoriteButton';
 
-const SubtitleBadge = memo(
+export const SubtitleBadge = memo(
   ({
     subtitle,
     maxWidth,
@@ -508,10 +514,15 @@ const TokenPriceCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.price.minWidth : 110}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             {isSpot ? (
-              <SizableText size="$bodySmMedium" color="$text">
+              <SizableText
+                size="$bodySmMedium"
+                color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+              >
                 {assetCtx.markPrice}
               </SizableText>
             ) : (
@@ -519,6 +530,7 @@ const TokenPriceCellDesktop = memo(() => {
                 formatter="price"
                 size="$bodySmMedium"
                 color="$text"
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.markPrice}
               </NumberSizeableText>
@@ -560,15 +572,18 @@ const Token24hChangeCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.change24h.minWidth : 150}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText
               size="$bodySm"
               color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
             >
               <SizableText
                 size="$bodySm"
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24h}
               </SizableText>{' '}
@@ -578,6 +593,7 @@ const Token24hChangeCellDesktop = memo(() => {
                 color={assetCtx.change24hPercent > 0 ? '$green11' : '$red11'}
                 formatter="priceChange"
                 formatterOptions={{ showPlusMinusSigns: true }}
+                lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
               >
                 {assetCtx.change24hPercent.toString()}
               </NumberSizeableText>
@@ -625,13 +641,18 @@ const TokenFundingCellDesktop = memo(() => {
               : undefined
           }
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer
             isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               {isSpot
                 ? '-'
                 : `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`}
@@ -673,9 +694,14 @@ const TokenVolumeCellDesktop = memo(() => {
           flexBasis={useFlexibleLayout ? 0 : undefined}
           minWidth={useFlexibleLayout ? columnLayout.volume.minWidth : 110}
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               $
               {formatDisplayNumber(
                 NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
@@ -712,13 +738,18 @@ const TokenMarketCapCellDesktop = memo(() => {
         flexBasis={useFlexibleLayout ? 0 : undefined}
         minWidth={useFlexibleLayout ? columnLayout.marketCap.minWidth : 120}
         justifyContent="flex-start"
+        alignItems="center"
       >
         <SkeletonContainer
           isLoading={isSpot ? isLoading : false}
           width="80%"
           height={16}
         >
-          <SizableText size="$bodySm" color="$text">
+          <SizableText
+            size="$bodySm"
+            color="$text"
+            lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+          >
             {assetCtx.marketCap ?? '-'}
           </SizableText>
         </SkeletonContainer>
@@ -772,13 +803,18 @@ const TokenOpenInterestCellDesktop = memo(() => {
               : undefined
           }
           justifyContent="flex-start"
+          alignItems="center"
         >
           <SkeletonContainer
             isLoading={!isSpot ? isLoading : false}
             width="80%"
             height={16}
           >
-            <SizableText size="$bodySm" color="$text">
+            <SizableText
+              size="$bodySm"
+              color="$text"
+              lineHeight={DESKTOP_METRIC_TEXT_LINE_HEIGHT}
+            >
               {isSpot ? '-' : openInterestDisplay}
             </SizableText>
           </SkeletonContainer>
@@ -1227,6 +1263,7 @@ const PerpTokenSelectorRowPerps = memo(
 
     const { assetCtx, isLoading } = usePerpsAssetCtx({
       assetId: tokenAssetId,
+      dexIndex: mockedToken.dexIndex,
       skipMarkRequired,
     });
 
@@ -1276,7 +1313,16 @@ const PerpTokenSelectorRowPerps = memo(
       ],
     );
 
-    if (!tokenName || !assetCtx) {
+    useEffect(() => {
+      if (!isLoading && assetCtx?.markPrice && assetCtx.markPrice !== '0') {
+        markPerpsColdStartPerfOnce('ui_token_selector_perp_row_ready', {
+          tokenName,
+          markPrice: assetCtx.markPrice,
+        });
+      }
+    }, [assetCtx?.markPrice, isLoading, tokenName]);
+
+    if (!tokenName) {
       return null;
     }
 

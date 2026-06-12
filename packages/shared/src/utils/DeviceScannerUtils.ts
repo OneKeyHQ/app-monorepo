@@ -13,6 +13,9 @@ const POLL_INTERVAL_RATE = 1.5;
 
 let searchPromise: Deferred<void> | null = null;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
+type IDeviceScanOptions = {
+  resetSession?: boolean;
+};
 
 export class DeviceScannerUtils {
   constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
@@ -34,8 +37,10 @@ export class DeviceScannerUtils {
     pollInterval = POLL_INTERVAL,
     maxTryCount = MAX_SEARCH_TRY_COUNT,
     vendor?: EHardwareVendor,
+    options?: IDeviceScanOptions,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
+    let shouldResetSession = options?.resetSession ?? false;
     const searchDevices = async () => {
       // Should search Throttling
       if (searchPromise) {
@@ -49,8 +54,11 @@ export class DeviceScannerUtils {
       let searchResponse;
       try {
         searchResponse = await this.backgroundApi.serviceHardware.searchDevices(
-          vendor ? { vendor } : undefined,
+          vendor || shouldResetSession
+            ? { vendor, resetSession: shouldResetSession }
+            : undefined,
         );
+        shouldResetSession = false;
       } finally {
         searchPromise?.resolve();
         searchPromise = null;

@@ -17,6 +17,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { ListItem } from '../../../components/ListItem';
 import { useTokenMapAtom } from '../../../states/jotai/contexts/approvalList';
+import { ApprovalManagementTestIDs } from '../testIDs';
 
 import { useApprovalManagementContext } from './ApprovalManagementContext';
 
@@ -105,6 +106,7 @@ function ApprovedTokenItem(props: IProps) {
         isSelectMode ? (
           <Stack>
             <Checkbox
+              testID={ApprovalManagementTestIDs.tokenItemCheckbox}
               value={isSelected}
               onChange={() => {
                 void onSelect({
@@ -139,6 +141,7 @@ function ApprovedTokenItem(props: IProps) {
       />
       {isSelectMode ? null : (
         <Button
+          testID={ApprovalManagementTestIDs.tokenRevokeBtn}
           size="small"
           loading={isBuildingRevokeTxs ? isSelected : null}
           disabled={isBuildingRevokeTxs}

@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { type IProps } from '.';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -13,12 +12,12 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Toast,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -29,6 +28,7 @@ import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAcco
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import {
   shouldBlockBotWalletCopyAddress,
   shouldBlockBotWalletReceive,
@@ -53,6 +53,10 @@ import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  displayFiatValueOrUnavailable,
+  displayOrUnavailable,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -60,6 +64,8 @@ import type {
   IAccountToken,
   IFetchTokenDetailItem,
 } from '@onekeyhq/shared/types/token';
+
+import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
 import { useTokenDetailsContext } from './TokenDetailsContext';
@@ -79,10 +85,19 @@ type ITokenDetailsAddressBlockProps = {
   label: string;
   address: string;
   onPress: () => void;
+  testID?: string;
+  disabled?: boolean;
 };
 
 const TokenDetailsAddressBlock = memo(
-  ({ shouldShow, label, address, onPress }: ITokenDetailsAddressBlockProps) => {
+  ({
+    shouldShow,
+    label,
+    address,
+    onPress,
+    testID,
+    disabled,
+  }: ITokenDetailsAddressBlockProps) => {
     if (!shouldShow) {
       return null;
     }
@@ -91,8 +106,10 @@ const TokenDetailsAddressBlock = memo(
       <>
         <Divider />
         <YStack
+          testID={testID}
           userSelect="none"
           onPress={onPress}
+          opacity={disabled ? 0.5 : 1}
           px="$5"
           py="$3"
           gap="$1"
@@ -127,7 +144,10 @@ const TokenDetailsAddressBlock = memo(
 );
 TokenDetailsAddressBlock.displayName = 'TokenDetailsAddressBlock';
 
-function TokenDetailsHeader(props: IProps) {
+function TokenDetailsHeaderContent({
+  focusParam,
+  ...props
+}: IProps & { focusParam: boolean }) {
   const {
     accountId,
     networkId,
@@ -219,18 +239,17 @@ function TokenDetailsHeader(props: IProps) {
     isBotWalletDeactivated,
   });
 
-  const { isFocused } = useTabIsRefreshingFocused();
   const tokenDetailsPromiseOptions = useMemo(
     () => ({
       watchLoading: true,
       overrideIsFocused: (isPageFocused: boolean) =>
-        isPageFocused && (isTabView ? isFocused : true),
+        isPageFocused && (isTabView ? focusParam : true),
       debounced: POLLING_DEBOUNCE_INTERVAL,
       ...(cachedTokenDetails !== undefined
         ? { initResult: cachedTokenDetails }
         : {}),
     }),
-    [cachedTokenDetails, isFocused, isTabView],
+    [cachedTokenDetails, focusParam, isTabView],
   );
   const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
@@ -244,19 +263,18 @@ function TokenDetailsHeader(props: IProps) {
 
         const data = tokensDetails?.[0];
 
+        // Chart price-line surface cannot render '--'; coerce to 0. Header
+        // price/balance render '--' via displayOrUnavailable below.
         updateTokenMetadata({
           price: data?.price ?? 0,
           priceChange24h: data?.price24h ?? 0,
           coingeckoId: data?.info?.coingeckoId ?? '',
+          currency: data?.currency,
         });
 
         if (!data) {
           tokenDetailsCache.delete(tokenDetailsCacheKey);
           return undefined;
-        }
-
-        if (isNil(data.fiatValue)) {
-          data.fiatValue = '0';
         }
 
         tokenDetailsCache.set(tokenDetailsCacheKey, data);
@@ -286,11 +304,13 @@ function TokenDetailsHeader(props: IProps) {
       return;
     }
 
+    // Cached-only path: same '--' coercion rationale as the fetch path above.
     updateTokenMetadata({
       price: cachedTokenDetails.price ?? 0,
       priceChange24h: cachedTokenDetails.price24h ?? 0,
       coingeckoId:
         cachedTokenDetails.info?.coingeckoId ?? tokenInfo.coingeckoId ?? '',
+      currency: cachedTokenDetails.currency,
     });
   }, [
     cachedTokenDetails,
@@ -432,6 +452,14 @@ function TokenDetailsHeader(props: IProps) {
   const addressBlockValue = useMemo(() => {
     const address = account?.address ?? '';
 
+    // For deactivated bot wallets the address must not be exposed in full —
+    // copying is blocked, and showing the full string would let users still
+    // grab the address via long-press / OS-level select. Mask it the same
+    // way the account selector shortens addresses.
+    if (isBotWalletCopyBlocked) {
+      return accountUtils.shortenAddress({ address });
+    }
+
     if (
       accountUtils.isHwWallet({ walletId }) ||
       accountUtils.isQrWallet({ walletId })
@@ -440,13 +468,11 @@ function TokenDetailsHeader(props: IProps) {
     }
 
     return address;
-  }, [account?.address, walletId]);
+  }, [account?.address, walletId, isBotWalletCopyBlocked]);
 
   const handleCopyAddressPress = useCallback(() => {
     if (isBotWalletCopyBlocked) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
     void copyAccountAddress({
@@ -489,26 +515,27 @@ function TokenDetailsHeader(props: IProps) {
               </Skeleton.Group>
             ) : (
               <>
-                <NumberSizeableTextWrapper
+                <Currency
                   hideValue
                   splitDecimal
                   formatter="value"
-                  formatterOptions={{
-                    currency: settings.currencyInfo.symbol,
-                  }}
+                  sourceCurrency={tokenDetails?.currency}
                   fontSize={48}
                   lineHeight={48}
                   fontWeight={500}
                 >
-                  {tokenDetails?.fiatValue ?? '0'}
-                </NumberSizeableTextWrapper>
+                  {displayFiatValueOrUnavailable(
+                    tokenDetails?.fiatValue,
+                    tokenDetails?.balanceParsed,
+                  )}
+                </Currency>
                 <NumberSizeableTextWrapper
                   hideValue
                   formatter="balance"
                   color="$textSubdued"
                   size="$bodyLg"
                 >
-                  {tokenDetails?.balanceParsed ?? '0'}
+                  {displayOrUnavailable(tokenDetails?.balanceParsed)}
                 </NumberSizeableTextWrapper>
               </>
             )}
@@ -516,17 +543,17 @@ function TokenDetailsHeader(props: IProps) {
           {/* Actions */}
           <RawActions>
             <RawActions.Send
+              testID={AssetDetailsTestIDs.sendBtn}
               onPress={handleSendPress}
               trackID="wallet-token-details-send"
             />
             <RawActions.Receive
+              testID={AssetDetailsTestIDs.receiveBtn}
               disabled={isWatchOnly || isBotWalletReceiveBlocked}
               allowPressWhenDisabled={isBotWalletReceiveBlocked}
               onPress={async () => {
                 if (isBotWalletReceiveBlocked) {
-                  Toast.error({
-                    title: '该钱包已停用，无法接收资产',
-                  });
+                  showBotWalletDisabledToast('receive');
                   return;
                 }
                 if (
@@ -551,6 +578,7 @@ function TokenDetailsHeader(props: IProps) {
               trackID="wallet-token-details-receive"
             />
             <RawActions.Swap
+              testID={AssetDetailsTestIDs.swapBtn}
               onPress={handleOnSwap}
               disabled={disableSwapAction}
               trackID="wallet-token-details-swap"
@@ -584,12 +612,28 @@ function TokenDetailsHeader(props: IProps) {
           label={addressBlockLabel}
           address={addressBlockValue}
           onPress={handleCopyAddressPress}
+          testID={AssetDetailsTestIDs.copyAddressBtn}
+          disabled={isBotWalletCopyBlocked}
         />
         {/* History */}
         <Divider mb="$3" />
       </>
     </DebugRenderTracker>
   );
+}
+
+function TokenDetailsHeaderWithTabFocus(props: IProps) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <TokenDetailsHeaderContent {...props} focusParam={isFocused} />;
+}
+
+function TokenDetailsHeader(props: IProps) {
+  if (props.isTabView) {
+    return <TokenDetailsHeaderWithTabFocus {...props} />;
+  }
+
+  return <TokenDetailsHeaderContent {...props} focusParam />;
 }
 
 export default memo(TokenDetailsHeader);

@@ -8,7 +8,6 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -16,10 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -30,6 +26,7 @@ import {
   EModalAssetListRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -46,6 +43,7 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -79,8 +77,6 @@ function TokenListFooter(props: IProps) {
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
-
-  const [settings] = useSettingsPersistAtom();
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
 
@@ -141,7 +137,9 @@ function TokenListFooter(props: IProps) {
     }
 
     if (hideDeFiMarkedTokens) {
-      resultTokens = resultTokens.filter((token) => !token.defiMarked);
+      resultTokens = resultTokens.filter(
+        (token) => !isTokenSelectorDappToken(token),
+      );
     }
 
     return resultTokens;
@@ -368,6 +366,7 @@ function TokenListFooter(props: IProps) {
                 })}
                 renderTrigger={
                   <IconButton
+                    testID="token-list-footer-help-btn"
                     size="small"
                     variant="tertiary"
                     icon="QuestionmarkOutline"
@@ -398,14 +397,14 @@ function TokenListFooter(props: IProps) {
             justifyContent="center"
             alignItems="flex-end"
           >
-            <NumberSizeableText
+            <Currency
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              sourceCurrency="usd"
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}
-            </NumberSizeableText>
+            </Currency>
           </Stack>
         </ListItem>
       ) : null}
@@ -451,6 +450,7 @@ function TokenListFooter(props: IProps) {
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}
           </SizableText>
           <Button
+            testID="token-list-footer-add-token-btn"
             size="small"
             variant="tertiary"
             onPress={handleOnPressManageTokens}

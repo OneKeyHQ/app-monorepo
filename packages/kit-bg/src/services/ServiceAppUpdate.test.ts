@@ -15,6 +15,10 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -192,7 +196,14 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 // Mock cacheUtils (memoizee + memoFn)
 // ---------------------------------------------------------------------------
 jest.mock('@onekeyhq/shared/src/utils/cacheUtils', () => ({
-  memoizee: (fn: any) => fn,
+  // Wrap so the returned function still has a `.clear()` like real memoizee,
+  // which ServiceAppUpdate.clearCache calls to invalidate the 5-minute
+  // changelog cache.
+  memoizee: (fn: any) => {
+    const wrapped: any = (...args: any[]) => fn(...args);
+    wrapped.clear = () => undefined;
+    return wrapped;
+  },
   memoFn: (fn: any) => fn,
 }));
 
@@ -1189,6 +1200,26 @@ describe('ServiceAppUpdate state transitions', () => {
 
       expect(atomValue.lastUpdateDialogShownAt).toBe(0);
     });
+
+    test('wipes in-memory fetch caches so the post-reset check cannot replay a stale featuredChangelog (OK-54862)', async () => {
+      service.cachedUpdateInfo = {
+        version: '9906.15.1',
+        updateStrategy: EUpdateStrategy.manual,
+        featuredChangelog: {
+          version: '9906.15.1',
+          features: [{ mediaUrl: 'https://x/a.png', mediaType: 'image' }],
+        },
+      };
+      service.updateAt = Date.now();
+
+      // Isolate the invalidation step from the post-reset fetch flow.
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      await service.clearCache();
+
+      expect(service.cachedUpdateInfo).toBeUndefined();
+      expect(service.updateAt).toBe(0);
+    });
   });
 
   // =========================================================================
@@ -1823,6 +1854,151 @@ describe('ServiceAppUpdate state transitions', () => {
         'https://cdn.onekey.so/bundle-v5.zip',
       );
       expect(atomValue.updateStrategy).toBe(EUpdateStrategy.silent);
+    });
+
+    // -----------------------------------------------------------------------
+    // Mid-session auto-download for silent/seamless strategies (OK-55397).
+    // Without this, an update discovered while the app is already running
+    // only flips status to `notify`; the silent download never starts until
+    // the next cold start re-runs the once-per-launch first-launch dispatch.
+    // The download is scheduled via setTimeout(0), so tests flush fake timers
+    // before asserting.
+    // -----------------------------------------------------------------------
+    test('auto-starts download for a silent jsBundle upgrade discovered mid-session', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0', // same app version
+        jsBundleVersion: '5', // higher than installed bundleVersion '1'
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v5.zip',
+          sha256: 'abc',
+          fileSize: 2048,
+        },
+        updateStrategy: EUpdateStrategy.silent,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      // The background cannot pull bytes; mid-session auto-download is driven
+      // by emitting StartAutoDownloadUpdate so the mounted foreground hook
+      // (useDownloadPackage) advances the status. Status stays at `notify`
+      // until the foreground picks it up.
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      await service.fetchAppUpdateInfo(true);
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+
+      // Flush the deferred auto-download.
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'jsBundleUpgrade' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    });
+
+    test('auto-starts download for a seamless appShell upgrade discovered mid-session', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '2.0.0', // newer app version than installed '1.0.0'
+        downloadUrl: 'https://cdn.onekey.so/app-v2.zip',
+        updateStrategy: EUpdateStrategy.seamless,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      await service.fetchAppUpdateInfo(true);
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'appShellUpdate' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    });
+
+    test('does NOT auto-start download for a manual upgrade (waits for user)', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0',
+        jsBundleVersion: '5',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v5.zip',
+          sha256: 'abc',
+          fileSize: 2048,
+        },
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      await service.fetchAppUpdateInfo(true);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        expect.anything(),
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+    });
+
+    test('does NOT auto-start download when the target is frozen/ignored', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0',
+        jsBundleVersion: '5',
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v5.zip',
+          sha256: 'abc',
+          fileSize: 2048,
+        },
+        updateStrategy: EUpdateStrategy.silent,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      // Both the pre-notify freeze gate and the auto-download gate consult
+      // this; returning true keeps the upgrade out of `notify` entirely.
+      jest.spyOn(service, 'shouldSkipTargetByControl').mockResolvedValue(true);
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      await service.fetchAppUpdateInfo(true);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        expect.anything(),
+      );
+      expect(atomValue.status).not.toBe(EAppUpdateStatus.downloadPackage);
+    });
+
+    test('auto-starts download for a jsBundle rollback regardless of strategy', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({
+        version: '1.0.0', // same app version
+        jsBundleVersion: '0', // lower than installed bundleVersion '1' → rollback
+        jsBundle: {
+          downloadUrl: 'https://cdn.onekey.so/bundle-v0.zip',
+          sha256: 'abc',
+          fileSize: 2048,
+        },
+        updateStrategy: EUpdateStrategy.manual, // rollback ignores strategy
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+      const emitSpy = jest.spyOn(appEventBus, 'emit');
+
+      await service.fetchAppUpdateInfo(true);
+      await jest.advanceTimersByTimeAsync(0);
+
+      expect(emitSpy).toHaveBeenCalledWith(
+        EAppEventBusNames.StartAutoDownloadUpdate,
+        { decision: 'jsBundleRollback' },
+      );
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
     });
 
     test('jsBundle update clears stale storeUrl and downloadUrl from previous config', async () => {

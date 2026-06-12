@@ -98,6 +98,24 @@ const composeEventHandlers =
       : next(result);
   };
 
+type IAnyRef =
+  | ((instance: unknown) => void)
+  | { current: unknown }
+  | null
+  | undefined;
+
+const composeRefs =
+  (...refs: IAnyRef[]) =>
+  (instance: unknown) => {
+    for (const r of refs) {
+      if (typeof r === 'function') {
+        r(instance);
+      } else if (r) {
+        (r as { current: unknown }).current = instance;
+      }
+    }
+  };
+
 const getChildProps = (
   child: ReactElement,
   field: ControllerRenderProps<any, string>,
@@ -114,11 +132,24 @@ const getChildProps = (
   // `undefined`), which would override the caller's value. Re-add it only
   // when RHF actually set it (e.g. `<Controller disabled>`).
   // `onChange` is also stripped — each branch below composes its own handler.
-  const { disabled: fieldDisabled, onChange: _onChange, ...restField } = field;
-  const baseProps = {
+  // `ref` is also stripped: RHF's `field.ref` would otherwise be spread into
+  // cloneElement's second arg and silently REPLACE the caller's `ref={...}`,
+  // making external focus refs (e.g. amountInputRef) permanently null. We
+  // compose RHF's ref with the original child ref below.
+  const {
+    disabled: fieldDisabled,
+    onChange: _onChange,
+    ref: fieldRef,
+    ...restField
+  } = field;
+  const originalRef = (child as unknown as { ref?: IAnyRef }).ref;
+  const baseProps: Record<string, unknown> = {
     ...restField,
     error,
     hasError,
+    ref: originalRef
+      ? composeRefs(originalRef, fieldRef as IAnyRef)
+      : (fieldRef as IAnyRef),
     ...(fieldDisabled !== null &&
       fieldDisabled !== undefined && { disabled: fieldDisabled }),
   };

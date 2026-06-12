@@ -19,7 +19,6 @@ function PortfolioHeaderSmallBase() {
         <DashText
           size="$bodySm"
           color="$textSubdued"
-          dashColor="$textDisabled"
           dashThickness={0.5}
           tooltip={intl.formatMessage({ id: ETranslations.marketdex_un_pnl })}
           tooltipTitle={intl.formatMessage({
@@ -35,7 +34,6 @@ function PortfolioHeaderSmallBase() {
         <DashText
           size="$bodySm"
           color="$textSubdued"
-          dashColor="$textDisabled"
           dashThickness={0.5}
           tooltip={intl.formatMessage({
             id: ETranslations.marketdex_total_pnl_desc,

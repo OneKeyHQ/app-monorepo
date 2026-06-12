@@ -127,6 +127,7 @@ alph
 Andkeys
 Anim
 apk
+apks
 apns
 apr
 aptos
@@ -151,6 +152,7 @@ Axios
 babylon
 backends
 backgrounded
+backgrounding
 backuped
 bassed
 bch
@@ -881,6 +883,7 @@ Undelegate
 unencoded
 Unencoded
 unicode
+unintercept
 uniswap
 unittest
 unlink
@@ -1471,6 +1474,7 @@ plaintexts
 ciphertexts
 unpadded
 spyable
+cloid
 loopback
 tombstoned
 bento
@@ -1478,3 +1482,9 @@ psourceaddress
 neighbour
 KHTML
 Leons
+symbolicated
+
+# Split-bundle native reject code classification
+ivar
+RCTJS
+retryably

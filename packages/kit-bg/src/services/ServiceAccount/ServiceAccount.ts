@@ -5,16 +5,21 @@ import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
+import type {
+  IBip39RevealableSeed,
+  IBip39RevealableSeedEncryptHex,
+} from '@onekeyhq/core/src/secret';
 import {
   decodeSensitiveTextAsync,
   decryptImportedCredential,
   decryptRevealableSeed,
   deriveBotMnemonic,
   encryptImportedCredential,
+  encryptRevealableSeed,
   ensureSensitiveTextEncoded,
   generateMnemonic,
   mnemonicFromEntropy,
+  mnemonicToRevealableSeed,
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
@@ -31,6 +36,14 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IPbkdf2KdfParams } from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
+import {
+  clearPbkdf2InvocationByProbeId,
+  getPbkdf2BackendForCurrentPlatform,
+  getPbkdf2InvocationByProbeId,
+  getPbkdf2KdfParamsForNonDbTx,
+  isWebCryptoPbkdf2Supported,
+} from '@onekeyhq/shared/src/appCrypto/modules/pbkdf2';
 import {
   backgroundClass,
   backgroundMethod,
@@ -50,6 +63,7 @@ import {
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_STC,
@@ -100,6 +114,11 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  prefixOf,
+  swrCacheNamespaces,
+  swrCacheUtils,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -157,8 +176,6 @@ import {
   type IKeylessWalletDetailsInfo,
 } from '../../dbs/local/types';
 import simpleDb from '../../dbs/simple/simpleDb';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import {
   devSettingsPersistAtom,
   hardwareWalletXfpStatusAtom,
@@ -172,6 +189,12 @@ import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+
+import {
+  buildDefaultBotWalletName,
+  isDefaultBotWalletName,
+  resolveBotWalletSyncItemDataTime,
+} from './botWalletCreateUtils';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -198,6 +221,9 @@ export type IAddHDOrHWAccountsParams = {
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   isVerifyAddressAction?: boolean;
   createAllDeriveTypes?: boolean;
+  hdCredentialCacheScopeId?: string;
+  // auto multi-network fill scene flag (business derived from it, not passed in)
+  isAutoCreateMultiNetwork?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -221,27 +247,223 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
   }, 600);
 
+  private importedAccountKdfProbeIndex = 0;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
+    // SWR cache invalidation. Mutation events have no payload, so we drop
+    // every entry in the affected namespace by prefix. Subsequent UI mounts
+    // read an empty MMKV slot and the fetcher repopulates with fresh data —
+    // avoids painting deleted wallets / stale section data when the mutation
+    // happened while the consumer wasn't mounted.
+    //
+    // flushNow forces the cleared snapshot into MMKV synchronously instead
+    // of waiting on scheduleFlush's 2s debounce. Mutations are low-frequency
+    // and the extra write is worth it: a force-kill (task-manager swipe,
+    // watchdog) between the bg drop and AppState's background flush would
+    // otherwise leave deleted wallets in the MMKV blob and resurrect them
+    // on the next cold open.
+    const dropWalletListSwr = () =>
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.walletListSideBar),
+      );
+    const dropAccountSelectorListSwr = () =>
+      swrCacheUtils.removeByPrefix(
+        prefixOf(swrCacheNamespaces.accountSelectorList),
+      );
+
     appEventBus.on(EAppEventBusNames.WalletUpdate, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountRemove, () => {
       void this.clearAccountCache();
+      // sidebar also depends on accounts via ignoreEmptySingletonWalletAccounts
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AccountUpdate, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.RenameDBAccounts, () => {
       void this.clearAccountCache();
+      // sidebar doesn't show account names, only the right-panel sectionData does
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.WalletRename, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
     appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, () => {
       void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
     });
+    // Defensive WalletClear handler. ServiceE2E.clearWalletsAndAccounts
+    // currently calls swrCacheUtils.clearAll() before emitting this event,
+    // so the drop here is redundant for the existing emitter — but it makes
+    // the contract explicit, so future emitters (logout flow, alternative
+    // reset paths) inherit the invalidation without having to remember the
+    // call-site dance.
+    appEventBus.on(EAppEventBusNames.WalletClear, () => {
+      void this.clearAccountCache();
+      dropWalletListSwr();
+      dropAccountSelectorListSwr();
+      swrCacheUtils.flushNow();
+    });
+    // Drop derived-address / xpub memoizee caches on critical memory
+    // pressure. These caches are the cheapest to rebuild (one BIP32
+    // derive per missed key) and the most prolific allocators in
+    // observed memory growth.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      void this.clearAccountCache();
+      this.getAccountXpubOrAddressWithMemo.clear();
+      this.getAccountXpubsForAllDeriveTypesWithMemo.clear();
+    });
+  }
+
+  private buildImportedAccountKdfProbeId(stage: string) {
+    this.importedAccountKdfProbeIndex += 1;
+    return `prime-transfer-imported-account-${stage}-${Date.now()}-${this.importedAccountKdfProbeIndex}`;
+  }
+
+  private async recordImportedAccountKdfProbe({
+    stage,
+    targetType = 'credential',
+    networkId,
+    kdfParams,
+    probeId,
+  }: {
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId: string | undefined;
+    kdfParams: IPbkdf2KdfParams;
+    probeId: string;
+  }) {
+    const invocation = getPbkdf2InvocationByProbeId(probeId);
+    try {
+      await this.backgroundApi.servicePrimeTransfer.recordImportBatchCreateTrace(
+        {
+          event: 'done',
+          stage,
+          targetType,
+          networkId,
+          kdfBackend: kdfParams.kdfBackend ?? 'platform-default',
+          pbkdf2Backend:
+            invocation?.backend ??
+            kdfParams.kdfBackend ??
+            getPbkdf2BackendForCurrentPlatform(),
+          pbkdf2CacheEnabled: Boolean(kdfParams.enablePbkdf2Cache),
+          pbkdf2CacheHit: Boolean(kdfParams.enablePbkdf2Cache && !invocation),
+          pbkdf2Iterations: invocation?.iterations,
+          pbkdf2KeyLength: invocation?.keyLength,
+          webCryptoPbkdf2Supported: isWebCryptoPbkdf2Supported(),
+        },
+      );
+    } catch (error) {
+      console.warn('recordImportedAccountKdfProbe error', error);
+    } finally {
+      clearPbkdf2InvocationByProbeId(probeId);
+    }
+  }
+
+  private getImportedAccountTraceErrorMessage(error: unknown) {
+    const message = (error as Error)?.message || 'Unknown error';
+    return message.length > 500
+      ? `${message.slice(0, 500)}...(truncated)`
+      : message;
+  }
+
+  private async recordImportedAccountTrace({
+    event,
+    stage,
+    targetType = 'importedAccount',
+    networkId,
+    deriveType,
+    elapsedMs,
+    error,
+  }: {
+    event: 'start' | 'done' | 'error';
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId?: string;
+    deriveType?: IAccountDeriveTypes;
+    elapsedMs?: number;
+    error?: string;
+  }) {
+    try {
+      await this.backgroundApi.servicePrimeTransfer.recordImportBatchCreateTrace(
+        {
+          event,
+          stage,
+          targetType,
+          networkId,
+          deriveType,
+          elapsedMs,
+          error,
+        },
+      );
+    } catch (traceError) {
+      console.warn('recordImportedAccountTrace error', traceError);
+    }
+  }
+
+  private async withImportedAccountTrace<T>({
+    stage,
+    targetType,
+    networkId,
+    deriveType,
+    task,
+  }: {
+    stage: string;
+    targetType?: 'credential' | 'importedAccount';
+    networkId?: string;
+    deriveType?: IAccountDeriveTypes;
+    task: () => Promise<T>;
+  }): Promise<T> {
+    const startedAt = Date.now();
+    await this.recordImportedAccountTrace({
+      event: 'start',
+      stage,
+      targetType,
+      networkId,
+      deriveType,
+    });
+    try {
+      const result = await task();
+      await this.recordImportedAccountTrace({
+        event: 'done',
+        stage,
+        targetType,
+        networkId,
+        deriveType,
+        elapsedMs: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error) {
+      await this.recordImportedAccountTrace({
+        event: 'error',
+        stage,
+        targetType,
+        networkId,
+        deriveType,
+        elapsedMs: Date.now() - startedAt,
+        error: this.getImportedAccountTraceErrorMessage(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -753,6 +975,8 @@ class ServiceAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
     customReceiveAddressPath,
+    hdCredentialCacheScopeId,
+    isAutoCreateMultiNetwork,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -764,6 +988,8 @@ class ServiceAccount extends ServiceBase {
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
     customReceiveAddressPath?: string;
+    hdCredentialCacheScopeId?: string;
+    isAutoCreateMultiNetwork?: boolean;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -833,6 +1059,7 @@ class ServiceAccount extends ServiceBase {
         deriveInfo,
         hwAllNetworkPrepareAccountsResponse,
         chainExtraParams,
+        isAutoCreateMultiNetwork,
       };
       prepareParams = hwParams;
     } else {
@@ -843,6 +1070,7 @@ class ServiceAccount extends ServiceBase {
         indexes: usedIndexes,
         names,
         deriveInfo,
+        hdCredentialCacheScopeId,
         // purpose: usedPurpose,
         // deriveInfo, // TODO pass deriveInfo to generate id and name
         // skipCheckAccountExist, // BTC required
@@ -1638,8 +1866,29 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addImportedAccountWithCredential({
+  async addImportedAccountWithCredential(params: {
+    name?: string;
+    fallbackName?: string;
+    shouldCheckDuplicateName?: boolean;
+    credential: string;
+    networkId: string;
+    deriveType: IAccountDeriveTypes | undefined;
+    skipAddIfNotEqualToAddress?: string;
+    skipEventEmit?: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }): Promise<{
+    networkId: string;
+    walletId: string;
+    accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
+  }> {
+    return this.addImportedAccountWithCredentialBase(params);
+  }
+
+  async addImportedAccountWithCredentialBase({
     credential,
+    credentialRaw,
+    password: inputPassword,
     networkId,
     deriveType,
     name,
@@ -1652,7 +1901,9 @@ class ServiceAccount extends ServiceBase {
     name?: string;
     fallbackName?: string;
     shouldCheckDuplicateName?: boolean;
-    credential: string;
+    credential?: string;
+    credentialRaw?: string;
+    password?: string;
     networkId: string;
     deriveType: IAccountDeriveTypes | undefined;
     skipAddIfNotEqualToAddress?: string;
@@ -1682,42 +1933,111 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
     });
-    // TODO privateKey should be HEX format
-    ensureSensitiveTextEncoded(credential);
-
-    const privateKeyDecoded = await decodeSensitiveTextAsync({
-      encodedText: credential,
-    });
-
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+    // Internal restore paths can already hold the decoded private key. Keep
+    // the raw value in the call stack only and avoid re-wrapping it.
+    let privateKeyDecoded = credentialRaw;
+    if (!privateKeyDecoded) {
+      if (!credential) {
+        throw new OneKeyLocalError(
+          'addImportedAccountWithCredential ERROR: Credential is required',
+        );
+      }
+      // TODO privateKey should be HEX format
+      ensureSensitiveTextEncoded(credential);
+      privateKeyDecoded = await this.withImportedAccountTrace({
+        stage: 'decodeImportedPrivateKey',
+        targetType: 'credential',
+        networkId,
+        task: () =>
+          decodeSensitiveTextAsync({
+            encodedText: credential,
+          }),
       });
-    const credentialEncrypt = await encryptImportedCredential({
-      credential: {
-        privateKey: privateKeyDecoded,
-      },
-      password,
+    }
+    if (!privateKeyDecoded) {
+      throw new OneKeyLocalError(
+        'addImportedAccountWithCredential ERROR: Private key is required',
+      );
+    }
+    let privateKeyDecodedForEncrypt = privateKeyDecoded;
+
+    let password = inputPassword;
+    if (!password) {
+      ({ password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
+        }));
+    }
+    ensureSensitiveTextEncoded(password);
+    // Resolve WebCrypto KDF only before the IndexedDB write transaction starts.
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
+    const encryptImportedCredentialProbeId =
+      this.buildImportedAccountKdfProbeId('encrypt-credential');
+    clearPbkdf2InvocationByProbeId(encryptImportedCredentialProbeId);
+    const credentialEncrypt = await this.withImportedAccountTrace({
+      stage: 'encryptImportedCredential',
+      targetType: 'credential',
+      networkId,
+      task: () =>
+        encryptImportedCredential({
+          credential: {
+            privateKey: privateKeyDecodedForEncrypt,
+          },
+          password,
+          ...kdfParams,
+          debugCryptoProbeId: encryptImportedCredentialProbeId,
+        }),
     });
+    privateKeyDecodedForEncrypt = '';
+    privateKeyDecoded = '';
+    await this.recordImportedAccountKdfProbe({
+      stage: 'encryptImportedCredentialKdf',
+      targetType: 'credential',
+      networkId,
+      kdfParams,
+      probeId: encryptImportedCredentialProbeId,
+    });
+    const prepareImportedAccountProbeId =
+      this.buildImportedAccountKdfProbeId('prepare-account');
+    clearPbkdf2InvocationByProbeId(prepareImportedAccountProbeId);
     const params: IPrepareImportedAccountsParams = {
       password,
       name: name || '',
       importedCredential: credentialEncrypt,
       networks: [networkId],
       createAtNetwork: networkId,
+      ...kdfParams,
+      debugCryptoProbeId: prepareImportedAccountProbeId,
     };
     if (deriveType) {
-      const deriveInfo =
-        await this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
-          networkId,
-          deriveType,
-        });
+      const deriveInfo = await this.withImportedAccountTrace({
+        stage: 'getImportedAccountDeriveInfo',
+        networkId,
+        deriveType,
+        task: () =>
+          this.backgroundApi.serviceNetwork.getDeriveInfoOfNetwork({
+            networkId,
+            deriveType,
+          }),
+      });
       if (deriveInfo) params.deriveInfo = deriveInfo;
     }
 
     // addImportedAccount
-    const accounts = await vault.keyring.prepareAccounts(params);
+    const accounts = await this.withImportedAccountTrace({
+      stage: 'prepareImportedAccount',
+      networkId,
+      deriveType,
+      task: () => vault.keyring.prepareAccounts(params),
+    });
+    await this.recordImportedAccountKdfProbe({
+      stage: 'prepareImportedAccountKdf',
+      targetType: 'importedAccount',
+      networkId,
+      kdfParams,
+      probeId: prepareImportedAccountProbeId,
+    });
 
     if (
       skipAddIfNotEqualToAddress &&
@@ -1733,28 +2053,40 @@ class ServiceAccount extends ServiceBase {
         isOverrideAccounts: false,
       };
     }
-
     const { isOverrideAccounts, existsAccounts } =
-      await localDb.addAccountsToWallet({
-        skipEventEmit,
-        allAccountsBelongToNetworkId: networkId,
-        walletId,
-        accounts,
-        importedCredential: credentialEncrypt,
-        applyRestoreSyncPolicy,
-        accountNameBuilder: ({ nextAccountId }) => {
-          if (fallbackName) {
-            return fallbackName;
-          }
-          return accountUtils.buildBaseAccountName({ nextAccountId });
-        },
+      await this.withImportedAccountTrace({
+        stage: 'addImportedAccountToWallet',
+        networkId,
+        deriveType,
+        task: () =>
+          localDb.addAccountsToWallet({
+            skipEventEmit,
+            allAccountsBelongToNetworkId: networkId,
+            walletId,
+            accounts,
+            importedCredential: credentialEncrypt,
+            applyRestoreSyncPolicy,
+            accountNameBuilder: ({ nextAccountId }) => {
+              if (fallbackName) {
+                return fallbackName;
+              }
+              return accountUtils.buildBaseAccountName({ nextAccountId });
+            },
+          }),
       });
 
-    const fixAccountNamePromise = this.fixAccountName({
-      account: existsAccounts?.[0],
-      name,
-      fallbackName,
-      applyRestoreSyncPolicy,
+    const fixAccountNamePromise = this.withImportedAccountTrace({
+      stage: 'fixImportedAccountName',
+      networkId,
+      deriveType,
+      task: () =>
+        this.fixAccountName({
+          account: existsAccounts?.[0],
+          name,
+          fallbackName,
+          applyRestoreSyncPolicy,
+          skipEventEmit,
+        }),
     });
     if (applyRestoreSyncPolicy) {
       await fixAccountNamePromise;
@@ -1762,7 +2094,9 @@ class ServiceAccount extends ServiceBase {
       void fixAccountNamePromise;
     }
 
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    if (!skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
 
     if (isOverrideAccounts && existsAccounts.length) {
       void this.addAccountNameChangeHistory({
@@ -1883,11 +2217,13 @@ class ServiceAccount extends ServiceBase {
     name,
     fallbackName,
     applyRestoreSyncPolicy,
+    skipEventEmit,
   }: {
     account: IDBAccount | undefined;
     name?: string;
     fallbackName?: string;
     applyRestoreSyncPolicy?: boolean;
+    skipEventEmit?: boolean;
   }) {
     if (!account) {
       return;
@@ -1898,6 +2234,7 @@ class ServiceAccount extends ServiceBase {
         accountId: account.id,
         name: newName,
         applyRestoreSyncPolicy,
+        skipEventEmit,
       });
     }
   }
@@ -2074,6 +2411,7 @@ class ServiceAccount extends ServiceBase {
       name,
       fallbackName,
       applyRestoreSyncPolicy,
+      skipEventEmit,
     });
     if (applyRestoreSyncPolicy) {
       await fixAccountNamePromise;
@@ -2081,7 +2419,9 @@ class ServiceAccount extends ServiceBase {
       void fixAccountNamePromise;
     }
 
-    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    if (!skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
 
     if (isOverrideAccounts && existsAccounts.length) {
       void this.addAccountNameChangeHistory({
@@ -2965,6 +3305,8 @@ class ServiceAccount extends ServiceBase {
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
+        // Pre-warm signal; only sign methods honor it (getAddress etc. just MISS)
+        usePreInitialize: true,
       },
     };
   }
@@ -3004,6 +3346,9 @@ class ServiceAccount extends ServiceBase {
             payload: {
               connectId: compatibleConnectId,
               deviceId: dbDevice.deviceId ?? undefined,
+              params: {
+                walletId,
+              },
             },
           });
           throw deviceNotOpenedPassphraseError;
@@ -3169,7 +3514,12 @@ class ServiceAccount extends ServiceBase {
       });
     }
     // Refresh DB info when compatibility lookup resolves to another connectId.
-    if (compatibleConnectId !== params.device.connectId) {
+    // Skip empty connectId: getDeviceByQuery would otherwise match by vendor
+    // alone and swap in another device of the same vendor.
+    if (
+      compatibleConnectId &&
+      compatibleConnectId !== params.device.connectId
+    ) {
       const refreshedDevice = await localDb.getDeviceByQuery({
         connectId: params.device.connectId || compatibleConnectId,
         featuresDeviceId: deviceId,
@@ -3218,6 +3568,7 @@ class ServiceAccount extends ServiceBase {
 
   hdWalletHashAndXfpBuilder = async (options: {
     realMnemonic: string;
+    seed?: string | Buffer;
   }): Promise<{
     hash: string;
     xfp: string;
@@ -3226,9 +3577,13 @@ class ServiceAccount extends ServiceBase {
       mnemonic: options.realMnemonic,
     });
 
-    const { fullXfp: fulXfp } = await coreChainApi.btc.hd.buildXfpFromMnemonic({
-      mnemonic: options.realMnemonic,
-    });
+    const { fullXfp: fulXfp } = options.seed
+      ? await coreChainApi.btc.hd.buildXfpFromSeed({
+          seed: options.seed,
+        })
+      : await coreChainApi.btc.hd.buildXfpFromMnemonic({
+          mnemonic: options.realMnemonic,
+        });
     return { hash, xfp: fulXfp };
   };
 
@@ -3255,6 +3610,7 @@ class ServiceAccount extends ServiceBase {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.CreateOrRemoveWallet,
+      skipPostVerifyBackgroundTasks: true,
     });
 
     ensureSensitiveTextEncoded(mnemonic); // TODO also add check for imported account
@@ -3268,20 +3624,85 @@ class ServiceAccount extends ServiceBase {
 
     await this.generateAllHdAndQrWalletsHashAndXfp({ password });
 
-    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
-      realMnemonic,
-    });
-
-    let rs: IBip39RevealableSeedEncryptHex | undefined;
+    let revealableSeed: IBip39RevealableSeed;
     try {
-      rs = await revealableSeedFromMnemonic(realMnemonic, password);
+      revealableSeed = mnemonicToRevealableSeed(realMnemonic);
     } catch {
       throw new InvalidMnemonic();
     }
-    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    const mnemonicFromRs = revealEntropyToMnemonic(
+      revealableSeed.entropyWithLangPrefixed,
+    );
     if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
+
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+      realMnemonic,
+      seed: revealableSeed.seed,
+    });
+
+    const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
+      rs: revealableSeed,
+      password,
+    });
+
+    return this.createHDWalletWithRs({
+      rs,
+      password,
+      name,
+      walletHash: walletHashAndXfp.hash,
+      walletXfp: walletHashAndXfp.xfp,
+      isWalletBackedUp,
+      isKeylessWallet,
+      avatarInfo,
+      keylessDetailsInfo,
+      skipAddHDNextIndexedAccount,
+      applyRestoreSyncPolicy,
+    });
+  }
+
+  async createHDWalletWithRevealableSeed({
+    revealableSeed,
+    password,
+    name,
+    isWalletBackedUp,
+    isKeylessWallet,
+    avatarInfo,
+    keylessDetailsInfo,
+    skipAddHDNextIndexedAccount,
+    applyRestoreSyncPolicy,
+  }: {
+    revealableSeed: IBip39RevealableSeed;
+    password: string;
+    name?: string;
+    isWalletBackedUp?: boolean;
+    isKeylessWallet?: boolean;
+    avatarInfo?: IAvatarInfo;
+    keylessDetailsInfo?: IKeylessWalletDetailsInfo;
+    skipAddHDNextIndexedAccount?: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }) {
+    ensureSensitiveTextEncoded(password);
+
+    const mnemonicFromRs = revealEntropyToMnemonic(
+      revealableSeed.entropyWithLangPrefixed,
+    );
+    if (!validateMnemonic(mnemonicFromRs)) {
+      throw new InvalidMnemonic();
+    }
+
+    await this.generateAllHdAndQrWalletsHashAndXfp({ password });
+
+    const walletHashAndXfp = await this.hdWalletHashAndXfpBuilder({
+      realMnemonic: mnemonicFromRs,
+      seed: revealableSeed.seed,
+    });
+
+    const rs: IBip39RevealableSeedEncryptHex = await encryptRevealableSeed({
+      rs: revealableSeed,
+      password,
+    });
 
     return this.createHDWalletWithRs({
       rs,
@@ -3380,13 +3801,10 @@ class ServiceAccount extends ServiceBase {
     }
 
     if (walletHash && shouldCheckDuplicate) {
-      // TODO performance issue
-      const { wallets } = await this.getAllWallets({
+      const existsSameHashWallet = await localDb.getWalletByHash({
+        hash: walletHash,
         excludeKeylessWallet: true,
       });
-      const existsSameHashWallet = wallets.find(
-        (item) => walletHash && item.hash && item.hash === walletHash,
-      );
       if (existsSameHashWallet) {
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
@@ -3454,6 +3872,7 @@ class ServiceAccount extends ServiceBase {
         .syncNowKeyless({
           callerName: 'Keyless Wallet Login Success',
           noDebounceUpload: true,
+          forceSync: true,
         })
         .catch((error) => {
           errorUtils.autoPrintErrorIgnore(error);
@@ -3463,7 +3882,11 @@ class ServiceAccount extends ServiceBase {
 
     await timerUtils.wait(100);
 
-    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    const isInImportFlow =
+      await this.backgroundApi.servicePrimeTransfer.isInTransferImportOrBackupRestoreFlow();
+    if (!isInImportFlow) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
     return result;
   }
 
@@ -3494,7 +3917,11 @@ class ServiceAccount extends ServiceBase {
       const nextIndex = await simpleDb.botWallet.getNextIndex(
         parentKeylessWalletId,
       );
-      const botName = name || `Bot #${nextIndex + 1}`;
+      const botName = name || buildDefaultBotWalletName(nextIndex);
+      const shouldUseCreateGenesisTime = isDefaultBotWalletName({
+        index: nextIndex,
+        name: botName,
+      });
       const metadata: IBotWalletMetadata = {
         index: nextIndex,
         name: botName,
@@ -3512,6 +3939,7 @@ class ServiceAccount extends ServiceBase {
       });
       await this.syncBotWalletSyncItem({
         walletId: result.wallet.id,
+        shouldUseCreateGenesisTime,
       });
 
       await timerUtils.wait(100);
@@ -3605,7 +4033,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.getCachedPassword();
     if (!password) {
       // Password not cached. Pending bot wallet items are reprocessed by the
-      // forceSync pass triggered from setCachedPassword once it lands.
+      // forceSync passes triggered after Keyless login/sync readiness.
       console.warn(
         'createBotWalletFromCloudSync skipped: cached password missing',
         {
@@ -3640,10 +4068,12 @@ class ServiceAccount extends ServiceBase {
     walletId,
     metadataOverride,
     isDeleted = false,
+    shouldUseCreateGenesisTime,
   }: {
     walletId: string;
     metadataOverride?: IBotWalletMetadata;
     isDeleted?: boolean;
+    shouldUseCreateGenesisTime?: boolean;
   }): Promise<void> {
     if (
       (await this.backgroundApi.serviceKeylessCloudSync.getActiveSyncMode()) !==
@@ -3685,7 +4115,14 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          dataTime: shouldUseCreateGenesisTime
+            ? await resolveBotWalletSyncItemDataTime({
+                shouldUseCreateGenesisTime,
+                timeNow: () =>
+                  this.backgroundApi.servicePrimeCloudSync.timeNow(),
+              })
+            : undefined,
+          allowHistoricalTime: shouldUseCreateGenesisTime,
           isDeleted,
         },
       );
@@ -3703,7 +4140,8 @@ class ServiceAccount extends ServiceBase {
         if (!latestSyncItem) {
           return;
         }
-        await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+        // Upload the corrected client dataTime immediately after local write.
+        await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
           localItems: [latestSyncItem],
           noDebounceUpload: true,
         });
@@ -3791,7 +4229,7 @@ class ServiceAccount extends ServiceBase {
             walletId,
             metadata,
           },
-          dataTime: await this.backgroundApi.servicePrimeCloudSync.timeNow(),
+          dataTime: undefined,
           isDeleted: true,
         },
       );
@@ -3812,7 +4250,8 @@ class ServiceAccount extends ServiceBase {
       if (!latestSyncItem) {
         return;
       }
-      await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({
+      // Upload the corrected client dataTime immediately after local write.
+      await this.backgroundApi.servicePrimeCloudSync.apiUploadFreshItems({
         localItems: [latestSyncItem],
         noDebounceUpload: true,
       });
@@ -4112,6 +4551,39 @@ class ServiceAccount extends ServiceBase {
     return metadata?.status === BOT_WALLET_STATUS_DEACTIVATED;
   }
 
+  // Batch variant of isBotWalletDeactivated to avoid N IPC round-trips when a
+  // caller needs the status for many wallets (recipient picker, bulk lists).
+  // Returns a map keyed by the input walletId; non-bot wallets are mapped to
+  // false without touching simpleDb.
+  @backgroundMethod()
+  async getBotWalletDeactivationStatusMap({
+    walletIds,
+  }: {
+    walletIds: string[];
+  }): Promise<Record<string, boolean>> {
+    const result: Record<string, boolean> = {};
+    if (!walletIds?.length) {
+      return result;
+    }
+    const uniqueIds = Array.from(new Set(walletIds));
+    const botWalletIds = uniqueIds.filter((id) =>
+      accountUtils.isBotWallet({ walletId: id }),
+    );
+    for (const id of uniqueIds) {
+      result[id] = false;
+    }
+    if (botWalletIds.length === 0) {
+      return result;
+    }
+    const metadataList = await Promise.all(
+      botWalletIds.map((id) => simpleDb.botWallet.getMetadata(id)),
+    );
+    botWalletIds.forEach((id, idx) => {
+      result[id] = metadataList[idx]?.status === BOT_WALLET_STATUS_DEACTIVATED;
+    });
+    return result;
+  }
+
   @backgroundMethod()
   async isTempWalletRemoved({
     wallet,
@@ -4386,8 +4858,16 @@ class ServiceAccount extends ServiceBase {
       }
     }
 
-    // localDb.removeWallet handles events, unused devices, and indexed accounts.
+    // removeWallet does not emit the app-level wallet refresh event.
     await localDb.removeWallet({ walletId });
+    if (platformEnv.isNative) {
+      setTimeout(
+        () => appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined),
+        1500,
+      );
+    } else {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    }
   }
 
   async buildAccountXpubOrAddress({
@@ -4527,6 +5007,47 @@ class ServiceAccount extends ServiceBase {
       networkId,
     });
     return info.address;
+  }
+
+  // Batched variant: callers like useStakingPendingTxsByInfo iterate
+  // `accountMetaByNetwork` to resolve xpub + accountAddress for every
+  // (accountId, networkId) pair. The legacy pattern paid 2N BgTransport
+  // round-trips per dependency change (one per metric per network); this
+  // batch method collapses it to 1 bridge call regardless of pair count.
+  // Failures are isolated per pair so one bad network does not poison the
+  // whole batch — missing keys in the result indicate the pair couldn't be
+  // resolved (same semantics as the prior per-call `.catch(() => undefined)`).
+  @backgroundMethod()
+  async getAccountMetaForNetworksBatch({
+    pairs,
+  }: {
+    pairs: Array<{ accountId: string; networkId: string }>;
+  }): Promise<
+    Record<string, { xpub: string | undefined; accountAddress: string }>
+  > {
+    const result: Record<
+      string,
+      { xpub: string | undefined; accountAddress: string }
+    > = {};
+    await Promise.all(
+      pairs.map(async ({ accountId, networkId }) => {
+        try {
+          const xpubPromise = this.getAccountXpub({ accountId, networkId });
+          const addressInfoPromise = this.getAccountAddressInfoForApi({
+            accountId,
+            networkId,
+          });
+          const [xpub, info] = await Promise.all([
+            xpubPromise,
+            addressInfoPromise,
+          ]);
+          result[networkId] = { xpub, accountAddress: info.address };
+        } catch {
+          // Pair fails silently; caller checks for presence in the map.
+        }
+      }),
+    );
+    return result;
   }
 
   @backgroundMethod()
@@ -5527,6 +6048,13 @@ class ServiceAccount extends ServiceBase {
       try {
         const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
         if (isHdWallet) {
+          if (
+            wallet.hash &&
+            accountUtils.isValidWalletXfp({ xfp: wallet.xfp })
+          ) {
+            // eslint-disable-next-line no-continue
+            continue;
+          }
           const credentialInfo = await localDb.getCredential(wallet.id);
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue
@@ -6256,6 +6784,17 @@ class ServiceAccount extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+
+    // Fire backup-completion analytics here so every code path that flips
+    // wallet.backuped (manual recovery-phrase verify, future cloud / KeyTag
+    // / Lite confirmations, etc.) is covered without each caller having
+    // to remember.
+    if (isBackedUp && !wallet.backuped) {
+      defaultLogger.account.wallet.backupCompleted({
+        walletId,
+        walletType: wallet.type,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -6384,14 +6923,12 @@ class ServiceAccount extends ServiceBase {
     );
   }
 
-  async getExportedPrivateKeyOfImportedAccount({
-    importedAccount,
+  async getPrivateKeyOfImportedAccountCredential({
     encryptedCredential,
     password,
     credentialDecrypted,
     networkId,
   }: {
-    importedAccount: IPrimeTransferAccount;
     password: string;
     encryptedCredential: string;
     credentialDecrypted?: ICoreImportedCredential | undefined;
@@ -6402,31 +6939,75 @@ class ServiceAccount extends ServiceBase {
     }
     if (!password) {
       throw new OneKeyLocalError(
-        'getExportedPrivateKeyOfImportedAccount Error: Password is required',
+        'getPrivateKeyOfImportedAccountCredential Error: Password is required',
       );
     }
     if (!credentialDecrypted) {
       if (!encryptedCredential) {
         throw new OneKeyLocalError(
-          'getExportedPrivateKeyOfImportedAccount Error: Encrypted credential is required',
+          'getPrivateKeyOfImportedAccountCredential Error: Encrypted credential is required',
         );
       }
     }
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     let privateKey: string | undefined;
     if (credentialDecrypted) {
       privateKey = credentialDecrypted.privateKey;
     } else {
+      const decryptImportedCredentialProbeId =
+        this.buildImportedAccountKdfProbeId('decrypt-source-credential');
+      clearPbkdf2InvocationByProbeId(decryptImportedCredentialProbeId);
       ({ privateKey } = await decryptImportedCredential({
         credential: encryptedCredential,
         password,
         allowRawPassword: true,
+        ...kdfParams,
+        debugCryptoProbeId: decryptImportedCredentialProbeId,
       }));
+      await this.recordImportedAccountKdfProbe({
+        stage: 'decryptImportedCredentialKdf',
+        targetType: 'credential',
+        networkId,
+        kdfParams,
+        probeId: decryptImportedCredentialProbeId,
+      });
     }
     if (!privateKey) {
       throw new OneKeyLocalError(
-        'getExportedPrivateKeyOfImportedAccount Error: Private key is required',
+        'getPrivateKeyOfImportedAccountCredential Error: Private key is required',
       );
     }
+    return { privateKey };
+  }
+
+  async getExportedPrivateKeyOfImportedAccount({
+    importedAccount,
+    encryptedCredential,
+    password,
+    credentialDecrypted,
+    networkId,
+    privateKeyRaw,
+  }: {
+    importedAccount: IPrimeTransferAccount;
+    password: string;
+    encryptedCredential: string;
+    credentialDecrypted?: ICoreImportedCredential | undefined;
+    networkId: string | undefined;
+    privateKeyRaw?: string;
+  }) {
+    let privateKey = privateKeyRaw;
+    if (!privateKey) {
+      ({ privateKey } = await this.getPrivateKeyOfImportedAccountCredential({
+        encryptedCredential,
+        password,
+        credentialDecrypted,
+        networkId,
+      }));
+    }
+    if (!networkId) {
+      throw new OneKeyLocalError('NetworkId is required');
+    }
+    const kdfParams = getPbkdf2KdfParamsForNonDbTx();
     const coreApi = this.backgroundApi.serviceNetwork.getCoreApiByNetwork({
       networkId,
     });
@@ -6434,28 +7015,54 @@ class ServiceAccount extends ServiceBase {
       networkId,
       hex: false,
     });
+    const encryptExportCredentialProbeId = this.buildImportedAccountKdfProbeId(
+      'encrypt-export-credential',
+    );
+    clearPbkdf2InvocationByProbeId(encryptExportCredentialProbeId);
     const credentials: ICoreCredentialsInfo = {
-      imported: await encryptImportedCredential({
-        credential: {
-          privateKey,
-        },
-        password,
+      imported: await this.withImportedAccountTrace({
+        stage: 'encryptImportedExportCredential',
+        targetType: 'credential',
+        networkId,
+        task: () =>
+          encryptImportedCredential({
+            credential: {
+              privateKey,
+            },
+            password,
+            ...kdfParams,
+            debugCryptoProbeId: encryptExportCredentialProbeId,
+          }),
       }),
     };
+    await this.recordImportedAccountKdfProbe({
+      stage: 'encryptImportedExportCredentialKdf',
+      targetType: 'credential',
+      networkId,
+      kdfParams,
+      probeId: encryptExportCredentialProbeId,
+    });
     // TODO try catch
-    let exportedPrivateKey = await coreApi.imported.getExportedSecretKey({
-      networkInfo: { chainId } as any, // only works for HD
+    let exportedPrivateKey = await this.withImportedAccountTrace({
+      stage: 'getImportedAccountExportedSecretKey',
+      targetType: 'credential',
+      networkId,
+      task: () =>
+        coreApi.imported.getExportedSecretKey({
+          networkInfo: { chainId } as any, // only works for HD
 
-      password,
-      credentials,
+          password,
+          credentials,
+          ...kdfParams,
 
-      account: { ...importedAccount, path: importedAccount.path || '' },
+          account: { ...importedAccount, path: importedAccount.path || '' },
 
-      keyType:
-        importedAccount.type === EDBAccountType.UTXO
-          ? ECoreApiExportedSecretKeyType.xprvt
-          : ECoreApiExportedSecretKeyType.privateKey,
-      addressEncoding: undefined,
+          keyType:
+            importedAccount.type === EDBAccountType.UTXO
+              ? ECoreApiExportedSecretKeyType.xprvt
+              : ECoreApiExportedSecretKeyType.privateKey,
+          addressEncoding: undefined,
+        }),
     });
     if (
       !exportedPrivateKey &&
@@ -6471,28 +7078,45 @@ class ServiceAccount extends ServiceBase {
     importedAccount,
     input,
     privateKey,
+    password,
     networkId,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    deriveTypes: presetDeriveTypes,
+    skipAddressDeriveTypeLookup,
+    skipInputDeriveTypesFallback,
   }: {
     importedAccount: IPrimeTransferAccount;
     input: string;
     privateKey: string;
+    password?: string;
     networkId: string;
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    deriveTypes?: IAccountDeriveTypes[];
+    skipAddressDeriveTypeLookup?: boolean;
+    skipInputDeriveTypesFallback?: boolean;
   }) {
     const addedAccounts: IDBAccount[] = [];
     try {
       const { serviceAccount, serviceNetwork, servicePassword } =
         this.backgroundApi;
 
-      let deriveTypes: IAccountDeriveTypes[] = [];
-      if (importedAccount?.address) {
+      let deriveTypes: IAccountDeriveTypes[] = [...(presetDeriveTypes || [])];
+      if (
+        !deriveTypes?.length &&
+        !skipAddressDeriveTypeLookup &&
+        importedAccount?.address
+      ) {
         try {
-          const deriveType = await serviceNetwork.getDeriveTypeByAddress({
+          const deriveType = await this.withImportedAccountTrace({
+            stage: 'resolveImportedAccountDeriveTypeByAddress',
             networkId,
-            address: importedAccount.address,
+            task: () =>
+              serviceNetwork.getDeriveTypeByAddress({
+                networkId,
+                address: importedAccount.address,
+              }),
           });
           if (deriveType) {
             deriveTypes.push(deriveType);
@@ -6502,17 +7126,31 @@ class ServiceAccount extends ServiceBase {
         }
       }
 
-      if (!deriveTypes?.length) {
+      if (!deriveTypes?.length && !skipInputDeriveTypesFallback) {
         try {
-          deriveTypes = await serviceNetwork.getAccountImportingDeriveTypes({
-            accountId: importedAccount.id,
+          const isUtxoImportedAccount =
+            importedAccount.type === EDBAccountType.UTXO;
+          const sensitiveInput = await this.withImportedAccountTrace({
+            stage: 'encodeImportedAccountFallbackInput',
+            targetType: 'credential',
             networkId,
-            input: await servicePassword.encodeSensitiveText({
-              text: input,
-            }),
-            validatePrivateKey: true,
-            validateXprvt: true,
-            template: importedAccount.template,
+            task: () =>
+              servicePassword.encodeSensitiveText({
+                text: input,
+              }),
+          });
+          deriveTypes = await this.withImportedAccountTrace({
+            stage: 'resolveImportedAccountDeriveTypesByInput',
+            networkId,
+            task: () =>
+              serviceNetwork.getAccountImportingDeriveTypes({
+                accountId: importedAccount.id,
+                networkId,
+                input: sensitiveInput,
+                validatePrivateKey: !isUtxoImportedAccount,
+                validateXprvt: isUtxoImportedAccount,
+                template: importedAccount.template,
+              }),
           });
         } catch (e) {
           console.error('getAccountImportingDeriveTypes error', e);
@@ -6524,26 +7162,33 @@ class ServiceAccount extends ServiceBase {
       }
 
       const skipAddIfNotEqualToAddress =
-        deriveTypes.length > 1 ? importedAccount.address : undefined;
-      for (const deriveType of deriveTypes) {
-        try {
-          const { accounts } =
-            await serviceAccount.addImportedAccountWithCredential({
-              skipEventEmit,
-              credential: await servicePassword.encodeSensitiveText({
-                text: privateKey,
-              }),
-              fallbackName: importedAccount.name,
-              networkId,
-              name: importedAccount.name,
-              deriveType,
-              skipAddIfNotEqualToAddress,
-              applyRestoreSyncPolicy,
-            });
-          addedAccounts.push(...(accounts || []));
-        } catch (e) {
-          console.error('addImportedAccountByInput error', e);
+        importedAccount.address &&
+        (deriveTypes.length > 1 || presetDeriveTypes?.length)
+          ? importedAccount.address
+          : undefined;
+      let privateKeyRawForCredential = privateKey;
+      try {
+        for (const deriveType of deriveTypes) {
+          try {
+            const { accounts } =
+              await serviceAccount.addImportedAccountWithCredentialBase({
+                skipEventEmit,
+                credentialRaw: privateKeyRawForCredential,
+                password,
+                fallbackName: importedAccount.name,
+                networkId,
+                name: importedAccount.name,
+                deriveType,
+                skipAddIfNotEqualToAddress,
+                applyRestoreSyncPolicy,
+              });
+            addedAccounts.push(...(accounts || []));
+          } catch (e) {
+            console.error('addImportedAccountByInput error', e);
+          }
         }
+      } finally {
+        privateKeyRawForCredential = '';
       }
     } catch (e) {
       console.error('addImportedAccountByInput error', e);

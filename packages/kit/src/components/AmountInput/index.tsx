@@ -61,6 +61,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       iconText?: string;
+      testID?: string;
     };
     balanceHelperProps?: {
       onPress?: () => void;
@@ -120,6 +121,7 @@ export function AmountInput({
 
     return (
       <Input
+        testID="amount-input-input-element-input"
         autoCorrect={false}
         spellCheck={false}
         autoComplete="off"
@@ -195,9 +197,22 @@ export function AmountInput({
   }, [valueProps, reversible]);
 
   const TokenSelectorTrigger = useMemo(() => {
-    if (tokenSelectorTriggerProps?.loading) {
+    const {
+      popover: popoverProps,
+      selectedTokenImageUri,
+      selectedNetworkImageUri,
+      selectedTokenSymbol,
+      selectedNetworkName,
+      isCustomNetwork,
+      loading,
+      disabled,
+      onPress,
+      ...triggerStackProps
+    } = tokenSelectorTriggerProps ?? {};
+
+    if (loading) {
       return (
-        <XStack p="$3.5" pb="$2" alignItems="center">
+        <XStack p="$3.5" pb="$2" alignItems="center" {...triggerStackProps}>
           <Skeleton w="$7" h="$7" radius="round" />
           <Stack pl="$2" py="$1.5">
             <Skeleton h="$4" w="$10" />
@@ -206,10 +221,8 @@ export function AmountInput({
       );
     }
 
-    const { popover: popoverProps, ...restTriggerProps } =
-      tokenSelectorTriggerProps ?? {};
     const hasPopover = !!popoverProps?.content;
-    const hasOnPress = !!restTriggerProps.onPress || hasPopover;
+    const hasOnPress = !!onPress || hasPopover;
 
     const triggerContent = (
       <XStack
@@ -219,9 +232,10 @@ export function AmountInput({
         p="$2"
         borderRadius="$2"
         userSelect="none"
-        {...(restTriggerProps.selectedTokenSymbol && {
+        {...(selectedTokenSymbol && {
           maxWidth: '$44',
         })}
+        {...triggerStackProps}
         {...(hasOnPress && {
           role: 'button',
           hoverStyle: {
@@ -231,15 +245,15 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
-        disabled={restTriggerProps.disabled}
-        onPress={hasPopover ? undefined : restTriggerProps.onPress}
+        disabled={disabled}
+        onPress={hasPopover ? undefined : onPress}
       >
         <Stack mr="$2">
           <Image
             size="$7"
             borderRadius="$full"
             source={{
-              uri: restTriggerProps.selectedTokenImageUri,
+              uri: selectedTokenImageUri,
             }}
             fallback={
               <Image.Fallback
@@ -257,7 +271,7 @@ export function AmountInput({
               </Image.Fallback>
             }
           />
-          {restTriggerProps.selectedNetworkImageUri ? (
+          {selectedNetworkImageUri ? (
             <Stack
               position="absolute"
               right="$-1"
@@ -271,7 +285,7 @@ export function AmountInput({
                 size="$3"
                 borderRadius="$full"
                 source={{
-                  uri: restTriggerProps.selectedNetworkImageUri,
+                  uri: selectedNetworkImageUri,
                 }}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
@@ -285,8 +299,7 @@ export function AmountInput({
               />
             </Stack>
           ) : null}
-          {restTriggerProps.isCustomNetwork &&
-          restTriggerProps.selectedNetworkName ? (
+          {isCustomNetwork && selectedNetworkName ? (
             <Stack
               position="absolute"
               right="$-1"
@@ -296,18 +309,15 @@ export function AmountInput({
               flexShrink={1}
               bg="$bgApp"
             >
-              <LetterAvatar
-                size="$3"
-                letter={restTriggerProps.selectedNetworkName[0]}
-              />
+              <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
             </Stack>
           ) : null}
         </Stack>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {restTriggerProps.selectedTokenSymbol ||
+          {selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {hasOnPress && !restTriggerProps.disabled ? (
+        {hasOnPress && !disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -320,7 +330,7 @@ export function AmountInput({
     );
 
     // Wrap with Popover if popover prop is provided
-    if (hasPopover && !restTriggerProps.disabled) {
+    if (hasPopover && !disabled) {
       return (
         <Popover
           title={popoverProps.title}
@@ -356,6 +366,7 @@ export function AmountInput({
           py="$1"
           borderRadius={6}
           onPress={balanceProps.onPress}
+          testID={balanceProps.testID}
           {...(enableMaxAmount && {
             userSelect: 'none',
             hoverStyle: {

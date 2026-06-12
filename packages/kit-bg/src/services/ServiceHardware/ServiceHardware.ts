@@ -851,10 +851,53 @@ class ServiceHardware extends ServiceBase {
     });
   }
 
+  // Pre-warm the device before signing. Fire-and-forget signal; the SDK handles
+  // all concurrency (dedup + hang-up so the real Sign waits, not interrupts).
+  // Resolve the SAME connectId/passphraseState the Sign uses so the pre-init
+  // meta matches and Sign can skip Initialize. Hardware-only; failures swallowed.
+  @backgroundMethod()
+  async preInitializeDeviceForSign({
+    walletId,
+  }: {
+    walletId: string | undefined;
+  }): Promise<void> {
+    if (!walletId || !accountUtils.isHwWallet({ walletId })) {
+      return;
+    }
+    try {
+      const deviceParams =
+        await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+          walletId,
+          hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+        });
+      const connectId = deviceParams?.dbDevice?.connectId;
+      if (!connectId) {
+        return;
+      }
+      const sdk = await this.getSDKInstance({
+        connectId,
+        hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+      });
+      await sdk.preInitialize(connectId, {
+        ...deviceParams?.deviceCommonParams,
+      });
+    } catch (error) {
+      // Pre-warm is best-effort; a failure must never block the real Sign.
+      // Use the hardware scope (LogToLocal) so it lands in collected/exported logs.
+      defaultLogger.hardware.sdkLog.log(
+        'preInitializeDeviceForSign error',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
-  async searchDevices(params?: { vendor?: EHardwareVendor }) {
+  async searchDevices(params?: {
+    vendor?: EHardwareVendor;
+    resetSession?: boolean;
+  }) {
     const vendorProfile = params?.vendor
       ? getVendorProfile(params.vendor)
       : undefined;
@@ -869,7 +912,9 @@ class ServiceHardware extends ServiceBase {
             `No adapter registered for vendor "${params.vendor}"`,
           );
         }
-        const devices = await adapter.searchDevices();
+        const devices = await adapter.searchDevices(
+          params.resetSession ? { resetSession: true } : undefined,
+        );
         defaultLogger.hardware.sdkLog.thirdPartySearchDevicesResponse({
           vendor: params.vendor,
           success: true,
@@ -1874,6 +1919,142 @@ class ServiceHardware extends ServiceBase {
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) return;
     adapter.cancel(params.connectId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Third-party hardware app management (Ledger-only for now).
+  //
+  // Wraps the SDK's `LedgerAdapter.installApp / listInstalledApps /
+  // listAvailableApps`. The `hw` field on IThirdPartyHardwareAdapter is typed
+  // as the generic IHardwareWallet; we cast to the Ledger-specific shape
+  // because these methods aren't part of the cross-vendor contract.
+  //
+  // Install progress streams as SDK `ui-event` AppInstallProgress, surfaced to
+  // the UI via the thirdPartyAppInstallAtom (it cannot ride through these
+  // @backgroundMethod return values — the function callback contract doesn't
+  // survive the IPC proxy).
+  // ---------------------------------------------------------------------------
+
+  @backgroundMethod()
+  async thirdPartyHardwareInstallApp(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+    appName: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      installApp: (
+        connectId: string,
+        appName: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.installApp(params.connectId, params.appName);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledApps: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledAppNames(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledNames: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledNames(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListAvailableApps(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listAvailableApps: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listAvailableApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetFirmwareVersion(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      getLedgerFirmwareVersion: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.getLedgerFirmwareVersion(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareGetDeviceInfo(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      getLedgerDeviceInfo: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.getLedgerDeviceInfo(params.connectId);
   }
 
   @backgroundMethod()

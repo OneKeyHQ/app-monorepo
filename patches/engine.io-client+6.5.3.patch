@@ -1,0 +1,25 @@
+diff --git a/node_modules/engine.io-client/build/cjs/socket.js b/node_modules/engine.io-client/build/cjs/socket.js
+--- a/node_modules/engine.io-client/build/cjs/socket.js
++++ b/node_modules/engine.io-client/build/cjs/socket.js
+@@ -398,6 +398,21 @@
+      */
+     resetPingTimeout() {
+         this.clearTimeoutFn(this.pingTimeoutTimer);
++        // [OneKey fix] onPacket calls resetPingTimeout BEFORE the switch case
++        // dispatches the initial "open" packet to onHandshake. At that moment
++        // this.pingInterval / this.pingTimeout are still null, so the
++        // computed delay is `null + null === 0`. setTimeout(fn, 0) schedules
++        // a macrotask that, on RN background Hermes (split-thread), races
++        // past the subsequent clearTimeout from onHandshake's own
++        // resetPingTimeout call — firing onClose("ping timeout") almost
++        // immediately and trapping the engine in a perpetual reconnect
++        // loop. When the values are not yet known, skip scheduling entirely;
++        // onHandshake will call us again with the real server-supplied
++        // values, which is the only legitimate schedule. Upstream race:
++        // https://github.com/socketio/engine.io-client (v6.5.3).
++        if (this.pingInterval == null || this.pingTimeout == null) {
++            return;
++        }
+         this.pingTimeoutTimer = this.setTimeoutFn(() => {
+             this.onClose("ping timeout");
+         }, this.pingInterval + this.pingTimeout);

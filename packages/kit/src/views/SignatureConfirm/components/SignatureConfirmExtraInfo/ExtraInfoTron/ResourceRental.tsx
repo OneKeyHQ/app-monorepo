@@ -83,6 +83,7 @@ function ResourceRentalLearnMoreButton({
   });
   return (
     <Button
+      testID="signature-confirm-resource-rental-help-link-btn"
       flex={1}
       textAlign="left"
       justifyContent="flex-start"
@@ -297,6 +298,7 @@ function ResourceRental() {
                   </XStack>
                 </YStack>
                 <Switch
+                  testID="signature-confirm-switch"
                   size={gtMd ? 'small' : 'large'}
                   value={isSwapTrxEnabled}
                   onChange={handleSwapTrxToggle}
@@ -394,6 +396,7 @@ function ResourceRental() {
             </SizableText>
           </YStack>
           <Switch
+            testID="signature-confirm-switch"
             size={gtMd ? 'small' : 'large'}
             value={isResourceRentalEnabled}
             onChange={handleResourceRentalToggle}

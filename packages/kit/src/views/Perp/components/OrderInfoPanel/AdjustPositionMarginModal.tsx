@@ -14,10 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useHyperliquidActions,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -27,7 +24,13 @@ import {
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -47,7 +50,7 @@ const AdjustPositionMarginForm = memo(
   ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
-    const [{ activePositions }] = usePerpsActivePositionAtom();
+    const activePositions = usePerpsAccountScopedActivePositions();
     const [computedValue] = usePerpsComputedAccountValueAtom();
 
     const currentPosition = useMemo(() => {
@@ -214,6 +217,7 @@ const AdjustPositionMarginForm = memo(
 
     const customSuffix = (
       <Select
+        testID="perp-custom-suffix-select"
         items={selectItems}
         value={action}
         onChange={handleActionChange}
@@ -330,9 +334,10 @@ const AdjustPositionMarginForm = memo(
           </YStack>
         </YStack>
 
-        <TradingGuardWrapper>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
-            size="medium"
+            testID="perp-btn"
+            size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
             disabled={!isValidAmount || isSubmitting}
@@ -360,15 +365,18 @@ export function showAdjustPositionMarginDialog({
     }),
 
     renderContent: (
-      <PerpsProviderMirror>
-        <AdjustPositionMarginForm
-          coin={coin}
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <AdjustPositionMarginForm
+            coin={coin}
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
+    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();

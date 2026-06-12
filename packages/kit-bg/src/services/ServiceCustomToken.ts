@@ -31,7 +31,6 @@ class ServiceCustomToken extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -41,7 +40,7 @@ class ServiceCustomToken extends ServiceBase {
           return syncManagers.customToken.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customToken,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),

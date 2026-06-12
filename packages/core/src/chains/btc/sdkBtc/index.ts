@@ -40,7 +40,10 @@ import { EAddressEncodings } from '../../../types';
 import { toXOnly } from './bip371';
 import { getBtcForkNetwork } from './networks';
 
-import type { IBip32ExtendedKey } from '../../../secret';
+import type {
+  IBip32ExtendedKey,
+  IHdCredentialDecryptCacheParams,
+} from '../../../secret';
 import type {
   ICoreApiSignAccount,
   ICurveName,
@@ -511,7 +514,8 @@ export async function buildBtcXpubSegwitAsync({
     hdCredential: string;
     password: string;
     path: string;
-  };
+    rootFingerprintHex?: string;
+  } & IHdCredentialDecryptCacheParams;
 }) {
   let xpubSegwit = xpub;
   if (encoding === EAddressEncodings.P2TR) {
@@ -521,12 +525,26 @@ export async function buildBtcXpubSegwitAsync({
     // https://github.com/bitcoin/bitcoin/blob/master/doc/descriptors.md
     // https://github.com/trezor/blockbook/blob/master/docs/api.md#get-xpub
     if (hdAccountPayload) {
-      const { curveName, hdCredential, password, path } = hdAccountPayload;
-      const rootFingerprint = await generateRootFingerprintHexAsync({
+      const {
         curveName,
         hdCredential,
         password,
-      });
+        path,
+        hdCredentialCacheScopeId,
+        kdfBackend,
+        enablePbkdf2Cache,
+        rootFingerprintHex,
+      } = hdAccountPayload;
+      const rootFingerprint =
+        rootFingerprintHex ??
+        (await generateRootFingerprintHexAsync({
+          curveName,
+          hdCredential,
+          password,
+          hdCredentialCacheScopeId,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }));
       const fingerprint = Number(
         Buffer.from(rootFingerprint, 'hex').readUInt32BE(0) || 0,
       )

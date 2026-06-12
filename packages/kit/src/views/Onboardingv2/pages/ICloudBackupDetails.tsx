@@ -39,6 +39,7 @@ import { CloudBackupDetailsEmptyView } from '../components/CloudBackupEmptyView'
 import { CloudBackupLoadingSkeleton } from '../components/CloudBackupLoadingSkeleton';
 import { OnboardingPage } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
+import { OnboardingTestIDs } from '../testIDs';
 
 export default function ICloudBackupDetails({
   route,
@@ -196,6 +197,7 @@ export default function ICloudBackupDetails({
       {actionType === 'backup' ? (
         <>
           <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsBackupNowBtn}
             loading={checkLoading}
             disabled={isButtonDisabled}
             flex={1}
@@ -206,6 +208,7 @@ export default function ICloudBackupDetails({
             {intl.formatMessage({ id: ETranslations.backup_backup_now })}
           </Button>
           <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsSettingsBtn}
             loading={checkLoading}
             size="large"
             onPress={async () => {
@@ -224,6 +227,7 @@ export default function ICloudBackupDetails({
         <>
           {!hideRestoreButton ? (
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsImportBtn}
               loading={checkLoading}
               disabled={isButtonDisabled}
               flex={1}
@@ -235,6 +239,7 @@ export default function ICloudBackupDetails({
             </Button>
           ) : null}
           <Button
+            testID={OnboardingTestIDs.iCloudBackupDetailsDeleteBtn}
             loading={checkLoading}
             disabled={!route.params?.backupId}
             size="large"
@@ -255,6 +260,7 @@ export default function ICloudBackupDetails({
 
   return (
     <OnboardingPage
+      testID={OnboardingTestIDs.iCloudBackupDetailsPage}
       safeAreaEnabled={false}
       scrollable
       headerTitle={formattedDate}
@@ -268,6 +274,7 @@ export default function ICloudBackupDetails({
         debugComponent={
           <YStack gap="$2">
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsDevShowBackupDataBtn}
               onPress={async () => {
                 Dialog.debugMessage({
                   debugMessage: backupData,
@@ -277,6 +284,9 @@ export default function ICloudBackupDetails({
               showBackupData
             </Button>
             <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDetailsDevShowPrivateDataBtn
+              }
               onPress={async () => {
                 showCloudBackupPasswordDialog({
                   intl,
@@ -298,6 +308,9 @@ export default function ICloudBackupDetails({
               showBackupPrivateData
             </Button>
             <Button
+              testID={
+                OnboardingTestIDs.iCloudBackupDetailsDevMockEmptyWalletsBtn
+              }
               onPress={async () => {
                 setWalletDataMocked([]);
               }}
@@ -305,6 +318,7 @@ export default function ICloudBackupDetails({
               Mock Empty Wallets
             </Button>
             <Button
+              testID={OnboardingTestIDs.iCloudBackupDetailsDevBackup30Btn}
               loading={checkLoading}
               disabled={isButtonDisabled}
               flex={1}

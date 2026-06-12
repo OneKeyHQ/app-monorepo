@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -6,176 +6,104 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useRecommendedRefreshTrigger } from '../hooks/useRecommendedRefreshTrigger';
+import {
+  useEarnActions,
+  useEarnAtom,
+} from '../../../states/jotai/contexts/earn';
 
 import { RecommendedSection } from './RecommendedSection';
 
 type IRecommendedTokensResult = {
   tokens: IRecommendAsset[];
-  refreshVersion: number;
+  networkId: string;
 };
 
-type IAccountRecommendedTokensResult = IRecommendedTokensResult & {
-  accountKey: string;
-  scopeNetworkKey: string;
-};
-
-function getRecommendedProtocolNetworkIds(tokens: IRecommendAsset[]) {
-  const networkIds = new Set<string>();
-  tokens.forEach((token) => {
-    token.protocols.forEach((protocol) => {
-      networkIds.add(protocol.networkId);
-    });
-  });
-  return Array.from(networkIds).toSorted();
+function getRecommendedTokensCacheKey(tokens: IRecommendAsset[]) {
+  return tokens
+    .map((token) =>
+      [
+        token.symbol,
+        token.aprWithoutFee,
+        token.protocols
+          .map((protocol) =>
+            [protocol.networkId, protocol.provider, protocol.vault ?? ''].join(
+              ':',
+            ),
+          )
+          .join(','),
+      ].join('|'),
+    )
+    .join(';');
 }
 
 function useRecommendedTokens({
-  accountId,
-  indexedAccountId,
   networkId,
   enableFetch,
-  refreshVersion,
+  cachedRecommendedTokens,
+  onBaseRecommendedTokensLoaded,
 }: {
-  accountId?: string;
-  indexedAccountId?: string;
   networkId: string;
   enableFetch: boolean;
-  refreshVersion: number;
+  cachedRecommendedTokens: IRecommendAsset[];
+  onBaseRecommendedTokensLoaded: (tokens: IRecommendAsset[]) => void;
 }) {
   const fetchBaseRecommendedTokens = useCallback(async () => {
     if (!enableFetch) {
-      return { tokens: [], refreshVersion };
+      return { tokens: [], networkId };
     }
 
     const recommendedAssets =
-      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
-        accountId: '',
-        networkId,
-      });
+      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2();
 
     return {
       tokens: recommendedAssets?.tokens || [],
-      refreshVersion,
+      networkId,
     };
-  }, [enableFetch, networkId, refreshVersion]);
+  }, [enableFetch, networkId]);
 
   const {
-    result: baseRecommendedResult = { tokens: [], refreshVersion: -1 },
+    result: baseRecommendedResult = { tokens: [], networkId: '' },
     isLoading: isBaseLoading,
   } = usePromiseResult<IRecommendedTokensResult>(
     fetchBaseRecommendedTokens,
     [fetchBaseRecommendedTokens],
     {
-      initResult: { tokens: [], refreshVersion: -1 },
+      initResult: { tokens: [], networkId: '' },
       revalidateOnFocus: true,
       watchLoading: true,
       overrideIsFocused: (isFocused) => isFocused && enableFetch,
     },
   );
 
-  const baseRecommendedTokens = baseRecommendedResult.tokens;
+  const freshBaseRecommendedTokens = baseRecommendedResult.tokens;
+  const baseRecommendedResultMatchesCurrentRefresh =
+    enableFetch && baseRecommendedResult.networkId === networkId;
   const hasSettledBaseRecommendedTokens =
-    baseRecommendedResult.refreshVersion === refreshVersion &&
-    isBaseLoading === false;
-  const recommendedNetworkIds = useMemo(
-    () => getRecommendedProtocolNetworkIds(baseRecommendedTokens),
-    [baseRecommendedTokens],
-  );
-  const recommendedNetworkScopeKey = recommendedNetworkIds.join('|');
-  const accountKey = `${accountId ?? ''}|${indexedAccountId ?? ''}`;
-  const shouldFetchAccountRecommendedTokens =
-    enableFetch &&
-    Boolean(accountId) &&
-    hasSettledBaseRecommendedTokens &&
-    recommendedNetworkIds.length > 0;
+    baseRecommendedResultMatchesCurrentRefresh && isBaseLoading === false;
+  const canUseCachedRecommendedTokens =
+    cachedRecommendedTokens.length > 0 &&
+    !hasSettledBaseRecommendedTokens &&
+    freshBaseRecommendedTokens.length === 0;
+  const baseRecommendedTokens = canUseCachedRecommendedTokens
+    ? cachedRecommendedTokens
+    : freshBaseRecommendedTokens;
 
-  const fetchAccountRecommendedTokens = useCallback(async () => {
-    if (!shouldFetchAccountRecommendedTokens) {
-      return {
-        accountKey,
-        scopeNetworkKey: recommendedNetworkScopeKey,
-        tokens: [],
-        refreshVersion,
-      };
+  useEffect(() => {
+    if (!baseRecommendedResultMatchesCurrentRefresh) {
+      return;
     }
 
-    const recommendedAssets =
-      await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
-        accountId: accountId ?? '',
-        networkId,
-        indexedAccountId,
-        scopeNetworkIds: recommendedNetworkIds,
-      });
-
-    return {
-      accountKey,
-      scopeNetworkKey: recommendedNetworkScopeKey,
-      tokens: recommendedAssets?.tokens || [],
-      refreshVersion,
-    };
+    onBaseRecommendedTokensLoaded(freshBaseRecommendedTokens);
   }, [
-    accountKey,
-    accountId,
-    indexedAccountId,
-    networkId,
-    recommendedNetworkIds,
-    recommendedNetworkScopeKey,
-    refreshVersion,
-    shouldFetchAccountRecommendedTokens,
+    baseRecommendedResultMatchesCurrentRefresh,
+    freshBaseRecommendedTokens,
+    onBaseRecommendedTokensLoaded,
   ]);
-
-  const {
-    result: accountRecommendedResult = {
-      accountKey: '',
-      scopeNetworkKey: '',
-      tokens: [],
-      refreshVersion: -1,
-    },
-    isLoading: isAccountLoading,
-  } = usePromiseResult<IAccountRecommendedTokensResult>(
-    fetchAccountRecommendedTokens,
-    [fetchAccountRecommendedTokens],
-    {
-      initResult: {
-        accountKey: '',
-        scopeNetworkKey: '',
-        tokens: [],
-        refreshVersion: -1,
-      },
-      revalidateOnFocus: true,
-      watchLoading: true,
-      overrideIsFocused: (isFocused) =>
-        isFocused && shouldFetchAccountRecommendedTokens,
-    },
-  );
-
-  const accountRecommendedResultMatchesCurrentScope =
-    accountRecommendedResult.refreshVersion === refreshVersion &&
-    accountRecommendedResult.scopeNetworkKey === recommendedNetworkScopeKey &&
-    accountRecommendedResult.accountKey === accountKey;
-  const hasSettledAccountRecommendedTokens =
-    shouldFetchAccountRecommendedTokens &&
-    accountRecommendedResultMatchesCurrentScope &&
-    isAccountLoading === false;
-  const accountRecommendedTokens = accountRecommendedResult.tokens;
-  const canUseAccountRecommendedTokens =
-    Boolean(accountId) &&
-    accountRecommendedResultMatchesCurrentScope &&
-    accountRecommendedTokens.length > 0;
-  const recommendedTokens = canUseAccountRecommendedTokens
-    ? accountRecommendedTokens
-    : baseRecommendedTokens;
 
   return {
     isLoading: isBaseLoading,
-    isBalanceLoading:
-      Boolean(accountId) &&
-      baseRecommendedTokens.length > 0 &&
-      !canUseAccountRecommendedTokens &&
-      (!hasSettledBaseRecommendedTokens || !hasSettledAccountRecommendedTokens),
-    recommendedTokens,
+    recommendedTokens: baseRecommendedTokens,
+    hasSettledBaseRecommendedTokens,
   };
 }
 
@@ -186,6 +114,7 @@ export function Recommended(
         recommendedItemContainerProps?: IYStackProps;
         withHeader?: boolean;
         enableFetch?: boolean;
+        isActive?: boolean;
       }
     | undefined,
 ) {
@@ -194,50 +123,59 @@ export function Recommended(
     recommendedItemContainerProps,
     withHeader = true,
     enableFetch = true,
+    isActive = true,
   } = props ?? {};
+  const shouldFetch = enableFetch && isActive;
 
   const allNetworkId = getNetworkIdsMap().onekeyall;
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const [refreshVersion, setRefreshVersion] = useState(0);
+  const actions = useEarnActions();
+  const [{ recommendedTokens: cachedRecommendedTokens = [] }] = useEarnAtom();
 
-  const refreshRecommended = useCallback(async () => {
-    await backgroundApiProxy.serviceStaking.clearRecommendedAssetsCache();
-    setRefreshVersion((prev) => prev + 1);
-  }, []);
+  const handleBaseRecommendedTokensLoaded = useCallback(
+    (tokens: IRecommendAsset[]) => {
+      if (
+        getRecommendedTokensCacheKey(tokens) ===
+        getRecommendedTokensCacheKey(cachedRecommendedTokens)
+      ) {
+        return;
+      }
 
-  const { recommendedTokens, isLoading, isBalanceLoading } =
+      actions.current.updateRecommendedTokens(tokens);
+    },
+    [actions, cachedRecommendedTokens],
+  );
+
+  const { recommendedTokens, isLoading, hasSettledBaseRecommendedTokens } =
     useRecommendedTokens({
-      accountId: account?.id,
-      indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
       networkId: allNetworkId,
-      enableFetch,
-      refreshVersion,
+      enableFetch: shouldFetch,
+      cachedRecommendedTokens,
+      onBaseRecommendedTokensLoaded: handleBaseRecommendedTokensLoaded,
     });
 
-  useRecommendedRefreshTrigger({
-    accountId: account?.id,
-    indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
-    networkId: allNetworkId,
-    recommendedTokens,
-    enableFetch,
-    onRefresh: refreshRecommended,
-  });
+  const recommendedLoadScopeKey = allNetworkId;
+  const hasCompletedInitialRecommendedLoadRef = useRef<string | undefined>(
+    undefined,
+  );
 
-  const noWalletConnected = !account && !indexedAccount;
+  useEffect(() => {
+    if (shouldFetch && hasSettledBaseRecommendedTokens) {
+      hasCompletedInitialRecommendedLoadRef.current = recommendedLoadScopeKey;
+    }
+  }, [hasSettledBaseRecommendedTokens, recommendedLoadScopeKey, shouldFetch]);
+
+  const showInitialSkeleton =
+    isLoading === true &&
+    recommendedTokens.length === 0 &&
+    hasCompletedInitialRecommendedLoadRef.current !== recommendedLoadScopeKey;
 
   return (
     <RecommendedSection
       tokens={recommendedTokens}
-      noWalletConnected={noWalletConnected}
       withHeader={withHeader}
       disableHorizontalBleed={disableHorizontalBleed}
       recommendedItemContainerProps={recommendedItemContainerProps}
-      showSkeleton={
-        isLoading === true ? recommendedTokens.length === 0 : undefined
-      }
-      isBalanceLoading={isBalanceLoading}
+      showSkeleton={showInitialSkeleton}
     />
   );
 }

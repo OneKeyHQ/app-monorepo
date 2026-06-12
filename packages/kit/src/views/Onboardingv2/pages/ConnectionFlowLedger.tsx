@@ -5,6 +5,7 @@ import natsort from 'natsort';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Button,
   EVideoResizeMode,
   HeightTransition,
@@ -31,6 +32,7 @@ import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { OnboardingTestIDs } from '../testIDs';
 import { getForceTransportType, sortDevicesData } from '../utils';
 
 import { ConnectionIndicator } from './ConnectYourDevice';
@@ -167,6 +169,7 @@ export default function LedgerConnectionFlow() {
       1500, // pollInterval — 1.5s between polls
       MAX_TRY_COUNT, // maxTryCount — search for up to ~90s
       vendor,
+      { resetSession: true },
     );
   }, [deviceScanner, vendor, tabValue, intl]);
 
@@ -200,6 +203,9 @@ export default function LedgerConnectionFlow() {
     [devicesData],
   );
 
+  // USB has no persistent connectId — block multi-device selection (BLE is fine).
+  const isMultiUsbBlocked = !isBle && sortedDevicesData.length > 1;
+
   // --- Device select ---
   const handleDeviceSelect = useCallback(
     async (data: IConnectYourDeviceItem) => {
@@ -212,9 +218,10 @@ export default function LedgerConnectionFlow() {
           vendor: EHardwareVendor.ledger,
         },
         isFirmwareVerified: true,
+        tabValue,
       });
     },
-    [ensureStopScan, navigation],
+    [ensureStopScan, navigation, tabValue],
   );
 
   // --- Listing mode ---
@@ -304,6 +311,7 @@ export default function LedgerConnectionFlow() {
             {connectStatus === EConnectionStatus.init ? (
               <>
                 <Button
+                  testID={OnboardingTestIDs.connectionFlowLedgerStartBtn}
                   variant="primary"
                   mt="$2"
                   onPress={onStartConnection}
@@ -335,7 +343,17 @@ export default function LedgerConnectionFlow() {
               </YStack>
             ) : null}
             <HeightTransition initialHeight={0}>
-              {sortedDevicesData.length > 0 ? (
+              {isMultiUsbBlocked ? (
+                <YStack px="$5">
+                  <Alert
+                    type="warning"
+                    title={intl.formatMessage({
+                      id: ETranslations.hardware_third_party_usb_single_device_only_desc,
+                    })}
+                  />
+                </YStack>
+              ) : null}
+              {sortedDevicesData.length > 0 && !isMultiUsbBlocked ? (
                 <>
                   {sortedDevicesData.map((data) => (
                     <ListItem

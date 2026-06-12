@@ -35,6 +35,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
   type IEarnActionIcon,
+  type IEarnClaimType,
   type IEarnPortfolioAirdropAsset,
   type IEarnPortfolioInvestment,
   type IEarnText,
@@ -49,6 +50,7 @@ import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
+import { EarnTestIDs } from '../testIDs';
 
 import type {
   IRefreshOptions,
@@ -228,18 +230,21 @@ const WrappedActionButtonCmp = ({
       asset.token.info.address
         ? asset.token.info.address
         : undefined;
+    const claimRequestType: IEarnClaimType | undefined =
+      'claimType' in reward ? reward.claimType : undefined;
 
     handleAction({
       actionIcon: reward.button,
       token: getRewardButtonToken(reward.button),
       rewardTokenAddress,
+      claimRequestType,
       indexedAccountId: indexedAccount?.id,
       stakedSymbol,
       rewardSymbol,
     });
   }, [
     handleAction,
-    reward.button,
+    reward,
     asset,
     isMorphoProvider,
     indexedAccount?.id,
@@ -257,6 +262,7 @@ const WrappedActionButtonCmp = ({
   if (!isDesktopLayout) {
     return (
       <Button
+        testID="earn-button-text-btn"
         ai="center"
         variant="secondary"
         size="small"
@@ -272,6 +278,7 @@ const WrappedActionButtonCmp = ({
 
   return (
     <Button
+      testID="earn-button-text-btn"
       p="0"
       ai="center"
       variant="link"
@@ -555,7 +562,13 @@ const ProtocolHeader = ({
   const currencyInfo = useCurrency();
 
   return (
-    <YStack px="$pagePadding" py="$3">
+    <YStack
+      px="$pagePadding"
+      py="$3"
+      testID={EarnTestIDs.portfolioItem(
+        portfolioItem.protocol.providerDetail.name,
+      )}
+    >
       <XStack ai="center">
         <Token
           size="xs"
@@ -1032,6 +1045,7 @@ const PortfolioItemComponent = ({
                         {/* Buttons */}
                         <XStack gap="$3">
                           <Button
+                            testID="earn-btn"
                             flex={1}
                             size="medium"
                             variant="secondary"
@@ -1051,6 +1065,7 @@ const PortfolioItemComponent = ({
                             })}
                           </Button>
                           <Button
+                            testID="earn-btn"
                             flex={1}
                             size="medium"
                             variant="secondary"
@@ -1083,6 +1098,7 @@ const PortfolioItemComponent = ({
                       ) => {
                         return (
                           <Button
+                            testID="earn-btn"
                             key={index}
                             size="small"
                             disabled={button?.disabled}

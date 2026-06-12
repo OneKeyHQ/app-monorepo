@@ -13,6 +13,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkImplsFromDappScope } from '@onekeyhq/shared/src/background/backgroundUtils';
+import type { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import {
   IMPL_BTC,
@@ -73,10 +74,28 @@ import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereu
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
 import type {
+  IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { Verify } from '@walletconnect/types';
+
+// 4901 = Chain Disconnected analog for unsupported networks.
+function canonicalizeBtcNetworkId(networkId: string): string {
+  switch (networkId) {
+    case 'btc--0':
+      return 'bitcoin-mainnet';
+    case 'tbtc--0':
+      return 'bitcoin-testnet';
+    case 'tbtc--1':
+      return 'bitcoin-signet';
+    default:
+      throw web3Errors.provider.custom({
+        code: 4901,
+        message: `deriveContextHash is not supported on this network: ${networkId}`,
+      });
+  }
+}
 
 function getQueryDAppAccountParams(params: IGetDAppAccountInfoParams) {
   const { scope, isWalletConnectRequest, options = {} } = params;
@@ -111,6 +130,22 @@ class ServiceDApp extends ServiceBase {
   // Temporary store for sensitive clipboard text to avoid logging through
   // openModal's params pipeline (logger + console.log serialize all params)
   private clipboardTextStore = new Map<string, string>();
+
+  // Keeps appName/context out of route params + openModal logs (mirrors clipboardTextStore).
+  private deriveContextHashStore = new Map<
+    string,
+    {
+      accountId: string;
+      networkId: string;
+      walletId: string;
+      address: string;
+      appName: string;
+      context: string;
+      createdAt: number;
+    }
+  >();
+
+  private static readonly DERIVE_CONTEXT_HASH_TTL_MS = 5 * 60 * 1000;
 
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
@@ -336,6 +371,128 @@ class ServiceDApp extends ServiceBase {
   @backgroundMethod()
   async getClipboardTextToWrite(nonce: string) {
     return this.clipboardTextStore.get(nonce);
+  }
+
+  private sweepExpiredDeriveContextHashEntries(now: number) {
+    const ttl = ServiceDApp.DERIVE_CONTEXT_HASH_TTL_MS;
+    for (const [k, v] of this.deriveContextHashStore) {
+      if (v.createdAt + ttl < now) {
+        this.deriveContextHashStore.delete(k);
+      }
+    }
+  }
+
+  @backgroundMethod()
+  async stageDeriveContextHashRequest(payload: {
+    accountId: string;
+    networkId: string;
+    walletId: string;
+    address: string;
+    appName: string;
+    context: string;
+  }): Promise<string> {
+    const now = Date.now();
+    this.sweepExpiredDeriveContextHashEntries(now);
+    const nonce = generateUUID();
+    this.deriveContextHashStore.set(nonce, { ...payload, createdAt: now });
+    return nonce;
+  }
+
+  private peekDeriveContextHashInternal(nonce: string) {
+    const entry = this.deriveContextHashStore.get(nonce);
+    if (!entry) return null;
+    if (entry.createdAt + ServiceDApp.DERIVE_CONTEXT_HASH_TTL_MS < Date.now()) {
+      this.deriveContextHashStore.delete(nonce);
+      return null;
+    }
+    return entry;
+  }
+
+  // Display-only: the renderer cannot influence which (accountId, networkId)
+  // executeDeriveContextHash signs against — those stay pinned in the staged
+  // entry. Exposing accountId here just lets the modal render the standard
+  // network/account selector components instead of a raw address string.
+  @backgroundMethod()
+  async peekDeriveContextHashRequest(nonce: string) {
+    const entry = this.peekDeriveContextHashInternal(nonce);
+    if (!entry) return null;
+    return {
+      appName: entry.appName,
+      context: entry.context,
+      address: entry.address,
+      networkId: entry.networkId,
+      accountId: entry.accountId,
+    };
+  }
+
+  @backgroundMethod()
+  async completeDeriveContextHashRequest(nonce: string) {
+    this.deriveContextHashStore.delete(nonce);
+  }
+
+  @backgroundMethod()
+  async openDeriveContextHashModal({
+    request,
+    nonce,
+  }: {
+    request: IJsBridgeMessagePayload;
+    nonce: string;
+  }): Promise<string> {
+    return this.openModal({
+      request,
+      screens: [
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.DeriveContextHashModal,
+      ],
+      params: { nonce },
+      fullScreen: !platformEnv.isNativeIOS,
+    }) as Promise<string>;
+  }
+
+  @backgroundMethod()
+  async executeDeriveContextHash({
+    nonce,
+  }: {
+    nonce: string;
+  }): Promise<string> {
+    const entry = this.peekDeriveContextHashInternal(nonce);
+    if (!entry) {
+      throw web3Errors.provider.custom({
+        code: -32_000,
+        message:
+          'deriveContextHash request expired, please retry from the site',
+      });
+    }
+    const { accountId, networkId, appName, context } = entry;
+
+    const canonicalNetworkName = canonicalizeBtcNetworkId(networkId);
+
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    const account = await vault.getAccount();
+    if (!account.pub) {
+      throw new OneKeyLocalError(
+        'Connected BTC account is missing a public key',
+      );
+    }
+
+    // Password-prompt cancel throws PasswordPromptDialogCancel; the modal
+    // treats it as a sub-prompt cancel and leaves the staged entry for retry.
+    const { password } =
+      await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
+        accountId,
+      });
+
+    const result = await vault.keyring.deriveContextHash({
+      password,
+      appName,
+      canonicalNetworkName,
+      connectedPubkey: account.pub,
+      context,
+    });
+
+    // Consume only on success so the user can retry after a derivation error.
+    await this.completeDeriveContextHashRequest(nonce);
+    return result;
   }
 
   @backgroundMethod()
@@ -782,6 +939,45 @@ class ServiceDApp extends ServiceBase {
         return { ...accountInfo, availableNetworkIds: networkIds };
       }),
     );
+  }
+
+  @backgroundMethod()
+  async isOriginAuthorizedKeylessProvider({
+    origin,
+    provider,
+    scope,
+  }: {
+    origin: string;
+    provider: EOAuthSocialLoginProvider;
+    scope?: IInjectedProviderNamesStrings;
+  }): Promise<boolean> {
+    // Fetch in parallel — the two reads are independent and this function
+    // runs inside the provider semaphore, so cutting one RTT keeps the
+    // hot path snappier for keyless-aware dApps.
+    const [connected, keyless] = await Promise.all([
+      this.findInjectedAccountByOrigin(origin),
+      this.backgroundApi.serviceAccount.getKeylessWallet(),
+    ]);
+    if (!connected?.length) return false;
+    // Scope-filter so a Solana/Cosmos keyless authorization doesn't satisfy
+    // an EVM eth_requestAccounts (origin-only lookup returns ALL scopes).
+    // If a scope was provided but doesn't resolve to known impls, fail
+    // closed rather than widening to all-scopes (an unknown scope must not
+    // satisfy a request it can't be matched against).
+    let candidates = connected;
+    if (scope) {
+      const impls = getNetworkImplsFromDappScope(scope);
+      if (!impls?.length) return false;
+      candidates = connected.filter((c) => impls.includes(c.networkImpl));
+    }
+    // Iterate (not connected[0]) — accountSelectorNum ordering is not
+    // semantically meaningful; the keyless entry can sit at any index.
+    const hasKeylessAuth = candidates.some(
+      (c) =>
+        c.walletId && accountUtils.isKeylessWallet({ walletId: c.walletId }),
+    );
+    if (!hasKeylessAuth) return false;
+    return keyless?.keylessDetailsInfo?.keylessProvider === provider;
   }
 
   @backgroundMethod()

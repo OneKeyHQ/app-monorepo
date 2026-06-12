@@ -10,6 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useDeviceBackNavigation } from '../../hooks/useDeviceBackNavigation';
+import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
 import { useDialogForgetDevice } from './dialog/DialogForgetDevice';
@@ -65,6 +66,7 @@ function DeviceSectionDeviceConnect() {
         titleProps={{ size: '$bodyMdMedium', color: '$text' }}
         drillIn
         onPress={onPressForgetDevice}
+        testID={DeviceManagementTestIDs.forgetDeviceItem}
       />
     </ListItemGroup>
   );

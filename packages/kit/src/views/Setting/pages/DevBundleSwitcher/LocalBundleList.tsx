@@ -55,6 +55,7 @@ function LocalBundleItem({
         </XStack>
         {!isCurrent ? (
           <Button
+            testID="setting-btn"
             variant="secondary"
             size="small"
             disabled={isSwitching}

@@ -353,6 +353,7 @@ export default function NFTDetails() {
               </Stack>
             </Stack>
             <Button
+              testID="asset-details-btn"
               icon="ArrowTopOutline"
               mt="$5"
               variant="primary"

@@ -192,6 +192,7 @@ const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
 
 export type ISendAmountAutoSizeInputRef = {
   focus: () => void;
+  blur: () => void;
   focusPercentageButton: (percent: 25 | 50 | 75 | 100) => void;
 };
 
@@ -255,6 +256,9 @@ function SendAutoSizeAmountInputComponent(
   useImperativeHandle(ref, () => ({
     focus: () => {
       autoSizeInputRef.current?.focus?.();
+    },
+    blur: () => {
+      autoSizeInputRef.current?.blur?.();
     },
     focusPercentageButton: () => {},
   }));

@@ -72,6 +72,7 @@ import {
   useSwapQuoteProgressState,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
+import { SwapTestIDs } from '../../testIDs';
 import { buildSwapIncognitoSettingsUpdate } from '../../utils/incognitoSettings';
 
 import { SwapIncognitoRecipientInput } from './SwapIncognitoRecipientInput';
@@ -457,7 +458,6 @@ const SwapActionsState = ({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                     cursor="help"
                   >
@@ -473,7 +473,6 @@ const SwapActionsState = ({
                   <DashText
                     size="$bodyMd"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.5}
                     cursor="help"
                   >
@@ -486,6 +485,7 @@ const SwapActionsState = ({
           </XStack>
           <Stack ml={platformEnv.isNative ? '$-2' : undefined}>
             <Switch
+              testID={SwapTestIDs.incognitoModeSwitch}
               size={ESwitchSize.extraSmall}
               value={swapIncognitoMode}
               onChange={onIncognitoModeChange}
@@ -823,7 +823,17 @@ const SwapActionsState = ({
           }}
         />
       ) : (
-        swapActionState.label
+        <SizableText
+          flex={platformEnv.isNativeAndroid ? 1 : undefined}
+          flexShrink={1}
+          minWidth={0}
+          maxWidth="100%"
+          size="$bodyLgMedium"
+          color="$textInverse"
+          textAlign="center"
+        >
+          {swapActionState.label}
+        </SizableText>
       ),
     [
       isWaitingActionableQuote,
@@ -852,11 +862,13 @@ const SwapActionsState = ({
           {/* In desktop modal: show savings above button; otherwise show below */}
           {isDesktopModalPage ? costSavingsComponent : null}
           <Button
+            testID={SwapTestIDs.swapButton}
             onPress={onActionHandlerBefore}
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={isActionDisabled}
             borderRadius="$full"
+            childrenAsText={false}
           >
             {actionButtonChildren}
           </Button>
@@ -970,6 +982,7 @@ const SwapActionsState = ({
               {...desktopActionWidthProps}
             >
               <Button
+                testID={SwapTestIDs.actionPrimaryButton}
                 onPress={onActionHandlerBefore}
                 size="medium"
                 variant="primary"

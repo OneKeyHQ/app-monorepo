@@ -11,7 +11,6 @@ import {
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
-  Toast,
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
@@ -33,6 +32,7 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '../../utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '../../utils/botWalletStatusUtils';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
@@ -51,7 +51,6 @@ const AllNetworkAccountSelector = ({
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
-
   const { isBotWallet, isBotWalletDeactivated } = useBotWalletDeactivatedStatus(
     {
       walletId: activeAccount?.wallet?.id,
@@ -61,6 +60,21 @@ const AllNetworkAccountSelector = ({
     isBotWallet,
     isBotWalletDeactivated,
   });
+  const handleCopyAddress = useCallback(async () => {
+    if (isCopyDisabled) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: activeAccount?.wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+    await handleAllNetworkCopyAddress(true);
+  }, [activeAccount?.wallet?.id, handleAllNetworkCopyAddress, isCopyDisabled]);
 
   if (!isAllNetworkEnabled) {
     return null;
@@ -75,16 +89,18 @@ const AllNetworkAccountSelector = ({
       placement="bottom"
       renderTrigger={
         <XStack
+          testID="account-selector-copy-address-btn"
           gap="$2"
           p="$1"
           m="$-1"
           borderRadius="$2"
           hoverStyle={{
-            bg: '$bgHover',
+            bg: isCopyDisabled ? '$transparent' : '$bgHover',
           }}
           pressStyle={{
-            bg: '$bgActive',
+            bg: isCopyDisabled ? '$transparent' : '$bgActive',
           }}
+          opacity={isCopyDisabled ? 0.5 : 1}
           focusVisibleStyle={{
             outlineColor: '$focusRing',
             outlineWidth: 2,
@@ -97,24 +113,7 @@ const AllNetworkAccountSelector = ({
             top: 8,
           }}
           userSelect="none"
-          opacity={isCopyDisabled ? 0.5 : 1}
-          disabled={isCopyDisabled}
-          onPress={async () => {
-            if (isCopyDisabled) {
-              Toast.error({
-                title: '该钱包已停用，无法复制地址',
-              });
-              return;
-            }
-            if (
-              await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-                walletId: activeAccount?.wallet?.id ?? '',
-              })
-            ) {
-              return;
-            }
-            await handleAllNetworkCopyAddress(true);
-          }}
+          onPress={handleCopyAddress}
         >
           <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         </XStack>
@@ -150,19 +149,24 @@ const AllNetworkAccountSelector = ({
 function CopyButton({
   onPress,
   visible,
+  disabled,
 }: {
   onPress: IIconButtonProps['onPress'];
   visible: boolean;
+  disabled?: boolean;
 }) {
   const intl = useIntl();
   return visible ? (
     <IconButton
+      testID="account-selector-copy-address-btn"
       title={intl.formatMessage({
         id: ETranslations.global_copy_address,
       })}
       icon="Copy3Outline"
       size="small"
       variant="tertiary"
+      disabled={disabled}
+      allowPressWhenDisabled={disabled}
       onPress={onPress}
     />
   ) : null;
@@ -210,6 +214,13 @@ export function AccountSelectorActiveAccountHome({
     isBotWallet,
     isBotWalletDeactivated,
   });
+  const handleAllNetworkCopyAddressOnPress = useCallback(async () => {
+    if (isCopyDisabled) {
+      showBotWalletDisabledToast('copyAddress');
+      return;
+    }
+    await handleAllNetworkCopyAddress();
+  }, [handleAllNetworkCopyAddress, isCopyDisabled]);
 
   const logActiveAccount = useCallback(() => {
     console.log({
@@ -232,9 +243,7 @@ export function AccountSelectorActiveAccountHome({
         isBotWalletDeactivated,
       })
     ) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
 
@@ -325,7 +334,7 @@ export function AccountSelectorActiveAccountHome({
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
     account?.address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS
-      ? handleAllNetworkCopyAddress
+      ? handleAllNetworkCopyAddressOnPress
       : handleAddressOnPress,
   );
 
@@ -360,10 +369,10 @@ export function AccountSelectorActiveAccountHome({
               mx="$-2"
               borderRadius="$2"
               hoverStyle={{
-                bg: '$bgHover',
+                bg: isCopyDisabled ? '$transparent' : '$bgHover',
               }}
               pressStyle={{
-                bg: '$bgActive',
+                bg: isCopyDisabled ? '$transparent' : '$bgActive',
               }}
               focusable
               focusVisibleStyle={{
@@ -398,7 +407,11 @@ export function AccountSelectorActiveAccountHome({
     }
 
     return (
-      <CopyButton onPress={handleAddressOnPress} visible={showCopyButton} />
+      <CopyButton
+        onPress={handleAddressOnPress}
+        visible={showCopyButton}
+        disabled={isCopyDisabled}
+      />
     );
   }
 

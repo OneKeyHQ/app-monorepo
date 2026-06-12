@@ -52,6 +52,13 @@ export interface IAppUpdate {
   installPackage: IInstallPackage;
   manualInstallPackage: IManualInstallPackage;
   clearPackage: IClearPackage;
+  /**
+   * Android only: wipe the standalone APK cache (cacheDir/apks). iOS /
+   * desktop / web are no-op stubs that resolve immediately. Callers must
+   * gate this on the app-update status (skip while an update is
+   * available / downloading / downloaded-pending-install).
+   */
+  clearApkCache: () => Promise<void>;
 }
 
 export type IElectronUpdateListeners = {
@@ -121,9 +128,23 @@ export interface IBundleUpdate {
   clearBundle: IClearBundle;
   clearDownload: () => Promise<void>;
   resetToBuiltInBundle: () => Promise<void>;
-  /** Restart the app (RNRestart on native, app.relaunch on desktop). */
+  /**
+   * Restart the app. On native this routes through
+   * `BackgroundThread.restart(mode=all, reason='ota.restart')`; on desktop it
+   * calls `app.relaunch`.
+   */
   restart: () => void;
   isSkipGpgVerificationAllowed: () => Promise<boolean>;
+  /**
+   * Delete every OTA bundle artifact (extracted dir, download staging,
+   * signature asc, stale fallback entries) whose appVersion differs from
+   * the running native binary version. The native / desktop implementation
+   * is self-contained: it computes the keep-set from the binary version and
+   * hard-refuses to delete the current appVersion (and never the active
+   * currentBundleVersion). Returns the count of deleted version directories.
+   * Missing files are tolerated (never throws).
+   */
+  pruneStaleAppVersionBundles: () => Promise<number>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;

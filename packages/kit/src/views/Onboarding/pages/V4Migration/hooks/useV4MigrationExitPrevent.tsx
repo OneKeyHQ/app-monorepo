@@ -63,6 +63,7 @@ function ModalExitPreventDialogContent({
       (v4MigrationPersistData?.v4migrationAutoStartCount || 0) >= 3 ? (
         <Stack>
           <Checkbox
+            testID="onboarding-navigation-checkbox"
             value={dontShowAgain}
             onChange={() => setDontShowAgain(!dontShowAgain)}
             label={intl.formatMessage({

@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { ITabContainerRef } from '@onekeyhq/components';
 import {
+  DelayedFreeze,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -18,10 +19,10 @@ import {
   YStack,
   useFocusedTab,
   useScrollContentTabBarOffset,
-  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   WALLET_TYPE_HD,
@@ -64,6 +65,7 @@ import { HomeStickyHeaderContext } from '../components/HomeStickyHeaderContext';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 import { NotBackedUpEmpty } from '../components/NotBakcedUp';
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
+import { HomeTestIDs } from '../testIDs';
 
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
@@ -152,6 +154,28 @@ function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
     <Stack flex={1} {...homePageContentMaxWidthSx}>
       {children}
     </Stack>
+  );
+}
+
+// Tabs.Container mounts all 4 home tabs (Spot, DeFi, NFT, History) as
+// peer panes in a horizontal scroller, so React reconciles every block
+// on each Wallet unfreeze (or any HomePageView re-render) — including
+// the DeFi / NFT / History trees the user is not currently looking at.
+// Freezing the inactive panes drops that work back to the focused tab
+// only, which is what visibly happens already and matches the
+// freeze-on-blur strategy used at the outer tab-navigator level.
+function FreezeInactiveHomeTab({
+  tabName,
+  children,
+}: {
+  tabName: string;
+  children: React.ReactNode;
+}) {
+  const focusedTab = useFocusedTab();
+  return (
+    <DelayedFreeze freeze={focusedTab ? focusedTab !== tabName : undefined}>
+      {children}
+    </DelayedFreeze>
   );
 }
 
@@ -271,33 +295,6 @@ export function HomePageView({
       swrKey: network?.id ? swrKeys.defiEnabled(network.id) : undefined,
     },
   );
-
-  // DEBUG: trace tab config state changes
-  useEffect(() => {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { NativeLogger: NL, LogLevel: LL } =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${network?.id ?? ''}-${isDeFiEnabled ? '1' : '0'}-${isNFTEnabled ? '1' : '0'}`;
-      NL.write(
-        LL.Info,
-        `[LayoutDiag] HomePageView: ready=${ready}, isDeFi=${isDeFiEnabled}, isNFT=${isNFTEnabled}, ` +
-          `cachedVS=${!!cachedVaultSettings}, fetchedVS=${!!fetchedVaultSettings}, ` +
-          `networkId=${network?.id?.slice(-10) ?? 'nil'}, key=${key}`,
-      );
-    } catch {
-      /* */
-    }
-  }, [
-    ready,
-    isDeFiEnabled,
-    isNFTEnabled,
-    cachedVaultSettings,
-    fetchedVaultSettings,
-    network?.id,
-    account?.id,
-    account?.indexedAccountId,
-  ]);
 
   const isWalletNotBackedUp = useMemo(() => {
     if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
@@ -451,6 +448,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.dexmarket_spot,
         }),
+        testID: HomeTestIDs.tabPortfolio,
         component: <PortfolioContainerWithProvider />,
       },
       isDeFiEnabled
@@ -459,6 +457,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_earn,
             }),
+            testID: HomeTestIDs.tabDefi,
             component: <DeFiContainerWithProvider />,
           }
         : undefined,
@@ -468,6 +467,7 @@ export function HomePageView({
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
+            testID: HomeTestIDs.tabNFT,
             component: (
               <HomeTabContentMaxWidth>
                 <NFTListContainerWithProvider />
@@ -480,6 +480,7 @@ export function HomePageView({
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
+        testID: HomeTestIDs.tabHistory,
         component: (
           <HomeTabContentMaxWidth>
             <TxHistoryListContainerWithProvider />
@@ -489,9 +490,23 @@ export function HomePageView({
     ].filter(Boolean);
   }, [intl, isDeFiEnabled, isNFTEnabled]);
 
-  const handleRenderItem = useCallback((props: ITabBarItemProps) => {
-    return <TabBarItem {...props} />;
-  }, []);
+  const tabTestIDMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const tab of tabConfigs) {
+      if (tab.testID) {
+        map[tab.name] = tab.testID;
+      }
+    }
+    return map;
+  }, [tabConfigs]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const testID = tabTestIDMap[props.name];
+      return <TabBarItem {...props} testID={testID} />;
+    },
+    [tabTestIDMap],
+  );
 
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const portalRefCallback = useCallback((el: HTMLDivElement | null) => {
@@ -609,6 +624,43 @@ export function HomePageView({
     [tabConfigs],
   );
 
+  // When the user switches network while NOT on the wallet (token list) tab,
+  // that tab is frozen (see FreezeInactiveHomeTab) so its own token-list
+  // refresh won't run until the user returns — leaving the always-visible
+  // header worth stuck on the previous network. Proactively refresh the wallet
+  // token list for the new network. The list resolves the request from the
+  // explicit account/network in the payload because its own closures are
+  // frozen on the previous network.
+  const prevNetworkIdRef = useRef(network?.id);
+  useEffect(() => {
+    const nextNetworkId = network?.id;
+    const prevNetworkId = prevNetworkIdRef.current;
+    prevNetworkIdRef.current = nextNetworkId;
+    if (!prevNetworkId || !nextNetworkId || prevNetworkId === nextNetworkId) {
+      return;
+    }
+    if (!activeTabId || activeTabId === EHomeWalletTab.Portfolio) {
+      return;
+    }
+    const accountId = account?.id;
+    if (!accountId) {
+      return;
+    }
+    appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+      accounts: [
+        {
+          accountId,
+          networkId: nextNetworkId,
+          // Provide the fresh indexedAccountId so the frozen token list can
+          // resolve aggregate hidden/custom tokens correctly instead of
+          // falling back to its own (stale) closure.
+          indexedAccountId: indexedAccount?.id,
+        },
+      ],
+      refreshByProvidedAccounts: true,
+    });
+  }, [network?.id, activeTabId, account?.id, indexedAccount?.id]);
+
   const stickyHeaderCtx = useMemo(
     () => ({
       portalTarget,
@@ -674,7 +726,9 @@ export function HomePageView({
       >
         {tabConfigs.map((tab) => (
           <Tabs.Tab key={tab.name} name={tab.name}>
-            {tab.component}
+            <FreezeInactiveHomeTab tabName={tab.name}>
+              {tab.component}
+            </FreezeInactiveHomeTab>
           </Tabs.Tab>
         ))}
       </Tabs.Container>
@@ -913,7 +967,9 @@ export function HomePageView({
   return useMemo(() => {
     return (
       <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage>{homePage}</Page>
+        <Page fullPage testID={HomeTestIDs.page}>
+          {homePage}
+        </Page>
       </HomeStickyHeaderContext.Provider>
     );
   }, [homePage, stickyHeaderCtx]);

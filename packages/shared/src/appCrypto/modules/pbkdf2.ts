@@ -8,14 +8,16 @@ import { sha256 as sha256ByNoble } from '@noble/hashes/sha256';
 import { Pbkdf2HmacSha256 as AsmcryptoPbkdf2HmacSha256 } from 'asmcrypto.js';
 
 import RN_AES from '@onekeyhq/shared/src/modules3rdParty/react-native-aes-crypto';
+import RN_FAST_PBKDF2 from '@onekeyhq/shared/src/modules3rdParty/react-native-fast-pbkdf2';
+import RN_QUICK_CRYPTO from '@onekeyhq/shared/src/modules3rdParty/react-native-quick-crypto';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { OneKeyLocalError } from '../../errors';
 import {
   ALLOW_USE_WEB_CRYPTO_SUBTLE,
+  PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   PBKDF2_KEY_LENGTH,
-  PBKDF2_NUM_OF_ITERATIONS,
 } from '../consts';
 import { runAppCryptoTestTask } from '../utils';
 
@@ -26,13 +28,296 @@ type IPbkdf2Params = {
   salt: Buffer;
   iterations?: number;
   keyLength?: number;
+  debugCryptoProbeId?: string;
+  enableCache?: boolean;
 };
+
+type IPbkdf2Backend =
+  | 'asmcrypto'
+  | 'node-crypto'
+  | 'noble'
+  | 'react-native-aes-crypto'
+  | 'react-native-fast-pbkdf2'
+  | 'react-native-quick-crypto'
+  | 'react-native-crypto'
+  | 'webcrypto';
+
+type IPbkdf2NativeBackend =
+  | 'react-native-aes-crypto'
+  | 'react-native-fast-pbkdf2'
+  | 'react-native-quick-crypto';
+
+// Explicit override for callers that already know they are outside IndexedDB
+// transactions. Leave undefined to use the transaction-safe platform default.
+type IPbkdf2DispatchBackend =
+  | 'noble'
+  | 'native'
+  | 'webcrypto'
+  | IPbkdf2NativeBackend;
+type IPbkdf2DispatchParams = IPbkdf2Params & {
+  backend?: IPbkdf2DispatchBackend;
+};
+type IPbkdf2KdfParams = {
+  kdfBackend?: IPbkdf2DispatchBackend;
+  enablePbkdf2Cache?: boolean;
+};
+
+type IPbkdf2Invocation = {
+  backend: IPbkdf2Backend;
+  debugCryptoProbeId?: string;
+  iterations: number;
+  keyLength: number;
+};
+
+let lastPbkdf2Invocation: IPbkdf2Invocation | undefined;
+const pbkdf2InvocationsByProbeId = new Map<string, IPbkdf2Invocation>();
+const DEFAULT_PBKDF2_NATIVE_BACKEND: IPbkdf2NativeBackend =
+  'react-native-quick-crypto';
+let pbkdf2NativeBackend: IPbkdf2NativeBackend = DEFAULT_PBKDF2_NATIVE_BACKEND;
+
+const PBKDF2_CACHE_TTL_MS = 60 * 1000;
+const PBKDF2_CACHE_MAX_ENTRIES = 128;
+
+type IPbkdf2CacheEntry = {
+  expiresAt: number;
+  value?: Buffer;
+  promise?: Promise<Buffer>;
+  timeout?: ReturnType<typeof setTimeout>;
+};
+
+const pbkdf2Cache = new Map<string, IPbkdf2CacheEntry>();
+
+function recordPbkdf2Invocation(invocation: IPbkdf2Invocation) {
+  if (!invocation.debugCryptoProbeId) {
+    return;
+  }
+  lastPbkdf2Invocation = invocation;
+  pbkdf2InvocationsByProbeId.set(invocation.debugCryptoProbeId, invocation);
+}
+
+function clearLastPbkdf2Invocation() {
+  lastPbkdf2Invocation = undefined;
+}
+
+function getLastPbkdf2Invocation() {
+  return lastPbkdf2Invocation;
+}
+
+function clearPbkdf2InvocationByProbeId(debugCryptoProbeId: string) {
+  pbkdf2InvocationsByProbeId.delete(debugCryptoProbeId);
+}
+
+function getPbkdf2InvocationByProbeId(debugCryptoProbeId: string) {
+  return pbkdf2InvocationsByProbeId.get(debugCryptoProbeId);
+}
+
+function clearPbkdf2Cache() {
+  for (const cacheKey of Array.from(pbkdf2Cache.keys())) {
+    deletePbkdf2CacheEntry(cacheKey);
+  }
+}
+
+function deletePbkdf2CacheEntry(cacheKey: string) {
+  const entry = pbkdf2Cache.get(cacheKey);
+  if (entry?.timeout) {
+    clearTimeout(entry.timeout);
+  }
+  if (entry?.value) {
+    entry.value.fill(0);
+    entry.value = undefined;
+  }
+  if (entry) {
+    entry.promise = undefined;
+  }
+  pbkdf2Cache.delete(cacheKey);
+}
+
+function schedulePbkdf2CacheEntryRemoval(
+  cacheKey: string,
+  entry: IPbkdf2CacheEntry,
+) {
+  if (entry.timeout) {
+    clearTimeout(entry.timeout);
+  }
+  entry.timeout = setTimeout(() => {
+    if (pbkdf2Cache.get(cacheKey) === entry) {
+      deletePbkdf2CacheEntry(cacheKey);
+    }
+  }, PBKDF2_CACHE_TTL_MS);
+  (
+    entry.timeout as ReturnType<typeof setTimeout> & { unref?: () => void }
+  ).unref?.();
+}
+
+function touchPbkdf2CacheEntry(cacheKey: string, entry: IPbkdf2CacheEntry) {
+  entry.expiresAt = Date.now() + PBKDF2_CACHE_TTL_MS;
+  schedulePbkdf2CacheEntryRemoval(cacheKey, entry);
+}
+
+function getPbkdf2CacheBackend(params: IPbkdf2DispatchParams): IPbkdf2Backend {
+  if (params.backend === 'noble') {
+    return 'noble';
+  }
+  if (params.backend === 'webcrypto') {
+    return 'webcrypto';
+  }
+  if (
+    params.backend === 'react-native-aes-crypto' ||
+    params.backend === 'react-native-fast-pbkdf2' ||
+    params.backend === 'react-native-quick-crypto'
+  ) {
+    return params.backend;
+  }
+  if (params.backend === 'native') {
+    if (platformEnv.isNative) {
+      return pbkdf2NativeBackend;
+    }
+    if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+      return 'webcrypto';
+    }
+    return 'asmcrypto';
+  }
+  if (platformEnv.isNative) {
+    return pbkdf2NativeBackend;
+  }
+  if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+    return 'webcrypto';
+  }
+  return 'asmcrypto';
+}
+
+function buildPbkdf2CacheKey(
+  params: IPbkdf2DispatchParams,
+  backend: IPbkdf2Backend,
+): string {
+  const iterations = params.iterations ?? PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+  const keyLength = params.keyLength ?? PBKDF2_KEY_LENGTH;
+  // Hash the cache identity inputs so raw password and salt bytes are not
+  // retained as Map keys.
+  const passwordHash = bufferUtils.bytesToHex(sha256ByNoble(params.password));
+  const saltHash = bufferUtils.bytesToHex(sha256ByNoble(params.salt));
+  return [
+    'pbkdf2-sha256',
+    backend,
+    iterations,
+    keyLength,
+    passwordHash,
+    saltHash,
+  ].join(':');
+}
+
+function prunePbkdf2Cache(now = Date.now()) {
+  for (const [key, entry] of pbkdf2Cache) {
+    if (!entry.promise && entry.expiresAt <= now) {
+      deletePbkdf2CacheEntry(key);
+    }
+  }
+  while (pbkdf2Cache.size > PBKDF2_CACHE_MAX_ENTRIES) {
+    const firstKey = pbkdf2Cache.keys().next().value;
+    if (!firstKey) {
+      break;
+    }
+    deletePbkdf2CacheEntry(firstKey);
+  }
+}
+
+function getPbkdf2CachedValue(cacheKey: string): Buffer | undefined {
+  const entry = pbkdf2Cache.get(cacheKey);
+  if (!entry || entry.promise) {
+    return undefined;
+  }
+  if (entry.expiresAt <= Date.now()) {
+    deletePbkdf2CacheEntry(cacheKey);
+    return undefined;
+  }
+  if (!entry.value) {
+    return undefined;
+  }
+  touchPbkdf2CacheEntry(cacheKey, entry);
+  return Buffer.from(entry.value);
+}
+
+async function runPbkdf2WithCache(
+  params: IPbkdf2DispatchParams,
+  fn: () => Promise<Buffer>,
+): Promise<Buffer> {
+  if (!params.enableCache) {
+    return fn();
+  }
+  const cacheKey = buildPbkdf2CacheKey(params, getPbkdf2CacheBackend(params));
+  const cachedValue = getPbkdf2CachedValue(cacheKey);
+  if (cachedValue) {
+    return cachedValue;
+  }
+
+  const existingEntry = pbkdf2Cache.get(cacheKey);
+  if (existingEntry?.promise) {
+    const value = await existingEntry.promise;
+    const currentEntry = pbkdf2Cache.get(cacheKey);
+    if (currentEntry === existingEntry && !currentEntry.promise) {
+      touchPbkdf2CacheEntry(cacheKey, currentEntry);
+    }
+    return Buffer.from(value);
+  }
+
+  const entry: IPbkdf2CacheEntry = {
+    expiresAt: Number.POSITIVE_INFINITY,
+  };
+  pbkdf2Cache.set(cacheKey, entry);
+  prunePbkdf2Cache();
+  const promise = Promise.resolve()
+    .then(fn)
+    .then((value) => {
+      const result = Buffer.from(value);
+      if (pbkdf2Cache.get(cacheKey) !== entry) {
+        return result;
+      }
+      entry.value = Buffer.from(result);
+      entry.promise = undefined;
+      touchPbkdf2CacheEntry(cacheKey, entry);
+      prunePbkdf2Cache();
+      return result;
+    })
+    .catch((error) => {
+      if (pbkdf2Cache.get(cacheKey) === entry) {
+        deletePbkdf2CacheEntry(cacheKey);
+      }
+      throw error;
+    });
+  entry.promise = promise;
+  const value = await promise;
+  return Buffer.from(value);
+}
+
+function runPbkdf2SyncWithCache(
+  params: IPbkdf2DispatchParams,
+  fn: () => Buffer,
+): Buffer {
+  if (!params.enableCache) {
+    return fn();
+  }
+  const cacheKey = buildPbkdf2CacheKey(params, 'asmcrypto');
+  const cachedValue = getPbkdf2CachedValue(cacheKey);
+  if (cachedValue) {
+    return cachedValue;
+  }
+  const value = fn();
+  const entry: IPbkdf2CacheEntry = {
+    expiresAt: Number.POSITIVE_INFINITY,
+    value: Buffer.from(value),
+  };
+  touchPbkdf2CacheEntry(cacheKey, entry);
+  pbkdf2Cache.set(cacheKey, entry);
+  prunePbkdf2Cache();
+  return Buffer.from(value);
+}
 
 async function pbkdf2ByRNAes({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   const hexPassword = bufferUtils.bytesToHex(password);
   const hexSalt = bufferUtils.bytesToHex(salt);
@@ -40,37 +325,134 @@ async function pbkdf2ByRNAes({
   const key: string = await RN_AES.pbkdf2(
     hexPassword,
     hexSalt,
-    iterations, // 5000
+    iterations,
     keyLength * 8, // 32
     'sha256', // sha512 sha256
   );
   //   return bufferUtils.bytesToHex(key);
+  recordPbkdf2Invocation({
+    backend: 'react-native-aes-crypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
   return bufferUtils.toBuffer(key, 'hex');
+}
+
+async function pbkdf2ByRNFastPbkdf2({
+  password,
+  salt,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
+}: IPbkdf2Params): Promise<Buffer> {
+  const key = await RN_FAST_PBKDF2.derive(
+    bufferUtils.bytesToBase64(password),
+    bufferUtils.bytesToBase64(salt),
+    iterations,
+    keyLength,
+    'sha-256',
+  );
+  recordPbkdf2Invocation({
+    backend: 'react-native-fast-pbkdf2',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
+  return bufferUtils.base64ToBytes(key);
+}
+
+async function pbkdf2ByRNQuickCrypto({
+  password,
+  salt,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
+}: IPbkdf2Params): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    RN_QUICK_CRYPTO.pbkdf2(
+      password,
+      salt,
+      iterations,
+      keyLength,
+      'sha256',
+      (err, derivedKey) => {
+        if (err || !derivedKey) {
+          reject(err || new OneKeyLocalError('quick-crypto PBKDF2 failed'));
+          return;
+        }
+        recordPbkdf2Invocation({
+          backend: 'react-native-quick-crypto',
+          debugCryptoProbeId,
+          iterations,
+          keyLength,
+        });
+        resolve(Buffer.from(derivedKey));
+      },
+    );
+  });
+}
+
+function pbkdf2ByRNQuickCryptoSync({
+  password,
+  salt,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
+}: IPbkdf2Params): Buffer {
+  const key = RN_QUICK_CRYPTO.pbkdf2Sync(
+    password,
+    salt,
+    iterations,
+    keyLength,
+    'sha256',
+  );
+  recordPbkdf2Invocation({
+    backend: 'react-native-quick-crypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
+  return Buffer.from(key);
 }
 
 async function pbkdf2ByNoble({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   const key = await pbkdf2ByNobleFnAsync(sha256ByNoble, password, salt, {
     c: iterations,
     dkLen: keyLength,
   });
 
+  recordPbkdf2Invocation({
+    backend: 'noble',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
   return bufferUtils.toBuffer(key, 'hex');
 }
 
 function pbkdf2ByNobleSync({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   const key = pbkdf2ByNobleFn(sha256ByNoble, password, salt, {
     c: iterations,
     dkLen: keyLength,
+  });
+  recordPbkdf2Invocation({
+    backend: 'noble',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
   });
   return bufferUtils.toBuffer(key, 'hex');
 }
@@ -78,8 +460,9 @@ function pbkdf2ByNobleSync({
 async function pbkdf2ByNodeCrypto({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   return new Promise<Buffer>((resolve, reject) => {
     pbkdf2ByNode(
@@ -92,6 +475,12 @@ async function pbkdf2ByNodeCrypto({
         if (err) {
           reject(err);
         } else {
+          recordPbkdf2Invocation({
+            backend: 'node-crypto',
+            debugCryptoProbeId,
+            iterations,
+            keyLength,
+          });
           resolve(bufferUtils.toBuffer(derivedKey, 'hex'));
         }
       },
@@ -102,20 +491,57 @@ async function pbkdf2ByNodeCrypto({
 function pbkdf2ByNodeCryptoSync({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
-  return bufferUtils.toBuffer(
-    pbkdf2ByNodeSync(password, salt, iterations, keyLength, 'sha256'),
+  const key = pbkdf2ByNodeSync(password, salt, iterations, keyLength, 'sha256');
+  recordPbkdf2Invocation({
+    backend: 'node-crypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
+  return bufferUtils.toBuffer(key);
+}
+
+function isWebCryptoPbkdf2Supported(): boolean {
+  const subtle = globalThis.crypto?.subtle as Partial<SubtleCrypto> | undefined;
+  return Boolean(
+    subtle &&
+    typeof subtle.importKey === 'function' &&
+    typeof subtle.deriveBits === 'function',
   );
+}
+
+function getPbkdf2KdfParamsForNonDbTx(): IPbkdf2KdfParams {
+  if (
+    !platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !platformEnv.isWebEmbed &&
+    (platformEnv.isWeb || platformEnv.isDesktop || platformEnv.isExtension) &&
+    isWebCryptoPbkdf2Supported()
+  ) {
+    return {
+      kdfBackend: 'webcrypto',
+      enablePbkdf2Cache: true,
+    };
+  }
+  return {
+    enablePbkdf2Cache: true,
+  };
 }
 
 async function pbkdf2ByWebCrypto({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
+  if (!isWebCryptoPbkdf2Supported()) {
+    throw new OneKeyLocalError('WebCrypto PBKDF2 is not supported');
+  }
   const key = await globalThis.crypto.subtle.importKey(
     'raw',
     password as unknown as ArrayBuffer,
@@ -133,14 +559,21 @@ async function pbkdf2ByWebCrypto({
     key,
     keyLength * 8,
   );
+  recordPbkdf2Invocation({
+    backend: 'webcrypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
   return bufferUtils.toBuffer(derivedBits, 'hex');
 }
 
 function pbkdf2ByAsmcryptoSync({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   const key: Uint8Array = AsmcryptoPbkdf2HmacSha256(
     password,
@@ -148,14 +581,21 @@ function pbkdf2ByAsmcryptoSync({
     iterations,
     keyLength,
   );
+  recordPbkdf2Invocation({
+    backend: 'asmcrypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
   return bufferUtils.toBuffer(key, 'hex');
 }
 
 async function pbkdf2ByRNCrypto({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Promise<Buffer> {
   // polyfilled by react-native-crypto
   const fn = (
@@ -177,6 +617,12 @@ async function pbkdf2ByRNCrypto({
         if (err) {
           reject(err);
         } else {
+          recordPbkdf2Invocation({
+            backend: 'react-native-crypto',
+            debugCryptoProbeId,
+            iterations,
+            keyLength,
+          });
           resolve(bufferUtils.toBuffer(derivedKey, 'hex'));
         }
       },
@@ -187,8 +633,9 @@ async function pbkdf2ByRNCrypto({
 function pbkdf2ByRNCryptoSync({
   password,
   salt,
-  iterations = PBKDF2_NUM_OF_ITERATIONS,
+  iterations = PBKDF2_CURRENT_NUM_OF_ITERATIONS,
   keyLength = PBKDF2_KEY_LENGTH,
+  debugCryptoProbeId,
 }: IPbkdf2Params): Buffer {
   // polyfilled by react-native-crypto
   const fn = (
@@ -199,15 +646,20 @@ function pbkdf2ByRNCryptoSync({
   if (!fn) {
     throw new OneKeyLocalError('globalThis.crypto.pbkdf2Sync is not supported');
   }
-  return bufferUtils.toBuffer(
-    fn(
-      password.toString('utf8'),
-      salt.toString('utf8'),
-      iterations,
-      keyLength,
-      'sha256',
-    ),
+  const key = fn(
+    password.toString('utf8'),
+    salt.toString('utf8'),
+    iterations,
+    keyLength,
+    'sha256',
   );
+  recordPbkdf2Invocation({
+    backend: 'react-native-crypto',
+    debugCryptoProbeId,
+    iterations,
+    keyLength,
+  });
+  return bufferUtils.toBuffer(key);
 }
 
 function _pbkdf2AsyncCheck(params: IPbkdf2Params) {
@@ -222,22 +674,91 @@ function _pbkdf2AsyncCheck(params: IPbkdf2Params) {
 
 function pbkdf2Sync(params: IPbkdf2Params): Buffer {
   _pbkdf2AsyncCheck(params);
-  const r: Buffer = pbkdf2ByAsmcryptoSync(params);
-  return r;
+  return runPbkdf2SyncWithCache(params, () => pbkdf2ByAsmcryptoSync(params));
 }
 
-async function pbkdf2(params: IPbkdf2Params): Promise<Buffer> {
+function setPbkdf2NativeBackend(backend: IPbkdf2NativeBackend | undefined) {
+  pbkdf2NativeBackend = backend || DEFAULT_PBKDF2_NATIVE_BACKEND;
+}
+
+function getPbkdf2NativeBackend(): IPbkdf2NativeBackend {
+  return pbkdf2NativeBackend;
+}
+
+async function pbkdf2BySelectedNativeBackend(
+  params: IPbkdf2Params,
+): Promise<Buffer> {
+  if (pbkdf2NativeBackend === 'react-native-quick-crypto') {
+    return pbkdf2ByRNQuickCrypto(params);
+  }
+  if (pbkdf2NativeBackend === 'react-native-fast-pbkdf2') {
+    return pbkdf2ByRNFastPbkdf2(params);
+  }
+  return pbkdf2ByRNAes(params);
+}
+
+async function pbkdf2ByConcreteNativeBackend(
+  backend: IPbkdf2NativeBackend,
+  params: IPbkdf2Params,
+): Promise<Buffer> {
+  if (!platformEnv.isNative) {
+    throw new OneKeyLocalError(`${backend} is only supported on native`);
+  }
+  if (backend === 'react-native-quick-crypto') {
+    return pbkdf2ByRNQuickCrypto(params);
+  }
+  if (backend === 'react-native-fast-pbkdf2') {
+    return pbkdf2ByRNFastPbkdf2(params);
+  }
+  return pbkdf2ByRNAes(params);
+}
+
+async function pbkdf2(params: IPbkdf2DispatchParams): Promise<Buffer> {
   _pbkdf2AsyncCheck(params);
-  if (platformEnv.isNative) {
-    const r: Buffer = await pbkdf2ByRNAes(params);
+  return runPbkdf2WithCache(params, async () => {
+    if (params.backend === 'noble') {
+      return pbkdf2ByNoble(params);
+    }
+    if (params.backend === 'webcrypto') {
+      return pbkdf2ByWebCrypto(params);
+    }
+    if (
+      params.backend === 'react-native-aes-crypto' ||
+      params.backend === 'react-native-fast-pbkdf2' ||
+      params.backend === 'react-native-quick-crypto'
+    ) {
+      return pbkdf2ByConcreteNativeBackend(params.backend, params);
+    }
+    if (params.backend === 'native') {
+      if (platformEnv.isNative) {
+        return pbkdf2BySelectedNativeBackend(params);
+      }
+      if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+        return pbkdf2ByWebCrypto(params);
+      }
+      return pbkdf2ByAsmcryptoSync(params);
+    }
+    if (platformEnv.isNative) {
+      const r: Buffer = await pbkdf2BySelectedNativeBackend(params);
+      return r;
+    }
+    if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
+      const r: Buffer = await pbkdf2ByWebCrypto(params);
+      return r;
+    }
+    const r: Buffer = pbkdf2ByAsmcryptoSync(params);
     return r;
+  });
+}
+
+function getPbkdf2BackendForCurrentPlatform(): string {
+  if (platformEnv.isNative) {
+    return pbkdf2NativeBackend;
   }
   if (ALLOW_USE_WEB_CRYPTO_SUBTLE) {
-    const r: Buffer = await pbkdf2ByWebCrypto(params);
-    return r;
+    return 'webcrypto';
   }
-  const r: Buffer = pbkdf2ByAsmcryptoSync(params);
-  return r;
+  return 'asmcrypto';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -278,7 +799,7 @@ async function $testSampleForPbkdf2() {
   let expect = '';
 
   // Test PBKDF2 implementations
-  expect = '19de37b37bf2ba925f91745048921392cd51cdfde43763e7e915124b5c23ce7e';
+  expect = 'd2e6cd380040d8514473883d4da978206bfb774889f1dd8246b77f7f341e0a12';
   tasks.push(
     await runAppCryptoTestTask({
       expect,
@@ -286,6 +807,32 @@ async function $testSampleForPbkdf2() {
       fn: () => pbkdf2ByRNAes({ password, salt }),
     }),
   );
+
+  if (platformEnv.isNative) {
+    tasks.push(
+      await runAppCryptoTestTask({
+        expect,
+        name: 'pbkdf2ByRNFastPbkdf2',
+        fn: () => pbkdf2ByRNFastPbkdf2({ password, salt }),
+      }),
+    );
+
+    tasks.push(
+      await runAppCryptoTestTask({
+        expect,
+        name: 'pbkdf2ByRNQuickCrypto',
+        fn: () => pbkdf2ByRNQuickCrypto({ password, salt }),
+      }),
+    );
+
+    tasks.push(
+      await runAppCryptoTestTask({
+        expect,
+        name: 'pbkdf2ByRNQuickCryptoSync',
+        fn: () => pbkdf2ByRNQuickCryptoSync({ password, salt }),
+      }),
+    );
+  }
 
   tasks.push(
     await runAppCryptoTestTask({
@@ -386,7 +933,7 @@ async function $testSampleForPbkdf2() {
 // const key = pbkdf2Ethers(
 //   hashedPassword,
 //   salt,
-//   PBKDF2_NUM_OF_ITERATIONS,
+//   PBKDF2_CURRENT_NUM_OF_ITERATIONS,
 //   PBKDF2_KEY_LENGTH,
 //   'sha256',
 // );
@@ -397,4 +944,30 @@ async function $testSampleForPbkdf2() {
 // import * as ExpoCrypto from 'expo-crypto';
 // expo-crypto does not support pbkdf2 algorithm, only supports hash digest algorithms
 
-export { $testSampleForPbkdf2, pbkdf2Sync, pbkdf2 };
+export type {
+  IPbkdf2DispatchBackend,
+  IPbkdf2DispatchParams,
+  IPbkdf2KdfParams,
+  IPbkdf2NativeBackend,
+};
+
+export {
+  $testSampleForPbkdf2,
+  clearLastPbkdf2Invocation,
+  clearPbkdf2Cache,
+  clearPbkdf2InvocationByProbeId,
+  getLastPbkdf2Invocation,
+  getPbkdf2InvocationByProbeId,
+  getPbkdf2BackendForCurrentPlatform,
+  getPbkdf2KdfParamsForNonDbTx,
+  getPbkdf2NativeBackend,
+  isWebCryptoPbkdf2Supported,
+  setPbkdf2NativeBackend,
+  pbkdf2ByNoble,
+  pbkdf2ByRNFastPbkdf2,
+  pbkdf2ByRNAes,
+  pbkdf2ByRNQuickCrypto,
+  pbkdf2ByRNQuickCryptoSync,
+  pbkdf2Sync,
+  pbkdf2,
+};

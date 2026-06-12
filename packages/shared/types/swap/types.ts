@@ -43,6 +43,7 @@ export enum EWrappedType {
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+  PRIVATE_SEND = 'PrivateSend',
   ALL = 'All',
 }
 
@@ -50,6 +51,7 @@ export enum ESwapTabSwitchType {
   SWAP = 'swap',
   BRIDGE = 'bridge',
   LIMIT = 'limit',
+  PRIVATE_SEND = 'privateSend',
 }
 
 export enum ESwapDirectionType {
@@ -125,6 +127,7 @@ export interface ISwapInitParams {
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
+  swapSource?: ESwapSource;
 }
 
 // token & network
@@ -135,6 +138,7 @@ export interface ISwapNetworkBase {
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
+  supportPrivateSend?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -142,6 +146,8 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   symbol: string;
   shortcode?: string;
   logoURI?: string;
+  backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
   isAllNetworks?: boolean;
 }
 
@@ -157,6 +163,7 @@ export interface ISwapTokenBase {
   name?: string;
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
+  supportProtocol?: boolean;
 }
 
 export interface IFreeFeeTokenItem {
@@ -211,6 +218,7 @@ export interface IFetchTokensParams {
   accountId?: string;
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
+  lpToken?: boolean;
 }
 
 export interface IFetchTokenListParams {
@@ -224,6 +232,7 @@ export interface IFetchTokenListParams {
   keywords?: string;
   skipReservationValue?: boolean;
   onlyAccountTokens?: boolean;
+  lpToken?: boolean;
 }
 
 export interface IFetchTokenDetailParams {
@@ -569,7 +578,8 @@ export interface IFetchQuoteResult {
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
   approvedInfo?: IApprovedInfo;
-  estimatedTime?: string;
+  estimatedTime?: string | number; // legacy provider value, in seconds
+  estTime?: string | number; // server computed value, in minutes
   isBest?: boolean;
   receivedBest?: boolean;
   minGasCost?: boolean;
@@ -577,6 +587,7 @@ export interface IFetchQuoteResult {
   isWrapped?: boolean;
   unSupportReceiveAddressDifferent?: boolean;
   routesData?: IQuoteRoutePath[];
+  openRouterInfo?: boolean;
   quoteExtraData?: IQuoteExtraData;
   autoSuggestedSlippage?: number;
   unSupportSlippage?: boolean;
@@ -619,6 +630,7 @@ export interface IFetchQuoteResult {
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
+  valueDropPercent?: number;
   gasLimit?: number;
   slippage?: number;
   providerDisableBatchTransfer?: boolean;
@@ -931,6 +943,7 @@ export enum ESwapTxHistoryStatus {
   SUCCESS = 'success',
   FAILED = 'failed',
   PENDING = 'pending',
+  DEPOSIT_SUCCESS = 'depositSuccess',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
   PARTIALLY_FILLED = 'partiallyFilled',
@@ -968,6 +981,7 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
@@ -1102,6 +1116,13 @@ export interface IFetchSpeedCheckResult {
   };
   fromTokenInfo?: ISwapTokenBase;
   toTokenInfo?: ISwapTokenBase;
+}
+
+export interface IFetchUSMarketStatusResult {
+  open: boolean;
+  session: 'PRE_MARKET' | 'REGULAR' | 'POST_MARKET' | 'OVERNIGHT' | 'CLOSED';
+  reason: string | null;
+  unavailable?: boolean;
 }
 
 export enum ESwapLimitOrderStatus {

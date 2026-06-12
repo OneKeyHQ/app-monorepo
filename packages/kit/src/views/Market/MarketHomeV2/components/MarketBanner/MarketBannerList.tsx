@@ -82,6 +82,7 @@ function MarketBannerListComponent() {
     <MarketBannerItem
       key={item._id}
       item={item}
+      isSmallScreen={isSmallScreen}
       onPress={toMarketBannerDetail}
     />
   ));

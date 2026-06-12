@@ -80,7 +80,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
-        await decryptAsync({ password, data: privateKeyRaw })
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        })
       ).toString('hex')}`;
     }
     throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
@@ -91,7 +96,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   }: {
     payload: ICoreApiSignBasePayload;
   }): Promise<ICoreApiPrivateKeysMap> {
-    const { credentials, account, password, relPaths } = payload;
+    const {
+      credentials,
+      account,
+      password,
+      relPaths,
+      kdfBackend,
+      enablePbkdf2Cache,
+    } = payload;
     let privateKeys: ICoreApiPrivateKeysMap = {};
     if (credentials.hd) {
       const pathComponents = account.path.split('/');
@@ -122,9 +134,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
+        kdfBackend,
+        enablePbkdf2Cache,
       });
       const encryptPrivateKey = bufferUtils.bytesToHex(
-        await encryptAsync({ password, data: p }),
+        await encryptAsync({
+          password,
+          data: p,
+          kdfBackend,
+          enablePbkdf2Cache,
+        }),
       );
       privateKeys[account.path] = encryptPrivateKey;
       privateKeys[''] = encryptPrivateKey;
@@ -225,12 +244,24 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getAddressesFromHd(
     query: ICoreApiGetAddressesQueryHd,
   ): Promise<ICoreApiGetAddressesResult> {
-    const { template, hdCredential, password, indexes } = query;
+    const {
+      template,
+      hdCredential,
+      password,
+      indexes,
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
+    } = query;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const mnemonic = await mnemonicFromEntropy(hdCredential, password);
+    const mnemonic = await mnemonicFromEntropy(hdCredential, password, {
+      hdCredentialCacheScopeId,
+      kdfBackend,
+      enablePbkdf2Cache,
+    });
 
     const publicKeys = indexFormatted.map((index) => {
       const path = `${pathPrefix}/${index}`;

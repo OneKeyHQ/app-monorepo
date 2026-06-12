@@ -1,5 +1,3 @@
-import { isNil } from 'lodash';
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -60,30 +58,6 @@ class ServiceMarket extends ServiceBase {
           .filter((i) => !filters.includes(i.categoryId))
           .toSorted((a, b) => Number(a.sequenceId) - Number(b.sequenceId))
       : data;
-  }
-
-  _fetchSearchTrending = memoizee(
-    async () => {
-      const categories = await this.fetchCategories([]);
-      const searchTrendingCategory = categories.find(
-        (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
-      );
-      return searchTrendingCategory
-        ? this.fetchCategory(
-            searchTrendingCategory.categoryId,
-            searchTrendingCategory.coingeckoIds,
-          )
-        : [];
-    },
-    {
-      promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
-    },
-  );
-
-  @backgroundMethod()
-  async fetchSearchTrending() {
-    return this._fetchSearchTrending();
   }
 
   _fetchTrendingV2 = memoizee(
@@ -204,7 +178,13 @@ class ServiceMarket extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchTokenChart(coingeckoId: string, days: string) {
+  async fetchTokenChart(
+    coingeckoId: string,
+    days: string,
+    options?: {
+      requestCurrency?: string;
+    },
+  ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     const response = await client.get<{
       data: IMarketTokenChart;
@@ -214,6 +194,13 @@ class ServiceMarket extends ServiceBase {
         days,
         points: !platformEnv.isNative || platformEnv.isNativeIOSPad ? 500 : 200,
       },
+      ...(options?.requestCurrency
+        ? {
+            headers: {
+              'x-onekey-request-currency': options.requestCurrency,
+            },
+          }
+        : {}),
     });
     const { data } = response.data;
     return data;
@@ -300,7 +287,7 @@ class ServiceMarket extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });
@@ -360,20 +347,6 @@ class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async getMarketWatchList() {
     return this.backgroundApi.simpleDb.marketWatchList.getMarketWatchList();
-  }
-
-  async getMarketWatchListWithFillingSortIndex() {
-    const items = await this.getMarketWatchList();
-    const hasMissingSortIndex = items.data.some((item) =>
-      isNil(item.sortIndex),
-    );
-    if (hasMissingSortIndex) {
-      const newList = sortUtils.fillingMissingSortIndex({ items: items.data });
-      await this.backgroundApi.simpleDb.marketWatchList.addMarketWatchList({
-        watchList: newList.items,
-      });
-    }
-    return this.getMarketWatchList();
   }
 }
 

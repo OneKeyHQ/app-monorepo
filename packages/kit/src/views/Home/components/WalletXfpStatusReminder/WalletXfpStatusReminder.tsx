@@ -61,7 +61,7 @@ export function WalletXfpReminderAlert({
       >
         {message}
       </SizableText>
-      <Button size="small" onPress={onPress}>
+      <Button size="small" onPress={onPress} testID="home-intl-btn">
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>

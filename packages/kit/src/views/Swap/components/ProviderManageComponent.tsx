@@ -103,6 +103,7 @@ export const ProviderSwitch = ({
           }}
         >
           <Switch
+            testID="swap-switch"
             value={serviceDisable ? false : providerEnable}
             size="small"
             disabled={serviceDisable}

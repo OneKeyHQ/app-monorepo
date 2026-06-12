@@ -23,7 +23,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EChainSelectorPages,
+  EModalSettingRoutes,
   IChainSelectorParamList,
+  IModalSettingParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -50,7 +52,11 @@ function AddCustomNetwork() {
   const navigation = useAppNavigation();
   const route =
     useRoute<
-      RouteProp<IChainSelectorParamList, EChainSelectorPages.AddCustomNetwork>
+      RouteProp<
+        IChainSelectorParamList & IModalSettingParamList,
+        | EChainSelectorPages.AddCustomNetwork
+        | EModalSettingRoutes.SettingCustomNetwork
+      >
     >();
   const {
     state,
@@ -64,7 +70,7 @@ function AddCustomNetwork() {
     blockExplorerUrl: routeBlockExplorerUrl,
   } = route.params ?? {};
 
-  const isEditMode = !!(route.params ?? {}).chainId;
+  const isEditMode = state === 'edit' || !!routeNetworkId;
 
   const { $sourceInfo, networkInfo } = useDappQuery<{
     networkInfo: IAddEthereumChainParameter;
@@ -236,9 +242,20 @@ function AddCustomNetwork() {
       void dappApprove.resolve({ result: network });
       setTimeout(() => {
         onSuccess?.(network);
-        defaultLogger.account.wallet.customNetworkAdded({
-          chainID: String(finalChainId),
-        });
+        // Skip add-analytics for edit saves only (`state === 'edit'`).
+        // ChainList pre-fills `chainId`, so we must not use it as the edit signal.
+        if (!isEditMode) {
+          let source: 'manual' | 'chainList' | 'dapp' = 'manual';
+          if ($sourceInfo?.id) {
+            source = 'dapp';
+          } else if (routeNetworkName) {
+            source = 'chainList';
+          }
+          defaultLogger.account.wallet.customNetworkAdded({
+            chainID: String(finalChainId),
+            source,
+          });
+        }
       }, 500);
       Toast.success({
         title: intl.formatMessage({
@@ -258,7 +275,17 @@ function AddCustomNetwork() {
     } finally {
       setIsLoading(false);
     }
-  }, [form, dappApprove, intl, navigation, getChainId, onSuccess, isEditMode]);
+  }, [
+    form,
+    dappApprove,
+    intl,
+    navigation,
+    getChainId,
+    onSuccess,
+    isEditMode,
+    $sourceInfo?.id,
+    routeNetworkName,
+  ]);
 
   const onDelete = useCallback(async () => {
     if (!routeNetworkId) {
@@ -303,6 +330,7 @@ function AddCustomNetwork() {
     }
     return (
       <IconButton
+        testID="setting-header-right-icon-btn"
         title={intl.formatMessage({ id: ETranslations.global_remove })}
         icon="DeleteOutline"
         variant="tertiary"
@@ -318,7 +346,7 @@ function AddCustomNetwork() {
     <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.custom_network_add_network_action_text,
+          id: ETranslations.custom_network_network_details,
         })}
         headerRight={headerRight}
       />
@@ -346,6 +374,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -391,6 +420,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-chain-id-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -400,6 +430,7 @@ function AddCustomNetwork() {
           </Form.Field>
           <Form.Field name="chainId" label="Chain ID" disabled>
             <Input
+              testID="setting-chain-id-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -423,6 +454,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',
@@ -453,6 +485,7 @@ function AddCustomNetwork() {
             }}
           >
             <Input
+              testID="setting-input"
               size="large"
               $gtMd={{
                 size: 'medium',

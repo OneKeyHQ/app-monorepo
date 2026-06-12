@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import PurchasesReactNative, { LOG_LEVEL } from 'react-native-purchases';
+import PurchasesReactNative, {
+  INTRO_ELIGIBILITY_STATUS,
+  LOG_LEVEL,
+} from 'react-native-purchases';
 
 import { Dialog, Toast } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
@@ -29,7 +32,10 @@ import type {
   ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
-import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
+import type {
+  CustomerInfo,
+  PurchasesPackage,
+} from '@revenuecat/purchases-typescript-internal';
 
 void (async () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -38,6 +44,38 @@ void (async () => {
     await PurchasesReactNative.setProxyURL('https://api.rc-backup.com/');
   }
 })();
+
+async function getIOSIntroEligibleProductIds(
+  nativePackages: PurchasesPackage[],
+): Promise<ReadonlySet<string> | undefined> {
+  if (!platformEnv.isNativeIOS) {
+    return undefined;
+  }
+
+  const productIds = nativePackages.map(({ product }) => product.identifier);
+  if (!productIds.length) {
+    return new Set();
+  }
+
+  try {
+    const eligibilityByProductId =
+      await PurchasesReactNative.checkTrialOrIntroductoryPriceEligibility(
+        productIds,
+      );
+
+    return new Set(
+      productIds.filter(
+        (productId) =>
+          eligibilityByProductId[productId]?.status ===
+          INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE,
+      ),
+    );
+  } catch {
+    // RevenueCat recommends showing non-intro pricing when eligibility is
+    // unknown to avoid misleading users.
+    return new Set();
+  }
+}
 
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -170,8 +208,11 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     }
     const offerings = await PurchasesReactNative.getOfferings();
     const packages: IPackage[] = [];
+    const availablePackages = offerings.current?.availablePackages || [];
+    const iosIntroEligibleProductIds =
+      await getIOSIntroEligibleProductIds(availablePackages);
 
-    offerings.current?.availablePackages.forEach((p) => {
+    availablePackages.forEach((p) => {
       const { subscriptionPeriod } = p.product;
       const pricePerYear = primePaymentUtils.normalizeNativePrice(
         p.product.pricePerYear || 0,
@@ -182,7 +223,12 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
 
       const currencyCode = p.product.currencyCode || '';
 
-      const freeTrial = primePaymentUtils.extractNativeFreeTrial(p.product);
+      const canShowFreeTrial = iosIntroEligibleProductIds
+        ? iosIntroEligibleProductIds.has(p.product.identifier)
+        : true;
+      const freeTrial = canShowFreeTrial
+        ? primePaymentUtils.extractNativeFreeTrial(p.product)
+        : undefined;
 
       packages.push({
         subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,

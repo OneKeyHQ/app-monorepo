@@ -21,11 +21,13 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 interface ISwapApprovingItemProps {
   approvingTransaction?: ISwapApproveTransaction;
   onComplete?: () => void;
+  testID?: string;
 }
 
 const SwapApprovingItem = ({
   approvingTransaction,
   onComplete,
+  testID,
 }: ISwapApprovingItemProps) => {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
@@ -135,6 +137,7 @@ const SwapApprovingItem = ({
   ]);
   return (
     <XStack
+      testID={testID}
       borderRadius="$2"
       p="$2.5"
       backgroundColor={themeVariant === 'light' ? '#F9F9F9E5' : '#1B1B1BCC'}

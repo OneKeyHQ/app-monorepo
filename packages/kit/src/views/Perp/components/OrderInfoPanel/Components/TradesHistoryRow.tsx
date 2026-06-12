@@ -31,7 +31,7 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   calcCellAlign,
   getColumnStyle,
-  getPerpFillDirectionType,
+  getFillDirectionDisplayInfo,
 } from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
@@ -113,40 +113,8 @@ const TradesHistoryRow = memo(
     }, [fill.time]);
 
     const directionInfo = useMemo(() => {
-      if (isSpotInstrument(fill.coin)) {
-        return {
-          directionStr:
-            fill.side === 'B'
-              ? intl.formatMessage({ id: ETranslations.global_buy })
-              : intl.formatMessage({ id: ETranslations.global_sell }),
-          directionColor: fill.side === 'B' ? '$green11' : '$red11',
-        };
-      }
-      const side = fill.side;
-      let directionColor = '$green11';
-      if (side === 'A') {
-        directionColor = '$red11';
-      }
-
-      const directionType = getPerpFillDirectionType(fill.dir);
-      let directionStr = fill.dir;
-      if (directionType === 'openLong') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_long,
-        });
-      } else if (directionType === 'openShort') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_short,
-        });
-      } else if (directionType === 'closeLong') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_order_close_long,
-        });
-      } else if (directionType === 'closeShort') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_order_close_short,
-        });
-      }
+      const { text, color } = getFillDirectionDisplayInfo({ fill, intl });
+      let directionStr = text;
 
       if (fill.liquidation) {
         const liqPrefix = intl.formatMessage({
@@ -158,8 +126,8 @@ const TradesHistoryRow = memo(
         directionStr = `${liqPrefix}: ${directionStr}`;
       }
 
-      return { directionStr, directionColor };
-    }, [fill.coin, fill.dir, fill.side, fill.liquidation, intl]);
+      return { directionStr, directionColor: color };
+    }, [fill, intl]);
 
     const tradeBaseInfo = useMemo(() => {
       const price = fill.px;
@@ -282,6 +250,7 @@ const TradesHistoryRow = memo(
                   </SizableText>
                   {canShare ? (
                     <IconButton
+                      testID="perp-icon-btn"
                       variant="tertiary"
                       size="small"
                       icon="ShareOutline"
@@ -348,7 +317,6 @@ const TradesHistoryRow = memo(
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {tradeBaseInfo.feeFormatted}
@@ -425,14 +393,16 @@ const TradesHistoryRow = memo(
               justifyContent={calcCellAlign(columnConfigs[2].align)}
               alignItems="center"
             >
-              <SizableText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                size="$bodySm"
-                color={directionInfo.directionColor}
-              >
-                {directionInfo.directionStr}
-              </SizableText>
+              <XStack gap="$1.5" alignItems="center">
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color={directionInfo.directionColor}
+                >
+                  {directionInfo.directionStr}
+                </SizableText>
+              </XStack>
             </XStack>
 
             {/* Price */}
@@ -490,7 +460,6 @@ const TradesHistoryRow = memo(
                   <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    dashColor="$textDisabled"
                     dashThickness={0.3}
                   >
                     {tradeBaseInfo.feeFormatted}
@@ -521,6 +490,7 @@ const TradesHistoryRow = memo(
             </SizableText>
             {canShare ? (
               <IconButton
+                testID="perp-icon-btn"
                 variant="tertiary"
                 size="small"
                 icon="ShareOutline"

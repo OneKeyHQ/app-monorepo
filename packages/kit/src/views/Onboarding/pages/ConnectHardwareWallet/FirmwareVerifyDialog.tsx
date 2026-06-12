@@ -509,6 +509,7 @@ export function EnumBasicDialogContentContainer({
       <Stack pt="$4">
         {!showRiskyWarning ? (
           <Button
+            testID="onboarding-render-footer-btn"
             $md={
               {
                 size: 'large',
@@ -536,6 +537,7 @@ export function EnumBasicDialogContentContainer({
               })}
             </SizableText>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',
@@ -687,6 +689,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Description>
             </Dialog.Header>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',
@@ -724,6 +727,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Description>
             </Dialog.Header>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',
@@ -736,6 +740,7 @@ export function EnumBasicDialogContentContainer({
             </Button>
             {canSkipUnofficialDevice ? (
               <Button
+                testID="onboarding-btn"
                 $md={
                   {
                     size: 'large',
@@ -776,6 +781,7 @@ export function EnumBasicDialogContentContainer({
               onActionPress={onActionPress}
             />
             <Button
+              testID="onboarding-btn"
               mt="$5"
               $md={
                 {
@@ -789,6 +795,7 @@ export function EnumBasicDialogContentContainer({
             </Button>
             {canSkipUnofficialDevice ? (
               <Button
+                testID="onboarding-btn"
                 mt="$5"
                 $md={
                   {
@@ -820,6 +827,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Description>
             </Dialog.Header>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',
@@ -850,6 +858,7 @@ export function EnumBasicDialogContentContainer({
               </Dialog.Description>
             </Dialog.Header>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',
@@ -888,6 +897,7 @@ export function EnumBasicDialogContentContainer({
               />
             </Dialog.Header>
             <Button
+              testID="onboarding-btn"
               $md={
                 {
                   size: 'large',

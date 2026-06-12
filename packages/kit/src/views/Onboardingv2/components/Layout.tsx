@@ -14,8 +14,9 @@ import {
   Divider,
   Icon,
   IconButton,
+  KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
+  Keyboard,
   Page,
-  ScrollView,
   Select,
   SizableText,
   XStack,
@@ -30,6 +31,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLanguageSelectorWithoutAuto } from '../../Setting/hooks/useLanguageSelector';
+import { OnboardingTestIDs } from '../testIDs';
 
 // Electron drag-region helpers. On desktop, the header container is a window
 // drag handle; interactive children opt out so they remain clickable.
@@ -81,6 +83,7 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
   if (gtMd && !exit) {
     return (
       <Button
+        testID={OnboardingTestIDs.layoutHeaderBackBtn}
         size="small"
         icon={icon}
         variant="tertiary"
@@ -95,6 +98,7 @@ export const LayoutHeaderBack = memo(({ exit }: { exit?: boolean }) => {
 
   return (
     <IconButton
+      testID={OnboardingTestIDs.layoutHeaderBackBtn}
       size={gtMd ? 'small' : 'medium'}
       icon={icon}
       variant="tertiary"
@@ -141,6 +145,7 @@ export const LayoutHeaderLanguageSelector = memo(() => {
   return (
     <YStack ml="auto" style={NO_DRAG_STYLE}>
       <Select
+        testID={OnboardingTestIDs.layoutHeaderLanguageSelector}
         offset={{ mainAxis: 8, crossAxis: 8 }}
         title={intl.formatMessage({ id: ETranslations.global_language })}
         items={options}
@@ -152,6 +157,7 @@ export const LayoutHeaderLanguageSelector = memo(() => {
         renderTrigger={({ label }) =>
           gtMd ? (
             <Button
+              testID={OnboardingTestIDs.layoutHeaderLanguageBtn}
               size="small"
               icon="GlobusOutline"
               variant="tertiary"
@@ -160,7 +166,12 @@ export const LayoutHeaderLanguageSelector = memo(() => {
               {label}
             </Button>
           ) : (
-            <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+            <IconButton
+              testID={OnboardingTestIDs.layoutHeaderLanguageIconBtn}
+              icon="GlobusOutline"
+              variant="tertiary"
+              ml="auto"
+            />
           )
         }
       />
@@ -179,6 +190,11 @@ export interface IOnboardingPageProps extends IPageProps {
   alignTop?: boolean;
   narrow?: boolean;
   backgroundLayer?: React.ReactNode;
+  /**
+   * Extra offset above the keyboard. Increase when a Page.Footer is rendered
+   * so the focused input clears the footer area, not just the keyboard.
+   */
+  keyboardBottomOffset?: number;
   children: React.ReactNode;
 }
 
@@ -192,6 +208,7 @@ export function OnboardingPage({
   alignTop = false,
   narrow = false,
   backgroundLayer,
+  keyboardBottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   children,
   ...pageProps
 }: IOnboardingPageProps) {
@@ -255,9 +272,14 @@ export function OnboardingPage({
         {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
       </LayoutHeader>
       {scrollable ? (
-        <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+        <Keyboard.AwareScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={keyboardBottomOffset}
+        >
           {contentArea}
-        </ScrollView>
+        </Keyboard.AwareScrollView>
       ) : (
         contentArea
       )}

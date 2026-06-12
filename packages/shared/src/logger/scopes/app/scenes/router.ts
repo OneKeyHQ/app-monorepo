@@ -1,5 +1,7 @@
 import { BaseScene } from '../../../base/baseScene';
-import { LogToLocal } from '../../../base/decorators';
+import { LogToLocal, LogToServer } from '../../../base/decorators';
+
+import type { ILoggerUtmParams } from '../../../utmParams';
 
 export class RouterScene extends BaseScene {
   @LogToLocal()
@@ -43,5 +45,10 @@ export class RouterScene extends BaseScene {
   @LogToLocal()
   public pageMounted(pageName: string) {
     return { pageName };
+  }
+
+  @LogToServer()
+  public utmParamsCaptured(params: ILoggerUtmParams) {
+    return params;
   }
 }

@@ -77,6 +77,7 @@ export function BTCFreshAddressProvider() {
         renderContent: (
           <YStack mt="$-1.5">
             <Button
+              testID="home-reset-ref-btn"
               icon="QuestionmarkOutline"
               size="small"
               variant="tertiary"

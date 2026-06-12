@@ -35,7 +35,11 @@ export const InputAccessoryDoneButton = ({
       borderTopColor="$borderSubduedLight"
     >
       {leftContent}
-      <Button variant="tertiary" onPress={() => Keyboard.dismiss()}>
+      <Button
+        variant="tertiary"
+        onPress={() => Keyboard.dismiss()}
+        testID="perp-is-keyboard-shown-btn"
+      >
         {intl.formatMessage({ id: ETranslations.global_done })}
       </Button>
     </XStack>
@@ -72,6 +76,7 @@ interface ITradingFormInputProps {
   readonly?: boolean;
   ifOnDialog?: boolean;
   isMobile?: boolean;
+  showAddOnsWhenDisabled?: boolean;
 }
 
 export const TradingFormInput = memo(
@@ -91,6 +96,7 @@ export const TradingFormInput = memo(
     keyboardType = 'decimal-pad',
     ifOnDialog = false,
     isMobile = false,
+    showAddOnsWhenDisabled = false,
   }: ITradingFormInputProps) => {
     const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
@@ -170,6 +176,7 @@ export const TradingFormInput = memo(
           }
         >
           <Input
+            testID="perp-input"
             flex={1}
             h={platformEnv.isNativeAndroid ? 40 : 36}
             size="small"
@@ -191,7 +198,9 @@ export const TradingFormInput = memo(
               p: 0,
               bg: 'transparent',
             }}
-            addOns={disabled ? undefined : renderAddOns()}
+            addOns={
+              disabled && !showAddOnsWhenDisabled ? undefined : renderAddOns()
+            }
             inputAccessoryViewID={shouldShowAccessory ? accessoryId : undefined}
           />
           {error ? (
@@ -238,6 +247,7 @@ export const TradingFormInput = memo(
       >
         <YStack>
           <Input
+            testID="perp-input"
             h={32}
             placeholder={placeholder}
             textAlign="right"

@@ -83,6 +83,7 @@ import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { useLanguageSelector, useResetApp } from '../../hooks';
+import { SettingTestIDs } from '../../testIDs';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -95,6 +96,7 @@ export interface ICustomElementProps {
   titleProps?: ISizableTextProps;
   iconProps?: IIconProps;
   icon?: IKeyOfIcons;
+  testID?: string;
   onPress?: () => void;
 }
 
@@ -107,7 +109,13 @@ export function CurrencyListItem(props: ICustomElementProps) {
   const [settings] = useSettingsPersistAtom();
   const text = settings.currencyInfo?.id ?? '';
   return (
-    <TabSettingsListItem {...props} userSelect="none" drillIn onPress={onPress}>
+    <TabSettingsListItem
+      {...props}
+      userSelect="none"
+      drillIn
+      onPress={onPress}
+      testID={SettingTestIDs.currencyItem}
+    >
       <ListItem.Text
         primaryTextProps={props?.titleProps}
         primary={text.toUpperCase()}
@@ -121,6 +129,7 @@ export function LanguageListItem(props: ICustomElementProps) {
   const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
+      testID="setting-language-list-item-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={options}
@@ -130,7 +139,11 @@ export function LanguageListItem(props: ICustomElementProps) {
       floatingPanelProps={{ maxHeight: 280 }}
       sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
-        <TabSettingsListItem {...props} userSelect="none">
+        <TabSettingsListItem
+          {...props}
+          userSelect="none"
+          testID={SettingTestIDs.languageItem}
+        >
           <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
@@ -184,6 +197,7 @@ export function ThemeListItem(props: ICustomElementProps) {
 
   return (
     <Select
+      testID="setting-on-change-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={options}
@@ -191,7 +205,11 @@ export function ThemeListItem(props: ICustomElementProps) {
       onChange={onChange}
       placement="bottom-end"
       renderTrigger={({ label }) => (
-        <TabSettingsListItem {...props} userSelect="none">
+        <TabSettingsListItem
+          {...props}
+          userSelect="none"
+          testID={SettingTestIDs.themeItem}
+        >
           <XStack alignItems="center">
             <ListItem.Text
               primaryTextProps={props?.titleProps}
@@ -308,7 +326,7 @@ export function ResetAppListItem(props: ICustomElementProps) {
       iconProps={{ ...iconProps, color: '$iconCritical' }}
       titleProps={{ ...titleProps, color: '$textCritical' }}
       onPress={resetApp}
-      testID="setting-erase-data"
+      testID={SettingTestIDs.eraseDataButton}
       drillIn
     />
   );
@@ -385,6 +403,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
 
   return (
     <Select
+      testID="setting-new-transport-type-select"
       offset={{ mainAxis: -4, crossAxis: -10 }}
       title={props?.title || ''}
       items={transportOptions}
@@ -518,11 +537,13 @@ function SocialButton({
   url,
   text,
   openInApp = false,
+  testID,
 }: {
   icon: IKeyOfIcons;
   url: string;
   text: string;
   openInApp?: boolean;
+  testID?: string;
 }) {
   const isTabNavigator = useIsTabNavigator();
   const buttonSize = isTabNavigator ? undefined : '$14';
@@ -538,6 +559,7 @@ function SocialButton({
     <Tooltip
       renderTrigger={
         <IconButton
+          testID={testID}
           w={buttonSize}
           h={buttonSize}
           bg="$bgSubdued"
@@ -567,6 +589,7 @@ function SupportButton({ text }: { text: string }) {
     <Tooltip
       renderTrigger={
         <IconButton
+          testID={SettingTestIDs.socialSupportBtn}
           bg="$bgSubdued"
           w={buttonSize}
           h={buttonSize}
@@ -668,16 +691,19 @@ export function SocialButtonGroup() {
           text={intl.formatMessage({
             id: ETranslations.global_official_website,
           })}
+          testID={SettingTestIDs.socialOnekeyWebsiteBtn}
         />
         <SocialButton
           icon="Xbrand"
           url={twitterFollowUrl}
           text={intl.formatMessage({ id: ETranslations.global_x })}
+          testID={SettingTestIDs.socialXBtn}
         />
         <SocialButton
           icon="GithubBrand"
           url={GITHUB_URL}
           text={intl.formatMessage({ id: ETranslations.global_github })}
+          testID={SettingTestIDs.socialGithubBtn}
         />
         <SupportButton
           text={intl.formatMessage({
@@ -692,7 +718,7 @@ export function SocialButtonGroup() {
         ai={isTabNavigator ? 'flex-start' : 'center'}
         pt={platformEnv.isNativeIOSPad ? '$3' : undefined}
         userSelect="none"
-        testID="setting-version"
+        testID={SettingTestIDs.versionItem}
       >
         <SizableText
           color={textColor}
@@ -741,6 +767,7 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID="setting-toggle-bluetooth-switch"
         size={ESwitchSize.small}
         value={enableDesktopBluetooth}
         onChange={toggleBluetooth}
@@ -765,6 +792,7 @@ export function MenuBarTrayListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabMenuBarTraySwitch}
         size={ESwitchSize.small}
         value={isEnabled}
         onChange={toggleMenuBarTray}
@@ -786,6 +814,7 @@ export function BTCFreshAddressListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID="setting-toggle-b-t-c-fresh-address-switch"
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={enableBTCFreshAddress}
@@ -805,6 +834,7 @@ export function UseGasAccountByDefaultListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabUseGasAccountByDefaultSwitch}
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={useGasAccountByDefault ?? true}
@@ -832,6 +862,7 @@ export function SplitViewListItem(props: ICustomElementProps) {
   return (
     <TabSettingsListItem {...props} userSelect="none">
       <Switch
+        testID={SettingTestIDs.tabSplitViewSwitch}
         alignSelf="flex-start"
         size={ESwitchSize.small}
         value={checked}

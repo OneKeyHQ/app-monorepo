@@ -91,6 +91,7 @@ const SwapApproveAllowanceSelect = ({
         />
       </XStack>
       <Select
+        testID="swap-select"
         placement="bottom-end"
         items={selectItems}
         value={currentSelectAllowanceValue?.value}

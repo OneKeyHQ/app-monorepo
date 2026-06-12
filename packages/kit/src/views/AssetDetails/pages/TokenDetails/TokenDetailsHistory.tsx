@@ -1,5 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { unionBy } from 'lodash';
+
 import type { SectionList } from '@onekeyhq/components';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -10,6 +12,8 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
+import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
@@ -37,7 +41,10 @@ const tokenHistoryCache = new cacheUtils.LRUCache<string, IAccountHistoryTx[]>({
   ttlAutopurge: true,
 });
 
-function TokenDetailsHistory(props: IProps) {
+function TokenDetailsHistoryContent({
+  focusParam,
+  ...props
+}: IProps & { focusParam: boolean }) {
   const navigation = useAppNavigation();
 
   const {
@@ -60,11 +67,9 @@ function TokenDetailsHistory(props: IProps) {
     }
   }, []);
 
-  const { isFocused } = useTabIsRefreshingFocused();
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
-  const { updateAddressesInfo, setHasMoreOnChainHistory } =
-    useHistoryListActions().current;
+  const { updateAddressesInfo } = useHistoryListActions().current;
   const historyCacheKey = useMemo(
     () =>
       [
@@ -105,13 +110,38 @@ function TokenDetailsHistory(props: IProps) {
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       debounced: POLLING_DEBOUNCE_INTERVAL,
       overrideIsFocused: (isPageFocused: boolean) =>
-        isPageFocused && (isTabView ? isFocused : true),
+        isPageFocused && (isTabView ? focusParam : true),
       ...(cachedHistory !== undefined ? { initResult: cachedHistory } : {}),
     }),
-    [cachedHistory, isFocused, isTabView],
+    [cachedHistory, focusParam, isTabView],
   );
+  const {
+    appendedTxs,
+    hasMore: loadMoreHasMore,
+    isLoadingMore,
+    loadMore,
+    reset: resetLoadMore,
+    onFirstPageResponse,
+  } = useHistoryListLoadMore({
+    enabled: true,
+    accountId,
+    networkId,
+    tokenIdOnNetwork: tokenInfo.address,
+    filterScam: settings.isFilterScamHistoryEnabled,
+    filterLowValue: settings.isFilterLowValueHistoryEnabled,
+    sourceCurrency: settings.currencyInfo.id,
+    currencyMap,
+  });
+
+  // Monotonic request id; bumped on identity change AND at the start of every
+  // `run()` body so a slow stale response can't re-seed the load-more cursor
+  // after `resetLoadMore()` ran.
+  const fetchRequestIdRef = useRef(0);
   const { result: tokenHistory, run } = usePromiseResult(
     async () => {
+      fetchRequestIdRef.current += 1;
+      const requestId = fetchRequestIdRef.current;
+      const isCurrentRequest = () => fetchRequestIdRef.current === requestId;
       try {
         const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
@@ -122,17 +152,29 @@ function TokenDetailsHistory(props: IProps) {
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
         });
+        // Skip side effects if a newer fetch superseded this one.
+        if (!isCurrentRequest()) {
+          return r.txs ?? [];
+        }
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
-        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+        // Persist only first-page rows in the LRU cache; appended pages are
+        // session-scoped and would bloat the cache if stored here.
         tokenHistoryCache.set(historyCacheKey, r.txs ?? []);
+        onFirstPageResponse({
+          next: r.next,
+          hasMore: r.hasMoreOnChainHistory,
+          isIndexer: r.isIndexer,
+        });
         setTimeout(() => {
           recomputeLayout();
         }, 300);
         return r.txs ?? [];
       } finally {
-        setHistoryInit(true);
+        if (isCurrentRequest()) {
+          setHistoryInit(true);
+        }
       }
     },
     [
@@ -144,14 +186,26 @@ function TokenDetailsHistory(props: IProps) {
       settings.currencyInfo.id,
       currencyMap,
       updateAddressesInfo,
-      setHasMoreOnChainHistory,
       recomputeLayout,
       historyCacheKey,
+      onFirstPageResponse,
     ],
     historyPromiseOptions,
   );
 
-  const resolvedHistory = tokenHistory ?? cachedHistory ?? [];
+  // Reset load-more on identity change; bump the request id so an in-flight
+  // body resolving during the debounce window detects supersession.
+  useEffect(() => {
+    fetchRequestIdRef.current += 1;
+    resetLoadMore();
+  }, [historyCacheKey, resetLoadMore]);
+
+  const resolvedHistory = useMemo(() => {
+    const firstPageHistory = tokenHistory ?? cachedHistory ?? [];
+    return appendedTxs.length
+      ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
+      : firstPageHistory;
+  }, [tokenHistory, cachedHistory, appendedTxs]);
   // Derive initialized synchronously to avoid one-frame flash of empty history
   // when historyCacheKey changes and cachedHistory becomes undefined
   const effectiveInit = historyInit || cachedHistory !== undefined;
@@ -175,14 +229,26 @@ function TokenDetailsHistory(props: IProps) {
         }
       }
 
+      const accountAddress =
+        await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      const openedPrivateSendHistory = await maybeOpenPrivateSendHistoryDetail({
+        historyTx: tx,
+        navigation,
+        accountId,
+        accountAddress,
+        network: { id: networkId },
+        tokenInfo,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+      if (openedPrivateSendHistory) return;
+
       navigation.push(EModalAssetDetailRoutes.HistoryDetails, {
         accountId,
         networkId,
-        accountAddress:
-          await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
-            accountId,
-            networkId,
-          }),
+        accountAddress,
         xpub: await backgroundApiProxy.serviceAccount.getAccountXpub({
           accountId,
           networkId,
@@ -190,7 +256,7 @@ function TokenDetailsHistory(props: IProps) {
         historyTx: tx,
       });
     },
-    [accountId, navigation, networkId],
+    [accountId, navigation, networkId, settings.currencyInfo.symbol, tokenInfo],
   );
 
   useEffect(() => {
@@ -216,8 +282,25 @@ function TokenDetailsHistory(props: IProps) {
       onPressHistory={handleHistoryItemPress}
       ListHeaderComponent={ListHeaderComponent as React.ReactElement}
       isSingleAccount
+      onEndReached={loadMore}
+      isLoadingMore={isLoadingMore}
+      hasMore={loadMoreHasMore}
     />
   );
+}
+
+function TokenDetailsHistoryWithTabFocus(props: IProps) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <TokenDetailsHistoryContent {...props} focusParam={isFocused} />;
+}
+
+function TokenDetailsHistory(props: IProps) {
+  if (props.isTabView) {
+    return <TokenDetailsHistoryWithTabFocus {...props} />;
+  }
+
+  return <TokenDetailsHistoryContent {...props} focusParam />;
 }
 
 const TokenDetailsHistoryWithProvider = memo(

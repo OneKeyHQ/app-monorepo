@@ -9,6 +9,7 @@ interface ISwapFlashBtnProps {
 const SwapFlashBtn = ({ onFlashTrade, buttonProps }: ISwapFlashBtnProps) => {
   return (
     <Button
+      testID="market-swap-flash-btn-btn"
       size="small"
       variant="primary"
       w="$9"

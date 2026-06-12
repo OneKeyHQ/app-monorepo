@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -38,6 +38,9 @@ import {
 } from '../components/Layout';
 import { useCloudBackup } from '../hooks/useCloudBackup';
 import { useKeylessLocalExistenceLogin } from '../hooks/useKeylessLocalExistenceLogin';
+import { OnboardingTestIDs } from '../testIDs';
+
+import { KeylessOnboardingDebugPanel } from './KeylessOnboardingDebugPanel';
 
 type IImportOption = {
   key: string;
@@ -61,13 +64,17 @@ function CreateOrImportWallet() {
   const navigation = useAppNavigation();
   const liteCard = useLiteCard();
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const [isResetMode, setIsResetMode] = useState(false);
 
   const {
     enableKeylessWalletLoading,
     loadingProvider,
     handleGoogleLogin,
     handleAppleLogin,
-  } = useKeylessLocalExistenceLogin();
+  } = useKeylessLocalExistenceLogin({
+    isResetMode,
+    onResetModeChange: setIsResetMode,
+  });
 
   const {
     checkLoading: cloudBackupCheckLoading,
@@ -158,11 +165,10 @@ function CreateOrImportWallet() {
 
   const options: IImportOption[] = useMemo(() => {
     const isGoogleLoading =
-      enableKeylessWalletLoading &&
       loadingProvider === EOAuthSocialLoginProvider.Google;
-    const isAppleLoading =
-      enableKeylessWalletLoading &&
-      loadingProvider === EOAuthSocialLoginProvider.Apple;
+    const isAppleLoading = loadingProvider === EOAuthSocialLoginProvider.Apple;
+    const isKeylessLoginInProgress =
+      enableKeylessWalletLoading || loadingProvider !== null;
 
     return [
       {
@@ -174,7 +180,7 @@ function CreateOrImportWallet() {
         ),
         onPress: handleGoogleLogin,
         isLoading: isGoogleLoading,
-        disabled: enableKeylessWalletLoading,
+        disabled: isKeylessLoginInProgress,
       },
       {
         key: 'apple',
@@ -185,7 +191,7 @@ function CreateOrImportWallet() {
         ),
         onPress: handleAppleLogin,
         isLoading: isAppleLoading,
-        disabled: enableKeylessWalletLoading,
+        disabled: isKeylessLoginInProgress,
       },
       {
         key: 'phraseOrPrivateKey',
@@ -282,6 +288,7 @@ function CreateOrImportWallet() {
     return (
       <Button
         key={key}
+        testID={OnboardingTestIDs.createOrImportWalletOptionBtn(key)}
         variant={isPrimary ? 'primary' : 'secondary'}
         size="large"
         alignSelf="stretch"
@@ -346,6 +353,10 @@ function CreateOrImportWallet() {
             {highestPriorityOptions.map(renderPrimaryButton)}
             {gtMd ? <OnboardingOrDivider /> : null}
             {mediumPriorityOptions.map(renderPrimaryButton)}
+            <KeylessOnboardingDebugPanel
+              isResetMode={isResetMode}
+              onResetModeChange={setIsResetMode}
+            />
           </YStack>
         </YStack>
         <OnboardingSidebar gap="$2" $md={{ mt: '$12' }}>
@@ -362,8 +373,10 @@ function CreateOrImportWallet() {
             {intl.formatMessage({ id: ETranslations.more_options })}
           </SizableText>
           <YStack
+            pb="$5"
             $gtMd={{
               mx: '$-5',
+              pb: '$5',
             }}
           >
             {secondaryOptions.map(renderSecondaryItem)}

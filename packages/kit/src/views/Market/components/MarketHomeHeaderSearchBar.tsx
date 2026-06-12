@@ -9,6 +9,8 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { MarketTestIDs } from '../testIDs';
+
 export function MarketHomeHeaderSearchBar() {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -21,6 +23,7 @@ export function MarketHomeHeaderSearchBar() {
   return (
     <XStack $gtSm={{ width: 184 }}>
       <SearchBar
+        testID={MarketTestIDs.searchBar}
         placeholder={intl.formatMessage({
           id: ETranslations.global_search,
         })}

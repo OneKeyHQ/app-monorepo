@@ -44,6 +44,7 @@ import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { FeeEditor } from '../../components/SendFee';
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
+import { SendTestIDs } from '../../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -670,6 +671,7 @@ function SendReplaceTxContainer() {
               {renderNewFee()}
             </Stack>
             <IconButton
+              testID="send-icon-btn"
               title={intl.formatMessage({ id: ETranslations.global_edit })}
               icon="PencilOutline"
               onPress={handleEditReplaceTxFeeInfo}
@@ -677,6 +679,7 @@ function SendReplaceTxContainer() {
             {/* Show only after customizing the fee */}
             {shouldShowResetButton ? (
               <IconButton
+                testID="send-icon-btn"
                 title={intl.formatMessage({ id: ETranslations.global_reset })}
                 ml="$2"
                 icon="UndoOutline"
@@ -808,7 +811,9 @@ function SendReplaceTxContainer() {
             : intl.formatMessage({ id: ETranslations.global_cancel })
         }
       />
-      <Page.Body testID="replace-tx-modal">{renderContent()}</Page.Body>
+      <Page.Body testID={SendTestIDs.replaceTxPage}>
+        {renderContent()}
+      </Page.Body>
       <Page.Footer
         confirmButtonProps={{
           disabled:

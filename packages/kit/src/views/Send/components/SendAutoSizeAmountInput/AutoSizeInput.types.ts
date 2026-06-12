@@ -2,6 +2,7 @@ import type { IInputProps } from '@onekeyhq/components';
 
 export type IAutoSizeInputRef = {
   focus: () => void;
+  blur: () => void;
 };
 
 export type IAutoSizeInputProps = {

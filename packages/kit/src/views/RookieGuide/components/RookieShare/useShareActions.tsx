@@ -92,6 +92,7 @@ export function useShareActions(referralUrl?: string) {
             actionsAlign: 'left',
             actions: (
               <Button
+                testID="rookie-guide-open-photo-library-btn"
                 variant="tertiary"
                 size="small"
                 onPress={openPhotoLibrary}

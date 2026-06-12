@@ -49,6 +49,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
+import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -127,6 +128,9 @@ export function useSwapQuote() {
   const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
     fromTokenAmount,
   );
+  const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    toTokenAmount,
+  );
 
   const swapSlippageRef = useRef(slippageItem);
   const slippageKeyLastRef = useRef(slippageItem.key);
@@ -137,11 +141,18 @@ export function useSwapQuote() {
   );
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  const shouldRefreshPreservedInputQuoteOnFocusRef = useRef(false);
   if (
     fromTokenAmountRef.current?.value !== fromTokenAmount.value ||
     fromTokenAmountRef.current?.isInput !== fromTokenAmount.isInput
   ) {
     fromTokenAmountRef.current = fromTokenAmount;
+  }
+  if (
+    toTokenAmountRef.current?.value !== toTokenAmount.value ||
+    toTokenAmountRef.current?.isInput !== toTokenAmount.isInput
+  ) {
+    toTokenAmountRef.current = toTokenAmount;
   }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
     swapToAddressInfoRef.current = swapToAddressInfo;
@@ -671,6 +682,19 @@ export function useSwapQuote() {
       } else if (providerQuoteResult?.some((item) => !item.toAmount)) {
         finalStatus = ESwapEventAPIStatus.PARTIAL_SUCCESS;
       }
+      let finalMessage = errorMessage;
+      if (!finalMessage && finalStatus !== ESwapEventAPIStatus.SUCCESS) {
+        if (!providerQuoteResult?.length) {
+          finalMessage = 'no provider result';
+        } else {
+          const failedProviders = providerQuoteResult.filter(
+            (p) => !p.toAmount,
+          );
+          finalMessage = failedProviders
+            .map((p) => `${p.providerName}: ${p.errorMessage ?? 'no quote'}`)
+            .join('; ');
+        }
+      }
       defaultLogger.swap.swapQuote.swapQuote({
         fromAddress: swapAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
@@ -689,7 +713,7 @@ export function useSwapQuote() {
         isSmartMode: settingsPersistAtomRef.current.swapBatchApproveAndSwap,
         status: finalStatus,
         providerQuoteResult,
-        message: errorMessage,
+        message: finalMessage,
       });
     },
     [swapAddressInfo.address, swapToAddressInfo.address],
@@ -749,6 +773,25 @@ export function useSwapQuote() {
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
+          if (shouldRefreshPreservedInputQuoteOnFocusRef.current) {
+            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
+            const quoteKind =
+              swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
+              toTokenAmountRef.current.isInput &&
+              toTokenAmountRef.current.value
+                ? ESwapQuoteKind.BUY
+                : ESwapQuoteKind.SELL;
+            void quoteAction(
+              swapSlippageRef.current,
+              activeAccountRef.current?.address,
+              activeAccountRef.current?.accountInfo?.account?.id,
+              undefined,
+              undefined,
+              quoteKind,
+              undefined,
+              swapToAddressInfoRef.current.address,
+            );
+          }
         } else if (isHiddenModel) {
           if (
             swapQuoteFetchingRef.current ||
@@ -757,12 +800,21 @@ export function useSwapQuote() {
                 swapQuoteEventTotalCountRef.current.count)
           ) {
             // reset tab quote data when swap modal is open and tab quote data is fetching
+            const shouldPreserveUserInputAmount =
+              shouldPreserveSwapUserInputAmountOnAccountSwitch({
+                fromTokenAmount: fromTokenAmountRef.current,
+                toTokenAmount: toTokenAmountRef.current,
+              });
             closeQuoteEvent();
             setSwapQuoteEventTotalCount({
               count: 0,
             });
             setSwapQuoteResultList([]);
-            setFromTokenAmount({ value: '', isInput: true });
+            if (!shouldPreserveUserInputAmount) {
+              setFromTokenAmount({ value: '', isInput: true });
+            } else {
+              shouldRefreshPreservedInputQuoteOnFocusRef.current = true;
+            }
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, swapQuoteMixEvent);

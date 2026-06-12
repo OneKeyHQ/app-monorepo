@@ -8,18 +8,20 @@ function OptionButton({
   value,
   onPress,
   variant,
+  testID,
   ...props
 }: {
   label: string;
   value: string;
   onPress: (value: string) => void;
   variant: IButtonProps['variant'];
+  testID?: string;
 } & Omit<IStackProps, 'onPress'>) {
   const handlePress = useCallback(() => {
     onPress(value);
   }, [onPress, value]);
   return (
-    <Button variant={variant} onPress={handlePress} {...props}>
+    <Button testID={testID} variant={variant} onPress={handlePress} {...props}>
       {label}
     </Button>
   );
@@ -30,11 +32,13 @@ export function ToggleButton({
   title,
   options,
   onChange,
+  testIDPrefix,
 }: {
   value?: string;
   title?: string;
   options: { label: string; value: string }[];
   onChange: (value: string) => void;
+  testIDPrefix?: string;
 }) {
   return (
     <YStack>
@@ -48,6 +52,7 @@ export function ToggleButton({
             label={label}
             value={value}
             onPress={onChange}
+            testID={testIDPrefix ? `${testIDPrefix}-${value}` : undefined}
           />
         ))}
       </XStack>

@@ -15,17 +15,19 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  swapServiceFeeDefault,
+  privateSendProvider,
   swapSlippageDecimal,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  type ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
-import { SwapServiceFeeOverview } from '../../views/Swap/components/SwapServiceFeeOverview';
 import { NetworkAvatar } from '../NetworkAvatar';
 
 interface IProps {
@@ -46,8 +48,10 @@ function TxActionSwapInfo(props: IProps) {
     instantRate,
     slippage,
     unSupportSlippage,
-    fee,
   } = swapBuildResData.result;
+  const isPrivateSend =
+    swapInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    provider.provider === privateSendProvider;
 
   const { network: senderNetwork } = useAccountData({
     networkId: sender.accountInfo.networkId,
@@ -98,41 +102,6 @@ function TxActionSwapInfo(props: IProps) {
     );
   }, [instantRate, receiver.token.symbol, sender.token.symbol]);
 
-  const serviceFee = useMemo(() => {
-    if (!fee || isNil(fee.percentageFee)) {
-      return null;
-    }
-
-    const originPercentageFee = fee.percentOriginFee ?? swapServiceFeeDefault;
-
-    if (new BigNumber(fee.percentageFee).gte(originPercentageFee)) {
-      return (
-        <XStack alignItems="center" gap="$1">
-          <SizableText {...textStyle}>{fee.percentageFee}%</SizableText>
-          <SwapServiceFeeOverview
-            percentageFee={fee.percentageFee}
-            percentOriginFee={fee.percentOriginFee}
-          />
-        </XStack>
-      );
-    }
-
-    return (
-      <XStack alignItems="center" gap="$1">
-        <SizableText color="$textSuccess" {...textStyle}>
-          {fee.percentageFee}%
-        </SizableText>
-        <SizableText textDecorationLine="line-through" {...textStyle}>
-          {originPercentageFee}%
-        </SizableText>
-        <SwapServiceFeeOverview
-          percentageFee={fee.percentageFee}
-          percentOriginFee={fee.percentOriginFee}
-        />
-      </XStack>
-    );
-  }, [fee]);
-
   const intl = useIntl();
 
   if (!swapInfo) {
@@ -159,7 +128,7 @@ function TxActionSwapInfo(props: IProps) {
           }
           compactAll
         />
-        {tokenRate ? (
+        {tokenRate && !isPrivateSend ? (
           <InfoItem
             label={intl.formatMessage({
               id: ETranslations.swap_history_detail_rate,
@@ -169,7 +138,7 @@ function TxActionSwapInfo(props: IProps) {
           />
         ) : null}
 
-        {unSupportSlippage ? null : (
+        {unSupportSlippage || isPrivateSend ? null : (
           <InfoItem
             label={intl.formatMessage({
               id: ETranslations.swap_page_provider_slippage_tolerance,
@@ -180,15 +149,6 @@ function TxActionSwapInfo(props: IProps) {
             compactAll
           />
         )}
-        {serviceFee ? (
-          <InfoItem
-            label={intl.formatMessage({
-              id: ETranslations.swap_history_detail_service_fee,
-            })}
-            renderContent={serviceFee}
-            compactAll
-          />
-        ) : null}
         {sender.accountInfo.networkId !== receiver.accountInfo.networkId ? (
           <InfoItem
             compactAll

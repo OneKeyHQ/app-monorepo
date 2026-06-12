@@ -12,6 +12,8 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { ManualBackupTestIDs } from '../../testIDs';
+
 export default function ManualBackupSelectWalletPage() {
   const intl = useIntl();
   const walletList = usePromiseResult(async () => {
@@ -50,6 +52,7 @@ export default function ManualBackupSelectWalletPage() {
         <WalletListView
           walletList={walletList}
           onPick={onPick}
+          testID={ManualBackupTestIDs.walletList}
           ListEmptyComponent={
             <Empty
               illustration="QuestionMark"

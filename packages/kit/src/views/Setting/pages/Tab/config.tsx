@@ -54,6 +54,7 @@ import {
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 import { useCloudBackup } from '../../../Onboardingv2/hooks/useCloudBackup';
+import { SettingTestIDs } from '../../testIDs';
 
 import {
   AutoLockListItem,
@@ -87,6 +88,7 @@ export interface ISubSettingConfig {
   title: string;
   subtitle?: string;
   keywords?: string[];
+  testID?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -117,6 +119,7 @@ export type ISettingsConfig = (
       title: string;
       subtitle?: string;
       name: ESettingsTabNames;
+      testID?: string;
       isHidden?: boolean;
       showDot?: boolean;
       tabBarItemStyle?: IStackStyle;
@@ -157,8 +160,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
-  const { isLoggedIn } = useOneKeyAuth();
   const [settings] = useSettingsPersistAtom();
+  const { isPrimeActive } = useOneKeyAuth();
 
   const { cloudBackupFeatureInfo, startBackup } = useCloudBackup();
 
@@ -207,6 +210,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     defaultLogger.prime.subscription.primeEntryClick({
                       featureName: EPrimeFeatures.OneKeyCloud,
                       entryPoint: 'settingsPage',
+                      isPrimeActive,
                     });
 
                     navigation?.pushModal(EModalRoutes.PrimeModal, {
@@ -329,6 +333,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.global_notifications,
                   }),
+                  testID: SettingTestIDs.notificationsItem,
                   settingRoute: EModalSettingRoutes.SettingNotifications,
                   onPress: (
                     navigation?: ReturnType<typeof useAppNavigation>,
@@ -394,6 +399,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.settings_address_book,
                   }),
+                  testID: SettingTestIDs.addressBookItem,
                   onPress: (navigation) => {
                     void onPressAddressBook(navigation);
                   },
@@ -483,6 +489,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.Security,
         icon: 'Shield2CheckSolid',
+        testID: SettingTestIDs.securityItem,
         title: intl.formatMessage({
           id: ETranslations.global_security,
         }),
@@ -598,21 +605,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            isLoggedIn
-              ? {
-                  icon: 'RemovePeopleOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.id_delete_onekey_id,
-                  }),
-                  onPress: (navigation) => {
-                    navigation?.pushModal(EModalRoutes.PrimeModal, {
-                      screen: EPrimePages.PrimeDeleteAccount,
-                    });
-                  },
-                }
-              : null,
-          ],
-          [
             {
               icon: 'BroomOutline',
               title: intl.formatMessage({
@@ -654,10 +646,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   title: intl.formatMessage({
                     id: ETranslations.custom_network_add_network_action_text,
                   }),
-                  settingRoute: EModalSettingRoutes.SettingCustomNetwork,
+                  settingRoute: EModalSettingRoutes.SettingChainListSearch,
                   onPress: (navigation) => {
                     defaultLogger.setting.page.enterCustomRPC();
-                    navigation?.push(EModalSettingRoutes.SettingCustomNetwork);
+                    navigation?.push(
+                      EModalSettingRoutes.SettingChainListSearch,
+                    );
                   },
                 },
                 {
@@ -714,6 +708,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       {
         name: ESettingsTabNames.About,
         icon: 'InfoCircleSolid',
+        testID: SettingTestIDs.aboutItem,
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
@@ -887,7 +882,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
-      isLoggedIn,
       settings.hardwareTransportType,
       isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
@@ -898,6 +892,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
+      isPrimeActive,
     ],
   );
 };

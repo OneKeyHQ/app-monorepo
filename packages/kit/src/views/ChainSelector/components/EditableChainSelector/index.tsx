@@ -12,6 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { ChainSelectorTestIDs } from '../../testIDs';
+
 import { EditableChainSelectorContent } from './ChainSelectorContent';
 
 type IEditableChainSelectorProps = {
@@ -76,6 +78,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
       <HeaderIconButton
         icon="PlusLargeSolid"
         onPress={() => onAddCustomNetwork?.()}
+        testID={ChainSelectorTestIDs.addCustomNetworkBtn}
         title={intl.formatMessage({
           id: ETranslations.custom_network_add_network_action_text,
         })}

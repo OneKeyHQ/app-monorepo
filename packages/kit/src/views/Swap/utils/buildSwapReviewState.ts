@@ -14,6 +14,8 @@ import {
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { buildSwapRateDifference } from './swapRateDifferenceUtils';
+
 export type ISwapReviewStepTexts = {
   wrap: string;
   approveAndSwap: string;
@@ -151,13 +153,55 @@ function createBatchApproveSwapStep({
   };
 }
 
-function createSendTxStep(texts: ISwapReviewStepTexts): ISwapStep {
+function createSendTxStep(
+  texts: Pick<ISwapReviewStepTexts, 'confirmSwap' | 'swap'>,
+): ISwapStep {
   return {
     type: ESwapStepType.SEND_TX,
     status: ESwapStepStatus.READY,
     stepTitle: texts.confirmSwap,
     stepActionsLabel: texts.swap,
   };
+}
+
+export function buildSwapApproveAndSendSteps({
+  quoteResult,
+  texts,
+}: {
+  quoteResult?: IFetchQuoteResult;
+  texts: Pick<
+    ISwapReviewStepTexts,
+    | 'approveAndSwap'
+    | 'revokeApprove'
+    | 'approveTokenWithTarget'
+    | 'confirmSwap'
+    | 'swap'
+  >;
+}): ISwapStep[] {
+  let steps: ISwapStep[] = [];
+
+  if (quoteResult?.allowanceResult) {
+    if (quoteResult.allowanceResult.shouldResetApprove) {
+      steps = [
+        createApproveStep({
+          isResetApprove: true,
+          stepActionsLabel: texts.approveAndSwap,
+          stepTitle: texts.revokeApprove,
+        }),
+      ];
+    }
+
+    steps = [
+      ...steps,
+      createApproveStep({
+        isResetApprove: false,
+        stepActionsLabel: texts.approveAndSwap,
+        stepTitle: texts.approveTokenWithTarget,
+      }),
+    ];
+  }
+
+  return [...steps, createSendTxStep(texts)];
 }
 
 export type IBuildSwapReviewStateInput = {
@@ -217,6 +261,13 @@ export function buildSwapReviewState({
       batchTransferType === ESwapBatchTransferType.BATCH_APPROVE_AND_SWAP ||
       batchTransferType === ESwapBatchTransferType.CONTINUOUS_APPROVE_AND_SWAP
     );
+  const reviewRateDifference =
+    rateDifference ??
+    buildSwapRateDifference({
+      fromTokenPrice: fromToken?.price,
+      toTokenPrice: toToken?.price,
+      instantRate: quoteResult?.instantRate,
+    });
 
   let steps: ISwapStep[] = [];
 
@@ -259,28 +310,10 @@ export function buildSwapReviewState({
       }),
     ];
   } else {
-    if (quoteResult?.allowanceResult) {
-      if (quoteResult.allowanceResult.shouldResetApprove) {
-        steps = [
-          createApproveStep({
-            isResetApprove: true,
-            stepActionsLabel: texts.approveAndSwap,
-            stepTitle: texts.revokeApprove,
-          }),
-        ];
-      }
-
-      steps = [
-        ...steps,
-        createApproveStep({
-          isResetApprove: false,
-          stepActionsLabel: texts.approveAndSwap,
-          stepTitle: texts.approveTokenWithTarget,
-        }),
-      ];
-    }
-
-    steps = [...steps, createSendTxStep(texts)];
+    steps = buildSwapApproveAndSendSteps({
+      quoteResult,
+      texts,
+    });
   }
 
   const preSwapData: ISwapPreSwapData = {
@@ -302,7 +335,7 @@ export function buildSwapReviewState({
     rateDifference:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT
         ? undefined
-        : rateDifference,
+        : reviewRateDifference,
     unSupportSlippage: quoteResult?.unSupportSlippage ?? false,
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,

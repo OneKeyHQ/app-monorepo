@@ -3,11 +3,17 @@ import { memo } from 'react';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  UNAVAILABLE_DISPLAY,
+  isValidNumberValue,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
+
+import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
   $key: string;
@@ -15,11 +21,25 @@ type IProps = {
 
 function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
   const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
-  const priceChange = token?.price24h ?? 0;
 
+  if (!isValidNumberValue(token?.price24h)) {
+    return (
+      <NumberSizeableText
+        formatter="priceChange"
+        color="$textSubdued"
+        {...rest}
+      >
+        {UNAVAILABLE_DISPLAY}
+      </NumberSizeableText>
+    );
+  }
+
+  const priceChange = token.price24h;
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
     priceChange,
   });

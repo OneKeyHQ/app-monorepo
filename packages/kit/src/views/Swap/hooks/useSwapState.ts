@@ -83,12 +83,14 @@ function useSwapWarningCheck() {
       networkId: undefined,
       accountInfo: undefined,
       activeAccount: undefined,
+      isAddressInfoReady: false,
     },
     swapToAddressInfo: {
       address: undefined,
       networkId: undefined,
       accountInfo: undefined,
       activeAccount: undefined,
+      isAddressInfoReady: false,
     },
   });
   const isFocused = useIsFocused();

@@ -1,12 +1,17 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -16,6 +21,7 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  buildTokenSearchKeywordQueries,
   filterAccountTokenListByLimit,
   getEmptyTokenData,
   getMergedTokenData,
@@ -40,6 +46,10 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import {
+  currencyPersistAtom,
+  settingsPersistAtom,
+} from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 import { getVaultSettings } from '../vaults/settings';
 
@@ -49,13 +59,28 @@ import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
+type IFetchAccountTokensController = {
+  controller: AbortController;
+  flag?: string;
+};
+
 @backgroundClass()
 class ServiceToken extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    // Drop memoized token info / unblocked / blocked / exchange-supported
+    // assets caches under critical memory pressure. These cumulatively
+    // pin sizeable token-metadata structures that are cheap to refetch.
+    appEventBus.on(EAppEventBusNames.MemoryPressureWarning, (event) => {
+      if (event.level !== 'critical') return;
+      this.fetchTokenInfoOnlyMemo.clear();
+      this.getUnblockedTokensMemo.clear();
+      this.getBlockedTokensMemo.clear();
+      void this._getBinanceSupportedAssetsMemo.clear();
+    });
   }
 
-  _fetchAccountTokensControllers: AbortController[] = [];
+  _fetchAccountTokensControllers: IFetchAccountTokensController[] = [];
 
   _searchTokensControllers: AbortController[] = [];
 
@@ -66,11 +91,25 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async abortFetchAccountTokens() {
-    this._fetchAccountTokensControllers.forEach((controller) =>
-      controller.abort(),
-    );
-    this._fetchAccountTokensControllers = [];
+  public async abortFetchAccountTokens(options?: { excludedFlags?: string[] }) {
+    const excludedFlags = options?.excludedFlags ?? [];
+    const nextControllers: IFetchAccountTokensController[] = [];
+
+    this._fetchAccountTokensControllers.forEach((item) => {
+      if (item.flag && excludedFlags.includes(item.flag)) {
+        nextControllers.push(item);
+        return;
+      }
+      item.controller.abort();
+    });
+    this._fetchAccountTokensControllers = nextControllers;
+  }
+
+  private removeFetchAccountTokensController(controller: AbortController) {
+    this._fetchAccountTokensControllers =
+      this._fetchAccountTokensControllers.filter(
+        (item) => item.controller !== controller,
+      );
   }
 
   localAccountTokensCache: {
@@ -79,13 +118,98 @@ class ServiceToken extends ServiceBase {
     riskyTokenList: Record<string, IAccountToken[]>;
     tokenListValue: Record<string, string>;
     tokenListMap: Record<string, Record<string, ITokenFiat>>;
+    tokenListCurrency: Record<string, string>;
   } = {
     tokenList: {},
     smallBalanceTokenList: {},
     riskyTokenList: {},
     tokenListValue: {},
     tokenListMap: {},
+    tokenListCurrency: {},
   };
+
+  // Returns `null` when the rate is missing or unusable so callers can skip
+  // conversion and tag entries with the source currency instead — the cache
+  // would otherwise be tagged 'usd' but hold values in the request currency.
+  private async resolveCurrencyRate(
+    currency: string,
+  ): Promise<BigNumber | null> {
+    if (currency === USD_CURRENCY_ID) return new BigNumber(1);
+    const { currencyMap } = await currencyPersistAtom.get();
+    const rateItem = currencyMap[currency];
+    if (!rateItem) return null;
+    const rate = new BigNumber(rateItem.value);
+    if (!rate.isFinite() || rate.isZero()) return null;
+    return rate;
+  }
+
+  // price24h is a percentage and is left untouched.
+  private convertFiatToCurrency(
+    fiat: ITokenFiat,
+    rate: BigNumber,
+    targetCurrency: string,
+  ): void {
+    if (!rate.eq(1)) {
+      if (fiat.fiatValue) {
+        fiat.fiatValue = new BigNumber(fiat.fiatValue).div(rate).toFixed();
+      }
+      if (fiat.frozenBalanceFiatValue) {
+        fiat.frozenBalanceFiatValue = new BigNumber(fiat.frozenBalanceFiatValue)
+          .div(rate)
+          .toFixed();
+      }
+      if (fiat.totalBalanceFiatValue) {
+        fiat.totalBalanceFiatValue = new BigNumber(fiat.totalBalanceFiatValue)
+          .div(rate)
+          .toFixed();
+      }
+      // `price` is typed as number but the API can deliver it as a numeric
+      // string, so a `typeof === 'number'` guard silently skips it — leaving
+      // price in the request currency while the render layer still converts
+      // USD -> display currency, double-applying the rate (CNY price ends up
+      // ~rate^2 off). Guard on truthiness like the fiat fields above.
+      if (fiat.price) {
+        const priceBn = new BigNumber(fiat.price);
+        if (priceBn.isFinite()) {
+          fiat.price = priceBn.div(rate).toNumber();
+        }
+      }
+    }
+    fiat.currency = targetCurrency;
+  }
+
+  // Returns the currency the response was actually normalized to. When the
+  // rate for `requestCurrency` is missing/invalid, values stay in the source
+  // currency — callers MUST use the return value as the cache tag, otherwise
+  // the cache claims USD basis while holding non-USD values.
+  private async normalizeTokensRespToUsd(
+    data: IFetchAccountTokensResp,
+    requestCurrency: string,
+  ): Promise<string> {
+    const rate = await this.resolveCurrencyRate(requestCurrency);
+    const resolvedCurrency = rate ? USD_CURRENCY_ID : requestCurrency;
+    const effectiveRate = rate ?? new BigNumber(1);
+
+    const visitFiat = (fiat: ITokenFiat): void =>
+      this.convertFiatToCurrency(fiat, effectiveRate, resolvedCurrency);
+    const visitTokenData = (td: ITokenData | undefined): void => {
+      if (!td) return;
+      Object.values(td.map ?? {}).forEach(visitFiat);
+      if (!effectiveRate.eq(1) && td.fiatValue) {
+        td.fiatValue = new BigNumber(td.fiatValue).div(effectiveRate).toFixed();
+      }
+      td.currency = resolvedCurrency;
+    };
+
+    visitTokenData(data.tokens);
+    visitTokenData(data.smallBalanceTokens);
+    visitTokenData(data.riskTokens);
+    visitTokenData(data.allTokens);
+    if (data.aggregateTokenMap) {
+      Object.values(data.aggregateTokenMap).forEach(visitFiat);
+    }
+    return resolvedCurrency;
+  }
 
   @backgroundMethod()
   public async fetchAccountTokens(
@@ -243,7 +367,10 @@ class ServiceToken extends ServiceBase {
 
     // const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
-    this._fetchAccountTokensControllers.push(controller);
+    this._fetchAccountTokensControllers.push({
+      controller,
+      flag,
+    });
     // const resp = await client.post<{
     //   data: IFetchAccountTokensResp;
     // }>(
@@ -267,18 +394,37 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     });
-    const resp = await vault.fetchTokenList({
-      accountId,
-      requestApiParams: {
-        ...rest,
-        accountAddress,
-        xpub,
-        isAllNetwork: isAllNetworks,
-        isForceRefresh: isManualRefresh,
-      },
-      flag,
-      signal: controller.signal,
-    });
+    const requestCurrency =
+      (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
+
+    const resp = await (async () => {
+      try {
+        return await vault.fetchTokenList({
+          accountId,
+          requestApiParams: {
+            ...rest,
+            accountAddress,
+            xpub,
+            isAllNetwork: isAllNetworks,
+            isForceRefresh: isManualRefresh,
+          },
+          flag,
+          signal: controller.signal,
+          // Pin the server pricing currency at capture time — the axios
+          // interceptor would otherwise re-read settings.currencyInfo.id at send
+          // time, and a mid-flight currency switch would tag the cache wrongly.
+          requestCurrency,
+        });
+      } finally {
+        this.removeFetchAccountTokensController(controller);
+      }
+    })();
+
+    const resolvedCurrency = await this.normalizeTokensRespToUsd(
+      resp.data.data,
+      requestCurrency,
+    );
+
     let allTokens: ITokenData | undefined;
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => {
@@ -339,6 +485,7 @@ class ServiceToken extends ServiceBase {
           networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
+        allTokens.currency = resolvedCurrency;
       }
       resp.data.data.allTokens = allTokens;
     }
@@ -381,6 +528,7 @@ class ServiceToken extends ServiceBase {
         this.localAccountTokensCache.tokenListValue[key] =
           tokenListValue.toFixed();
         this.localAccountTokensCache.tokenListMap[key] = filteredTokenListMap;
+        this.localAccountTokensCache.tokenListCurrency[key] = resolvedCurrency;
 
         await this._updateAccountLocalTokensDebounced();
       } else {
@@ -393,6 +541,7 @@ class ServiceToken extends ServiceBase {
           riskyTokenList: filteredRiskyTokenList,
           tokenListValue: tokenListValue.toFixed(),
           tokenListMap: filteredTokenListMap,
+          currency: resolvedCurrency,
         });
       }
     }
@@ -416,6 +565,33 @@ class ServiceToken extends ServiceBase {
     networkId: string;
   }): Promise<T> {
     return Promise.resolve(this.mergeTokenMetadataWithCustomDataSync(params));
+  }
+
+  /**
+   * Batched variant: callers that need to merge metadata across a whole
+   * token list (e.g. `useTokenManagement`) MUST use this instead of N
+   * parallel `mergeTokenMetadataWithCustomData` calls. The single-item
+   * bridge method is a `Promise.resolve()` wrap around a sync function —
+   * each call pays the full BgTransport round-trip cost (one
+   * dispatchRemoteRequest + one handleResponse + one JSON.parse on the main
+   * runtime) for zero real async work, which is exactly the N+1 pattern
+   * that shows up as 808 mergeTokenMetadataWithCustomData calls in the
+   * OK-perp/swap freeze trace. Batching collapses it to 1 bridge call.
+   */
+  @backgroundMethod()
+  async mergeTokenMetadataWithCustomDataBatch<T extends IToken>(params: {
+    tokens: T[];
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): Promise<T[]> {
+    const { tokens, customTokens, networkId } = params;
+    return tokens.map((token) =>
+      this.mergeTokenMetadataWithCustomDataSync({
+        token,
+        customTokens,
+        networkId,
+      }),
+    );
   }
 
   private mergeTokenMetadataWithCustomDataSync<T extends IToken>({
@@ -455,6 +631,7 @@ class ServiceToken extends ServiceBase {
         riskyTokenList: {},
         tokenListValue: {},
         tokenListMap: {},
+        tokenListCurrency: {},
       };
     },
     3000,
@@ -501,6 +678,9 @@ class ServiceToken extends ServiceBase {
       accountId,
       networkId,
     });
+    const requestCurrency =
+      (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
+
     const resp = await vault.fetchTokenDetails({
       accountId,
       networkId,
@@ -509,7 +689,17 @@ class ServiceToken extends ServiceBase {
       contractList,
       withCheckInscription,
       withFrozenBalance,
+      requestCurrency,
     });
+
+    if (resp.data.data?.length) {
+      const rate = await this.resolveCurrencyRate(requestCurrency);
+      const resolvedCurrency = rate ? USD_CURRENCY_ID : requestCurrency;
+      const effectiveRate = rate ?? new BigNumber(1);
+      for (const item of resp.data.data) {
+        this.convertFiatToCurrency(item, effectiveRate, resolvedCurrency);
+      }
+    }
 
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
@@ -590,15 +780,45 @@ class ServiceToken extends ServiceBase {
     const controller = new AbortController();
     this._searchTokensControllers.push(controller);
     const vault = await vaultFactory.getChainOnlyVault({ networkId });
-    const resp = await vault.fetchTokenDetails({
-      accountId,
-      networkId,
-      contractList,
-      keywords,
-      signal: controller.signal,
-    });
+    const keywordQueries = buildTokenSearchKeywordQueries(keywords);
+    const queries = keywordQueries.length ? keywordQueries : [keywords];
+    const settledResponses = await Promise.allSettled(
+      queries.map((queryKeywords) =>
+        vault.fetchTokenDetails({
+          accountId,
+          networkId,
+          contractList,
+          keywords: queryKeywords,
+          signal: controller.signal,
+        }),
+      ),
+    );
 
-    return resp.data.data.map((item) => ({
+    const fulfilledResponses = settledResponses.flatMap((settled) =>
+      settled.status === 'fulfilled' ? [settled.value] : [],
+    );
+
+    // Surface an error only when every query failed (e.g. all aborted by
+    // abortSearchTokens). A single fallback-query failure — such as the
+    // `eth -> ether` alias query timing out — must not discard the primary
+    // query's hits.
+    if (fulfilledResponses.length === 0) {
+      const firstRejected = settledResponses.find(
+        (settled): settled is PromiseRejectedResult =>
+          settled.status === 'rejected',
+      );
+      if (firstRejected) {
+        throw firstRejected.reason;
+      }
+    }
+
+    return uniqBy(
+      fulfilledResponses.flatMap((resp) => resp.data.data),
+      (item) =>
+        `${item.info.networkId ?? ''}_${
+          item.info.uniqueKey ?? item.info.address
+        }`,
+    ).map((item) => ({
       ...item.info,
       $key: item.info.uniqueKey ?? item.info.address,
     }));
@@ -755,6 +975,7 @@ class ServiceToken extends ServiceBase {
     riskyTokenList: IAccountToken[];
     tokenListMap: Record<string, ITokenFiat>;
     tokenListValue: string;
+    currency: string;
   }) {
     const {
       dbAccount,
@@ -765,6 +986,7 @@ class ServiceToken extends ServiceBase {
       riskyTokenList,
       tokenListMap,
       tokenListValue,
+      currency,
     } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
@@ -788,6 +1010,7 @@ class ServiceToken extends ServiceBase {
       riskyTokenList,
       tokenListMap,
       tokenListValue,
+      currency,
     });
   }
 
@@ -872,12 +1095,68 @@ class ServiceToken extends ServiceBase {
       perf.markEnd('mapAccountTokenList');
     }
 
+    // Pre-migration entries have no currency tag; assume the user's current
+    // display currency so <Currency> renders them as a no-op until the next
+    // fetch overwrites them with USD-normalized data.
+    let resolvedCurrency = localTokens.currency;
+    if (!resolvedCurrency && localTokens.hasCache) {
+      resolvedCurrency =
+        (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
+    }
+
+    // Decorate ITokenFiat entries with the resolved currency tag so UI
+    // callers can pass it to <Currency sourceCurrency=...> without having to
+    // thread the outer tag through every component. Skip the rebuild when
+    // every entry already carries a tag — `convertFiatToCurrency` writes one
+    // on the fetch path, so the post-migration steady state is no-op here.
+    const rawTokenListMap = localTokens.tokenListMap;
+    let tokenListMap = rawTokenListMap;
+    if (resolvedCurrency) {
+      const entries = Object.entries(rawTokenListMap);
+      const needsRebuild = entries.some(([, fiat]) => !fiat.currency);
+      if (needsRebuild) {
+        tokenListMap = Object.fromEntries(
+          entries.map(([k, fiat]) => [
+            k,
+            { ...fiat, currency: fiat.currency ?? resolvedCurrency },
+          ]),
+        );
+      }
+    }
+
+    // Hoist legacy (non-USD) cache to USD basis before returning, so callers
+    // that merge results from multiple (account, network) pairs can rely on a
+    // single basis. Without this, an All Networks batch may contain entries
+    // tagged 'usd' (post-migration) alongside entries tagged in the user's
+    // display currency (pre-migration), and downstream sums would silently
+    // mix bases.
+    let tokenListValue = localTokens.tokenListValue;
+    if (resolvedCurrency && resolvedCurrency !== USD_CURRENCY_ID) {
+      const rate = await this.resolveCurrencyRate(resolvedCurrency);
+      if (rate && !rate.eq(1)) {
+        tokenListMap = Object.fromEntries(
+          Object.entries(tokenListMap).map(([k, fiat]) => {
+            const next: ITokenFiat = { ...fiat };
+            this.convertFiatToCurrency(next, rate, USD_CURRENCY_ID);
+            return [k, next];
+          }),
+        );
+        if (tokenListValue) {
+          tokenListValue = new BigNumber(tokenListValue).div(rate).toFixed();
+        }
+        resolvedCurrency = USD_CURRENCY_ID;
+      }
+    }
+
     perf.done();
     return {
       ...localTokens,
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      tokenListMap,
+      tokenListValue,
+      currency: resolvedCurrency,
       hasCache: localTokens.hasCache,
       accountId,
       networkId,

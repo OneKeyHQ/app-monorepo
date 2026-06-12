@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -26,10 +27,15 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -42,6 +48,7 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
+import { ELocalSystemTimeStatus } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -59,6 +66,77 @@ function formatSyncLastUpdateTime(syncTime?: number): string {
 }
 
 const listItemNativePressableStyle = { flexShrink: 0 } as const;
+
+function useIsLocalSystemTimeInvalid() {
+  const [isLocalSystemTimeInvalid, setIsLocalSystemTimeInvalid] =
+    useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      void (async () => {
+        try {
+          const result =
+            await backgroundApiProxy.servicePrimeCloudSync.getLocalSystemTimeStatus();
+          if (isActive) {
+            setIsLocalSystemTimeInvalid(
+              result.status === ELocalSystemTimeStatus.INVALID,
+            );
+          }
+        } catch (error) {
+          errorUtils.autoPrintErrorIgnore(error);
+        }
+      })();
+
+      const handleLocalSystemTimeStatusChanged = ({
+        status,
+      }: {
+        status: string;
+      }) => {
+        setIsLocalSystemTimeInvalid(status === ELocalSystemTimeStatus.INVALID);
+      };
+      appEventBus.on(
+        EAppEventBusNames.LocalSystemTimeStatusChanged,
+        handleLocalSystemTimeStatusChanged,
+      );
+
+      return () => {
+        isActive = false;
+        appEventBus.off(
+          EAppEventBusNames.LocalSystemTimeStatusChanged,
+          handleLocalSystemTimeStatusChanged,
+        );
+      };
+    }, []),
+  );
+
+  return isLocalSystemTimeInvalid;
+}
+
+function LocalSystemTimeErrorAlert() {
+  const intl = useIntl();
+  const isLocalSystemTimeInvalid = useIsLocalSystemTimeInvalid();
+
+  if (!isLocalSystemTimeInvalid) {
+    return null;
+  }
+
+  return (
+    <Alert
+      type="critical"
+      title={intl.formatMessage({
+        id: ETranslations.prime_time_error_title,
+      })}
+      description={intl.formatMessage({
+        id: ETranslations.prime_time_error_description,
+      })}
+      mx="$5"
+      mt="$2"
+      mb="$3"
+    />
+  );
+}
 
 function AutoLockUpdateDialogContent({
   onContinue,
@@ -623,6 +701,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID={PrimeTestIDs.cloudSyncKeylessSwitch}
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={false}
@@ -663,6 +742,7 @@ function AppDataSection() {
             })} : ${oneKeyIdLastUpdateTime}`}
           >
             <Switch
+              testID={PrimeTestIDs.cloudSyncIdSyncSwitch}
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
               value={config.isCloudSyncEnabled}
@@ -689,6 +769,7 @@ function AppDataSection() {
               </SizableText>
             </Stack>
             <Button
+              testID="prime-btn"
               size="large"
               variant="primary"
               onPress={handleCreateKeylessWallet}
@@ -718,6 +799,7 @@ function AppDataSection() {
           })} : ${keylessLastUpdateTime}`}
         >
           <Switch
+            testID="prime-switch"
             size={ESwitchSize.small}
             onChange={handleToggleKeylessSync}
             value={false}
@@ -738,6 +820,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -804,6 +887,7 @@ function AppDataSection() {
             })} : ${keylessLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleKeylessSync}
               value={!!config.isCloudSyncEnabledKeyless}
@@ -852,6 +936,7 @@ function AppDataSection() {
             })} : ${oneKeyIdLastUpdateTime}`}
           >
             <Switch
+              testID="prime-switch"
               size={ESwitchSize.small}
               onChange={handleToggleIdSync}
               value={config.isCloudSyncEnabled}
@@ -896,6 +981,7 @@ export default function PagePrimeCloudSync() {
   const renderDebugHeaderRight = useCallback(
     () => (
       <Button
+        testID="prime-render-debug-header-right-btn"
         variant="tertiary"
         onPress={() => {
           navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
@@ -916,6 +1002,7 @@ export default function PagePrimeCloudSync() {
         headerRight={platformEnv.isDev ? renderDebugHeaderRight : undefined}
       />
       <Page.Body>
+        <LocalSystemTimeErrorAlert />
         <AppDataSection />
         <MultipleClickStack
           h="$10"

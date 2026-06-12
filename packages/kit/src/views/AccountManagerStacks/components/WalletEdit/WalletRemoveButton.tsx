@@ -9,6 +9,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountManagerTestIDs } from '../../testIDs';
+
 import {
   getTitleAndDescription,
   showWalletRemoveDialog,
@@ -61,6 +63,7 @@ export function WalletRemoveButton({
 
   return (
     <ActionList.Item
+      testID={AccountManagerTestIDs.walletRemoveButton}
       icon={icon}
       destructive
       label={label}

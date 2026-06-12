@@ -44,6 +44,7 @@ import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.cons
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProviderListItem from '../../components/SwapProviderListItem';
+import { SwapTestIDs } from '../../testIDs';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -83,6 +84,9 @@ const SwapProviderSelectModal = () => {
   const [currentSelectQuote] = useSwapQuoteCurrentSelectAtom();
   const selectedProviderInfo =
     currentSelectQuote?.info ?? manualSelectQuoteProvider?.info;
+  const selectedProviderKey = selectedProviderInfo
+    ? `${selectedProviderInfo.provider}-${selectedProviderInfo.providerName}`
+    : undefined;
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [currentEventProviderKeys] = useSwapQuoteCurrentEventProviderKeysAtom();
   const currentEventProviderKeySet = useMemo(
@@ -190,8 +194,21 @@ const SwapProviderSelectModal = () => {
           }
         }
       }
+      const selected = Boolean(
+        item.info.provider === selectedProviderInfo?.provider &&
+        item.info.providerName === selectedProviderInfo?.providerName,
+      );
+      const selectedByManual = Boolean(
+        item.info.provider === manualSelectQuoteProvider?.info.provider &&
+        item.info.providerName === manualSelectQuoteProvider?.info.providerName,
+      );
+      const autoOpenRoute = Boolean(selected && item.openRouterInfo);
+      const autoOpenRouteTrigger = selectedByManual
+        ? manualSelectQuoteProvider
+        : selectedProviderKey;
       return (
         <SwapProviderListItem
+          testID={SwapTestIDs.providerItem(item.info.providerName)}
           onPress={
             !disabled
               ? () => {
@@ -199,10 +216,10 @@ const SwapProviderSelectModal = () => {
                 }
               : undefined
           }
-          selected={Boolean(
-            item.info.provider === selectedProviderInfo?.provider &&
-            item.info.providerName === selectedProviderInfo?.providerName,
-          )}
+          selected={selected}
+          autoOpenRoute={autoOpenRoute}
+          autoOpenRouteTrigger={autoOpenRouteTrigger}
+          routeCollapseTrigger={selectedProviderKey}
           fromTokenAmount={fromTokenAmount.value}
           fromToken={fromToken}
           toToken={toToken}
@@ -215,7 +232,9 @@ const SwapProviderSelectModal = () => {
     [
       fromToken,
       fromTokenAmount,
+      manualSelectQuoteProvider,
       onSelectQuote,
+      selectedProviderKey,
       selectedProviderInfo?.provider,
       selectedProviderInfo?.providerName,
       settingsPersist.currencyInfo.symbol,
@@ -231,6 +250,7 @@ const SwapProviderSelectModal = () => {
         })}
         renderTrigger={
           <IconButton
+            testID="swap-right-info-component-icon-btn"
             variant="tertiary"
             size="medium"
             icon="InfoCircleOutline"
@@ -296,6 +316,7 @@ const SwapProviderSelectModal = () => {
           if (type === ESwapProviderStatus.AVAILABLE) {
             return (
               <Select
+                testID="swap-select"
                 title={intl.formatMessage({
                   id: ETranslations.provider_sort_title,
                 })}
@@ -304,6 +325,7 @@ const SwapProviderSelectModal = () => {
                 value={providerSort}
                 renderTrigger={({ value, label, placeholder }) => (
                   <Button
+                    testID="swap-btn"
                     mt="$1"
                     alignSelf="flex-start"
                     variant="tertiary"

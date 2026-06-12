@@ -51,6 +51,7 @@ function useBrowserOptionsAction() {
             >
               <Dialog.FormField name="name">
                 <Input
+                  testID="discovery-handle-rename-tab-input"
                   autoFocus
                   flex={1}
                   placeholder={item.title}

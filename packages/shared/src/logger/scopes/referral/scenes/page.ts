@@ -1,6 +1,36 @@
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
+export type IReferralLandingBindMethod = 'web_extension' | 'deep_link';
+
+export type IReferralLandingButtonName =
+  | 'download_app'
+  | 'already_have_wallet'
+  | 'bind_invite_code'
+  | 'trade_now';
+
+export type IClickReferralLandingButtonParams = {
+  referralCode: string;
+  landingPage: string;
+  buttonName: IReferralLandingButtonName;
+  bindMethod?: IReferralLandingBindMethod;
+};
+
+export type ICopyReferralCodeParams = {
+  referralCode: string;
+  landingPage: string;
+};
+
+export type IReferralPageOpenParams = {
+  referralCode: string;
+  landingPage: string;
+  pageVariant: string;
+};
+
+export type ICreatorProgramBannerParams = {
+  locale: string;
+};
+
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
@@ -52,8 +82,8 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public copyReferralCode() {
-    return {};
+  public copyReferralCode(params?: ICopyReferralCodeParams) {
+    return params ?? {};
   }
 
   @LogToServer()
@@ -85,6 +115,12 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public referralPageOpen(params: IReferralPageOpenParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public enterFromReferralLink(params: {
     referralCode: string;
     landingPage: string;
@@ -108,11 +144,68 @@ export class PageScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public clickReferralLandingButton(params: IClickReferralLandingButtonParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public referralBindingCompleted(params: {
     referralCode: string;
     address: string;
     networkId: string;
+    source?: 'onboarding_dialog' | 'home_block' | 'settings';
   }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogShown(params: {
+    walletId: string;
+    walletType: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogSkipped(params: {
+    walletId: string;
+    walletType: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogSubmitted(params: {
+    walletId: string;
+    walletType: string;
+    codeLength: number;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public onboardingDialogBindFailed(params: {
+    walletId: string;
+    walletType: string;
+    errorReason: string;
+  }) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public viewCreatorProgramBanner(params: ICreatorProgramBannerParams) {
+    return params;
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public clickCreatorProgramBanner(params: ICreatorProgramBannerParams) {
     return params;
   }
 }

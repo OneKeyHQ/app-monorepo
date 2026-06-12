@@ -23,8 +23,8 @@ function makePairingResult(): AppTransferLoginResult {
     loginMethod: 'app_transfer',
     pairingCode: 'ABCDEFGH123-ABCDE-FGHIJ-KLMNP-QRSTU-VWXYZ-12345-6789A',
     createdAt: '2026-04-06T07:00:00.000Z',
-    timeoutMs: 120_000,
-    expiresAt: '2026-04-06T07:02:00.000Z',
+    timeoutMs: 300_000,
+    expiresAt: '2026-04-06T07:05:00.000Z',
     pairingPayload: {
       roomId: 'ABCDEFGH123',
       transferType: EPrimeTransferDataType.keylessWallet,
@@ -76,7 +76,10 @@ describe('runAppTransferPairingDisplay', () => {
 
     await displayPromise;
 
-    expect(stderrOutput).toContain('Scan the QR code');
+    expect(stderrOutput).toContain('Open Bot Wallet export to CLI');
+    expect(stderrOutput).toContain(
+      'Do not rely on opening the pairing URI on desktop',
+    );
     expect(stderrOutput).toContain(
       'Pairing Server: https://transfer.onekeytest.com',
     );

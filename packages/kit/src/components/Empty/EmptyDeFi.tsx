@@ -19,6 +19,7 @@ function EmptyDeFi({ tableLayout }: { tableLayout?: boolean }) {
       illustration="Coins"
       title={
         <Button
+          testID="empty-navigation-btn"
           variant="tertiary"
           size="large"
           onPress={() => {

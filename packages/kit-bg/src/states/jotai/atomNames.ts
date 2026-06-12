@@ -21,6 +21,8 @@ export enum EAtomNames {
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
+  thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
+  thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
@@ -62,19 +64,23 @@ export enum EAtomNames {
   keylessDialogAtom = 'keylessDialogAtom',
   keylessPinConfirmStatusAtom = 'keylessPinConfirmStatusAtom',
   keylessLastCancelVerifyPinTimeAtom = 'keylessLastCancelVerifyPinTimeAtom',
+  keylessBackendShareV2MigrationPersistAtom = 'keylessBackendShareV2MigrationPersistAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
   accountSelectorStatusAtom = 'accountSelectorStatusAtom',
   allNetworksPersistAtom = 'allNetworksPersistAtom',
+  tokenSelectorFilterPersistAtom = 'tokenSelectorFilterPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
   perpsActiveAccountAtom = 'perpsActiveAccountAtom',
   perpsActiveAccountRefreshHookAtom = 'perpsActiveAccountRefreshHookAtom',
   perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
+  perpsAccountDisplaySnapshotAtom = 'perpsAccountDisplaySnapshotAtom',
   perpsActiveAccountStatusInfoAtom = 'perpsActiveAccountStatusInfoAtom',
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
   perpsActiveAssetAtom = 'perpsActiveAssetAtom',
   perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
+  perpsActiveAssetCtxDisplayAtom = 'perpsActiveAssetCtxDisplayAtom',
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
   perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
@@ -97,6 +103,7 @@ export enum EAtomNames {
   perpsLastUsedLeverageAtom = 'perpsLastUsedLeverageAtom',
   perpsLayoutStateAtom = 'perpsLayoutStateAtom',
   perpsAbstractionModeAtom = 'perpsAbstractionModeAtom',
+  perpsSpotDustingAtom = 'perpsSpotDustingAtom',
   perpsSpotBalancesAtom = 'perpsSpotBalancesAtom',
   perpsFooterTickerModePersistAtom = 'perpsFooterTickerModePersistAtom',
   // trading mode
@@ -110,6 +117,7 @@ export enum EAtomNames {
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
+  spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   // network doctor
@@ -133,9 +141,38 @@ export enum EAtomNames {
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
-  Record<IAtomNameKeys, { deepCompare?: boolean }>
+  Record<IAtomNameKeys, { deepCompare?: boolean; mergeInitialValue?: boolean }>
 > = {
   [EAtomNames.notificationsAtom]: {
     deepCompare: true,
+  },
+  [EAtomNames.primePersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // These Perps states are written as complete snapshots. Lodash merge keeps
+  // old array tails and ignores undefined, which can resurrect stale fields.
+  [EAtomNames.perpsActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsAccountDisplaySnapshotAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.spotActiveAssetAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsCommonConfigPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpTokenFavoritesPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.spotTokenFavoritesPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsFavoritesOrderPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  [EAtomNames.perpsDepositOrderAtom]: {
+    mergeInitialValue: false,
   },
 };

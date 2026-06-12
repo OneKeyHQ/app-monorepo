@@ -14,6 +14,7 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] No duplicated logic — shared code extracted
 - [ ] Error cases handled with try/catch or error boundaries
 - [ ] Semantic naming (no `tmp`, `data1`, `doStuff`)
+- [ ] No split-across-statements `- X … + X` cancellation of the **same** value (e.g. subtract `inset` when setting a value, add `inset` back when consuming it) — express as one `Math.max`/`Math.min`/clamp so a later move can't drop one half. (Only when the two terms are genuinely the same quantity; `- tabBarHeight … + safeAreaBottom` are different and must NOT be collapsed.)
 
 ## 2. React Check (skip if no component code touched)
 
@@ -25,6 +26,7 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 
 - [ ] Identified which platforms consume modified code
 - [ ] UI changes verified on mobile (narrowest) and desktop (widest)
+- [ ] Safe-area / keyboard padding verified on notched iOS in BOTH keyboard-hidden and keyboard-shown states (regression risk: content hugging the home indicator)
 - [ ] Stated: "Affects: [platforms]" and "Does NOT affect: [platforms]"
 
 ## 4. Business Logic & Regression
@@ -35,6 +37,8 @@ After completing any non-trivial task (feature, bug fix, refactor), execute this
 - [ ] Shared hook/utility modified → checked all consumers
 - [ ] Type definitions changed → all consumers updated
 - [ ] State atoms modified → verified all readers/writers
+- [ ] Every file touched maps to the stated task / PR title — incidental refactors outside scope are split out or explicitly called out for review (a focused title makes reviewers skip unrelated diffs)
+- [ ] Logic moved between files carries its surrounding guard/condition and scope (e.g. a `showFooter` / `isNative` gate, or a captured inset), not just the function body
 
 ## 5. Potential Bugs (skip for docs/config-only changes)
 

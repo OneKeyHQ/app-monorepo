@@ -83,6 +83,7 @@ function BaseInput(props: IBaseInputProps) {
     <Group borderRadius={sharedStyles.borderRadius} disabled={disabled}>
       <Group.Item>
         <TextArea
+          testID="base-input-shared-styles-textarea"
           ref={textAreaRef as any}
           value={value}
           onLayout={onLayout}

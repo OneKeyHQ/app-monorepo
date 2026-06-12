@@ -8,6 +8,7 @@ import {
 
 import { Input, SizableText, XStack } from '@onekeyhq/components';
 import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
+import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 
 import type {
   IAutoSizeInputProps,
@@ -200,6 +201,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         focus: () => {
           inputRef.current?.focus();
         },
+        blur: () => {
+          inputRef.current?.blur();
+        },
       }),
       [],
     );
@@ -351,6 +355,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
           </SizableText>
         ) : null}
         <Input
+          testID={SendTestIDs.amountInput}
           ref={inputRef}
           keyboardType={keyboardType ?? 'decimal-pad'}
           editable={editable}

@@ -379,6 +379,7 @@ export function PrimeTransferHomeEnterLink({
         >
           {websocketConnected ? (
             <Input
+              testID="prime-input"
               size="large"
               autoComplete="off"
               autoCorrect={false}
@@ -405,6 +406,7 @@ export function PrimeTransferHomeEnterLink({
 
       <XStack>
         <Button
+          testID="prime-btn"
           mt="$4"
           onPress={form.handleSubmit(onSubmit)}
           variant="primary"

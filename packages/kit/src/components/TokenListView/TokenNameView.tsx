@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -32,6 +33,7 @@ type IProps = {
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
   showNetworkName?: boolean;
+  showDeFiReceiptTokenBadge?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -46,6 +48,7 @@ function TokenNameView(props: IProps) {
     textProps,
     withAggregateBadge,
     showNetworkName,
+    showDeFiReceiptTokenBadge,
     ...rest
   } = props;
   const intl = useIntl();
@@ -62,6 +65,8 @@ function TokenNameView(props: IProps) {
     [aggregateTokensListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
+  const shouldShowDeFiReceiptTokenBadge =
+    showDeFiReceiptTokenBadge && !platformEnv.isNative;
 
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     return checkIsOnlyOneTokenHasBalance({
@@ -95,6 +100,21 @@ function TokenNameView(props: IProps) {
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
+      {shouldShowDeFiReceiptTokenBadge ? (
+        <Tooltip
+          renderContent={intl.formatMessage({
+            id: ETranslations.wallet_defi_receipt_token__desc,
+          })}
+          renderTrigger={
+            <Icon
+              flexShrink={0}
+              name="TicketOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          }
+        />
+      ) : null}
       {isAllNetworks &&
       withAggregateBadge &&
       isAggregateToken &&

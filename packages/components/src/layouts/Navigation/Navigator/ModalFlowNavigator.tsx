@@ -22,10 +22,25 @@ import type { ParamListBase } from '@react-navigation/routers';
 export interface IModalFlowNavigatorConfig<
   RouteName extends string,
   P extends ParamListBase,
-> extends ICommonNavigatorConfig<RouteName, P> {
+> extends Omit<ICommonNavigatorConfig<RouteName, P>, 'options'> {
+  options?:
+    | IModalNavigationOptions
+    | ((props: IScreenOptionsInfo<RouteName>) => IModalNavigationOptions);
   translationId?: ETranslations | string;
   shouldPopOnClickBackdrop?: boolean;
   dismissOnOverlayPress?: boolean;
+  modalContentMaxHeight?: number;
+  modalContentMaxWidth?: number;
+  /**
+   * Web-only. Skip the modal `scale(0.95) -> scale(1)` transform on
+   * **both enter and exit** for this screen and keep only the opacity
+   * fade. Setting it on any screen of an inner stack causes the whole
+   * navigator instance to opt out (so navigating deeper inside the
+   * modal does not re-enable scale for a later modal-on-modal push).
+   * Use for popover-like modals where the bouncy easing makes row
+   * content visibly jump outward. Ignored on native.
+   */
+  disableEnterScaleAnimation?: boolean;
 }
 
 interface IModalFlowNavigatorProps<
@@ -119,12 +134,18 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             translationId,
             shouldPopOnClickBackdrop,
             dismissOnOverlayPress,
+            modalContentMaxHeight,
+            modalContentMaxWidth,
+            disableEnterScaleAnimation,
           }) => {
             // eslint-disable-next-line react-perf/jsx-no-new-object-as-prop
             const customOptions: IModalNavigationOptions = {
               ...(typeof options === 'function' ? {} : options),
               shouldPopOnClickBackdrop,
               dismissOnOverlayPress,
+              modalContentMaxHeight,
+              modalContentMaxWidth,
+              disableEnterScaleAnimation,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId as ETranslations,

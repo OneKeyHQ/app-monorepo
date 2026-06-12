@@ -32,6 +32,8 @@ module.exports = {
   'nsis': {
     'oneClick': false,
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
+    'installerIcon': 'app/build/static/images/icons/installerIcon.ico',
+    'uninstallerIcon': 'app/build/static/images/icons/installerIcon.ico',
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
@@ -47,7 +49,7 @@ module.exports = {
         'to': 'Assets.car',
       },
     ],
-    'icon': 'app/build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': true, // Changed from false - required for CloudKit with Developer ID
@@ -85,7 +87,7 @@ module.exports = {
       },
     ],
     'extraFiles': DLLs,
-    'icon': 'app/build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/installerIcon.ico',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],

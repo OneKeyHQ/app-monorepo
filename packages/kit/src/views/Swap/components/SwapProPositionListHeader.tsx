@@ -3,12 +3,14 @@ import { useIntl } from 'react-intl';
 import { DashText, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { SwapTestIDs } from '../testIDs';
+
 function SwapProPositionListHeader() {
   const intl = useIntl();
 
   return (
     <XStack
-      testID="Swap-Pro-Position-List-Header"
+      testID={SwapTestIDs.proPositionListHeader}
       alignItems="center"
       gap="$3"
       py="$1"
@@ -42,7 +44,6 @@ function SwapProPositionListHeader() {
           size="$headingXs"
           color="$textSubdued"
           textTransform="uppercase"
-          dashColor="$textDisabled"
           dashThickness={0.5}
           tooltip={intl.formatMessage({ id: ETranslations.marketdex_un_pnl })}
           tooltipTitle={intl.formatMessage({

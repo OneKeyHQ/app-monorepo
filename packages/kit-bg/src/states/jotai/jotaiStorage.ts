@@ -330,7 +330,10 @@ function createJotaiStorage() {
   if (platformEnv.isNative) {
     return new JotaiStorageNativeMMKV();
   }
-  // web/desktop keep IndexedDB
+  // web/desktop keep IndexedDB. L1 cold-start mirror was removed: sensitive
+  // PersistAtom fields (sensitiveEncodeKey, encryptedSecurityPasswordR1) must
+  // not be duplicated into a second IDB. L2 contextAtom snapshot + L3 SWR
+  // cache still provide the meaningful first-paint TTI win.
   return new JotaiStorage();
 }
 
@@ -414,7 +417,11 @@ export function atomWithStorage<Value>(
         return storage.removeItem(key);
       }
 
-      const newValue = merge({}, initialValue, nextValue);
+      const shouldMergeInitialValue =
+        atomsConfig?.[storageName]?.mergeInitialValue ?? true;
+      const newValue = shouldMergeInitialValue
+        ? merge({}, initialValue, nextValue)
+        : nextValue;
 
       const shouldDeepCompare =
         atomsConfig?.[storageName]?.deepCompare ?? false;
@@ -475,7 +482,14 @@ export function atomWithStorage<Value>(
             return initialValue;
           }
 
-          const newValue = merge({}, initialValue, nextValue) as Value;
+          const shouldMergeInitialValue =
+            atomsConfig?.[storageName as any as IAtomNameKeys]
+              ?.mergeInitialValue ?? true;
+          const newValue = (
+            shouldMergeInitialValue
+              ? merge({}, initialValue, nextValue)
+              : nextValue
+          ) as Value;
 
           const shouldDeepCompare =
             atomsConfig?.[storageName as any as IAtomNameKeys]?.deepCompare ??

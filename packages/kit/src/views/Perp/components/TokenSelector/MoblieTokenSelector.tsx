@@ -15,6 +15,7 @@ import {
   type IListViewRef,
   Icon,
   ListView,
+  NumberSizeableText,
   Page,
   ScrollView,
   SizableText,
@@ -29,6 +30,7 @@ import {
   ScrollableFilterBar,
   useScrollableFilterBar,
 } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -36,10 +38,12 @@ import {
   usePerpsAllAssetsFilteredAtom,
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
+  usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -47,18 +51,25 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+} from '@onekeyhq/shared/src/utils/numberUtils';
+import perpsUtils, {
   SPOT_SELECTOR_MIN_VOLUME,
   compareSpotMarketCapValues,
   formatSpotPairDisplayName,
+  getHyperliquidTokenImageUrl,
   getSpotMarketCapValue,
   getSpotTokenDisplayName,
   getTokenSubtitle,
   isSpotInstrument,
+  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
   IPerpsAssetCtx,
+  IPerpsFormattedAssetCtx,
   IPerpsUniverse,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
@@ -70,13 +81,19 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import {
-  type IFavoriteItem,
   usePerpActiveTabValidation,
   usePerpTokenSelector,
   usePerpsFavorites,
 } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import {
+  getTokenSelectorFavoriteItems,
+  getTokenSelectorFavoriteSortEntry,
+  getTokenSelectorListItemKey,
+  sortTokenSelectorFavoriteItems,
+} from '../../utils/tokenSelectorFavorites';
+import { getCachedPerpsTokenSelectorInitialList } from '../../utils/tokenSelectorInitialListCache';
 import {
   markTokenSelectorPerfMeasure,
   startTokenSelectorPerfMeasure,
@@ -98,7 +115,7 @@ import {
   type ITokenSelectorListItem,
   SPOT_DEX_INDEX,
 } from './PerpTokenSelector';
-import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+import { PerpTokenSelectorRow, SubtitleBadge } from './PerpTokenSelectorRow';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -109,6 +126,24 @@ function hasSpotVolumeData(
     (ctx) => Number(ctx?.dayNtlVlm || 0) > 0,
   );
 }
+
+// Android FlashList can preserve the pre-sort anchor, which defeats the
+// selector's explicit scroll-to-top contract.
+const androidSortScrollBehaviorProps: Record<string, unknown> =
+  platformEnv.isNativeAndroid
+    ? {
+        maintainVisibleContentPosition: {
+          disabled: true,
+        },
+      }
+    : {};
+const IOS_INITIAL_ROWS_SNAPSHOT_COUNT = 9;
+const IOS_LIVE_LIST_WINDOW_SIZE = 1;
+const TOKEN_SELECTOR_SNAPSHOT_ROW_HEIGHT = 60;
+type IInitialRowsSnapshotData = {
+  mockedToken: ITokenSelectorListItem;
+  assetCtx?: IPerpsFormattedAssetCtx;
+};
 
 const PrimaryTabItem = memo(
   ({
@@ -187,6 +222,126 @@ const CategoryTabItem = memo(
 );
 CategoryTabItem.displayName = 'CategoryTabItem';
 
+const InitialRowsSnapshotRow = memo(
+  ({ assetCtx, mockedToken }: IInitialRowsSnapshotData) => {
+    const tokenName = mockedToken.tokenName ?? '';
+    const parsed = useMemo(() => parseDexCoin(tokenName), [tokenName]);
+    const displayName = mockedToken.spotUniverse
+      ? getSpotTokenDisplayName(mockedToken.spotUniverse.baseName)
+      : parsed.displayName;
+    const imageName = mockedToken.spotUniverse
+      ? displayName
+      : parsed.displayName;
+    const subtitle = mockedToken.tokenSubtitle;
+    const maxLeverage = mockedToken.tokenMaxLeverage ?? 0;
+    const hasDisplayAssetCtx = Boolean(
+      assetCtx?.markPrice && assetCtx.markPrice !== '0',
+    );
+    const volumeDisplay = hasDisplayAssetCtx
+      ? formatDisplayNumber(
+          NUMBER_FORMATTER.marketCap(assetCtx?.volume24h ?? '0'),
+        )
+      : undefined;
+
+    if (!displayName) {
+      return null;
+    }
+
+    return (
+      <XStack
+        px="$5"
+        py="$2.5"
+        minHeight={TOKEN_SELECTOR_SNAPSHOT_ROW_HEIGHT}
+        width="100%"
+        justifyContent="space-between"
+        alignItems="center"
+        gap="$2.5"
+      >
+        <XStack gap="$2" alignItems="center">
+          <Icon name="StarOutline" size="$5" color="$iconSubdued" />
+          <Token
+            size="lg"
+            borderRadius="$full"
+            tokenImageUri={getHyperliquidTokenImageUrl(imageName)}
+            fallbackIcon="CryptoCoinOutline"
+          />
+        </XStack>
+        <YStack gap="$1" flex={1} minWidth={0}>
+          <XStack gap="$1.5" alignItems="center" minWidth={0}>
+            <SizableText size="$bodyMdMedium" numberOfLines={1}>
+              {displayName}
+            </SizableText>
+            {maxLeverage > 0 ? (
+              <XStack
+                borderRadius="$1"
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+                px="$1.5"
+              >
+                <SizableText fontSize={10} color="$textSubdued" lineHeight={16}>
+                  {maxLeverage}x
+                </SizableText>
+              </XStack>
+            ) : null}
+            {subtitle ? (
+              <SubtitleBadge subtitle={subtitle} maxWidth={80} />
+            ) : null}
+          </XStack>
+          {hasDisplayAssetCtx ? (
+            <SizableText size="$bodySm" color="$text">
+              ${volumeDisplay}
+            </SizableText>
+          ) : (
+            <Stack width={80} height={16} borderRadius="$full" bg="$bgStrong" />
+          )}
+        </YStack>
+        <YStack gap="$1" alignItems="flex-end">
+          {hasDisplayAssetCtx ? (
+            <>
+              <NumberSizeableText
+                formatter="price"
+                size="$bodyMdMedium"
+                color="$text"
+                alignSelf="flex-end"
+              >
+                {assetCtx?.markPrice}
+              </NumberSizeableText>
+              <NumberSizeableText
+                size="$bodySm"
+                alignSelf="flex-end"
+                color={
+                  (assetCtx?.change24hPercent ?? 0) > 0 ? '$green11' : '$red11'
+                }
+                formatter="priceChange"
+                formatterOptions={{ showPlusMinusSigns: true }}
+              >
+                {assetCtx?.change24hPercent.toString()}
+              </NumberSizeableText>
+            </>
+          ) : (
+            <>
+              <Stack
+                width={100}
+                height={16}
+                borderRadius="$full"
+                bg="$bgStrong"
+              />
+              <Stack
+                width={72}
+                height={16}
+                borderRadius="$full"
+                bg="$bgStrong"
+              />
+            </>
+          )}
+        </YStack>
+      </XStack>
+    );
+  },
+);
+InitialRowsSnapshotRow.displayName = 'InitialRowsSnapshotRow';
+
 function MobileTokenSelectorModal({
   onLoadingChange,
 }: {
@@ -197,41 +352,14 @@ function MobileTokenSelectorModal({
   const actions = useHyperliquidActions();
   const { searchQuery, setSearchQuery } = usePerpTokenSelector();
 
-  // Spot data — try cache first, fallback to refresh if empty
+  // Spot data — try cache first, fallback to refresh if empty.
+  // Loading is gated below so the default Perps selector path does not spend
+  // its first popup frames on spot metadata work.
   const [spotPriceMap] = useSpotAssetCtxsMapAtom();
   const spotPriceMapRef = useRef<ISpotAssetCtxsMap>(spotPriceMap);
   spotPriceMapRef.current = spotPriceMap;
   const [spotUniverses, setSpotUniverses] = useState<ISpotUniverse[]>([]);
   const [spotLoading, setSpotLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      let universes: ISpotUniverse[] = [];
-      try {
-        const cachedMeta =
-          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-        universes = cachedMeta.universes ?? [];
-        if (!universes.length || !hasSpotVolumeData(spotPriceMapRef.current)) {
-          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-          universes = res.universes ?? universes;
-        }
-      } catch (error) {
-        defaultLogger.app.error.log(
-          `Failed to load spot meta: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
-      if (!cancelled) {
-        setSpotUniverses(universes);
-        setSpotLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleSelectToken = useCallback(
     async (symbol: string) => {
@@ -266,7 +394,16 @@ function MobileTokenSelectorModal({
   const [{ assetsByDex }] = usePerpsAllAssetsFilteredAtom();
   const [{ assetCtxsByDex }] = usePerpsAllAssetCtxsAtom();
   const [tokenSearchAliases] = usePerpsTokenSearchAliasesAtom();
-  const { favoriteItems, isReady: isFavoritesReady } = usePerpsFavorites();
+  const { favoriteItems: perpFavoriteItems, isReady: isPerpFavoritesReady } =
+    usePerpsFavorites({ mode: 'perp' });
+  const { favoriteItems: spotFavoriteItems, isReady: isSpotFavoritesReady } =
+    usePerpsFavorites({ mode: 'spot' });
+  const favoriteItems = useMemo(
+    () => [...perpFavoriteItems, ...spotFavoriteItems],
+    [perpFavoriteItems, spotFavoriteItems],
+  );
+  const isFavoritesReady = isPerpFavoritesReady && isSpotFavoritesReady;
+  const [favoritesOrder] = usePerpsFavoritesOrderPersistAtom();
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
@@ -274,6 +411,14 @@ function MobileTokenSelectorModal({
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
   const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
+  const cachedInitialListRef = useRef<ITokenSelectorListItem[]>(
+    getCachedPerpsTokenSelectorInitialList(),
+  );
+  const initialListRenderedRef = useRef(!platformEnv.isNativeIOS);
+  const initialListRenderedIndexesRef = useRef<Set<number>>(new Set());
+  const [hasInitialListRendered, setHasInitialListRendered] = useState(
+    !platformEnv.isNativeIOS,
+  );
   const fixedTabNames = useMemo(
     () => ({
       favorites: intl.formatMessage({ id: ETranslations.perp_tab_favs }),
@@ -315,10 +460,49 @@ function MobileTokenSelectorModal({
     () => getPerpTokenSelectorPrimaryTabId(displayActiveTab),
     [displayActiveTab],
   );
+  const shouldEnableSpotData = useMemo(
+    () =>
+      isPerpTokenSelectorSpotTab(displayPrimaryTab) ||
+      isPerpTokenSelectorFavoritesTab(displayPrimaryTab),
+    [displayPrimaryTab],
+  );
   const showCategoryTabs = displayPrimaryTab === 'perps';
   const scrollListToTop = useCallback(() => {
     listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
   }, []);
+
+  useEffect(() => {
+    if (!shouldEnableSpotData) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      let universes: ISpotUniverse[] = [];
+      try {
+        const cachedMeta =
+          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+        universes = cachedMeta.universes ?? [];
+        if (!universes.length || !hasSpotVolumeData(spotPriceMapRef.current)) {
+          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+          universes = res.universes ?? universes;
+        }
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `Failed to load spot meta: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      if (!cancelled) {
+        setSpotUniverses(universes);
+        setSpotLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldEnableSpotData]);
 
   useEffect(() => {
     const currentActions = actions.current;
@@ -338,9 +522,10 @@ function MobileTokenSelectorModal({
     });
   }, [actions, displayActiveTab]);
 
-  // Mount FlashList only after the navigation transition animation completes.
-  // transitionEnd fires via navigation listener, so this is exact — no guesswork.
-  const [isListReady, setIsListReady] = useState(false);
+  // iOS keeps cached rows visible through the modal transition, then mounts the
+  // live FlashList after transitionEnd to keep the popup animation off the JS
+  // row-subscription path.
+  const [isListReady, setIsListReady] = useState(!platformEnv.isNativeIOS);
   usePageMounted(() => setIsListReady(true));
 
   // Freeze sort order; only refresh on sort config change or first data arrival.
@@ -387,6 +572,9 @@ function MobileTokenSelectorModal({
     direction?: IPerpTokenSelectorConfig['direction'];
   } | null>(null);
   useEffect(() => {
+    if (!shouldEnableSpotData) {
+      return;
+    }
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
     const snapshotEmpty = Object.keys(spotPriceSnapshot).length === 0;
@@ -402,6 +590,7 @@ function MobileTokenSelectorModal({
     spotLastSortRef.current = { field, direction };
     setSpotPriceSnapshot(spotPriceMapRef.current);
   }, [
+    shouldEnableSpotData,
     selectorConfig?.direction,
     selectorConfig?.field,
     spotPriceMap,
@@ -587,7 +776,16 @@ function MobileTokenSelectorModal({
 
   // Layer 1b: spot sort — isolated from perp. Sorts against a frozen snapshot
   // so live WS updates refresh row values without reshuffling the list.
-  const spotSortedList = useMemo((): ITokenSelectorListItem[] => {
+  const { spotSortedList, spotFavoriteSortedList } = useMemo((): {
+    spotSortedList: ITokenSelectorListItem[];
+    spotFavoriteSortedList: ITokenSelectorListItem[];
+  } => {
+    if (!shouldEnableSpotData) {
+      return {
+        spotSortedList: [],
+        spotFavoriteSortedList: [],
+      };
+    }
     const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
@@ -625,13 +823,12 @@ function MobileTokenSelectorModal({
         marketCap,
       };
     });
-    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
-    const entries = mappedEntries.filter(
-      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
-    );
 
-    if (sortField) {
-      entries.sort((a, b) => {
+    const sortEntries = (items: typeof mappedEntries) => {
+      if (!sortField) {
+        return items;
+      }
+      return [...items].toSorted((a, b) => {
         let cmp = 0;
         switch (sortField) {
           case 'name':
@@ -660,9 +857,17 @@ function MobileTokenSelectorModal({
         }
         return sortDirection === 'asc' ? cmp : -cmp;
       });
-    }
+    };
 
-    const result = entries.map((e) => e.item);
+    const hasVolumeData = mappedEntries.some((e) => e.volume24h > 0);
+    const entries = mappedEntries.filter(
+      (e) => !hasVolumeData || e.volume24h >= SPOT_SELECTOR_MIN_VOLUME,
+    );
+    const sortedEntries = sortEntries(entries);
+    const sortedFavoriteEntries = sortEntries(mappedEntries);
+
+    const result = sortedEntries.map((e) => e.item);
+    const favoriteResult = sortedFavoriteEntries.map((e) => e.item);
     if (perfStartTime !== undefined) {
       markTokenSelectorPerfMeasure(perfStartTime, {
         layout: 'mobile',
@@ -675,8 +880,12 @@ function MobileTokenSelectorModal({
       });
     }
 
-    return result;
+    return {
+      spotSortedList: result,
+      spotFavoriteSortedList: favoriteResult,
+    };
   }, [
+    shouldEnableSpotData,
     spotUniverses,
     spotPriceSnapshot,
     spotMarketCaps,
@@ -713,12 +922,28 @@ function MobileTokenSelectorModal({
     if (isPerpTokenSelectorSpotTab(displayPrimaryTab)) {
       result = getSpotListBySearch();
     } else if (isPerpTokenSelectorFavoritesTab(displayPrimaryTab)) {
-      const favoriteAssetIds = new Set(
-        favoriteItems.map((f: IFavoriteItem) => `${f.dexIndex}-${f.assetId}`),
-      );
-      result = perpSortedList.filter((item) =>
-        favoriteAssetIds.has(`${item.dexIndex}-${item.assetId}`),
-      );
+      result = getTokenSelectorFavoriteItems({
+        favoriteItems,
+        favoritesOrder: favoritesOrder.sequence,
+        perpItems: perpSortedList,
+        spotItems: spotFavoriteSortedList,
+      });
+      if (sortField) {
+        result = sortTokenSelectorFavoriteItems({
+          items: result,
+          sortField,
+          sortDirection,
+          getSortEntry: (item, order) =>
+            getTokenSelectorFavoriteSortEntry({
+              item,
+              order,
+              spotPriceSnapshot,
+              spotMarketCaps,
+              perpAssetCtxsByDex: ctxSnapshotRef.current,
+              computePerpSortValues: computeSortValues,
+            }),
+        });
+      }
     } else if (isPerpTokenSelectorPerpsTab(displayActiveTab)) {
       result = perpSortedList;
     } else {
@@ -763,13 +988,47 @@ function MobileTokenSelectorModal({
     displayPrimaryTab,
     assetsByDex,
     categoryTabs,
+    favoritesOrder.sequence,
     favoriteItems,
+    computeSortValues,
     perpSortedList,
     selectorConfig?.direction,
     selectorConfig?.field,
+    spotFavoriteSortedList,
+    spotMarketCaps,
+    spotPriceSnapshot,
     spotSortedList,
     searchQuery,
   ]);
+
+  useEffect(() => {
+    void prewarmPerpsTokenSelectorImages(mockedListData);
+  }, [mockedListData]);
+
+  const isDefaultPerpsSelectorView =
+    displayActiveTab === DEFAULT_PERP_TOKEN_ACTIVE_TAB &&
+    (selectorConfig?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD) ===
+      DEFAULT_PERP_TOKEN_SORT_FIELD &&
+    (selectorConfig?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION) ===
+      DEFAULT_PERP_TOKEN_SORT_DIRECTION;
+  const shouldUseCachedInitialList =
+    platformEnv.isNativeIOS &&
+    !searchQuery &&
+    isDefaultPerpsSelectorView &&
+    mockedListData.length === 0 &&
+    cachedInitialListRef.current.length > 0;
+  const displayedListData = shouldUseCachedInitialList
+    ? cachedInitialListRef.current
+    : mockedListData;
+
+  useEffect(() => {
+    if (!platformEnv.isNativeIOS) {
+      return;
+    }
+    initialListRenderedRef.current = false;
+    initialListRenderedIndexesRef.current.clear();
+    setHasInitialListRendered(false);
+  }, [activeTab, searchQuery, shouldUseCachedInitialList]);
 
   usePerpActiveTabValidation({
     activeTab,
@@ -780,23 +1039,63 @@ function MobileTokenSelectorModal({
   });
 
   const keyExtractor = useCallback(
-    (item: { dexIndex: number; assetId?: number; index: number }) => {
-      const assetId = item.assetId ?? item.index;
-      return `${item.dexIndex}-${assetId}`;
-    },
+    (item: ITokenSelectorListItem) => getTokenSelectorListItemKey(item),
     [],
   );
 
+  const markInitialListRowRendered = useCallback(
+    (index: number) => {
+      if (initialListRenderedRef.current) {
+        return;
+      }
+      if (index >= IOS_INITIAL_ROWS_SNAPSHOT_COUNT) {
+        return;
+      }
+      initialListRenderedIndexesRef.current.add(index);
+      const targetCount = Math.min(
+        IOS_INITIAL_ROWS_SNAPSHOT_COUNT,
+        displayedListData.length,
+      );
+      if (initialListRenderedIndexesRef.current.size < targetCount) {
+        return;
+      }
+      initialListRenderedRef.current = true;
+      requestAnimationFrame(() => {
+        setHasInitialListRendered(true);
+      });
+    },
+    [displayedListData.length],
+  );
+
   const renderItem = useCallback(
-    ({ item: mockedToken }: { item: ITokenSelectorListItem }) => (
-      <PerpTokenSelectorRow
-        isOnModal
-        mockedToken={mockedToken}
-        onPress={handleSelectToken}
-        skipMarkRequired
-      />
-    ),
-    [handleSelectToken],
+    ({
+      item: mockedToken,
+      index,
+    }: {
+      item: ITokenSelectorListItem;
+      index: number;
+    }) => {
+      const row = (
+        <PerpTokenSelectorRow
+          isOnModal
+          mockedToken={mockedToken}
+          onPress={handleSelectToken}
+          skipMarkRequired
+        />
+      );
+      if (
+        !platformEnv.isNativeIOS ||
+        index >= IOS_INITIAL_ROWS_SNAPSHOT_COUNT
+      ) {
+        return row;
+      }
+      return (
+        <Stack width="100%" onLayout={() => markInitialListRowRendered(index)}>
+          {row}
+        </Stack>
+      );
+    },
+    [handleSelectToken, markInitialListRowRendered],
   );
 
   const handleSortPress = useCallback(
@@ -840,6 +1139,41 @@ function MobileTokenSelectorModal({
   let listEmptyComponent: ReactNode;
   const shouldShowSpotLoadingEmptyState =
     spotLoading && isPerpTokenSelectorSpotTab(displayPrimaryTab);
+  const shouldHidePerpsHydratingEmptyState =
+    !searchQuery &&
+    isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
+    perpSortedList.length === 0;
+  const shouldShowInitialRowsSnapshot =
+    platformEnv.isNativeIOS &&
+    !hasInitialListRendered &&
+    !searchQuery &&
+    isPerpTokenSelectorPerpsTab(displayPrimaryTab) &&
+    displayedListData.length > 0;
+  const initialRowsSnapshotData = useMemo<IInitialRowsSnapshotData[]>(() => {
+    if (!shouldShowInitialRowsSnapshot) {
+      return [];
+    }
+    return displayedListData
+      .slice(0, IOS_INITIAL_ROWS_SNAPSHOT_COUNT)
+      .map((mockedToken) => {
+        const assetId = mockedToken.assetId;
+        const dexIndex = mockedToken.dexIndex;
+        const ctxIndex =
+          dexIndex === 1 && typeof assetId === 'number'
+            ? assetId - XYZ_ASSET_ID_OFFSET
+            : assetId;
+        const rawAssetCtx =
+          typeof ctxIndex === 'number'
+            ? assetCtxsByDex?.[dexIndex]?.[ctxIndex]
+            : undefined;
+        return {
+          mockedToken,
+          assetCtx: rawAssetCtx
+            ? perpsUtils.formatAssetCtx(rawAssetCtx)
+            : undefined,
+        };
+      });
+  }, [assetCtxsByDex, displayedListData, shouldShowInitialRowsSnapshot]);
   if (shouldShowSpotLoadingEmptyState) {
     listEmptyComponent = (
       <YStack p="$5" alignItems="center">
@@ -931,7 +1265,7 @@ function MobileTokenSelectorModal({
           </Stack>
         ) : null}
       </Stack>
-      <XStack px="$4" py="$2" justifyContent="space-between">
+      <XStack px="$4" pt="$3" pb="$0.5" justifyContent="space-between">
         <XStack
           gap="$1"
           alignItems="center"
@@ -992,26 +1326,58 @@ function MobileTokenSelectorModal({
         </XStack>
       </XStack>
       <Page.Body>
-        <YStack flex={1} mt="$2">
+        <YStack flex={1}>
           {isListReady ? (
             <ListView
               useFlashList
-              key={activeTab}
+              key={`${activeTab}-${
+                shouldUseCachedInitialList ? 'cached' : 'live'
+              }`}
               ref={listRef}
               keyExtractor={keyExtractor}
-              estimatedItemSize={44}
-              windowSize={3}
-              initialNumToRender={5}
+              estimatedItemSize={TOKEN_SELECTOR_SNAPSHOT_ROW_HEIGHT}
+              windowSize={
+                platformEnv.isNativeIOS ? IOS_LIVE_LIST_WINDOW_SIZE : 3
+              }
+              initialNumToRender={
+                platformEnv.isNativeIOS ? IOS_INITIAL_ROWS_SNAPSHOT_COUNT : 5
+              }
               decelerationRate="normal"
               showsVerticalScrollIndicator
               nestedScrollEnabled={platformEnv.isNativeAndroid}
+              {...androidSortScrollBehaviorProps}
               contentContainerStyle={{
                 paddingBottom: 10,
               }}
-              data={mockedListData}
+              data={displayedListData}
               renderItem={renderItem}
-              ListEmptyComponent={listEmptyComponent}
+              ListEmptyComponent={
+                shouldHidePerpsHydratingEmptyState ? null : listEmptyComponent
+              }
             />
+          ) : null}
+          {initialRowsSnapshotData.length > 0 ? (
+            <YStack
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              zIndex={1}
+              bg="$bgApp"
+              pointerEvents="none"
+            >
+              {initialRowsSnapshotData.map(({ assetCtx, mockedToken }) => (
+                <Stack
+                  key={`initial-${getTokenSelectorListItemKey(mockedToken)}`}
+                  width="100%"
+                >
+                  <InitialRowsSnapshotRow
+                    mockedToken={mockedToken}
+                    assetCtx={assetCtx}
+                  />
+                </Stack>
+              ))}
+            </YStack>
           ) : null}
         </YStack>
       </Page.Body>

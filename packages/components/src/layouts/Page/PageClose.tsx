@@ -8,6 +8,19 @@ import { useSafeAreaInsets } from '../../hooks';
 import { Stack } from '../../primitives';
 import { NavBackButton, NavCloseButton } from '../Navigation';
 
+import type { IIconButtonProps } from '../../actions';
+
+type IPageBackButtonProps = Omit<
+  IIconButtonProps,
+  | 'icon'
+  | 'testID'
+  | 'onPress'
+  | 'onLongPress'
+  | 'disabled'
+  | 'loading'
+  | 'allowPressWhenDisabled'
+>;
+
 export function PageClose({
   children,
   disabled,
@@ -21,7 +34,11 @@ export function PageClose({
   }, [navigation]);
 
   return (
-    <Trigger onPress={handleClose} disabled={disabled}>
+    <Trigger
+      testID="page-close-trigger"
+      onPress={handleClose}
+      disabled={disabled}
+    >
       {children}
     </Trigger>
   );
@@ -37,10 +54,10 @@ function PageCloseButtonBase({ children }: PropsWithChildren) {
   );
 }
 
-export function PageBackButton() {
+export function PageBackButton(props: IPageBackButtonProps) {
   return (
     <PageCloseButtonBase>
-      <NavBackButton />
+      <NavBackButton {...props} />
     </PageCloseButtonBase>
   );
 }

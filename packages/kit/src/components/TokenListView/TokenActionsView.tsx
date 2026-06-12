@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -23,6 +24,8 @@ import {
   useTokenListMapAtom,
 } from '../../states/jotai/contexts/tokenList';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 import type { XStackProps } from 'tamagui';
 
 type IProps = {
@@ -33,7 +36,9 @@ function TokenActionsView(props: IProps) {
   const { token, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [tokenListMap] = useTokenListMapAtom();
+  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const [globalTokenListMap] = useTokenListMapAtom();
+  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
@@ -79,9 +84,28 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
+    const networkId = activeToken.networkId ?? activeAccount?.network?.id ?? '';
+    const isBtcNativeToken =
+      networkId === getNetworkIdsMap().btc &&
+      activeToken.isNative &&
+      activeToken.symbol?.toUpperCase() === 'BTC' &&
+      !activeToken.address;
+    const importFromToken = !isBtcNativeToken
+      ? {
+          contractAddress: activeToken.address,
+          symbol: activeToken.symbol,
+          networkId,
+          isNative: activeToken.isNative,
+          decimals: activeToken.decimals,
+          name: activeToken.name,
+          logoURI: activeToken.logoURI,
+          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
+        }
+      : undefined;
+
     defaultLogger.wallet.walletActions.actionTrade({
       walletType: activeAccount?.wallet?.type ?? '',
-      networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
+      networkId,
       source: 'homeTokenList',
       tradeType: ESwapTabSwitchType.SWAP,
       isSoftwareWalletOnlyUser,
@@ -89,18 +113,8 @@ function TokenActionsView(props: IProps) {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId:
-          activeToken.networkId ?? activeAccount?.network?.id ?? '',
-        importFromToken: {
-          contractAddress: activeToken.address,
-          symbol: activeToken.symbol,
-          networkId: activeToken.networkId ?? activeAccount?.network?.id ?? '',
-          isNative: activeToken.isNative,
-          decimals: activeToken.decimals,
-          name: activeToken.name,
-          logoURI: activeToken.logoURI,
-          networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
-        },
+        importNetworkId: networkId,
+        importFromToken,
         importDeriveType: deriveType,
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
         swapSource: ESwapSource.WALLET_HOME_TOKEN_LIST,
@@ -122,6 +136,7 @@ function TokenActionsView(props: IProps) {
   return (
     <XStack {...rest}>
       <Button
+        testID="token-actions-swap-btn"
         size="small"
         variant="secondary"
         cursor="pointer"

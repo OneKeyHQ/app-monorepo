@@ -11,6 +11,7 @@ import { vaultFactory } from '../vaults/factory';
 import BackgroundApiBase from './BackgroundApiBase';
 
 import type { IBackgroundApi } from './IBackgroundApi';
+import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
@@ -769,6 +770,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceHyperliquid', { value });
+    return value;
+  }
+
+  get serviceHyperliquidCache(): ServiceHyperliquidCache {
+    const Service =
+      require('../services/ServiceHyperLiquid/ServiceHyperliquidCache') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidCache');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceHyperliquidCache', { value });
     return value;
   }
 

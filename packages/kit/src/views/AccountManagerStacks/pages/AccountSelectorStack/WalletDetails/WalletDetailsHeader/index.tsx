@@ -29,6 +29,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { AccountManagerTestIDs } from '../testIDs';
+
 import type { IWalletDetailsProps } from '..';
 
 type IWalletDetailsHeaderProps = {
@@ -75,7 +77,7 @@ export function WalletDetailsHeader({
 
   return (
     <YStack
-      testID="account-selector-header"
+      testID={AccountManagerTestIDs.accountSelectorHeader}
       py="$1"
       {...(rest as IYStackProps)}
     >
@@ -153,6 +155,7 @@ export function WalletDetailsHeader({
             }
             renderSelectorTrigger={
               <IconButton
+                testID="account-manager-icon-btn"
                 onPress={() => {}}
                 icon="BranchesOutline"
                 variant="tertiary"

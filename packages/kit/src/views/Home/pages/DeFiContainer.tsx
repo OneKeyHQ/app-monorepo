@@ -9,14 +9,7 @@ import {
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import {
-  runOnJS,
-  runOnUI,
-  scrollTo,
-  useAnimatedReaction,
-  useReducedMotion,
-  useSharedValue,
-} from 'react-native-reanimated';
+import { useReducedMotion, useSharedValue } from 'react-native-reanimated';
 
 import {
   Image,
@@ -25,11 +18,9 @@ import {
   Stack,
   Tabs,
   YStack,
-  useCurrentTabScrollY,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import { useTabsContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -39,9 +30,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type { IDeFiProtocol } from '@onekeyhq/shared/types/defi';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
-import type { WorkletFn } from '@onekeyhq/shared/types/worklet';
 
-import { BackToTopButton } from '../../../components/BackToTopButton';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   ProviderJotaiContextDeFiList,
@@ -78,12 +67,9 @@ import { STICKY_TOP_OFFSET } from '../types';
 import {
   findActiveProtocolKey,
   findScrollableAncestorFromLocalNode,
+  shouldQueueProtocolNavigation,
   shouldReleasePinLock,
 } from './defiDesktopStickyDom';
-
-// Scroll depth beyond which back-to-top may reveal; deep enough to be past
-// the initial fold, shallow enough to not require a full viewport of scroll.
-const BACK_TO_TOP_NEAR_TOP_PX = 200;
 
 // Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
 // stays in horizontal alignment with the wallet header / tab bar / alerts.
@@ -91,25 +77,7 @@ const BACK_TO_TOP_NEAR_TOP_PX = 200;
 // viewport, and visual max-width is enforced one level down per content block.
 const DEFI_CONTAINER_CONTENT_MAX_WIDTH = 1140;
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
-const CHIP_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
-
-// Industry pattern: reveal on any upward scroll past the initial fold; hide
-// on downward scroll or when back near the top. rAF / animated-reaction
-// throttles already absorb wheel jitter, so no extra dead zone. Returns
-// `previous` when direction is neutral so callers can dedup by identity.
-// Called from a Reanimated worklet (useAnimatedReaction below). The
-// 'worklet'; directive is REQUIRED — Reanimated's babel plugin does not
-// auto-worklet top-level named function declarations, so without it the UI
-// thread crashes with "Object is not a function".
-const decideBackToTopVisible: WorkletFn<
-  (current: number, last: number, previous: boolean) => boolean
-> = (current, last, previous) => {
-  'worklet';
-  if (current <= BACK_TO_TOP_NEAR_TOP_PX) return false;
-  if (current < last) return true;
-  if (current > last) return false;
-  return previous;
-};
+const PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS = 5000;
 
 function scrollToAnchor(
   anchor: HTMLElement,
@@ -205,8 +173,8 @@ function DeFiContainer() {
   // distinct floats every frame; an epsilon guard skips redundant writes
   // before they reach the UI thread's animated style + props consumers.
   const lastChipRevealRef = useRef(0);
-  // Chip-click pin lock. Single source of truth: a non-null target means
-  // the lock is engaged. The pin tracker condition-releases the lock
+  // Protocol navigation pin lock. Single source of truth: a non-null target
+  // means the lock is engaged. The pin tracker condition-releases the lock
   // (see shouldReleasePinLock) the moment its computed candidate catches
   // up to the click target; the safety timer is a fallback for cases
   // where the target is never reached (unreachable, layout collapse).
@@ -214,22 +182,21 @@ function DeFiContainer() {
   const pinLockSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  // Hidden chip targets are registration-driven: clicking a protocol hidden
-  // behind the slice cut first expands the list, then waits for that protocol
-  // to register its anchor before attempting expand + scroll.
-  const pendingChipTargetRef = useRef<{
+  // Missing navigation targets are registration-driven: if the protocol card
+  // is not mounted yet, expand the list and wait for its anchor before scroll.
+  const pendingProtocolNavigationTargetRef = useRef<{
     key: string;
     protocol: IDeFiProtocol;
   } | null>(null);
-  const pendingChipTargetTimerRef = useRef<ReturnType<
+  const pendingProtocolNavigationTargetTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
 
-  const clearPendingChipTarget = useCallback(() => {
-    pendingChipTargetRef.current = null;
-    if (pendingChipTargetTimerRef.current) {
-      clearTimeout(pendingChipTargetTimerRef.current);
-      pendingChipTargetTimerRef.current = null;
+  const clearPendingProtocolNavigationTarget = useCallback(() => {
+    pendingProtocolNavigationTargetRef.current = null;
+    if (pendingProtocolNavigationTargetTimerRef.current) {
+      clearTimeout(pendingProtocolNavigationTargetTimerRef.current);
+      pendingProtocolNavigationTargetTimerRef.current = null;
     }
   }, []);
 
@@ -240,23 +207,23 @@ function DeFiContainer() {
     }
   }, []);
 
-  const clearChipNavigationState = useCallback(() => {
-    clearPendingChipTarget();
+  const clearProtocolNavigationState = useCallback(() => {
+    clearPendingProtocolNavigationTarget();
     pinLockTargetRef.current = null;
     clearPinLockSafetyTimer();
-  }, [clearPendingChipTarget, clearPinLockSafetyTimer]);
+  }, [clearPendingProtocolNavigationTarget, clearPinLockSafetyTimer]);
 
-  const armPendingChipTargetTimer = useCallback(
+  const armPendingProtocolNavigationTargetTimer = useCallback(
     (safetyMs: number) => {
-      if (pendingChipTargetTimerRef.current) {
-        clearTimeout(pendingChipTargetTimerRef.current);
+      if (pendingProtocolNavigationTargetTimerRef.current) {
+        clearTimeout(pendingProtocolNavigationTargetTimerRef.current);
       }
-      pendingChipTargetTimerRef.current = setTimeout(() => {
-        clearPendingChipTarget();
+      pendingProtocolNavigationTargetTimerRef.current = setTimeout(() => {
+        clearPendingProtocolNavigationTarget();
         triggerPinCheckRef.current();
       }, safetyMs);
     },
-    [clearPendingChipTarget],
+    [clearPendingProtocolNavigationTarget],
   );
 
   const getNetWorth = useCallback(
@@ -317,17 +284,8 @@ function DeFiContainer() {
     triggerPinCheckRef.current();
   }, []);
 
-  const handleTilePress = useCallback(
-    (p: IDeFiProtocol) => {
-      const key = defiUtils.buildProtocolMapKey({
-        protocol: p.protocol,
-        networkId: p.networkId,
-      });
-      const handle = protocolRefs.current.get(key);
-      if (!handle) {
-        return;
-      }
-
+  const scrollProtocolHandleIntoView = useCallback(
+    (handle: IProtocolHandle) => {
       handle.expand();
 
       if (platformEnv.isNative || typeof requestAnimationFrame !== 'function') {
@@ -352,18 +310,36 @@ function DeFiContainer() {
     [getLiveStickyOffset, reducedMotion],
   );
 
-  const lockActiveAndScrollToProtocol = useCallback(
+  const navigateToProtocol = useCallback(
     (p: IDeFiProtocol) => {
       const key = defiUtils.buildProtocolMapKey({
         protocol: p.protocol,
         networkId: p.networkId,
       });
+      const handle = protocolRefs.current.get(key);
+      const shouldQueueNavigation = shouldQueueProtocolNavigation({
+        hasRegisteredHandle: Boolean(handle),
+        isNative: Boolean(platformEnv.isNative),
+        tableLayout,
+      });
 
-      clearPendingChipTarget();
+      if (!handle && !shouldQueueNavigation) {
+        return;
+      }
+
+      clearPendingProtocolNavigationTarget();
       clearPinLockSafetyTimer();
       pinLockTargetRef.current = key;
       setPinnedKey(key);
-      handleTilePress(p);
+      if (handle) {
+        scrollProtocolHandleIntoView(handle);
+      } else {
+        pendingProtocolNavigationTargetRef.current = { key, protocol: p };
+        armPendingProtocolNavigationTargetTimer(
+          PROTOCOL_NAV_PENDING_TARGET_TIMEOUT_MS,
+        );
+        setIsSliced(false);
+      }
       // Fallback for the rare case where the scroll never settles on
       // the target (target unreachable, layout collapse). Generous so
       // it almost never fires — condition-release is the normal path.
@@ -375,10 +351,13 @@ function DeFiContainer() {
       }, safetyMs);
     },
     [
-      clearPendingChipTarget,
+      armPendingProtocolNavigationTargetTimer,
+      clearPendingProtocolNavigationTarget,
       clearPinLockSafetyTimer,
-      handleTilePress,
+      scrollProtocolHandleIntoView,
       reducedMotion,
+      setIsSliced,
+      tableLayout,
     ],
   );
 
@@ -397,17 +376,17 @@ function DeFiContainer() {
         triggerPinCheckRef.current();
       }
 
-      const pendingTarget = pendingChipTargetRef.current;
+      const pendingTarget = pendingProtocolNavigationTargetRef.current;
       if (
         handle &&
         pendingTarget?.key === key &&
         !platformEnv.isNative &&
         tableLayout
       ) {
-        lockActiveAndScrollToProtocol(pendingTarget.protocol);
+        navigateToProtocol(pendingTarget.protocol);
       }
     },
-    [lockActiveAndScrollToProtocol, tableLayout],
+    [navigateToProtocol, tableLayout],
   );
 
   const handleCollapseToProtocol = useCallback(
@@ -434,10 +413,8 @@ function DeFiContainer() {
     [getLiveStickyOffset, reducedMotion],
   );
 
-  // Chip strip click handler: same destination as handleTilePress (and
-  // shares the scroll/expand machinery), but also expands the list when
-  // the target protocol is currently hidden behind the "Show more" cut so
-  // a chip is never a dead button.
+  // Chip strip click handler uses the same protocol navigation path as
+  // overview title cards, including pending registration for hidden cards.
   //
   // We pin the active chip optimistically + suppress the scroll-driven pin
   // tracker for the duration of the smooth scroll so the active state
@@ -445,23 +422,9 @@ function DeFiContainer() {
   // settling on the target.
   const handleChipPress = useCallback(
     (p: IDeFiProtocol) => {
-      const key = defiUtils.buildProtocolMapKey({
-        protocol: p.protocol,
-        networkId: p.networkId,
-      });
-
-      if (protocolRefs.current.has(key)) {
-        lockActiveAndScrollToProtocol(p);
-        return;
-      }
-
-      // Hidden behind the slice cut: unslice and let registerProtocol drive
-      // expand + scroll when the target anchor is actually mounted.
-      pendingChipTargetRef.current = { key, protocol: p };
-      armPendingChipTargetTimer(CHIP_NAV_PENDING_TARGET_TIMEOUT_MS);
-      setIsSliced(false);
+      navigateToProtocol(p);
     },
-    [armPendingChipTargetTimer, lockActiveAndScrollToProtocol, setIsSliced],
+    [navigateToProtocol],
   );
 
   // Protocol count alone isn't a sufficient gate: a wallet with 2+
@@ -685,18 +648,18 @@ function DeFiContainer() {
     setPinnedKey(null);
     chipRevealShared.value = 0;
     lastChipRevealRef.current = 0;
-    // Drop any in-flight chip-click navigation so it can't fire on a
+    // Drop any in-flight protocol navigation so it can't fire on a
     // stale pinnedKey after the user has navigated away.
-    clearChipNavigationState();
-  }, [isTabFocused, chipRevealShared, clearChipNavigationState]);
+    clearProtocolNavigationState();
+  }, [isTabFocused, chipRevealShared, clearProtocolNavigationState]);
 
-  // Chip navigation timers survive effect re-runs (they're owned by
-  // handleChipPress), so the unmount path needs its own cleanup.
+  // Protocol navigation timers survive effect re-runs (they're owned by
+  // click handlers), so the unmount path needs its own cleanup.
   useEffect(
     () => () => {
-      clearChipNavigationState();
+      clearProtocolNavigationState();
     },
-    [clearChipNavigationState],
+    [clearProtocolNavigationState],
   );
 
   useEffect(() => {
@@ -775,7 +738,7 @@ function DeFiContainer() {
                 protocolMap={protocolMap}
                 isLoading={isOverviewLoading}
                 getNetWorth={getNetWorth}
-                onPressProtocol={handleTilePress}
+                onPressProtocol={navigateToProtocol}
                 isAllNetworks={isAllNetworks}
               />
             </YStack>
@@ -800,6 +763,7 @@ function DeFiContainer() {
             <ProtocolChipStrip
               protocols={filteredProtocols}
               protocolMap={protocolMap}
+              isAllNetworks={isAllNetworks}
               activeKey={pinnedKey}
               onPressChip={handleChipPress}
               onHeightChange={handleChipStripHeight}
@@ -821,198 +785,25 @@ function DeFiContainer() {
   );
 }
 
-function DeFiContainerScrollableNative() {
-  const tabBarOffset = useScrollContentTabBarOffset();
-
-  const scrollYShared = useCurrentTabScrollY();
-  const { refMap, focusedTab } = useTabsContext();
-
-  const [backToTopVisible, setBackToTopVisible] = useState(false);
-  const lastVisibleShared = useSharedValue(false);
-
-  // UI-thread dedup: only cross the RN bridge when the decision flips.
-  useAnimatedReaction(
-    () => scrollYShared.value as number,
-    (current, previous) => {
-      if (previous === null) return;
-      const next = decideBackToTopVisible(
-        current,
-        previous,
-        lastVisibleShared.value,
-      );
-      if (next !== lastVisibleShared.value) {
-        lastVisibleShared.value = next;
-        runOnJS(setBackToTopVisible)(next);
-      }
-    },
-    [scrollYShared],
-  );
-
-  const onPressBackToTop = useCallback(() => {
-    runOnUI(() => {
-      'worklet';
-
-      const ref = refMap[focusedTab.value];
-      if (ref) {
-        scrollTo(ref, 0, 0, true);
-      }
-    })();
-  }, [refMap, focusedTab]);
-
-  return (
-    <Stack flex={1}>
-      <Tabs.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarOffset }}
-        nestedScrollEnabled={platformEnv.isNativeAndroid}
-        refreshControl={
-          !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
-          ) : undefined
-        }
-      >
-        <DeFiContainer />
-      </Tabs.ScrollView>
-      <BackToTopButton
-        visible={backToTopVisible}
-        onPress={onPressBackToTop}
-        placement="left"
-      />
-    </Stack>
-  );
-}
-
-function DeFiContainerScrollableWeb() {
-  const tabBarOffset = useScrollContentTabBarOffset();
-  const sentinelRef = useRef<HTMLElement | null>(null);
-  const scrollerRef = useRef<HTMLElement | null>(null);
-  const lastScrollTopRef = useRef(0);
-  const lastVisibleRef = useRef(false);
-  const [backToTopVisible, setBackToTopVisible] = useState(false);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    let attachedScroller: HTMLElement | null = null;
-    let scrollRafId = 0;
-    let attachRafId = 0;
-    const scrollOpts: AddEventListenerOptions = { passive: true };
-
-    const onScroll = () => {
-      if (scrollRafId || !attachedScroller) return;
-      scrollRafId = requestAnimationFrame(() => {
-        scrollRafId = 0;
-        if (!attachedScroller) return;
-        const current = attachedScroller.scrollTop;
-        const last = lastScrollTopRef.current;
-        lastScrollTopRef.current = current;
-        const next = decideBackToTopVisible(
-          current,
-          last,
-          lastVisibleRef.current,
-        );
-        if (next !== lastVisibleRef.current) {
-          lastVisibleRef.current = next;
-          setBackToTopVisible(next);
-        }
-      });
-    };
-
-    const detachScroller = () => {
-      if (attachedScroller) {
-        attachedScroller.removeEventListener('scroll', onScroll, scrollOpts);
-      }
-      attachedScroller = null;
-      scrollerRef.current = null;
-    };
-
-    const attachScroller = () => {
-      const nextScroller = findScrollableAncestorFromLocalNode(sentinel);
-      if (nextScroller === attachedScroller) {
-        scrollerRef.current = nextScroller;
-        return;
-      }
-
-      detachScroller();
-      attachedScroller = nextScroller;
-      scrollerRef.current = nextScroller;
-
-      if (attachedScroller) {
-        attachedScroller.addEventListener('scroll', onScroll, scrollOpts);
-        lastScrollTopRef.current = attachedScroller.scrollTop;
-      }
-    };
-
-    const scheduleAttach = () => {
-      if (attachRafId) cancelAnimationFrame(attachRafId);
-      attachRafId = requestAnimationFrame(() => {
-        attachRafId = 0;
-        attachScroller();
-      });
-    };
-
-    const resizeObserver =
-      typeof ResizeObserver === 'undefined'
-        ? undefined
-        : new ResizeObserver(scheduleAttach);
-    resizeObserver?.observe(sentinel);
-    if (sentinel.parentElement) {
-      resizeObserver?.observe(sentinel.parentElement);
-    }
-
-    attachScroller();
-    globalThis.addEventListener('resize', scheduleAttach);
-
-    return () => {
-      globalThis.removeEventListener('resize', scheduleAttach);
-      resizeObserver?.disconnect();
-      detachScroller();
-      if (scrollRafId) cancelAnimationFrame(scrollRafId);
-      if (attachRafId) cancelAnimationFrame(attachRafId);
-    };
-  }, []);
-
-  const onPressBackToTop = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    scroller.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  return (
-    <Stack flex={1}>
-      <Tabs.ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: tabBarOffset }}
-        nestedScrollEnabled={platformEnv.isNativeAndroid}
-        refreshControl={
-          !platformEnv.isNativeAndroid ? (
-            <PullToRefresh onRefresh={onHomePageRefresh} />
-          ) : undefined
-        }
-      >
-        <Stack
-          ref={sentinelRef as any}
-          width={0}
-          height={0}
-          pointerEvents="none"
-        />
-        <DeFiContainer />
-      </Tabs.ScrollView>
-      <BackToTopButton
-        visible={backToTopVisible}
-        onPress={onPressBackToTop}
-        placement="left"
-      />
-    </Stack>
-  );
-}
-
 function DeFiContainerScrollable() {
-  if (platformEnv.isNative) {
-    return <DeFiContainerScrollableNative />;
-  }
-  return <DeFiContainerScrollableWeb />;
+  const tabBarOffset = useScrollContentTabBarOffset();
+
+  return (
+    <Stack flex={1}>
+      <Tabs.ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: tabBarOffset }}
+        nestedScrollEnabled={platformEnv.isNativeAndroid}
+        refreshControl={
+          !platformEnv.isNativeAndroid ? (
+            <PullToRefresh onRefresh={onHomePageRefresh} />
+          ) : undefined
+        }
+      >
+        <DeFiContainer />
+      </Tabs.ScrollView>
+    </Stack>
+  );
 }
 
 function DeFiContainerWithProvider() {

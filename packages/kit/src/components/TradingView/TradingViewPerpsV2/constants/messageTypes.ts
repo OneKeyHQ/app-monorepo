@@ -9,10 +9,12 @@ export const MESSAGE_TYPES = {
   PERPS_TV_LINES_CLEAR: 'PERPS_TV_LINES_CLEAR',
   PERPS_TV_LINE_EDIT_RESULT: 'PERPS_TV_LINE_EDIT_RESULT',
   PERPS_TV_ORDER_PRICE_UPDATE_REJECTED: 'PERPS_TV_ORDER_PRICE_UPDATE_REJECTED',
+  PERPS_TV_CHART_EXPAND_SYNC: 'PERPS_TV_CHART_EXPAND_SYNC',
 } as const;
 
 // Iframe -> App message methods
 export const PERPS_TV_MESSAGE_METHODS = {
+  CHART_READY: 'tradingview_chartReady',
   READY: 'tradingview_perpsReady',
   LINE_DRAG_COMMIT: 'tradingview_lineDragCommit',
   ORDER_CANCEL: 'tradingview_perpsOrderCancel',

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -64,14 +64,40 @@ export function PerpMarketWorkspacePanel({
     useState<IPerpMarketWorkspaceView>('chart');
   const [, setLayoutState] = usePerpsLayoutStateAtom();
   const { baseName, coin, displayName } = useActiveTradeDisplay();
+  const marketKey = useMemo(
+    () => coin || displayName || baseName || 'unknown',
+    [baseName, coin, displayName],
+  );
+  const [mountedInfoMarketKey, setMountedInfoMarketKey] = useState<
+    string | undefined
+  >();
+  const [collapseChartExpandSignal, setCollapseChartExpandSignal] = useState(0);
+
+  const handleChangeActiveView = useCallback(
+    (view: IPerpMarketWorkspaceView) => {
+      if (view !== 'chart') {
+        setLayoutState((prev) =>
+          prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
+        );
+        setCollapseChartExpandSignal((prev) => prev + 1);
+      }
+
+      setActiveView(view);
+    },
+    [setLayoutState],
+  );
 
   useEffect(() => {
-    if (activeView !== 'chart') {
-      setLayoutState((prev) =>
-        prev.chartExpanded ? { ...prev, chartExpanded: false } : prev,
-      );
-    }
-  }, [activeView, setLayoutState]);
+    setMountedInfoMarketKey((prev) => {
+      if (activeView === 'info') {
+        return marketKey;
+      }
+
+      return prev === marketKey ? prev : undefined;
+    });
+  }, [activeView, marketKey]);
+
+  const shouldRenderInfo = mountedInfoMarketKey === marketKey;
 
   return (
     <YStack flex={1} minHeight={0}>
@@ -88,20 +114,31 @@ export function PerpMarketWorkspacePanel({
             key={item.key}
             active={activeView === item.key}
             label={intl.formatMessage({ id: item.translationId })}
-            onPress={() => setActiveView(item.key)}
+            onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
       </XStack>
 
       <YStack flex={1} minHeight={0}>
-        {activeView === 'chart' ? (
-          <PerpCandles onTouchScroll={onTouchScroll} />
-        ) : null}
+        <YStack
+          flex={1}
+          minHeight={0}
+          display={activeView === 'chart' ? 'flex' : 'none'}
+        >
+          <PerpCandles
+            collapseChartExpandSignal={collapseChartExpandSignal}
+            onTouchScroll={onTouchScroll}
+          />
+        </YStack>
 
-        {activeView === 'info' ? (
-          <YStack flex={1} minHeight={0}>
+        {shouldRenderInfo ? (
+          <YStack
+            key={`info-${mountedInfoMarketKey}`}
+            flex={1}
+            minHeight={0}
+            display={activeView === 'info' ? 'flex' : 'none'}
+          >
             <PerpMarketDetailContent
-              key={`info-${coin || displayName || baseName || 'unknown'}`}
               coin={coin}
               displayName={baseName || displayName}
               tabKeys={PERP_MARKET_INFO_TAB_KEYS}

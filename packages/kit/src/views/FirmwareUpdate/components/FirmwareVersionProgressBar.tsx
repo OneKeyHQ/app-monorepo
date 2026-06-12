@@ -1,7 +1,9 @@
+import { useIntl } from 'react-intl';
+
 import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
+import { getTargetFirmwareTypeLabel } from '../utils';
 
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
 
@@ -14,12 +16,12 @@ export function FirmwareVersionProgressBar({
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
   return (
-    <XStack gap="$2.5" alignItems="center">
-      <Badge badgeType="default" badgeSize="lg">
+    <XStack gap="$2.5" alignItems="center" minWidth={0} flexWrap="wrap">
+      <Badge badgeType="default" badgeSize="lg" flexShrink={1} minWidth={0}>
         {versionValid(fromVersion) ? fromVersion : unknownMessage}
       </Badge>
-      <Icon name="ArrowRightSolid" size="$4" />
-      <Badge badgeType="info" badgeSize="lg">
+      <Icon name="ArrowRightSolid" size="$4" flexShrink={0} />
+      <Badge badgeType="info" badgeSize="lg" flexShrink={1} minWidth={0}>
         {toVersion?.length > 0 ? toVersion : unknownMessage}
       </Badge>
     </XStack>
@@ -42,57 +44,60 @@ export function FirmwareVersionProgressText({
   active: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
+  const intl = useIntl();
 
   const formatLabel = (firmwareType?: EFirmwareType) =>
-    deviceUtils.getFirmwareTypeLabelByFirmwareType({
-      firmwareType,
-      returnUniversal: true,
-      displayFormat: 'withSpace',
-    });
+    getTargetFirmwareTypeLabel({ firmwareType, intl });
+  const formatVersionText = (
+    firmwareType: EFirmwareType | undefined,
+    version: string,
+  ) => [formatLabel(firmwareType), version].filter(Boolean).join(' ');
 
-  const fromFirmwareTypeStr = formatLabel(fromFirmwareType);
-  const toFirmwareTypeStr = formatLabel(toFirmwareType);
+  const textColor = active ? '$text' : '$textSubdued';
+  const versionTextProps = {
+    size: '$bodyLgMedium',
+    minWidth: 0,
+    flexShrink: 1,
+    numberOfLines: 1,
+  } as const;
+  const fromVersionText = versionValid(fromVersion)
+    ? formatVersionText(fromFirmwareType, fromVersion)
+    : unknownMessage;
+  const toVersionText =
+    toVersion?.length > 0
+      ? formatVersionText(toFirmwareType, toVersion)
+      : unknownMessage;
 
   return (
-    <>
-      <SizableText
-        size="$bodyLgMedium"
-        color={active ? '$text' : '$textSubdued'}
-      >
-        {versionValid(fromVersion)
-          ? `${fromFirmwareTypeStr}${fromVersion}`
-          : unknownMessage}
+    <XStack
+      alignItems="center"
+      gap="$1.5"
+      minWidth={0}
+      flexShrink={1}
+      flexWrap="wrap"
+    >
+      <SizableText {...versionTextProps} color={textColor}>
+        {fromVersionText}
       </SizableText>
-      <Icon
-        name="ArrowRightSolid"
-        size="$4"
-        color={active ? '$text' : '$textSubdued'}
-      />
+      <Icon name="ArrowRightSolid" size="$4" color={textColor} flexShrink={0} />
       {githubReleaseUrl ? (
         <Anchor
+          {...versionTextProps}
           href={githubReleaseUrl}
           color="$textSuccess"
-          size="$bodyLgMedium"
           target="_blank"
           textDecorationLine="underline"
           onPress={(e) => {
             e.stopPropagation();
           }}
         >
-          {toVersion?.length > 0
-            ? `${toFirmwareTypeStr}${toVersion}`
-            : unknownMessage}
+          {toVersionText}
         </Anchor>
       ) : (
-        <SizableText
-          size="$bodyLgMedium"
-          color={active ? '$text' : '$textSubdued'}
-        >
-          {toVersion?.length > 0
-            ? `${toFirmwareTypeStr}${toVersion}`
-            : unknownMessage}
+        <SizableText {...versionTextProps} color={textColor}>
+          {toVersionText}
         </SizableText>
       )}
-    </>
+    </XStack>
   );
 }

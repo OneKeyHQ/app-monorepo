@@ -300,6 +300,7 @@ function UploadLogsDialogContent() {
                   {instanceId || '-'}
                 </SizableText>
                 <Button
+                  testID="setting-btn"
                   size="small"
                   variant="tertiary"
                   onPress={handleInstanceIdCopy}

@@ -15,6 +15,7 @@
 import {
   IMPL_BTC,
   IMPL_EVM,
+  IMPL_SOL,
   IMPL_TBTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 
@@ -34,6 +35,7 @@ const builderLoaders: Record<string, ISignerBuildersLoader> = {
   [IMPL_EVM]: () => import('./impls/evm').then((m) => m.evmSignerBuilders),
   [IMPL_BTC]: () => import('./impls/btc').then((m) => m.btcSignerBuilders),
   [IMPL_TBTC]: () => import('./impls/btc').then((m) => m.tbtcSignerBuilders),
+  [IMPL_SOL]: () => import('./impls/sol').then((m) => m.solSignerBuilders),
 };
 
 export async function loadSignerBuilders(

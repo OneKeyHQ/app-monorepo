@@ -22,6 +22,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useDeviceManagerNavigation } from '../../DeviceManagement/hooks/useDeviceManagerNavigation';
+import { FirmwareUpdateTestIDs } from '../testIDs';
 
 import { BootloaderModeUpdateReminder } from './BootloaderModeUpdateReminder';
 import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
@@ -71,6 +72,7 @@ export function FirmwareUpdateReminderAlert({
         variant="secondary"
         onPress={onPress}
         borderRadius="$1"
+        testID={FirmwareUpdateTestIDs.reminderViewBtn}
       >
         {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>

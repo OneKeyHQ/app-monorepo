@@ -109,6 +109,11 @@ export interface ITVLineEditResultPayload {
 }
 
 // Iframe -> App messages
+export interface ITVChartReadyPayload {
+  symbol?: string;
+  containerId?: string;
+}
+
 export interface ITVLineReadyPayload {
   capabilities?: string[];
 }
