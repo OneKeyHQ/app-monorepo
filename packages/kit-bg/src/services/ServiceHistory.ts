@@ -815,7 +815,9 @@ class ServiceHistory extends ServiceBase {
                     networkId,
                   });
               }
-              return tokenAddress ? { ...target, tokenAddress } : undefined;
+              return target.isNative || tokenAddress
+                ? { ...target, tokenAddress: tokenAddress ?? '' }
+                : undefined;
             }),
           );
           const validTargets = resolvedTargets.filter(
@@ -823,7 +825,7 @@ class ServiceHistory extends ServiceBase {
               target,
             ): target is IPrivateSendDisplayPriceTarget & {
               tokenAddress: string;
-            } => !!target?.tokenAddress,
+            } => !!target && (target.isNative || !!target.tokenAddress),
           );
           if (!validTargets.length) {
             return;

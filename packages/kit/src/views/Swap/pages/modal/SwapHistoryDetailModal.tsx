@@ -761,7 +761,9 @@ async function fetchPrivateSendTokenDisplayPriceMap({
                 networkId,
               });
           }
-          return tokenAddress ? { ...target, tokenAddress } : undefined;
+          return target.isNative || tokenAddress
+            ? { ...target, tokenAddress: tokenAddress ?? '' }
+            : undefined;
         }),
       );
       const validTargets = resolvedTargets.filter(
@@ -771,7 +773,7 @@ async function fetchPrivateSendTokenDisplayPriceMap({
           key: string;
           tokenAddress: string;
           isNative?: boolean;
-        } => !!target?.tokenAddress,
+        } => !!target && (target.isNative || !!target.tokenAddress),
       );
       if (!validTargets.length) {
         return;
