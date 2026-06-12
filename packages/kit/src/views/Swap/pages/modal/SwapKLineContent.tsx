@@ -55,6 +55,14 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
+  type ISwapKLineChartRealtimePrice,
+  getNormalizedSwapKLinePercent,
+  getNormalizedSwapKLinePrice,
+  getSwapKLineDisplayPrice,
+  isSwapKLineChartPriceUpdateForToken,
+  normalizeSwapKLineChartUpdateTimestamp,
+} from './swapKLinePriceUtils';
+import {
   fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
@@ -96,12 +104,6 @@ type ISwapKLineTokenUsdFallbackPriceResult = {
   updatedAt?: number;
 };
 
-type ISwapKLineChartRealtimePrice = {
-  tokenKey: string;
-  price: string;
-  updatedAt: number;
-};
-
 function getSwapKLineTokenKey(token?: ISwapToken) {
   if (!token?.networkId) {
     return '';
@@ -114,102 +116,6 @@ function getSwapKLineTokenKey(token?: ISwapToken) {
   return `${token.networkId}:${normalizedContractAddress}:${
     token.isNative ? 'native' : 'contract'
   }`;
-}
-
-function getNormalizedValueText(value?: number | string | null) {
-  const normalized = typeof value === 'number' ? String(value) : value?.trim();
-  if (!normalized) {
-    return undefined;
-  }
-  const numericValue = Number(normalized);
-  if (!Number.isFinite(numericValue)) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function getNormalizedPrice(value?: number | string | null) {
-  const normalized = getNormalizedValueText(value);
-  if (!normalized) {
-    return undefined;
-  }
-  const numericValue = Number(normalized);
-  if (numericValue === 0) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function getNormalizedPercent(value?: number | string | null) {
-  return getNormalizedValueText(value);
-}
-
-function getNormalizedTokenAddress(address?: string) {
-  return address?.trim().toLowerCase() ?? '';
-}
-
-function isSwapKLineChartPriceUpdateForToken({
-  data,
-  token,
-}: {
-  data: ITradingViewPriceUpdateData;
-  token: ISwapToken;
-}) {
-  if (data.networkId && data.networkId !== token.networkId) {
-    return false;
-  }
-
-  const currentTokenAddress = getNormalizedTokenAddress(token.contractAddress);
-  const updateTokenAddress = getNormalizedTokenAddress(data.tokenAddress);
-  if (updateTokenAddress) {
-    return currentTokenAddress
-      ? updateTokenAddress === currentTokenAddress
-      : false;
-  }
-
-  const updateSymbol = data.symbol?.trim();
-  if (
-    updateSymbol &&
-    token.symbol &&
-    updateSymbol.toUpperCase() !== token.symbol.trim().toUpperCase()
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-function getSwapKLineDisplayPrice({
-  tokenMarketDetail,
-  tokenMarketDetailUpdatedAt,
-  tokenUsdFallbackPrice,
-  tokenUsdFallbackPriceUpdatedAt,
-  chartRealtimePrice,
-}: {
-  tokenMarketDetail?: IMarketTokenDetail;
-  tokenMarketDetailUpdatedAt?: number;
-  tokenUsdFallbackPrice?: string;
-  tokenUsdFallbackPriceUpdatedAt?: number;
-  chartRealtimePrice?: ISwapKLineChartRealtimePrice;
-}) {
-  const candidates = [
-    {
-      price: getNormalizedPrice(tokenMarketDetail?.price),
-      updatedAt: tokenMarketDetailUpdatedAt ?? 0,
-    },
-    {
-      price: getNormalizedPrice(tokenUsdFallbackPrice),
-      updatedAt: tokenUsdFallbackPriceUpdatedAt ?? 0,
-    },
-    {
-      price: getNormalizedPrice(chartRealtimePrice?.price),
-      updatedAt: chartRealtimePrice?.updatedAt ?? 0,
-    },
-  ].filter((item): item is { price: string; updatedAt: number } =>
-    Boolean(item.price),
-  );
-
-  return candidates.toSorted((a, b) => b.updatedAt - a.updatedAt)[0]?.price;
 }
 
 function useSwapKLineTokenMarketInfo(
@@ -330,7 +236,9 @@ function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
   const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
-  const priceChange24hPercent = getNormalizedPercent(tokenInfo?.price24h);
+  const priceChange24hPercent = getNormalizedSwapKLinePercent(
+    tokenInfo?.price24h,
+  );
 
   if (!coinGeckoId && !priceChange24hPercent) {
     return undefined;
@@ -756,7 +664,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
     useSwapKLineTokenUsdFallbackPrice(
       selectedToken,
-      !getNormalizedPrice(tokenMarketDetail?.price),
+      !getNormalizedSwapKLinePrice(tokenMarketDetail?.price),
     );
   const validChartRealtimePrice =
     chartRealtimePrice?.tokenKey === selectedTokenKey
@@ -809,15 +717,20 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         return;
       }
 
-      const price = getNormalizedPrice(data.price);
+      const price = getNormalizedSwapKLinePrice(data.price);
       if (!price) {
         return;
       }
 
+      const receivedAt = Date.now();
       setChartRealtimePrice({
         tokenKey: selectedTokenKey,
         price,
-        updatedAt: Date.now(),
+        updatedAt: normalizeSwapKLineChartUpdateTimestamp(
+          data.timestamp,
+          receivedAt,
+        ),
+        receivedAt,
       });
     },
     [selectedToken, selectedTokenKey],
@@ -917,11 +830,11 @@ function SwapKLineTokenPriceInfo({
   compact?: boolean;
 }) {
   const price =
-    getNormalizedPrice(displayPrice) ??
-    getNormalizedPrice(tokenMarketDetail?.price) ??
-    getNormalizedPrice(fallbackUsdPrice);
+    getNormalizedSwapKLinePrice(displayPrice) ??
+    getNormalizedSwapKLinePrice(tokenMarketDetail?.price) ??
+    getNormalizedSwapKLinePrice(fallbackUsdPrice);
   const priceChange =
-    getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
+    getNormalizedSwapKLinePercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
 
   return (
