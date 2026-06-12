@@ -50,6 +50,7 @@ interface IBaseTradingViewPerpsV2Props {
   enablePerpsTradingUi?: boolean;
   webviewKey?: string;
   reloadOnSymbolChange?: boolean;
+  collapseChartExpandSignal?: number;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
   onTouchScroll?: (deltaY: number) => void;
@@ -271,6 +272,7 @@ export function TradingViewPerpsV2(
     userAddress,
     enablePerpsTradingUi = false,
     reloadOnSymbolChange = false,
+    collapseChartExpandSignal,
     onLoadEnd,
     onTradeUpdate,
     onTouchScroll,
@@ -368,6 +370,26 @@ export function TradingViewPerpsV2(
     enabled: !reloadOnSymbolChange,
     syncOnReady: !reloadOnSymbolChange || isSpotDisplayNameSyncRequired,
   });
+
+  useEffect(() => {
+    if (!collapseChartExpandSignal || !isChartContentReady || !webRef.current) {
+      return;
+    }
+
+    const syncChartCollapsed = () => {
+      webRef.current?.sendMessageViaInjectedScript({
+        type: MESSAGE_TYPES.PERPS_TV_CHART_EXPAND_SYNC,
+        payload: { expanded: false },
+      });
+    };
+
+    syncChartCollapsed();
+    const retryTimer = setTimeout(syncChartCollapsed, 250);
+
+    return () => {
+      clearTimeout(retryTimer);
+    };
+  }, [collapseChartExpandSignal, isChartContentReady]);
 
   const pendingRecoverRef = useRef(false);
 
