@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useActiveTradeInstrumentAtom,
   useL2BookAtom,
+  usePerpsL2BookColdCacheAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   getPerpsMarketDataLocalReceivedAt,
@@ -17,7 +18,10 @@ import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
+  getFreshL2BookSnapshotFromColdCache,
+  getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
+  hasL2BookLevels,
   isPerpsL2BookInteractive,
 } from '../utils/l2BookFreshness';
 
@@ -67,17 +71,26 @@ export function getFreshL2BookSnapshotFromSwr({
     mantissa: options?.mantissa,
   });
 
-  for (const key of keys) {
-    const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
-    if (
-      entry?.data?.coin === coin &&
-      Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
-    ) {
-      return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+  const findSnapshot = () => {
+    for (const key of keys) {
+      const entry = swrCacheUtils.getWithTimestamp<HL.IBook>(key);
+      if (
+        entry?.data?.coin === coin &&
+        Date.now() - entry.updatedAt <= PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS
+      ) {
+        return withPerpsL2BookLocalReceivedAt(entry.data, entry.updatedAt);
+      }
     }
+    return undefined;
+  };
+
+  const cachedSnapshot = findSnapshot();
+  if (cachedSnapshot) {
+    return cachedSnapshot;
   }
 
-  return undefined;
+  swrCacheUtils.reloadFromStorage();
+  return findSnapshot();
 }
 
 export function normalizeL2BookData({
@@ -116,6 +129,7 @@ export function useL2Book(options?: IL2BookOptions): {
   getTotalAskVolume: (levels?: number) => number;
 } {
   const [l2BookData] = useL2BookAtom();
+  const [l2BookColdCache] = usePerpsL2BookColdCacheAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const expectedCoin = activeTradeInstrument.coin;
   const nSigFigs = options?.nSigFigs;
@@ -135,16 +149,28 @@ export function useL2Book(options?: IL2BookOptions): {
 
   const l2Book = useMemo((): IL2BookData | null => {
     let bookData: HL.IBook | null | undefined;
-    if (l2BookData?.coin === expectedCoin) {
+    if (l2BookData?.coin === expectedCoin && hasL2BookLevels(l2BookData)) {
       bookData = l2BookData;
     } else if (expectedCoin) {
-      bookData = getFreshL2BookSnapshotFromSwr({
-        coin: expectedCoin,
-        options: {
-          nSigFigs,
-          mantissa,
-        },
-      });
+      const cacheOptions = {
+        nSigFigs,
+        mantissa,
+      };
+      bookData =
+        getFreshL2BookSnapshotFromColdCache({
+          coin: expectedCoin,
+          options: cacheOptions,
+          cache: l2BookColdCache,
+        }) ??
+        getFreshL2BookSnapshotFromColdCache({
+          coin: expectedCoin,
+          options: cacheOptions,
+          cache: getPerpsL2BookColdCacheGlobalSnapshot(),
+        }) ??
+        getFreshL2BookSnapshotFromSwr({
+          coin: expectedCoin,
+          options: cacheOptions,
+        });
     }
     const lastL2Book = lastL2BookRef.current;
     if (
@@ -158,6 +184,7 @@ export function useL2Book(options?: IL2BookOptions): {
     return normalizeL2BookData({ bookData, expectedCoin });
   }, [
     expectedCoin,
+    l2BookColdCache,
     l2BookData,
     mantissa,
     nSigFigs,

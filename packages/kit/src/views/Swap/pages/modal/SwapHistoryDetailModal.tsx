@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -16,6 +23,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   useTheme,
@@ -53,6 +61,7 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTxTransferInfo } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
 import {
@@ -75,7 +84,7 @@ type ISwapHistoryDetailAssetItem = {
   icon: string;
   isNFT: boolean;
   isNative: boolean;
-  price: string;
+  price?: string;
   amount?: string;
 };
 
@@ -88,6 +97,10 @@ const privateSendProgressStepLabels = [
 ] as const;
 const privateSendProgressStepLabelWidth = 72;
 const privateSendProgressStepIconSize = 24;
+const privateSendProgressStepCircleSize = 20;
+const privateSendProgressStepCircleInset =
+  (privateSendProgressStepIconSize - privateSendProgressStepCircleSize) / 2;
+const privateSendProgressConnectorIconGap = 4;
 
 function getPrivateSendProgressStepLabel({
   index,
@@ -116,10 +129,7 @@ function getPrivateSendProgressStepStatuses({
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
 }): IPrivateSendProgressStepStatus[] {
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return ['done', 'done', 'done'];
   }
 
@@ -192,10 +202,7 @@ function getPrivateSendHistoryStatusTextProps({
   ) {
     return getSwapHistoryStatusTextProps(status);
   }
-  if (
-    status === ESwapTxHistoryStatus.SUCCESS ||
-    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-  ) {
+  if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
       key: ETranslations.private_send_done,
       color: '$textSuccess',
@@ -219,11 +226,11 @@ function PrivateSendProgressStatusIcon({
   status: IPrivateSendProgressStepStatus;
 }) {
   if (status === 'done') {
-    return <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+    return <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />;
   }
 
   if (status === 'error') {
-    return <Icon name="XCircleSolid" size="$5" color="$iconCritical" />;
+    return <Icon name="XCircleSolid" size="$6" color="$iconCritical" />;
   }
 
   if (status === 'process') {
@@ -234,19 +241,11 @@ function PrivateSendProgressStatusIcon({
         alignItems="center"
         justifyContent="center"
       >
-        <Stack
-          w="$5"
-          h="$5"
-          borderRadius="$full"
-          borderWidth={2}
-          borderColor="$icon"
-        />
-        <Stack
-          position="absolute"
-          w="$2"
-          h="$2"
-          borderRadius="$full"
-          bg="$icon"
+        <Spinner
+          size="small"
+          color="$textCaution"
+          w={privateSendProgressStepCircleSize}
+          h={privateSendProgressStepCircleSize}
         />
       </Stack>
     );
@@ -260,8 +259,8 @@ function PrivateSendProgressStatusIcon({
       justifyContent="center"
     >
       <Stack
-        w="$5"
-        h="$5"
+        w={privateSendProgressStepCircleSize}
+        h={privateSendProgressStepCircleSize}
         borderRadius="$full"
         borderWidth={2}
         borderColor="$iconDisabled"
@@ -271,13 +270,42 @@ function PrivateSendProgressStatusIcon({
 }
 
 function PrivateSendProgressConnector({
+  index,
   nextStepStatus,
+  total,
 }: {
+  index: number;
   nextStepStatus: IPrivateSendProgressStepStatus;
+  total: number;
 }) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
   const isNextStepTodo = nextStepStatus === 'todo';
+  const prevStepIndex = index - 1;
+  const getStepIconLeft = (stepIndex: number) => {
+    if (stepIndex === 0) {
+      return 0;
+    }
+    if (stepIndex === total - 1) {
+      return (
+        privateSendProgressStepLabelWidth - privateSendProgressStepIconSize
+      );
+    }
+    return (
+      (privateSendProgressStepLabelWidth - privateSendProgressStepIconSize) / 2
+    );
+  };
+  const prevCircleRight =
+    getStepIconLeft(prevStepIndex) +
+    privateSendProgressStepCircleInset +
+    privateSendProgressStepCircleSize;
+  const nextCircleLeft =
+    getStepIconLeft(index) + privateSendProgressStepCircleInset;
+  const marginLeft =
+    prevCircleRight +
+    privateSendProgressConnectorIconGap -
+    privateSendProgressStepLabelWidth;
+  const marginRight = privateSendProgressConnectorIconGap - nextCircleLeft;
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const nextWidth = e.nativeEvent.layout.width;
     setWidth((prevWidth) => (prevWidth === nextWidth ? prevWidth : nextWidth));
@@ -288,8 +316,8 @@ function PrivateSendProgressConnector({
       flex={1}
       minWidth={0}
       height="$6"
-      ml={-privateSendProgressStepIconSize}
-      mr={-privateSendProgressStepIconSize}
+      ml={marginLeft}
+      mr={marginRight}
       position="relative"
       justifyContent="center"
       onLayout={isNextStepTodo ? handleLayout : undefined}
@@ -304,7 +332,7 @@ function PrivateSendProgressConnector({
                 x2={width}
                 y2={privateSendProgressStepIconSize / 2}
                 stroke={theme.borderSubdued.val}
-                strokeWidth={1}
+                strokeWidth={2}
                 strokeDasharray="6 6"
                 strokeLinecap="square"
               />
@@ -312,22 +340,38 @@ function PrivateSendProgressConnector({
           ) : null}
         </Stack>
       ) : (
-        <Stack height="$px" bg="$borderSubdued" />
+        <Stack height={2} bg="$borderSubdued" />
       )}
     </Stack>
   );
 }
 
 function PrivateSendProgressStep({
+  index,
   label,
   status,
+  total,
 }: {
+  index: number;
   label: ETranslations;
   status: IPrivateSendProgressStepStatus;
+  total: number;
 }) {
   const intl = useIntl();
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  let alignItems: 'flex-start' | 'center' | 'flex-end' = 'center';
+  let textAlign: 'left' | 'center' | 'right' = 'center';
+  if (isFirst) {
+    alignItems = 'flex-start';
+    textAlign = 'left';
+  } else if (isLast) {
+    alignItems = 'flex-end';
+    textAlign = 'right';
+  }
+
   return (
-    <Stack w={privateSendProgressStepLabelWidth} alignItems="center">
+    <Stack w={privateSendProgressStepLabelWidth} alignItems={alignItems}>
       <Stack
         w={privateSendProgressStepIconSize}
         h={privateSendProgressStepIconSize}
@@ -338,11 +382,11 @@ function PrivateSendProgressStep({
       </Stack>
       <SizableText
         mt="$1"
-        size="$bodySm"
+        size="$bodySmMedium"
         color="$textSubdued"
         width={privateSendProgressStepLabelWidth}
         numberOfLines={2}
-        textAlign="center"
+        textAlign={textAlign}
       >
         {intl.formatMessage({ id: label })}
       </SizableText>
@@ -370,19 +414,32 @@ function PrivateSendProgress({
   );
 
   return (
-    <Stack mx="$5" mb="$2.5" px="$5" py="$3" bg="$bgSubdued" borderRadius="$2">
+    <Stack
+      mx="$5"
+      mb="$2.5"
+      px="$4"
+      py="$3"
+      bg="$bgSubdued"
+      borderRadius="$2.5"
+    >
       <XStack alignItems="flex-start">
         {stepStatuses.map((stepStatus, index) => (
           <Fragment key={`${stepStatus}-${index}`}>
             {index > 0 ? (
-              <PrivateSendProgressConnector nextStepStatus={stepStatus} />
+              <PrivateSendProgressConnector
+                index={index}
+                nextStepStatus={stepStatus}
+                total={stepStatuses.length}
+              />
             ) : null}
             <PrivateSendProgressStep
+              index={index}
               label={getPrivateSendProgressStepLabel({
                 index,
                 status: stepStatus,
               })}
               status={stepStatus}
+              total={stepStatuses.length}
             />
           </Fragment>
         ))}
@@ -394,7 +451,98 @@ function PrivateSendProgress({
 function isPrivateSendSwapTxHistory(item?: ISwapTxHistory) {
   return (
     item?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
-    item?.swapInfo.provider.provider === privateSendProvider
+    item?.swapInfo?.provider?.provider === privateSendProvider
+  );
+}
+
+type IPrivateSendHistoryCtx = {
+  privateSendDisplayTransfers?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPrivateSendDisplayTransfer(
+  value: unknown,
+): value is IDecodedTxTransferInfo {
+  return (
+    isRecord(value) &&
+    typeof value.amount === 'string' &&
+    typeof value.symbol === 'string'
+  );
+}
+
+function getPrivateSendDisplayTransfers(item?: ISwapTxHistory) {
+  const transfers = (item?.ctx as IPrivateSendHistoryCtx | undefined)
+    ?.privateSendDisplayTransfers;
+  return Array.isArray(transfers)
+    ? transfers.filter(isPrivateSendDisplayTransfer)
+    : [];
+}
+
+function preservePrivateSendRouteDisplayTransfers({
+  item,
+  routeItem,
+}: {
+  item: ISwapTxHistory;
+  routeItem?: ISwapTxHistory;
+}) {
+  if (
+    !routeItem ||
+    !isPrivateSendSwapTxHistory(item) ||
+    !isPrivateSendSwapTxHistory(routeItem)
+  ) {
+    return item;
+  }
+
+  if (getPrivateSendDisplayTransfers(item).length) {
+    return item;
+  }
+
+  const routeDisplayTransfers = getPrivateSendDisplayTransfers(routeItem);
+  if (!routeDisplayTransfers.length) {
+    return item;
+  }
+
+  return {
+    ...item,
+    ctx: {
+      ...(isRecord(item.ctx) ? item.ctx : {}),
+      privateSendDisplayTransfers: routeDisplayTransfers,
+    },
+  };
+}
+
+function normalizeTokenAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized ? normalized.toLowerCase() : '';
+}
+
+function isBasePrivateSendTransfer({
+  transfer,
+  txHistory,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  txHistory?: ISwapTxHistory;
+}) {
+  const fromToken = txHistory?.baseInfo.fromToken;
+  if (!fromToken) {
+    return false;
+  }
+  if (transfer.networkId && transfer.networkId !== fromToken.networkId) {
+    return false;
+  }
+
+  const transferTokenAddress = normalizeTokenAddress(transfer.tokenIdOnNetwork);
+  const fromTokenAddress = normalizeTokenAddress(fromToken.contractAddress);
+  if (transferTokenAddress && fromTokenAddress) {
+    return transferTokenAddress === fromTokenAddress;
+  }
+
+  return Boolean(
+    (transfer.isNative || !transferTokenAddress) &&
+    (fromToken.isNative || !fromTokenAddress),
   );
 }
 
@@ -411,12 +559,50 @@ function getPositiveTokenPrice(value?: number | string) {
   return valueBN.toFixed();
 }
 
+function getNativeTokenPriceFromGasFee(item?: ISwapTxHistory) {
+  const gasFeeInNativeBN = new BigNumber(item?.txInfo.gasFeeInNative ?? '');
+  const gasFeeFiatValueBN = new BigNumber(item?.txInfo.gasFeeFiatValue ?? '');
+
+  if (
+    gasFeeInNativeBN.isNaN() ||
+    !gasFeeInNativeBN.isFinite() ||
+    !gasFeeInNativeBN.isGreaterThan(0) ||
+    gasFeeFiatValueBN.isNaN() ||
+    !gasFeeFiatValueBN.isFinite() ||
+    !gasFeeFiatValueBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+
+  return gasFeeFiatValueBN.div(gasFeeInNativeBN).toFixed();
+}
+
+function getPrivateSendTransferPrice({
+  transfer,
+  isBaseToken,
+  fromAssetPrice,
+  nativeTokenPrice,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  isBaseToken: boolean;
+  fromAssetPrice?: string;
+  nativeTokenPrice?: string;
+}) {
+  return (
+    getPositiveTokenPrice(transfer.price) ??
+    (isBaseToken ? getPositiveTokenPrice(fromAssetPrice) : undefined) ??
+    (transfer.isNative ? nativeTokenPrice : undefined)
+  );
+}
+
 function applyPrivateSendTokenPrice({
   item,
   price,
+  force,
 }: {
   item: ISwapTxHistory;
   price: string;
+  force?: boolean;
 }) {
   const hasFromTokenPrice = !!getPositiveTokenPrice(
     item.baseInfo.fromToken.price,
@@ -427,14 +613,48 @@ function applyPrivateSendTokenPrice({
     ...item,
     baseInfo: {
       ...item.baseInfo,
-      fromToken: hasFromTokenPrice
-        ? item.baseInfo.fromToken
-        : { ...item.baseInfo.fromToken, price },
-      toToken: hasToTokenPrice
-        ? item.baseInfo.toToken
-        : { ...item.baseInfo.toToken, price },
+      fromToken:
+        hasFromTokenPrice && !force
+          ? item.baseInfo.fromToken
+          : { ...item.baseInfo.fromToken, price },
+      toToken:
+        hasToTokenPrice && !force
+          ? item.baseInfo.toToken
+          : { ...item.baseInfo.toToken, price },
     },
   };
+}
+
+function isSamePrivateSendHistoryToken({
+  source,
+  target,
+}: {
+  source?: ISwapTxHistory;
+  target?: ISwapTxHistory;
+}) {
+  if (!source || !target) {
+    return false;
+  }
+  return equalTokenNoCaseSensitive({
+    token1: source.baseInfo.fromToken,
+    token2: target.baseInfo.fromToken,
+  });
+}
+
+function getPrivateSendPriceBackfillKey(item?: ISwapTxHistory) {
+  if (!item) {
+    return undefined;
+  }
+  const accountId = item.accountInfo.sender.accountId;
+  const networkId =
+    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
+  const tokenAddress = item.baseInfo.fromToken.isNative
+    ? 'native'
+    : item.baseInfo.fromToken.contractAddress;
+  if (!accountId || !networkId || !tokenAddress) {
+    return undefined;
+  }
+  return `${item.swapInfo.orderId ?? item.txInfo.txId ?? ''}:${accountId}:${networkId}:${tokenAddress}`;
 }
 
 async function fetchPrivateSendTokenPrice(item: ISwapTxHistory) {
@@ -474,6 +694,7 @@ const SwapHistoryDetailModal = () => {
   const intl = useIntl();
   const { txHistoryOrderId, txHistoryList } = route.params ?? {};
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
+  const privateSendPriceBackfillKeysRef = useRef(new Set<string>());
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
@@ -517,6 +738,19 @@ const SwapHistoryDetailModal = () => {
             : item,
         )
       : swapTxHistoryList;
+    const nextRawTxHistoryList =
+      routeTxHistory &&
+      (routeTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        routeTxHistory.swapInfo.provider.provider === privateSendProvider)
+        ? rawNextTxHistoryList.map((item) =>
+            item.swapInfo.orderId === routeTxHistoryOrderId
+              ? preservePrivateSendRouteDisplayTransfers({
+                  item,
+                  routeItem: routeTxHistory,
+                })
+              : item,
+          )
+        : rawNextTxHistoryList;
     const currentTxHistory = txHistoryListState?.find(
       (item) => item.swapInfo.orderId === txHistoryOrderId,
     );
@@ -526,16 +760,20 @@ const SwapHistoryDetailModal = () => {
           getPositiveTokenPrice(currentTxHistory.baseInfo.toToken.price))
         : undefined;
     const nextTxHistoryList = currentPrivateSendPrice
-      ? rawNextTxHistoryList.map((item) =>
+      ? nextRawTxHistoryList.map((item) =>
           item.swapInfo.orderId === txHistoryOrderId &&
-          isPrivateSendSwapTxHistory(item)
+          isPrivateSendSwapTxHistory(item) &&
+          isSamePrivateSendHistoryToken({
+            source: currentTxHistory,
+            target: item,
+          })
             ? applyPrivateSendTokenPrice({
                 item,
                 price: currentPrivateSendPrice,
               })
             : item,
         )
-      : rawNextTxHistoryList;
+      : nextRawTxHistoryList;
     if (
       JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
@@ -558,28 +796,32 @@ const SwapHistoryDetailModal = () => {
       return;
     }
 
-    const hasFromTokenPrice = !!getPositiveTokenPrice(
-      txHistory.baseInfo.fromToken.price,
-    );
-    const hasToTokenPrice = !!getPositiveTokenPrice(
-      txHistory.baseInfo.toToken.price,
-    );
-    if (hasFromTokenPrice && hasToTokenPrice) {
+    const priceBackfillKey = getPrivateSendPriceBackfillKey(txHistory);
+    if (
+      !priceBackfillKey ||
+      privateSendPriceBackfillKeysRef.current.has(priceBackfillKey)
+    ) {
       return;
     }
+    privateSendPriceBackfillKeysRef.current.add(priceBackfillKey);
 
     let cancelled = false;
     void (async () => {
       try {
         const price = await fetchPrivateSendTokenPrice(txHistory);
         if (!price || cancelled) {
+          privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
           return;
         }
 
         const nextTxHistory = applyPrivateSendTokenPrice({
           item: txHistory,
           price,
+          force: true,
         });
+        if (JSON.stringify(nextTxHistory) === JSON.stringify(txHistory)) {
+          return;
+        }
         setTxHistoryListState((prev) =>
           prev?.map((item) =>
             item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
@@ -592,6 +834,7 @@ const SwapHistoryDetailModal = () => {
           { shouldShowToast: false },
         );
       } catch {
+        privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
         // Price backfill is best-effort and should not affect history details.
       }
     })();
@@ -654,6 +897,68 @@ const SwapHistoryDetailModal = () => {
       });
     }
     if (isPrivateSendHistory) {
+      const privateSendDisplayTransfers =
+        getPrivateSendDisplayTransfers(txHistory);
+      if (privateSendDisplayTransfers.length) {
+        const nativeTokenPrice = getNativeTokenPriceFromGasFee(txHistory);
+        return (
+          <>
+            {privateSendDisplayTransfers.map((transfer, index) => {
+              const isBaseToken = isBasePrivateSendTransfer({
+                transfer,
+                txHistory,
+              });
+              const asset = {
+                name:
+                  transfer.name ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.name ?? '')
+                    : ''),
+                symbol:
+                  transfer.symbol ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.symbol ?? '')
+                    : ''),
+                icon:
+                  transfer.icon ||
+                  (isBaseToken
+                    ? (txHistory?.baseInfo.fromToken.logoURI ?? '')
+                    : ''),
+                isNFT: transfer.isNFT,
+                isNative: transfer.isNative,
+                price: getPrivateSendTransferPrice({
+                  transfer,
+                  isBaseToken,
+                  fromAssetPrice: fromAsset.price,
+                  nativeTokenPrice,
+                }),
+              };
+
+              return (
+                <AssetItem
+                  key={`${transfer.tokenIdOnNetwork || transfer.symbol}-${
+                    transfer.amount
+                  }-${index}`}
+                  index={index}
+                  direction={EDecodedTxDirection.OUT}
+                  asset={asset}
+                  isAllNetworks
+                  amount={transfer.amount}
+                  networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
+                  currencySymbol={
+                    txHistory?.currency ??
+                    settingsPersistAtom.currencyInfo.symbol
+                  }
+                  networkId={
+                    transfer.networkId ??
+                    txHistory?.baseInfo.fromNetwork?.networkId
+                  }
+                />
+              );
+            })}
+          </>
+        );
+      }
       return (
         <AssetItem
           index={0}
@@ -911,8 +1216,18 @@ const SwapHistoryDetailModal = () => {
 
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
-    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
+    const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
+    const gasFeeFiatValueBN = new BigNumber(gasFeeFiatValue ?? '');
+    if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          --
+        </SizableText>
+      );
+    }
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
+    const shouldRenderGasFeeFiatValue =
+      !gasFeeFiatValueBN.isNaN() && gasFeeFiatValueBN.isFinite();
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         <NumberSizeableText
@@ -932,7 +1247,7 @@ const SwapHistoryDetailModal = () => {
               txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
-          {gasFeeFiatValue ?? 0}
+          {shouldRenderGasFeeFiatValue ? gasFeeFiatValue : '--'}
         </NumberSizeableText>
         )
       </SizableText>
@@ -1138,14 +1453,16 @@ const SwapHistoryDetailModal = () => {
                   : {})}
               />
             ) : null}
-            <InfoItem
-              disabledCopy
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_rate,
-              })}
-              renderContent={renderRate()}
-            />
-            {protocolFeeContent ? (
+            {isPrivateSendHistory ? null : (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_rate,
+                })}
+                renderContent={renderRate()}
+              />
+            )}
+            {!isPrivateSendHistory && protocolFeeContent ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({
@@ -1155,7 +1472,7 @@ const SwapHistoryDetailModal = () => {
               />
             ) : null}
 
-            {txHistory?.swapInfo?.surplus ? (
+            {!isPrivateSendHistory && txHistory?.swapInfo?.surplus ? (
               <InfoItem
                 disabledCopy
                 label={intl.formatMessage({

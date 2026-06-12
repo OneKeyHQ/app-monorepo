@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,16 +18,36 @@ import {
 } from '../MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { usePerpsColumns } from '../MarketHomeV2/components/MarketPerpsList/hooks/usePerpsColumns';
 
+import { BannerDetailTokenFlatList } from './BannerDetailTokenFlatList';
+
+import type { IBannerDetailSortType } from './BannerDetailListColumnHeader';
+import type { IMarketToken } from '../MarketHomeV2/components/MarketTokenList/MarketTokenData';
+
+function safeNumber(value: string | number | undefined) {
+  const num = Number(value ?? 0);
+  return Number.isFinite(num) ? num : 0;
+}
+
 export function PerpsTokenListSection({
   tokenListId,
+  priceSortType,
+  changeSortType,
+  change24hColumnTitle,
+  onPriceSortPress,
+  onChangeSortPress,
 }: {
   tokenListId: string;
+  priceSortType?: IBannerDetailSortType;
+  changeSortType?: IBannerDetailSortType;
+  change24hColumnTitle: string;
+  onPriceSortPress: () => void;
+  onChangeSortPress: () => void;
 }) {
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.MarketBanner,
   );
   const perpsColumns = usePerpsColumns();
-  const { md } = useMedia();
+  const { gtMd, md } = useMedia();
   const tabBarHeight = useTabBarHeight();
   const intl = useIntl();
 
@@ -55,7 +75,43 @@ export function PerpsTokenListSection({
     );
   }, [perpsResult]);
 
+  const mobileTokens = useMemo<IMarketToken[]>(
+    () =>
+      tokens.map((token) => ({
+        id: `perps-${token.name}`,
+        name: token.displayName,
+        symbol: token.displayName,
+        address: token.name,
+        decimals: 0,
+        price: safeNumber(token.markPrice),
+        change24h: safeNumber(token.change24hPercent),
+        marketCap: 0,
+        liquidity: 0,
+        transactions: 0,
+        uniqueTraders: 0,
+        holders: 0,
+        turnover: safeNumber(token.volume24h),
+        tokenImageUri: token.tokenImageUrl || '',
+        networkLogoUri: '',
+        networkId: '',
+        chainId: '',
+        maxLeverage: token.maxLeverage,
+        perpsSubtitle: token.subtitle,
+        perpsCoin: token.name,
+      })),
+    [tokens],
+  );
+
   const showSkeleton = Boolean(isLoading) && tokens.length === 0;
+
+  const handleMobileItemPress = useCallback(
+    (item: IMarketToken) => {
+      if (item.perpsCoin) {
+        navigateToPerps(item.perpsCoin);
+      }
+    },
+    [navigateToPerps],
+  );
 
   const TableEmptyComponent = useMemo(() => {
     if (isLoading) return null;
@@ -67,6 +123,21 @@ export function PerpsTokenListSection({
       </Stack>
     );
   }, [isLoading, intl]);
+
+  if (platformEnv.isNative && !gtMd) {
+    return (
+      <BannerDetailTokenFlatList
+        data={mobileTokens}
+        isLoading={showSkeleton}
+        priceSortType={priceSortType}
+        changeSortType={changeSortType}
+        change24hColumnTitle={change24hColumnTitle}
+        onPriceSortPress={onPriceSortPress}
+        onChangeSortPress={onChangeSortPress}
+        onItemPress={handleMobileItemPress}
+      />
+    );
+  }
 
   return (
     <Stack flex={1} width="100%">

@@ -270,6 +270,34 @@ export function getReduceOnlyPositionSnapshotError({
   return undefined;
 }
 
+export function getReduceOnlyPositionMaxSize({
+  reduceOnly,
+  side,
+  positionSize,
+  szDecimals,
+}: {
+  reduceOnly?: boolean;
+  side: 'long' | 'short';
+  positionSize?: BigNumber.Value | null;
+  szDecimals?: number;
+}): BigNumber | undefined {
+  if (!reduceOnly) {
+    return undefined;
+  }
+
+  const positionSizeBN = new BigNumber(positionSize ?? 0);
+  const isReducing =
+    side === 'long' ? positionSizeBN.lt(0) : positionSizeBN.gt(0);
+
+  if (!positionSizeBN.isFinite() || !isReducing) {
+    return undefined;
+  }
+
+  return positionSizeBN
+    .abs()
+    .decimalPlaces(szDecimals ?? 2, BigNumber.ROUND_FLOOR);
+}
+
 export function getReduceOnlyOrderGuardError({
   reduceOnly,
   side,

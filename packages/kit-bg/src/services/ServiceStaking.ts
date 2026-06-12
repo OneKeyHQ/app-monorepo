@@ -1295,33 +1295,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAllNetworkAssetsV2({
-    accountId,
-    networkId,
-    indexedAccountId,
-    scopeNetworkIds,
-  }: {
-    accountId: string;
-    networkId: string;
-    indexedAccountId?: string;
-    scopeNetworkIds?: string[];
-  }) {
-    if (!accountId) {
-      return this._getAccountAssetV2([]);
-    }
-
-    const accounts = await this.getEarnAvailableAccountsParams({
-      accountId,
-      networkId,
-      indexedAccountId,
-    });
-    const scopeNetworkIdSet = scopeNetworkIds?.length
-      ? new Set(scopeNetworkIds)
-      : undefined;
-    const scopedAccounts = scopeNetworkIdSet
-      ? accounts.filter((account) => scopeNetworkIdSet.has(account.networkId))
-      : accounts;
-    return this._getAccountAssetV2(scopedAccounts);
+  async fetchAllNetworkAssetsV2() {
+    return this._getAccountAssetV2([]);
   }
 
   @backgroundMethod()
@@ -1469,11 +1444,6 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearRecommendedAssetsCache() {
-    void this._getAccountAssetV2.clear();
-  }
-
-  @backgroundMethod()
   async getAvailableAssetsV2() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<
@@ -1492,10 +1462,11 @@ class ServiceStaking extends ServiceBase {
     code?: string | number;
     message?: string;
     requestId?: string;
+    disableAutoToast?: boolean;
   }) {
     if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
       throw new OneKeyServerApiError({
-        autoToast: true,
+        autoToast: !data.disableAutoToast,
         disableFallbackMessage: true,
         code: Number(data.code),
         message: data.message,
@@ -1772,9 +1743,8 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data.delegations;
   }
 
-  // Memoized for a short window so concurrent callers (Earn portfolio,
-  // useRecommendedRefreshScope, getEarnAvailableAccountsParams) collapse into
-  // a single backend roundtrip instead of each firing their own
+  // Memoized for a short window so concurrent Earn account callers collapse
+  // into a single backend roundtrip instead of each firing their own
   // serviceAllNetwork.getAllNetworkAccounts() call on every tab switch.
   // CDP profile showed 3-4 redundant calls per Wallet/Earn focus producing
   // ~700ms of cumulative CPU work in ServiceAllNetwork.

@@ -24,6 +24,7 @@ import {
   useActiveAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
+  useSwapFromTokenAmountAtom,
   useSwapProDirectionAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
@@ -32,10 +33,16 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenNetworkAtom,
+  useSwapSelectedTokensColdStartContextAtom,
   useSwapToAnotherAccountAddressAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  isSwapSelectedTokensColdStartContextValidForAccountNetworkSync,
+  shouldPreserveSwapUserInputOnAccountSwitch,
+} from '../utils/swapColdStartTokenCacheUtils';
 
 import {
   shouldShowSwapRecipientAddressInfo,
@@ -52,6 +59,8 @@ import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/co
 export function useSwapFromAccountNetworkSync() {
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
   const { activeAccount: toActiveAccount } = useActiveAccount({
     num: 1,
   });
@@ -62,8 +71,37 @@ export function useSwapFromAccountNetworkSync() {
     useSwapProviderSupportReceiveAddressAtom();
   const [, setSettings] = useSettingsAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [selectedTokensColdStartContext] =
+    useSwapSelectedTokensColdStartContextAtom();
+  const shouldPreserveSelectedTokensForAccountNetworkSync = useMemo(
+    () =>
+      shouldPreserveSwapUserInputOnAccountSwitch({
+        fromTokenAmount,
+        hasSelectedTokens: Boolean(fromToken || toToken),
+        toTokenAmount,
+      }),
+    [fromToken, fromTokenAmount, toToken, toTokenAmount],
+  );
+  const isSelectedTokensColdStartContextValid = useMemo(() => {
+    return isSwapSelectedTokensColdStartContextValidForAccountNetworkSync({
+      activeAccount: fromActiveAccount,
+      fromToken,
+      preserveSelectedTokens: shouldPreserveSelectedTokensForAccountNetworkSync,
+      selectedTokensColdStartContext,
+      toToken,
+    });
+  }, [
+    fromToken,
+    fromActiveAccount,
+    selectedTokensColdStartContext,
+    shouldPreserveSelectedTokensForAccountNetworkSync,
+    toToken,
+  ]);
   const fromTokenRef = useRef<ISwapToken | undefined>(undefined);
   const toTokenRef = useRef<ISwapToken | undefined>(undefined);
+  const isSelectedTokensColdStartContextValidRef = useRef(
+    isSelectedTokensColdStartContextValid,
+  );
   const swapProviderSupportReceiveAddressRef = useRef<boolean | undefined>(
     undefined,
   );
@@ -83,6 +121,13 @@ export function useSwapFromAccountNetworkSync() {
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
+  if (
+    isSelectedTokensColdStartContextValidRef.current !==
+    isSelectedTokensColdStartContextValid
+  ) {
+    isSelectedTokensColdStartContextValidRef.current =
+      isSelectedTokensColdStartContextValid;
+  }
   if (swapToAnotherAccountRef.current !== swapToAnotherAccount) {
     swapToAnotherAccountRef.current = swapToAnotherAccount;
   }
@@ -96,6 +141,9 @@ export function useSwapFromAccountNetworkSync() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkTokenForAccountNetworkDebounce = useCallback(
     debounce(async () => {
+      if (!isSelectedTokensColdStartContextValidRef.current) {
+        return;
+      }
       if (fromTokenRef.current) {
         await updateSelectedAccountNetwork({
           num: 0,
@@ -174,6 +222,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);
@@ -194,6 +243,7 @@ export function useSwapFromAccountNetworkSync() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    isSelectedTokensColdStartContextValid,
     swapProviderSupportReceiveAddress,
     isModalPage,
   ]);

@@ -59,6 +59,7 @@ export interface IManagePositionContentProps {
   fallbackTokenImageUri?: string;
   providerLogoUri?: string;
   stakeProtocolSwitchConfig?: IManagePositionProtocolSwitchConfig;
+  suppressPlatformBonus?: boolean;
 
   // Optional callbacks
   onCreateAddress?: () => Promise<void>;
@@ -122,6 +123,7 @@ export function ManagePositionContent({
   fallbackTokenImageUri,
   providerLogoUri,
   stakeProtocolSwitchConfig,
+  suppressPlatformBonus,
   onCreateAddress,
   onStakeWithdrawSuccess,
   isInModalContext = false,
@@ -549,6 +551,7 @@ export function ManagePositionContent({
       appNavigation={appNavigation}
       showApyDetail={showApyDetail}
       stakeProtocolSwitchConfig={stakeProtocolSwitchConfig}
+      suppressPlatformBonus={suppressPlatformBonus}
       ongoingValidator={ongoingValidator}
       managePageData={managePageData}
     />

@@ -202,6 +202,10 @@ export function sortHistoryTxsByTime({ txs }: { txs: IAccountHistoryTx[] }) {
   );
 }
 
+export function getHistoryTxDisplayStatus(item?: IAccountHistoryTx) {
+  return item?.displayStatus ?? item?.decodedTx.status;
+}
+
 // Pagination cursor advancement check shared by the load-more hook and the
 // merge-derive aggregator. Without this guard a misbehaving backend that
 // returns the same (or non-decreasing) cursor can wedge the client into an
@@ -239,7 +243,7 @@ export function convertToSectionGroups(params: {
   const dateGroups: IHistoryListSectionGroup[] = [];
   let currentDateGroup: IHistoryListSectionGroup | undefined;
   items.forEach((item) => {
-    if (item.decodedTx.status === EDecodedTxStatus.Pending) {
+    if (getHistoryTxDisplayStatus(item) === EDecodedTxStatus.Pending) {
       pendingGroup?.data.push(item);
     } else {
       const dateKey = formatDateFn(

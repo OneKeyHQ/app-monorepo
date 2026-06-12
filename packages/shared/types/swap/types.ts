@@ -127,6 +127,7 @@ export interface ISwapInitParams {
   swapTabSwitchType?: ESwapTabSwitchType;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
+  swapSource?: ESwapSource;
 }
 
 // token & network
@@ -146,6 +147,7 @@ export interface ISwapNetwork extends ISwapNetworkBase {
   shortcode?: string;
   logoURI?: string;
   backendIndex?: boolean;
+  isDeFiEnabled?: boolean;
   isAllNetworks?: boolean;
 }
 

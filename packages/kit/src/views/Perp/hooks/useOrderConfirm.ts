@@ -278,10 +278,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: scaleSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only scale requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only scale size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({
@@ -389,10 +391,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: twapSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only TWAP requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only TWAP size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({

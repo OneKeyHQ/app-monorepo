@@ -1,8 +1,10 @@
+import { useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { type IMarketToken } from './MarketTokenData';
 import { MarketTokenListBase } from './MarketTokenListBase';
+import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './MarketTokenListBase';
 import type { IMarketTimeRangeValue } from '../../types';
@@ -24,6 +26,7 @@ type IMarketNormalTokenListProps = {
   liveTokenOverride?: IMarketTokenListLiveOverride;
   pollingInterval?: number;
   rowBg?: string;
+  onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
 };
 
 function MarketNormalTokenList({
@@ -41,6 +44,7 @@ function MarketNormalTokenList({
   liveTokenOverride,
   pollingInterval,
   rowBg,
+  onStockDataChange,
 }: IMarketNormalTokenListProps) {
   const normalResult = useMarketTokenList({
     networkId,
@@ -51,6 +55,17 @@ function MarketNormalTokenList({
     timeRange,
     pollingInterval,
   });
+
+  const isStockData = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(normalResult.data),
+    [normalResult.data],
+  );
+
+  useEffect(() => {
+    if (selectedCategory) {
+      onStockDataChange?.(selectedCategory, isStockData);
+    }
+  }, [isStockData, onStockDataChange, selectedCategory]);
 
   return (
     <MarketTokenListBase

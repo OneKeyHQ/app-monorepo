@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { LottieView, Stack } from '@onekeyhq/components';
+import { LottieView, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -35,7 +35,9 @@ import type {
   ITVOrderPriceUpdatePayload,
   ITradeEvent,
 } from './types';
+import type { IWebViewProps } from '../../WebView';
 import type { IWebViewRef } from '../../WebView/types';
+import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
@@ -162,12 +164,17 @@ const WebViewMemoized = memo(
     onWebViewRef,
     onShouldStartLoadWithRequest,
     ...otherProps
-  }: {
+  }: Omit<
+    IWebViewProps,
+    | 'src'
+    | 'customReceiveHandler'
+    | 'onWebViewRef'
+    | 'onShouldStartLoadWithRequest'
+  > & {
     src: string;
-    customReceiveHandler: (data: any) => Promise<void>;
+    customReceiveHandler: IJsBridgeReceiveHandler;
     onWebViewRef: (ref: IWebViewRef | null) => void;
     onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
-    [key: string]: any;
   }) => (
     <WebView
       src={src}
@@ -273,6 +280,8 @@ export function TradingViewPerpsV2(
   const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const themeColors = useTheme();
+  const tradingViewBackgroundColor = themeColors.bgApp.val;
   const actions = useHyperliquidActions();
   const { restoreNonce } = useNetworkRestore();
 
@@ -289,6 +298,7 @@ export function TradingViewPerpsV2(
     useState<string | null>(null);
   const hasPerpsReadyRef = useRef(false);
   const lastHandledRestoreNonceRef = useRef(0);
+
   const isChartLinesReady = chartLinesReadyWebviewKey === _webviewKey;
   const isChartContentReady = chartContentReadyWebviewKey === _webviewKey;
 
@@ -338,6 +348,13 @@ export function TradingViewPerpsV2(
   });
   const isSpotDisplayNameSyncRequired =
     reloadOnSymbolChange && (!!displayPair || !!displayCoin);
+  const tradingViewWebViewStyleProps = useMemo(
+    () => ({
+      containerStyle: { backgroundColor: tradingViewBackgroundColor },
+      style: { backgroundColor: tradingViewBackgroundColor },
+    }),
+    [tradingViewBackgroundColor],
+  );
 
   // Optimization: Dynamic symbol parameter sync mechanism
   useSymbolSync({
@@ -531,6 +548,9 @@ export function TradingViewPerpsV2(
       <WebViewMemoized
         key={_webviewKey}
         src={staticTradingViewUrl}
+        containerProps={{ bg: '$bgApp' }}
+        containerStyle={tradingViewWebViewStyleProps.containerStyle}
+        style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}

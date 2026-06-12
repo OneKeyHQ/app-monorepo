@@ -47,6 +47,14 @@ type IFillWithOid = IFill & {
   oid?: number;
 };
 
+type IFillWithTwapId = IFill & {
+  twapId?: number;
+};
+
+function isTwapTradeFill(fill: IFill): boolean {
+  return typeof (fill as IFillWithTwapId).twapId === 'number';
+}
+
 function getFillKey(fill: IFill): string {
   const fillWithOid = fill as IFillWithOid;
   if (typeof fill.tid === 'number') {
@@ -57,16 +65,7 @@ function getFillKey(fill: IFill): string {
   }-${fill.px}-${fill.sz}`;
 }
 
-function sortTradesHistoryFills(fills: IFill[]): IFill[] {
-  return fills.toSorted(
-    (a, b) =>
-      b.time - a.time ||
-      (b.tid ?? 0) - (a.tid ?? 0) ||
-      ((b as IFillWithOid).oid ?? 0) - ((a as IFillWithOid).oid ?? 0),
-  );
-}
-
-function mergeTradesWithTwapSliceFills({
+function filterTwapSliceFillsFromTrades({
   trades,
   twapSliceFills,
 }: {
@@ -74,26 +73,17 @@ function mergeTradesWithTwapSliceFills({
   twapSliceFills: ITwapSliceFill[];
 }): IFill[] {
   if (twapSliceFills.length === 0) {
-    return trades;
+    return trades.filter((fill) => !isTwapTradeFill(fill));
   }
 
-  const existingKeys = new Set<string>();
-  const mergedTrades: IFill[] = [];
-
-  trades.forEach((fill) => {
-    existingKeys.add(getFillKey(fill));
-    mergedTrades.push(fill);
-  });
-
+  const twapFillKeys = new Set<string>();
   twapSliceFills.forEach((record) => {
-    const key = getFillKey(record.fill);
-    if (!existingKeys.has(key)) {
-      existingKeys.add(key);
-      mergedTrades.push(record.fill);
-    }
+    twapFillKeys.add(getFillKey(record.fill));
   });
 
-  return sortTradesHistoryFills(mergedTrades);
+  return trades.filter(
+    (fill) => !isTwapTradeFill(fill) && !twapFillKeys.has(getFillKey(fill)),
+  );
 }
 
 interface IPerpTradesHistoryListProps {
@@ -148,22 +138,14 @@ function PerpTradesHistoryList({
     return rawTwapSliceFills;
   }, [currentAccountAddress, rawTwapSliceFills, twapSliceFillsAccountAddress]);
 
-  const tradesWithTwapSliceFills = useMemo(
+  const nonTwapTrades = useMemo(
     () =>
-      mergeTradesWithTwapSliceFills({
+      filterTwapSliceFillsFromTrades({
         trades,
         twapSliceFills,
       }),
     [trades, twapSliceFills],
   );
-
-  const twapIdByFillKey = useMemo(() => {
-    const map = new Map<string, number>();
-    twapSliceFills.forEach((record) => {
-      map.set(getFillKey(record.fill), record.twapId);
-    });
-    return map;
-  }, [twapSliceFills]);
 
   const getLeverage = useCallback(
     async (coin: string): Promise<number> => {
@@ -395,19 +377,9 @@ function PerpTradesHistoryList({
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         builderFeeRate={builderFeeRate}
-        twapId={
-          twapIdByFillKey.get(getFillKey(item)) ?? item.twapId ?? undefined
-        }
       />
     ),
-    [
-      isMobile,
-      totalMinWidth,
-      columnsConfig,
-      handleShare,
-      builderFeeRate,
-      twapIdByFillKey,
-    ],
+    [isMobile, totalMinWidth, columnsConfig, handleShare, builderFeeRate],
   );
   const [isLocked] = useAppIsLockedAtom();
 
@@ -434,7 +406,7 @@ function PerpTradesHistoryList({
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
-      data={tradesWithTwapSliceFills}
+      data={nonTwapTrades}
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
@@ -449,7 +421,7 @@ function PerpTradesHistoryList({
       paginationToBottom={isMobile}
       listLoading={isLoading}
       onViewAll={
-        !isMobile && tradesWithTwapSliceFills.length > TRADES_HISTORY_PAGE_SIZE
+        !isMobile && nonTwapTrades.length > TRADES_HISTORY_PAGE_SIZE
           ? onViewAllUrl
           : undefined
       }

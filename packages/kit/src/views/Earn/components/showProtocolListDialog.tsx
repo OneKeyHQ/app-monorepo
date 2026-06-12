@@ -233,7 +233,7 @@ export function ProtocolListContent({
     () =>
       media.gtMd
         ? { p: '$1' as const, pb: '$2' as const }
-        : { px: '$3' as const, pb: '$5' as const },
+        : { px: '$3' as const, pb: '$8' as const },
     [media.gtMd],
   );
 

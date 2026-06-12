@@ -63,8 +63,9 @@ const TradesHistoryLoadingView = () => {
     <Stack
       flex={1}
       alignItems="flex-start"
-      justifyContent="center"
+      justifyContent="flex-start"
       p="$6"
+      pt="$10"
       gap="$2"
     >
       <Skeleton h="$8" w="$40" />
@@ -350,6 +351,7 @@ export interface ICommonTableListViewProps<T = unknown> {
   disableListScroll?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
+  enableDesktopVerticalScroll?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
   onPullToRefresh?: () => Promise<void>;
@@ -367,6 +369,7 @@ export function CommonTableListView<T>({
   listLoading,
   setCurrentListPage,
   paginationToBottom,
+  enableDesktopVerticalScroll,
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
@@ -749,131 +752,143 @@ export function CommonTableListView<T>({
       )}
     </XStack>
   );
+  const desktopTable = (
+    <XStack flex={1}>
+      {/* Scrollable columns */}
+      <ScrollView
+        ref={scrollViewRef}
+        style={{
+          flex: 1,
+        }}
+        horizontal
+        showsHorizontalScrollIndicator
+        nestedScrollEnabled
+        onScroll={platformEnv.isNative ? handleNativeScroll : handleWebScroll}
+        scrollEventThrottle={16}
+        contentContainerStyle={{
+          minWidth: scrollableMinWidth,
+          flexGrow: 1,
+        }}
+      >
+        <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
+          <XStack
+            py="$2"
+            pl="$5"
+            pr="$3"
+            display="flex"
+            minWidth={scrollableMinWidth}
+            width="100%"
+            borderBottomWidth="$px"
+            borderBottomColor={borderColor}
+            bg={headerBgColor}
+          >
+            {scrollableColumns.map((column, index) =>
+              renderHeaderCell(column, index),
+            )}
+          </XStack>
+          <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
+            {effectiveListLoading ? (
+              <YStack
+                flex={1}
+                justifyContent="center"
+                alignItems="center"
+                p="$20"
+              >
+                <Spinner size="large" />
+              </YStack>
+            ) : null}
+            {showDesktopEmptyState ? desktopEmptyComponent : null}
+            {!effectiveListLoading && paginatedData.length > 0
+              ? paginatedData.map((item, index) => (
+                  <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
+                    {renderRow(
+                      item,
+                      index,
+                      hasFixedColumns ? 'left' : 'full',
+                      hoveredRowIndex === index,
+                      setHoveredRowIndex,
+                    )}
+                  </Fragment>
+                ))
+              : null}
+          </YStack>
+        </YStack>
+      </ScrollView>
+
+      {/* Fixed columns */}
+      {hasFixedColumns ? (
+        <YStack
+          minWidth={fixedMinWidth}
+          cursor="default"
+          bg="$bgApp"
+          $platform-web={{
+            boxShadow: showFixedShadow
+              ? getWebShadowStyle('right', isDark)
+              : 'none',
+            clipPath: getWebClipPath('right'),
+            transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
+          }}
+        >
+          <FixedColumnShadowOverlay
+            position="right"
+            visible={showFixedShadow}
+            isDark={isDark}
+          />
+          <XStack
+            py="$2"
+            px="$3"
+            display="flex"
+            borderBottomWidth="$px"
+            borderBottomColor={borderColor}
+            bg={headerBgColor}
+          >
+            {fixedColumns.map((column, index) =>
+              renderHeaderCell(column, index),
+            )}
+          </XStack>
+          <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
+            {effectiveListLoading ? <YStack flex={1} p="$20" /> : null}
+            {!effectiveListLoading && paginatedData.length === 0 ? (
+              <YStack flex={1} p="$5" />
+            ) : null}
+            {!effectiveListLoading && paginatedData.length > 0
+              ? paginatedData.map((item, index) => (
+                  <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
+                    {renderRow(
+                      item,
+                      index,
+                      'right',
+                      hoveredRowIndex === index,
+                      setHoveredRowIndex,
+                    )}
+                  </Fragment>
+                ))
+              : null}
+          </YStack>
+        </YStack>
+      ) : null}
+    </XStack>
+  );
+
+  const shouldEnableDesktopVerticalScroll =
+    enableDesktopVerticalScroll && !disableListScroll;
+
   return (
     <YStack flex={1}>
       <YStack flex={1}>
-        <XStack>
-          {/* Scrollable columns */}
+        {shouldEnableDesktopVerticalScroll ? (
           <ScrollView
-            ref={scrollViewRef}
             style={{
               flex: 1,
             }}
-            horizontal
-            showsHorizontalScrollIndicator
             nestedScrollEnabled
-            onScroll={
-              platformEnv.isNative ? handleNativeScroll : handleWebScroll
-            }
-            scrollEventThrottle={16}
-            contentContainerStyle={{
-              minWidth: scrollableMinWidth,
-              flexGrow: 1,
-            }}
+            showsVerticalScrollIndicator
           >
-            <YStack flex={1} minWidth={scrollableMinWidth} cursor="default">
-              <XStack
-                py="$2"
-                pl="$5"
-                pr="$3"
-                display="flex"
-                minWidth={scrollableMinWidth}
-                width="100%"
-                borderBottomWidth="$px"
-                borderBottomColor={borderColor}
-                bg={headerBgColor}
-              >
-                {scrollableColumns.map((column, index) =>
-                  renderHeaderCell(column, index),
-                )}
-              </XStack>
-              <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
-                {effectiveListLoading ? (
-                  <YStack
-                    flex={1}
-                    justifyContent="center"
-                    alignItems="center"
-                    p="$20"
-                  >
-                    <Spinner size="large" />
-                  </YStack>
-                ) : null}
-                {showDesktopEmptyState ? desktopEmptyComponent : null}
-                {!effectiveListLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) => (
-                      <Fragment
-                        key={keyExtractor?.(item, index) ?? String(index)}
-                      >
-                        {renderRow(
-                          item,
-                          index,
-                          hasFixedColumns ? 'left' : 'full',
-                          hoveredRowIndex === index,
-                          setHoveredRowIndex,
-                        )}
-                      </Fragment>
-                    ))
-                  : null}
-              </YStack>
-            </YStack>
+            {desktopTable}
           </ScrollView>
-
-          {/* Fixed columns */}
-          {hasFixedColumns ? (
-            <YStack
-              minWidth={fixedMinWidth}
-              cursor="default"
-              bg="$bgApp"
-              $platform-web={{
-                boxShadow:
-                  showFixedShadow && paginatedData.length > 0
-                    ? getWebShadowStyle('right', isDark)
-                    : 'none',
-                clipPath: getWebClipPath('right'),
-                transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
-              }}
-            >
-              <FixedColumnShadowOverlay
-                position="right"
-                visible={showFixedShadow ? paginatedData.length > 0 : false}
-                isDark={isDark}
-              />
-              <XStack
-                py="$2"
-                px="$3"
-                display="flex"
-                borderBottomWidth="$px"
-                borderBottomColor={borderColor}
-                bg={headerBgColor}
-              >
-                {fixedColumns.map((column, index) =>
-                  renderHeaderCell(column, index),
-                )}
-              </XStack>
-              <YStack flex={1} pb={enablePagination ? 0 : '$4'}>
-                {effectiveListLoading ? <YStack flex={1} p="$20" /> : null}
-                {!effectiveListLoading && paginatedData.length === 0 ? (
-                  <YStack flex={1} p="$5" />
-                ) : null}
-                {!effectiveListLoading && paginatedData.length > 0
-                  ? paginatedData.map((item, index) => (
-                      <Fragment
-                        key={keyExtractor?.(item, index) ?? String(index)}
-                      >
-                        {renderRow(
-                          item,
-                          index,
-                          'right',
-                          hoveredRowIndex === index,
-                          setHoveredRowIndex,
-                        )}
-                      </Fragment>
-                    ))
-                  : null}
-              </YStack>
-            </YStack>
-          ) : null}
-        </XStack>
+        ) : (
+          desktopTable
+        )}
 
         {enablePagination && currentListPage ? (
           <PaginationFooter

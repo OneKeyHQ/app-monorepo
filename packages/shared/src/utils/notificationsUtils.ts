@@ -8,7 +8,11 @@ import {
   ENotificationPushMessageMode,
 } from '../../types/notification';
 import appGlobals from '../appGlobals';
-import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  type IAppEventBusPayload,
+  appEventBus,
+} from '../eventBus/appEventBus';
 import { ETranslations } from '../locale';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
@@ -259,8 +263,99 @@ export interface INavigateToNotificationDetailParams {
   isRead?: boolean;
 }
 
+export type INotificationPageNavigationEvent =
+  IAppEventBusPayload[EAppEventBusNames.ShowNotificationPageNavigation];
+
+// --- Durable page-navigation delivery -------------------------------------
+// Notification page-navigation (e.g. Perps deep-link) is emitted via
+// appEventBus. On native, the click is processed in the BACKGROUND runtime
+// (system push / cold start) and reaches the foreground via the cross-process
+// bus — but during a cold start the foreground UI handler is mounted LATE, so a
+// plain emit is dropped (the race that broke OK-55681).
+//
+// To make it cold-start safe we register a PERMANENT foreground listener at
+// module load that BUFFERS the latest intent, and let the UI register a
+// processor that drains the buffer whenever it mounts. The intent therefore
+// survives until the UI is ready, regardless of ordering.
+type INotificationPageNavigationProcessor = (
+  event: INotificationPageNavigationEvent,
+) => void;
+
+let notificationPageNavigationProcessor: INotificationPageNavigationProcessor | null =
+  null;
+let pendingNotificationPageNavigationEvent: INotificationPageNavigationEvent | null =
+  null;
+
+function deliverNotificationPageNavigation(
+  event: INotificationPageNavigationEvent,
+) {
+  if (notificationPageNavigationProcessor) {
+    pendingNotificationPageNavigationEvent = null;
+    notificationPageNavigationProcessor(event);
+    return;
+  }
+  pendingNotificationPageNavigationEvent = event;
+}
+
+export function registerNotificationPageNavigationProcessor(
+  processor: INotificationPageNavigationProcessor,
+) {
+  notificationPageNavigationProcessor = processor;
+  const pending = pendingNotificationPageNavigationEvent;
+  if (pending) {
+    pendingNotificationPageNavigationEvent = null;
+    processor(pending);
+  }
+  return () => {
+    if (notificationPageNavigationProcessor === processor) {
+      notificationPageNavigationProcessor = null;
+    }
+  };
+}
+
+// Register the permanent foreground capture listener once at module load.
+// Skipped on the native background runtime (no UI processor lives there; the
+// foreground copy of this module receives the cross-process broadcast).
+if (!platformEnv.isNativeBackgroundThread) {
+  appEventBus.on(
+    EAppEventBusNames.ShowNotificationPageNavigation,
+    deliverNotificationPageNavigation,
+  );
+}
+
+// Push notification `mode` arrives as a NUMBER from the in-app bell list
+// (server JSON) but as a STRING (e.g. "1") from JPush system-push extras on
+// native. The enum values are numeric, so a strict `switch(mode)` silently
+// misses every case for the system-push path (the OK-55681 regression). Coerce
+// to the numeric enum before switching.
+export function normalizeNotificationMode(
+  mode: ENotificationPushMessageMode | string | number | undefined | null,
+): ENotificationPushMessageMode | undefined {
+  if (mode === null || mode === undefined || mode === '') {
+    return undefined;
+  }
+  const numericMode = Number(mode);
+  if (Number.isFinite(numericMode)) {
+    return numericMode as ENotificationPushMessageMode;
+  }
+  if (typeof mode === 'string') {
+    const name = mode.toLowerCase().replace(/[^a-z]/g, '');
+    if (name === 'page' || name === 'navigate' || name === 'navigation') {
+      return ENotificationPushMessageMode.page;
+    }
+    if (name === 'dialog') return ENotificationPushMessageMode.dialog;
+    if (name === 'openinbrowser') {
+      return ENotificationPushMessageMode.openInBrowser;
+    }
+    if (name === 'openinapp') return ENotificationPushMessageMode.openInApp;
+    if (name === 'openindapp') return ENotificationPushMessageMode.openInDapp;
+    if (name === 'command') return ENotificationPushMessageMode.command;
+  }
+  return undefined;
+}
+
 export function parseNotificationPayload(
-  mode: ENotificationPushMessageMode,
+  mode: ENotificationPushMessageMode | string | number,
   payload: string | undefined,
   fallbackHandler: () => void,
   extras?: {
@@ -272,7 +367,8 @@ export function parseNotificationPayload(
     [key: string]: any;
   },
 ) {
-  switch (mode) {
+  const normalizedMode = normalizeNotificationMode(mode);
+  switch (normalizedMode) {
     case ENotificationPushMessageMode.page:
       try {
         const payloadObj = JSON.parse(payload || '');
@@ -437,9 +533,14 @@ async function navigateToNotificationDetail({
   }
 
   if (isFromNotificationClick) {
+    // `$navigationRef` only exists in the foreground runtime. On native this
+    // function also runs in the BACKGROUND runtime (system-push click), where
+    // `appGlobals.$navigationRef` is undefined — guard every hop so we don't
+    // throw before reaching the page-mode emit (OK-55681). The real navigation
+    // happens later in the foreground via ShowNotificationPageNavigation.
     const statusRoutes = platformEnv.isExtensionBackground
       ? []
-      : appGlobals.$navigationRef.current?.getState().routes;
+      : appGlobals.$navigationRef?.current?.getState()?.routes;
     const currentRoute = statusRoutes?.length
       ? statusRoutes?.[statusRoutes.length - 1]
       : undefined;

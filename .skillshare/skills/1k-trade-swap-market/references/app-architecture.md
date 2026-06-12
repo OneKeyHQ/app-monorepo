@@ -8,6 +8,11 @@ Every Trade/Swap/Market execution path should be mapped before editing:
 
 The App can expose the same execution through different surfaces, but the data ownership checkpoints stay stable.
 
+Swap should be treated as the shared execution spine for trade-like channels.
+Bridge, Limit, PrivateSend-like provider orders, stock/order channels, and
+Market speed-swap can adapt entry and settlement semantics, but they should not
+duplicate quote/review/build/history/status ownership in isolated surfaces.
+
 ## Surfaces
 
 - Swap page and Swap Pro own the standard token-to-token interaction.
@@ -75,8 +80,16 @@ History/status must define:
 - progress-step labels
 - detail-page fallback data
 - polling end conditions and retry behavior
+- replay/enrichment source for partial local rows
+- correction behavior when backend detail arrives after local submit
 
-PrivateSend-like channels often need order progress even when normal transaction status is unavailable. Stock/order channels often need order lifecycle states that are not equivalent to on-chain success.
+PrivateSend-like channels often need order progress even when normal
+transaction status is unavailable. Stock/order channels often need order
+lifecycle states that are not equivalent to on-chain success.
+
+See [channel-state-model.md](channel-state-model.md) before changing list
+filters, status polling, detail display, or history replay for a non-standard
+channel.
 
 ## Market Detail And K-Line
 
@@ -99,3 +112,6 @@ Use this when a new channel appears:
 3. Does it trade a non-token or stock-like asset? Define asset identity, session availability, settlement currency, and order statuses first.
 4. Is it only a funding entry into Swap? Keep the source surface as prefill only; Swap owns execution after quote starts.
 5. Is it only data display? Keep it in Market/K-line data flow and do not add execution state.
+6. Does it share Swap infrastructure but need different history or listener
+   semantics? Add a channel-state contract before reusing ordinary Swap lists
+   or status polling.

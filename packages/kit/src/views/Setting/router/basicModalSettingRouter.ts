@@ -171,6 +171,10 @@ const DevSplitBundleTest = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevSplitBundleTest'),
 );
 
+const DevDrawingOrderStress = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevDrawingOrderStress'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -324,6 +328,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevSplitBundleTestModal,
     component: DevSplitBundleTest,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevDrawingOrderStressModal,
+    component: DevDrawingOrderStress,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

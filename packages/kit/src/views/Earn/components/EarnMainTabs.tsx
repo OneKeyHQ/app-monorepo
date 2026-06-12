@@ -50,6 +50,7 @@ interface IEarnMainTabsProps {
   header?: React.ReactNode;
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
+  isActive?: boolean;
 }
 
 const TabContentContainer = ({
@@ -98,6 +99,7 @@ const EarnMainTabsComponent = ({
   header,
   tabsRef: externalTabsRef,
   nestedPager = false,
+  isActive = true,
 }: IEarnMainTabsProps) => {
   const intl = useIntl();
   const theme = useTheme();
@@ -105,6 +107,7 @@ const EarnMainTabsComponent = ({
   const tabsRef = externalTabsRef || internalTabsRef;
   const { hideSmallAssets, setHideSmallAssets } = useEarnHideSmallAssets();
   const useDesktopPageScrollTabs = platformEnv.isDesktop;
+  const directTabPressAnimationEnabled = platformEnv.isNativeIOS;
 
   const tabNames = useMemo(
     () => ({
@@ -131,6 +134,10 @@ const EarnMainTabsComponent = ({
   const initialTabName = useMemo(() => {
     return getTabName(defaultTab);
   }, [defaultTab, getTabName]);
+  const initialTabNameRef = useRef(initialTabName);
+  const containerInitialTabName = platformEnv.isNativeIOS
+    ? initialTabNameRef.current
+    : initialTabName;
 
   const tabNameList = useMemo(
     () => [tabNames.assets, tabNames.portfolio, tabNames.faqs],
@@ -146,11 +153,22 @@ const EarnMainTabsComponent = ({
     });
     return map;
   }, [tabNames]);
+  const desktopFocusedTab = useSharedValue(initialTabName);
+  const [desktopTabName, setDesktopTabName] = useState(initialTabName);
+  const [currentTabName, setCurrentTabName] = useState(initialTabName);
 
   const handleTabChange = useCallback(
     ({ tabName }: { tabName: string }) => {
+      setCurrentTabName(tabName);
       const tabKey = tabKeyByName[tabName];
       if (tabKey) {
+        if (platformEnv.isNativeIOS) {
+          rootNavigationRef.current?.setParams?.({
+            earnTab: tabKey,
+          });
+          return;
+        }
+
         rootNavigationRef.current?.setParams?.({
           tab: tabKey,
         });
@@ -159,8 +177,9 @@ const EarnMainTabsComponent = ({
     [tabKeyByName],
   );
 
-  const desktopFocusedTab = useSharedValue(initialTabName);
-  const [desktopTabName, setDesktopTabName] = useState(initialTabName);
+  useEffect(() => {
+    setCurrentTabName(initialTabName);
+  }, [initialTabName]);
 
   const syncDesktopTabName = useCallback(
     (tabName: string) => {
@@ -219,6 +238,9 @@ const EarnMainTabsComponent = ({
   const isFocusedRef = useRef(isFocused);
 
   useEffect(() => {
+    if (platformEnv.isNativeIOS) {
+      return;
+    }
     if (isFocused === isFocusedRef.current) {
       return;
     }
@@ -226,8 +248,8 @@ const EarnMainTabsComponent = ({
     if (defaultTab) {
       const targetTabName = initialTabName;
       if (!useDesktopPageScrollTabs) {
-        const currentTabName = tabsRef.current?.getFocusedTab();
-        if (currentTabName !== targetTabName) {
+        const focusedTabName = tabsRef.current?.getFocusedTab();
+        if (focusedTabName !== targetTabName) {
           tabsRef.current?.jumpToTab(targetTabName);
         }
       } else if (desktopTabName !== targetTabName) {
@@ -314,19 +336,15 @@ const EarnMainTabsComponent = ({
 
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
-      const handleTabPress = (name: string) => {
-        tabBarProps.onTabPress?.(name);
-      };
       return (
         <Tabs.TabBar
           {...tabBarProps}
-          directTabPressAnimation={platformEnv.isNativeIOS}
-          onTabPress={handleTabPress}
+          directTabPressAnimation={directTabPressAnimationEnabled}
           renderToolbar={renderPortfolioToolbar}
         />
       );
     },
-    [renderPortfolioToolbar],
+    [directTabPressAnimationEnabled, renderPortfolioToolbar],
   );
 
   const mergedContainerProps = useMemo<
@@ -357,6 +375,10 @@ const EarnMainTabsComponent = ({
       ),
     };
   }, [containerProps, header, theme.bgApp.val]);
+  const activeTabName = useDesktopPageScrollTabs
+    ? desktopTabName
+    : currentTabName;
+  const isAssetsTabActive = isActive && activeTabName === tabNames.assets;
 
   if (useDesktopPageScrollTabs) {
     return (
@@ -372,7 +394,7 @@ const EarnMainTabsComponent = ({
           pointerEvents={desktopTabName === tabNames.assets ? 'auto' : 'none'}
         >
           <TabContentContainer useTabsScrollView={false}>
-            <ProtocolsTabContent />
+            <ProtocolsTabContent isActive={isAssetsTabActive} />
           </TabContentContainer>
         </YStack>
         <YStack
@@ -409,7 +431,7 @@ const EarnMainTabsComponent = ({
       width={platformEnv.isNative ? Number(tabContainerWidth) : undefined}
       ref={tabsRef as any}
       renderTabBar={renderTabBar}
-      initialTabName={initialTabName}
+      initialTabName={containerInitialTabName}
       onTabChange={handleTabChange}
       useNativeHeaderAnimation={platformEnv.isNativeAndroid}
       pagerProps={
@@ -419,7 +441,7 @@ const EarnMainTabsComponent = ({
     >
       <Tabs.Tab name={tabNames.assets}>
         <TabContentContainer>
-          <ProtocolsTabContent />
+          <ProtocolsTabContent isActive={isAssetsTabActive} />
         </TabContentContainer>
       </Tabs.Tab>
       <Tabs.Tab name={tabNames.portfolio}>
