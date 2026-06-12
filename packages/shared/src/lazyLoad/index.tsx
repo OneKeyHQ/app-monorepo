@@ -11,7 +11,16 @@ import {
   onVisibilityStateChange,
 } from '../utils/appVisibility';
 
-export const MAX_LAZY_RETRIES = 2;
+// Kept at 1 deliberately: installProdBundleLoader caps a segment at
+// MAX_RETRYABLE_ATTEMPTS=3 native attempts per process, then PERMANENTLY caches
+// it as failed. With 1 boundary retry a single failed mount spends only 2 of
+// those attempts, so it can never single-handedly trip that permanent cache and
+// poison the route for the rest of the process — a later navigation still gets
+// the 3rd attempt once the transient (NO_RUNTIME / suspend-false-fire) clears.
+// One retry is enough for the target bug: the watchdog false-fire recovers as
+// soon as the buffered executor flushes on resume, which the foreground-gated
+// retry lands on.
+export const MAX_LAZY_RETRIES = 1;
 const RETRY_BACKOFF_MS = [150, 600];
 const RETRYABLE_CODES = new Set([
   'SPLIT_BUNDLE_NO_RUNTIME',
