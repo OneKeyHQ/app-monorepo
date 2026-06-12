@@ -155,6 +155,7 @@ type IPrivateSendOrderDetail = {
   fromToken?: ISwapTokenBase;
   toToken?: ISwapTokenBase;
   toAmount?: string;
+  userAddress?: string;
   receivingAddress?: string;
   percentageFee?: number;
   protocolFee?: number;
@@ -277,6 +278,7 @@ function mergePrivateSendOrderDetailToSwapHistory({
       txId: orderDetail.txId ?? item.txInfo.txId,
       orderId: orderDetail.orderId ?? item.txInfo.orderId,
       useOrderId: item.txInfo.useOrderId,
+      sender: orderDetail.userAddress || item.txInfo.sender,
       receiver: orderDetail.receivingAddress ?? item.txInfo.receiver,
     },
     swapInfo: {
