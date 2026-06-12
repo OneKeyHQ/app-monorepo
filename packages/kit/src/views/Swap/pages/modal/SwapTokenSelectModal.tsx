@@ -732,7 +732,7 @@ const SwapTokenSelectPage = ({
         {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
         <YStack flex={1}>
           <ListView
-            useFlashList
+            useFlashList={platformEnv.isNative}
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}
