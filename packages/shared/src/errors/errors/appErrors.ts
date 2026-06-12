@@ -87,6 +87,16 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
 }
 
+export class LocalDBIndexedAccountIndexConflictError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBIndexedAccountIndexConflictError',
+      }),
+    );
+  }
+}
+
 export class TransferInvalidCodeError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(

@@ -71,6 +71,7 @@ import {
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  LocalDBIndexedAccountIndexConflictError,
   NotImplemented,
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
@@ -258,6 +259,22 @@ const getOrderByWalletType = (walletType: IDBWalletType): number => {
     default:
       return 0;
   }
+};
+
+export type IIndexedAccountsCreationSyncItemsInfo = {
+  existingSyncItemsInfo: IExistingSyncItemsInfo<EPrimeCloudSyncDataType.IndexedAccount>;
+  existingSyncItems: IDBCloudSyncItem[];
+  newSyncItems: IDBCloudSyncItem[];
+};
+
+// OK-56267: cloud sync items must be built before opening the IndexedDB
+// transaction. Awaiting non-DB promises (credential fetch, async crypto)
+// inside a tx lets IndexedDB auto-commit it, and later tx operations throw
+// "The transaction has finished".
+export type IIndexedAccountsCreationPreparedData = {
+  indexedAccounts: IDBIndexedAccount[];
+  indexedAccountsToAdd: IDBIndexedAccount[];
+  syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined;
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
@@ -2086,6 +2103,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists: boolean;
     applyRestoreSyncPolicy?: boolean;
   }) {
+    const prepared = await this.prepareIndexedAccountsCreationData({
+      walletId,
+      indexes,
+      names,
+      skipIfExists,
+      applyRestoreSyncPolicy,
+    });
     return this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
       this.txAddIndexedAccount({
         tx,
@@ -2094,6 +2118,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         indexes,
         names,
         applyRestoreSyncPolicy,
+        prepared,
       }),
     );
   }
@@ -2124,6 +2149,176 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return idHash;
   }
 
+  validateIndexedAccountWalletId({ walletId }: { walletId: string }) {
+    if (
+      !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isQrWallet({ walletId }) &&
+      !accountUtils.isHwWallet({ walletId })
+    ) {
+      throw new OneKeyInternalError({
+        message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
+      });
+    }
+  }
+
+  // build indexed account records and cloud sync items with non-tx reads, so
+  // the follow-up transaction only performs pure DB operations (OK-56267)
+  async prepareIndexedAccountsCreationData({
+    walletId,
+    indexes,
+    names,
+    skipIfExists,
+    applyRestoreSyncPolicy,
+  }: {
+    walletId: string;
+    indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
+    skipIfExists: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }): Promise<IIndexedAccountsCreationPreparedData> {
+    this.validateIndexedAccountWalletId({ walletId });
+
+    const dbWallet = await this.getWallet({ walletId });
+
+    const accountDefaultNameMap: {
+      [indexedAccountId: string]: string;
+    } = {};
+    const indexedAccountsPromise: Promise<IDBIndexedAccount>[] = indexes.map(
+      async (index) => {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId,
+          index,
+        });
+
+        let accountName = names?.[index];
+        if (!accountName) {
+          const defaultName = accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          });
+          accountDefaultNameMap[indexedAccountId] = defaultName;
+          accountName = defaultName;
+        }
+
+        const r: IDBIndexedAccount = {
+          id: indexedAccountId,
+          idHash: await this.buildIndexedAccountIdHash({
+            firstEvmAddress: dbWallet?.firstEvmAddress,
+            indexedAccountId,
+            index,
+          }),
+          walletId,
+          index,
+          name: accountName,
+        };
+        return r;
+      },
+    );
+    const indexedAccounts = await Promise.all(indexedAccountsPromise);
+
+    let indexedAccountsToAdd = indexedAccounts;
+
+    // filter out existing indexed accounts
+    if (skipIfExists) {
+      const { records } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: indexedAccountsToAdd.map((item) => item.id),
+      });
+      const existingIndexedAccounts = records.filter(Boolean);
+      indexedAccountsToAdd = indexedAccountsToAdd.filter(
+        (item) => !existingIndexedAccounts.some((r) => r.id === item.id),
+      );
+    }
+
+    if (!indexedAccountsToAdd.length) {
+      return {
+        indexedAccounts,
+        indexedAccountsToAdd,
+        syncItemsInfo: undefined,
+      };
+    }
+
+    let dbDevice: IDBDevice | undefined;
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      const deviceId = dbWallet.associatedDevice;
+      if (deviceId) {
+        dbDevice = await this.getDeviceSafe(deviceId);
+      }
+    }
+
+    const syncManager =
+      this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
+    const shouldBackfillIndexedAccountSyncItemMap: Record<string, boolean> = {};
+    indexedAccountsToAdd.forEach((indexedAccount) => {
+      shouldBackfillIndexedAccountSyncItemMap[indexedAccount.id] = true;
+    });
+
+    const buildSyncItemsStartTime = Date.now();
+    const syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined =
+      await syncManager.buildExistingSyncItemsInfo({
+        tx: undefined,
+        targets: indexedAccountsToAdd.map((indexedAccount) => ({
+          targetId: indexedAccount.id,
+          dataType: EPrimeCloudSyncDataType.IndexedAccount,
+          indexedAccount: { ...indexedAccount, name: indexedAccount.name },
+          wallet: {
+            ...dbWallet,
+            name: dbWallet?.name || '',
+            avatarInfo: dbWallet?.avatarInfo,
+          },
+          dbDevice,
+        })),
+        onExistingSyncItemsInfo: async (info) => {
+          // fix account name by existing sync item
+          indexedAccountsToAdd.forEach((indexedAccount) => {
+            const existingItem = info[indexedAccount.id];
+            const name = existingItem?.syncPayload?.name;
+            if (name) {
+              indexedAccount.name = name;
+              existingItem.target.indexedAccount.name = name;
+              shouldBackfillIndexedAccountSyncItemMap[indexedAccount.id] =
+                false;
+            }
+          });
+        },
+        useCreateGenesisTime: async ({ target }) => {
+          const accountDefaultName =
+            accountDefaultNameMap[target.indexedAccount.id];
+          return Boolean(
+            accountDefaultName &&
+            target.indexedAccount.name === accountDefaultName,
+          );
+        },
+        buildSyncItemDataTime: applyRestoreSyncPolicy
+          ? async ({ existingSyncItem, target }) => {
+              if (!shouldBackfillIndexedAccountSyncItemMap[target.targetId]) {
+                return undefined;
+              }
+              return this.buildRestoreSyncItemDataTime({
+                existingSyncItem,
+              });
+            }
+          : undefined,
+      });
+    const buildSyncItemsDuration = Date.now() - buildSyncItemsStartTime;
+    if (buildSyncItemsDuration > 600) {
+      void this.backgroundApi.serviceApp.showToastIfDevMode({
+        method: 'error',
+        title: `prepareIndexedAccountsCreationData took too long: ${buildSyncItemsDuration}ms`,
+      });
+    }
+
+    return {
+      indexedAccounts,
+      indexedAccountsToAdd,
+      syncItemsInfo,
+    };
+  }
+
   async txAddIndexedAccount({
     tx,
     walletId,
@@ -2132,6 +2327,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists,
     skipServerSyncFlow,
     applyRestoreSyncPolicy,
+    prepared,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
@@ -2142,15 +2338,46 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists: boolean;
     skipServerSyncFlow?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    prepared?: IIndexedAccountsCreationPreparedData;
   }) {
-    if (
-      !accountUtils.isHdWallet({ walletId }) &&
-      !accountUtils.isQrWallet({ walletId }) &&
-      !accountUtils.isHwWallet({ walletId })
-    ) {
-      throw new OneKeyInternalError({
-        message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
+    this.validateIndexedAccountWalletId({ walletId });
+
+    if (prepared) {
+      // sync items were built outside of this tx, only pure DB writes remain
+      const { indexedAccounts, syncItemsInfo } = prepared;
+      let { indexedAccountsToAdd } = prepared;
+      if (skipIfExists && indexedAccountsToAdd.length) {
+        // re-check inside tx: a concurrent flow may have added them meanwhile
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: indexedAccountsToAdd.map((item) => item.id),
+        });
+        const existingIndexedAccounts = records.filter(Boolean);
+        indexedAccountsToAdd = indexedAccountsToAdd.filter(
+          (item) => !existingIndexedAccounts.some((r) => r.id === item.id),
+        );
+      }
+      if (!indexedAccountsToAdd.length) {
+        return indexedAccounts;
+      }
+      const preparedSyncManager =
+        this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
+      await preparedSyncManager.txWithSyncFlowOfDBRecordCreating({
+        tx,
+        newSyncItems: syncItemsInfo?.newSyncItems || [],
+        existingSyncItems: syncItemsInfo?.existingSyncItems || [],
+        runDbTxFn: async () => {
+          await this.txAddRecords({
+            tx,
+            skipIfExists,
+            name: ELocalDBStoreNames.IndexedAccount,
+            records: indexedAccountsToAdd,
+          });
+        },
+        skipServerSyncFlow,
       });
+      return indexedAccounts;
     }
 
     const [dbWallet] = await this.txGetWallet({ tx, walletId });
@@ -2334,19 +2561,85 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // }
   }
 
-  async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
-    let indexedAccountId = '';
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId,
-        skipServerSyncFlow: false,
-      }));
+  async findHDNextIndexedAccountIndex({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<number> {
+    const wallet = await this.getWallet({ walletId });
+    let nextIndex = this.getNextIdsValue({
+      nextIds: wallet.nextIds,
+      key: 'accountHdIndex',
+      defaultValue: 0,
     });
-    return {
-      indexedAccountId,
-    };
+    let maxLoop = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index: nextIndex,
+      });
+      try {
+        const { records } = await this.getRecordsByIds({
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [indexedAccountId],
+        });
+        if (!records.filter(Boolean).length) {
+          break;
+        }
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+        break;
+      }
+      if (maxLoop >= 1000) {
+        break;
+      }
+      nextIndex += 1;
+      maxLoop += 1;
+    }
+    return nextIndex;
+  }
+
+  async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
+    const maxRetry = 3;
+    let lastError: unknown;
+    for (let retry = 0; retry < maxRetry; retry += 1) {
+      const expectedIndex = await this.findHDNextIndexedAccountIndex({
+        walletId,
+      });
+      const prepared = await this.prepareIndexedAccountsCreationData({
+        walletId,
+        indexes: [expectedIndex],
+        skipIfExists: true,
+      });
+      try {
+        let indexedAccountId = '';
+        await this.withTransaction(
+          EIndexedDBBucketNames.account,
+          async (tx) => {
+            ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
+              tx,
+              walletId,
+              skipServerSyncFlow: false,
+              expectedIndex,
+              prepared,
+            }));
+          },
+        );
+        return {
+          indexedAccountId,
+        };
+      } catch (error) {
+        if (!(error instanceof LocalDBIndexedAccountIndexConflictError)) {
+          throw error;
+        }
+        // a concurrent creation took the index, re-prepare with a fresh one
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new OneKeyLocalError('addHDNextIndexedAccount failed');
   }
 
   async txAddHDNextIndexedAccount({
@@ -2354,11 +2647,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     onlyAddFirst,
     skipServerSyncFlow,
+    expectedIndex,
+    prepared,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     onlyAddFirst?: boolean;
     skipServerSyncFlow: boolean;
+    expectedIndex?: number;
+    prepared?: IIndexedAccountsCreationPreparedData;
   }) {
     console.log('txAddHDNextIndexedAccount');
     const [wallet] = await this.txGetWallet({
@@ -2404,12 +2701,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       nextIndex = 0;
     }
 
+    if (prepared && !isNil(expectedIndex) && expectedIndex !== nextIndex) {
+      // prepared data was built for a stale index, the caller must re-prepare
+      // outside of the tx (rebuilding sync items in-tx would break the tx)
+      throw new LocalDBIndexedAccountIndexConflictError(
+        `txAddHDNextIndexedAccount index conflict: expected=${expectedIndex} actual=${nextIndex}`,
+      );
+    }
+
     await this.txAddIndexedAccount({
       tx,
       walletId,
       indexes: [nextIndex],
       skipIfExists: true,
       skipServerSyncFlow,
+      prepared,
     });
 
     await this.txUpdateWallet({

@@ -104,7 +104,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
 
     if (bucketName === EIndexedDBBucketNames.account) {
-      await appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+      try {
+        // best-effort cache warm-up, must never block or fail the transaction
+        await Promise.race([
+          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded(),
+          timerUtils.wait(5000),
+        ]);
+      } catch (error) {
+        console.error(
+          'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
+          error,
+        );
+      }
     }
 
     const db = await this.readyDb;
