@@ -13,6 +13,8 @@ import { getMarketCapValue, getPeRatioValue, getVolume24hValue } from './utils';
 import type { IFavoriteTokenDisplay } from './types';
 import type { IntlShape } from 'react-intl';
 
+const POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH = 260;
+
 function renderMarketCapColumnValue(
   record: IFavoriteTokenDisplay,
   useStockMetadataColumns: boolean,
@@ -219,6 +221,7 @@ function renderPopularTradingRightMetrics(
 }
 
 export {
+  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
   getPopularTradingMetricColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,

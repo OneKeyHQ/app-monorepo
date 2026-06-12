@@ -13,10 +13,8 @@ import type { RefObject } from 'react';
 import { IconButton, Tabs, XStack, YStack } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useTabBarHeight } from '@onekeyhq/components/src/layouts/Page/hooks';
-import { ChartPrewarm } from '@onekeyhq/kit/src/components/TradingView/ChartWebView/ChartPrewarm';
 import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import { useChartPredictedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketBasicConfig } from '../../hooks/useMarketBasicConfig';
@@ -287,10 +285,6 @@ function MobileLayoutComponent({
 }: IMobileLayoutProps) {
   const openMarketWatchlistEditDialog = useOpenMarketWatchlistEditDialog();
   const isTokenCacheReady = useIsWatchlistTokenCacheReady();
-  // Drive the prewarm to the last-tapped market token (set on tap), so the shared
-  // chart WebView is already on the right symbol (and its kline fetched) before
-  // the detail page mounts. Falls back to the neutral reset when nothing tapped.
-  const [chartPredicted] = useChartPredictedSymbolAtom();
   const {
     watchlistTabName,
     spotTabItems,
@@ -780,15 +774,6 @@ function MobileLayoutComponent({
       >
         {tabElements}
       </Tabs.Container>
-      {/* Boot + pre-position the shared unified chart WebView while the user
-          browses the list, so opening a token is instant. Hidden + offscreen. */}
-      <ChartPrewarm
-        symbol={chartPredicted?.symbol}
-        source={chartPredicted?.source}
-        networkId={chartPredicted?.networkId}
-        address={chartPredicted?.address}
-        decimal={chartPredicted?.decimal}
-      />
     </TabBarDynamicContext.Provider>
   );
 }

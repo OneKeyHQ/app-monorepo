@@ -89,7 +89,6 @@ function MobileMarketTokenFlatListBase({
             tokenAddress: item.address,
             networkId: item.networkId,
             isNative: item.isNative,
-            decimals: item.decimals,
           });
         }}
       />

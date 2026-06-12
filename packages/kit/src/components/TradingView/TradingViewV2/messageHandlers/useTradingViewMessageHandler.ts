@@ -44,7 +44,6 @@ interface IUseTradingViewMessageHandlerParams {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
-  onBarsState?: (state: { hasBars: boolean; count: number }) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -236,6 +235,20 @@ function getIndicatorsDialogOpenState(
   return undefined;
 }
 
+function normalizeTradingViewMessagePayload({
+  data,
+  scope,
+}: ICustomReceiveHandlerData): ICustomReceiveHandlerData['data'] {
+  if (data.scope || !scope) {
+    return data;
+  }
+
+  return {
+    ...data,
+    scope,
+  };
+}
+
 export function useTradingViewMessageHandler({
   tokenAddress = '',
   networkId = '',
@@ -254,10 +267,10 @@ export function useTradingViewMessageHandler({
   primaryKLineDataUnavailable,
   onPrimaryKLineDataUnavailable,
   onPriceUpdate,
-  onBarsState,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
-    async ({ data }: ICustomReceiveHandlerData) => {
+    async (payload: ICustomReceiveHandlerData) => {
+      const data = normalizeTradingViewMessagePayload(payload);
       // Create context for message handlers
       const context: IMessageHandlerContext = {
         tokenAddress,
@@ -275,16 +288,6 @@ export function useTradingViewMessageHandler({
         primaryKLineDataUnavailable,
         onPrimaryKLineDataUnavailable,
       };
-
-      // Unified bars-state from the chart library's getBars — drives the chart
-      // loading mask. Any event means getBars resolved (data present or empty),
-      // which clears the mask.
-      if (
-        data.scope === '$private' &&
-        data.method === 'tradingview_barsState'
-      ) {
-        onBarsState?.((data.data ?? {}) as { hasBars: boolean; count: number });
-      }
 
       // Handle TradingView private API requests
       if (
@@ -397,7 +400,6 @@ export function useTradingViewMessageHandler({
       primaryKLineDataUnavailable,
       onPrimaryKLineDataUnavailable,
       onPriceUpdate,
-      onBarsState,
     ],
   );
 

@@ -62,6 +62,7 @@ import {
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
+  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
   getPopularTradingMetricColumns,
   renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
@@ -191,6 +192,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const {
+    isLoading: isMarketBasicConfigLoading,
     minLiquidity,
     homeTab: apiHomeTabs,
     spotCategories: apiSpotCategories,
@@ -211,6 +213,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const initializedRef = useRef(false);
+  const hasShownCategorySelectorRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -374,6 +377,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         {
           dataIndex: 'symbol',
           title: intl.formatMessage({ id: ETranslations.global_name }),
+          columnProps: { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH },
           render: (
             _: unknown,
             record: IFavoriteTokenDisplay,
@@ -726,6 +730,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
   refreshDataRef.current = refreshData;
 
+  const isMarketConfigInitialLoading =
+    isMarketBasicConfigLoading !== false &&
+    apiHomeTabs.length === 0 &&
+    apiSpotCategories.length === 0;
+  const isFavoritesInitialLoading =
+    !selectedMarketCategoryId && !initializedRef.current && isLoading !== false;
+  const isCategoryInitialLoading =
+    Boolean(selectedMarketCategoryId) &&
+    categoryTokens.length === 0 &&
+    isCategoryLoading;
+  const shouldHideCategorySelector =
+    !hasShownCategorySelectorRef.current &&
+    (isMarketConfigInitialLoading ||
+      isFavoritesInitialLoading ||
+      isCategoryInitialLoading);
+
+  useEffect(() => {
+    if (!shouldHideCategorySelector) {
+      hasShownCategorySelectorRef.current = true;
+    }
+  }, [shouldHideCategorySelector]);
+
   // Initialize selected tokens when favorites load (for empty state)
   useEffect(() => {
     if (!hasUserFavorites && favoriteTokens.length > 0) {
@@ -1058,7 +1084,29 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
       }
 
-      if (!initializedRef.current && isLoading) {
+      // Author intent (#12008 / OK-56230): show the <ListLoading> skeleton for
+      // the ENTIRE initial loading window — including the very first render,
+      // where usePromiseResult's `isLoading` is still `undefined` (which is why
+      // the original code used `isLoading !== false`).
+      //
+      // Bug it triggers (iOS, RN 0.81.5, Fabric/New Arch): rendering the
+      // skeleton on that first `undefined` frame and then swapping it for the
+      // real <RichTable> subtree happens WHILE the enclosing
+      // react-native-collapsible-tab-view <Tabs.ScrollView> is running its async
+      // Yoga measurement pass. That extra ListLoading→RichTable subtree swap
+      // mid-measure moves a shadow node to a new parent and trips the assertion
+      // `react_native_assert(YGNodeGetOwner(child) == &yogaNode_)` →
+      // hard crash on Home startup. (Confirmed via git bisect to #12008.)
+      //
+      // `react_native_assert` is a DEBUG-ONLY check (compiled out in Release),
+      // so production never hits this crash. Therefore we only soften the gate
+      // in dev: `isLoading` (truthy → skip the skeleton on the `undefined`
+      // frame, avoiding the extra swap) for dev, and keep the author's original
+      // `isLoading !== false` (full skeleton UX) in production.
+      const shouldShowInitialSkeleton = platformEnv.isDev
+        ? isLoading
+        : isLoading !== false;
+      if (!initializedRef.current && shouldShowInitialSkeleton) {
         return (
           <ListLoading
             listCount={displayCount}
@@ -1092,13 +1140,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return (
       <YStack>
         <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
-          <CategorySelector
-            categories={homeCategories}
-            selectedCategoryId={resolvedSelectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            showBorder={false}
-            showHorizontalPadding={false}
-          />
+          {shouldHideCategorySelector ? (
+            <Stack h="$10" />
+          ) : (
+            <CategorySelector
+              categories={homeCategories}
+              selectedCategoryId={resolvedSelectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              showBorder={false}
+              showHorizontalPadding={false}
+            />
+          )}
         </YStack>
         {listContent}
       </YStack>
@@ -1120,6 +1172,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     renderUserFavoritesList,
     selectedMarketCategoryId,
     resolvedSelectedCategoryId,
+    shouldHideCategorySelector,
     shouldUseTableLayout,
   ]);
 

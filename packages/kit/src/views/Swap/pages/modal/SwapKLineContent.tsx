@@ -26,6 +26,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type ITradingViewDisabledFeature,
+  type ITradingViewPriceUpdateData,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
@@ -54,6 +55,14 @@ import {
   getSwapKLineWalletChartDays,
 } from './swapKLineChartUtils';
 import {
+  type ISwapKLineChartRealtimePrice,
+  getNormalizedSwapKLinePercent,
+  getNormalizedSwapKLinePrice,
+  getSwapKLineDisplayPrice,
+  isSwapKLineChartPriceUpdateForToken,
+  normalizeSwapKLineChartUpdateTimestamp,
+} from './swapKLinePriceUtils';
+import {
   fetchSwapKLineTokenAddressesStableStatus,
   getResolvableDefaultSwapKLineSide,
   getSwapKLineStableTokenKey,
@@ -65,22 +74,35 @@ const SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE = 'swap-kline';
 const SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
   TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
+  TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
   TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
   TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
   TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
   TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
   TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
+  TRADING_VIEW_DISABLED_FEATURES.VOLUME,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
 
 const SWAP_KLINE_MOBILE_DISABLED_TRADING_VIEW_FEATURES = [
   TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
   ...SWAP_KLINE_DESKTOP_DISABLED_TRADING_VIEW_FEATURES,
 ] as const satisfies readonly ITradingViewDisabledFeature[];
+const SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL = 6000;
 
 type ISwapKLineWalletMarketInfo = {
   coinGeckoId?: string;
   priceChange24hPercent?: string;
+};
+
+type ISwapKLineTokenMarketInfoResult = {
+  tokenMarketDetail?: IMarketTokenDetail;
+  updatedAt?: number;
+};
+
+type ISwapKLineTokenUsdFallbackPriceResult = {
+  tokenUsdFallbackPrice?: string;
+  updatedAt?: number;
 };
 
 function getSwapKLineTokenKey(token?: ISwapToken) {
@@ -97,38 +119,21 @@ function getSwapKLineTokenKey(token?: ISwapToken) {
   }`;
 }
 
-function getNormalizedValueText(value?: number | string | null) {
-  const normalized = typeof value === 'number' ? String(value) : value?.trim();
-  if (!normalized) {
-    return undefined;
-  }
-  const numericValue = Number(normalized);
-  if (!Number.isFinite(numericValue)) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function getNormalizedPrice(value?: number | string | null) {
-  const normalized = getNormalizedValueText(value);
-  if (!normalized) {
-    return undefined;
-  }
-  const numericValue = Number(normalized);
-  if (numericValue === 0) {
-    return undefined;
-  }
-  return normalized;
-}
-
-function getNormalizedPercent(value?: number | string | null) {
-  return getNormalizedValueText(value);
-}
-
-function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
+function useSwapKLineTokenMarketInfo(
+  token?: ISwapToken,
+  enabled = true,
+): ISwapKLineTokenMarketInfoResult {
   const tokenAddress = token?.contractAddress?.trim() ?? '';
   const networkId = token?.networkId ?? '';
-  const { result } = usePromiseResult<IMarketTokenDetail | undefined>(
+  const tokenKey = getSwapKLineTokenKey(token);
+  const { result } = usePromiseResult<
+    | {
+        tokenKey: string;
+        tokenMarketDetail?: IMarketTokenDetail;
+        updatedAt: number;
+      }
+    | undefined
+  >(
     async () => {
       if (!enabled || !networkId) {
         return undefined;
@@ -142,26 +147,99 @@ function useSwapKLineTokenMarketInfo(token?: ISwapToken, enabled = true) {
             skipConvertCurrency: true,
           },
         );
-      return response?.data?.token;
+      return {
+        tokenKey,
+        tokenMarketDetail: response?.data?.token,
+        updatedAt: Date.now(),
+      };
     },
-    [enabled, networkId, tokenAddress],
+    [enabled, networkId, tokenAddress, tokenKey],
     {
       checkIsFocused: false,
+      pollingInterval: enabled
+        ? SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL
+        : undefined,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
       undefinedResultIfError: true,
-      undefinedResultIfReRun: true,
     },
   );
 
-  return result;
+  return useMemo(() => {
+    if (!result || result.tokenKey !== tokenKey) {
+      return {};
+    }
+
+    return {
+      tokenMarketDetail: result.tokenMarketDetail,
+      updatedAt: result.updatedAt,
+    };
+  }, [result, tokenKey]);
+}
+
+function useSwapKLineTokenUsdFallbackPrice(
+  token?: ISwapToken,
+  enabled = true,
+): ISwapKLineTokenUsdFallbackPriceResult {
+  const tokenAddress = token?.contractAddress?.trim() ?? '';
+  const networkId = token?.networkId ?? '';
+  const tokenKey = getSwapKLineTokenKey(token);
+  const { result } = usePromiseResult<
+    | {
+        tokenKey: string;
+        tokenUsdFallbackPrice?: string;
+        updatedAt: number;
+      }
+    | undefined
+  >(
+    async () => {
+      if (!enabled || !networkId) {
+        return undefined;
+      }
+
+      const [tokenDetail] =
+        (await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId,
+          contractAddress: tokenAddress,
+          currency: 'usd',
+        })) ?? [];
+      return {
+        tokenKey,
+        tokenUsdFallbackPrice: tokenDetail?.price,
+        updatedAt: Date.now(),
+      };
+    },
+    [enabled, networkId, tokenAddress, tokenKey],
+    {
+      checkIsFocused: false,
+      pollingInterval: enabled
+        ? SWAP_KLINE_TOKEN_DETAIL_POLLING_INTERVAL
+        : undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      undefinedResultIfError: true,
+    },
+  );
+
+  return useMemo(() => {
+    if (!enabled || !result || result.tokenKey !== tokenKey) {
+      return {};
+    }
+
+    return {
+      tokenUsdFallbackPrice: result.tokenUsdFallbackPrice,
+      updatedAt: result.updatedAt,
+    };
+  }, [enabled, result, tokenKey]);
 }
 
 function buildSwapKLineWalletMarketInfo(
   tokenInfo?: IFetchTokenDetailItem,
 ): ISwapKLineWalletMarketInfo | undefined {
   const coinGeckoId = tokenInfo?.info?.coingeckoId?.trim();
-  const priceChange24hPercent = getNormalizedPercent(tokenInfo?.price24h);
+  const priceChange24hPercent = getNormalizedSwapKLinePercent(
+    tokenInfo?.price24h,
+  );
 
   if (!coinGeckoId && !priceChange24hPercent) {
     return undefined;
@@ -232,6 +310,7 @@ function useSwapKLineChartDataSource({
         chartDataPromise = backgroundApiProxy.serviceMarket.fetchTokenChart(
           coinGeckoId,
           days,
+          { requestCurrency: 'usd' },
         );
         chartDataCacheRef.current.set(cacheKey, chartDataPromise);
       }
@@ -521,7 +600,10 @@ type ISwapKLineContentState = {
   shouldForceEmptyKLineData: boolean;
   isResolvingSelectedToken: boolean;
   tokenMarketDetail?: IMarketTokenDetail;
+  displayPrice?: string;
+  tokenUsdFallbackPrice?: string;
   handlePrimaryKLineDataUnavailable: () => void;
+  handleChartPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -542,6 +624,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     [fromToken, isStableTokenCheckLoading, stableTokenChecks, toToken],
   );
   const [selectedSide, setSelectedSide] = useState<ESwapDirectionType>();
+  const [chartRealtimePrice, setChartRealtimePrice] =
+    useState<ISwapKLineChartRealtimePrice>();
   const hasTrackedOpenRef = useRef(false);
 
   const resolvedSelectedSide = useMemo(() => {
@@ -564,8 +648,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       ? fromToken
       : toToken;
   }, [fromToken, resolvedSelectedSide, toToken]);
+  const selectedTokenKey = getSwapKLineTokenKey(selectedToken);
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
-  const tokenMarketDetail = useSwapKLineTokenMarketInfo(selectedToken);
+  const { tokenMarketDetail, updatedAt: tokenMarketDetailUpdatedAt } =
+    useSwapKLineTokenMarketInfo(selectedToken);
   const {
     kLineDataFallback,
     primaryKLineDataUnavailable,
@@ -576,9 +662,31 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   });
   const shouldForceEmptyKLineData =
     isKnownSwapKLineUnsupportedToken(selectedToken);
+  const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
+    useSwapKLineTokenUsdFallbackPrice(
+      selectedToken,
+      !getNormalizedSwapKLinePrice(tokenMarketDetail?.price),
+    );
+  const validChartRealtimePrice =
+    chartRealtimePrice?.tokenKey === selectedTokenKey
+      ? chartRealtimePrice
+      : undefined;
+  const displayPrice = getSwapKLineDisplayPrice({
+    tokenMarketDetail,
+    tokenMarketDetailUpdatedAt,
+    tokenUsdFallbackPrice,
+    tokenUsdFallbackPriceUpdatedAt,
+    chartRealtimePrice: validChartRealtimePrice,
+  });
   const isResolvingSelectedToken = Boolean(
     !selectedToken && (fromToken || toToken) && isStableTokenCheckLoading,
   );
+
+  useEffect(() => {
+    setChartRealtimePrice((prev) =>
+      prev?.tokenKey === selectedTokenKey ? prev : undefined,
+    );
+  }, [selectedTokenKey]);
 
   useEffect(() => {
     if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
@@ -594,6 +702,40 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       toTokenSymbol: toToken?.symbol,
     });
   }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
+
+  const handleChartPriceUpdate = useCallback(
+    (data: ITradingViewPriceUpdateData) => {
+      if (data.source === 'history' || !selectedToken || !selectedTokenKey) {
+        return;
+      }
+
+      if (
+        !isSwapKLineChartPriceUpdateForToken({
+          data,
+          token: selectedToken,
+        })
+      ) {
+        return;
+      }
+
+      const price = getNormalizedSwapKLinePrice(data.price);
+      if (!price) {
+        return;
+      }
+
+      const receivedAt = Date.now();
+      setChartRealtimePrice({
+        tokenKey: selectedTokenKey,
+        price,
+        updatedAt: normalizeSwapKLineChartUpdateTimestamp(
+          data.timestamp,
+          receivedAt,
+        ),
+        receivedAt,
+      });
+    },
+    [selectedToken, selectedTokenKey],
+  );
 
   const handleSelectedSideChange = useCallback(
     (side: ESwapDirectionType) => {
@@ -627,11 +769,16 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       resolvedSelectedSide,
       shouldForceEmptyKLineData,
       tokenMarketDetail,
+      displayPrice,
+      tokenUsdFallbackPrice,
       handlePrimaryKLineDataUnavailable,
+      handleChartPriceUpdate,
       handleSelectedSideChange,
     }),
     [
+      displayPrice,
       fromToken,
+      handleChartPriceUpdate,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       isResolvingSelectedToken,
@@ -642,6 +789,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       shouldForceEmptyKLineData,
       toToken,
       tokenMarketDetail,
+      tokenUsdFallbackPrice,
       walletMarketInfo,
     ],
   );
@@ -672,19 +820,22 @@ function SwapKLineHeaderRight({
 function SwapKLineTokenPriceInfo({
   tokenMarketDetail,
   walletMarketInfo,
-  fallbackPrice,
+  displayPrice,
+  fallbackUsdPrice,
   compact,
 }: {
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
-  fallbackPrice?: string;
+  displayPrice?: string;
+  fallbackUsdPrice?: string;
   compact?: boolean;
 }) {
   const price =
-    getNormalizedPrice(tokenMarketDetail?.price) ??
-    getNormalizedPrice(fallbackPrice);
+    getNormalizedSwapKLinePrice(displayPrice) ??
+    getNormalizedSwapKLinePrice(tokenMarketDetail?.price) ??
+    getNormalizedSwapKLinePrice(fallbackUsdPrice);
   const priceChange =
-    getNormalizedPercent(tokenMarketDetail?.priceChange24hPercent) ??
+    getNormalizedSwapKLinePercent(tokenMarketDetail?.priceChange24hPercent) ??
     walletMarketInfo?.priceChange24hPercent;
 
   return (
@@ -741,12 +892,16 @@ function SwapKLineTokenInfoRow({
   token,
   tokenMarketDetail,
   walletMarketInfo,
+  displayPrice,
+  fallbackUsdPrice,
   headerRight,
   compact,
 }: {
   token: ISwapToken;
   tokenMarketDetail?: IMarketTokenDetail;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
+  displayPrice?: string;
+  fallbackUsdPrice?: string;
   headerRight?: ReactNode;
   compact?: boolean;
 }) {
@@ -791,7 +946,8 @@ function SwapKLineTokenInfoRow({
         <SwapKLineTokenPriceInfo
           tokenMarketDetail={tokenMarketDetail}
           walletMarketInfo={walletMarketInfo}
-          fallbackPrice={token.price}
+          displayPrice={displayPrice}
+          fallbackUsdPrice={fallbackUsdPrice}
           compact={compact}
         />
       </XStack>
@@ -885,6 +1041,8 @@ function SwapKLineContentBody({
             token={selectedToken}
             tokenMarketDetail={state.tokenMarketDetail}
             walletMarketInfo={state.walletMarketInfo}
+            displayPrice={state.displayPrice}
+            fallbackUsdPrice={state.tokenUsdFallbackPrice}
             compact
           />
         </YStack>
@@ -893,6 +1051,8 @@ function SwapKLineContentBody({
           token={selectedToken}
           tokenMarketDetail={state.tokenMarketDetail}
           walletMarketInfo={state.walletMarketInfo}
+          displayPrice={state.displayPrice}
+          fallbackUsdPrice={state.tokenUsdFallbackPrice}
           headerRight={headerRight}
         />
       );
@@ -922,9 +1082,7 @@ function SwapKLineContentBody({
         kLineDataFallback={state.kLineDataFallback}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
-        // In a modal: the app-root chart overlay would render behind it, so use
-        // the legacy per-instance WebView (offline URL) here on desktop.
-        preferLegacyChart
+        onPriceUpdate={state.handleChartPriceUpdate}
         w="100%"
         h="100%"
       />
