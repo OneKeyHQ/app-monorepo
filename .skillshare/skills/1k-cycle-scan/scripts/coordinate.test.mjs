@@ -3,7 +3,7 @@
 // the two adversarial design reviews and asserts the engine resolves each
 // one deterministically.
 import { execFileSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 
 const SCRIPT = new URL('./coordinate.mjs', import.meta.url).pathname;
 const NOW = '2026-06-12T12:00:00Z';
@@ -262,6 +262,76 @@ check('18d all closed + summary → Flow C', s.flow === 'C', s);
 writeFileSync('/tmp/t18-v5.json', JSON.stringify({ v: 5, batch: 1 }));
 s = run(['--op', 'route', '--state', '/tmp/t18-v5.json']);
 check('18e v5 → retrofit', s.flow === 'retrofit');
+
+
+// ---- 19. plan-run: scripted hash + boundary gate
+// build a real table from the synthetic manifest, plus a matching state
+const realTable = JSON.parse(execFileSync('node',
+  [new URL('./chunk.mjs', import.meta.url).pathname, '--manifest', '/tmp/test-manifest.jsonl', '--cursor', '0', '--lines', '50000', '--plan-runs'],
+  { encoding: 'utf8' }));
+writeFileSync('/tmp/t19-table.json', JSON.stringify(realTable));
+writeFileSync('/tmp/t19-msum.json', JSON.stringify({ commit: 'c1', manifestHash: 'm1', rulesHash: 'r1' }));
+const baseState = run(['--op', 'state', '--transition', 'init', '--dimension', 'perf', '--now', NOW]).state;
+writeFileSync('/tmp/t19-state.json', JSON.stringify({
+  ...baseState, batch: 1, batchPageId: 'B', pinnedCommit: 'c1', manifestHash: 'm1', rulesHash: 'r1',
+  totalFiles: 537, totalLines: 659568, runCount: realTable.runCount, runLines: 50000,
+}));
+s = run(['--op', 'plan-run', '--manifest', '/tmp/test-manifest.jsonl', '--manifest-summary', '/tmp/t19-msum.json',
+  '--state', '/tmp/t19-state.json', '--table', '/tmp/t19-table.json', '--run', '2',
+  '--group-lines', '4000', '--group-files', '25', '--out', '/tmp/t19-groups.json']);
+check('19a plan-run ok: boundary asserted, groups written', s.ok === true && s.run.start === 40 && s.run.end === 83
+  && JSON.parse(readFileSync('/tmp/t19-groups.json')).groups.length === s.groupCount, s);
+writeFileSync('/tmp/t19-msum-bad.json', JSON.stringify({ commit: 'c1', manifestHash: 'DRIFTED', rulesHash: 'r1' }));
+r = run(['--op', 'plan-run', '--manifest', '/tmp/test-manifest.jsonl', '--manifest-summary', '/tmp/t19-msum-bad.json',
+  '--state', '/tmp/t19-state.json', '--table', '/tmp/t19-table.json', '--run', '2',
+  '--group-lines', '4000', '--group-files', '25', '--out', '/tmp/t19-g2.json'], { expectFail: true });
+check('19b plan-run refuses hash drift', r.failed === true && r.stderr.includes('manifestHash'));
+const drifted = { ...realTable, runs: realTable.runs.map((x) => x.r === 2 ? { ...x, end: x.end + 1 } : x) };
+writeFileSync('/tmp/t19-table-bad.json', JSON.stringify(drifted));
+r = run(['--op', 'plan-run', '--manifest', '/tmp/test-manifest.jsonl', '--manifest-summary', '/tmp/t19-msum.json',
+  '--state', '/tmp/t19-state.json', '--table', '/tmp/t19-table-bad.json', '--run', '2',
+  '--group-lines', '4000', '--group-files', '25', '--out', '/tmp/t19-g3.json'], { expectFail: true });
+check('19c plan-run refuses table boundary drift', r.failed === true && r.stderr.includes('proposedCursor'));
+
+// ---- 20. reconcile: coverage gaps → actions → close args
+const planR2 = JSON.parse(readFileSync('/tmp/t19-groups.json'));
+const g1 = planR2.groups[0], g2 = planR2.groups[1];
+const ckptFor = (g, t) => C('ckpt', 'perf', 1, 2, g.id,
+  { g: g.id, idx: g.files.map((x) => x.i), lines: g.totalLines, nonce: 'me111111', f: [{ p: 'a.ts', l: 1, cat: 'sync-storage-io', sev: 'P1', t: '示例发现', conf: 0.9 }] }, t);
+dump('/tmp/t20.json', [
+  C('claim', 'perf', 1, 2, null, { nonce: 'me111111', mode: 'scan', groupLines: 4000, groupFiles: 25, focus: null, at: '2026-06-12T11:00:00Z' }, '2026-06-12T11:00:00Z'),
+  ckptFor(g1, '2026-06-12T11:10:00Z'),
+]);
+s = run(['--op', 'reconcile', '--plan', '/tmp/t19-groups.json', '--comments', '/tmp/t20.json',
+  '--my-nonce', 'me111111', '--table', '/tmp/t19-table.json', '--run', '2', '--have-results', String(g2.id), '--now', NOW]);
+const a1 = s.groups.find((x) => x.id === g1.id), a2 = s.groups.find((x) => x.id === g2.id);
+const expectLines = realTable.runs[1].lines - planR2.groups.filter((g) => g.id !== g1.id).flatMap((g) => g.files).reduce((t, x) => t + x.lines, 0);
+check('20a reconcile: covered/repost/rerun + close args', s.takenOver === false
+  && a1.covered === true && a1.action === null && a2.action === 'repost-checkpoint'
+  && s.groups.filter((x) => x.action === 'rerun-once').length === planR2.groups.length - 2
+  && s.actionsPending === true && s.closeArgs.lines === expectLines, s);
+s = run(['--op', 'reconcile', '--plan', '/tmp/t19-groups.json', '--comments', '/tmp/t20.json',
+  '--my-nonce', 'other999', '--table', '/tmp/t19-table.json', '--run', '2', '--now', NOW]);
+check('20b reconcile: non-owner → takenOver, stop', s.takenOver === true);
+
+// ---- 21. make-report: full body generated from checkpoints
+s = run(['--op', 'make-report', '--comments', '/tmp/t20.json', '--state', '/tmp/t19-state.json',
+  '--table', '/tmp/t19-table.json', '--run', '2', '--mode', 'scan', '--nonce', 'me111111',
+  '--plan', '/tmp/t19-groups.json', '--refuted', '1', '--closed-runs', '3', '--run-count', '14',
+  '--missing-idx', '60,61', '--now', NOW]);
+check('21 make-report renders header/sections/stats', s.body.includes('| 日期 / commit | 2026-06-12 / `c1` |')
+  && s.body.includes('manifest [40, 83)') && s.body.includes('示例发现')
+  && s.body.includes('| sync-storage-io | 0 | 1 | 0 |') && s.body.includes('已关 3/14')
+  && s.body.includes('缺 2 个文件'), s.body.split('\n').slice(0, 10));
+
+// ---- 22. slack lines generated, never hand-written
+s = run(['--op', 'make-comment', '--kind', 'slack-run', '--dim', 'perf', '--batch', '2', '--run', '5',
+  '--range', '250,300', '--p0', '1', '--p1', '4', '--p2', '7', '--closed-runs', '8', '--run-count', '19',
+  '--url', 'https://x.example/r5']);
+check('22a slack-run line', s.body === 'perf · B002 R005 完成 · 范围 [250,300) · P0×1 P1×4 P2×7 · 已关 8/19 · https://x.example/r5', s);
+s = run(['--op', 'make-comment', '--kind', 'slack-run', '--dim', 'perf', '--batch', '2', '--run', '5',
+  '--range', '250,300', '--missing-idx', '260,261', '--closed-runs', '8', '--run-count', '19', '--url', 'u']);
+check('22b slack-run partial wording', s.body.includes('部分完成 · 缺 2 文件'), s);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

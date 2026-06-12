@@ -97,7 +97,7 @@ node scripts/manifest.mjs --repo <wt> --out /tmp/m.jsonl [--stats] [--suspects] 
 node scripts/chunk.mjs --manifest /tmp/m.jsonl --repo <wt> --cursor <run.start> --lines <table.runLines> \
   --group-lines <n> --group-files <n> [--done-indices "1,2" --preserve-group-ids] --out /tmp/g.json
 node scripts/chunk.mjs --manifest /tmp/m.jsonl --cursor 0 --lines 50000 --plan-runs [--first-run 1] --out /tmp/runs.json
-node scripts/coordinate.mjs --op run-status|pick-order|batch-status|make-comment|state|route …
+node scripts/coordinate.mjs --op run-status|pick-order|batch-status|plan-run|reconcile|make-comment|make-report|state|route …
 ```
 
 All print small JSON summaries; never read the manifest/groups files fully
@@ -108,11 +108,13 @@ boundaries and fail the `proposedCursor == run.end` assert). Calibration
 949,156 lines; manifest determinism is hash-verified on every run.
 
 `coordinate.mjs` is the protocol engine: ownership fold, pickability,
-staleness, circuit breakers, completeness, progress, comment bodies, state
-transitions, routing. The model never hand-evaluates any of these — it dumps
-Confluence comments/pages to JSON, runs the op, and executes the output
-(see the protocol's Engine rule). `scripts/coordinate.test.mjs` replays the
-adversarial-review failure timelines; run it after any engine change.
+staleness, circuit breakers, completeness, progress, hash/boundary asserts
+(plan-run), coverage reconciliation, comment bodies, Slack lines, run report
+bodies, state transitions, routing. The model never hand-evaluates or
+hand-formats any of these — it dumps Confluence comments/pages to JSON, runs
+the op, and executes the output (see the protocol's Engine rule).
+`scripts/coordinate.test.mjs` replays the adversarial-review failure
+timelines; run it after any engine change.
 
 ## Dimensions
 

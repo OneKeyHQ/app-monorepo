@@ -27,8 +27,24 @@
  *                     [--now ISO] [--stale-minutes 120]
  *       → authoritative completeness gate (reads r<NNN>.json per run).
  *   --op make-comment --kind claim|void|close|ckpt|run-closed|batch-closed
+ *                          |slack-run|slack-summary
  *                     --dim perf --batch 2 [--run 5] [--group 3] …field flags…
- *       → exact comment body to post (marker + JSON + human line).
+ *       → exact comment body / Slack line to post.
+ *   --op plan-run     --manifest m.jsonl --manifest-summary msum.json
+ *                     --state state.json --table runs.json --run 5
+ *                     --group-lines 4000 --group-files 25 --out groups.json
+ *                     [--repo <wt>] [--done-indices "1,2"]
+ *       → asserts pin/manifest/rules hashes vs state, runs chunk.mjs, asserts
+ *         the table boundary. The ONLY sanctioned way to plan a slice.
+ *   --op reconcile    --plan groups.json --comments run.json --my-nonce X
+ *                     --table runs.json --run 5 [--have-results "1,3"]
+ *       → ownership recheck + per-group coverage gaps (repost vs rerun) +
+ *         ready-made close args (missingIdx, lines) + Slack dedup.
+ *   --op make-report  --comments run.json --state state.json --table runs.json
+ *                     --run 5 --mode scan --nonce X [--plan groups.json]
+ *                     [--details full-findings.json] [--missing-idx "…"]
+ *                     [--refuted N] [--closed-runs K --run-count N] [--focus …]
+ *       → the complete run report page body (markdown).
  *   --op state        --transition init|lock|unlock|open-batch|close-summary|retrofit
  *                     --state state.json …field flags…
  *       → validated new state JSON + versionMessage (version guard enforced).
@@ -40,6 +56,7 @@
  * violates the protocol (message on stderr). Use --out to also write a file.
  */
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const DEFAULT_STALE_MINUTES = 120;
@@ -528,10 +545,194 @@ function opMakeComment() {
     marker = `[1k-cycle-scan:batch-closed:${dim}:${batch}]`;
     payload = { reason: need('reason'), at };
     human ||= `B${pad(batch)} 已终止:${payload.reason}`;
+  } else if (kind === 'slack-run') {
+    const run = Number(need('run'));
+    const [rs, re] = String(need('range')).split(',').map(Number);
+    const missing = intList(f['missing-idx']);
+    const status = missing.length === 0 ? '完成' : `部分完成 · 缺 ${missing.length} 文件`;
+    emit({
+      body: `${dim} · B${pad(batch)} R${pad(run)} ${status} · 范围 [${rs},${re}) · `
+        + `P0×${f.p0 ?? 0} P1×${f.p1 ?? 0} P2×${f.p2 ?? 0} · `
+        + `已关 ${need('closed-runs')}/${need('run-count')} · ${need('url')}`,
+    });
+    return;
+  } else if (kind === 'slack-summary') {
+    emit({
+      body: `${dim} · B${pad(batch)} 批次总结完成 · ${need('files')} 文件/${need('lines')} 行 100% · `
+        + `P0×${f.p0 ?? 0} P1×${f.p1 ?? 0} P2×${f.p2 ?? 0} · ${need('url')}`,
+    });
+    return;
   } else {
     fail(`unknown --kind ${kind}`);
   }
   emit({ body: `${marker}\n\`\`\`json\n${JSON.stringify(payload)}\n\`\`\`\n${human}` });
+}
+
+function opPlanRun() {
+  for (const k of ['manifest', 'manifest-summary', 'state', 'table', 'run', 'group-lines', 'group-files', 'out']) {
+    if (f[k] === undefined) fail(`--${k} is required for plan-run`);
+  }
+  // --out is chunk.mjs's groups destination; keep emit() off it so the
+  // engine summary never overwrites the plan.
+  const groupsFile = f.out;
+  delete f.out;
+  const summary = readJson(f['manifest-summary'], 'manifest summary');
+  const state = validateState(readJson(f.state, 'state'));
+  for (const [field, key] of [['commit', 'pinnedCommit'], ['manifestHash', 'manifestHash'], ['rulesHash', 'rulesHash']]) {
+    if (summary[field] !== state[key]) {
+      fail(`assert failed: manifest ${field}=${summary[field]} != state.${key}=${state[key]} — script drift vs pin, or wrong commit. Do NOT claim or scan.`);
+    }
+  }
+  const table = readTable();
+  const run = table.runs.find((r) => r.r === Number(f.run));
+  if (!run) fail(`run ${f.run} is not in the run table`);
+  const chunkArgs = [
+    '--manifest', f.manifest, '--cursor', String(run.start),
+    '--lines', String(table.runLines),
+    '--group-lines', String(f['group-lines']), '--group-files', String(f['group-files']),
+    '--out', groupsFile,
+  ];
+  if (f.repo) chunkArgs.push('--repo', f.repo);
+  if (f['done-indices']) chunkArgs.push('--done-indices', f['done-indices'], '--preserve-group-ids');
+  let chunkOut;
+  try {
+    chunkOut = execFileSync(
+      process.execPath,
+      [new URL('./chunk.mjs', import.meta.url).pathname, ...chunkArgs],
+      { encoding: 'utf8' },
+    );
+  } catch (e) {
+    fail(`chunk.mjs failed: ${e.stderr || e.message}`);
+  }
+  const plan = JSON.parse(chunkOut);
+  if (plan.proposedCursor !== run.end) {
+    fail(`assert failed: proposedCursor=${plan.proposedCursor} != run.end=${run.end} — table drift. If a claim was already posted, void it; then STOP with this diagnostic.`);
+  }
+  emit({
+    ok: true,
+    run: { r: run.r, start: run.start, end: run.end, lines: run.lines },
+    groupCount: plan.groupCount,
+    plannedFiles: plan.plannedFiles,
+    plannedLines: plan.plannedLines,
+    strandedDoneIndices: plan.strandedDoneIndices,
+    groupsFile,
+  });
+}
+
+function opReconcile() {
+  for (const k of ['plan', 'comments', 'my-nonce', 'table', 'run']) {
+    if (f[k] === undefined) fail(`--${k} is required for reconcile`);
+  }
+  const plan = readJson(f.plan, 'plan');
+  const table = readTable();
+  const run = table.runs.find((r) => r.r === Number(f.run));
+  if (!run) fail(`run ${f.run} is not in the run table`);
+  const { events, malformed } = parseComments(readJson(f.comments, 'comments'), 'reconcile');
+  if (malformed.length > 0) fail(`fail-closed: unparseable protocol comments: ${JSON.stringify(malformed)}`);
+  const status = foldRun({ events, nowMs, staleMs });
+  if (!status.owner || status.owner.nonce !== f['my-nonce']) {
+    emit({ takenOver: true, instruction: 'You no longer own this run — STOP silently: no report write, no close, no Slack.' });
+    return;
+  }
+  const done = new Set(status.doneIndices);
+  const haveResults = new Set(String(f['have-results'] ?? '').split(',').filter(Boolean).map(Number));
+  const groups = plan.groups.map((g) => {
+    const covered = g.files.every((x) => done.has(x.i));
+    return {
+      id: g.id,
+      covered,
+      // repost-checkpoint: results exist, only the comment is missing.
+      // rerun-once: no results — re-run the group once, then give up to missingIdx.
+      action: covered ? null : (haveResults.has(g.id) ? 'repost-checkpoint' : 'rerun-once'),
+    };
+  });
+  const missingFiles = plan.groups.flatMap((g) => g.files).filter((x) => !done.has(x.i));
+  const missingIdx = [...new Set(missingFiles.map((x) => x.i))].sort((a, b) => a - b);
+  emit({
+    takenOver: false,
+    groups,
+    actionsPending: groups.some((g) => g.action !== null),
+    missingIdx,
+    closeArgs: {
+      missingIdx: missingIdx.join(','),
+      lines: run.lines - missingFiles.reduce((s, x) => s + x.lines, 0),
+    },
+    slackDedup: status.slackDedup,
+  });
+}
+
+function opMakeReport() {
+  for (const k of ['comments', 'state', 'table', 'run', 'mode', 'nonce']) {
+    if (f[k] === undefined) fail(`--${k} is required for make-report`);
+  }
+  const state = validateState(readJson(f.state, 'state'));
+  const table = readTable();
+  const run = table.runs.find((r) => r.r === Number(f.run));
+  if (!run) fail(`run ${f.run} is not in the run table`);
+  const { events, malformed } = parseComments(readJson(f.comments, 'comments'), 'make-report');
+  if (malformed.length > 0) fail(`fail-closed: unparseable protocol comments: ${JSON.stringify(malformed)}`);
+  const status = foldRun({ events, nowMs, staleMs });
+  const findings = status.findings;
+  const details = f.details ? readJson(f.details, 'details') : [];
+  const dkey = (p, l, cat) => `${p}|${l}|${cat}`;
+  const dmap = new Map(details.map((d) => [dkey(d.path, d.line, d.category), d]));
+  const bySev = { P0: [], P1: [], P2: [] };
+  for (const x of findings) (bySev[x.sev] ?? bySev.P2).push(x);
+  const sevSection = (sev) => (bySev[sev].length === 0 ? '(无)' : bySev[sev].map((x) => {
+    const d = dmap.get(dkey(x.p, x.l, x.cat));
+    let s = `- \`${x.p}:${x.l}\` **[${x.cat}]** ${x.t}(置信度 ${x.conf})`;
+    if (d?.evidence) s += `\n  - 证据:\`${d.evidence}\``;
+    if (d?.suggestion) s += `\n  - 建议:${d.suggestion}`;
+    return s;
+  }).join('\n'));
+  const cats = new Map();
+  for (const x of findings) {
+    const c = cats.get(x.cat) ?? { P0: 0, P1: 0, P2: 0 };
+    c[x.sev] = (c[x.sev] ?? 0) + 1;
+    cats.set(x.cat, c);
+  }
+  const catRows = cats.size === 0 ? '| (无) | 0 | 0 | 0 |'
+    : [...cats.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([c, n]) => `| ${c} | ${n.P0 ?? 0} | ${n.P1 ?? 0} | ${n.P2 ?? 0} |`).join('\n');
+  let dirSection = '(见 run 表范围)';
+  if (f.plan) {
+    const plan = readJson(f.plan, 'plan');
+    const dirs = new Map();
+    for (const file of plan.groups.flatMap((g) => g.files)) {
+      const top = file.path.split('/').slice(0, 2).join('/');
+      dirs.set(top, (dirs.get(top) ?? 0) + 1);
+    }
+    dirSection = [...dirs.entries()].sort((a, b) => b[1] - a[1])
+      .map(([d, n]) => `- ${d}: ${n}`).join('\n');
+  }
+  const missingIdx = String(f['missing-idx'] ?? '').split(',').filter(Boolean);
+  const progress = f['closed-runs'] !== undefined && f['run-count'] !== undefined
+    ? `本轮关闭后已关 ${f['closed-runs']}/${f['run-count']} run` : '—';
+  const body = [
+    '| | |',
+    '|---|---|',
+    `| 日期 / commit | ${new Date(nowMs).toISOString().slice(0, 10)} / \`${String(state.pinnedCommit).slice(0, 12)}\` |`,
+    `| 本轮范围 | manifest [${run.start}, ${run.end}) — ${run.files} 个文件,${run.lines} 行 |`,
+    `| 批次进度 | ${progress} |`,
+    `| 发现 | P0 ${bySev.P0.length} · P1 ${bySev.P1.length} · P2 ${bySev.P2.length}(本次执行驳回 ${f.refuted ?? '—'} 个;继承组不可统计) |`,
+    `| 执行 | ${f.mode} · claim ${f.nonce} |`,
+    `| 本轮关注点 | ${f.focus && f.focus !== true ? f.focus : '—'} |`,
+    `| 缺失分组 | ${missingIdx.length === 0 ? '无' : `缺 ${missingIdx.length} 个文件(manifest idx: ${missingIdx.join(', ')})`} |`,
+    '',
+    '## P0',
+    sevSection('P0'),
+    '## P1',
+    sevSection('P1'),
+    '## P2',
+    sevSection('P2'),
+    '## 按类别统计',
+    '| 类别 | P0 | P1 | P2 |',
+    '|---|---|---|---|',
+    catRows,
+    '## 扫描范围',
+    dirSection,
+  ].join('\n');
+  emit({ body });
 }
 
 const STATE_FIELDS = [
@@ -698,6 +899,9 @@ const ops = {
   'pick-order': opPickOrder,
   'batch-status': opBatchStatus,
   'make-comment': opMakeComment,
+  'plan-run': opPlanRun,
+  reconcile: opReconcile,
+  'make-report': opMakeReport,
   state: opState,
   route: opRoute,
 };

@@ -206,15 +206,16 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    structural flow is live; scanning would race it. (Never "clean up" a
    stale structural lock from Flow D — the next structural flow self-verifies
    its own lock.)
-2. Materialize the pinned tree; resolve `SCRIPTS`. Rebuild the blueprint:
+2. Materialize the pinned tree; resolve `SCRIPTS`. Rebuild the blueprint and
+   SAVE the summary:
    ```bash
-   node "$SCRIPTS/manifest.mjs" --repo "$WT" --out /tmp/...jsonl [--overrides ...]
+   node "$SCRIPTS/manifest.mjs" --repo "$WT" \
+     --out /tmp/1k-cycle-scan-manifest.jsonl [--overrides ...] \
+     > /tmp/1k-cycle-scan-manifest-summary.json
    ```
-   Assert `commit == state.pinnedCommit`, `manifestHash ==
-   state.manifestHash`, and `rulesHash == state.rulesHash` (all three from
-   the manifest.mjs output JSON). Mismatch → STOP with a diagnostic (script
-   drift vs pin — see provenance note — or wrong commit). No claim exists
-   yet, so nothing needs releasing.
+   No hand asserts here — `plan-run` (step 5) verifies
+   commit/manifestHash/rulesHash against the state JSON and refuses to plan
+   on drift, before any claim exists.
 3. Read the batch page body (run table → `/tmp/runs.json`) and dump ALL batch
    page footer comments → `/tmp/batch-comments.json` (paginate to
    exhaustion). Then:
@@ -246,34 +247,38 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    - No candidate left → report `N run 进行中,无可认领 run;最早解锁时间
      <min(staleAt)>` and stop. This is the lock working as intended — its
      scope is the run, not the batch.
-5. Claim it: post the comment from
+5. Plan the slice — BEFORE claiming, so every assert fires while walking away
+   is still free:
    ```bash
-   node "$SCRIPTS/coordinate.mjs" --op make-comment --kind claim \
-     --dim <dim> --batch <B> --run <r> --nonce <nonce> --mode <pickable> \
-     --group-lines <g> --group-files <g> [--focus "<hint>"]
-   ```
-   (`scan` mode: group params from config + the user's focus hint;
-   `repair`/`takeover`/`voided`-with-checkpoints: copy `originalClaim`'s
-   params from run-status). Wait ~10s, re-dump, re-run
-   `run-status --my-nonce`: `ownedByMe=false` → post `void` (make-comment),
-   back to step 4 for the next candidate.
-6. Plan the slice:
-   ```bash
-   node "$SCRIPTS/chunk.mjs" --manifest /tmp/...jsonl --repo "$WT" \
-     --cursor <run.start> --lines <table.runLines> \
-     --group-lines <claim.groupLines> --group-files <claim.groupFiles> \
-     [--done-indices <run-status doneIndices> --preserve-group-ids] \
+   node "$SCRIPTS/coordinate.mjs" --op plan-run \
+     --manifest /tmp/1k-cycle-scan-manifest.jsonl \
+     --manifest-summary /tmp/1k-cycle-scan-manifest-summary.json \
+     --state /tmp/state.json --table /tmp/runs.json --run <r> \
+     --group-lines <g> --group-files <g> --repo "$WT" \
+     [--done-indices <run-status doneIndices>] \
      --out /tmp/1k-cycle-scan-groups.json
    ```
-   Assert `proposedCursor == run.end` — the table-drift guard. Failure →
-   post `void` and STOP with a diagnostic. For `repair`/`takeover` (and
-   `voided` with prior checkpoints), `--done-indices` comes from run-status
-   `doneIndices`; missing groups keep their original marker numbers. Surface
+   The engine asserts commit/manifestHash/rulesHash against the state, runs
+   chunk.mjs (adding `--preserve-group-ids` whenever `--done-indices` is
+   given), and asserts `proposedCursor == run.end` (table-drift guard). Any
+   failure → STOP with its diagnostic; no claim was posted, nothing to void.
+   `scan` mode: group params from config. `repair`/`takeover`/`voided`-with-
+   checkpoints: copy `originalClaim`'s params and `doneIndices` from
+   run-status — missing groups keep their original marker numbers. Surface
    `strandedDoneIndices` to the user if non-empty.
    `--repo` enables READ PROBES: files >1800 lines get a `probeLine` whose
    exact content the scan agent must echo back (proof it read past the Read
    tool's ~2000-line-per-call window). Keep probe line numbers in the group
    prompts but NEVER put the expected text anywhere near an agent prompt.
+6. Claim it: post the comment from
+   ```bash
+   node "$SCRIPTS/coordinate.mjs" --op make-comment --kind claim \
+     --dim <dim> --batch <B> --run <r> --nonce <nonce> --mode <pickable> \
+     --group-lines <g> --group-files <g> [--focus "<hint>"]
+   ```
+   Wait ~10s, re-dump, re-run `run-status --my-nonce`: `ownedByMe=false` →
+   post `void` (make-comment), back to step 4 for the next candidate. From
+   here on, EVERY abort path posts `void` before exiting.
 7. Strict agent-output validation:
    - StructuredOutput/schema options are steering only. Every scan/refute
      result MUST be serialized to a temp JSON file and validated locally:
@@ -303,34 +308,47 @@ Flow F. (Batch complete with `summaryPageId == null` → Flow E first.)
    checkpoint COMMENT on the RUN page (body generated by
    `make-comment --kind ckpt`, which embeds your claim nonce — the heartbeat
    is nonce-attributed).
-9. Reconcile — re-dump the run page comments, `run-status --my-nonce`:
-   `ownedByMe=false` → taken over while the Workflow blocked → STOP silently
-   (protocol). Otherwise compare `doneIndices`/checkpoints against the plan;
-   three DIFFERENT gaps:
-   a. Group has scan results but no checkpoint (posting failed) → post it now
-      from the orchestrator's data (make-comment).
-   b. Group has NO scan result (agent died/timeout) → re-run that group once
-      (scan + verify + checkpoint). Still failing → it becomes `missingIdx`
-      in the close; never fabricate its checkpoint.
+9. Reconcile — re-dump the run page comments, then:
+   ```bash
+   node "$SCRIPTS/coordinate.mjs" --op reconcile \
+     --plan /tmp/1k-cycle-scan-groups.json --comments <run dump> \
+     --my-nonce <nonce> --table /tmp/runs.json --run <r> \
+     [--have-results "<group ids with validated results>"]
+   ```
+   `takenOver=true` → STOP silently (protocol). Otherwise execute the
+   per-group `action`s:
+   a. `repost-checkpoint` (results exist, comment missing) → post it now from
+      the orchestrator's data (make-comment --kind ckpt).
+   b. `rerun-once` (no scan result — agent died/timeout) → re-run that group
+      once (scan + verify + checkpoint). Never fabricate a checkpoint.
    c. PROBE verification — backstop only: the step-7 validator already
-      verifies probes (`--repo`). Apply 9c by hand (compare probe text via
+      verifies probes (`--repo`). Apply by hand (compare probe text via
       `sed -n '<N>p' "$WT/<path>"`, whitespace-trimmed) only for the direct
       Agent fallback or orchestrator-reposted checkpoints whose validation
       could not run. Wrong or missing probe → treat exactly like 9b (re-run
-      once; then `missingIdx`).
-10. Close the run (protocol order): re-dump + `run-status --my-nonce` one
-    last time (`ownedByMe=false` → STOP silently) → write the run report into
-    the RUN PAGE BODY (`updateConfluencePage`, template below; findings =
-    `run-status.findings`, i.e. ALL checkpoints on the page — a takeover
-    report includes the dead runner's groups) → post the close comment
-    (`make-comment --kind close`, `missingIdx` = files of groups failed in
-    9b/9c, normally `[]`) → if the batch page dump from step 3 had no fence,
-    post the index comment (`make-comment --kind run-closed`, best-effort) →
-    Slack notify (best-effort, one line, Chinese; skip iff
-    `run-status.slackDedup` or `config.slack.notify=false`):
-    `perf · B<NNN> R<NNN> 完成 · 范围 [<start>,<end>) · P0×a P1×b P2×c · 已关 <k>/<runCount> · <run page URL>`
-    (部分完成 wording for a `missingIdx` close — make-comment's human line is
-    the reference).
+      once).
+   Re-dump and re-run `reconcile` after the actions; loop until
+   `actionsPending=false` or every rerun has had its one retry. The final
+   output's `closeArgs` (missingIdx + lines) feeds step 10 verbatim.
+10. Close the run (protocol order), everything generated — nothing
+    hand-written:
+    a. Report body: `--op make-report --comments <re-dumped run page>
+       --state … --table … --run <r> --mode <mode> --nonce <nonce>
+       --plan /tmp/1k-cycle-scan-groups.json [--details <validated scan
+       outputs>] --missing-idx <closeArgs.missingIdx> --refuted <n>
+       --closed-runs <k+1> --run-count <runCount>` → write it into the RUN
+       PAGE BODY (`updateConfluencePage`). It aggregates ALL checkpoints on
+       the page — a takeover report includes the dead runner's groups.
+       (make-report re-folds the dump; a takeover at this instant surfaces
+       as reconcile/run-status `takenOver` — re-check if any time passed.)
+    b. Close comment: `make-comment --kind close --missing-idx
+       <closeArgs.missingIdx> --lines <closeArgs.lines>`.
+    c. If the batch page dump from step 3 had no fence: index comment
+       (`make-comment --kind run-closed`, best-effort).
+    d. Slack (best-effort; skip iff reconcile's `slackDedup` or
+       `config.slack.notify=false`): line from `make-comment --kind
+       slack-run --range "<start>,<end>" --p0 … --closed-runs <k+1>
+       --run-count <runCount> --url <run page URL> [--missing-idx …]`.
 11. Reply to the user: range covered, batch progress (`已关 k/runCount`,
     covered-lines % from the engine), P0/P1 counts with one-line examples,
     run page link, `missingIdx` warning if non-empty, next-step hint (more
@@ -378,7 +396,8 @@ Route in: every table run closed with empty `missingIdx` and
 8. Create the summary page (child of the batch page, idempotency rule on
    retry, template below; body ends with the compact open-findings JSON
    block, plus a 未覆盖 section when `waived` is non-empty). Slack notify one
-   line (respect `config.slack.notify`).
+   line from `make-comment --kind slack-summary` (respect
+   `config.slack.notify`).
 9. Release-update the state page via
    `--op state --transition close-summary --summary-page-id <id>` (sets
    `summaryPageId`, unlocks); refresh the progress snapshot in the body.
@@ -575,7 +594,10 @@ Run page placeholder body (created by Flow C, replaced at close):
 checkpoint、close 评论也都发在本页。
 ```
 
-Run report (REPLACES the run page body at close via `updateConfluencePage`):
+Run report — GENERATED by `coordinate.mjs --op make-report` (this template is
+the rendering spec, not something to hand-write; pass `--details` with the
+validated scan outputs so 证据/建议 lines appear for this session's groups).
+REPLACES the run page body at close via `updateConfluencePage`:
 
 ```markdown
 | | |
