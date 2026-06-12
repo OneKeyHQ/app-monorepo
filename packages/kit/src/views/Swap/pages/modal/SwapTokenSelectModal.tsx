@@ -78,6 +78,11 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import {
+  buildSwapTokenSelectorDisableNetworks,
+  isSwapTokenSelectorFromNetworkBridgeOnly,
+} from './SwapTokenSelectModal.utils';
+
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
@@ -168,6 +173,14 @@ const SwapTokenSelectPage = ({
     },
     [swapNetworksIncludeAllNetwork],
   );
+  const isFromTokenNetworkBridgeOnly = useMemo(
+    () =>
+      isSwapTokenSelectorFromNetworkBridgeOnly({
+        fromTokenNetworkId: fromToken?.networkId,
+        swapNetworksIncludeAllNetwork,
+      }),
+    [fromToken?.networkId, swapNetworksIncludeAllNetwork],
+  );
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
@@ -185,6 +198,12 @@ const SwapTokenSelectPage = ({
         (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
           swapTypeSwitch === ESwapTabSwitchType.LIMIT)
       ) {
+        if (
+          swapTypeSwitch === ESwapTabSwitchType.SWAP &&
+          isFromTokenNetworkBridgeOnly
+        ) {
+          return getSelectableDefaultNetwork();
+        }
         return getSelectableDefaultNetwork(fromToken.networkId);
       }
     }
@@ -192,6 +211,7 @@ const SwapTokenSelectPage = ({
   }, [
     fromToken?.networkId,
     getSelectableDefaultNetwork,
+    isFromTokenNetworkBridgeOnly,
     swapTypeSwitch,
     toToken?.networkId,
     type,
@@ -406,18 +426,12 @@ const SwapTokenSelectPage = ({
   }, [intl]);
 
   const disableNetworks = useMemo(() => {
-    let res: string[] = [];
-    const networkIds = swapNetworksIncludeAllNetwork.map(
-      (net) => net.networkId,
-    );
-    if (
-      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
-      type === ESwapDirectionType.TO &&
-      fromToken
-    ) {
-      res = networkIds.filter((net) => net !== fromToken?.networkId);
-    }
-    return res;
+    return buildSwapTokenSelectorDisableNetworks({
+      type,
+      swapTypeSwitch,
+      fromToken,
+      swapNetworksIncludeAllNetwork,
+    });
   }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, type]);
   const renderItem = useCallback(
     ({

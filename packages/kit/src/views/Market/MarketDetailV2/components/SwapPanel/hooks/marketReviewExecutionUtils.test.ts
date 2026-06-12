@@ -8,6 +8,7 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapStepType,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
@@ -86,6 +87,30 @@ describe('marketReviewExecutionUtils', () => {
       ESwapStepType.APPROVE_TX,
       ESwapStepType.SEND_TX,
     ]);
+  });
+
+  it('marks cross-network Market review state as Bridge', () => {
+    const reviewState = buildMarketReviewState({
+      accountId: 'account-1',
+      networkId: fromToken.networkId,
+      fromToken,
+      toToken: {
+        ...toToken,
+        networkId: 'evm--137',
+      },
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        toTokenInfo: {
+          ...toToken,
+          networkId: 'evm--137',
+        },
+      }),
+      slippage: 1,
+      texts,
+    });
+
+    expect(reviewState.preSwapData.swapType).toBe(ESwapTabSwitchType.BRIDGE);
   });
 
   it('keeps wrap preview prebuild enabled so fee switching stays connected', () => {
