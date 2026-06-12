@@ -1633,13 +1633,7 @@ class DesktopApiAppBundleUpdate {
     }
     logger.info('fallbackUpdateBundleData', fallbackUpdateBundleData);
     store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
-    // Destroy window first to ensure renderer process is fully terminated
-    // before relaunch, preventing webview custom element double registration
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
-    }
-    app.exit(0);
+    await this.restartAppForBundleUpdate();
   }
 
   async clearDownload() {
@@ -1662,13 +1656,7 @@ class DesktopApiAppBundleUpdate {
   ) {
     store.setUpdateBundleData(updateBundleData);
     if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
-      // Destroy window first to ensure renderer process is fully terminated
-      // before relaunch, preventing webview custom element double registration
-      this.getMainWindow()?.destroy();
-      if (!process.mas) {
-        app.relaunch();
-      }
-      app.exit(0);
+      await this.restartAppForBundleUpdate();
     }
   }
 
@@ -1698,12 +1686,49 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  async restart() {
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
+  // Single choke point for "restart the app to load the just-written bundle".
+  // The active bundle pointer (store.setUpdateBundleData) must already be
+  // written before calling this.
+  // - Normal builds: hard restart (destroy renderer + relaunch process).
+  // - MAS / Mac App Store builds: app.relaunch() is forbidden by the sandbox,
+  //   so we soft-restart — destroy + recreate the renderer in-process. The
+  //   main process (which hosts all kit-bg desktopApis and the bundle store)
+  //   stays alive, and createMainWindow() re-reads the new bundle pointer.
+  async restartAppForBundleUpdate() {
+    const bundleData = store.getUpdateBundleData();
+    logger.info('bundle-restart', {
+      mode: process.mas ? 'soft' : 'hard',
+      mas: process.mas,
+      appVersion: bundleData?.appVersion,
+      bundleVersion: bundleData?.bundleVersion,
+    });
+    if (process.mas) {
+      const softRestart =
+        globalThis.$desktopMainAppFunctions?.softRestartRenderer;
+      if (!softRestart) {
+        // Should not happen once the main window exists (the full
+        // $desktopMainAppFunctions is assigned in createMainWindow). Log loudly
+        // so an online "update applied but UI didn't refresh" report is
+        // diagnosable, then fall back to a hard exit.
+        logger.error(
+          'bundle-restart: softRestartRenderer unavailable, falling back to app.exit',
+        );
+        this.getMainWindow()?.destroy();
+        app.exit(0);
+        return;
+      }
+      await softRestart();
+      return;
     }
+    // Destroy window first to ensure renderer process is fully terminated
+    // before relaunch, preventing webview custom element double registration
+    this.getMainWindow()?.destroy();
+    app.relaunch();
     app.exit(0);
+  }
+
+  async restart() {
+    await this.restartAppForBundleUpdate();
   }
 
   async clearAllJSBundleData() {
