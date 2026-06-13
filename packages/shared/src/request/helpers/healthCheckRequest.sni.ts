@@ -102,7 +102,6 @@ export async function healthCheckRequest(
       method,
       body: null,
       timeout,
-      port: 443,
     });
 
     if (!sniResponse) {

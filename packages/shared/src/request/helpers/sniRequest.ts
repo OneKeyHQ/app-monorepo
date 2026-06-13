@@ -18,8 +18,3 @@ export async function sniRequest(
 export function isSniSupported(): boolean {
   return false;
 }
-
-export function subscribeToLogs(_callback: (log: any) => void): () => void {
-  // No-op for Web/Extension platforms
-  return () => {};
-}

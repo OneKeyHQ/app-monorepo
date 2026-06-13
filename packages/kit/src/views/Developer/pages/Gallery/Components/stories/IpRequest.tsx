@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import {
   Button,
@@ -19,10 +19,7 @@ import {
   testDomainSpeed,
   testIpSpeed,
 } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
-import {
-  sniRequest,
-  subscribeToLogs,
-} from '@onekeyhq/shared/src/request/helpers/sniRequest';
+import { sniRequest } from '@onekeyhq/shared/src/request/helpers/sniRequest';
 import { isSupportIpTablePlatform } from '@onekeyhq/shared/src/utils/ipTableUtils';
 
 import { Layout } from './utils/Layout';
@@ -83,19 +80,6 @@ const IpRequestGallery = () => {
   const [speedTestLoading, setSpeedTestLoading] = useState(false);
   const [speedTestResult, setSpeedTestResult] = useState<number | null>(null);
   const [speedTestError, setSpeedTestError] = useState<string>();
-
-  useEffect(() => {
-    const unsubscribe = subscribeToLogs((log) => {
-      console.log(
-        `[sni-connect][${log.level}][${new Date(
-          log.timestamp,
-        ).toISOString()}]: ${log.message}`,
-      );
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, []);
 
   const handleSend = useCallback(async () => {
     if (!isSupportIpTablePlatform()) {

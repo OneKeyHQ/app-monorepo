@@ -552,7 +552,6 @@ export function createIpTableAdapter(
         method: (config.method || 'GET').toUpperCase(),
         body: requestBody,
         timeout: config.timeout || 60_000,
-        port: 443, // HTTPS port
       });
 
       // If SNI request fails, use original adapter
@@ -732,7 +731,6 @@ export async function testIpSpeed(
       path,
       method: 'GET',
       timeout,
-      port: 443,
       headers,
       body: null,
     });
