@@ -138,7 +138,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
   return useMemo(() => {
     const tabs = [
-      platformEnv.isNative
+      platformEnv.isNative && platformEnv.isDev
         ? {
             name: ETabRoutes.Pro2Debug,
             tabBarIcon: (focused?: boolean) =>
