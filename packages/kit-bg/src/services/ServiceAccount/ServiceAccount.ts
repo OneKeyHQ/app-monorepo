@@ -108,7 +108,6 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 import { randomAvatar } from '@onekeyhq/shared/src/utils/emojiUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -120,6 +119,7 @@ import {
   swrCacheNamespaces,
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -197,6 +197,7 @@ import {
   resolveBotWalletSyncItemDataTime,
 } from './botWalletCreateUtils';
 import { getHwHiddenWalletPassphraseState } from './hardwarePassphraseState';
+import { resolveHwWalletTransportType } from './resolveHwWalletTransportType';
 
 import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
@@ -3340,6 +3341,69 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
+  private async getFeaturesForHwWalletCreate({
+    dbDevice,
+    compatibleConnectId,
+  }: {
+    dbDevice: IDBDevice;
+    compatibleConnectId: string;
+  }): Promise<IOneKeyDeviceFeatures> {
+    let features: IOneKeyDeviceFeatures | undefined;
+    const vendorProfile = getVendorProfile(
+      dbDevice.vendor ?? EHardwareVendor.onekey,
+    );
+    if (dbDevice.vendor && vendorProfile.isThirdParty) {
+      const connected =
+        await this.backgroundApi.serviceThirdPartyHardware.connectDevice({
+          vendor: dbDevice.vendor,
+          connectId: compatibleConnectId,
+        });
+      if (connected.success) {
+        features = connected.payload.features as IOneKeyDeviceFeatures;
+      }
+    } else {
+      features = await this.backgroundApi.serviceHardware.getFeatures({
+        connectId: compatibleConnectId,
+      });
+    }
+    return features || dbDevice.featuresInfo || ({} as IOneKeyDeviceFeatures);
+  }
+
+  private async getFirstEvmAddressForHwWalletCreate({
+    compatibleConnectId,
+    deviceId,
+    passphraseState,
+    vendor,
+    isMockedStandardHwWallet,
+  }: {
+    compatibleConnectId: string;
+    deviceId: string;
+    passphraseState?: string;
+    vendor?: EHardwareVendor;
+    isMockedStandardHwWallet?: boolean;
+  }): Promise<string | null> {
+    if (isMockedStandardHwWallet) {
+      return '';
+    }
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (!vendorProfile?.isThirdParty) {
+      return this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
+        connectId: compatibleConnectId,
+        deviceId,
+        path: FIRST_EVM_ADDRESS_PATH,
+        vendor,
+      });
+    }
+    return this.backgroundApi.serviceHardware.getEvmAddressByWalletState({
+      connectId: compatibleConnectId,
+      deviceId,
+      path: FIRST_EVM_ADDRESS_PATH,
+      vendor,
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    });
+  }
+
   @backgroundMethod()
   @toastIfError()
   async createHWHiddenWallet({
@@ -3367,6 +3431,7 @@ class ServiceAccount extends ServiceBase {
         const passphraseState = await getHwHiddenWalletPassphraseState({
           vendor: dbDevice.vendor,
           connectId: compatibleConnectId,
+          dbDevice,
           serviceHardware: this.backgroundApi.serviceHardware,
           serviceThirdPartyHardware:
             this.backgroundApi.serviceThirdPartyHardware,
@@ -3386,12 +3451,13 @@ class ServiceAccount extends ServiceBase {
         }
 
         // TODO save remember states
-        const features = await this.backgroundApi.serviceHardware.getFeatures({
-          connectId: compatibleConnectId,
+        const resolvedFeatures = await this.getFeaturesForHwWalletCreate({
+          dbDevice,
+          compatibleConnectId,
         });
         const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
-          features: features || dbDevice.featuresInfo || ({} as any),
+          features: resolvedFeatures,
           passphraseState,
           fillingXfpByCallingSdk: true,
         });
@@ -3422,7 +3488,7 @@ class ServiceAccount extends ServiceBase {
 
         return {
           ...dbWallet,
-          isAttachPinMode: features.unlocked_attach_pin,
+          isAttachPinMode: resolvedFeatures.unlocked_attach_pin,
         };
       },
       {
@@ -3456,9 +3522,20 @@ class ServiceAccount extends ServiceBase {
     // Get forceTransportType from global atom first, otherwise fallback to current transport type setting
     const hardwareForceTransportAtomState =
       await hardwareForceTransportAtom.get();
-    const transportType =
+    const globalTransportType =
       hardwareForceTransportAtomState.forceTransportType ||
       (await this.backgroundApi.serviceSetting.getHardwareTransportType());
+
+    // Don't trust the global transport flag alone — use the picked device's
+    // actual connectionType (carried on `device.raw` for third-party devices;
+    // absent for OneKey HD, so they're unaffected).
+    const transportType = resolveHwWalletTransportType({
+      globalTransportType,
+      deviceConnectionType: (
+        params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
+      ).raw?.connectionType,
+      isNative: platformEnv.isNative,
+    });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       () =>
@@ -3567,19 +3644,13 @@ class ServiceAccount extends ServiceBase {
       xfp,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: async (): Promise<string | null> => {
-        if (isMockedStandardHwWallet) {
-          return '';
-        }
-        const r: string | null =
-          await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
-            {
-              connectId: compatibleConnectId,
-              deviceId,
-              path: FIRST_EVM_ADDRESS_PATH,
-              vendor,
-            },
-          );
-        return r;
+        return this.getFirstEvmAddressForHwWalletCreate({
+          compatibleConnectId,
+          deviceId,
+          passphraseState,
+          vendor,
+          isMockedStandardHwWallet,
+        });
       },
       verifySeedMatchFn:
         vendor === EHardwareVendor.ledger
