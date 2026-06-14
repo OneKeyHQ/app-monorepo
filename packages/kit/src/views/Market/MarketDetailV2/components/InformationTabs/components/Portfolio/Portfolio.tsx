@@ -23,6 +23,7 @@ interface IPortfolioProps {
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
+  scrollEnabled?: boolean;
 }
 
 function PortfolioBase({
@@ -30,6 +31,7 @@ function PortfolioBase({
   portfolioData,
   isRefreshing,
   tokenLogoUrl,
+  scrollEnabled = true,
 }: IPortfolioProps) {
   const intl = useIntl();
   const { gtLg, gtXl } = useMedia();
@@ -54,6 +56,7 @@ function PortfolioBase({
   return (
     <Tabs.FlatList<IMarketAccountPortfolioItem>
       showsVerticalScrollIndicator={false}
+      scrollEnabled={scrollEnabled}
       data={accountAddress ? portfolioData : []}
       windowSize={platformEnv.isNativeAndroid ? 3 : undefined}
       contentContainerStyle={CONTENT_CONTAINER_STYLE}

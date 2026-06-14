@@ -42,6 +42,7 @@ interface ITransactionsHistoryProps {
   tokenAddress: string;
   networkId: string;
   onScrollEnd?: () => void;
+  scrollEnabled?: boolean;
 }
 
 interface ITransactionsHistoryBaseProps extends ITransactionsHistoryProps {
@@ -88,6 +89,7 @@ export function TransactionsHistoryBase({
   tokenAddress,
   networkId,
   onScrollEnd,
+  scrollEnabled = true,
   isTabFocused = true,
 }: ITransactionsHistoryBaseProps) {
   const { websocketConfig, isNative } = useTokenDetail();
@@ -341,6 +343,7 @@ export function TransactionsHistoryBase({
       <Stack ref={transactionsListRootRef as any} flex={1}>
         <Tabs.FlatList<IMarketTokenTransaction>
           showsVerticalScrollIndicator={false}
+          scrollEnabled={scrollEnabled}
           key={listKey}
           onEndReached={handleEndReached}
           onEndReachedThreshold={0.2}

@@ -66,12 +66,14 @@ export function MobileInformationTabs({
   portfolioData,
   isRefreshing,
   tokenLogoUrl,
+  scrollEnabled = true,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
+  scrollEnabled?: boolean;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
@@ -114,6 +116,7 @@ export function MobileInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
             onScrollEnd={onScrollEnd}
+            scrollEnabled={scrollEnabled}
           />
         </Tabs.Tab>
       ),
@@ -128,6 +131,7 @@ export function MobileInformationTabs({
           isRefreshing={!!isRefreshing}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          scrollEnabled={scrollEnabled}
         />
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
@@ -137,7 +141,7 @@ export function MobileInformationTabs({
             id: ETranslations.global_liquidity,
           })}
         >
-          <Tabs.ScrollView>
+          <Tabs.ScrollView scrollEnabled={scrollEnabled}>
             <TokenLiquidityPools
               showTitle={false}
               variant="mobile"
@@ -150,7 +154,11 @@ export function MobileInformationTabs({
       ),
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
-          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+          <Holders
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            scrollEnabled={scrollEnabled}
+          />
         </Tabs.Tab>
       ),
     ].filter(Boolean);
@@ -168,6 +176,7 @@ export function MobileInformationTabs({
     isBTCNetwork,
     tokenLogoUrl,
     isStockToken,
+    scrollEnabled,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);

@@ -19,6 +19,7 @@ import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2'
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
+  ITradingViewInteractionOverlayData,
   ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
 } from '../types';
@@ -38,6 +39,7 @@ interface IUseTradingViewMessageHandlerParams {
   onCurrentKLineResolutionChange?: (resolution: string) => void;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
   emptyKLineDataOnError?: boolean;
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
@@ -235,6 +237,21 @@ function getIndicatorsDialogOpenState(
   return undefined;
 }
 
+function getInteractionOverlayOpenState(
+  overlayData: ITradingViewInteractionOverlayData | undefined,
+): boolean | undefined {
+  if (typeof overlayData?.isOpen === 'boolean') {
+    return overlayData.isOpen;
+  }
+  if (overlayData?.action === 'open') {
+    return true;
+  }
+  if (overlayData?.action === 'close') {
+    return false;
+  }
+  return undefined;
+}
+
 function normalizeTradingViewMessagePayload({
   data,
   scope,
@@ -261,6 +278,7 @@ export function useTradingViewMessageHandler({
   onCurrentKLineResolutionChange,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
+  onInteractionOverlayOpenChange,
   forceEmptyKLineData,
   emptyKLineDataOnError,
   kLineDataFallback,
@@ -381,6 +399,20 @@ export function useTradingViewMessageHandler({
           onIndicatorsDialogOpenChange?.(isOpen);
         }
       }
+
+      if (
+        data.scope === '$private' &&
+        data.method === 'tradingview_interactionOverlay'
+      ) {
+        const overlayData = data.data as
+          | ITradingViewInteractionOverlayData
+          | undefined;
+        const isOpen = getInteractionOverlayOpenState(overlayData);
+
+        if (typeof isOpen === 'boolean') {
+          onInteractionOverlayOpenChange?.(isOpen);
+        }
+      }
     },
     [
       tokenAddress,
@@ -394,6 +426,7 @@ export function useTradingViewMessageHandler({
       onCurrentKLineResolutionChange,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
+      onInteractionOverlayOpenChange,
       forceEmptyKLineData,
       emptyKLineDataOnError,
       kLineDataFallback,
