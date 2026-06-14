@@ -11,6 +11,8 @@ import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
 import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
+
+import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
@@ -1591,7 +1593,30 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
     ipcMain.removeHandler(channel),
   );
+  // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
+  // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
+  // otherwise drive BLE scan/connect/write. Gate every channel to the main
+  // window renderer, matching the DESKTOP_API_CALL sender check.
+  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        if (event.sender.id !== browserWindow.webContents.id) {
+          logger.warn(
+            '[TrezorBLE] Rejected IPC from non-main renderer',
+            channel,
+            event.sender.id,
+          );
+          throw new OneKeyLocalError(
+            'Trezor BLE IPC is only allowed from the main window',
+          );
+        }
+        return listener(event, ...args);
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+  };
   initTrezorBleSupport(browserWindow.webContents, {
+    ipcMain: trezorBleSenderGatedIpcMain,
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
       if (entry.level === 'error') {
