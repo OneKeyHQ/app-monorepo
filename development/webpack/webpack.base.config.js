@@ -345,9 +345,6 @@ module.exports = ({ platform, basePath, configName }) => {
                 // // keystonehq
                 // /(@?keystonehq).*\.(c|m)?(ts|js)x?$/,
 
-                /* web-embed on  */
-                /react-router/,
-                /turbo-stream/,
                 // @react-aria packages
                 /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],
