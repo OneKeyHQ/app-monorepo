@@ -1,5 +1,6 @@
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
+import { sanitizeTrezorThpModuleLogData } from '../trezorThpLogRedact';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
@@ -18,33 +19,6 @@ import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
  */
 export type TrezorDesktopTransport = 'all' | 'usb' | 'ble';
 
-const TREZOR_THP_MODULE_REDACTED_KEYS = new Set([
-  'credential',
-  'credentials',
-  'trezor_static_public_key',
-  'host_static_key',
-  'privateKey',
-  'publicKey',
-  'hostKey',
-  'trezorKey',
-  'encryptedPayload',
-  'packetHex',
-  'pin',
-  'passphrase',
-  'stack',
-  'sendNonce',
-  'recvNonce',
-]);
-
-const TREZOR_THP_MODULE_REDACTED_DATA_KEY_VALUES = new Set([
-  'credential',
-  'credentials',
-  'trezor_static_public_key',
-  'host_static_key',
-  'pin',
-  'passphrase',
-]);
-
 const shouldForwardToTrezorThpModuleLog = (entry: {
   event: string;
   data?: Record<string, unknown>;
@@ -61,47 +35,6 @@ const shouldForwardToTrezorThpModuleLog = (entry: {
     return entry.data?.protocol === 'thp';
   }
   return false;
-};
-
-const sanitizeTrezorThpModuleLogValue = (
-  key: string,
-  value: unknown,
-): unknown => {
-  if (TREZOR_THP_MODULE_REDACTED_KEYS.has(key)) return '[redacted]';
-  if (Array.isArray(value)) {
-    if (key === 'dataKeys' || key === 'messageKeys') {
-      return value.filter(
-        (item) =>
-          typeof item !== 'string' ||
-          !TREZOR_THP_MODULE_REDACTED_DATA_KEY_VALUES.has(item),
-      );
-    }
-    return value.map((item) => sanitizeTrezorThpModuleLogValue(key, item));
-  }
-  if (value && typeof value === 'object') {
-    const sanitized: Record<string, unknown> = {};
-    for (const [childKey, childValue] of Object.entries(
-      value as Record<string, unknown>,
-    )) {
-      sanitized[childKey] = sanitizeTrezorThpModuleLogValue(
-        childKey,
-        childValue,
-      );
-    }
-    return sanitized;
-  }
-  return value;
-};
-
-const sanitizeTrezorThpModuleLogData = (
-  data?: Record<string, unknown>,
-): Record<string, unknown> | undefined => {
-  if (!data) return undefined;
-  const sanitized: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    sanitized[key] = sanitizeTrezorThpModuleLogValue(key, value);
-  }
-  return sanitized;
 };
 
 const formatTrezorHwkLog = (

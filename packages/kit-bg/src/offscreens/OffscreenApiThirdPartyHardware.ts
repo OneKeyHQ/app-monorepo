@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 
 import { emitOffscreenEventToBackground } from './offscreenEventBus';
 
@@ -12,6 +13,28 @@ import type {
   UiResponseEvent,
   VendorType,
 } from '@onekeyfe/hwk-adapter-core';
+
+type ITrezorDebugLogEntry = {
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  scope?: string;
+  event?: string;
+  data?: Record<string, unknown>;
+};
+
+const safeStringify = (value: unknown): string => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+// Redact THP secrets (packetHex / credentials / keys) before the payload
+// leaves the offscreen doc — it lands in the persisted, exportable bg sdkLog.
+const formatTrezorDebugLog = (entry: ITrezorDebugLogEntry): string =>
+  `[${entry.scope ?? 'unknown'}] ${entry.event ?? 'log'} ${
+    entry.data ? safeStringify(sanitizeTrezorThpModuleLogData(entry.data)) : ''
+  }`.trim();
 
 /**
  * Offscreen-doc server for `IHardwareBridge` — owns the per-vendor
@@ -79,10 +102,21 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
         // + persisted credentials = autoconnect path skipping CodeEntry.
         const { createTrezorWebUsbConnector } =
           await import('@onekeyfe/hwk-trezor-connector-webusb');
+        const logger = (entry: ITrezorDebugLogEntry) => {
+          emitOffscreenEventToBackground('hwkSdkEvent', {
+            type: 'log',
+            level: entry.level ?? 'debug',
+            message: formatTrezorDebugLog(entry),
+          });
+        };
         return createTrezorWebUsbConnector({
           thp: {
             hostName: 'OneKey',
             appName: 'OneKey Wallet',
+            logger,
+          },
+          transportOptions: {
+            logger,
           },
         });
       }
