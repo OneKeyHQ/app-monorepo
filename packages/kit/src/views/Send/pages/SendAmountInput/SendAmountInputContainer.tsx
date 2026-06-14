@@ -2294,12 +2294,10 @@ function SendAmountInputContainer() {
                   updated: created,
                 },
                 swapInfo: {
-                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '0',
+                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
-                  oneKeyFee:
-                    normalizedBuildSwapRes.result.fee?.percentageFee ?? 0,
-                  protocolFee:
-                    normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
+                  oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
                   orderId: privateSendOrderId,

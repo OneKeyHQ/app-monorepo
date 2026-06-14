@@ -51,28 +51,41 @@ function TokenActionsView(props: IProps) {
   });
 
   useEffect(() => {
+    let isStale = false;
     const setActiveAggregateToken = async () => {
       if (!token.isAggregateToken) {
-        setActiveToken(token);
+        if (!isStale) {
+          setActiveToken(token);
+        }
         return;
       }
 
       const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
-      if (aggregateTokens) {
-        const sortedAggregateTokens = sortTokensCommon({
-          tokens: aggregateTokens,
-          tokenListMap,
-        });
+      if (!aggregateTokens?.length) {
+        if (!isStale) {
+          setActiveToken(token);
+        }
+        return;
+      }
 
-        let _activeToken = sortedAggregateTokens[0];
-        let firstCrossChainToken: IAccountToken | undefined;
-        let foundSwapToken = false;
+      const sortedAggregateTokens = sortTokensCommon({
+        tokens: aggregateTokens,
+        tokenListMap,
+      });
 
-        for (const _token of sortedAggregateTokens) {
+      let _activeToken = sortedAggregateTokens[0];
+      let firstCrossChainToken: IAccountToken | undefined;
+      let foundSwapToken = false;
+
+      for (const _token of sortedAggregateTokens) {
+        try {
           const { isSupportSwap, isSupportCrossChain } =
             await backgroundApiProxy.serviceSwap.checkSupportSwap({
               networkId: _token.networkId ?? '',
             });
+          if (isStale) {
+            return;
+          }
           if (isSupportSwap) {
             _activeToken = _token;
             foundSwapToken = true;
@@ -81,18 +94,23 @@ function TokenActionsView(props: IProps) {
           if (!firstCrossChainToken && isSupportCrossChain) {
             firstCrossChainToken = _token;
           }
+        } catch {
+          // Use the next candidate if a capability refresh fails.
         }
+      }
 
-        if (!foundSwapToken && firstCrossChainToken) {
-          _activeToken = firstCrossChainToken;
-        }
+      if (!foundSwapToken && firstCrossChainToken) {
+        _activeToken = firstCrossChainToken;
+      }
 
-        if (_activeToken) {
-          setActiveToken(_activeToken);
-        }
+      if (!isStale && _activeToken) {
+        setActiveToken(_activeToken);
       }
     };
     void setActiveAggregateToken();
+    return () => {
+      isStale = true;
+    };
   }, [token, aggregateTokenListMapAtom, tokenListMap]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();

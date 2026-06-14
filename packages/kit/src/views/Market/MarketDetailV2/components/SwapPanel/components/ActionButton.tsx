@@ -227,8 +227,9 @@ export function ActionButton({
   const noAccount =
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
-  // Disable button if insufficient balance
-  const shouldDisable = isInsufficientBalance;
+  const shouldJumpToSwap =
+    !supportSpeedSwap || (isInsufficientBalance && !isWrapped);
+  const shouldDisable = isInsufficientBalance && !shouldJumpToSwap;
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
@@ -286,7 +287,7 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  if (!supportSpeedSwap) {
+  if (shouldJumpToSwap) {
     shouldUseColoredStyle = true;
   }
 
@@ -326,7 +327,7 @@ export function ActionButton({
         showAccountSelector();
         return;
       }
-      if (!supportSpeedSwap) {
+      if (shouldJumpToSwap) {
         handleJumpToSwapAction();
         return;
       }
@@ -380,7 +381,7 @@ export function ActionButton({
       void onPress?.(event);
     },
     [
-      supportSpeedSwap,
+      shouldJumpToSwap,
       hasAmount,
       hasClickedWithoutAmount,
       noAccount,
