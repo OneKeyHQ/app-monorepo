@@ -1,12 +1,18 @@
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
+import type { SearchDevice } from '@onekeyfe/hd-core';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
@@ -20,6 +26,10 @@ import {
   thirdPartyHardwareAdapterRegistry,
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
+import {
+  buildTrezorBleFallbackOptions,
+  callTrezorWithBleFallback,
+} from '../../vaults/base/trezorTransportUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -28,6 +38,29 @@ import type {
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
 } from '../ServiceHardware/adapters/types';
+
+type IThirdPartySearchDevicesResponse =
+  | {
+      success: true;
+      payload: SearchDevice[];
+    }
+  | {
+      success: false;
+      payload: {
+        code: number;
+        error: string;
+        params?: {
+          permissionDeniedReason: string;
+        };
+      };
+    };
+
+function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
+  return new OneKeyLocalError({
+    key: ETranslationsMock.third_party_hw_adapter_not_registered,
+    info: { vendor },
+  });
+}
 
 /**
  * ServiceThirdPartyHardware — owns the third-party (Trezor / Ledger) hardware
@@ -179,7 +212,9 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }): Promise<string | null> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
     if (!adapter) {
-      throw new OneKeyLocalError('Trezor adapter not available');
+      throw new OneKeyLocalError({
+        key: ETranslationsMock.trezor_adapter_not_available,
+      });
     }
 
     // A picked candidate that ISN'T this device would ask to pair (its static
@@ -252,6 +287,14 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }: {
     device: IDBDevice;
   }): Promise<string | null> {
+    if (
+      !thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platformEnv)
+    ) {
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Trezor] skip BLE binding request: platform does not support Trezor BLE binding',
+      );
+      return null;
+    }
     const usbConnectId = device.usbConnectId || device.connectId;
     const featuresDeviceId = device.deviceId;
     if (!usbConnectId || !featuresDeviceId) {
@@ -310,15 +353,18 @@ class ServiceThirdPartyHardware extends ServiceBase {
   /**
    * Standard-wallet first EVM address for a third-party device, via its adapter.
    * ServiceHardware.getEvmAddressByStandardWallet delegates here for third-party
-   * vendors and keeps the OneKey SDK path itself. Returns null on any failure —
-   * this only seeds a wallet's display address, never a signing path.
+   * vendors and keeps the OneKey SDK path itself. Unsupported/no-adapter still
+   * returns null, but SDK failures are converted and thrown so wallet-state
+   * mismatch cannot be silently treated as "no address".
    */
   @backgroundMethod()
-  async getEvmAddressByStandardWallet(params: {
+  async getEvmAddressByWalletState(params: {
     connectId: string;
     deviceId: string;
     path: string;
     vendor: EHardwareVendor;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
   }): Promise<string | null> {
     try {
       const adapter = await this.getAdapterForVendor(params.vendor);
@@ -329,20 +375,38 @@ class ServiceThirdPartyHardware extends ServiceBase {
         {
           path: params.path,
           showOnDevice: false,
+          passphraseState: params.passphraseState,
+          useEmptyPassphrase: params.useEmptyPassphrase,
         },
       );
       if (result.success) {
         return result.payload.address || null;
       }
-      return null;
+      throw convertThirdPartyDeviceError(result.payload, {
+        vendor: params.vendor,
+        chain: 'evm',
+      });
     } catch (error) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] getEvmAddressByStandardWallet failed: ${
           (error as Error)?.message ?? String(error)
         }`,
       );
-      return null;
+      throw error;
     }
+  }
+
+  @backgroundMethod()
+  async getEvmAddressByStandardWallet(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+    vendor: EHardwareVendor;
+  }): Promise<string | null> {
+    return this.getEvmAddressByWalletState({
+      ...params,
+      useEmptyPassphrase: true,
+    });
   }
 
   /**
@@ -353,22 +417,56 @@ class ServiceThirdPartyHardware extends ServiceBase {
   async getTrezorPassphraseState({
     connectId,
     passphraseState,
+    dbDevice,
   }: {
     connectId: string;
     passphraseState?: string;
+    dbDevice?: IDBDevice;
   }): Promise<string | null> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    if (!adapter?.getPassphraseState) {
-      throw new OneKeyLocalError('Trezor passphraseState is not supported');
+    const getPassphraseState = adapter?.hw.getPassphraseState;
+    if (!getPassphraseState) {
+      throw new OneKeyLocalError({
+        key: ETranslationsMock.trezor_passphrase_state_not_supported,
+      });
     }
-    const result = await adapter.getPassphraseState(connectId, passphraseState);
+    // Mirror the signing path: resolve the passphrase state with USB→BLE
+    // fallback so a BLE-only Trezor doesn't fail with DeviceNotFound. Without a
+    // dbDevice (older callers) keep the plain single-connectId call.
+    const result = dbDevice
+      ? await callTrezorWithBleFallback(
+          dbDevice,
+          (cid) => getPassphraseState(cid, passphraseState),
+          buildTrezorBleFallbackOptions(this.backgroundApi),
+        )
+      : await getPassphraseState(connectId, passphraseState);
     if (result.success) {
       return result.payload;
     }
-    throw new OneKeyLocalError(
-      (result.payload as { error?: string })?.error ||
-        'Failed to get Trezor passphraseState',
-    );
+    const payload = result.payload as {
+      code?: number;
+      error?: string;
+      appName?: string;
+      params?: Record<string, unknown>;
+      _tag?: string;
+    };
+    if (typeof payload.code === 'number' && typeof payload.error === 'string') {
+      throw convertThirdPartyDeviceError(
+        {
+          code: payload.code,
+          error: payload.error,
+          appName: payload.appName,
+          params: payload.params,
+          _tag: payload._tag,
+        },
+        {
+          vendor: EHardwareVendor.trezor,
+        },
+      );
+    }
+    throw new OneKeyLocalError({
+      key: ETranslationsMock.trezor_get_passphrase_state_failed,
+    });
   }
 
   /**
@@ -381,7 +479,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
     vendor: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
-  }) {
+    transportType?: 'usb' | 'ble';
+  }): Promise<IThirdPartySearchDevicesResponse> {
     const serviceStartedAt = Date.now();
     const vendorProfile = getVendorProfile(params.vendor);
     try {
@@ -390,19 +489,25 @@ class ServiceThirdPartyHardware extends ServiceBase {
       if (!adapter) {
         // Vendor is registered but adapter slot is empty — registry bug,
         // not a transient init failure. Surface explicitly.
-        throw new OneKeyLocalError(
-          `No adapter registered for vendor "${params.vendor}"`,
-        );
+        throw createThirdPartyAdapterNotRegisteredError(params.vendor);
       }
       const adapterStartedAt = Date.now();
       const devices = await adapter.searchDevices(
-        params.resetSession || params.waitForAllTransports
+        params.resetSession ||
+          params.waitForAllTransports ||
+          params.transportType
           ? {
               resetSession: params.resetSession,
               waitForAllTransports: params.waitForAllTransports,
+              transportType: params.transportType,
             }
           : undefined,
       );
+      const filteredDevices = params.transportType
+        ? devices.filter(
+            (device) => device.connectionType === params.transportType,
+          )
+        : devices;
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] searchDevices vendor=${params.vendor} rawCount=${
           devices.length
@@ -412,14 +517,19 @@ class ServiceThirdPartyHardware extends ServiceBase {
           params.resetSession === true,
         )} waitForAllTransports=${String(
           params.waitForAllTransports === true,
-        )}`,
+        )} transportType=${params.transportType ?? '-'}`,
+      );
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW] searchDevices vendor=${params.vendor} filteredCount=${
+          filteredDevices.length
+        } totalDurationMs=${Date.now() - serviceStartedAt}`,
       );
       defaultLogger.hardware.sdkLog.thirdPartySearchDevicesResponse({
         vendor: params.vendor,
         success: true,
-        count: devices.length,
+        count: filteredDevices.length,
       });
-      const payload = devices.map((d) =>
+      const payload = filteredDevices.map((d) =>
         mapThirdPartyDeviceToSearchDevice({
           device: d,
           defaultDeviceName: vendorProfile.defaultDeviceName,
@@ -453,7 +563,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
         payload: {
           code: Number.isFinite(rawCode) ? rawCode : -1,
           error: err?.message ?? String(error),
-          params: permissionDeniedReason
+          params: typeof permissionDeniedReason === 'string'
             ? {
                 permissionDeniedReason,
               }
@@ -462,7 +572,6 @@ class ServiceThirdPartyHardware extends ServiceBase {
       };
     }
   }
-
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;
@@ -491,9 +600,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     return adapter.connectDevice(params.connectId);
   }
@@ -532,9 +639,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       installApp: (
@@ -553,9 +658,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       listInstalledApps: (
@@ -573,9 +676,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       listInstalledNames: (
@@ -593,9 +694,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       listAvailableApps: (
@@ -613,9 +712,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       getLedgerFirmwareVersion: (
@@ -633,9 +730,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     await this.ensureAdaptersInitialized(params.vendor);
     const adapter = this.getThirdPartyAdapter(params.vendor);
     if (!adapter) {
-      throw new OneKeyLocalError(
-        `No third-party adapter registered for vendor ${params.vendor}`,
-      );
+      throw createThirdPartyAdapterNotRegisteredError(params.vendor);
     }
     const hw = adapter.hw as unknown as {
       getLedgerDeviceInfo: (

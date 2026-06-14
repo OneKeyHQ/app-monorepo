@@ -295,6 +295,7 @@ class ServiceHardware extends ServiceBase {
     const { hardwareCallContext = EHardwareCallContext.USER_INTERACTION } =
       options || {};
     this.checkSdkVersionValid();
+    await this.assertOneKeySdkConnectId(options?.connectId);
 
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
     const isPreRelease =
@@ -364,6 +365,20 @@ class ServiceHardware extends ServiceBase {
         title: (error as Error)?.message || 'Hardware SDK init failed',
       });
       throw error;
+    }
+  }
+
+  private async assertOneKeySdkConnectId(connectId: string | undefined) {
+    if (!connectId) {
+      return;
+    }
+    const dbDevice = await localDb.getDeviceByQuery({ connectId });
+    const vendor = dbDevice?.vendor;
+    const vendorProfile = vendor ? getVendorProfile(vendor) : undefined;
+    if (vendor && vendorProfile?.isThirdParty) {
+      throw new OneKeyLocalError(
+        `ServiceHardware SDK is OneKey-only; connectId "${connectId}" belongs to third-party vendor "${vendor}". Use ServiceThirdPartyHardware instead.`,
+      );
     }
   }
 
@@ -744,6 +759,7 @@ class ServiceHardware extends ServiceBase {
     vendor?: EHardwareVendor;
     resetSession?: boolean;
     waitForAllTransports?: boolean;
+    transportType?: 'usb' | 'ble';
   }) {
     const vendorProfile = params?.vendor
       ? getVendorProfile(params.vendor)
@@ -754,6 +770,7 @@ class ServiceHardware extends ServiceBase {
         vendor: params.vendor,
         resetSession: params.resetSession,
         waitForAllTransports: params.waitForAllTransports,
+        transportType: params.transportType,
       });
     }
 
@@ -1729,23 +1746,27 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEvmAddressByStandardWallet(params: {
+  async getEvmAddressByWalletState(params: {
     connectId: string;
     deviceId: string;
     path: string;
     vendor?: EHardwareVendor;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
   }): Promise<string | null> {
     const evmProfile = params.vendor
       ? getVendorProfile(params.vendor)
       : undefined;
     if (params.vendor && evmProfile?.isThirdParty) {
       // Third-party (Trezor / Ledger) goes through its own service + adapter.
-      return this.backgroundApi.serviceThirdPartyHardware.getEvmAddressByStandardWallet(
+      return this.backgroundApi.serviceThirdPartyHardware.getEvmAddressByWalletState(
         {
           connectId: params.connectId,
           deviceId: params.deviceId,
           path: params.path,
           vendor: params.vendor,
+          passphraseState: params.passphraseState,
+          useEmptyPassphrase: params.useEmptyPassphrase,
         },
       );
     }
@@ -1763,7 +1784,8 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.evmGetAddress(compatibleConnectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
-          useEmptyPassphrase: true,
+          useEmptyPassphrase: params.useEmptyPassphrase,
+          passphraseState: params.passphraseState,
         }),
       );
       if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
@@ -1776,6 +1798,19 @@ class ServiceHardware extends ServiceBase {
     } finally {
       await timerUtils.wait(600);
     }
+  }
+
+  @backgroundMethod()
+  async getEvmAddressByStandardWallet(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+    vendor?: EHardwareVendor;
+  }): Promise<string | null> {
+    return this.getEvmAddressByWalletState({
+      ...params,
+      useEmptyPassphrase: true,
+    });
   }
 
   @backgroundMethod()
@@ -2135,7 +2170,9 @@ class ServiceHardware extends ServiceBase {
       throw new OneKeyLocalError('connectId is required');
     }
 
-    // Try to get device from DB first
+    // Try to get device from DB first. Keep the default OneKey vendor filter:
+    // broadening it would pull shipped Ledger devices into the third-party
+    // branch below and change a working flow.
     const device = await localDb.getDeviceByQuery({
       connectId,
       featuresDeviceId: featuresDeviceId || undefined,

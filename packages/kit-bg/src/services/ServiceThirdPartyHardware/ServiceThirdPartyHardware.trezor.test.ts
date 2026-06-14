@@ -1,14 +1,18 @@
 import ServiceThirdPartyHardware from '.';
 
-import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
-
-import localDb from '../../dbs/local/localDb';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
+
+type ILocalDbMock = {
+  getDeviceByQuery: jest.Mock;
+  updateDeviceConnectId: jest.Mock;
+};
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
   backgroundClass: () => (target: unknown) => target,
@@ -33,16 +37,31 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     hardware: {
       sdkLog: {
         log: jest.fn(),
+        thirdPartySearchDevicesResponse: jest.fn(),
       },
     },
   },
 }));
 
-const mockedLocalDb = jest.mocked(localDb);
+function getLocalDbMock(): ILocalDbMock {
+  return jest.requireMock<{ default: ILocalDbMock }>('../../dbs/local/localDb')
+    .default;
+}
 
 describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalIsSupportDesktopBle = platformEnv.isSupportDesktopBle;
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean | undefined }).isDesktop =
+      originalIsDesktop;
+    (
+      platformEnv as { isSupportDesktopBle: boolean | undefined }
+    ).isSupportDesktopBle = originalIsSupportDesktopBle;
   });
 
   it('matches the Trezor DB device before persisting bleConnectId', async () => {
@@ -52,21 +71,26 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       usbConnectId: 'USB_CONNECT_ID',
       deviceId: 'FEATURES_DEVICE_ID',
     } as IDBDevice;
+    const on = jest.fn();
+    const off = jest.fn();
+    const connectDevice = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        deviceId: 'FEATURES_DEVICE_ID',
+      },
+    });
+    const disconnect = jest.fn().mockResolvedValue(undefined);
+    const { getDeviceByQuery, updateDeviceConnectId } = getLocalDbMock();
     const adapter = {
       hw: {
-        on: jest.fn(),
-        off: jest.fn(),
+        on,
+        off,
         cancel: jest.fn(),
       },
-      connectDevice: jest.fn().mockResolvedValue({
-        success: true,
-        payload: {
-          deviceId: 'FEATURES_DEVICE_ID',
-        },
-      }),
-      disconnect: jest.fn().mockResolvedValue(undefined),
+      connectDevice,
+      disconnect,
     } as unknown as IThirdPartyHardwareAdapter;
-    mockedLocalDb.getDeviceByQuery.mockResolvedValue(dbDevice);
+    getDeviceByQuery.mockResolvedValue(dbDevice);
 
     const service = new ServiceThirdPartyHardware({
       backgroundApi: {} as IBackgroundApi,
@@ -85,25 +109,26 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }),
     ).resolves.toBe('BLE_CONNECT_ID');
 
-    expect(adapter.hw.on).toHaveBeenCalledWith(
+    expect(on).toHaveBeenCalledWith(
       UI_REQUEST.REQUEST_TREZOR_THP_PAIRING,
       expect.any(Function),
     );
-    expect(mockedLocalDb.getDeviceByQuery).toHaveBeenCalledWith({
+    expect(getDeviceByQuery).toHaveBeenCalledWith({
       connectId: 'USB_CONNECT_ID',
       featuresDeviceId: 'FEATURES_DEVICE_ID',
       vendor: 'trezor',
     });
-    expect(mockedLocalDb.updateDeviceConnectId).toHaveBeenCalledWith({
+    expect(updateDeviceConnectId).toHaveBeenCalledWith({
       dbDeviceId: 'db-device-1',
       bleConnectId: 'BLE_CONNECT_ID',
     });
-    expect(adapter.disconnect).toHaveBeenCalledWith('BLE_CONNECT_ID');
+    expect(disconnect).toHaveBeenCalledWith('BLE_CONNECT_ID');
   });
 
   it('passes waitForAllTransports to Trezor adapter search', async () => {
+    const searchDevices = jest.fn().mockResolvedValue([]);
     const adapter = {
-      searchDevices: jest.fn().mockResolvedValue([]),
+      searchDevices,
     } as unknown as IThirdPartyHardwareAdapter;
     const service = new ServiceThirdPartyHardware({
       backgroundApi: {} as IBackgroundApi,
@@ -119,18 +144,83 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       waitForAllTransports: true,
     });
 
-    expect(adapter.searchDevices).toHaveBeenCalledWith({
+    expect(searchDevices).toHaveBeenCalledWith({
       resetSession: undefined,
       waitForAllTransports: true,
     });
   });
 
-  it('delegates Trezor passphraseState resolution to the Trezor adapter', async () => {
+  it('filters Trezor search results by requested transport type', async () => {
+    const searchDevices = jest.fn().mockResolvedValue([
+      {
+        connectId: 'USB_CONNECT_ID',
+        deviceId: 'USB_DEVICE_ID',
+        name: 'Trezor USB',
+        connectionType: 'usb',
+      },
+      {
+        connectId: 'BLE_CONNECT_ID',
+        deviceId: 'BLE_DEVICE_ID',
+        name: 'Trezor BLE',
+        connectionType: 'ble',
+      },
+    ]);
     const adapter = {
-      getPassphraseState: jest.fn().mockResolvedValue({
-        success: true,
-        payload: 'PASSPHRASE_STATE',
+      searchDevices,
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    const response = await service.searchDevices({
+      vendor: EHardwareVendor.trezor,
+      transportType: 'ble',
+    });
+
+    expect(response.success).toBe(true);
+    expect(response.payload).toEqual([
+      expect.objectContaining({
+        connectId: 'BLE_CONNECT_ID',
+        name: 'Trezor BLE',
+        raw: expect.objectContaining({ connectionType: 'ble' }),
       }),
+    ]);
+  });
+
+  it('does not request a Trezor BLE binding on platforms without desktop BLE support', async () => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = false;
+    (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle =
+      false;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+
+    await expect(
+      service.requestTrezorBleConnectIdForDevice({
+        device: {
+          id: 'db-device-1',
+          connectId: 'USB_CONNECT_ID',
+          usbConnectId: 'USB_CONNECT_ID',
+          deviceId: 'FEATURES_DEVICE_ID',
+        } as IDBDevice,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it('delegates Trezor passphraseState resolution to the HWK wallet', async () => {
+    const getPassphraseState = jest.fn().mockResolvedValue({
+      success: true,
+      payload: 'PASSPHRASE_STATE',
+    });
+    const adapter = {
+      hw: {
+        getPassphraseState,
+      },
     } as unknown as IThirdPartyHardwareAdapter;
     const service = new ServiceThirdPartyHardware({
       backgroundApi: {} as IBackgroundApi,
@@ -147,9 +237,158 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }),
     ).resolves.toBe('PASSPHRASE_STATE');
 
-    expect(adapter.getPassphraseState).toHaveBeenCalledWith(
+    expect(getPassphraseState).toHaveBeenCalledWith('TREZOR-USB', undefined);
+  });
+
+  it('falls back to bound BLE when the primary connectId is unreachable', async () => {
+    // A BLE-only Trezor: the USB primary fails transport-down, so passphrase
+    // state resolution must retry over the bound bleConnectId (same as signing).
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle = true;
+
+    const getPassphraseState = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.DeviceNotFound,
+          error: 'DeviceNotFound',
+        },
+      })
+      .mockResolvedValueOnce({ success: true, payload: 'PASSPHRASE_STATE_BLE' });
+    const adapter = {
+      hw: { getPassphraseState },
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    const dbDevice = {
+      vendor: EHardwareVendor.trezor,
+      deviceId: 'device-1',
+      connectId: 'TREZOR-USB',
+      usbConnectId: 'TREZOR-USB',
+      bleConnectId: 'TREZOR-BLE',
+    } as unknown as IDBDevice;
+
+    await expect(
+      service.getTrezorPassphraseState({ connectId: 'TREZOR-USB', dbDevice }),
+    ).resolves.toBe('PASSPHRASE_STATE_BLE');
+
+    expect(getPassphraseState).toHaveBeenNthCalledWith(1, 'TREZOR-USB', undefined);
+    expect(getPassphraseState).toHaveBeenNthCalledWith(2, 'TREZOR-BLE', undefined);
+  });
+
+  it('throws converted SDK failures when resolving Trezor passphraseState', async () => {
+    const getPassphraseState = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.PinCancelled,
+        error: 'Trezor device still locked after PIN attempt',
+      },
+    });
+    const adapter = {
+      hw: {
+        getPassphraseState,
+      },
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.getTrezorPassphraseState({
+        connectId: 'TREZOR-USB',
+      }),
+    ).rejects.toMatchObject({
+      code: HardwareErrorCode.PinCancelled,
+      name: 'ThirdPartyHardwareError',
+      autoToast: false,
+    });
+  });
+
+  it('forwards passphraseState when deriving a third-party EVM address', async () => {
+    const evmGetAddress = jest.fn().mockResolvedValue({
+      success: true,
+      payload: { address: '0xHiddenWalletAddress' },
+    });
+    const adapter = {
+      hw: {
+        evmGetAddress,
+      },
+    } as unknown as IThirdPartyHardwareAdapter;
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.getEvmAddressByWalletState({
+        vendor: EHardwareVendor.trezor,
+        connectId: 'TREZOR-USB',
+        deviceId: 'TREZOR-DEVICE-ID',
+        path: "m/44'/60'/0'/0/0",
+        passphraseState: 'PASSPHRASE_STATE',
+      }),
+    ).resolves.toBe('0xHiddenWalletAddress');
+
+    expect(evmGetAddress).toHaveBeenCalledWith(
       'TREZOR-USB',
-      undefined,
+      'TREZOR-DEVICE-ID',
+      {
+        path: "m/44'/60'/0'/0/0",
+        showOnDevice: false,
+        passphraseState: 'PASSPHRASE_STATE',
+        useEmptyPassphrase: undefined,
+      },
     );
+  });
+
+  it('throws converted SDK failures when deriving a third-party EVM address', async () => {
+    const evmGetAddress = jest.fn().mockResolvedValue({
+      success: false,
+      payload: {
+        code: HardwareErrorCode.PassphraseStateMismatch,
+        error: 'passphraseState mismatch',
+      },
+    });
+    const adapter = {
+      hw: {
+        evmGetAddress,
+      },
+    } as unknown as IThirdPartyHardwareAdapter;
+
+    const service = new ServiceThirdPartyHardware({
+      backgroundApi: {} as IBackgroundApi,
+    });
+    (
+      service as unknown as {
+        thirdPartyAdapters: Map<string, IThirdPartyHardwareAdapter>;
+      }
+    ).thirdPartyAdapters.set('trezor', adapter);
+
+    await expect(
+      service.getEvmAddressByWalletState({
+        vendor: EHardwareVendor.trezor,
+        connectId: 'TREZOR-USB',
+        deviceId: 'TREZOR-DEVICE-ID',
+        path: "m/44'/60'/0'/0/0",
+        passphraseState: 'PASSPHRASE_STATE',
+      }),
+    ).rejects.toThrow('passphraseState mismatch');
   });
 });
