@@ -34,6 +34,7 @@ import {
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useSwapActions,
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -289,6 +290,8 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
+    useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -362,6 +365,12 @@ const SwapSettingsDialogContent = ({
     [intl, setNoPersistSettings, slippageItem.key],
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const handleProviderManagerSaved = useCallback(() => {
+    cleanQuoteInterval();
+    closeQuoteEvent();
+    void resetQuoteAction();
+    void dialogRef.current?.close();
+  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
   return (
     <ScrollView
       mx="$-5"
@@ -439,9 +448,7 @@ const SwapSettingsDialogContent = ({
                   renderContent: (
                     <ProviderManageContainer
                       mode="singleSwap"
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,
@@ -462,9 +469,7 @@ const SwapSettingsDialogContent = ({
                   renderContent: (
                     <ProviderManageContainer
                       mode="crossChain"
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,

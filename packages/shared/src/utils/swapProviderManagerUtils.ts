@@ -39,10 +39,6 @@ function isUnifiedProviderManager(providerManager: ISwapProviderManager) {
   return (
     providerManager.isSupportSingleSwap !== undefined ||
     providerManager.isSupportCrossChain !== undefined ||
-    providerManager.singleSwapEnable !== undefined ||
-    providerManager.crossChainEnable !== undefined ||
-    providerManager.singleSwapDisableNetworks !== undefined ||
-    providerManager.crossChainDisableNetworks !== undefined ||
     providerManager.supportSingleSwapNetworks !== undefined ||
     providerManager.supportCrossChainNetworks !== undefined
   );
@@ -52,6 +48,17 @@ export function hasUnifiedSwapProviderManagers(
   providerManagers: ISwapProviderManager[],
 ) {
   return providerManagers.some(isUnifiedProviderManager);
+}
+
+export function hasUnifiedCrossChainSwapProviderManagers(
+  providerManagers: ISwapProviderManager[],
+) {
+  return providerManagers.some(
+    (providerManager) =>
+      isUnifiedProviderManager(providerManager) &&
+      providerManager.isSupportCrossChain !== false &&
+      !!providerManager.supportCrossChainNetworks?.length,
+  );
 }
 
 function hasProviderSupportNetworks(provider: ISwapServiceProvider) {
@@ -298,15 +305,21 @@ function isProviderSupportQuoteMode({
   isCrossChain: boolean;
 }) {
   if (isCrossChain) {
-    if (
-      providerManager.isSupportCrossChain === undefined &&
-      !isUnifiedProviderManager(providerManager)
-    ) {
-      return false;
+    if (providerManager.isSupportCrossChain !== undefined) {
+      return providerManager.isSupportCrossChain;
     }
-    return providerManager.isSupportCrossChain !== false;
+    if (providerManager.supportCrossChainNetworks !== undefined) {
+      return providerManager.supportCrossChainNetworks.length > 0;
+    }
+    return false;
   }
-  return providerManager.isSupportSingleSwap !== false;
+  if (providerManager.isSupportSingleSwap !== undefined) {
+    return providerManager.isSupportSingleSwap;
+  }
+  if (providerManager.supportSingleSwapNetworks !== undefined) {
+    return providerManager.supportSingleSwapNetworks.length > 0;
+  }
+  return true;
 }
 
 function isProviderEnabledForQuoteMode({

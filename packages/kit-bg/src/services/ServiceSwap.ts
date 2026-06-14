@@ -43,7 +43,7 @@ import {
 import {
   getDenyBridgeProviderString,
   getDenySwapProviderString,
-  hasUnifiedSwapProviderManagers,
+  hasUnifiedCrossChainSwapProviderManagers,
   mergeDenyProviderStrings,
 } from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1592,7 +1592,7 @@ export default class ServiceSwap extends ServiceBase {
       return;
     }
     const shouldClearLegacyBridgeProviderManager =
-      hasUnifiedSwapProviderManagers(data);
+      hasUnifiedCrossChainSwapProviderManagers(data);
 
     await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
     if (shouldClearLegacyBridgeProviderManager) {

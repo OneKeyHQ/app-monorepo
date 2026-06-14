@@ -1015,6 +1015,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       count: 0,
     });
     set(swapQuoteListAtom(), []);
+    set(swapManualSelectQuoteProvidersAtom(), undefined);
+    set(rateDifferenceAtom(), undefined);
     set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
     if (!fromToken) {
       set(swapFromTokenAmountAtom(), { value: '', isInput: false });
@@ -2795,6 +2797,7 @@ export const useSwapActions = () => {
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
   const setSwapProSelectToken = actions.setSwapProSelectToken.use();
   const resetSwapTokenData = actions.resetSwapTokenData.use();
+  const resetQuoteAction = actions.resetQuoteAction.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -2828,5 +2831,6 @@ export const useSwapActions = () => {
     cleanSpeedQuote,
     setSwapProSelectToken,
     resetSwapTokenData,
+    resetQuoteAction,
   });
 };

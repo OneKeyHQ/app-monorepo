@@ -560,13 +560,11 @@ export function useSpeedSwapActions(props: {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '0',
+            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
             provider: swapInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee:
-              swapInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-            protocolFee:
-              swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
+            protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
             orderId: serviceOrderId,
