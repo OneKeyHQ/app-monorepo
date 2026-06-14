@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -66,6 +66,11 @@ import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
+import {
+  type IRenderedTokenListCacheEntry,
+  getColdStartTokenListDisplayMaps,
+  isRenderedTokenListCacheEntryReady,
+} from './coldStartDisplayUtils';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -222,9 +227,6 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [renderedTokenListCache, setRenderedTokenListCache] =
     useRenderedTokenListCacheAtom();
-  // Use ref to avoid useMemo→useEffect→setState cycle
-  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
-  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListStateAtomValue] =
     useActiveAccountTokenListStateAtom();
   const activeAccountTokenList =
@@ -234,7 +236,7 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenListStateAtomValue;
   const activeAccountTokenListMap =
     props.scopedActiveAccountTokenListMap ?? tokenListMap;
-  const visibleTokenListMap = showActiveAccountTokenList
+  const baseVisibleTokenListMap = showActiveAccountTokenList
     ? activeAccountTokenListMap
     : tokenListMap;
 
@@ -275,16 +277,45 @@ function TokenListViewCmp(props: IProps) {
       ? `${ownerCacheAccountId}__${networkId}`
       : '';
 
+  const ownerCachedTokenListEntry = useMemo(() => {
+    return ownerCacheKey
+      ? ((renderedTokenListCache.byOwner?.[ownerCacheKey] as
+          | IRenderedTokenListCacheEntry
+          | undefined) ?? undefined)
+      : undefined;
+  }, [ownerCacheKey, renderedTokenListCache]);
+
+  const shouldUseColdStartCachedMaps =
+    !showActiveAccountTokenList &&
+    isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry) &&
+    (ownerMismatch || !tokenListState.initialized);
+
+  const tokenListDisplayMaps = useMemo(
+    () =>
+      getColdStartTokenListDisplayMaps({
+        shouldUseCachedMaps: shouldUseColdStartCachedMaps,
+        cachedEntry: ownerCachedTokenListEntry,
+        currentTokenListMap: baseVisibleTokenListMap,
+        currentAggregateTokenMap: aggregateTokenMap,
+      }),
+    [
+      aggregateTokenMap,
+      baseVisibleTokenListMap,
+      ownerCachedTokenListEntry,
+      shouldUseColdStartCachedMaps,
+    ],
+  );
+
+  const visibleTokenListMap = tokenListDisplayMaps.tokenListMap;
+  const effectiveAggregateTokenMap = tokenListDisplayMaps.aggregateTokenMap;
+
   const tokens = useMemo(() => {
     if (ownerMismatch && !showActiveAccountTokenList) {
-      const cached =
-        ownerCacheKey &&
-        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
       // Require a paired `tokenListMap` — otherwise we'd render tokens
       // against the previous owner's map (no balance/price). Legacy cache
       // entries from an earlier build don't carry it; treat them as misses.
-      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
-        return cached.tokens;
+      if (isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)) {
+        return ownerCachedTokenListEntry.tokens;
       }
       return [];
     }
@@ -308,7 +339,7 @@ function TokenListViewCmp(props: IProps) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
           visibleTokenListMap[item.$key]?.balance ??
-            aggregateTokenMap[item.$key]?.balance ??
+            effectiveAggregateTokenMap[item.$key]?.balance ??
             0,
         );
 
@@ -374,24 +405,21 @@ function TokenListViewCmp(props: IProps) {
 
     // Cold-start fallback: when atoms haven't loaded yet for the current
     // owner, reuse the per-owner cache so the user sees their last known list
-    // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
+    // immediately.
     if (
       !showActiveAccountTokenList &&
       resultTokens.length === 0 &&
       !tokenListState.initialized
     ) {
-      const cached =
-        ownerCacheKey &&
-        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
-      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
-        return cached.tokens;
+      if (isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)) {
+        return ownerCachedTokenListEntry.tokens;
       }
     }
 
     return resultTokens;
   }, [
     ownerMismatch,
-    ownerCacheKey,
+    ownerCachedTokenListEntry,
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
@@ -401,7 +429,7 @@ function TokenListViewCmp(props: IProps) {
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
     visibleTokenListMap,
-    aggregateTokenMap,
+    effectiveAggregateTokenMap,
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
@@ -521,7 +549,8 @@ function TokenListViewCmp(props: IProps) {
 
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
-  const { networksMap } = useTokenListViewContext();
+  const { allAggregateTokenMap: contextAllAggregateTokenMap, networksMap } =
+    useTokenListViewContext();
   const [localAggregateTokensListMap] = useAggregateTokensListMapAtom();
 
   const filteredTokens = useMemo(() => {
@@ -538,7 +567,7 @@ function TokenListViewCmp(props: IProps) {
       networksMap: useNetworkSearch ? networksMap : undefined,
       enableNetworkSearch: useNetworkSearch,
       tokenFiatMap: useNetworkSearch
-        ? { ...visibleTokenListMap, ...aggregateTokenMap }
+        ? { ...visibleTokenListMap, ...effectiveAggregateTokenMap }
         : undefined,
       localAggregateTokenListMap:
         useNetworkSearch && !showActiveAccountTokenList
@@ -553,7 +582,7 @@ function TokenListViewCmp(props: IProps) {
           sortDirection,
           map: {
             ...visibleTokenListMap,
-            ...aggregateTokenMap,
+            ...effectiveAggregateTokenMap,
           },
         });
       } else if (sortType === ETokenListSortType.Value) {
@@ -562,7 +591,7 @@ function TokenListViewCmp(props: IProps) {
           sortDirection,
           map: {
             ...visibleTokenListMap,
-            ...aggregateTokenMap,
+            ...effectiveAggregateTokenMap,
           },
         });
       } else if (sortType === ETokenListSortType.Name) {
@@ -590,7 +619,19 @@ function TokenListViewCmp(props: IProps) {
     sortType,
     sortDirection,
     visibleTokenListMap,
-    aggregateTokenMap,
+    effectiveAggregateTokenMap,
+  ]);
+
+  const tokenListViewContextValue = useMemo(() => {
+    return {
+      allAggregateTokenMap: contextAllAggregateTokenMap,
+      networksMap,
+      tokenListMap: tokenListDisplayMaps.contextTokenListMap,
+    };
+  }, [
+    contextAllAggregateTokenMap,
+    networksMap,
+    tokenListDisplayMaps.contextTokenListMap,
   ]);
 
   const limitedTokens = useMemo(() => {
@@ -645,14 +686,9 @@ function TokenListViewCmp(props: IProps) {
     // back to a previously-rendered network/account. Require a paired
     // `tokenListMap` so we don't suppress the skeleton over a legacy entry
     // that would render tokens against the previous owner's map.
-    const cached =
-      ownerCacheKey &&
-      renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
     if (
       !showActiveAccountTokenList &&
-      cached &&
-      cached.tokens.length > 0 &&
-      cached.tokenListMap
+      isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)
     ) {
       return false;
     }
@@ -670,7 +706,7 @@ function TokenListViewCmp(props: IProps) {
     );
   }, [
     ownerMismatch,
-    ownerCacheKey,
+    ownerCachedTokenListEntry,
     isTokenSelector,
     searchAll,
     tokenSelectorSearchKey,
@@ -874,121 +910,125 @@ function TokenListViewCmp(props: IProps) {
     }
 
     return (
-      <YStack testID={testID}>
-        {withHeader ? (
-          <TokenListHeader
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-            {...(tokens.length > 0 && {
-              tableLayout,
-            })}
-          />
-        ) : null}
-        {limitedTokens.map((item) => (
-          <TokenListItem
-            hideValue={hideValue}
-            hideBalanceAndValue={hideBalanceAndValue}
-            token={item}
-            key={item.$key}
-            onPress={onPressToken}
-            tableLayout={tableLayout}
-            withPrice={withPrice}
-            isAllNetworks={isAllNetworks}
-            withNetwork={withNetwork}
-            isTokenSelector={isTokenSelector}
-            withSwapAction={withSwapAction}
-            showNetworkIcon={showNetworkIcon}
-            withAggregateBadge={withAggregateBadge}
-            showProcessingState={!!exchangeFilter}
-            testIDPrefix={tokenItemTestIDPrefix}
-            {...(tableLayout
-              ? undefined
-              : {
-                  mx: '$2',
-                  px: '$3',
-                })}
-          />
-        ))}
-        {renderPlainModeFooter()}
-      </YStack>
+      <TokenListViewContext.Provider value={tokenListViewContextValue}>
+        <YStack testID={testID}>
+          {withHeader ? (
+            <TokenListHeader
+              onManageToken={onManageToken}
+              manageTokenEnabled={manageTokenEnabled}
+              {...(tokens.length > 0 && {
+                tableLayout,
+              })}
+            />
+          ) : null}
+          {limitedTokens.map((item) => (
+            <TokenListItem
+              hideValue={hideValue}
+              hideBalanceAndValue={hideBalanceAndValue}
+              token={item}
+              key={item.$key}
+              onPress={onPressToken}
+              tableLayout={tableLayout}
+              withPrice={withPrice}
+              isAllNetworks={isAllNetworks}
+              withNetwork={withNetwork}
+              isTokenSelector={isTokenSelector}
+              withSwapAction={withSwapAction}
+              showNetworkIcon={showNetworkIcon}
+              withAggregateBadge={withAggregateBadge}
+              showProcessingState={!!exchangeFilter}
+              testIDPrefix={tokenItemTestIDPrefix}
+              {...(tableLayout
+                ? undefined
+                : {
+                    mx: '$2',
+                    px: '$3',
+                  })}
+            />
+          ))}
+          {renderPlainModeFooter()}
+        </YStack>
+      </TokenListViewContext.Provider>
     );
   }
 
   return (
-    <ListComponent
-      testID={testID}
-      // @ts-ignore
-      estimatedItemSize={tableLayout ? undefined : 60}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
-      }
-      extraData={limitedTokens.length}
-      data={limitedTokens}
-      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
-      contentContainerStyle={resolvedContentContainerStyle as any}
-      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
-      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
-      ListHeaderComponent={
-        withHeader ? (
-          <TokenListHeader
-            onManageToken={onManageToken}
-            manageTokenEnabled={manageTokenEnabled}
-            {...(tokens.length > 0 && {
-              tableLayout,
-            })}
-          />
-        ) : null
-      }
-      ListEmptyComponent={EmptyComponentElement}
-      renderItem={({ item, index }) => (
-        <>
-          <TokenListItem
-            hideValue={hideValue}
-            hideBalanceAndValue={hideBalanceAndValue}
-            token={item}
-            key={item.$key}
-            onPress={onPressToken}
-            tableLayout={tableLayout}
-            withPrice={withPrice}
-            isAllNetworks={isAllNetworks}
-            withNetwork={withNetwork}
-            isTokenSelector={isTokenSelector}
-            withSwapAction={withSwapAction}
-            showNetworkIcon={showNetworkIcon}
-            withAggregateBadge={withAggregateBadge}
-            showProcessingState={!!exchangeFilter}
-            testIDPrefix={tokenItemTestIDPrefix}
-          />
-          {isTokenSelector &&
-          tokenSelectorSearchTokenState.isSearching &&
-          index === limitedTokens.length - 1 ? (
-            <ListLoading isTokenSelectorView={!tableLayout} />
-          ) : null}
-        </>
-      )}
-      ListFooterComponent={
-        <Stack pb="$5">
-          {withFooter ? (
-            <TokenListFooter
-              tableLayout={tableLayout}
-              hideZeroBalanceTokens={hideZeroBalanceTokens}
-              hasTokens={filteredTokens.length > 0}
+    <TokenListViewContext.Provider value={tokenListViewContextValue}>
+      <ListComponent
+        testID={testID}
+        // @ts-ignore
+        estimatedItemSize={tableLayout ? undefined : 60}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+        }
+        extraData={limitedTokens.length}
+        data={limitedTokens}
+        windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
+        contentContainerStyle={resolvedContentContainerStyle as any}
+        ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+        ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
+        ListHeaderComponent={
+          withHeader ? (
+            <TokenListHeader
+              onManageToken={onManageToken}
               manageTokenEnabled={manageTokenEnabled}
-              plainMode={plainMode}
+              {...(tokens.length > 0 && {
+                tableLayout,
+              })}
             />
-          ) : null}
-          {!tokenSelectorSearchKey && footerTipText ? (
-            <Stack jc="center" ai="center" pt="$3">
-              <SizableText size="$bodySm" color="$textSubdued">
-                {footerTipText}
-              </SizableText>
-            </Stack>
-          ) : null}
-          {addPaddingOnListFooter ? <Stack h="$16" /> : null}
-        </Stack>
-      }
-    />
+          ) : null
+        }
+        ListEmptyComponent={EmptyComponentElement}
+        renderItem={({ item, index }) => (
+          <>
+            <TokenListItem
+              hideValue={hideValue}
+              hideBalanceAndValue={hideBalanceAndValue}
+              token={item}
+              key={item.$key}
+              onPress={onPressToken}
+              tableLayout={tableLayout}
+              withPrice={withPrice}
+              isAllNetworks={isAllNetworks}
+              withNetwork={withNetwork}
+              isTokenSelector={isTokenSelector}
+              withSwapAction={withSwapAction}
+              showNetworkIcon={showNetworkIcon}
+              withAggregateBadge={withAggregateBadge}
+              showProcessingState={!!exchangeFilter}
+              testIDPrefix={tokenItemTestIDPrefix}
+            />
+            {isTokenSelector &&
+            tokenSelectorSearchTokenState.isSearching &&
+            index === limitedTokens.length - 1 ? (
+              <ListLoading isTokenSelectorView={!tableLayout} />
+            ) : null}
+          </>
+        )}
+        ListFooterComponent={
+          <Stack pb="$5">
+            {withFooter ? (
+              <TokenListFooter
+                tableLayout={tableLayout}
+                hideZeroBalanceTokens={hideZeroBalanceTokens}
+                hasTokens={filteredTokens.length > 0}
+                manageTokenEnabled={manageTokenEnabled}
+                plainMode={plainMode}
+              />
+            ) : null}
+            {!tokenSelectorSearchKey && footerTipText ? (
+              <Stack jc="center" ai="center" pt="$3">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {footerTipText}
+                </SizableText>
+              </Stack>
+            ) : null}
+            {addPaddingOnListFooter ? <Stack h="$16" /> : null}
+          </Stack>
+        }
+      />
+    </TokenListViewContext.Provider>
   );
 }
 
