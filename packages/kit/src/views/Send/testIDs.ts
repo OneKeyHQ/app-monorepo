@@ -40,6 +40,7 @@ export const SendTestIDs = {
   hexDataFaqButton: 'send-hex-data-faq-button',
   hexDataInput: 'send-hex-data-input',
   buyTokenButton: 'send-buy-token-button',
+  swapTokenButton: 'send-swap-token-button',
   insufficientFundsButton: 'send-insufficient-funds-button',
 
   // Data input (recipient/amount form)
