@@ -6,7 +6,12 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
 
-import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
+import type {
+  ILightweightChartConfig,
+  ILightweightChartPatternFill,
+  ILightweightChartPriceFormatterType,
+  ILightweightChartTime,
+} from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
 
 interface IUseChartConfigProps {
@@ -14,6 +19,8 @@ interface IUseChartConfigProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  textColor?: string;
+  textSubduedColor?: string;
   secondaryLineData?: IMarketTokenChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
@@ -22,10 +29,17 @@ interface IUseChartConfigProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
-  priceFormatterType?: 'usd' | 'percent';
+  priceFormatterType?: ILightweightChartPriceFormatterType;
+  priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline';
+  seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
+  showTimeScale?: boolean;
+  patternFill?: ILightweightChartPatternFill;
+  showLastPointMarker?: boolean;
+  lastPointMarkerColor?: string;
+  lastPointMarkerRadius?: number;
 }
 
 export function useChartConfig({
@@ -33,6 +47,8 @@ export function useChartConfig({
   lineColor = DEFAULT_CHART_COLORS.lineColor,
   topColor = DEFAULT_CHART_COLORS.topColor,
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
+  textColor,
+  textSubduedColor,
   secondaryLineData,
   secondaryLineColor,
   secondaryLineWidth,
@@ -42,9 +58,16 @@ export function useChartConfig({
   priceScaleMargins,
   priceFormatter,
   priceFormatterType,
+  priceFormatterTickStep,
   fontSize,
   seriesType,
   baselineOptions,
+  showLastValue,
+  showTimeScale = true,
+  patternFill,
+  showLastPointMarker,
+  lastPointMarkerColor,
+  lastPointMarkerRadius,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
 
@@ -52,8 +75,9 @@ export function useChartConfig({
     () => ({
       theme: {
         bgColor: 'transparent',
-        textColor: theme.text?.val || '#000000',
-        textSubduedColor: theme.textSubdued?.val || '#666666',
+        textColor: textColor ?? theme.text?.val ?? '#000000',
+        textSubduedColor:
+          textSubduedColor ?? theme.textSubdued?.val ?? '#666666',
         lineColor,
         topColor,
         bottomColor,
@@ -79,9 +103,16 @@ export function useChartConfig({
       priceFormatter,
       priceFormatterType:
         priceFormatterType ?? (priceFormatter ? 'usd' : 'percent'),
+      priceFormatterTickStep,
       fontSize,
       seriesType,
       baselineOptions,
+      showLastValue,
+      showTimeScale,
+      patternFill,
+      showLastPointMarker,
+      lastPointMarkerColor,
+      lastPointMarkerRadius,
     }),
     [
       data,
@@ -92,6 +123,8 @@ export function useChartConfig({
       lineColor,
       topColor,
       bottomColor,
+      textColor,
+      textSubduedColor,
       secondaryLineColor,
       secondaryLineWidth,
       lineWidth,
@@ -100,9 +133,16 @@ export function useChartConfig({
       priceScaleMargins,
       priceFormatter,
       priceFormatterType,
+      priceFormatterTickStep,
       fontSize,
       seriesType,
       baselineOptions,
+      showLastValue,
+      showTimeScale,
+      patternFill,
+      showLastPointMarker,
+      lastPointMarkerColor,
+      lastPointMarkerRadius,
     ],
   );
 }

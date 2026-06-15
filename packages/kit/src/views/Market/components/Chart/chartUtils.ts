@@ -5,6 +5,7 @@ import type {
   ChartOptions,
   IChartApi,
   ISeriesApi,
+  SeriesDefinition,
   UTCTimestamp,
 } from 'lightweight-charts';
 
@@ -42,12 +43,24 @@ export interface IChartViewAdapterProps extends IChartViewProps {
 export interface IOnekeyChartApi extends IChartApi {
   // eslint-disable-next-line camelcase
   _onekey_series?: ISeriesApi<'Area'>;
+  // eslint-disable-next-line camelcase
+  _onekey_areaSeriesDefinition?: SeriesDefinition<'Area'>;
 }
+
+function getSeriesValue(seriesData: unknown): number | undefined {
+  if (seriesData && typeof seriesData === 'object' && 'value' in seriesData) {
+    const value = seriesData.value;
+    return typeof value === 'number' ? value : Number(value);
+  }
+  return undefined;
+}
+
 export function createChartDom(
   createChartFunc: (
     container: HTMLElement,
     options?: IDeepPartial<ChartOptions>,
   ) => IChartApi,
+  areaSeriesDefinition: SeriesDefinition<'Area'>,
   domNode: HTMLElement,
   onHover: IOnHoverFunction,
   height: number,
@@ -101,14 +114,15 @@ export function createChartDom(
   const handleResize = () => {
     chart.applyOptions({ width: domNode.clientWidth });
   };
-  chart.subscribeCrosshairMove(({ time, seriesPrices }) => {
-    // @ts-expect-error
-    onHover({ time, price: seriesPrices.values().next().value });
+  chart.subscribeCrosshairMove(({ seriesData, time }) => {
+    onHover({ time, price: getSeriesValue(seriesData.values().next().value) });
   });
   chart.timeScale().fitContent();
   window.addEventListener('resize', handleResize);
   // @ts-ignore
   globalThis._onekey_chart = chart;
+  (chart as IOnekeyChartApi)._onekey_areaSeriesDefinition =
+    areaSeriesDefinition;
   return { chart, handleResize };
 }
 
@@ -132,7 +146,11 @@ export function updateChartDom({
     }),
   );
   if (!chart._onekey_series) {
-    const newSeries = chart.addAreaSeries({
+    const areaSeriesDefinition = chart._onekey_areaSeriesDefinition;
+    if (!areaSeriesDefinition) {
+      return;
+    }
+    const newSeries = chart.addSeries(areaSeriesDefinition, {
       lineColor,
       topColor,
       bottomColor,

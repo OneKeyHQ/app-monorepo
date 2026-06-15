@@ -1,7 +1,5 @@
 // Use the same version as defined in package.json
-export const LIGHTWEIGHT_CHARTS_VERSION = '3.8.0';
-
-export const LIGHTWEIGHT_CHARTS_CDN = `https://unpkg.com/lightweight-charts@${LIGHTWEIGHT_CHARTS_VERSION}/dist/lightweight-charts.standalone.production.js`;
+export const LIGHTWEIGHT_CHARTS_VERSION = '5.2.0';
 
 export const DEFAULT_CHART_COLORS = {
   lineColor: '#33C641',
