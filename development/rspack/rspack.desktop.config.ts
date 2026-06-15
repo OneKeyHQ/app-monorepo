@@ -168,7 +168,7 @@ export function createDesktopConfig({
         createDevelopmentConfig({ basePath }),
         commonDesktopConfig,
         {
-          devtool: 'eval-source-map',
+          devtool: 'cheap-module-source-map',
           devServer: {
             open: false,
           },

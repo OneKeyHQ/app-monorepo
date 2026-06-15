@@ -121,6 +121,12 @@ const newFetch = async function (
       })
   );
 };
+Reflect.defineProperty(newFetch, 'isNormalizedByOneKey', {
+  configurable: false,
+  enumerable: false,
+  value: true,
+  writable: false,
+});
 console.log('fetchInterceptor.ts', fetch);
 if (
   globalThis.fetch &&

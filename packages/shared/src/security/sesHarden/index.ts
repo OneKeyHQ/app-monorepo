@@ -8,15 +8,10 @@ export {
   getSesLockdownOptions,
 } from './options';
 export {
-  SES_HARDEN_LEVEL_ENV_KEY,
-  SES_HARDEN_LEVEL_QUERY_KEY,
-  SES_HARDEN_LEVEL_QUERY_KEY_SHORT,
-  SES_HARDEN_LEVEL_STORAGE_KEY,
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHarden,
   getSesHardenLevelFromRuntime,
   getSesHardenPatchWarnings,
-  installSesHardenRuntimeSwitch,
   isSesHardenPatchWarningMonitorEnabled,
   maybeLockdownOneKeyRuntime,
   normalizeSesHardenLevel,

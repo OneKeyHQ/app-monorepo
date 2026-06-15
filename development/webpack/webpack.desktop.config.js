@@ -168,9 +168,7 @@ module.exports = ({
         ...configs,
         commonDesktopConfig,
         {
-          // development/webpack/webpack.development.config.js 10L
-          // Electron 30.x doesn't support cheap-module-source-map
-          devtool: 'eval-source-map',
+          devtool: 'cheap-module-source-map',
           devServer: {
             open: false,
           },
