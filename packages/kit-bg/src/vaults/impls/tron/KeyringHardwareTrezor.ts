@@ -20,7 +20,6 @@ import {
 } from '../../base/trezorTransportUtils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
-import type { IThirdPartyHardwareAdapter } from '../../../services/ServiceHardware/adapters/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
@@ -29,14 +28,11 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import type {
+  TronContract,
+  TronSignTxParams,
+} from '@onekeyfe/hwk-adapter-core';
 import type { Types } from 'tronweb';
-
-// Derive the structured Trezor TRON params from the adapter signature so we
-// don't hard-depend on @onekeyfe/hwk-adapter-core's exported types here.
-type ITronSignParams = Parameters<
-  IThirdPartyHardwareAdapter['hw']['tronSignTransaction']
->[2];
-type ITronContract = NonNullable<ITronSignParams['contract']>;
 
 export function buildTrezorTronSignTransactionParams({
   path,
@@ -44,7 +40,7 @@ export function buildTrezorTronSignTransactionParams({
 }: {
   path: string;
   encodedTx: IEncodedTxTron;
-}): ITronSignParams {
+}): TronSignTxParams {
   const {
     ref_block_bytes: refBlockBytes,
     ref_block_hash: refBlockHash,
@@ -88,7 +84,7 @@ export function buildTrezorTronSignTransactionParams({
 
 export function buildTrezorTronContract(
   rawContract: IEncodedTxTron['raw_data']['contract'][0],
-): ITronContract {
+): TronContract {
   switch (rawContract.type) {
     case 'TransferContract': {
       const { amount, to_address: toAddress } = rawContract.parameter

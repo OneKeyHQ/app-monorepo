@@ -3534,7 +3534,7 @@ class ServiceAccount extends ServiceBase {
       deviceConnectionType: (
         params.device as { raw?: { connectionType?: 'usb' | 'ble' } }
       ).raw?.connectionType,
-      isNative: platformEnv.isNative,
+      isNative: !!platformEnv.isNative,
     });
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(

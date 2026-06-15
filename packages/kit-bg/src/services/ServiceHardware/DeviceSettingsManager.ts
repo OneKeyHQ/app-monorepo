@@ -10,21 +10,23 @@ import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceE
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import deviceHomeScreenUtils from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import type { IDeviceResponseResult } from '@onekeyhq/shared/types/device';
 import {
   EHardwareCallContext,
   EHardwareVendor,
+  type IDeviceResponseResult,
+  type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
-
-import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
 import {
   buildTrezorBleFallbackOptions,
   callTrezorWithBleFallback,
   getTrezorAdapterFromBackgroundApi,
 } from '../../vaults/base/trezorTransportUtils';
 
+import { ServiceHardwareManagerBase } from './ServiceHardwareManagerBase';
+
+import type { TrezorDeviceSettingsParams } from './adapters/types';
 import type {
   IDBDevice,
   IDBDeviceSettings as IDBDeviceDbSettings,
@@ -37,8 +39,6 @@ import type {
   DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 import type { Response as ThirdPartyResponse } from '@onekeyfe/hwk-adapter-core';
-import type { TrezorDeviceSettingsParams } from './adapters/types';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 export type ISetInputPinOnSoftwareParams = {
   walletId: string;
@@ -616,15 +616,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setPassphraseEnabled',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, targetDevice) =>
         sdk
           .deviceSettings(compatibleConnectId, {
             usePassphrase: passphraseEnabled,
           })
           .then(async (res) => {
-            if (res.success && device.featuresInfo) {
+            if (res.success && targetDevice.featuresInfo) {
               await localDb.updateDevice({
-                features: device.featuresInfo,
+                features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
                   passphrase_protection: passphraseEnabled,
                 },
@@ -666,15 +666,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoLockDelayMs',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, targetDevice) =>
         sdk
           .deviceSettings(compatibleConnectId, {
             autoLockDelayMs,
           })
           .then(async (res) => {
-            if (res.success && device.featuresInfo) {
+            if (res.success && targetDevice.featuresInfo) {
               await localDb.updateDevice({
-                features: device.featuresInfo,
+                features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
                   auto_lock_delay_ms: autoLockDelayMs,
                 },
@@ -692,20 +692,29 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     featuresDeviceId,
     autoShutdownDelayMs,
   }: ISetAutoShutDownDelayMsParams) {
+    const device = await this._getDeviceForSettings({
+      walletId,
+      connectId,
+      featuresDeviceId,
+    });
+    if (this._isTrezorDevice(device)) {
+      throw new OneKeyLocalError('Trezor auto shutdown settings not available');
+    }
     return this._withDeviceProcessing({
       walletId,
       connectId,
       featuresDeviceId,
+      dbDevice: device,
       debugMethodName: 'deviceSettings.setAutoShutDownDelayMs',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, targetDevice) =>
         sdk
           .deviceSettings(compatibleConnectId, {
             autoShutdownDelayMs,
           })
           .then(async (res) => {
-            if (res.success && device.featuresInfo) {
+            if (res.success && targetDevice.featuresInfo) {
               await localDb.updateDevice({
-                features: device.featuresInfo,
+                features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
                   auto_shutdown_delay_ms: autoShutdownDelayMs,
                 },
@@ -747,15 +756,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setLanguage',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, targetDevice) =>
         sdk
           .deviceSettings(compatibleConnectId, {
             language,
           })
           .then(async (res) => {
-            if (res.success && device.featuresInfo) {
+            if (res.success && targetDevice.featuresInfo) {
               await localDb.updateDevice({
-                features: device.featuresInfo,
+                features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
                   language,
                 },
@@ -841,15 +850,15 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.setHapticFeedback',
-      action: async (sdk, compatibleConnectId, device) =>
+      action: async (sdk, compatibleConnectId, targetDevice) =>
         sdk
           .deviceSettings(compatibleConnectId, {
             hapticFeedback,
           })
           .then(async (res) => {
-            if (res.success && device.featuresInfo) {
+            if (res.success && targetDevice.featuresInfo) {
               await localDb.updateDevice({
-                features: device.featuresInfo,
+                features: targetDevice.featuresInfo,
                 preciseUpdateFields: {
                   haptic_feedback: hapticFeedback,
                 },
@@ -897,14 +906,16 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       featuresDeviceId,
       dbDevice: device,
       debugMethodName: 'deviceSettings.wipeDevice',
-      action: async (sdk, compatibleConnectId, device) => {
+      action: async (sdk, compatibleConnectId, targetDevice) => {
         const response = await sdk.deviceWipe(compatibleConnectId);
         if (
           response.success &&
-          (device.vendor === EHardwareVendor.trezor ||
-            device.settings?.vendor === EHardwareVendor.trezor)
+          (targetDevice.vendor === EHardwareVendor.trezor ||
+            targetDevice.settings?.vendor === EHardwareVendor.trezor)
         ) {
-          await localDb.clearTrezorDeviceThpState({ dbDeviceId: device.id });
+          await localDb.clearTrezorDeviceThpState({
+            dbDeviceId: targetDevice.id,
+          });
         }
         return response;
       },
@@ -919,6 +930,22 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     const device = await localDb.getWalletDevice({ walletId });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: dbDeviceId, deviceId, connectId } = device;
+    if (this._isTrezorDevice(device)) {
+      if (inputPinOnSoftware) {
+        throw new OneKeyLocalError(
+          'Trezor software PIN input is not available',
+        );
+      }
+      await localDb.updateDeviceDbSettings({
+        dbDeviceId,
+        settings: {
+          ...device.settings,
+          inputPinOnSoftware: false,
+          inputPinOnSoftwareSupport: false,
+        },
+      });
+      return;
+    }
 
     let minSupportVersion: string | undefined = '';
     let inputPinOnSoftwareSupport: boolean | undefined;

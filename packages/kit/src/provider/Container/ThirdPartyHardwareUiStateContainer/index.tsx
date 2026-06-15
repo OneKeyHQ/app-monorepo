@@ -57,12 +57,14 @@ import { useInstallCancelVisibility } from './installCancelVisibility';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
+  clearThirdPartyHardwareUiStateIfCurrent,
   createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
 const AUTO_CLOSED_FLAG = 'autoClosed';
 const SHOW_CLOSE_BUTTON_DELAY = 8000;
 const TOAST_VIEWPORT_NAME = 'THIRD_PARTY_HW_TOAST';
+const TREZOR_THP_APP_NAME = 'OneKey Wallet';
 
 function OpenBleSettingsDialogRender({ ref }: { ref: any }) {
   return <OpenBleSettingsDialog ref={ref} />;
@@ -519,11 +521,15 @@ function getDialogContent(
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestTrezorThpPairing:
-      // No localized string yet — Trezor THP pairing UX. Copy: tell the user
-      // to read the code off the device screen and type it back.
+      // Temporary ETranslationsMock copy until real i18n keys land.
       return {
-        title: 'Pair Trezor',
-        message: `Enter the pairing code shown on your ${device}.`,
+        title: intl.formatMessage({
+          id: ETranslations.trezor_thp_pairing__title,
+        }),
+        message: intl.formatMessage(
+          { id: ETranslations.trezor_thp_pairing__desc },
+          { appName: TREZOR_THP_APP_NAME, device },
+        ),
         showFooter: true,
       };
     case EThirdPartyHardwareUiAction.requestTrezorPassphrase:
@@ -640,8 +646,15 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const handleToastClose = useCallback(async () => undefined, []);
 
   const clearCurrentUiState = useCallback(async () => {
-    uiStateRef.current = undefined;
-    await thirdPartyHardwareUiStateAtom.set(undefined);
+    const expectedState = uiStateRef.current;
+    const cleared = await clearThirdPartyHardwareUiStateIfCurrent({
+      expectedState,
+      getState: () => thirdPartyHardwareUiStateAtom.get(),
+      setState: (state) => thirdPartyHardwareUiStateAtom.set(state),
+    });
+    uiStateRef.current = cleared
+      ? undefined
+      : await thirdPartyHardwareUiStateAtom.get();
   }, []);
 
   const handleDialogClose = useCallback(
@@ -764,6 +777,16 @@ function ThirdPartyHardwareUiStateContainerCmp() {
         action === EThirdPartyHardwareUiAction.requestTrezorThpPairing
           ? thpTagInputRef.current.trim()
           : undefined;
+      // THP pairing needs a non-empty code: an empty tag builds no response, so
+      // the SDK would get neither a tag nor a cancel and stall until its 10-min
+      // UI timeout. Keep the dialog open instead (Confirm is also disabled for
+      // empty input below).
+      if (
+        action === EThirdPartyHardwareUiAction.requestTrezorThpPairing &&
+        !tag
+      ) {
+        return;
+      }
       const response = buildThirdPartyHardwareUiResponse(action, true, { tag });
       if (response) {
         await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
@@ -868,7 +891,9 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             testID="third-party-hw-trezor-thp-pairing-input"
             value={thpTagInput}
             onChangeText={setThpTagInput}
-            placeholder="Pairing code"
+            placeholder={intl.formatMessage({
+              id: ETranslations.trezor_thp_pairing_code__desc,
+            })}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="number-pad"
@@ -942,6 +967,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             disableDrag
             showFooter={showFooter}
             onConfirm={handleConfirm}
+            confirmButtonProps={
+              isThpPairing
+                ? { disabled: thpTagInput.trim().length === 0 }
+                : undefined
+            }
             onCancel={handleUserCancel}
             onClose={handleDialogClose}
           />

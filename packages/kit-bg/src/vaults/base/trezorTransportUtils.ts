@@ -2,6 +2,7 @@ import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -30,7 +31,8 @@ function isTrezorTransportDownFailure(
   const code = payload?.code;
   return (
     code === HardwareErrorCode.DeviceDisconnected ||
-    code === HardwareErrorCode.DeviceNotFound
+    code === HardwareErrorCode.DeviceNotFound ||
+    code === HardwareErrorCode.TransportError
   );
 }
 
@@ -94,8 +96,15 @@ export async function callTrezorWithBleFallback<T>(
     | undefined;
   const code = failurePayload?.code;
   const isTransportDown = isTrezorTransportDownFailure(failurePayload);
+  const canUseBleBinding =
+    thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platformEnv);
   const bleConnectId = dbDevice.bleConnectId;
-  if (isTransportDown && bleConnectId && bleConnectId !== primaryConnectId) {
+  if (
+    isTransportDown &&
+    canUseBleBinding &&
+    bleConnectId &&
+    bleConnectId !== primaryConnectId
+  ) {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Trezor] primary connectId failed (code=${String(
         code,
@@ -108,6 +117,7 @@ export async function callTrezorWithBleFallback<T>(
     isTransportDown &&
     options?.requestBleConnectId &&
     featuresDeviceId &&
+    canUseBleBinding &&
     isTrezorBleSupportedDevice(dbDevice)
   ) {
     defaultLogger.hardware.sdkLog.log(

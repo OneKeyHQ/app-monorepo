@@ -32,6 +32,7 @@ import type {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -174,11 +175,38 @@ function getTrezorConnectFailureDebugPayload(payload: unknown) {
 
 function getTrezorConnectFailureMessage(payload: unknown) {
   const failure = getTrezorConnectFailureDebugPayload(payload);
-  return (
-    failure.error ||
-    failure.message ||
-    'Trezor device connection failed before wallet creation'
-  );
+  return failure.error || failure.message;
+}
+
+function getTrezorConnectFailureError(
+  payload: unknown,
+  vendor: EHardwareVendor,
+) {
+  const failure =
+    payload && typeof payload === 'object'
+      ? (payload as {
+          code?: unknown;
+          error?: unknown;
+          params?: unknown;
+        })
+      : undefined;
+  if (typeof failure?.code === 'number' && typeof failure.error === 'string') {
+    return convertThirdPartyDeviceError(
+      {
+        code: failure.code,
+        error: failure.error,
+        params: failure.params,
+      },
+      { vendor },
+    );
+  }
+  const failureMessage = getTrezorConnectFailureMessage(payload);
+  if (failureMessage) {
+    return new OneKeyLocalError(failureMessage);
+  }
+  return new OneKeyLocalError({
+    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+  });
 }
 
 // EncryptingData is declared in the enum but never emitted; fall back to the
@@ -665,14 +693,15 @@ function FinalizeWalletSetupPage({
                     ? connectedFeatures.device_id
                     : ''));
               if (!connected.success) {
-                throw new OneKeyLocalError(
-                  getTrezorConnectFailureMessage(connected.payload),
+                throw getTrezorConnectFailureError(
+                  connected.payload,
+                  deviceData.vendor,
                 );
               }
               if (!connectedDeviceId) {
-                throw new OneKeyLocalError(
-                  'Trezor deviceId is required before wallet creation',
-                );
+                throw new OneKeyLocalError({
+                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                });
               }
               featuresForCreate = {
                 ...connectedFeatures,

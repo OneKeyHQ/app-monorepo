@@ -1,6 +1,5 @@
 import { OneKeyLocalError } from '../../errors';
-import { defaultLogger } from '../../logger/logger';
-import { sanitizeTrezorThpModuleLogData } from '../trezorThpLogRedact';
+import { logHwk } from '../hwkLogger';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
 import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
@@ -18,67 +17,6 @@ import type { TrezorBleApi } from '@onekeyfe/hwk-trezor-connector-electron-ble';
  *           Use to isolate one transport while debugging.
  */
 export type TrezorDesktopTransport = 'all' | 'usb' | 'ble';
-
-const shouldForwardToTrezorThpModuleLog = (entry: {
-  event: string;
-  data?: Record<string, unknown>;
-  thpModuleForwarded?: boolean;
-}) => {
-  if (entry.thpModuleForwarded) return false;
-  if (entry.event === 'thp.loop') return false;
-  if (entry.event.startsWith('thp.')) return true;
-  if (entry.event === 'session.initialize.thp.fallback') return true;
-  if (entry.event === 'session.initialize.done') {
-    return entry.data?.protocol === 'thp';
-  }
-  if (entry.event.startsWith('session.method.')) {
-    return entry.data?.protocol === 'thp';
-  }
-  return false;
-};
-
-const formatTrezorHwkLog = (
-  prefix: string,
-  event: string,
-  data?: Record<string, unknown>,
-) => {
-  if (!data) return `${prefix} ${event}`;
-  return `${prefix} ${event} ${JSON.stringify(data)}`;
-};
-
-const logHwk = (entry: {
-  level: 'debug' | 'info' | 'warn' | 'error';
-  scope: string;
-  event: string;
-  data?: Record<string, unknown>;
-  thpModuleForwarded?: boolean;
-}) => {
-  try {
-    if (
-      typeof process !== 'undefined' &&
-      process.env.NODE_ENV === 'production'
-    ) {
-      return;
-    }
-    const data = sanitizeTrezorThpModuleLogData(entry.data);
-    defaultLogger.hardware.sdkLog.log(
-      formatTrezorHwkLog(`[hwk:${entry.scope}]`, entry.event, data),
-    );
-    if (
-      entry.scope !== 'trezor-thp' &&
-      shouldForwardToTrezorThpModuleLog(entry)
-    ) {
-      defaultLogger.hardware.sdkLog.log(
-        formatTrezorHwkLog('[hwk:trezor-thp]', entry.event, data),
-      );
-      defaultLogger.hardware.sdkLog.log(
-        formatTrezorHwkLog('[TrezorTHPModule]', entry.event, data),
-      );
-    }
-  } catch {
-    // logging must never break the connector
-  }
-};
 
 const THP = {
   hostName: 'OneKey',

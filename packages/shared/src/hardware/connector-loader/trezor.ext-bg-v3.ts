@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '../../errors';
+
 import type { IConnector, IHardwareBridge } from '@onekeyfe/hwk-adapter-core';
 
 // SW bundle only (webpack: ext + bg + MV3). SW has no navigator.usb, so
@@ -10,10 +12,10 @@ export const createTrezorConnector = async (options?: {
   bridge?: IHardwareBridge;
 }): Promise<IConnector> => {
   if (!options?.bridge) {
-    throw new Error('createTrezorConnector(ext): bridge is required');
+    throw new OneKeyLocalError(
+      'createTrezorConnector(ext): bridge is required',
+    );
   }
-  const { createBridgedConnector } = await import(
-    '@onekeyfe/hwk-adapter-core'
-  );
+  const { createBridgedConnector } = await import('@onekeyfe/hwk-adapter-core');
   return createBridgedConnector('trezor', 'usb', options.bridge);
 };

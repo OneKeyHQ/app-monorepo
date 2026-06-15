@@ -1,5 +1,5 @@
-import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 import { EConnectorInteraction } from '@onekeyfe/hwk-adapter-core';
+import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
 import {
   EThirdPartyHardwareUiAction,

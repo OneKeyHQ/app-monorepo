@@ -89,6 +89,26 @@ export function buildThirdPartyHardwareUiResponse(
   }
 }
 
+export async function clearThirdPartyHardwareUiStateIfCurrent({
+  expectedState,
+  getState,
+  setState,
+}: {
+  expectedState: IThirdPartyHardwareUiState | undefined;
+  getState: () =>
+    | IThirdPartyHardwareUiState
+    | undefined
+    | Promise<IThirdPartyHardwareUiState | undefined>;
+  setState: (state: IThirdPartyHardwareUiState | undefined) => Promise<void>;
+}): Promise<boolean> {
+  const currentState = await getState();
+  if (currentState !== expectedState) {
+    return false;
+  }
+  await setState(undefined);
+  return true;
+}
+
 export async function cancelThirdPartyHardwareUiRequest({
   state,
   uiResponse,

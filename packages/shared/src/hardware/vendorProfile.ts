@@ -2,6 +2,10 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { OneKeyInternalError } from '../errors';
 
+export type IHardwareVendorAddAccountDefaultNetworkMode =
+  | 'onekeyDefault'
+  | 'ledgerAppAware';
+
 export interface IHardwareVendorProfile {
   vendor: EHardwareVendor;
   /** Whether this is a third-party (non-OneKey) vendor */
@@ -36,6 +40,10 @@ export interface IHardwareVendorProfile {
   supportsDeviceSettings: boolean;
   /** Whether passphrase can be enabled/disabled from Device Manager */
   supportsPassphraseSetting: boolean;
+  /** Whether wallet UI can expose hidden-wallet creation */
+  supportsHiddenWalletCreation: boolean;
+  /** How default networks are created during add-account flows */
+  addAccountDefaultNetworkMode: IHardwareVendorAddAccountDefaultNetworkMode;
   /** Whether a connectId can be used to identify an existing device.
    *  BLE: persistent (MAC/UUID). USB: ephemeral, won't match anything anyway. */
   canMatchDeviceByConnectId(connectId: string): boolean;
@@ -59,6 +67,8 @@ const onekeyProfile: IHardwareVendorProfile = {
   supportsOneKeyDeviceSettings: true,
   supportsDeviceSettings: true,
   supportsPassphraseSetting: true,
+  supportsHiddenWalletCreation: true,
+  addAccountDefaultNetworkMode: 'onekeyDefault',
   // OneKey always has device_id, so this path isn't used
   canMatchDeviceByConnectId: () => true,
 };
@@ -81,6 +91,8 @@ const ledgerProfile: IHardwareVendorProfile = {
   supportsOneKeyDeviceSettings: false,
   supportsDeviceSettings: false,
   supportsPassphraseSetting: false,
+  supportsHiddenWalletCreation: false,
+  addAccountDefaultNetworkMode: 'ledgerAppAware',
   // BLE: DMK transport path (MAC/UUID), persistent. USB: ephemeral UUID, never matches.
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
 };
@@ -115,6 +127,8 @@ const trezorProfile: IHardwareVendorProfile = {
   supportsOneKeyDeviceSettings: false,
   supportsDeviceSettings: true,
   supportsPassphraseSetting: true,
+  supportsHiddenWalletCreation: true,
+  addAccountDefaultNetworkMode: 'onekeyDefault',
   canMatchDeviceByConnectId: (connectId) => Boolean(connectId),
 };
 

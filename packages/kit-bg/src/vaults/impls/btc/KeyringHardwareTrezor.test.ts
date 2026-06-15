@@ -1,15 +1,17 @@
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
-import { EAddressEncodings } from '@onekeyhq/core/src/types';
+
+import { EDBAccountType } from '../../../dbs/local/consts';
 
 import {
+  KeyringHardwareTrezor,
   buildTrezorBtcSignMessageParams,
   buildTrezorBtcSignTransactionPayload,
-  KeyringHardwareTrezor,
   getTrezorBtcRawPrevTxsToParse,
   getTrezorBtcScriptTypeFromPath,
 } from './KeyringHardwareTrezor';
-import { EDBAccountType } from '../../../dbs/local/consts';
+
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 
 describe('getTrezorBtcScriptTypeFromPath', () => {
@@ -95,6 +97,9 @@ describe('KeyringHardwareTrezor.prepareAccounts', () => {
     expect(btcGetMasterFingerprint).toHaveBeenCalledWith(
       'USB_CONNECT_ID',
       'FEATURES_DEVICE_ID',
+      {
+        passphraseState: '02'.padEnd(66, '1'),
+      },
     );
     const utxoAccount = account as IDBUtxoAccount;
     expect(utxoAccount.xpubSegwit).toContain('tr([aabbccdd/86');
@@ -211,8 +216,8 @@ describe('buildTrezorBtcSignTransactionPayload', () => {
         locktime: 800_001,
         timestamp: 123,
         expiry: 456,
-        versionGroupId: 0x892f_2085,
-        branchId: 0xbb09_b876,
+        versionGroupId: 0x89_2f_20_85,
+        branchId: 0xbb_09_b8_76,
         txSize: 141,
       },
       prevTxs: [],
@@ -228,8 +233,8 @@ describe('buildTrezorBtcSignTransactionPayload', () => {
         locktime: 800_001,
         timestamp: 123,
         expiry: 456,
-        versionGroupId: 0x892f_2085,
-        branchId: 0xbb09_b876,
+        versionGroupId: 0x89_2f_20_85,
+        branchId: 0xbb_09_b8_76,
       }),
     );
   });

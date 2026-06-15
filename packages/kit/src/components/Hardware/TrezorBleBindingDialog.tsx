@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
+  LottieView,
   SizableText,
   Spinner,
   Toast,
@@ -11,11 +13,12 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -28,6 +31,11 @@ import {
   buildTrezorBleBindingCandidates,
   getTrezorBleBindingCandidateState,
 } from './trezorBleBindingUtils';
+import {
+  TREZOR_SCAN_MAX_TRY_COUNT,
+  TREZOR_SCAN_POLL_INTERVAL_MS,
+  shouldShowTrezorScanTimeout,
+} from './trezorScanUtils';
 
 import type { ITrezorBleBindingScannedDevice } from './trezorBleBindingUtils';
 
@@ -51,6 +59,33 @@ function PairingGuideStep({ number, text }: { number: number; text: string }) {
   );
 }
 
+function TrezorBleBindingIllustration() {
+  if (platformEnv.isNative) {
+    return (
+      <YStack
+        h={178}
+        alignItems="center"
+        justifyContent="center"
+        overflow="hidden"
+      >
+        <LottieView
+          source={BluetoothSignalSpreading}
+          width={280}
+          height={280}
+          autoPlay
+          loop
+        />
+      </YStack>
+    );
+  }
+
+  return platformEnv.isDesktopWin ? (
+    <WindowsBluetoothIllustrationViews view="paring" />
+  ) : (
+    <MacBluetoothIllustrationViews view="paring" />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Trezor USB→BLE binding picker. Copies the OneKey scan→list→select shape from
 // ConnectionFlowTrezor / OtherDevicesDialog, with one Trezor-specific twist:
@@ -69,6 +104,7 @@ function TrezorBleBindingContent({
   const dialog = useDialogInstance();
 
   const [devices, setDevices] = useState<ITrezorBleBindingScannedDevice[]>([]);
+  const [scanTimedOut, setScanTimedOut] = useState(false);
   // BLE candidates that were probed and did not match this device_id. Keep
   // them visible but disabled so the user can continue with the next one.
   const [rejectedConnectIds, setRejectedConnectIds] = useState<
@@ -100,15 +136,18 @@ function TrezorBleBindingContent({
       return;
     }
     isSearchingRef.current = true;
+    setScanTimedOut(false);
 
-    const MAX_TRY_COUNT = 60;
     let pollsCompleted = 0;
 
     deviceScanner.startDeviceScan(
       (response) => {
         pollsCompleted += 1;
         if (!response.success) {
-          const error = convertDeviceError(response.payload);
+          const error = convertDeviceError(response.payload, {
+            silentMode: true,
+            vendor: EHardwareVendor.trezor,
+          });
           Toast.error({
             title:
               error.message ||
@@ -121,25 +160,40 @@ function TrezorBleBindingContent({
           return;
         }
 
-        setDevices(
-          buildTrezorBleBindingCandidates({
-            devices: response.payload as ITrezorBleBindingScannedDevice[],
-            usbConnectId,
-          }),
-        );
+        const candidates = buildTrezorBleBindingCandidates({
+          devices: response.payload as ITrezorBleBindingScannedDevice[],
+          usbConnectId,
+        });
+        setDevices(candidates);
 
-        if (pollsCompleted >= MAX_TRY_COUNT) {
+        if (
+          shouldShowTrezorScanTimeout({
+            pollsCompleted,
+            deviceCount: candidates.length,
+          })
+        ) {
           isSearchingRef.current = false;
+          deviceScanner.stopScan();
+          setScanTimedOut(true);
+        } else if (pollsCompleted >= TREZOR_SCAN_MAX_TRY_COUNT) {
+          isSearchingRef.current = false;
+          deviceScanner.stopScan();
         }
       },
       () => {},
       1,
-      1500,
-      MAX_TRY_COUNT,
+      TREZOR_SCAN_POLL_INTERVAL_MS,
+      TREZOR_SCAN_MAX_TRY_COUNT,
       EHardwareVendor.trezor,
-      { resetSession: true, waitForAllTransports: true },
+      { resetSession: true, transportType: 'ble' },
     );
   }, [deviceScanner, intl, usbConnectId]);
+
+  const handleRetryScan = useCallback(() => {
+    setDevices([]);
+    setScanTimedOut(false);
+    scanDevice();
+  }, [scanDevice]);
 
   const handlePick = useCallback(
     async (device: ITrezorBleBindingScannedDevice) => {
@@ -216,84 +270,99 @@ function TrezorBleBindingContent({
     };
   }, [scanDevice, stopScan]);
 
+  const emptyStateContent = scanTimedOut ? (
+    <YStack px="$5" py="$3" gap="$3">
+      <SizableText color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.trezor_ble_binding_scan_timeout__msg,
+        })}
+      </SizableText>
+      <Button
+        testID="trezor-ble-binding-retry"
+        variant="primary"
+        onPress={handleRetryScan}
+      >
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </YStack>
+  ) : (
+    <XStack px="$5" py="$3" gap="$3" alignItems="center">
+      <Spinner size="small" />
+      <SizableText color="$textSubdued" flex={1}>
+        {intl.formatMessage({
+          id: ETranslations.trezor_ble_binding_searching__desc,
+        })}
+      </SizableText>
+    </XStack>
+  );
+
   return (
     <YStack gap="$5">
-      {platformEnv.isDesktopWin ? (
-        <WindowsBluetoothIllustrationViews view="paring" />
-      ) : (
-        <MacBluetoothIllustrationViews view="paring" />
-      )}
+      <TrezorBleBindingIllustration />
       <SizableText size="$bodyMdMedium">
         {intl.formatMessage({
-          id: ETranslationsMock.trezor_ble_binding_desc,
+          id: ETranslations.trezor_ble_binding__desc,
         })}
       </SizableText>
       <YStack gap="$2">
         <PairingGuideStep
           number={1}
           text={intl.formatMessage({
-            id: ETranslationsMock.trezor_ble_binding_guide_unlock,
+            id: ETranslations.trezor_ble_binding_guide_unlock__desc,
           })}
         />
         <PairingGuideStep
           number={2}
           text={intl.formatMessage({
-            id: ETranslationsMock.trezor_ble_binding_guide_pair,
+            id: ETranslations.trezor_ble_binding_guide_pair__desc,
           })}
         />
-        <PairingGuideStep
-          number={3}
-          text={intl.formatMessage({
-            id: ETranslationsMock.trezor_ble_binding_guide_select,
-          })}
-        />
+        {platformEnv.isNative ? null : (
+          <PairingGuideStep
+            number={3}
+            text={intl.formatMessage({
+              id: ETranslations.trezor_ble_binding_guide_select__desc,
+            })}
+          />
+        )}
       </YStack>
       <YStack mx="$-5" minHeight="$20">
-        {devices.length === 0 ? (
-          <XStack px="$5" py="$3" gap="$3" alignItems="center">
-            <Spinner size="small" />
-            <SizableText color="$textSubdued" flex={1}>
-              {intl.formatMessage({
-                id: ETranslationsMock.trezor_ble_binding_searching,
-              })}
-            </SizableText>
-          </XStack>
-        ) : (
-          devices.map((device) => {
-            const { isBinding, isRejected, disabled, drillIn, opacity } =
-              getTrezorBleBindingCandidateState({
-                connectId: device.connectId,
-                bindingId,
-                rejectedConnectIds,
-              });
-            return (
-              <ListItem
-                key={device.connectId}
-                drillIn={drillIn}
-                disabled={disabled}
-                opacity={opacity}
-                onPress={async () => {
-                  await handlePick(device);
-                }}
-                userSelect="none"
-              >
-                <WalletAvatar wallet={undefined} img="trezor" />
-                <ListItem.Text
-                  primary={device.name}
-                  secondary={
-                    isRejected
-                      ? intl.formatMessage({
-                          id: ETranslations.hardware_connect_failed,
-                        })
-                      : undefined
-                  }
-                  flex={1}
-                />
-                {isBinding ? <Spinner size="small" /> : null}
-              </ListItem>
-            );
-          })
-        )}
+        {devices.length === 0
+          ? emptyStateContent
+          : devices.map((device) => {
+              const { isBinding, isRejected, disabled, drillIn, opacity } =
+                getTrezorBleBindingCandidateState({
+                  connectId: device.connectId,
+                  bindingId,
+                  rejectedConnectIds,
+                });
+              return (
+                <ListItem
+                  key={device.connectId}
+                  drillIn={drillIn}
+                  disabled={disabled}
+                  opacity={opacity}
+                  onPress={async () => {
+                    await handlePick(device);
+                  }}
+                  userSelect="none"
+                >
+                  <WalletAvatar wallet={undefined} img="trezor" />
+                  <ListItem.Text
+                    primary={device.name}
+                    secondary={
+                      isRejected
+                        ? intl.formatMessage({
+                            id: ETranslations.hardware_connect_failed,
+                          })
+                        : undefined
+                    }
+                    flex={1}
+                  />
+                  {isBinding ? <Spinner size="small" /> : null}
+                </ListItem>
+              );
+            })}
       </YStack>
     </YStack>
   );
@@ -304,7 +373,7 @@ export function showTrezorBleBindingDialog({
   ...params
 }: ITrezorBleBindingParams) {
   return Dialog.show({
-    title: ETranslationsMock.trezor_ble_binding_title,
+    title: ETranslations.trezor_ble_binding__title,
     showFooter: false,
     renderContent: <TrezorBleBindingContent {...params} />,
     onClose,

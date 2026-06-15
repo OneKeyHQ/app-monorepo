@@ -3,10 +3,6 @@ import {
   ORPHAN_ELIGIBLE_ERROR_CODES,
   HardwareErrorCode as ThirdPartyHwErrorCode,
 } from '@onekeyfe/hwk-adapter-core/errors';
-import type {
-  ChainForFingerprint,
-  ICommonCallParams,
-} from '@onekeyfe/hwk-adapter-core';
 import { chunk, isNil, range, uniqBy } from 'lodash';
 
 import { clearHdCredentialDecryptCache } from '@onekeyhq/core/src/secret';
@@ -73,7 +69,6 @@ import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkEr
 import {
   type IThirdPartyAllNetworkAddressParams,
   attachLedgerAllNetworkFingerprints,
-  attachTrezorAllNetworkPassphraseState,
   normalizeThirdPartyAllNetworkBundle,
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
@@ -88,6 +83,10 @@ import type {
 import type { IThirdPartyHardwareAdapter } from '../ServiceHardware/adapters/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import type {
+  ChainForFingerprint,
+  ICommonCallParams,
+} from '@onekeyfe/hwk-adapter-core';
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
@@ -1064,15 +1063,6 @@ class ServiceBatchCreateAccount extends ServiceBase {
               attachLedgerAllNetworkFingerprints({
                 bundle: bundleParams,
                 settingsRaw: deviceParams.dbDevice.settingsRaw,
-              });
-            }
-            if (
-              thirdPartyAllNetworkAdapter?.vendor === EHardwareVendor.trezor
-            ) {
-              attachTrezorAllNetworkPassphraseState({
-                bundle: bundleParams,
-                passphraseState:
-                  deviceParams.deviceCommonParams?.passphraseState,
               });
             }
             hwAllNetworkPrepareAccountsResponse.bundleLength =

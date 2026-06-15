@@ -1,8 +1,10 @@
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   buildThirdPartyDeviceSettingsFromDevice,
   buildThirdPartyFeaturesInfoFromDevice,
+  buildTrezorDesktopBleUsbConnectId,
   clearTrezorThpSettingsRaw,
 } from './LocalDbBase';
 
@@ -181,5 +183,37 @@ describe('buildThirdPartyDeviceSettingsFromDevice', () => {
       vendorModelName: 'Safe 5',
       vendorFirmwareVersion: '2.10.0',
     });
+  });
+});
+
+describe('buildTrezorDesktopBleUsbConnectId', () => {
+  it('uses firmware device_id as usbConnectId only for Trezor Desktop BLE', () => {
+    expect(
+      buildTrezorDesktopBleUsbConnectId({
+        vendor: EHardwareVendor.trezor,
+        transportType: EHardwareTransportType.DesktopWebBle,
+        rawDeviceId: 'TREZOR-FEATURES-DEVICE-ID',
+      }),
+    ).toBe('TREZOR-FEATURES-DEVICE-ID');
+  });
+
+  it('does not set usbConnectId for Trezor native BLE', () => {
+    expect(
+      buildTrezorDesktopBleUsbConnectId({
+        vendor: EHardwareVendor.trezor,
+        transportType: EHardwareTransportType.BLE,
+        rawDeviceId: 'TREZOR-FEATURES-DEVICE-ID',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('does not affect non-Trezor hardware', () => {
+    expect(
+      buildTrezorDesktopBleUsbConnectId({
+        vendor: EHardwareVendor.onekey,
+        transportType: EHardwareTransportType.DesktopWebBle,
+        rawDeviceId: 'ONEKEY-DEVICE-ID',
+      }),
+    ).toBeUndefined();
   });
 });

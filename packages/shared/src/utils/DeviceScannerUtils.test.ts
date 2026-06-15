@@ -226,4 +226,32 @@ describe('DeviceScannerUtils', () => {
     await flushMicrotasks();
     scanner.stopScan();
   });
+
+  it('passes transportType to hardware search when requested', async () => {
+    const search = createDeferred<Success<SearchDevice[]>>();
+    const searchDevices = jest.fn(() => search.promise);
+    const scanner = createScanner(searchDevices);
+
+    scanner.startDeviceScan(
+      jest.fn(),
+      jest.fn(),
+      1,
+      60_000,
+      1,
+      EHardwareVendor.trezor,
+      { resetSession: true, transportType: 'ble' },
+    );
+    await flushMicrotasks();
+
+    expect(searchDevices).toHaveBeenCalledWith({
+      vendor: EHardwareVendor.trezor,
+      resetSession: true,
+      waitForAllTransports: undefined,
+      transportType: 'ble',
+    });
+
+    search.resolve(successResponse('trezor'));
+    await flushMicrotasks();
+    scanner.stopScan();
+  });
 });

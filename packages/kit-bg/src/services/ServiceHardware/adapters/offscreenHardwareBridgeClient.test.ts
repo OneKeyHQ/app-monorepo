@@ -1,7 +1,8 @@
-import { OffscreenHardwareBridgeClient } from './offscreenHardwareBridgeClient';
-
+/* eslint-disable @typescript-eslint/unbound-method */
 import offscreenApiProxy from '../../../offscreens/instance/offscreenApiProxy';
 import { onOffscreenEvent } from '../../../offscreens/offscreenEventBus';
+
+import { OffscreenHardwareBridgeClient } from './offscreenHardwareBridgeClient';
 
 import type { IOffscreenEventMap } from '../../../offscreens/offscreenEventBus';
 

@@ -12,6 +12,7 @@ type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
 type IDeviceScanOptions = {
   resetSession?: boolean;
   waitForAllTransports?: boolean;
+  transportType?: 'usb' | 'ble';
 };
 type IDeviceScannerBackgroundApi = {
   serviceHardware: {
@@ -19,6 +20,7 @@ type IDeviceScannerBackgroundApi = {
       vendor?: EHardwareVendor;
       resetSession?: boolean;
       waitForAllTransports?: boolean;
+      transportType?: 'usb' | 'ble';
     }) => Promise<ISearchResponse>;
   };
 };
@@ -72,6 +74,7 @@ export class DeviceScannerUtils {
                 vendor,
                 resetSession: shouldResetSession,
                 waitForAllTransports: options?.waitForAllTransports,
+                transportType: options?.transportType,
               }
             : undefined,
         )

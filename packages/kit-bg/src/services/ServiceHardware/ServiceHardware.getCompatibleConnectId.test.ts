@@ -119,4 +119,68 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       }),
     ).resolves.toBe('BLE_ID');
   });
+
+  it('rejects a stored third-party connectId before initializing OneKey SDK', async () => {
+    mockedLocalDb.getDeviceByQuery.mockResolvedValue({
+      id: 'db-device-1',
+      connectId: 'USB_ID',
+      usbConnectId: 'USB_ID',
+      deviceId: 'FEATURES_DEVICE_ID',
+      vendor: EHardwareVendor.trezor,
+      name: 'Trezor Safe 7',
+      features: '{}',
+      settingsRaw: '{}',
+      createdAt: 0,
+      updatedAt: 0,
+    } as IDBDevice);
+
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.checkSdkVersionValid = jest.fn();
+
+    await expect(
+      service.getSDKInstance({
+        connectId: 'USB_ID',
+      }),
+    ).rejects.toThrow(
+      'ServiceHardware SDK is OneKey-only; connectId "USB_ID" belongs to third-party vendor "trezor". Use ServiceThirdPartyHardware instead.',
+    );
+  });
+
+  it('keeps OneKey standard wallet EVM address lookup on empty passphrase', async () => {
+    const evmGetAddress = jest.fn().mockResolvedValue({
+      success: true,
+      payload: {
+        address: '0xOneKeyStandardAddress',
+      },
+    });
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    service.getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    service.getSDKInstance = jest.fn().mockResolvedValue({
+      evmGetAddress,
+    } as unknown as Awaited<ReturnType<ServiceHardware['getSDKInstance']>>);
+
+    await expect(
+      service.getEvmAddressByStandardWallet({
+        connectId: 'ONEKEY_USB',
+        deviceId: 'ONEKEY_DEVICE_ID',
+        path: "m/44'/60'/0'/0/0",
+        vendor: EHardwareVendor.onekey,
+      }),
+    ).resolves.toBe('0xOneKeyStandardAddress');
+
+    expect(evmGetAddress).toHaveBeenCalledWith(
+      'ONEKEY_USB',
+      'ONEKEY_DEVICE_ID',
+      {
+        path: "m/44'/60'/0'/0/0",
+        showOnOneKey: false,
+        useEmptyPassphrase: true,
+        passphraseState: undefined,
+      },
+    );
+  });
 });

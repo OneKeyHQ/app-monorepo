@@ -36,6 +36,7 @@ export type TrezorChangePinParams = { remove?: boolean };
 export type IThirdPartyHardwareSearchOptions = {
   resetSession?: boolean;
   waitForAllTransports?: boolean;
+  transportType?: 'usb' | 'ble';
 };
 
 export type IThirdPartyConnectedDevicePayload = {
@@ -96,15 +97,6 @@ export interface IThirdPartyHardwareAdapter {
   ): Promise<Response<IThirdPartyConnectedDevicePayload>>;
   disconnect(connectId: string): Promise<void>;
   reset(): void;
-
-  /**
-   * Trezor-only: resolve or verify the passphrase wallet identity. Standard
-   * wallets return null; hidden wallets return the passphraseState.
-   */
-  getPassphraseState?(
-    connectId: string,
-    passphraseState?: string,
-  ): Promise<Response<string | null>>;
 
   deviceSettings?(
     connectId: string,

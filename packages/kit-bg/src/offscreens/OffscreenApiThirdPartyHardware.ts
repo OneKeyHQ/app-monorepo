@@ -242,7 +242,7 @@ export default class OffscreenApiThirdPartyHardware implements IHardwareBridge {
     credentials: unknown[];
   }): Promise<void> {
     const connector = await this.getConnector(params.vendor);
-    connector.setKnownCredentials?.(params.credentials);
+    await connector.setKnownCredentials?.(params.credentials);
   }
 
   /**

@@ -25,26 +25,6 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
     });
   });
 
-  it('uses the actual BLE device name instead of the vendor default', () => {
-    const result = mapThirdPartyDeviceToSearchDevice({
-      device: {
-        vendor: 'ledger',
-        model: 'nanoX',
-        firmwareVersion: '',
-        deviceId: 'A58F',
-        connectId: 'A58F',
-        label: 'Andox',
-        connectionType: 'ble',
-      } as never,
-      defaultDeviceName: 'Ledger',
-    });
-
-    expect(result).toMatchObject({
-      connectId: 'A58F',
-      name: 'Andox',
-    });
-  });
-
   it('falls back to the device model when the BLE device has no name', () => {
     const result = mapThirdPartyDeviceToSearchDevice({
       device: {

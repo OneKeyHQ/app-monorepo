@@ -1,7 +1,5 @@
 import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
 
-import type { SearchDevice } from '@onekeyfe/hd-core';
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -9,7 +7,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
@@ -20,16 +18,16 @@ import {
   EThirdPartyHardwareUiAction,
   thirdPartyHardwareUiStateAtom,
 } from '../../states/jotai/atoms';
+import {
+  buildTrezorBleFallbackOptions,
+  callTrezorWithBleFallback,
+} from '../../vaults/base/trezorTransportUtils';
 import ServiceBase from '../ServiceBase';
 import {
   type IThirdPartyVendor,
   thirdPartyHardwareAdapterRegistry,
 } from '../ServiceHardware/adapters/thirdPartyHardwareAdapterRegistry';
 import { mapThirdPartyDeviceToSearchDevice } from '../ServiceHardware/thirdPartyDeviceMapping';
-import {
-  buildTrezorBleFallbackOptions,
-  callTrezorWithBleFallback,
-} from '../../vaults/base/trezorTransportUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDBDevice } from '../../dbs/local/types';
@@ -38,6 +36,7 @@ import type {
   IThirdPartyConnectedDevicePayload,
   IThirdPartyHardwareAdapter,
 } from '../ServiceHardware/adapters/types';
+import type { SearchDevice } from '@onekeyfe/hd-core';
 
 type IThirdPartySearchDevicesResponse =
   | {
@@ -57,7 +56,7 @@ type IThirdPartySearchDevicesResponse =
 
 function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
   return new OneKeyLocalError({
-    key: ETranslationsMock.third_party_hw_adapter_not_registered,
+    key: ETranslations.third_party_hw_adapter_not_registered__msg,
     info: { vendor },
   });
 }
@@ -213,7 +212,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
     if (!adapter) {
       throw new OneKeyLocalError({
-        key: ETranslationsMock.trezor_adapter_not_available,
+        key: ETranslations.trezor_adapter_not_available__msg,
       });
     }
 
@@ -424,10 +423,10 @@ class ServiceThirdPartyHardware extends ServiceBase {
     dbDevice?: IDBDevice;
   }): Promise<string | null> {
     const adapter = await this.getAdapterForVendor(EHardwareVendor.trezor);
-    const getPassphraseState = adapter?.hw.getPassphraseState;
+    const getPassphraseState = adapter?.hw.getPassphraseState?.bind(adapter.hw);
     if (!getPassphraseState) {
       throw new OneKeyLocalError({
-        key: ETranslationsMock.trezor_passphrase_state_not_supported,
+        key: ETranslations.trezor_passphrase_state_not_supported__msg,
       });
     }
     // Mirror the signing path: resolve the passphrase state with USB→BLE
@@ -465,7 +464,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       );
     }
     throw new OneKeyLocalError({
-      key: ETranslationsMock.trezor_get_passphrase_state_failed,
+      key: ETranslations.trezor_get_passphrase_state_failed__msg,
     });
   }
 
@@ -563,15 +562,17 @@ class ServiceThirdPartyHardware extends ServiceBase {
         payload: {
           code: Number.isFinite(rawCode) ? rawCode : -1,
           error: err?.message ?? String(error),
-          params: typeof permissionDeniedReason === 'string'
-            ? {
-                permissionDeniedReason,
-              }
-            : undefined,
+          params:
+            typeof permissionDeniedReason === 'string'
+              ? {
+                  permissionDeniedReason,
+                }
+              : undefined,
         },
       };
     }
   }
+
   @backgroundMethod()
   async thirdPartyHardwareUiResponse(params: {
     vendor: EHardwareVendor;

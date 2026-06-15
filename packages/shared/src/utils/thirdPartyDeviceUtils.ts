@@ -93,7 +93,7 @@ function getKnownStringField(
   return value && value.toLowerCase() !== 'unknown' ? value : undefined;
 }
 
-function isPersistableFeatureValue(
+function isPersistedFeatureValue(
   value: unknown,
 ): value is string | number | boolean {
   return (
@@ -109,7 +109,7 @@ function copyAllowedFeatureFields(
 ) {
   for (const field of PERSISTED_FEATURE_FIELD_ALLOWLIST) {
     const value = source?.[field];
-    if (isPersistableFeatureValue(value)) {
+    if (isPersistedFeatureValue(value)) {
       target[field] = value;
     }
   }
@@ -237,6 +237,19 @@ function isTrezorBleSupportedDevice(device?: IThirdPartyDeviceLike): boolean {
   return isTrezorBleSupportedModel(getDeviceSettings(device)?.vendorModel);
 }
 
+function isTrezorBleBindingSupportedPlatform({
+  isDesktop,
+  isSupportDesktopBle,
+}: {
+  isDesktop?: boolean;
+  isSupportDesktopBle?: boolean;
+}): boolean {
+  if (typeof isSupportDesktopBle === 'boolean') {
+    return isSupportDesktopBle;
+  }
+  return isDesktop === true;
+}
+
 function getDeviceModelName({
   device,
   features,
@@ -284,6 +297,7 @@ export default {
   getFirmwareType,
   getSerialNo,
   isBtcOnlyFirmware,
+  isTrezorBleBindingSupportedPlatform,
   isTrezorBleSupportedDevice,
   isTrezorBleSupportedModel,
 };

@@ -10,7 +10,12 @@ export function thirdPartyCommonCallParamsForCreateScene(scene: {
 
 export function thirdPartyPassphraseParamsFromDeviceParams(
   deviceParams: IDeviceSharedCallParams | undefined,
-): { passphraseState?: string } {
+): { passphraseState?: string; useEmptyPassphrase?: boolean } {
   const passphraseState = deviceParams?.deviceCommonParams?.passphraseState;
-  return passphraseState ? { passphraseState } : {};
+  const useEmptyPassphrase =
+    deviceParams?.deviceCommonParams?.useEmptyPassphrase;
+  return {
+    ...(passphraseState ? { passphraseState } : {}),
+    ...(useEmptyPassphrase !== undefined ? { useEmptyPassphrase } : {}),
+  };
 }

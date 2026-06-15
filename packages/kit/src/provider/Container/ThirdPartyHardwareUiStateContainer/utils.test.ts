@@ -9,8 +9,9 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   buildThirdPartyHardwareUiResponse,
-  createTrezorBleBindingDialogCallbacks,
   cancelThirdPartyHardwareUiRequest,
+  clearThirdPartyHardwareUiStateIfCurrent,
+  createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
@@ -77,6 +78,27 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
         save: true,
       },
     });
+  });
+
+  it('does not clear a newer Trezor UI request when an older request finishes', async () => {
+    const passphraseState: IThirdPartyHardwareUiState = {
+      action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+      vendor: EHardwareVendor.trezor,
+      payload: { connectId: 'trezor-connect-id' },
+    };
+    const confirmOnDeviceState: IThirdPartyHardwareUiState = {
+      action: EThirdPartyHardwareUiAction.confirmOnDevice,
+      vendor: EHardwareVendor.trezor,
+    };
+    const setState = jest.fn(async () => undefined);
+
+    await clearThirdPartyHardwareUiStateIfCurrent({
+      expectedState: passphraseState,
+      getState: () => confirmOnDeviceState,
+      setState,
+    });
+
+    expect(setState).not.toHaveBeenCalled();
   });
 
   it('sends the declined UI response and clears state when a request dialog is cancelled', async () => {

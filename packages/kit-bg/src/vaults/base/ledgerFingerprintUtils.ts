@@ -1,5 +1,5 @@
-import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 import { failure } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

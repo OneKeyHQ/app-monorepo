@@ -1,5 +1,7 @@
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 type IDeviceConnectionInfo = {
@@ -13,6 +15,23 @@ type IDeviceConnectionInfo = {
   };
   settingsRaw?: string;
 };
+
+export const TREZOR_AUTO_LOCK_OPTIONS = [
+  { minute: 1 },
+  { minute: 5 },
+  { minute: 10 },
+  { minute: 20 },
+  { minute: 30 },
+  { hour: 1 },
+  { day: 1 },
+  { day: 6 },
+] as const;
+
+export function getTrezorAutoLockOptionsMs() {
+  return TREZOR_AUTO_LOCK_OPTIONS.map((option) =>
+    timerUtils.getTimeDurationMs(option),
+  );
+}
 
 export function canOpenDeviceManagementDetails(
   vendor: EHardwareVendor | undefined,
@@ -46,8 +65,13 @@ export function buildDeviceDetailsVisibility({
 
 export function canShowTrezorBleBinding(
   device: IDeviceConnectionInfo | undefined,
+  platform: {
+    isDesktop?: boolean;
+    isSupportDesktopBle?: boolean;
+  } = platformEnv,
 ) {
   return (
+    thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platform) &&
     device?.vendor === EHardwareVendor.trezor &&
     Boolean(device.connectId) &&
     Boolean(device.deviceId) &&

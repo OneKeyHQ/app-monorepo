@@ -92,16 +92,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
               dbDevice,
               'evm',
               (deviceId) =>
-                adapter.hw.evmGetAddress(
-                  dbDevice.connectId,
-                  deviceId,
-                  {
-                    path,
-                    showOnDevice: params.isVerifyAddressAction ?? false,
-                  },
-                  // per-call HW options derived from the account-creation scene
-                  ledgerCommonCallParamsForCreateScene(params),
-                ),
+                adapter.hw.evmGetAddress(dbDevice.connectId, deviceId, {
+                  path,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                  ...ledgerCommonCallParamsForCreateScene(params),
+                }),
             );
             if (result.success) {
               address = result.payload.address;

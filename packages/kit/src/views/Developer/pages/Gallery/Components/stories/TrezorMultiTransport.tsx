@@ -230,7 +230,7 @@ const TrezorMultiTransportTester = () => {
     // Warm-load any persisted credentials so a previously-paired device
     // autoconnects on every transport.
     if (storedCredentialsRef.current.length && connector.setKnownCredentials) {
-      connector.setKnownCredentials(storedCredentialsRef.current);
+      void connector.setKnownCredentials(storedCredentialsRef.current);
       append(
         `warm-loaded ${storedCredentialsRef.current.length} stored credential(s) → both transports should autoconnect`,
       );

@@ -6,7 +6,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
-import { ETranslations } from '../../locale';
+import { ETranslations, ETranslationsMock } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -133,6 +133,32 @@ export class ThirdPartyUserAborted extends ThirdPartyHardwareError {
   }
 
   override code = ThirdPartyHwErrorCode.UserAborted;
+}
+
+export class ThirdPartyPinInvalid extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.enter_pin_invalid_pin,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.PinInvalid;
+}
+
+export class ThirdPartyPinCancelled extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.feedback_pin_verification_cancelled,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.PinCancelled;
 }
 
 export class ThirdPartyInstallAppUserCancelled extends ThirdPartyHardwareError {
@@ -282,6 +308,25 @@ export class ThirdPartyBlePairingTimeout extends ThirdPartyHardwareError {
 }
 
 /**
+ * The OS-level BLE bond is stale/invalid (device wiped/re-flashed or unpaired
+ * elsewhere), so the device rejected link encryption (Android status 5 /
+ * iOS peer removed pairing). The app cannot remove an OS bond — tell the user to
+ * forget the device in system Bluetooth settings and re-pair.
+ */
+export class ThirdPartyBleBondInvalid extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslationsMock.trezor_ble_bond_invalid__msg,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override code = ThirdPartyHwErrorCode.BleBondInvalid;
+}
+
+/**
  * Trezor THP pairing handshake was rejected by the device — typically a
  * mistyped CodeEntry code ("Unexpected Code Entry Tag"). Recoverable: the user
  * re-pairs and re-enters the code. Distinct from BlePairingTimeout (BLE bonding
@@ -363,6 +408,20 @@ export class ThirdPartyPassphraseEnabled extends ThirdPartyHardwareError {
   override code = ThirdPartyHwErrorCode.MethodNotSupported;
 }
 
+export class ThirdPartyPassphraseStateMismatch extends ThirdPartyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps & { vendor?: string }) {
+    super(
+      normalizeErrorProps(props, {
+        defaultKey: ETranslations.hardware_third_party_device_mismatch,
+        defaultAutoToast: true,
+      }),
+    );
+    this.vendor = props?.vendor;
+  }
+
+  override code = ThirdPartyHwErrorCode.PassphraseStateMismatch;
+}
+
 /** Fallback for unrecognized errors */
 export class ThirdPartyUnknownError extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
@@ -391,6 +450,7 @@ export class ThirdPartyDeviceNotFound extends ThirdPartyHardwareError {
     if (!props?.silentMode) {
       appEventBus.emit(EAppEventBusNames.ShowHardwareErrorDialog, {
         errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        vendor: props?.vendor,
         errorCode: props?.payload?.code || ThirdPartyHwErrorCode.DeviceNotFound,
         errorMessage:
           props?.payload?.message || props?.message || 'DeviceNotFound',

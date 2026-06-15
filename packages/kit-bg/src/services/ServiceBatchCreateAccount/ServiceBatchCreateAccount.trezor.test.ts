@@ -1,5 +1,6 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import ServiceBatchCreateAccount, {
@@ -47,6 +48,17 @@ jest.mock('../../dbs/local/localDb', () => ({
 }));
 
 describe('ServiceBatchCreateAccount Trezor all-network', () => {
+  const originalIsDesktop = platformEnv.isDesktop;
+  const originalIsSupportDesktopBle = platformEnv.isSupportDesktopBle;
+
+  afterEach(() => {
+    (platformEnv as { isDesktop: boolean | undefined }).isDesktop =
+      originalIsDesktop;
+    (
+      platformEnv as { isSupportDesktopBle: boolean | undefined }
+    ).isSupportDesktopBle = originalIsSupportDesktopBle;
+  });
+
   it('reads Ledger chain fingerprint from deviceIdentity before legacy fields', () => {
     expect(
       getLedgerAllNetworkDeviceIdentity({
@@ -112,6 +124,9 @@ describe('ServiceBatchCreateAccount Trezor all-network', () => {
   });
 
   it('requests BLE binding and retries all-network get-address when USB transport is down', async () => {
+    (platformEnv as { isDesktop: boolean }).isDesktop = true;
+    (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle =
+      true;
     const dbDevice = {
       id: 'db-device-1',
       connectId: 'USB_CONNECT_ID',

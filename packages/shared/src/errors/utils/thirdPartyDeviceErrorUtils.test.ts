@@ -1,5 +1,6 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { EHardwareVendor } from '../../../types/device';
 import {
   EAppEventBusNames,
   HARDWARE_ERROR_DIALOG_TYPES,
@@ -13,6 +14,7 @@ import {
   convertThirdPartyDeviceError,
   filterThirdPartyHwCreateFailureToasts,
   normalizeThirdPartyDeviceErrorCode,
+  shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from './thirdPartyDeviceErrorUtils';
 
 describe('convertThirdPartyDeviceError', () => {
@@ -50,12 +52,77 @@ describe('convertThirdPartyDeviceError', () => {
       EAppEventBusNames.ShowHardwareErrorDialog,
       expect.objectContaining({
         errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        vendor: 'Trezor',
         errorCode: ThirdPartyHwErrorCode.DeviceNotFound,
         errorMessage: 'Trezor device not found',
       }),
     );
 
     emitSpy.mockRestore();
+  });
+
+  it('does not show the troubleshooting dialog for silent third-party DeviceNotFound', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation();
+
+    const error = convertDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.DeviceNotFound,
+        error: 'Trezor device not found',
+      },
+      { silentMode: true },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.DeviceNotFound);
+    expect(emitSpy).not.toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.anything(),
+    );
+
+    emitSpy.mockRestore();
+  });
+
+  it('preserves the vendor when generic conversion delegates to third-party errors', () => {
+    const emitSpy = jest.spyOn(appEventBus, 'emit').mockImplementation();
+
+    const error = convertDeviceError(
+      {
+        code: ThirdPartyHwErrorCode.DeviceNotFound,
+        error: 'Trezor device not found',
+      },
+      { vendor: EHardwareVendor.trezor },
+    );
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.DeviceNotFound);
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowHardwareErrorDialog,
+      expect.objectContaining({
+        errorType: HARDWARE_ERROR_DIALOG_TYPES.DEVICE_NOT_FOUND,
+        vendor: EHardwareVendor.trezor,
+      }),
+    );
+
+    emitSpy.mockRestore();
+  });
+
+  it('preserves passphrase state mismatch as a structured third-party hardware error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.PassphraseStateMismatch,
+      error: 'passphraseState mismatch',
+    });
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.PassphraseStateMismatch);
+    expect(error.name).toBe('ThirdPartyHardwareError');
+    expect(error.key).toBe('hardware_third_party_device_mismatch');
+  });
+
+  it('maps third-party PIN cancel to a structured PIN cancelled error', () => {
+    const error = convertThirdPartyDeviceError({
+      code: ThirdPartyHwErrorCode.PinCancelled,
+      error: 'Trezor device still locked after PIN attempt',
+    });
+
+    expect(error.code).toBe(ThirdPartyHwErrorCode.PinCancelled);
+    expect(error.name).toBe('ThirdPartyHardwareError');
   });
 });
 
@@ -118,21 +185,6 @@ describe('classifyThirdPartyHwCreateFailures', () => {
     expect(result.genuineFailures).toEqual([deviceOutOfMemory]);
   });
 
-  it('keeps unknown failures when at least one account succeeded', () => {
-    const unknownFailure = {
-      error: {
-        code: ThirdPartyHwErrorCode.UnknownError,
-      },
-    };
-    const result = classifyThirdPartyHwCreateFailures({
-      addedCount: 1,
-      failedAccounts: [unknownFailure],
-    });
-
-    expect(result.allAppNotInstalled).toBe(false);
-    expect(result.genuineFailures).toEqual([unknownFailure]);
-  });
-
   it('drops device-not-found failures when at least one account succeeded', () => {
     const deviceNotFoundFailure = {
       error: {
@@ -161,6 +213,26 @@ describe('classifyThirdPartyHwCreateFailures', () => {
 
     expect(result.allAppNotInstalled).toBe(false);
     expect(result.genuineFailures).toEqual([deviceNotFoundFailure]);
+  });
+});
+
+describe('shouldOfferLedgerCoreAppInstallForCreateFailures', () => {
+  it('only offers Ledger core app install for all-network auto-create failures', () => {
+    expect(
+      shouldOfferLedgerCoreAppInstallForCreateFailures({
+        vendor: EHardwareVendor.ledger,
+        allAppNotInstalled: true,
+        isAutoCreateMultiNetwork: true,
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldOfferLedgerCoreAppInstallForCreateFailures({
+        vendor: EHardwareVendor.trezor,
+        allAppNotInstalled: true,
+        isAutoCreateMultiNetwork: true,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -9,9 +9,9 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useStatefulAction } from '@onekeyhq/kit/src/hooks/useStatefulAction';
 import {
+  useDeviceAtom,
   useDeviceAutoLockDelayMsAtom,
   useDeviceAutoShutDownDelayMsAtom,
-  useDeviceAtom,
   useDeviceDetailsActions,
   useDeviceHapticFeedbackAtom,
   useDeviceLanguageAtom,
@@ -32,17 +32,10 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
 
+import { TREZOR_AUTO_LOCK_OPTIONS } from './utils';
+
 const NEVER_LOCK_VALUE = 268_435_456;
 const LOCKED_VALUE = 0;
-const TREZOR_AUTO_LOCK_OPTIONS = [
-  { seconds: 10 },
-  { seconds: 30 },
-  { minute: 1 },
-  { minute: 5 },
-  { minute: 10 },
-  { minute: 30 },
-  { hour: 1 },
-];
 
 function getDurationLabel({
   intl,
@@ -51,21 +44,21 @@ function getDurationLabel({
   intl: ReturnType<typeof useIntl>;
   option: (typeof TREZOR_AUTO_LOCK_OPTIONS)[number];
 }) {
-  if (option.seconds) {
+  if ('minute' in option) {
     return intl.formatMessage(
-      { id: ETranslations.earn_number_seconds },
-      { number: option.seconds },
+      { id: ETranslations.earn_number_minutes },
+      { number: option.minute },
     );
   }
-  if (option.hour) {
+  if ('hour' in option) {
     return intl.formatMessage(
       { id: ETranslations.earn_number_hours },
       { number: option.hour },
     );
   }
   return intl.formatMessage(
-    { id: ETranslations.earn_number_minutes },
-    { number: option.minute },
+    { id: ETranslations.earn_number_days },
+    { number: option.day },
   );
 }
 

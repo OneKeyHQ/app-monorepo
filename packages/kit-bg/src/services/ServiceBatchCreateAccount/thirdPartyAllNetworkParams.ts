@@ -30,7 +30,17 @@ function getShowOnDevice(item: AllNetworkAddressParams): boolean | undefined {
 function normalizeItem(
   item: AllNetworkAddressParams,
 ): IThirdPartyAllNetworkAddressParams {
-  const normalized: IThirdPartyAllNetworkAddressParams = { ...item };
+  const {
+    autoInstallApp: _autoInstallApp,
+    passphraseState: _passphraseState,
+    useEmptyPassphrase: _useEmptyPassphrase,
+    ...itemParams
+  } = item as AllNetworkAddressParams & {
+    autoInstallApp?: boolean;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
+  };
+  const normalized: IThirdPartyAllNetworkAddressParams = { ...itemParams };
   const showOnDevice = getShowOnDevice(item);
 
   if (showOnDevice !== undefined) {
@@ -55,24 +65,6 @@ export function normalizeThirdPartyAllNetworkBundle(
   bundle: AllNetworkAddressParams[],
 ): IThirdPartyAllNetworkAddressParams[] {
   return bundle.map(normalizeItem);
-}
-
-export function attachTrezorAllNetworkPassphraseState({
-  bundle,
-  passphraseState,
-}: {
-  bundle: AllNetworkAddressParams[];
-  passphraseState?: string;
-}): boolean {
-  if (!passphraseState) {
-    return false;
-  }
-  for (const item of bundle) {
-    (
-      item as AllNetworkAddressParams & { passphraseState?: string }
-    ).passphraseState = passphraseState;
-  }
-  return true;
 }
 
 export function shouldUseThirdPartyAllNetworkGetAddress({

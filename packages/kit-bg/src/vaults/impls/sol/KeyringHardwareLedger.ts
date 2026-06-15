@@ -88,16 +88,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             dbDevice,
             'sol',
             (deviceId) =>
-              adapter.hw.solGetAddress(
-                dbDevice.connectId,
-                deviceId,
-                {
-                  path,
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                },
-                // per-call HW options derived from the account-creation scene
-                ledgerCommonCallParamsForCreateScene(params),
-              ),
+              adapter.hw.solGetAddress(dbDevice.connectId, deviceId, {
+                path,
+                showOnDevice: params.isVerifyAddressAction ?? false,
+                ...ledgerCommonCallParamsForCreateScene(params),
+              }),
           );
 
           let address: string | null = null;

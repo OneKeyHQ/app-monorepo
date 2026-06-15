@@ -350,12 +350,11 @@ function DeviceManagementV2ListWeb() {
           ? deviceDetectStatus?.toVersion
           : undefined;
         item.firmwareTypeBadge = firmwareTypeBadge;
-        const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType(
-          {
+        const firmwareTypeLabel =
+          deviceUtils.getFirmwareTypeLabelByFirmwareType({
             firmwareType: firmwareTypeBadge,
             displayFormat: 'withSpace',
-          },
-        );
+          });
         item.firmwareVersionDisplay = `${firmwareTypeLabel}v${
           deviceVersion.firmwareVersion ?? '-'
         }`;

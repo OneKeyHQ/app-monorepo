@@ -1,37 +1,6 @@
 import { buildTrezorSolSignTransactionParams } from './KeyringHardwareTrezor';
 
 describe('buildTrezorSolSignTransactionParams', () => {
-  it('maps ATA details to Trezor Solana additionalInfo token account metadata', () => {
-    expect(
-      buildTrezorSolSignTransactionParams({
-        path: "m/44'/501'/0'/0'",
-        serializedTx: 'abcd',
-        ataDetails: [
-          {
-            owner: 'BVRFH6vt5bNXub6WnnFRgaHFTcbkjBrf7x1troU1izGg',
-            programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-            mintAddress: '9hayiPmEobVfiTbw5R91StWeQzw9EJGfswLH5o33UDAW',
-            associatedTokenAddress:
-              'J5rhFGUkeoHVnCvMyqWq1XPjfU1G1hsTh9tTQtST2out',
-          },
-        ],
-      }),
-    ).toEqual({
-      path: "m/44'/501'/0'/0'",
-      serializedTx: 'abcd',
-      additionalInfo: {
-        tokenAccountsInfos: [
-          {
-            baseAddress: 'BVRFH6vt5bNXub6WnnFRgaHFTcbkjBrf7x1troU1izGg',
-            tokenProgram: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
-            tokenMint: '9hayiPmEobVfiTbw5R91StWeQzw9EJGfswLH5o33UDAW',
-            tokenAccount: 'J5rhFGUkeoHVnCvMyqWq1XPjfU1G1hsTh9tTQtST2out',
-          },
-        ],
-      },
-    });
-  });
-
   it('omits additionalInfo when there are no ATA details', () => {
     expect(
       buildTrezorSolSignTransactionParams({

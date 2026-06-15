@@ -244,7 +244,8 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     // A BLE-only Trezor: the USB primary fails transport-down, so passphrase
     // state resolution must retry over the bound bleConnectId (same as signing).
     (platformEnv as { isDesktop: boolean }).isDesktop = true;
-    (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle = true;
+    (platformEnv as { isSupportDesktopBle: boolean }).isSupportDesktopBle =
+      true;
 
     const getPassphraseState = jest
       .fn()
@@ -255,7 +256,10 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
           error: 'DeviceNotFound',
         },
       })
-      .mockResolvedValueOnce({ success: true, payload: 'PASSPHRASE_STATE_BLE' });
+      .mockResolvedValueOnce({
+        success: true,
+        payload: 'PASSPHRASE_STATE_BLE',
+      });
     const adapter = {
       hw: { getPassphraseState },
     } as unknown as IThirdPartyHardwareAdapter;
@@ -280,8 +284,16 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       service.getTrezorPassphraseState({ connectId: 'TREZOR-USB', dbDevice }),
     ).resolves.toBe('PASSPHRASE_STATE_BLE');
 
-    expect(getPassphraseState).toHaveBeenNthCalledWith(1, 'TREZOR-USB', undefined);
-    expect(getPassphraseState).toHaveBeenNthCalledWith(2, 'TREZOR-BLE', undefined);
+    expect(getPassphraseState).toHaveBeenNthCalledWith(
+      1,
+      'TREZOR-USB',
+      undefined,
+    );
+    expect(getPassphraseState).toHaveBeenNthCalledWith(
+      2,
+      'TREZOR-BLE',
+      undefined,
+    );
   });
 
   it('throws converted SDK failures when resolving Trezor passphraseState', async () => {

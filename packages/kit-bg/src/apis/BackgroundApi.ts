@@ -16,6 +16,7 @@ import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 
 class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   constructor() {
@@ -463,7 +464,7 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceThirdPartyHardware() {
+  get serviceThirdPartyHardware(): ServiceThirdPartyHardware {
     const Service =
       require('../services/ServiceThirdPartyHardware') as typeof import('../services/ServiceThirdPartyHardware');
     const value = new Service.default({

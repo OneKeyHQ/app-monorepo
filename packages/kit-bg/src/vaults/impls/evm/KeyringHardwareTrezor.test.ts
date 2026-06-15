@@ -1,3 +1,4 @@
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import {
@@ -201,6 +202,57 @@ describe('KeyringHardwareTrezor personal message signing', () => {
       }),
     );
   });
+});
+
+describe('KeyringHardwareTrezor unsupported message signing', () => {
+  it.each([EMessageTypesEth.ETH_SIGN, EMessageTypesEth.TYPED_DATA_V1])(
+    'rejects %s with a third-party unsupported error and device-facing reason',
+    async (type) => {
+      const keyring = Object.assign(
+        Object.create(KeyringHardwareTrezor.prototype),
+        {
+          backgroundApi: {
+            serviceThirdPartyHardware: {
+              getAdapterForVendor: jest.fn().mockResolvedValue({ hw: {} }),
+            },
+          },
+          vault: {
+            getAccountPath: jest.fn().mockResolvedValue("m/44'/60'/0'/0/0"),
+          },
+        },
+      ) as KeyringHardwareTrezor;
+
+      const signPromise = (
+        keyring as unknown as {
+          _handleSignMessage: (...args: unknown[]) => Promise<string>;
+        }
+      )._handleSignMessage(
+        { type, message: 'hello' },
+        {
+          dbDevice: {
+            connectId: 'USB_ID',
+            deviceId: 'FEATURES_DEVICE_ID',
+          },
+        },
+      );
+
+      await expect(signPromise).rejects.toBeInstanceOf(
+        ThirdPartyMethodNotSupported,
+      );
+      await expect(signPromise).rejects.toMatchObject({
+        name: 'ThirdPartyHardwareError',
+        code: 10_004,
+        message: expect.stringContaining(
+          `Trezor does not support EVM ${type} message signing`,
+        ),
+        payload: expect.objectContaining({
+          message: expect.stringContaining(
+            `Trezor does not support EVM ${type} message signing`,
+          ),
+        }),
+      });
+    },
+  );
 });
 
 describe('KeyringHardwareTrezor typed-data signing', () => {

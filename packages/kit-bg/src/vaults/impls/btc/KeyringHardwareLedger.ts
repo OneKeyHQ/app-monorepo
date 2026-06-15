@@ -105,15 +105,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               dbDevice,
               'btc',
               (deviceId) =>
-                adapter.hw.btcGetPublicKey(
-                  dbDevice.connectId,
-                  deviceId,
-                  {
-                    path: accountPath,
-                    showOnDevice: params.isVerifyAddressAction ?? false,
-                  },
-                  ledgerCommonCallParamsForCreateScene(params),
-                ),
+                adapter.hw.btcGetPublicKey(dbDevice.connectId, deviceId, {
+                  path: accountPath,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                  ...ledgerCommonCallParamsForCreateScene(params),
+                }),
             ));
 
           if (!pubKeyResult.success) {

@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import {
   buildHardwareEvmTransaction,
@@ -14,7 +15,7 @@ import type {
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -42,15 +43,17 @@ import type {
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
-type ITrezorEvmSignMessageParams =
-  Parameters<IThirdPartyHardwareAdapter['hw']['evmSignMessage']>[2] & {
-    chainId: number;
-  };
+type ITrezorEvmSignMessageParams = Parameters<
+  IThirdPartyHardwareAdapter['hw']['evmSignMessage']
+>[2] & {
+  chainId: number;
+};
 
-type ITrezorEvmSignTypedDataParams =
-  Parameters<IThirdPartyHardwareAdapter['hw']['evmSignTypedData']>[2] & {
-    chainId: number;
-  };
+type ITrezorEvmSignTypedDataParams = Parameters<
+  IThirdPartyHardwareAdapter['hw']['evmSignTypedData']
+>[2] & {
+  chainId: number;
+};
 
 export function buildTrezorEvmSignTransactionPayload({
   chainId,
@@ -236,16 +239,22 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     message: IUnsignedMessageEth,
     deviceParams: NonNullable<ISignMessageParams['deviceParams']>,
   ): Promise<string> {
-    const { dbDevice } = deviceParams;
-    const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
-    const path = await this.vault.getAccountPath();
-
     if (
       message.type === EMessageTypesEth.TYPED_DATA_V1 ||
       message.type === EMessageTypesEth.ETH_SIGN
     ) {
-      throw new NotImplemented();
+      const reason = `Trezor does not support EVM ${message.type} message signing`;
+      throw new ThirdPartyMethodNotSupported({
+        payload: {
+          code: ThirdPartyHwErrorCode.MethodNotSupported,
+          message: reason,
+        },
+      });
     }
+
+    const { dbDevice } = deviceParams;
+    const adapter = await getTrezorAdapterFromBackgroundApi(this.backgroundApi);
+    const path = await this.vault.getAccountPath();
 
     if (message.type === EMessageTypesEth.PERSONAL_SIGN) {
       return this._signPersonalMessage(

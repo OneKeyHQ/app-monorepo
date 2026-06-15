@@ -3,8 +3,8 @@ import { ThirdPartyMethodNotSupported } from '@onekeyhq/shared/src/errors/errors
 
 import {
   buildTrezorTronContract,
-  buildTrezorTronSignedRawTx,
   buildTrezorTronSignTransactionParams,
+  buildTrezorTronSignedRawTx,
 } from './KeyringHardwareTrezor';
 
 describe('buildTrezorTronContract', () => {

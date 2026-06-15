@@ -40,7 +40,6 @@ import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
 
 import type VaultBtc from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
-import type { IThirdPartyHardwareAdapter } from '../../../services/ServiceHardware/adapters/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
   IHwSdkNetwork,
@@ -49,10 +48,9 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import type { BtcGetAddressParams } from '@onekeyfe/hwk-adapter-core';
 
-type ITrezorBtcScriptType = NonNullable<
-  Parameters<IThirdPartyHardwareAdapter['hw']['btcGetAddress']>[2]['scriptType']
->;
+type ITrezorBtcScriptType = NonNullable<BtcGetAddressParams['scriptType']>;
 
 export function getTrezorBtcScriptTypeFromPath(
   path: string,
@@ -340,6 +338,9 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
                 adapter.hw.btcGetMasterFingerprint(
                   connectId,
                   dbDevice.deviceId,
+                  thirdPartyPassphraseParamsFromDeviceParams(
+                    params.deviceParams,
+                  ),
                 ),
               this.getBleFallbackOptions(),
             );

@@ -34,7 +34,7 @@ const TREZOR_THP_MODULE_REDACTED_DATA_KEY_VALUES = new Set([
   'passphrase',
 ]);
 
-export const sanitizeTrezorThpModuleLogValue = (
+const sanitizeTrezorThpModuleLogValue = (
   key: string,
   value: unknown,
 ): unknown => {

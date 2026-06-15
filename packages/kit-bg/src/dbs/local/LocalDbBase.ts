@@ -238,6 +238,25 @@ export function clearTrezorThpSettingsRaw(settingsRaw: string | undefined) {
   return JSON.stringify(settings);
 }
 
+export function buildTrezorDesktopBleUsbConnectId({
+  vendor,
+  transportType,
+  rawDeviceId,
+}: {
+  vendor: EHardwareVendor;
+  transportType?: EHardwareTransportType;
+  rawDeviceId?: string;
+}): string | undefined {
+  if (
+    vendor === EHardwareVendor.trezor &&
+    transportType === EHardwareTransportType.DesktopWebBle &&
+    rawDeviceId
+  ) {
+    return rawDeviceId;
+  }
+  return undefined;
+}
+
 function getExtraDeviceFieldString(
   device: IDBCreateHwWalletParams['device'],
   field:
@@ -3404,7 +3423,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       features,
       vendor,
     });
-    let isUpdated = false;
     await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
       await this.txUpdateRecords({
         tx,
@@ -3414,17 +3432,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const newFeatures = stringUtils.stableStringify(featuresInfo);
           if (item.features !== newFeatures) {
             item.features = newFeatures;
-            isUpdated = true;
           }
           return item;
         },
       });
     });
-    if (isUpdated) {
-      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
-        deviceId: device.id,
-      });
-    }
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
   }
 
   async updateDeviceFeaturesLabel({
@@ -4300,7 +4315,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();
-            const uuid = getDeviceUUID(features);
+            const uuid =
+              buildTrezorDesktopBleUsbConnectId({
+                vendor: resolvedVendor,
+                transportType,
+                rawDeviceId,
+              }) || getDeviceUUID(features);
             compatibleConnectId = uuid;
             usbConnectId = uuid;
           }

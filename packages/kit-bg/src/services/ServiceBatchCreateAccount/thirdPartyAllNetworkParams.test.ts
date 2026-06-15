@@ -6,7 +6,6 @@ import { LEDGER_BTC_FAMILY_NETWORKS } from '@onekeyhq/shared/src/hardware/ledger
 import { normalizeAllNetworkInstallCancelErrors } from './thirdPartyAllNetworkErrors';
 import {
   attachLedgerAllNetworkFingerprints,
-  attachTrezorAllNetworkPassphraseState,
   normalizeThirdPartyAllNetworkBundle,
   shouldUseThirdPartyAllNetworkGetAddress,
 } from './thirdPartyAllNetworkParams';
@@ -126,53 +125,22 @@ describe('normalizeThirdPartyAllNetworkBundle', () => {
     expect((bundle[1] as { deviceId?: string }).deviceId).toBeUndefined();
   });
 
-  it('attaches Trezor passphraseState to every all-network item for hidden wallets', () => {
-    const bundle: AllNetworkAddressParams[] = [
-      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
-      { network: 'btc', path: "m/84'/0'/0'", showOnOneKey: false },
-    ];
+  it('keeps request-level common params out of normalized all-network items', () => {
+    const [item] = normalizeThirdPartyAllNetworkBundle([
+      {
+        network: 'evm',
+        path: "m/44'/60'/0'/0/0",
+        showOnOneKey: false,
+        passphraseState: 'aabbccdd',
+        useEmptyPassphrase: true,
+        autoInstallApp: false,
+      } as AllNetworkAddressParams,
+    ]);
 
-    const result = attachTrezorAllNetworkPassphraseState({
-      bundle,
-      passphraseState: 'aabbccdd',
-    });
-
-    expect(result).toBe(true);
-    expect(
-      bundle.map(
-        (item) => (item as { passphraseState?: string }).passphraseState,
-      ),
-    ).toEqual(['aabbccdd', 'aabbccdd']);
-  });
-
-  it('leaves Trezor standard-wallet all-network items unchanged', () => {
-    const bundle: AllNetworkAddressParams[] = [
-      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
-    ];
-
-    const result = attachTrezorAllNetworkPassphraseState({ bundle });
-
-    expect(result).toBe(false);
-    expect(
-      (bundle[0] as { passphraseState?: string }).passphraseState,
-    ).toBeUndefined();
-  });
-
-  it('preserves Trezor passphraseState when normalizing all-network items', () => {
-    const bundle: AllNetworkAddressParams[] = [
-      { network: 'evm', path: "m/44'/60'/0'/0/0", showOnOneKey: false },
-    ];
-    attachTrezorAllNetworkPassphraseState({
-      bundle,
-      passphraseState: 'aabbccdd',
-    });
-
-    const [item] = normalizeThirdPartyAllNetworkBundle(bundle);
-
-    expect((item as { passphraseState?: string }).passphraseState).toBe(
-      'aabbccdd',
-    );
     expect(item.methodName).toBe('evmGetAddress');
+    expect(item).not.toHaveProperty('passphraseState');
+    expect(item).not.toHaveProperty('useEmptyPassphrase');
+    expect(item).not.toHaveProperty('autoInstallApp');
   });
 });
 

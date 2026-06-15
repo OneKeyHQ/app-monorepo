@@ -4,6 +4,7 @@ import {
   buildDeviceDetailsVisibility,
   canOpenDeviceManagementDetails,
   canShowTrezorBleBinding,
+  getTrezorAutoLockOptionsMs,
 } from './utils';
 
 describe('DeviceDetailsModal utils', () => {
@@ -47,39 +48,75 @@ describe('DeviceDetailsModal utils', () => {
 
   it('shows Trezor BLE binding only before a BLE connectId is bound on BLE capable models', () => {
     expect(
-      canShowTrezorBleBinding({
-        vendor: EHardwareVendor.trezor,
-        connectId: 'USB_ID',
-        deviceId: 'FEATURES_DEVICE_ID',
-        settings: {
-          vendorModel: 'T3W1',
-          vendorModelName: 'Safe 7',
+      canShowTrezorBleBinding(
+        {
+          vendor: EHardwareVendor.trezor,
+          connectId: 'USB_ID',
+          deviceId: 'FEATURES_DEVICE_ID',
+          settings: {
+            vendorModel: 'T3W1',
+            vendorModelName: 'Safe 7',
+          },
         },
-      }),
+        { isDesktop: true },
+      ),
     ).toBe(true);
 
     expect(
-      canShowTrezorBleBinding({
-        vendor: EHardwareVendor.trezor,
-        connectId: 'USB_ID',
-        deviceId: 'FEATURES_DEVICE_ID',
-        bleConnectId: 'BLE_ID',
-        settings: {
-          vendorModel: 'T3W1',
+      canShowTrezorBleBinding(
+        {
+          vendor: EHardwareVendor.trezor,
+          connectId: 'USB_ID',
+          deviceId: 'FEATURES_DEVICE_ID',
+          bleConnectId: 'BLE_ID',
+          settings: {
+            vendorModel: 'T3W1',
+          },
         },
-      }),
+        { isDesktop: true },
+      ),
     ).toBe(false);
 
     expect(
-      canShowTrezorBleBinding({
-        vendor: EHardwareVendor.trezor,
-        connectId: 'USB_ID',
-        deviceId: 'FEATURES_DEVICE_ID',
-        settings: {
-          vendorModel: 'Safe 5',
-          vendorModelName: 'Safe 5',
+      canShowTrezorBleBinding(
+        {
+          vendor: EHardwareVendor.trezor,
+          connectId: 'USB_ID',
+          deviceId: 'FEATURES_DEVICE_ID',
+          settings: {
+            vendorModel: 'Safe 5',
+            vendorModelName: 'Safe 5',
+          },
         },
-      }),
+        { isDesktop: true },
+      ),
     ).toBe(false);
+
+    expect(
+      canShowTrezorBleBinding(
+        {
+          vendor: EHardwareVendor.trezor,
+          connectId: 'USB_ID',
+          deviceId: 'FEATURES_DEVICE_ID',
+          settings: {
+            vendorModel: 'T3W1',
+            vendorModelName: 'Safe 7',
+          },
+        },
+        { isDesktop: false },
+      ),
+    ).toBe(false);
+  });
+
+  it('uses Trezor Suite compatible auto-lock values', () => {
+    expect(getTrezorAutoLockOptionsMs()).toEqual([
+      60_000, 300_000, 600_000, 1_200_000, 1_800_000, 3_600_000, 86_400_000,
+      518_400_000,
+    ]);
+    expect(
+      getTrezorAutoLockOptionsMs().every(
+        (value) => value >= 60_000 && value <= 518_400_000,
+      ),
+    ).toBe(true);
   });
 });

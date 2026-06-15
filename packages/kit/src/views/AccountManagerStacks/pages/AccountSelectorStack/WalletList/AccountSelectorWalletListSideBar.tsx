@@ -33,12 +33,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import { shouldShowCreateHiddenWalletSidebarButtonForWallet } from '../../../components/WalletEdit/WalletEditButtonUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
@@ -312,47 +312,26 @@ export function AccountSelectorWalletListSideBar({
 
   const shouldShowCreateHiddenWalletButtonFn = useCallback(
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
-      let shouldShowCreateHiddenWalletButton = false;
       noop(reloadWalletsHook);
-      const isThirdPartyHwWallet = getVendorProfile(
-        wallet?.associatedDeviceInfo?.vendor,
-      ).isThirdParty;
-      if (
-        wallet &&
-        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        isEditableRouteParams &&
-        !wallet?.deprecated &&
-        settings.showAddHiddenInWalletSidebar
-      ) {
-        if (
-          accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          ((!isThirdPartyHwWallet &&
-            wallet?.associatedDeviceInfo?.featuresInfo
-              ?.passphrase_protection === true) ||
-            (wallet?.hiddenWallets?.length ?? 0) > 0)
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-
-        if (
-          accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          (wallet?.hiddenWallets?.length ?? 0) > 0
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-      }
-      return shouldShowCreateHiddenWalletButton;
+      if (!wallet) return false;
+      return shouldShowCreateHiddenWalletSidebarButtonForWallet({
+        isEditableRouteParams: !!isEditableRouteParams,
+        showAddHiddenInWalletSidebar: settings.showAddHiddenInWalletSidebar,
+        isDeprecated: wallet.deprecated,
+        isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+        isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet.id }),
+        isHwWallet: accountUtils.isHwWallet({
+          walletId: wallet.id,
+        }),
+        isQrWallet: accountUtils.isQrWallet({
+          walletId: wallet.id,
+        }),
+        hasPassphraseProtection:
+          wallet.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
+          true,
+        hiddenWalletsLength: wallet.hiddenWallets?.length ?? 0,
+        vendor: wallet.associatedDeviceInfo?.vendor,
+      });
     },
     [
       isEditableRouteParams,
