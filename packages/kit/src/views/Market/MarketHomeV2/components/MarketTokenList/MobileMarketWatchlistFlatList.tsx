@@ -38,7 +38,6 @@ import { MarketRecommendList } from '../MarketRecommendList';
 import { InlineActionBar } from './components/InlineActionBar';
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
-import { useMarketHomeTokenListWebSocket } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketWatchlistTokenList } from './hooks/useMarketWatchlistTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { useWatchlistFilteredGroups } from './hooks/useWatchlistFilteredGroups';
@@ -107,12 +106,6 @@ function MobileMarketWatchlistFlatListImpl({
   const filteredGroups = useWatchlistFilteredGroups(watchlistResult.data);
 
   const filteredData = filteredGroups[selectedFilter];
-  const liveFilteredData = useMarketHomeTokenListWebSocket({
-    tokens: filteredData,
-    enabled: Boolean(
-      enableWebSocket && watchlistState.isMounted && filteredData.length > 0,
-    ),
-  });
   const rowHeightsRef = useRef<Record<string, number>>({});
 
   const portalRef = useRef<IPortalManager | null>(null);
@@ -432,7 +425,7 @@ function MobileMarketWatchlistFlatListImpl({
   return (
     <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}
-      data={showSkeleton ? EMPTY_DATA : liveFilteredData}
+      data={showSkeleton ? EMPTY_DATA : filteredData}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       initialNumToRender={15}
@@ -442,7 +435,6 @@ function MobileMarketWatchlistFlatListImpl({
       onScrollBeginDrag={dismissInlineActionBar}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={contentContainerStyle}
-      extraData={liveFilteredData}
     />
   );
 }
