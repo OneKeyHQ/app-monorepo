@@ -779,7 +779,6 @@ class ServiceHardware extends ServiceBase {
       connectId: undefined,
     });
     const response = await hardwareSDK?.searchDevices();
-    console.log('searchDevices response: ', response);
     return response;
   }
 

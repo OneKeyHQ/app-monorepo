@@ -20,7 +20,6 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -52,20 +51,6 @@ enum EConnectionStatus {
   listing = 'listing',
 }
 
-function traceTrezorOnboarding(event: string, data?: Record<string, unknown>) {
-  let dataText = '';
-  if (data) {
-    try {
-      dataText = ` ${JSON.stringify(data)}`;
-    } catch {
-      dataText = ' {"stringifyError":true}';
-    }
-  }
-  defaultLogger.hardware.sdkLog.log(
-    `[TrezorOnboardingTrace][${event}]${dataText}`,
-  );
-}
-
 function DevicePlaceholder({ isBle }: { isBle: boolean }) {
   return (
     <Stack
@@ -93,34 +78,6 @@ function DevicePlaceholder({ isBle }: { isBle: boolean }) {
       )}
     </Stack>
   );
-}
-
-function getTrezorDeviceDebugPayload(device: IConnectYourDeviceItem['device']) {
-  const raw = (device as { raw?: Record<string, unknown> } | undefined)?.raw;
-  const vendorRaw = raw?.vendorRaw as
-    | { features?: { device_id?: unknown } }
-    | undefined;
-  return {
-    connectId: device?.connectId,
-    deviceId: device?.deviceId,
-    name: device?.name,
-    uuid: device?.uuid,
-    deviceType: device?.deviceType,
-    commType: device?.commType,
-    vendorModel: (device as { vendorModel?: string } | undefined)?.vendorModel,
-    vendorModelName: (device as { vendorModelName?: string } | undefined)
-      ?.vendorModelName,
-    rawConnectId: (raw as { connectId?: string } | undefined)?.connectId,
-    rawDeviceId: (raw as { deviceId?: string } | undefined)?.deviceId,
-    rawSerialNumber: (raw as { serialNumber?: string } | undefined)
-      ?.serialNumber,
-    rawConnectionType: (raw as { connectionType?: string } | undefined)
-      ?.connectionType,
-    rawVendorFeaturesDeviceId:
-      typeof vendorRaw?.features?.device_id === 'string'
-        ? vendorRaw.features.device_id
-        : undefined,
-  };
 }
 
 function getTrezorDeviceTransportLabel(
@@ -194,8 +151,6 @@ export default function TrezorConnectionFlow() {
   const [isCheckingDeviceLoading, setIsChecking] = useState(false);
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const isSearchingRef = useRef(false);
-  const currentPollStartedAtRef = useRef<number | undefined>(undefined);
-  const searchSequenceRef = useRef(0);
 
   const deviceScanner = useMemo(
     () =>
@@ -219,27 +174,14 @@ export default function TrezorConnectionFlow() {
     }
 
     let pollsCompleted = 0;
-    const scanStartedAt = Date.now();
     const transportType = getTrezorSearchTransportType(forceTransportType);
 
     isSearchingRef.current = true;
     setScanTimedOut(false);
-    searchSequenceRef.current = 0;
     deviceScanner.startDeviceScan(
       (response) => {
         pollsCompleted += 1;
-        const pollDurationMs =
-          typeof currentPollStartedAtRef.current === 'number'
-            ? Date.now() - currentPollStartedAtRef.current
-            : undefined;
         if (!response.success) {
-          traceTrezorOnboarding('flow.scan.response', {
-            success: false,
-            poll: pollsCompleted,
-            pollDurationMs,
-            totalDurationMs: Date.now() - scanStartedAt,
-            payload: response.payload,
-          });
           const error = convertDeviceError(response.payload, {
             vendor: EHardwareVendor.trezor,
           });
@@ -264,18 +206,6 @@ export default function TrezorConnectionFlow() {
             b.name || b.connectId || b.deviceId || b.uuid,
           ),
         );
-        traceTrezorOnboarding('flow.scan.response', {
-          success: true,
-          poll: pollsCompleted,
-          pollDurationMs,
-          totalDurationMs: Date.now() - scanStartedAt,
-          count: sortedDevices.length,
-        });
-        traceTrezorOnboarding('flow.scan.sorted', {
-          devices: sortedDevices.map((device) =>
-            getTrezorDeviceDebugPayload(device),
-          ),
-        });
 
         setSearchedDevices(sortedDevices);
 
@@ -289,10 +219,6 @@ export default function TrezorConnectionFlow() {
           setConnectStatus(EConnectionStatus.init);
           setScanTimedOut(true);
           deviceScanner.stopScan();
-          traceTrezorOnboarding('flow.scan.timeout', {
-            pollsCompleted,
-            totalDurationMs: Date.now() - scanStartedAt,
-          });
         } else if (pollsCompleted >= TREZOR_SCAN_MAX_TRY_COUNT) {
           isSearchingRef.current = false;
           deviceScanner.stopScan();
@@ -300,25 +226,6 @@ export default function TrezorConnectionFlow() {
       },
       (state) => {
         searchStateRef.current = state;
-        if (state === 'start') {
-          searchSequenceRef.current += 1;
-          currentPollStartedAtRef.current = Date.now();
-          traceTrezorOnboarding('flow.scan.poll.start', {
-            poll: searchSequenceRef.current,
-            vendor,
-            tabValue,
-            forceTransportType,
-            transportType,
-          });
-        } else {
-          traceTrezorOnboarding('flow.scan.poll.stop', {
-            poll: searchSequenceRef.current,
-            durationMs:
-              typeof currentPollStartedAtRef.current === 'number'
-                ? Date.now() - currentPollStartedAtRef.current
-                : undefined,
-          });
-        }
       },
       1,
       TREZOR_SCAN_POLL_INTERVAL_MS,
@@ -363,12 +270,6 @@ export default function TrezorConnectionFlow() {
     async (data: IConnectYourDeviceItem) => {
       if (!data.device) return;
       await ensureStopScan();
-      traceTrezorOnboarding('flow.select.route', {
-        title: data.title,
-        device: getTrezorDeviceDebugPayload(data.device),
-        vendor: EHardwareVendor.trezor,
-        tabValue,
-      });
 
       navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
         deviceData: {
@@ -404,10 +305,7 @@ export default function TrezorConnectionFlow() {
       setIsChecking(true);
       try {
         await promptWebUsbDeviceAccess(EHardwareVendor.trezor);
-      } catch (error) {
-        traceTrezorOnboarding('flow.webusb.permission.error', {
-          message: (error as Error)?.message ?? String(error),
-        });
+      } catch {
         if (!platformEnv.isDesktop) {
           setIsChecking(false);
           return;

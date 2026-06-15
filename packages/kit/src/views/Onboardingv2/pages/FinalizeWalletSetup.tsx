@@ -107,41 +107,6 @@ const fixErrorString = (errorMessage: string) => {
   return errorMessage;
 };
 
-function traceTrezorFinalize(event: string, data?: Record<string, unknown>) {
-  let dataText = '';
-  if (data) {
-    try {
-      dataText = ` ${JSON.stringify(data)}`;
-    } catch {
-      dataText = ' {"stringifyError":true}';
-    }
-  }
-  defaultLogger.hardware.sdkLog.log(
-    `[TrezorOnboardingTrace][${event}]${dataText}`,
-  );
-}
-
-function getTrezorFinalizeDeviceDebugPayload(device: SearchDevice | undefined) {
-  const raw = (device as { raw?: Record<string, unknown> } | undefined)?.raw;
-  return {
-    connectId: device?.connectId,
-    deviceId: device?.deviceId,
-    name: device?.name,
-    uuid: device?.uuid,
-    deviceType: device?.deviceType,
-    commType: device?.commType,
-    vendorModel: (device as { vendorModel?: string } | undefined)?.vendorModel,
-    vendorModelName: (device as { vendorModelName?: string } | undefined)
-      ?.vendorModelName,
-    rawConnectId: (raw as { connectId?: string } | undefined)?.connectId,
-    rawDeviceId: (raw as { deviceId?: string } | undefined)?.deviceId,
-    rawConnectionType: (raw as { connectionType?: string } | undefined)
-      ?.connectionType,
-    rawSerialNumber: (raw as { serialNumber?: string } | undefined)
-      ?.serialNumber,
-  };
-}
-
 function stringifyOptionalFailureField(value: unknown) {
   if (typeof value === 'string') {
     return value;
@@ -568,14 +533,6 @@ function FinalizeWalletSetupPage({
           // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
           // OneKey-side `addWalletStarted` + success/failure tracking here.
           let thirdPartyDevice = deviceData.device as SearchDevice;
-          if (deviceData.vendor === EHardwareVendor.trezor) {
-            traceTrezorFinalize('finalize.route.device', {
-              vendor: deviceData.vendor,
-              isFirmwareVerified,
-              tabValue: ledgerTabValue,
-              device: getTrezorFinalizeDeviceDebugPayload(thirdPartyDevice),
-            });
-          }
           if (deviceData.vendor === EHardwareVendor.ledger) {
             const ledgerConnectId = thirdPartyDevice?.connectId ?? '';
             const ensureResult = await ensureLedgerCoreAppsReady({
@@ -639,23 +596,6 @@ function FinalizeWalletSetupPage({
               deviceData.vendor === EHardwareVendor.trezor &&
               thirdPartyDevice.connectId
             ) {
-              traceTrezorFinalize('finalize.connect.start', {
-                vendor: deviceData.vendor,
-                connectId: thirdPartyDevice.connectId,
-                routeDeviceId: thirdPartyDevice.deviceId,
-                routeRawConnectId: (
-                  (thirdPartyDevice as { raw?: Record<string, unknown> })
-                    .raw as { connectId?: string } | undefined
-                )?.connectId,
-                routeRawDeviceId: (
-                  (thirdPartyDevice as { raw?: Record<string, unknown> })
-                    .raw as { deviceId?: string } | undefined
-                )?.deviceId,
-                routeRawSerialNumber: (
-                  (thirdPartyDevice as { raw?: Record<string, unknown> })
-                    .raw as { serialNumber?: string } | undefined
-                )?.serialNumber,
-              });
               const connected =
                 await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
                   {
@@ -663,26 +603,6 @@ function FinalizeWalletSetupPage({
                     connectId: thirdPartyDevice.connectId,
                   },
                 );
-              traceTrezorFinalize('finalize.connect.result', {
-                success: connected.success,
-                payload: connected.success
-                  ? {
-                      connectId: connected.payload.connectId,
-                      deviceId: connected.payload.deviceId,
-                      label: connected.payload.label,
-                      model: connected.payload.model,
-                      modelName: connected.payload.modelName,
-                      firmwareVersion: connected.payload.firmwareVersion,
-                      featuresDeviceId:
-                        typeof connected.payload.features?.device_id ===
-                        'string'
-                          ? connected.payload.features.device_id
-                          : undefined,
-                    }
-                  : {
-                      ...getTrezorConnectFailureDebugPayload(connected.payload),
-                    },
-              });
               const connectedFeatures = connected.success
                 ? connected.payload.features
                 : undefined;
@@ -729,26 +649,6 @@ function FinalizeWalletSetupPage({
                 vendorModel: connected.payload.model,
                 vendorModelName: connected.payload.modelName,
               } as SearchDevice;
-            }
-            const featuresForCreateDebug = featuresForCreate as
-              | (IOneKeyDeviceFeatures & {
-                  internal_model?: string;
-                  model?: string;
-                  label?: string;
-                })
-              | undefined;
-            if (deviceData.vendor === EHardwareVendor.trezor) {
-              traceTrezorFinalize('finalize.create.params', {
-                vendor: deviceData.vendor,
-                device: getTrezorFinalizeDeviceDebugPayload(thirdPartyDevice),
-                features: {
-                  device_id: featuresForCreateDebug?.device_id,
-                  vendor: featuresForCreateDebug?.vendor,
-                  internal_model: featuresForCreateDebug?.internal_model,
-                  model: featuresForCreateDebug?.model,
-                  label: featuresForCreateDebug?.label,
-                },
-              });
             }
             await actions.current.createHWWalletWithoutHidden({
               device: thirdPartyDevice,
