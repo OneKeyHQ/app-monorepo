@@ -254,9 +254,15 @@ function widenCompactFiat(compact: ICompactFiat, currency: string): ITokenFiat {
  * storage) so the T0 hydrate path is node-jest testable directly with a real
  * jotai store (spec §11.5).
  *
- * The structure carries the slim `gen`, so a later real structure frame with a
- * higher generation cleanly supersedes the hydrated one; apply's owner/identity
- * guards still hold.
+ * The cold paint is PROVISIONAL: after applying, `projection.curGeneration` is
+ * reset to -1 so the first real structure frame of THIS session supersedes it.
+ * The persisted `bundle.gen` is a generation from a PREVIOUS session and is NOT
+ * comparable to the live producer's counter — the BG `ServiceTokenViewModel`
+ * restarts its per-owner generation at -1 each process, so its first frame is
+ * gen 0. Leaving `curGeneration = bundle.gen` (which can be large) would make
+ * apply's generation guard DROP that gen-0 frame and pin the list to the stale
+ * cold snapshot for the whole session (same-account warm restart). Resetting to
+ * -1 lets gen 0 win; apply's owner/identity guards still hold.
  */
 export function fanOutSlimToApply(params: {
   store: IJotaiContextStore;
@@ -323,6 +329,12 @@ export function fanOutSlimToApply(params: {
     ownerKey: bundle.ownerKey,
   };
   applyValuationFrame(store, projection, valuation, deps, (fn) => fn());
+
+  // The cold paint is provisional (see the doc comment above). `bundle.gen` is
+  // from a previous session and is not comparable to the fresh live counter;
+  // reset so this session's first structure frame (BG VM starts at gen 0)
+  // supersedes the hydrated paint instead of being dropped by apply's gen guard.
+  projection.curGeneration = -1;
 }
 
 /**

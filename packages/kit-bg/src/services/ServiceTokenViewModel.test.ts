@@ -275,6 +275,90 @@ describe('ServiceTokenViewModel', () => {
     expect(unknown.valuationVersion).toBe(-1);
   });
 
+  it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {
+    const svc = makeService();
+    // round 1: a, b, c
+    svc.ingestRound(
+      makeRound({
+        orderedTokens: [makeToken('a'), makeToken('b'), makeToken('c')],
+        tokenListMap: {
+          a: makeFiat({ fiatValue: '3' }),
+          b: makeFiat({ fiatValue: '2' }),
+          c: makeFiat({ fiatValue: '1' }),
+        },
+      }),
+    );
+    // round 2: only a (b, c gone). A concat would keep b/c; a replace drops them.
+    svc.ingestRound(
+      makeRound({
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ fiatValue: '3' }) },
+      }),
+    );
+    const last = structureEmits().pop();
+    expect(last?.structure.orderedIds).toEqual(['a']);
+  });
+
+  it('evicts the LRU owner past the cap (8) while keeping the MRU owners + re-ingest re-creates an evicted owner', async () => {
+    const svc = makeService();
+    // Ingest 9 distinct owners; cap is 8, so the FIRST (owner0) is evicted.
+    for (let i = 0; i < 9; i += 1) {
+      svc.ingestRound(
+        makeRound({
+          ownerKey: `acc${i}__net`,
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ fiatValue: '1' }) },
+        }),
+      );
+    }
+    // owner0 was evicted: PULL is the empty (-1) result.
+    const evicted = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
+    expect(evicted.structureVersion).toBe(-1);
+    expect(evicted.structure).toBeUndefined();
+    // The MRU owner (owner8) is retained.
+    const retained = await svc.getTokenListFrames({ ownerKey: 'acc8__net' });
+    expect(retained.structureVersion).toBe(0);
+    expect(retained.structure?.orderedIds).toEqual(['a']);
+
+    // Re-ingesting the evicted owner re-creates its VM (fresh generation 0).
+    svc.ingestRound(
+      makeRound({
+        ownerKey: 'acc0__net',
+        orderedTokens: [makeToken('a')],
+        tokenListMap: { a: makeFiat({ fiatValue: '1' }) },
+      }),
+    );
+    const recreated = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
+    expect(recreated.structureVersion).toBe(0);
+    expect(recreated.structure?.orderedIds).toEqual(['a']);
+  });
+
+  it('touching an owner refreshes its MRU position so it survives a later eviction wave', async () => {
+    const svc = makeService();
+    // Seed owners 0..7 (fills the cap exactly).
+    for (let i = 0; i < 8; i += 1) {
+      svc.ingestRound(
+        makeRound({
+          ownerKey: `acc${i}__net`,
+          orderedTokens: [makeToken('a')],
+        }),
+      );
+    }
+    // Re-touch owner0 -> it becomes MRU (moves to the Map tail).
+    svc.ingestRound(
+      makeRound({ ownerKey: 'acc0__net', orderedTokens: [makeToken('a')] }),
+    );
+    // Ingest a NEW owner (owner8). The LRU is now owner1 (owner0 was refreshed).
+    svc.ingestRound(
+      makeRound({ ownerKey: 'acc8__net', orderedTokens: [makeToken('a')] }),
+    );
+    // owner0 survived (it was refreshed); owner1 was evicted.
+    const survived = await svc.getTokenListFrames({ ownerKey: 'acc0__net' });
+    expect(survived.structure?.orderedIds).toEqual(['a']);
+    const evicted = await svc.getTokenListFrames({ ownerKey: 'acc1__net' });
+    expect(evicted.structureVersion).toBe(-1);
+  });
+
   it('frame production is fully synchronous (no pending promises)', () => {
     const svc = makeService();
     const result: unknown = svc.ingestRound(

@@ -17,13 +17,18 @@ import {
   isAgg,
   metaEqual,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type { IStructureSnapshot } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
-import { buildApplyDeps, shallowEqualArray } from '../slc/apply';
+import {
+  applyStructureSnapshot,
+  buildApplyDeps,
+  shallowEqualArray,
+} from '../slc/apply';
 import { fanOutSlimToApply, hydrateSlcFromColdStart } from '../slc/coldStart';
 import {
   aggCell,
@@ -228,6 +233,54 @@ describe('fanOutSlimToApply', () => {
     expect(bundle.compactFiat.aggregate_agg1).toBeUndefined();
     // and the normal-cell registry has no aggregate entry.
     expect(projection.cells.has('aggregate_agg1')).toBe(false);
+  });
+});
+
+describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () => {
+  it('resets curGeneration so a fresh-session BG frame at gen 0 supersedes a HIGH-gen cold paint', () => {
+    const { store, ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+    // A high generation persisted from a PREVIOUS session. The live BG
+    // ServiceTokenViewModel restarts its per-owner counter at -1 each process,
+    // so its first frame this session is gen 0 — far below this value.
+    bundle.gen = 30;
+
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+
+    // Cold paint applied...
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([
+      'a',
+      'b',
+      'aggregate_agg1',
+    ]);
+    // ...but curGeneration is reset to -1 (provisional), NOT left at 30. Without
+    // this reset apply's generation guard would drop the gen-0 BG frame below.
+    expect(projection.curGeneration).toBe(-1);
+
+    // The fresh-session BG VM emits its first structure frame at gen 0 with a
+    // DIFFERENT order. It MUST supersede the stale cold paint.
+    const bgStructure: IStructureSnapshot = {
+      orderedIds: ['b', 'a'],
+      smallBalanceIds: [],
+      nonZeroIds: [],
+      metaPatch: {},
+      aggMembership: {},
+      smallBalanceFiatValue: '0',
+      storeData: STORE_DATA,
+      ownerKey: OWNER_KEY,
+      generation: 0,
+    };
+    applyStructureSnapshot(ctx, projection, bgStructure, deps);
+
+    // Superseded: list now reflects the live BG order, not the cold snapshot.
+    expect(store.get(listStructureAtom()).orderedIds).toEqual(['b', 'a']);
+    expect(projection.curGeneration).toBe(0);
   });
 });
 

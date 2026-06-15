@@ -113,8 +113,48 @@ class ServiceTokenViewModel extends ServiceBase {
     super({ backgroundApi });
   }
 
-  /** Per-owner view-model state. Lives in the BG heap; never persisted. */
+  /**
+   * Per-owner view-model state. Lives in the BG heap; never persisted.
+   * Insertion-ordered as a MRU: `ingestRound` re-inserts the touched owner at
+   * the tail, and a size overflow evicts the head (least-recently ingested) so
+   * the map cannot grow unbounded across owner switches (design §5 PR-2 step 4).
+   * Eviction is BG-memory only — a PULL for an evicted owner returns the empty
+   * (-1) result and the UI shell falls back to skeleton until the next round
+   * re-creates the owner VM.
+   */
   private vmByOwner: Map<string, IOwnerVM> = new Map();
+
+  /**
+   * MRU cap on `vmByOwner`. Bounds BG heap growth across owner switches; 8 is
+   * comfortably above the count of stores a single session paints concurrently
+   * (home + urlAccount + a transient switch target).
+   */
+  private static readonly OWNER_VM_CAP = 8;
+
+  /**
+   * Get-or-create the owner VM and mark it most-recently-used (re-insert at the
+   * Map tail). After a create, evict the LRU (head) owner(s) past the cap.
+   */
+  private touchOwnerVM(ownerKey: string): IOwnerVM {
+    let vm = this.vmByOwner.get(ownerKey);
+    if (vm) {
+      // Re-insert at the tail so this owner becomes MRU.
+      this.vmByOwner.delete(ownerKey);
+      this.vmByOwner.set(ownerKey, vm);
+      return vm;
+    }
+    vm = this.createOwnerVM(ownerKey);
+    this.vmByOwner.set(ownerKey, vm);
+    // Evict LRU owners (Map iteration order = insertion order = LRU-first).
+    while (this.vmByOwner.size > ServiceTokenViewModel.OWNER_VM_CAP) {
+      const lruKey = this.vmByOwner.keys().next().value;
+      if (lruKey === undefined || lruKey === ownerKey) {
+        break;
+      }
+      this.vmByOwner.delete(lruKey);
+    }
+    return vm;
+  }
 
   /** A fresh, empty owner VM (generation starts at -1, like the UI producer). */
   private createOwnerVM(ownerKey: string): IOwnerVM {
@@ -162,11 +202,12 @@ class ServiceTokenViewModel extends ServiceBase {
       return;
     }
 
-    let vm = this.vmByOwner.get(ownerKey);
-    if (!vm) {
-      vm = this.createOwnerVM(ownerKey);
-      this.vmByOwner.set(ownerKey, vm);
-    }
+    // Get-or-create + mark MRU + evict LRU past the cap. `ingestRound` REPLACES
+    // (not concats) the owner's slices each round: `buildFrames` takes the full
+    // current input and `vm.lastStructure` compares full-vs-full, so a coherent
+    // merged snapshot fed by the UI (design §5 PR-2 step 1) yields a structure
+    // frame that reflects the whole current list, not one incremental round.
+    const vm = this.touchOwnerVM(ownerKey);
 
     const input: IBuildFramesInput = {
       orderedTokens,

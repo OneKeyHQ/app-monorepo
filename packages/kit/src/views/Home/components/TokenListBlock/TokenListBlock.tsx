@@ -145,7 +145,7 @@ const networkIdsMap = getNetworkIdsMap();
  * is zero behavior change — the UI stays driven by `useTokenListSlcProducer` +
  * the legacy atoms. Cut-over (UI consuming the BG frames, H4 death) is PR-2.
  */
-const ENABLE_BG_TOKEN_VIEW_MODEL = false;
+const ENABLE_BG_TOKEN_VIEW_MODEL = true;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -1245,27 +1245,13 @@ function TokenListBlock({
           });
         }
 
-        // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
-        // 2). Hand this all-network round's settled slices to the BG view-model
-        // alongside the atom writes. No-op when the flag is OFF (the PR-1
-        // default), so there is zero behavior change. The all-network
-        // accumulation/merge living in the VM is future work (design §3); here
-        // we feed the per-round slices + this round's nested aggregate map.
-        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          backgroundApiProxy.serviceTokenViewModel.ingestRound({
-            ownerKey: slcIngestInputsRef.current.ownerKey,
-            orderedTokens: r.tokens.data,
-            smallBalanceTokens: r.smallBalanceTokens.data,
-            tokenListMap: mergedMap,
-            aggregateTokensMap: nestedAggregateTokensMap,
-            smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
-            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-            keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
-            homeDefaultTokenMap:
-              slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-            customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
-          });
-        }
+        // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). The
+        // per-round all-network ingestRound was REMOVED here: this round's
+        // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
+        // so feeding it would make the BG structure frame reflect a partial
+        // round. The all-network feed now happens ONCE, at the tail of the
+        // `allNetworksResult` consuming effect, after merge/dedup/sort/high-low
+        // split have produced the coherent full merged snapshot.
 
         refreshTokenListMap({
           tokens: mergedMap,
@@ -2130,6 +2116,32 @@ function TokenListBlock({
       refreshSmallBalanceTokensFiatValue({
         value: smallBalanceTokensFiatValue.toFixed(),
       });
+
+      // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
+      // view-model the COHERENT FULL merged snapshot this effect just produced —
+      // post merge/dedup ($key uniqBy) / sortTokensByFiatValue / zero-balance
+      // re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
+      // incremental round. `ingestRound` REPLACES the owner's slices each call,
+      // so `vm.lastStructure` compares full-vs-full and the structure frame
+      // reflects the whole current list. The legacy refresh* writes above remain
+      // the single source of merge truth during the transition window (PR-3
+      // removes the atom writers); the VM is fed the already-merged result, no
+      // duplicated merge logic in the VM yet (design §3 defers that).
+      if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+        backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          ownerKey: slcIngestInputsRef.current.ownerKey,
+          orderedTokens: tokenList.tokens,
+          smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
+          tokenListMap: mergeTokenListMap,
+          aggregateTokensMap: aggregateTokenMap,
+          smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
+          storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+          keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
+          homeDefaultTokenMap:
+            slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+          customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+        });
+      }
 
       refreshRiskyTokenList(riskyTokenList);
       refreshRiskyTokenListMap({

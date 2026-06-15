@@ -1,69 +1,60 @@
 /**
- * TokenList SLC — PRODUCER WIRING (spec §4.1, §6, §3.1 agg channel).
+ * TokenList SLC — Phase-2 RECEIVE SHELL (design §5 PR-2, cutover; spec §9).
  *
- * The single write path into `listStructureAtom` + the per-key cells (spec
- * §4.1: "唯一写入口 = producer 调 apply"). Phase-1 the producer lives on the
- * home `TokenListBlock`; this hook is what it mounts.
+ * H4 IS DEAD HERE. This hook NO LONGER observes the 5 settled atoms
+ * (tokenListAtom / smallBalanceTokenListAtom / tokenListMapAtom /
+ * aggregateTokensMapAtom / smallBalanceTokensFiatValueAtom) nor derives frames
+ * via buildFrames. The BG `ServiceTokenViewModel` now owns frame production; the
+ * UI is a thin receive shell that:
+ *   (a) subscribes to the two BG frame events FIRST,
+ *   (b) then PULLs the authoritative full frames via the @backgroundMethod
+ *       `getTokenListFrames` and applies them — SUBSCRIBE-THEN-PULL, the safe
+ *       variant of the "PULL-then-unsub" hard ordering invariant: a frame source
+ *       is ALWAYS live so the list never blanks (the cold-start T0 hydrate, run
+ *       earlier in the same component via `useTokenListSlcColdStartHydrate`, has
+ *       already painted the projection cells before this effect runs, and they
+ *       hold until the first PULL/push supersedes them at a higher generation),
+ *   (c) funnels both push + pull through the UNCHANGED apply contract
+ *       (`applyStructureSnapshot` / `applyValuationFrame`), re-stamping
+ *       `storeData` to THIS store so apply's identity guard passes,
+ *   (d) version-guards every apply: drop a structure frame/pull whose
+ *       structureVersion <= the last applied (== curGeneration semantics) and a
+ *       valuation frame/pull whose valuationVersion <= the last applied. A PULL
+ *       result that races an older/newer push is resolved by the same version
+ *       guard (higher version wins, lower is dropped), and a PULL that resolves
+ *       after a newer push has applied is dropped (its versions are <= applied).
  *
- * Design (Phase-1, mount-bound single writer — spec §2, §6):
- *   - The existing `refresh*` writers (refreshTokenList / refreshTokenListMap /
- *     refreshSmallBalance* / refreshAggregateTokensMap / refreshRisky* /
- *     refreshAllTokenList*) stay EXACTLY as they are; none are removed. They
- *     remain the whole-object source after each fetch round (risky /
- *     allTokenList intentionally untouched — the `ownerMismatch` gate reads
- *     `allTokenList.accountId/networkId`, spec §6).
- *   - This producer OBSERVES the already-settled atoms (`tokenListAtom`,
- *     `smallBalanceTokenListAtom`, `tokenListMapAtom`, `aggregateTokensMapAtom`,
- *     `smallBalanceTokensFiatValueAtom`) and, from the SAME fetch round those
- *     writers landed, derives a structure frame + a valuation frame via
- *     `buildFrames`, then calls `applyStructureSnapshot` / `applyValuationFrame`.
- *   - Observing the settled atoms (rather than rewriting all ~85 leading-edge
- *     refresh call sites individually) means the producer covers every refresh
- *     round — the `run` poll, the throttled all-network flush, clearAll, the
- *     local-cache hydrate, the main settle, and the cold-start hydrate — from a
- *     single seam, without touching the risky/allTokenList settle coupling.
- *   - Sorting stays in the UI for Phase-1 (spec §1, §6#4) but the structure
- *     derivation is THROTTLED (~500ms, trailing) so a price-tick storm does not
- *     re-derive ids on every tick. The valuation frame is applied promptly
- *     (cell writes are O(changed) via fiatEqual, spec §11.2).
- *   - structure frame ONLY on a structural change; a pure price tick yields no
- *     structure frame (`buildFrames` returns `structure: undefined`) so
- *     `listStructureAtom` stays low-frequency (spec §4.1).
+ * On a STRUCTURE apply (the projection it reads is now BG-fed) it persists the
+ * slim cold-start bundle — EXACTLY ONE writer per storeName (design D4,
+ * single-writer guard via the registry) so the cold-start double-authority
+ * revival cannot occur. NO BG slim write.
  *
- * The hook holds no business logic itself — all derivation is in the pure
- * `buildFrames` (spec §11.5); this is a thin jotai/React shell.
+ * The hook holds no business logic — all derivation lives in the BG VM +
+ * `buildFrames`; this is a thin jotai/React receive shell.
  */
 import { useEffect, useMemo, useRef } from 'react';
 
-import { useThrottledCallback } from 'use-debounce';
-
-import {
-  buildFrames,
-  metaByKeyFromTokens,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
-import type { IBuildFramesPrev } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   fiatEqual,
   isAgg,
   metaEqual,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
-import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type {
+  IStructureSnapshot,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   ICustomTokenItem,
   IHomeDefaultToken,
-  IToken,
-  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import {
-  aggregateTokensMapAtom,
-  listStructureAtom,
-  smallBalanceTokenListAtom,
-  smallBalanceTokensFiatValueAtom,
-  tokenListAtom,
-  tokenListMapAtom,
-  useTokenListContextData,
-} from '../atoms';
+import { listStructureAtom, useTokenListContextData } from '../atoms';
 
 import {
   applyStructureSnapshot,
@@ -82,47 +73,20 @@ import {
   resolveStoreData,
   subcell,
 } from './projection';
+import {
+  deregisterMountedStore,
+  isPrimaryColdStartWriter,
+  registerMountedStore,
+} from './registry';
 
+import type { IApplyDeps } from './apply';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 
-const STRUCTURE_THROTTLE_MS = 500;
-
 /**
- * Build the `IBuildFramesPrev` snapshot from the store's current
- * `listStructureAtom` + the cached scalar + the previously-applied metas.
- */
-function readPrev(
-  store: IJotaiContextStore,
-  prevScalar: string,
-  prevMetaByKey: Record<ITokenKey, IToken | undefined>,
-): IBuildFramesPrev {
-  const structure = store.get(listStructureAtom());
-  return {
-    structure: {
-      orderedIds: structure.orderedIds,
-      smallBalanceIds: structure.smallBalanceIds,
-      nonZeroIds: structure.nonZeroIds,
-      aggMembership: structure.aggMembership,
-      ownerKey: structure.ownerKey,
-      generation: structure.generation,
-    },
-    smallBalanceFiatValue: prevScalar,
-    metaByKey: prevMetaByKey,
-  };
-}
-
-/**
- * Producer hook. Call once from the home `TokenListBlock`, passing the current
- * `${accountId}__${networkId}` owner key and the current settings currency id.
- * Returns nothing — it wires the SLC apply path off the settled atoms and, on
- * each structural change, persists the slim cold-start bundle (spec §7 落盘).
- */
-/**
- * hideZero "keep default zero-balance" inputs (spec §8#2, PR-S Step 3). The
- * home producer threads these so the structure frame's `nonZeroIds` is the
- * AUTHORITATIVE hideZero membership (full 3-branch computeNonZeroIds), not
- * balance-only. They are read inside the throttled flush via refs so a change
- * to them does not rebuild the throttled callback.
+ * hideZero "keep default zero-balance" inputs (spec §8#2). Kept on the signature
+ * for call-site compatibility; in Phase-2 the BG VM owns the `nonZeroIds`
+ * authority (it receives these via `ingestRound`), so the receive shell does not
+ * read them — they are passed to the seam, not here.
  */
 export interface ITokenListSlcProducerNonZeroInputs {
   keepDefault?: boolean;
@@ -130,21 +94,37 @@ export interface ITokenListSlcProducerNonZeroInputs {
   customTokens?: ICustomTokenItem[];
 }
 
+/**
+ * Receive shell. Call once from the home `TokenListBlock`, passing the current
+ * `${accountId}__${networkId}` owner key and the settings currency id. The
+ * `nonZeroInputs` arg is retained for call-site compatibility (the seam feeds
+ * them to the BG VM); it is unused by this shell.
+ *
+ * `storeName` is the registry/cold-start key. When omitted it is resolved from
+ * the store's cold-start scope stamp (`resolveStoreData`), which is present for
+ * the home/urlAccount NAMED stores; an anonymous mount must pass it explicitly.
+ */
 export function useTokenListSlcProducer(
   ownerKey: string,
   currencyId: string,
-  nonZeroInputs?: ITokenListSlcProducerNonZeroInputs,
+  _nonZeroInputs?: ITokenListSlcProducerNonZeroInputs,
+  storeName?: string,
 ): void {
   const { store } = useTokenListContextData();
 
   // Stable deps bag bound to this store. `meta/cell/subcell/aggCell` resolve the
-  // SAME per-store projection the leaves read (via the WeakMap), so the producer
-  // and `useTokenFiat` share one cell registry.
-  const deps = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const s = store!;
+  // SAME per-store projection the leaves read (via the WeakMap), so the shell
+  // and `useTokenFiat` share one cell registry. `resolveCurrentStore` is bound
+  // to RETURN THIS STORE for THIS store's storeData so apply's identity guard
+  // passes even for an anonymous mount (not in jotaiContextStore.storeCache);
+  // a frame stamped for a different storeData still resolves through the real
+  // registry and is correctly dropped.
+  const deps = useMemo<IApplyDeps | undefined>(() => {
+    if (!store) {
+      return undefined;
+    }
     return buildApplyDeps({
-      store: s,
+      store,
       listStructureAtom: listStructureAtom(),
       resolveCurrentStore,
       fiatEqual,
@@ -159,127 +139,149 @@ export function useTokenListSlcProducer(
     });
   }, [store]);
 
-  // Previously-applied scalar + metas, for structure-change detection. Kept in
-  // refs because they are producer-internal bookkeeping, not render state.
-  const prevScalarRef = useRef<string>('0');
-  const prevMetaByKeyRef = useRef<Record<ITokenKey, IToken | undefined>>({});
-  // Current settings currency id, read inside the throttled flush via a ref so
-  // a currency switch doesn't need to rebuild the throttled callback. The slim
-  // cold-start bundle stores this currency for the T0 gate (spec §7, §3#3).
+  // Current settings currency id, read inside the handlers via a ref so a
+  // currency switch doesn't rebuild the subscription. The slim cold-start bundle
+  // stores this currency for the T0 gate (spec §7, §3#3).
   const currencyIdRef = useRef<string>(currencyId);
   currencyIdRef.current = currencyId;
 
-  // hideZero default-keep inputs, read inside the throttled flush via a ref so
-  // they don't rebuild the throttled callback (spec §8#2, PR-S Step 3).
-  const nonZeroInputsRef = useRef<ITokenListSlcProducerNonZeroInputs>(
-    nonZeroInputs ?? {},
-  );
-  nonZeroInputsRef.current = nonZeroInputs ?? {};
+  // Last-applied monotonic versions for the version guard. Reset to -1 on owner
+  // change so the new owner's first frame (which may start at a low generation)
+  // is not dropped.
+  const lastStructureVersionRef = useRef<number>(-1);
+  const lastValuationVersionRef = useRef<number>(-1);
 
-  // The actual derive+apply, run on the trailing edge of the throttle window so
-  // a price-tick storm coalesces into one structure derivation per ~500ms while
-  // the valuation cells still take every settled value (spec §1, §4.1).
-  const flush = useThrottledCallback(
-    () => {
-      // No owner yet (account/network not resolved) — nothing to project.
-      if (!ownerKey) {
+  useEffect(() => {
+    if (!store || !deps || !ownerKey) {
+      return undefined;
+    }
+    const s: IJotaiContextStore = store;
+
+    // S1. ensure projection + resolve this store's storeData/name + register.
+    ensureStoreProjection(s);
+    const storeData: IJotaiContextStoreData | undefined =
+      resolveStoreData(s) ??
+      (storeName ? ({ storeName } as IJotaiContextStoreData) : undefined);
+    const resolvedStoreName = storeName ?? storeData?.storeName;
+    if (!storeData || !resolvedStoreName) {
+      // No identity for this store (bare node mount) — nothing to drive.
+      return undefined;
+    }
+    registerMountedStore(resolvedStoreName, s);
+
+    // Reset the version guard for this (store, owner) pass.
+    lastStructureVersionRef.current = -1;
+    lastValuationVersionRef.current = -1;
+
+    // S2. version-guarded apply helpers (closure over deps/store/refs).
+    const applyStructure = (
+      structureVersion: number,
+      structure: IStructureSnapshot | undefined,
+    ): void => {
+      if (!structure) {
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const s = store!;
-      const storeData = resolveStoreData(s);
-      if (!storeData) {
+      // Drop stale structure frames/pulls (== curGeneration semantics).
+      if (structureVersion <= lastStructureVersionRef.current) {
         return;
       }
-      // Identity check up front — if the store was reset/recreated, bail (apply
-      // would also drop it, but this avoids the work).
-      if (resolveCurrentStore(storeData) !== s) {
-        return;
-      }
-
-      ensureStoreProjection(s);
-
-      const orderedTokens = s.get(tokenListAtom()).tokens;
-      const smallBalanceTokens = s.get(
-        smallBalanceTokenListAtom(),
-      ).smallBalanceTokens;
-      const tokenListMap: Record<ITokenKey, ITokenFiat> =
-        s.get(tokenListMapAtom());
-      const aggregateTokensMap = s.get(aggregateTokensMapAtom());
-      const smallBalanceFiatValue = s.get(smallBalanceTokensFiatValueAtom());
-
-      const prev = readPrev(s, prevScalarRef.current, prevMetaByKeyRef.current);
-
-      const { structure, valuation } = buildFrames(
-        {
-          orderedTokens,
-          smallBalanceTokens,
-          tokenListMap,
-          aggregateTokensMap,
-          smallBalanceFiatValue,
-          ownerKey,
-          storeData,
-          keepDefault: nonZeroInputsRef.current.keepDefault,
-          homeDefaultTokenMap: nonZeroInputsRef.current.homeDefaultTokenMap,
-          customTokens: nonZeroInputsRef.current.customTokens,
-        },
-        prev,
-      );
-
-      // Structure first so new cells exist before the valuation self-heals them
-      // (spec §4 ensures sub-cells; §4.1 valuation always carries the full
-      // current map). React 18 auto-batches the resulting state updates inside
-      // this timer callback, so leaves re-render once per flush.
       const projection = ensureStoreProjection(s);
-      if (structure) {
-        applyStructureSnapshot(s, projection, structure, deps);
-      }
-      applyValuationFrame(s, projection, valuation, deps, (fn) => fn());
+      // Re-stamp storeData to THIS store so apply's identity guard passes.
+      applyStructureSnapshot(s, projection, { ...structure, storeData }, deps);
+      lastStructureVersionRef.current = structureVersion;
 
-      // Record what we just applied for the next structure-change comparison.
-      // Persist the slim cold-start bundle ONLY on a structural change (content
-      // actually moved) — pure price ticks (structure === undefined) skip the
-      // write so the main-thread RMW stays low-frequency (spec §7 落盘).
-      if (structure) {
-        prevScalarRef.current = smallBalanceFiatValue;
-        prevMetaByKeyRef.current = metaByKeyFromTokens([
-          ...orderedTokens,
-          ...smallBalanceTokens,
-        ]);
+      // D4: persist the slim cold-start bundle off the JUST-APPLIED projection
+      // (BG-fed), EXACTLY ONE writer per storeName. Only the primary-registered
+      // store persists, avoiding the double-authority revival.
+      if (isPrimaryColdStartWriter(resolvedStoreName, s)) {
         persistSlimColdCache({
           store: s,
           projection,
           currency: currencyIdRef.current,
         });
       }
-    },
-    STRUCTURE_THROTTLE_MS,
-    { leading: false, trailing: true },
-  );
+    };
 
-  // Re-run the producer whenever any settled atom changes. We subscribe to the
-  // five atoms and schedule a throttled flush; the throttle absorbs the burst of
-  // writes a single fetch round produces (refreshTokenList + refreshTokenListMap
-  // + refreshSmallBalance* + refreshAggregateTokensMap all fire back to back).
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const s = store!;
-    const schedule = () => {
-      flush();
+    const applyValuation = (
+      valuationVersion: number,
+      valuation: IValuationFrame | undefined,
+    ): void => {
+      if (!valuation) {
+        return;
+      }
+      if (valuationVersion <= lastValuationVersionRef.current) {
+        return;
+      }
+      const projection = ensureStoreProjection(s);
+      applyValuationFrame(
+        s,
+        projection,
+        { ...valuation, storeData },
+        deps,
+        (fn) => fn(),
+      );
+      lastValuationVersionRef.current = valuationVersion;
     };
-    // Prime once on mount (cold-start hydrate / cache hydrate may have already
-    // landed before this effect runs).
-    schedule();
-    const unsubs = [
-      s.sub(tokenListAtom(), schedule),
-      s.sub(smallBalanceTokenListAtom(), schedule),
-      s.sub(tokenListMapAtom(), schedule),
-      s.sub(aggregateTokensMapAtom(), schedule),
-      s.sub(smallBalanceTokensFiatValueAtom(), schedule),
-    ];
+
+    // S2b. frame handlers — ignore frames for a different owner; the BG VM may
+    // have multiple owners and broadcasts to all shells.
+    const onStructure = (payload: {
+      ownerKey: string;
+      structureVersion: number;
+      structure: IStructureSnapshot;
+    }): void => {
+      if (payload.ownerKey !== ownerKey) {
+        return;
+      }
+      applyStructure(payload.structureVersion, payload.structure);
+    };
+    const onValuation = (payload: {
+      ownerKey: string;
+      valuationVersion: number;
+      valuation: IValuationFrame;
+    }): void => {
+      if (payload.ownerKey !== ownerKey) {
+        return;
+      }
+      applyValuation(payload.valuationVersion, payload.valuation);
+    };
+
+    // S3. SUBSCRIBE FIRST. From this instant any push lands in the handlers (or
+    // is version-dropped). This guarantees no push emitted during the S4 PULL is
+    // lost — the H4 s.sub lines are DELETED, not toggled.
+    appEventBus.on(EAppEventBusNames.TokenListSlcStructureFrame, onStructure);
+    appEventBus.on(EAppEventBusNames.TokenListSlcValuationFrame, onValuation);
+
+    // S4. PULL the authoritative full frames and apply through the SAME
+    // version-guarded path. A push racing this in-flight pull is not lost
+    // (subscription is already live); whichever carries the higher version wins.
+    let cancelled = false;
+    void backgroundApiProxy.serviceTokenViewModel
+      .getTokenListFrames({ ownerKey })
+      .then((pulled) => {
+        if (cancelled || pulled.ownerKey !== ownerKey) {
+          return;
+        }
+        // structure first so cells exist before valuation self-heals them.
+        applyStructure(pulled.structureVersion, pulled.structure);
+        applyValuation(pulled.valuationVersion, pulled.valuation);
+      })
+      .catch(() => {
+        // PULL failure is non-fatal: pushes keep the list live; the next
+        // owner-change / foreground re-sync re-pulls.
+      });
+
     return () => {
-      flush.cancel();
-      unsubs.forEach((u) => u());
+      cancelled = true;
+      appEventBus.off(
+        EAppEventBusNames.TokenListSlcStructureFrame,
+        onStructure,
+      );
+      appEventBus.off(
+        EAppEventBusNames.TokenListSlcValuationFrame,
+        onValuation,
+      );
+      deregisterMountedStore(resolvedStoreName, s);
     };
-  }, [store, flush, ownerKey]);
+  }, [store, deps, ownerKey, storeName]);
 }
