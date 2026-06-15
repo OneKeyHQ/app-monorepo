@@ -224,9 +224,31 @@ function CoinControlPage() {
   // Select all / Deselect all (claimed UTXOs are only checked individually)
   const handleSelectAll = useCallback(() => {
     if (isAllSelected) {
-      setSelectedUTXOs(new Set());
+      // Deselect all non-claimed keys, but keep any individually-selected
+      // claimed UTXOs intact
+      setSelectedUTXOs((prev) => {
+        const nonClaimedSet = new Set(nonClaimedUtxoKeys);
+        const newSet = new Set<string>();
+        prev.forEach((key) => {
+          if (!nonClaimedSet.has(key)) {
+            newSet.add(key);
+          }
+        });
+        return newSet;
+      });
     } else {
-      setSelectedUTXOs(new Set(nonClaimedUtxoKeys));
+      // Select all non-claimed keys, preserving any individually-selected
+      // claimed UTXOs so they are not silently dropped
+      setSelectedUTXOs((prev) => {
+        const nonClaimedSet = new Set(nonClaimedUtxoKeys);
+        const newSet = new Set(nonClaimedUtxoKeys);
+        prev.forEach((key) => {
+          if (!nonClaimedSet.has(key)) {
+            newSet.add(key);
+          }
+        });
+        return newSet;
+      });
     }
   }, [isAllSelected, nonClaimedUtxoKeys]);
 
