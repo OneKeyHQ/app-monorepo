@@ -276,6 +276,22 @@ export interface IAppEventBusPayload {
     map: Record<string, ITokenFiat>;
     merge?: boolean;
   };
+  [EAppEventBusNames.AllNetworksTokenListSettled]: {
+    accountAddress?: string;
+    accountId?: string;
+    accountName?: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+    aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
+    deviceConnectId?: string;
+    indexedAccountId?: string;
+    networkId?: string;
+    ownerAccountId?: string;
+    ownerNetworkId?: string;
+    tokenMap: Record<string, ITokenFiat>;
+    tokens: IAccountToken[];
+    walletId?: string;
+    walletType?: string;
+  };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
     | {

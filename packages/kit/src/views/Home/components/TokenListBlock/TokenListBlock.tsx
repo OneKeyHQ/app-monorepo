@@ -188,6 +188,7 @@ function TokenListBlock({
       accountName,
       network,
       wallet,
+      device,
       indexedAccount,
       isOthersWallet,
       deriveInfo,
@@ -2009,10 +2010,35 @@ function TokenListBlock({
         initialized: true,
         isRefreshing: false,
       });
+
+      appEventBus.emit(EAppEventBusNames.AllNetworksTokenListSettled, {
+        accountAddress: account?.address,
+        accountId: account?.id,
+        accountName,
+        aggregateTokenListMap,
+        aggregateTokenMap: flattenAggregateTokenMap,
+        deviceConnectId:
+          device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
+        indexedAccountId: indexedAccount?.id,
+        networkId: network?.id,
+        ownerAccountId: allNetworksResult[0].ownerAccountId,
+        ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+        tokenMap: {
+          ...mergeTokenListMap,
+          ...riskyTokenListMap,
+          ...flattenAggregateTokenMap,
+        },
+        tokens: mergedTokens,
+        walletId: wallet?.id,
+        walletType: wallet?.type,
+      });
     }
   }, [
+    account?.address,
     account?.createAtNetwork,
     account?.id,
+    accountName,
+    device?.connectId,
     indexedAccount?.id,
     mergeDeriveAddressData,
     allNetworksResult,
@@ -2030,6 +2056,9 @@ function TokenListBlock({
     refreshTokenListMap,
     updateAccountWorth,
     updateTokenListState,
+    wallet?.associatedDeviceInfo?.connectId,
+    wallet?.id,
+    wallet?.type,
   ]);
 
   // Eagerly restore the singleton token-list atoms from the per-owner cache
