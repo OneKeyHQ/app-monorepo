@@ -27,7 +27,7 @@ function getTokenKey(token: {
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
 
 function getDefaultMarketValue(value?: number) {
-  return value ? value : EMPTY_MARKET_VALUE;
+  return value || EMPTY_MARKET_VALUE;
 }
 
 function getStockPreferredDisplayValue(

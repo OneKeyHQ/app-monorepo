@@ -97,9 +97,7 @@ export function registerPrimeTransferImportTraceDebugGlobal() {
   const currentGlobal = globalThis as IPrimeTransferImportTraceDebugGlobal & {
     window?: IPrimeTransferImportTraceDebugGlobal;
   };
-  const debugGlobals = [currentGlobal, currentGlobal.window].filter(
-    Boolean,
-  ) as IPrimeTransferImportTraceDebugGlobal[];
+  const debugGlobals = [currentGlobal, currentGlobal.window].filter(Boolean);
 
   for (const globalWithDebug of debugGlobals) {
     globalWithDebug.$$oneKeyPrimeTransferDebug = api;
