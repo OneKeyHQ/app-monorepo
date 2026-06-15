@@ -84,6 +84,7 @@ import {
   getSwapNetworkSupportTabSwitchTypes,
   getSwapSupportCheckType,
   getVisibleSwapTabSwitchType,
+  getVisibleSwapTabSwitchUpdate,
 } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -320,14 +321,16 @@ export function useSwapInit(params?: ISwapInitParams) {
       fromToken: fromTokenRef.current,
       toToken: toTokenRef.current,
     });
-    const nextVisibleSwapType =
-      getVisibleSwapTabSwitchType(nextSwapType) ?? nextSwapType;
-    const currentVisibleSwapType =
-      getVisibleSwapTabSwitchType(swapTypeSwitchRef.current) ??
-      swapTypeSwitchRef.current;
-    if (nextVisibleSwapType === currentVisibleSwapType) {
+    const { nextVisibleSwapType, shouldUpdate } = getVisibleSwapTabSwitchUpdate(
+      {
+        currentSwapType: swapTypeSwitchRef.current,
+        nextSwapType,
+      },
+    );
+    if (!shouldUpdate) {
       return;
     }
+    swapTypeSwitchRef.current = nextVisibleSwapType;
     void swapTypeSwitchAction(
       nextVisibleSwapType,
       fromTokenRef.current?.networkId,
@@ -336,12 +339,12 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const switchSwapTypeIfNeeded = useCallback(
     (nextSwapType: ESwapTabSwitchType, networkId?: string) => {
-      const nextVisibleSwapType =
-        getVisibleSwapTabSwitchType(nextSwapType) ?? nextSwapType;
-      const currentVisibleSwapType =
-        getVisibleSwapTabSwitchType(swapTypeSwitchRef.current) ??
-        swapTypeSwitchRef.current;
-      if (nextVisibleSwapType === currentVisibleSwapType) {
+      const { nextVisibleSwapType, shouldUpdate } =
+        getVisibleSwapTabSwitchUpdate({
+          currentSwapType: swapTypeSwitchRef.current,
+          nextSwapType,
+        });
+      if (!shouldUpdate) {
         return;
       }
       swapTypeSwitchRef.current = nextVisibleSwapType;

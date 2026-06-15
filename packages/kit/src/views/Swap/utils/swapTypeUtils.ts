@@ -1,13 +1,34 @@
 import {
+  getSwapSupportCheckType,
+  getVisibleSwapTabSwitchType,
+} from '@onekeyhq/shared/src/utils/swapTypeUtils';
+import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
-export {
-  getSwapSupportCheckType,
-  getVisibleSwapTabSwitchType,
-} from '@onekeyhq/shared/src/utils/swapTypeUtils';
+export { getSwapSupportCheckType, getVisibleSwapTabSwitchType };
+
+export function getVisibleSwapTabSwitchUpdate({
+  currentSwapType,
+  nextSwapType,
+}: {
+  currentSwapType: ESwapTabSwitchType;
+  nextSwapType: ESwapTabSwitchType;
+}) {
+  const nextVisibleSwapType =
+    getVisibleSwapTabSwitchType(nextSwapType) ?? nextSwapType;
+  const currentVisibleSwapType =
+    getVisibleSwapTabSwitchType(currentSwapType) ?? currentSwapType;
+
+  return {
+    nextVisibleSwapType,
+    shouldUpdate:
+      nextVisibleSwapType !== currentVisibleSwapType ||
+      currentSwapType !== currentVisibleSwapType,
+  };
+}
 
 export function getSwapNetworkSupportTabSwitchTypes({
   supportSingleSwap,
