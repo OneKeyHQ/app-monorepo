@@ -109,6 +109,9 @@ export interface IDevSettings {
   // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
   // for native PBKDF2 calls (debug only).
   useFastPbkdf2NativeBackend?: boolean;
+  // Build App -> Pro 2 portfolio artifacts locally in dev. Production must use
+  // server-packed archive responses and must not upload client-packed archives.
+  enablePortfolioSyncDev?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

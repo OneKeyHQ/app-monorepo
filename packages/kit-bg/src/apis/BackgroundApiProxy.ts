@@ -67,6 +67,7 @@ import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServiceOneKeyID from '../services/ServiceOneKeyID';
 import type ServicePassword from '../services/ServicePassword';
 import type { ServicePendingInstallTask } from '../services/servicePendingInstallTask';
+import type ServicePortfolioSync from '../services/ServicePortfolioSync';
 import type ServicePrime from '../services/ServicePrime';
 import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
@@ -227,6 +228,10 @@ class BackgroundApiProxy
   servicePrimeCloudSync = this._createProxyService(
     'servicePrimeCloudSync',
   ) as ServicePrimeCloudSync;
+
+  servicePortfolioSync = this._createProxyService(
+    'servicePortfolioSync',
+  ) as ServicePortfolioSync;
 
   serviceKeylessCloudSync = this._createProxyService(
     'serviceKeylessCloudSync',

@@ -107,6 +107,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('serviceToken.clearLastActiveTabNameData', () =>
           this.backgroundApi.serviceToken.clearLastActiveTabNameData(),
         ),
+        timedDeferred('servicePortfolioSync.init', async () =>
+          this.backgroundApi.servicePortfolioSync.init(),
+        ),
       ]);
     } catch (_error) {
       // individual errors already handled by timedDeferred

@@ -1441,6 +1441,31 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async uploadPortfolioPackageMock({
+    connectId,
+    contentHash,
+    packageBytes,
+  }: {
+    connectId: string;
+    contentHash: string;
+    packageBytes: ArrayBuffer;
+  }): Promise<{
+    bytesLength: number;
+    contentHash: string;
+    mock: true;
+  }> {
+    await this.getCompatibleConnectId({
+      connectId,
+      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+    });
+    return {
+      bytesLength: packageBytes.byteLength,
+      contentHash,
+      mock: true,
+    };
+  }
+
+  @backgroundMethod()
   async getLogs(): Promise<string[]> {
     const logs: string[] = ['===== device logs ====='];
     try {
