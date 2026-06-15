@@ -31,7 +31,6 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
       lineWidth: 2,
       theme: {
         bgColor: '#000000',
-        textColor: '#ffffff',
         textSubduedColor: '#999999',
         lineColor: '#8D8FE8',
         topColor: 'transparent',

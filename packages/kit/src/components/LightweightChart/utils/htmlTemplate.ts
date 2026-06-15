@@ -7,8 +7,7 @@ function getStyles(): string {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; }
     body { position: relative; }
-    #chart, #chart-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
-    #chart-overlay { pointer-events: none; overflow: visible; }
+    #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
     .tv-lightweight-charts table tr:last-child { pointer-events: none !important; }
   `.trim();
 }
@@ -79,9 +78,9 @@ function getChartInitScript(): string {
             patternOpacity: 0.28,
             patternRadius: 0.9,
             patternSpacing: 10,
-            showLastPointMarker: false,
+            showLastPointMarker: true,
             lastPointMarkerColor: '#8D8FE8',
-            lastPointMarkerRadius: 5,
+            lastPointMarkerRadius: 5.5,
           }
         );
         var renderer = {
@@ -106,10 +105,11 @@ function getChartInitScript(): string {
               var points = bars
                 .map(function(bar) {
                   var y = priceConverter(bar.originalData.value);
+                  if (y === null || y === undefined) return null;
                   return { x: bar.x * horizontalRatio, y: y * verticalRatio };
                 })
                 .filter(function(point) {
-                  return Number.isFinite(point.x) && Number.isFinite(point.y);
+                  return point && Number.isFinite(point.x) && Number.isFinite(point.y);
                 });
               if (!points.length) return;
 
@@ -184,18 +184,17 @@ function getChartInitScript(): string {
       function getDottedAreaSeriesOptions(nextConfig) {
         var priceFormatter = getPriceFormatter(nextConfig);
         var showLast = Boolean(nextConfig.showLastValue);
-        var patternFill = nextConfig.patternFill || {};
         return {
           color: nextConfig.theme.lineColor,
           lineColor: nextConfig.theme.lineColor,
           lineWidth: getNormalizedLineWidth(nextConfig.lineWidth, 3),
-          patternColor: patternFill.color || nextConfig.theme.lineColor,
-          patternOpacity: patternFill.opacity ?? 0.28,
-          patternRadius: patternFill.radius ?? 0.9,
-          patternSpacing: patternFill.spacing ?? 10,
-          showLastPointMarker: Boolean(nextConfig.showLastPointMarker),
-          lastPointMarkerColor: nextConfig.lastPointMarkerColor || nextConfig.theme.lineColor,
-          lastPointMarkerRadius: nextConfig.lastPointMarkerRadius ?? 5,
+          patternColor: nextConfig.theme.lineColor,
+          patternOpacity: 0.28,
+          patternRadius: 0.9,
+          patternSpacing: 10,
+          showLastPointMarker: true,
+          lastPointMarkerColor: nextConfig.theme.lineColor,
+          lastPointMarkerRadius: 5.5,
           lastValueVisible: showLast,
           priceLineVisible: showLast,
           priceFormat: { type: 'custom', formatter: priceFormatter },
@@ -308,80 +307,6 @@ function getChartInitScript(): string {
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
-      function syncOverlay(nextConfig) {
-        var overlay = document.getElementById('chart-overlay');
-        var patternPath = document.getElementById('chart-overlay-pattern-path');
-        var pattern = document.getElementById('chart-overlay-pattern');
-        var patternDot = document.getElementById('chart-overlay-pattern-dot');
-        var lastMarker = document.getElementById('chart-overlay-last-marker');
-        var hasPatternFill = nextConfig.patternFill?.type === 'dots';
-        var hasLastPointMarker = Boolean(nextConfig.showLastPointMarker);
-
-        if (!overlay || !patternPath || !pattern || !patternDot || !lastMarker || !window.series) return;
-
-        if (getPrimarySeriesType(nextConfig) === 'dotted-area' || (!hasPatternFill && !hasLastPointMarker)) {
-          patternPath.setAttribute('d', '');
-          lastMarker.setAttribute('r', '0');
-          return;
-        }
-
-        var width = container.clientWidth;
-        var height = container.clientHeight;
-        overlay.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
-
-        var points = (Array.isArray(nextConfig.data) ? nextConfig.data : [])
-          .map(function(item) {
-            var x = chart.timeScale().timeToCoordinate(item.time);
-            var y = window.series.priceToCoordinate(item.value);
-            if (x === null || y === null) return null;
-            return { x: x, y: y };
-          })
-          .filter(Boolean);
-
-        if (!points.length) {
-          patternPath.setAttribute('d', '');
-          lastMarker.setAttribute('r', '0');
-          return;
-        }
-
-        var firstPoint = points[0];
-        var lastPoint = points[points.length - 1];
-
-        if (hasPatternFill && points.length > 1) {
-          var spacing = nextConfig.patternFill.spacing ?? 10;
-          pattern.setAttribute('width', String(spacing));
-          pattern.setAttribute('height', String(spacing));
-          patternDot.setAttribute('cx', String(spacing / 2));
-          patternDot.setAttribute('cy', String(spacing / 2));
-          patternDot.setAttribute('r', String(nextConfig.patternFill.radius ?? 1.1));
-          patternDot.setAttribute('fill', nextConfig.patternFill.color || nextConfig.theme.lineColor);
-          patternPath.setAttribute(
-            'd',
-            [
-              'M ' + firstPoint.x + ' ' + height,
-              points.map(function(point) { return 'L ' + point.x + ' ' + point.y; }).join(' '),
-              'L ' + lastPoint.x + ' ' + height,
-              'Z',
-            ].join(' ')
-          );
-          patternPath.setAttribute('opacity', String(nextConfig.patternFill.opacity ?? 0.5));
-        } else {
-          patternPath.setAttribute('d', '');
-        }
-
-        if (hasLastPointMarker) {
-          lastMarker.setAttribute('cx', String(lastPoint.x));
-          lastMarker.setAttribute('cy', String(lastPoint.y));
-          lastMarker.setAttribute('r', String(nextConfig.lastPointMarkerRadius ?? 5));
-          lastMarker.setAttribute(
-            'fill',
-            nextConfig.lastPointMarkerColor || nextConfig.theme.lineColor
-          );
-        } else {
-          lastMarker.setAttribute('r', '0');
-        }
-      }
-
       // Price formatter: use a serializable formatter type in WebView, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
       function usdPriceFormatter(price) {
@@ -476,17 +401,12 @@ function getChartInitScript(): string {
       window.series = null;
       window.seriesType = null;
       window.secondarySeries = null;
-      window.currentChartConfig = null;
       window.applyChartConfig = function(nextConfig) {
         if (!nextConfig || !window.chart) return;
-        window.currentChartConfig = nextConfig;
         window.chart.applyOptions(getChartOptions(nextConfig));
         syncPrimarySeries(nextConfig);
         syncSecondarySeries(nextConfig);
         window.chart.timeScale().fitContent();
-        window.requestAnimationFrame(function() {
-          syncOverlay(nextConfig);
-        });
       };
       window.applyChartConfig(config);
   `.trim();
@@ -530,11 +450,6 @@ function getEventHandlers(): string {
         if (entries.length) {
           const { width, height } = entries[0].contentRect;
           chart.applyOptions({ width, height });
-          if (window.currentChartConfig) {
-            window.requestAnimationFrame(function() {
-              syncOverlay(window.currentChartConfig);
-            });
-          }
         }
       }).observe(container);
 
@@ -570,15 +485,6 @@ export function generateChartHTML(config: ILightweightChartConfig): string {
 </head>
 <body>
   <div id="chart"></div>
-  <svg id="chart-overlay" preserveAspectRatio="none">
-    <defs>
-      <pattern id="chart-overlay-pattern" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse">
-        <circle id="chart-overlay-pattern-dot" cx="5" cy="5" r="1.1" />
-      </pattern>
-    </defs>
-    <path id="chart-overlay-pattern-path" fill="url(#chart-overlay-pattern)" d="" />
-    <circle id="chart-overlay-last-marker" r="0" />
-  </svg>
   <script>${getChartScript(config)}</script>
 </body>
 </html>`;

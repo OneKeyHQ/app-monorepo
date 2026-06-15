@@ -121,7 +121,6 @@ function LightweightChartReferenceCard() {
           lineColor={LINE_COLOR}
           topColor="rgba(143, 145, 232, 0)"
           bottomColor="rgba(143, 145, 232, 0)"
-          textColor="#FFFFFF"
           textSubduedColor={TEXT_SUBDUED}
           lineWidth={4}
           seriesType="dotted-area"
@@ -129,19 +128,7 @@ function LightweightChartReferenceCard() {
           showTimeScale={false}
           priceScaleMargins={{ top: 0.14, bottom: 0.08 }}
           priceFormatter={formatAxisPrice}
-          priceFormatterType="number"
-          priceFormatterTickStep={2}
           fontSize={16}
-          patternFill={{
-            type: 'dots',
-            color: LINE_COLOR,
-            opacity: 0.28,
-            radius: 0.9,
-            spacing: 10,
-          }}
-          showLastPointMarker
-          lastPointMarkerColor={LINE_COLOR}
-          lastPointMarkerRadius={5.5}
         />
       </Stack>
 

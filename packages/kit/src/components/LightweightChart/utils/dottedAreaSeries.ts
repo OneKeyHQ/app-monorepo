@@ -1,9 +1,6 @@
 import { customSeriesDefaultOptions } from 'lightweight-charts';
 
-import type {
-  ILightweightChartPatternFill,
-  ILightweightChartTheme,
-} from '../types';
+import type { ILightweightChartTheme } from '../types';
 import type {
   CustomData,
   CustomSeriesOptions,
@@ -41,9 +38,9 @@ function getDefaultDottedAreaSeriesOptions(): IDottedAreaSeriesOptions {
     patternOpacity: 0.28,
     patternRadius: 0.9,
     patternSpacing: 10,
-    showLastPointMarker: false,
+    showLastPointMarker: true,
     lastPointMarkerColor: '#8D8FE8',
-    lastPointMarkerRadius: 5,
+    lastPointMarkerRadius: 5.5,
   };
 }
 
@@ -196,33 +193,25 @@ export function createDottedAreaSeriesPaneView(): ICustomSeriesPaneView<
 export function createDottedAreaSeriesOptions({
   theme,
   lineWidth,
-  patternFill,
   showLastValue,
-  showLastPointMarker,
-  lastPointMarkerColor,
-  lastPointMarkerRadius,
   priceFormatter,
 }: {
   theme: ILightweightChartTheme;
   lineWidth?: number;
-  patternFill?: ILightweightChartPatternFill;
   showLastValue?: boolean;
-  showLastPointMarker?: boolean;
-  lastPointMarkerColor?: string;
-  lastPointMarkerRadius?: number;
   priceFormatter?: (price: number) => string;
 }): SeriesPartialOptions<IDottedAreaSeriesOptions> {
   return {
     color: theme.lineColor,
     lineColor: theme.lineColor,
     lineWidth: getNormalizedLineWidth(lineWidth),
-    patternColor: patternFill?.color ?? theme.lineColor,
-    patternOpacity: patternFill?.opacity ?? 0.28,
-    patternRadius: patternFill?.radius ?? 0.9,
-    patternSpacing: patternFill?.spacing ?? 10,
-    showLastPointMarker: !!showLastPointMarker,
-    lastPointMarkerColor: lastPointMarkerColor ?? theme.lineColor,
-    lastPointMarkerRadius: lastPointMarkerRadius ?? 5,
+    patternColor: theme.lineColor,
+    patternOpacity: 0.28,
+    patternRadius: 0.9,
+    patternSpacing: 10,
+    showLastPointMarker: true,
+    lastPointMarkerColor: theme.lineColor,
+    lastPointMarkerRadius: 5.5,
     lastValueVisible: !!showLastValue,
     priceLineVisible: !!showLastValue,
     priceFormat: {

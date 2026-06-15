@@ -9,17 +9,8 @@ import type {
 
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
 
-export interface ILightweightChartPatternFill {
-  type: 'dots';
-  color?: string;
-  opacity?: number;
-  radius?: number;
-  spacing?: number;
-}
-
 export interface ILightweightChartTheme {
   bgColor: string;
-  textColor: string;
   textSubduedColor: string;
   lineColor: string;
   topColor: string;
@@ -43,19 +34,13 @@ export interface ILightweightChartConfig {
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
-  /** Serializable formatter type for WebView (native). */
   priceFormatterType?: ILightweightChartPriceFormatterType;
-  /** Optional serializable tick filter for native WebView formatter. */
   priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showTimeScale?: boolean;
-  patternFill?: ILightweightChartPatternFill;
-  showLastPointMarker?: boolean;
-  lastPointMarkerColor?: string;
-  lastPointMarkerRadius?: number;
 }
 
 export interface ILightweightChartProps {
@@ -64,7 +49,6 @@ export interface ILightweightChartProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
-  textColor?: string;
   textSubduedColor?: string;
   secondaryLineData?: IMarketTokenChart;
   secondaryLineColor?: string;
@@ -74,17 +58,11 @@ export interface ILightweightChartProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
-  priceFormatterType?: ILightweightChartPriceFormatterType;
-  priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
   showTimeScale?: boolean;
-  patternFill?: ILightweightChartPatternFill;
-  showLastPointMarker?: boolean;
-  lastPointMarkerColor?: string;
-  lastPointMarkerRadius?: number;
   onHover?: (data: {
     time?: number;
     price?: number;

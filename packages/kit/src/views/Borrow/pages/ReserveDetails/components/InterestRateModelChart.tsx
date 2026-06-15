@@ -123,13 +123,12 @@ export function InterestRateModelChart({
       bottomColor: string,
     ): ILightweightChartTheme => ({
       bgColor: 'transparent',
-      textColor: theme.text?.val || '#000000',
       textSubduedColor: theme.textSubdued?.val || '#666666',
       lineColor,
       topColor,
       bottomColor,
     }),
-    [theme.text?.val, theme.textSubdued?.val],
+    [theme.textSubdued?.val],
   );
 
   const supplyTheme = useMemo(
