@@ -95,6 +95,9 @@ export class LocalDBIndexedAccountIndexConflictError extends OneKeyAppError {
       }),
     );
   }
+
+  override className =
+    EOneKeyErrorClassNames.LocalDBIndexedAccountIndexConflictError;
 }
 
 export class TransferInvalidCodeError extends OneKeyAppError {

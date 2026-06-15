@@ -2,6 +2,7 @@
 // eslint-disable-next-line max-classes-per-file
 
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { Semaphore } from 'async-mutex';
 import {
   debounce,
   isEmpty,
@@ -121,6 +122,7 @@ import type {
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncKeyInfoWallet,
+  ICloudSyncTargetIndexedAccount,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
@@ -275,6 +277,9 @@ export type IIndexedAccountsCreationPreparedData = {
   indexedAccounts: IDBIndexedAccount[];
   indexedAccountsToAdd: IDBIndexedAccount[];
   syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined;
+  // indexedAccountId -> cloud sync item id (deterministic key), used to filter
+  // pre-built sync items down to the accounts that survive the in-tx recheck
+  syncItemIdByIndexedAccountId: Record<string, string>;
 };
 
 export abstract class LocalDbBase extends LocalDbBaseContainer {
@@ -286,6 +291,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   setBackgroundApi(backgroundApi: IBackgroundApi) {
     this.backgroundApi = backgroundApi;
+  }
+
+  // Serialize next-index allocation per wallet so concurrent
+  // addHDNextIndexedAccount calls don't all prepare the same index and then
+  // contend on the transaction (OK-56267). Within the single bg process this
+  // makes index conflicts effectively impossible; the in-tx conflict check
+  // remains as defense.
+  private hdNextIndexedAccountMutexMap: Map<string, Semaphore> = new Map();
+
+  private getHDNextIndexedAccountMutex(walletId: string): Semaphore {
+    let mutex = this.hdNextIndexedAccountMutexMap.get(walletId);
+    if (!mutex) {
+      mutex = new Semaphore(1);
+      this.hdNextIndexedAccountMutexMap.set(walletId, mutex);
+    }
+    return mutex;
   }
 
   buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
@@ -2236,6 +2257,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         indexedAccounts,
         indexedAccountsToAdd,
         syncItemsInfo: undefined,
+        syncItemIdByIndexedAccountId: {},
       };
     }
 
@@ -2257,21 +2279,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       shouldBackfillIndexedAccountSyncItemMap[indexedAccount.id] = true;
     });
 
+    const targets: ICloudSyncTargetIndexedAccount[] = indexedAccountsToAdd.map(
+      (indexedAccount) => ({
+        targetId: indexedAccount.id,
+        dataType: EPrimeCloudSyncDataType.IndexedAccount,
+        indexedAccount: { ...indexedAccount, name: indexedAccount.name },
+        wallet: {
+          ...dbWallet,
+          name: dbWallet?.name || '',
+          avatarInfo: dbWallet?.avatarInfo,
+        },
+        dbDevice,
+      }),
+    );
+
     const buildSyncItemsStartTime = Date.now();
     const syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined =
       await syncManager.buildExistingSyncItemsInfo({
         tx: undefined,
-        targets: indexedAccountsToAdd.map((indexedAccount) => ({
-          targetId: indexedAccount.id,
-          dataType: EPrimeCloudSyncDataType.IndexedAccount,
-          indexedAccount: { ...indexedAccount, name: indexedAccount.name },
-          wallet: {
-            ...dbWallet,
-            name: dbWallet?.name || '',
-            avatarInfo: dbWallet?.avatarInfo,
-          },
-          dbDevice,
-        })),
+        targets,
         onExistingSyncItemsInfo: async (info) => {
           // fix account name by existing sync item
           indexedAccountsToAdd.forEach((indexedAccount) => {
@@ -2312,10 +2338,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
 
+    // Map each indexedAccountId to its deterministic cloud sync item id. The key
+    // derives only from walletXfp + index (not name), so it is stable across the
+    // name fix-up above. Used to drop sync items for accounts removed by the
+    // in-tx recheck, so a concurrent creator's sync row is never overwritten.
+    const syncItemIdByIndexedAccountId: Record<string, string> = {};
+    for (const target of targets) {
+      const keyInfo = await syncManager.buildSyncKeyInfo({ target });
+      if (keyInfo?.key) {
+        syncItemIdByIndexedAccountId[target.targetId] = keyInfo.key;
+      }
+    }
+
     return {
       indexedAccounts,
       indexedAccountsToAdd,
       syncItemsInfo,
+      syncItemIdByIndexedAccountId,
     };
   }
 
@@ -2344,8 +2383,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (prepared) {
       // sync items were built outside of this tx, only pure DB writes remain
-      const { indexedAccounts, syncItemsInfo } = prepared;
+      const { indexedAccounts, syncItemsInfo, syncItemIdByIndexedAccountId } =
+        prepared;
       let { indexedAccountsToAdd } = prepared;
+      const preparedCount = indexedAccountsToAdd.length;
       if (skipIfExists && indexedAccountsToAdd.length) {
         // re-check inside tx: a concurrent flow may have added them meanwhile
         const { records } = await this.txGetRecordsByIds({
@@ -2361,12 +2402,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (!indexedAccountsToAdd.length) {
         return indexedAccounts;
       }
+      let newSyncItems = syncItemsInfo?.newSyncItems || [];
+      let existingSyncItems = syncItemsInfo?.existingSyncItems || [];
+      // If the in-tx recheck dropped some accounts (created concurrently), drop
+      // their pre-built sync items too, so this tx never writes/uploads a sync
+      // row for an account it did not create and clobbers the other flow's data.
+      if (indexedAccountsToAdd.length !== preparedCount) {
+        const survivingSyncItemIds = new Set(
+          indexedAccountsToAdd
+            .map((item) => syncItemIdByIndexedAccountId[item.id])
+            .filter(Boolean),
+        );
+        newSyncItems = newSyncItems.filter((item) =>
+          survivingSyncItemIds.has(item.id),
+        );
+        existingSyncItems = existingSyncItems.filter((item) =>
+          survivingSyncItemIds.has(item.id),
+        );
+      }
       const preparedSyncManager =
         this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
       await preparedSyncManager.txWithSyncFlowOfDBRecordCreating({
         tx,
-        newSyncItems: syncItemsInfo?.newSyncItems || [],
-        existingSyncItems: syncItemsInfo?.existingSyncItems || [],
+        newSyncItems,
+        existingSyncItems,
         runDbTxFn: async () => {
           await this.txAddRecords({
             tx,
@@ -2601,45 +2660,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
-    const maxRetry = 3;
-    let lastError: unknown;
-    for (let retry = 0; retry < maxRetry; retry += 1) {
-      const expectedIndex = await this.findHDNextIndexedAccountIndex({
-        walletId,
-      });
-      const prepared = await this.prepareIndexedAccountsCreationData({
-        walletId,
-        indexes: [expectedIndex],
-        skipIfExists: true,
-      });
-      try {
-        let indexedAccountId = '';
-        await this.withTransaction(
-          EIndexedDBBucketNames.account,
-          async (tx) => {
-            ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
-              tx,
-              walletId,
-              skipServerSyncFlow: false,
-              expectedIndex,
-              prepared,
-            }));
-          },
-        );
-        return {
-          indexedAccountId,
-        };
-      } catch (error) {
-        if (!(error instanceof LocalDBIndexedAccountIndexConflictError)) {
-          throw error;
+    // Serialize per wallet: each call prepares against the latest committed
+    // state, so concurrent calls allocate distinct indexes instead of all
+    // racing for the same one and exhausting the retry budget (OK-56267).
+    return this.getHDNextIndexedAccountMutex(walletId).runExclusive(
+      async () => {
+        // Retry only guards against cross-context races the in-process mutex
+        // can't see; with serialization a conflict is not expected in practice.
+        const maxRetry = 5;
+        let lastError: unknown;
+        for (let retry = 0; retry < maxRetry; retry += 1) {
+          const expectedIndex = await this.findHDNextIndexedAccountIndex({
+            walletId,
+          });
+          const prepared = await this.prepareIndexedAccountsCreationData({
+            walletId,
+            indexes: [expectedIndex],
+            skipIfExists: true,
+          });
+          try {
+            let indexedAccountId = '';
+            await this.withTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
+                  tx,
+                  walletId,
+                  skipServerSyncFlow: false,
+                  expectedIndex,
+                  prepared,
+                }));
+              },
+            );
+            return {
+              indexedAccountId,
+            };
+          } catch (error) {
+            if (!(error instanceof LocalDBIndexedAccountIndexConflictError)) {
+              throw error;
+            }
+            // a concurrent creation took the index, re-prepare with a fresh one
+            lastError = error;
+          }
         }
-        // a concurrent creation took the index, re-prepare with a fresh one
-        lastError = error;
-      }
-    }
-    throw lastError instanceof Error
-      ? lastError
-      : new OneKeyLocalError('addHDNextIndexedAccount failed');
+        throw lastError instanceof Error
+          ? lastError
+          : new OneKeyLocalError('addHDNextIndexedAccount failed');
+      },
+    );
   }
 
   async txAddHDNextIndexedAccount({

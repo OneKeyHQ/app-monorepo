@@ -43,6 +43,11 @@ class IndexedAccountTestLocalDb extends LocalDbBase {
 
   beforeTransactionHook: (() => void) | undefined;
 
+  txSyncFlowCalls: Array<{
+    newSyncItemIds: string[];
+    existingSyncItemIds: string[];
+  }> = [];
+
   constructor() {
     super();
 
@@ -68,13 +73,34 @@ class IndexedAccountTestLocalDb extends LocalDbBase {
                 return {
                   existingSyncItemsInfo: {},
                   existingSyncItems: [],
-                  newSyncItems: [],
+                  // sync item id is the deterministic key for the target
+                  newSyncItems: targets.map((t) => ({
+                    id: `sync-key-${t.targetId}`,
+                  })),
                 };
               },
             ),
+            buildSyncKeyInfo: jest.fn(
+              async ({ target }: { target: { targetId: string } }) => ({
+                key: `sync-key-${target.targetId}`,
+              }),
+            ),
             txWithSyncFlowOfDBRecordCreating: jest.fn(
-              async ({ runDbTxFn }: { runDbTxFn: () => Promise<void> }) =>
-                runDbTxFn(),
+              async ({
+                runDbTxFn,
+                newSyncItems,
+                existingSyncItems,
+              }: {
+                runDbTxFn: () => Promise<void>;
+                newSyncItems: Array<{ id: string }>;
+                existingSyncItems: Array<{ id: string }>;
+              }) => {
+                this.txSyncFlowCalls.push({
+                  newSyncItemIds: newSyncItems.map((i) => i.id),
+                  existingSyncItemIds: existingSyncItems.map((i) => i.id),
+                });
+                return runDbTxFn();
+              },
             ),
           },
         },
@@ -214,6 +240,28 @@ describe('LocalDbBase.addIndexedAccount', () => {
     expect(db.buildSyncItemsCalls).toHaveLength(1);
     expect(db.buildSyncItemsCalls[0].targetIds).toEqual(['hd-1--1']);
     expect(db.indexedAccountIds.has('hd-1--1')).toBe(true);
+  });
+
+  it('drops sync items for accounts removed by the in-tx recheck (OK-56267)', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    // both indexes are free at prepare time; a concurrent flow creates index 0
+    // between prepare and the in-tx recheck
+    db.beforeTransactionHook = () => {
+      db.indexedAccountIds.add('hd-1--0');
+    };
+
+    await db.addIndexedAccount({
+      walletId: 'hd-1',
+      indexes: [0, 1],
+      skipIfExists: true,
+    });
+
+    // only index 1 is actually created by this transaction
+    expect(db.indexedAccountIds.has('hd-1--1')).toBe(true);
+    expect(db.txSyncFlowCalls).toHaveLength(1);
+    // the pre-built sync item for the concurrently-created index 0 must not be
+    // written/uploaded by this tx, only the surviving index 1 remains
+    expect(db.txSyncFlowCalls[0].newSyncItemIds).toEqual(['sync-key-hd-1--1']);
   });
 });
 

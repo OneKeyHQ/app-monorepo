@@ -104,17 +104,28 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     }
 
     if (bucketName === EIndexedDBBucketNames.account) {
+      // best-effort cache warm-up, must never block or fail the transaction.
+      // Cap the wait so a hung hydration can't stall account-bucket writes,
+      // and clear the timer when hydration wins so we don't leak a pending
+      // timeout per transaction.
+      let warmupTimer: ReturnType<typeof setTimeout> | undefined;
       try {
-        // best-effort cache warm-up, must never block or fail the transaction
+        const warmupTimeout = new Promise<void>((resolve) => {
+          warmupTimer = setTimeout(resolve, 5000);
+        });
         await Promise.race([
           appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded(),
-          timerUtils.wait(5000),
+          warmupTimeout,
         ]);
       } catch (error) {
         console.error(
           'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
           error,
         );
+      } finally {
+        if (warmupTimer) {
+          clearTimeout(warmupTimer);
+        }
       }
     }
 
