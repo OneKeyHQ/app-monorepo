@@ -591,24 +591,36 @@ export function useMarketHomeTokenListWebSocket({
       });
       const basePrice = baseToken?.price;
 
-      setLiveOverridesByKey((prev) => {
-        if (
-          prev[liveOverrideKey]?.price === nextPrice &&
-          prev[liveOverrideKey]?.basePrice === basePrice
-        ) {
-          return prev;
-        }
+      if (basePrice === undefined) {
+        setLiveOverridesByKey((prev) => {
+          if (!prev[liveOverrideKey]) {
+            return prev;
+          }
 
-        return {
-          ...prev,
-          [liveOverrideKey]: {
-            networkId: matchedSubscription.networkId,
-            address: matchedSubscription.address,
-            price: nextPrice,
-            basePrice,
-          },
-        };
-      });
+          const next = { ...prev };
+          delete next[liveOverrideKey];
+          return next;
+        });
+      } else {
+        setLiveOverridesByKey((prev) => {
+          if (
+            prev[liveOverrideKey]?.price === nextPrice &&
+            prev[liveOverrideKey]?.basePrice === basePrice
+          ) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [liveOverrideKey]: {
+              networkId: matchedSubscription.networkId,
+              address: matchedSubscription.address,
+              price: nextPrice,
+              basePrice,
+            },
+          };
+        });
+      }
 
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
         address: matchedSubscription.address,

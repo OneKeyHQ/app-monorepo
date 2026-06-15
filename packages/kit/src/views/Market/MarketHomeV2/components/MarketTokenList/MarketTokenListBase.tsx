@@ -299,25 +299,41 @@ function MarketTokenListBase({
   const webSocketEnabled = Boolean(
     enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
   );
+  const orderedData = useMemo(() => {
+    if (!clientSort || !currentSortBy || !currentSortType) {
+      return rawData;
+    }
+
+    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    if (!field) {
+      return rawData;
+    }
+
+    return [...rawData].toSorted((a, b) => {
+      const aVal = (a[field] as number) ?? 0;
+      const bVal = (b[field] as number) ?? 0;
+      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [clientSort, currentSortBy, currentSortType, rawData]);
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {
     const nextRange = webSocketEnabled
       ? getMarketHomeVisibleSubscriptionRange({
           rootElement: listRootRef.current,
-          tokenCount: rawData.length,
+          tokenCount: orderedData.length,
         })
       : { start: 0, end: 0 };
 
     setSubscriptionRange((prev) =>
       isSameSubscriptionRange(prev, nextRange) ? prev : nextRange,
     );
-  }, [rawData.length, webSocketEnabled]);
+  }, [orderedData.length, webSocketEnabled]);
 
   useEffect(() => {
     updateSubscriptionRange();
 
-    if (!webSocketEnabled || rawData.length === 0 || platformEnv.isNative) {
+    if (!webSocketEnabled || orderedData.length === 0 || platformEnv.isNative) {
       return;
     }
 
@@ -364,11 +380,11 @@ function MarketTokenListBase({
         );
       }
     };
-  }, [rawData.length, updateSubscriptionRange, webSocketEnabled]);
+  }, [orderedData.length, updateSubscriptionRange, webSocketEnabled]);
 
   const subscriptionTokens = useMemo(
-    () => rawData.slice(subscriptionRange.start, subscriptionRange.end),
-    [rawData, subscriptionRange.end, subscriptionRange.start],
+    () => orderedData.slice(subscriptionRange.start, subscriptionRange.end),
+    [orderedData, subscriptionRange.end, subscriptionRange.start],
   );
   const showMarketHomeWsDebug = Boolean(
     devSettings.enabled &&
@@ -379,7 +395,7 @@ function MarketTokenListBase({
   const [webSocketSubscriptionCount, setWebSocketSubscriptionCount] =
     useState(0);
   const websocketData = useMarketHomeTokenListWebSocket({
-    tokens: rawData,
+    tokens: orderedData,
     subscriptionTokens,
     enabled: webSocketEnabled,
     onSubscriptionCountChange: showMarketHomeWsDebug
@@ -425,36 +441,16 @@ function MarketTokenListBase({
     useStockMetadataColumns,
   );
 
-  // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
-    let nextData = websocketData;
-
-    if (clientSort && currentSortBy && currentSortType) {
-      const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
-      if (field) {
-        nextData = [...websocketData].toSorted((a, b) => {
-          const aVal = (a[field] as number) ?? 0;
-          const bVal = (b[field] as number) ?? 0;
-          return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
-        });
-      }
-    }
-
     if (!liveTokenOverride) {
-      return nextData;
+      return websocketData;
     }
 
     return applyMarketTokenListLiveOverrides({
-      tokens: nextData,
+      tokens: websocketData,
       liveTokenOverrides: [liveTokenOverride],
     });
-  }, [
-    clientSort,
-    websocketData,
-    currentSortBy,
-    currentSortType,
-    liveTokenOverride,
-  ]);
+  }, [websocketData, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -580,47 +576,47 @@ function MarketTokenListBase({
   onItemLongPressRef.current = onItemLongPress;
   const onItemContextMenuRef = useRef(onItemContextMenu);
   onItemContextMenuRef.current = onItemContextMenu;
+  const subscriptionRangeRef = useRef(subscriptionRange);
+  subscriptionRangeRef.current = subscriptionRange;
 
   const stableOnRow = useCallback(
-    (item: IMarketToken, index: number) => ({
-      onPress: onItemPressRef.current
-        ? () => onItemPressRef.current!(item)
-        : () => {
-            if (item.perpsCoin) {
-              navigateToPerps(item.perpsCoin);
-              return;
-            }
-            void toMarketDetailPage({
-              symbol: item.symbol,
-              tokenAddress: item.address,
-              networkId: item.networkId,
-              isNative: item.isNative,
-            });
-          },
-      onLongPress: onItemLongPressRef.current
-        ? () => onItemLongPressRef.current!(item, index)
-        : undefined,
-      onContextMenu: onItemContextMenuRef.current
-        ? (position?: { x: number; y: number }) =>
-            onItemContextMenuRef.current!(item, index, position)
-        : undefined,
-      rowProps:
-        showWebSocketDebugRows &&
-        !item.perpsCoin &&
-        !!item.networkId &&
-        !!item.address &&
-        index >= subscriptionRange.start &&
-        index < subscriptionRange.end
-          ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
+    (item: IMarketToken, index: number) => {
+      const currentSubscriptionRange = subscriptionRangeRef.current;
+
+      return {
+        onPress: onItemPressRef.current
+          ? () => onItemPressRef.current!(item)
+          : () => {
+              if (item.perpsCoin) {
+                navigateToPerps(item.perpsCoin);
+                return;
+              }
+              void toMarketDetailPage({
+                symbol: item.symbol,
+                tokenAddress: item.address,
+                networkId: item.networkId,
+                isNative: item.isNative,
+              });
+            },
+        onLongPress: onItemLongPressRef.current
+          ? () => onItemLongPressRef.current!(item, index)
           : undefined,
-    }),
-    [
-      navigateToPerps,
-      showWebSocketDebugRows,
-      subscriptionRange.end,
-      subscriptionRange.start,
-      toMarketDetailPage,
-    ],
+        onContextMenu: onItemContextMenuRef.current
+          ? (position?: { x: number; y: number }) =>
+              onItemContextMenuRef.current!(item, index, position)
+          : undefined,
+        rowProps:
+          showWebSocketDebugRows &&
+          !item.perpsCoin &&
+          !!item.networkId &&
+          !!item.address &&
+          index >= currentSubscriptionRange.start &&
+          index < currentSubscriptionRange.end
+            ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
+            : undefined,
+      };
+    },
+    [navigateToPerps, showWebSocketDebugRows, toMarketDetailPage],
   );
 
   // Show skeleton only when there's no data to display.
