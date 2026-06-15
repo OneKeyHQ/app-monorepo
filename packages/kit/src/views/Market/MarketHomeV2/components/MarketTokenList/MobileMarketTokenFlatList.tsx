@@ -15,7 +15,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
-import { useMarketHomeTokenListWebSocket } from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
@@ -31,7 +30,6 @@ interface IMobileMarketTokenFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
-  enableWebSocket?: boolean;
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
   shouldSuppressItemPress?: () => boolean;
 }
@@ -43,7 +41,6 @@ function MobileMarketTokenFlatListBase({
   selectedCategory,
   timeRange,
   listContainerProps,
-  enableWebSocket,
   onStockDataChange,
   shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
@@ -131,10 +128,6 @@ function MobileMarketTokenFlatListBase({
 
   const showSkeleton =
     (Boolean(isLoading) && data.length === 0) || Boolean(isNetworkSwitching);
-  const liveData = useMarketHomeTokenListWebSocket({
-    tokens: data,
-    enabled: Boolean(enableWebSocket && !showSkeleton),
-  });
 
   const ListEmptyComponent = useMemo(() => {
     if (showSkeleton) {
@@ -156,7 +149,7 @@ function MobileMarketTokenFlatListBase({
   return (
     <Tabs.FlatList<IMarketToken>
       showsVerticalScrollIndicator={false}
-      data={showSkeleton ? EMPTY_DATA : liveData}
+      data={showSkeleton ? EMPTY_DATA : data}
       renderItem={renderItem}
       keyExtractor={keyExtractor}
       onEndReached={handleEndReached}

@@ -296,7 +296,9 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
-  const webSocketEnabled = Boolean(enableWebSocket && isTabFocused);
+  const webSocketEnabled = Boolean(
+    enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
+  );
   const [subscriptionRange, setSubscriptionRange] =
     useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
   const updateSubscriptionRange = useCallback(() => {

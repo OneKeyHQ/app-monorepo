@@ -282,7 +282,7 @@ export function applyMarketTokenListLiveOverrides({
 export function useMarketHomeTokenListWebSocket({
   tokens,
   subscriptionTokens,
-  enabled = true,
+  enabled = false,
   chartType = DEFAULT_MARKET_HOME_WS_CHART_TYPE,
   currency = DEFAULT_MARKET_HOME_WS_CURRENCY,
   onSubscriptionCountChange,
