@@ -3,6 +3,7 @@ import '@onekeyhq/shared/src/polyfills';
 
 // eslint-disable-next-line import-js/order
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { maybeLockdownOneKeyRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 
 import { setupSidePanelPortInUI } from '../background/sidePanel';
 import hotReload from '../ui/hotReload';
@@ -25,6 +26,8 @@ function init() {
   if (platformEnv.isExtensionUiSidePanel) {
     setupSidePanelPortInUI();
   }
+
+  maybeLockdownOneKeyRuntime({ runtime: 'ext-ui' });
 
   globalThis.$$onekeyPerfTrace?.log({
     name: '[EXT]: ui.tsx init() / KitProviderExt render()',

@@ -2,6 +2,7 @@ import 'setimmediate';
 
 import '@onekeyhq/shared/src/performance/init';
 import '@onekeyhq/shared/src/polyfills/globalShim';
+import { maybeLockdownOneKeyRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 
 import { closeWindow } from '../closePasskeyWIndow';
 
@@ -29,6 +30,7 @@ const uiJsBridge = require('../ui/uiJsBridge')
   .default as typeof import('../ui/uiJsBridge').default;
 
 uiJsBridge.init();
+maybeLockdownOneKeyRuntime({ runtime: 'ext-passkey' });
 
 const renderApp: typeof import('../ui/renderPassKeyPage').default =
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

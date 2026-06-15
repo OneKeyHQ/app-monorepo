@@ -16,6 +16,8 @@ import '@onekeyhq/shared/src/polyfills';
 // awaits the cold-start gate on web/desktop.
 import '@onekeyhq/kit-bg/src/hydration/hydrate';
 
+import '@onekeyhq/shared/src/security/sesHarden/installWeb';
+
 import { registerRootComponent } from 'expo';
 
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
