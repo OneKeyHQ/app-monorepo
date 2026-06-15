@@ -1,7 +1,18 @@
-import { generateChartHTML } from './htmlTemplate';
-import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
-
 import type { UTCTimestamp } from 'lightweight-charts';
+
+jest.mock('./lightweightChartsStandalone.text-js', () => {
+  const fs = jest.requireActual<typeof import('fs')>('fs');
+  return fs.readFileSync(
+    'packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+    'utf8',
+  );
+});
+
+const { generateChartHTML } =
+  jest.requireActual<typeof import('./htmlTemplate')>('./htmlTemplate');
+const { getLightweightChartsRuntimeScriptTag } = jest.requireActual<
+  typeof import('./lightweightChartsRuntime')
+>('./lightweightChartsRuntime');
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('inlines the lightweight-charts runtime without remote script loading', () => {
