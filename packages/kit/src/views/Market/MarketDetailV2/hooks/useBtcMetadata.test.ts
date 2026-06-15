@@ -46,8 +46,6 @@ const baseReturn = {
   perpsInfo: undefined,
   isReady: true,
   isStockToken: false,
-  chartSymbol: '',
-  chartDecimal: undefined,
 };
 
 const buildBtcMetadata = (

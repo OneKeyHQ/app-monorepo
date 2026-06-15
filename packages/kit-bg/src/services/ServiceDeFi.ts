@@ -29,12 +29,21 @@ import ServiceBase from './ServiceBase';
 
 import type { IDeFiDBStruct } from '../dbs/simple/entity/SimpleDbEntityDeFi';
 
+type IDeFiEnabledNetworksMapState = {
+  enabledNetworksMap: Record<string, boolean>;
+  isReady: boolean;
+};
+
+type IGetDeFiEnabledNetworksMapStateOptions = {
+  syncIfEmpty?: boolean;
+};
+
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
   private enabledNetworksMapEmptyCacheExpiresAt = 0;
 
   private ensureEnabledNetworksMapPromise:
-    | Promise<Record<string, boolean>>
+    | Promise<IDeFiEnabledNetworksMapState>
     | undefined
     | null = null;
 
@@ -473,22 +482,47 @@ class ServiceDeFi extends ServiceBase {
 
   @backgroundMethod()
   public async getDeFiEnabledNetworksMap() {
+    const { enabledNetworksMap } = await this.getDeFiEnabledNetworksMapState();
+    return enabledNetworksMap;
+  }
+
+  @backgroundMethod()
+  public async getDeFiEnabledNetworksMapState(
+    options?: IGetDeFiEnabledNetworksMapStateOptions,
+  ): Promise<IDeFiEnabledNetworksMapState> {
     const existing =
       (await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap()) ?? {};
     if (!isEmpty(existing)) {
       this.enabledNetworksMapEmptyCacheExpiresAt = 0;
-      return existing;
+      return {
+        enabledNetworksMap: existing,
+        isReady: true,
+      };
     }
 
     const now = Date.now();
     if (this.enabledNetworksMapEmptyCacheExpiresAt > now) {
-      return existing;
+      return {
+        enabledNetworksMap: existing,
+        isReady: false,
+      };
     }
 
+    if (options?.syncIfEmpty === false) {
+      void this._syncDeFiEnabledNetworksMapState();
+      return {
+        enabledNetworksMap: existing,
+        isReady: false,
+      };
+    }
+
+    return this._syncDeFiEnabledNetworksMapState();
+  }
+
+  private _syncDeFiEnabledNetworksMapState(): Promise<IDeFiEnabledNetworksMapState> {
     if (this.ensureEnabledNetworksMapPromise) {
       return this.ensureEnabledNetworksMapPromise;
     }
-
     this.ensureEnabledNetworksMapPromise = (async () => {
       try {
         await this.syncDeFiEnabledNetworks();
@@ -497,13 +531,17 @@ class ServiceDeFi extends ServiceBase {
       }
       const refreshed =
         await this.backgroundApi.simpleDb.deFi.getEnabledNetworksMap();
-      const result = refreshed ?? {};
-      if (isEmpty(result)) {
+      const enabledNetworksMap = refreshed ?? {};
+      const isReady = !isEmpty(enabledNetworksMap);
+      if (!isReady) {
         this.enabledNetworksMapEmptyCacheExpiresAt = Date.now() + 30_000;
       } else {
         this.enabledNetworksMapEmptyCacheExpiresAt = 0;
       }
-      return result;
+      return {
+        enabledNetworksMap,
+        isReady,
+      };
     })().finally(() => {
       this.ensureEnabledNetworksMapPromise = null;
     });

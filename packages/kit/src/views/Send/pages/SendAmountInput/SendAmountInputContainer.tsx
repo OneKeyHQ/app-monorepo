@@ -55,9 +55,13 @@ import {
   useSelectedUTXOsAtom,
   useSendConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
 import { SwapRefreshButtonBase } from '@onekeyhq/kit/src/views/Swap/components/SwapRefreshButton';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
   ITransferInfo,
@@ -364,6 +368,7 @@ function SendAmountInputContainer() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
   const [settings, setSettings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
 
@@ -439,7 +444,12 @@ function SendAmountInputContainer() {
   const { serviceToken, serviceNFT } = backgroundApiProxy;
 
   const {
-    result: [tokenDetails, nftDetails, hasFrozenBalance, balanceAccountId] = [],
+    result: [
+      tokenDetailsUsdBasis,
+      nftDetails,
+      hasFrozenBalance,
+      balanceAccountId,
+    ] = [],
     isLoading: isLoadingAssets,
     run: refreshTokenDetails,
   } = usePromiseResult(
@@ -516,12 +526,39 @@ function SendAmountInputContainer() {
     },
   );
 
-  // Calculate balanceParsed if not provided
-  if (tokenDetails && isNil(tokenDetails?.balanceParsed)) {
-    tokenDetails.balanceParsed = new BigNumber(tokenDetails.balance)
-      .shiftedBy(tokenDetails.info.decimals * -1)
-      .toFixed();
-  }
+  // fetchTokensDetails responses are normalized to USD basis for caching
+  // (ServiceToken tags them currency:'usd'), but this page both renders fiat
+  // amounts under settings.currencyInfo.symbol and does math on them against
+  // user input entered in the display currency (fiat-mode division, Max fill,
+  // balance checks), so convert once at the data layer rather than wrapping
+  // every render site with <Currency>.
+  const tokenDetails = useMemo(() => {
+    if (!tokenDetailsUsdBasis) return tokenDetailsUsdBasis;
+    let converted = convertTokenFiatToCurrency({
+      tokenFiat: tokenDetailsUsdBasis,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+    // If the basis still differs from the display currency (rate map not
+    // hydrated yet), zero out the price so the page's existing "no usable
+    // price" gates keep fiat mode unreachable, rather than silently doing
+    // math on USD numbers under the display-currency symbol. Untagged
+    // (pre-migration) data is already in the display currency and passes.
+    if (converted.currency && converted.currency !== settings.currencyInfo.id) {
+      converted = { ...converted, price: 0 };
+    }
+    // Derive balanceParsed here rather than mutating the memo result during
+    // render.
+    if (isNil(converted.balanceParsed)) {
+      converted = {
+        ...converted,
+        balanceParsed: new BigNumber(converted.balance)
+          .shiftedBy(converted.info.decimals * -1)
+          .toFixed(),
+      };
+    }
+    return converted;
+  }, [tokenDetailsUsdBasis, settings.currencyInfo.id, currencyMap]);
 
   // Balance can change elsewhere (incoming transfer, a tx the user just sent, a
   // push notification) while the user stays on this amount page. Polling and

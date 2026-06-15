@@ -2,7 +2,10 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, useAtom } from 'jotai';
 
-import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import {
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS,
+  type IContextAtomColdStartCacheKey,
+} from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   LogLevel,
@@ -572,6 +575,12 @@ export function hydrateContextColdStartCacheForProvider({
         store.set(atomInstance, nextValue);
         coldStartValuesMap.set(scopedCacheKey, nextValue);
         coldStartLog(`hydrate: ${scopedCacheKey}`);
+        if (
+          typedCacheKey ===
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom
+        ) {
+          (globalThis as any).__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__ = nextValue;
+        }
       }
     }
     // Schedule snapshot cleanup after first screen renders (HomePageReady).

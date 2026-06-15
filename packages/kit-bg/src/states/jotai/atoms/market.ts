@@ -52,27 +52,6 @@ export const {
   initialValue: undefined,
 });
 
-// Predicted next chart symbol — set the moment a market token is tapped (before
-// navigation finishes) so the market-home prewarm can switch the shared chart
-// WebView to it during the navigation transition, triggering its kline fetch
-// early (cached by ServiceMarketV2) so the detail page opens instantly.
-export interface IChartPredictedSymbolAtom {
-  source: 'market' | 'hyperliquid';
-  symbol: string;
-  networkId?: string;
-  address?: string;
-  decimal?: number;
-}
-
-export const {
-  target: chartPredictedSymbolAtom,
-  use: useChartPredictedSymbolAtom,
-} = globalAtom<IChartPredictedSymbolAtom | undefined>({
-  persist: false,
-  name: EAtomNames.chartPredictedSymbolAtom,
-  initialValue: undefined,
-});
-
 export interface IMarketTokenSelectorConfigAtom {
   isWatchlistMode: boolean;
   spotNetworkId: string;

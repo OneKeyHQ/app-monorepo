@@ -1391,6 +1391,152 @@ class DesktopApiAppBundleUpdate {
     return results;
   }
 
+  // Parse "{appVersion}-{bundleVersion}" using the IDENTICAL convention as
+  // listLocalBundles(): split on the LAST dash so semver appVersions that
+  // themselves contain dashes (e.g. "6.4.0-beta") stay intact and behavior
+  // matches the rest of the codebase.
+  private parseAppVersionFromName(name: string): string | null {
+    // Strip the known download-artifact suffixes so the same parser works for
+    // both extract dir names and download file names.
+    let base = name;
+    for (const suffix of ['.progress.json', '.partial', '.zip'] as const) {
+      if (base.endsWith(suffix)) {
+        base = base.slice(0, -suffix.length);
+      }
+    }
+    const lastDash = base.lastIndexOf('-');
+    if (lastDash <= 0) {
+      return null;
+    }
+    const appVersion = base.substring(0, lastDash);
+    const bundleVersion = base.substring(lastDash + 1);
+    if (!appVersion || !bundleVersion) {
+      return null;
+    }
+    return appVersion;
+  }
+
+  /**
+   * Prune downloaded OTA artifacts whose appVersion != the running native
+   * binary version (app.getVersion()). KEEP everything matching the current
+   * appVersion (current + same-version fallbacks + pending install — OTA never
+   * crosses native version). Cleans:
+   *   - onekey-bundle/{appV}-{bV}/                         (extract dirs)
+   *   - onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
+   *   - store fallback entries with appV != currentAppV   (disk<->store sync)
+   *
+   * Safety net: never deletes the current appVersion's artifacts, and never
+   * the active currentBundleVersion from getUpdateBundleData(). Tolerates
+   * already-missing files (fs.rmSync force:true).
+   *
+   * @returns count of deleted version directories.
+   */
+  async pruneStaleAppVersionBundles(): Promise<number> {
+    const currentAppV = app.getVersion();
+    // The active install — its dir must survive even if it somehow shared an
+    // appVersion mismatch (defense in depth; it will normally match currentAppV).
+    const activeBundleData = store.getUpdateBundleData();
+    const activeAppV = activeBundleData?.appVersion;
+    const activeBundleV = activeBundleData?.bundleVersion;
+
+    let deletedDirCount = 0;
+
+    // 1) Extract dirs: onekey-bundle/{appV}-{bV}/
+    const bundleDir = getBundleDirName();
+    if (fs.existsSync(bundleDir)) {
+      const entries = fs.readdirSync(bundleDir, { withFileTypes: true });
+      for (const entry of entries) {
+        const appV = entry.isDirectory()
+          ? this.parseAppVersionFromName(entry.name)
+          : null;
+        // Safety net: keep current appVersion AND the active install dir.
+        const isActiveInstall = Boolean(
+          activeAppV &&
+          activeBundleV &&
+          entry.name === `${activeAppV}-${activeBundleV}`,
+        );
+        if (appV && appV !== currentAppV && !isActiveInstall) {
+          const dirPath = path.join(bundleDir, entry.name);
+          try {
+            fs.rmSync(dirPath, { recursive: true, force: true });
+            deletedDirCount += 1;
+            logger.info(
+              'bundle-prune',
+              `Deleted stale extract dir: ${entry.name}`,
+            );
+          } catch (error) {
+            logger.error(
+              'bundle-prune',
+              `Failed to delete stale extract dir ${entry.name}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    // 2) Download artifacts: onekey-bundle-download/{appV}-{bV}.zip(.partial)(.progress.json)
+    const downloadDir = this.getDownloadDir();
+    if (fs.existsSync(downloadDir)) {
+      const downloadEntries = fs.readdirSync(downloadDir, {
+        withFileTypes: true,
+      });
+      for (const entry of downloadEntries) {
+        const appV = entry.isFile()
+          ? this.parseAppVersionFromName(entry.name)
+          : null;
+        // Safety net: never delete current appVersion's download artifacts.
+        if (appV && appV !== currentAppV) {
+          const filePath = path.join(downloadDir, entry.name);
+          try {
+            fs.rmSync(filePath, { force: true });
+            logger.info(
+              'bundle-prune',
+              `Deleted stale download artifact: ${entry.name}`,
+            );
+          } catch (error) {
+            logger.error(
+              'bundle-prune',
+              `Failed to delete stale download artifact ${entry.name}:`,
+              error,
+            );
+          }
+        }
+      }
+    }
+
+    // 3) Store fallback entries: drop appVersion != currentAppV so the store
+    // stays consistent with disk (no ghost dev-switcher entries, no orphan asc
+    // bookkeeping). Keeps the current appVersion's fallbacks untouched.
+    try {
+      const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
+      const keptFallback = fallbackUpdateBundleData.filter(
+        (item) => item?.appVersion === currentAppV,
+      );
+      if (keptFallback.length !== fallbackUpdateBundleData.length) {
+        store.setFallbackUpdateBundleData(keptFallback);
+        logger.info(
+          'bundle-prune',
+          `Pruned ${
+            fallbackUpdateBundleData.length - keptFallback.length
+          } stale fallback entries`,
+        );
+      }
+    } catch (error) {
+      logger.error(
+        'bundle-prune',
+        'Failed to prune fallback store data:',
+        error,
+      );
+    }
+
+    logger.info(
+      'bundle-prune',
+      `pruneStaleAppVersionBundles done, currentAppV=${currentAppV}, deletedDirCount=${deletedDirCount}`,
+    );
+    return deletedDirCount;
+  }
+
   async verifyExtractedBundle(
     appVersion: string,
     bundleVersion: string,
@@ -1487,13 +1633,7 @@ class DesktopApiAppBundleUpdate {
     }
     logger.info('fallbackUpdateBundleData', fallbackUpdateBundleData);
     store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
-    // Destroy window first to ensure renderer process is fully terminated
-    // before relaunch, preventing webview custom element double registration
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
-    }
-    app.exit(0);
+    await this.restartAppForBundleUpdate();
   }
 
   async clearDownload() {
@@ -1516,13 +1656,7 @@ class DesktopApiAppBundleUpdate {
   ) {
     store.setUpdateBundleData(updateBundleData);
     if (updateBundleData.appVersion && updateBundleData.bundleVersion) {
-      // Destroy window first to ensure renderer process is fully terminated
-      // before relaunch, preventing webview custom element double registration
-      this.getMainWindow()?.destroy();
-      if (!process.mas) {
-        app.relaunch();
-      }
-      app.exit(0);
+      await this.restartAppForBundleUpdate();
     }
   }
 
@@ -1552,12 +1686,49 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  async restart() {
-    this.getMainWindow()?.destroy();
-    if (!process.mas) {
-      app.relaunch();
+  // Single choke point for "restart the app to load the just-written bundle".
+  // The active bundle pointer (store.setUpdateBundleData) must already be
+  // written before calling this.
+  // - Normal builds: hard restart (destroy renderer + relaunch process).
+  // - MAS / Mac App Store builds: app.relaunch() is forbidden by the sandbox,
+  //   so we soft-restart — destroy + recreate the renderer in-process. The
+  //   main process (which hosts all kit-bg desktopApis and the bundle store)
+  //   stays alive, and createMainWindow() re-reads the new bundle pointer.
+  async restartAppForBundleUpdate() {
+    const bundleData = store.getUpdateBundleData();
+    logger.info('bundle-restart', {
+      mode: process.mas ? 'soft' : 'hard',
+      mas: process.mas,
+      appVersion: bundleData?.appVersion,
+      bundleVersion: bundleData?.bundleVersion,
+    });
+    if (process.mas) {
+      const softRestart =
+        globalThis.$desktopMainAppFunctions?.softRestartRenderer;
+      if (!softRestart) {
+        // Should not happen once the main window exists (the full
+        // $desktopMainAppFunctions is assigned in createMainWindow). Log loudly
+        // so an online "update applied but UI didn't refresh" report is
+        // diagnosable, then fall back to a hard exit.
+        logger.error(
+          'bundle-restart: softRestartRenderer unavailable, falling back to app.exit',
+        );
+        this.getMainWindow()?.destroy();
+        app.exit(0);
+        return;
+      }
+      await softRestart();
+      return;
     }
+    // Destroy window first to ensure renderer process is fully terminated
+    // before relaunch, preventing webview custom element double registration
+    this.getMainWindow()?.destroy();
+    app.relaunch();
     app.exit(0);
+  }
+
+  async restart() {
+    await this.restartAppForBundleUpdate();
   }
 
   async clearAllJSBundleData() {

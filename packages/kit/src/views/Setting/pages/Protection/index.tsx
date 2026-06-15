@@ -17,6 +17,7 @@ import {
   Switch,
   YStack,
   startViewTransition,
+  useInModalDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
@@ -29,11 +30,15 @@ import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { ReceiveRiskSupportedAssetsDialogContent } from './ReceiveRiskSupportedAssets';
 import { promptKytNotificationPermissionIfNeeded } from './showKytNotificationPermissionDialog';
+
+const SUPPORTED_ASSETS_DIALOG_MAX_HEIGHT = 560;
+const SUPPORTED_ASSETS_DIALOG_MIN_HEIGHT = 360;
 
 const SettingProtectionModal = () => {
   const intl = useIntl();
@@ -54,6 +59,7 @@ const SettingProtectionModal = () => {
   const [isUpdatingReceiveRiskMonitoring, setIsUpdatingReceiveRiskMonitoring] =
     useState(false);
   const navigation = useAppNavigation();
+  const dialog = useInModalDialog();
 
   const useIsFocused = useRouteIsFocused();
 
@@ -106,6 +112,35 @@ const SettingProtectionModal = () => {
     },
     [intl, navigation, updateLockTimer],
   );
+
+  const handleOpenReceiveRiskSupportedAssets = useCallback(() => {
+    updateLockTimer();
+    dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.kyt_supported_assets__title,
+      }),
+      showFooter: false,
+      contentContainerProps: {
+        px: '$0',
+        pb: '$0',
+      },
+      floatingPanelProps: {
+        width: 480,
+      },
+      renderContent: (
+        <ReceiveRiskSupportedAssetsDialogContent
+          maxHeight={SUPPORTED_ASSETS_DIALOG_MAX_HEIGHT}
+          minHeight={SUPPORTED_ASSETS_DIALOG_MIN_HEIGHT}
+          contentContainerProps={{
+            pt: '$2',
+          }}
+        />
+      ),
+      onClose: () => {
+        updateLockTimer();
+      },
+    });
+  }, [dialog, intl, updateLockTimer]);
 
   useEffect(() => {
     if (useIsFocused) {
@@ -286,11 +321,7 @@ const SettingProtectionModal = () => {
               id: ETranslations.kyt_supported_assets__desc,
             })}
             drillIn
-            onPress={() => {
-              navigation.push(
-                EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
-              );
-            }}
+            onPress={handleOpenReceiveRiskSupportedAssets}
           />
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
@@ -368,6 +399,7 @@ const SettingProtectionModal = () => {
   }, [
     checkEnableProtection,
     enableProtection,
+    handleOpenReceiveRiskSupportedAssets,
     handleToggleReceiveRiskMonitoring,
     handleTransition,
     intl,

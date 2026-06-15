@@ -1,5 +1,6 @@
 import { NumberSizeableText, SizableText, YStack } from '@onekeyhq/components';
 import type { ITableProps } from '@onekeyhq/components';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import {
   StockSourceLogo,
   SubtitleBadge,
@@ -11,6 +12,8 @@ import { getMarketCapValue, getPeRatioValue, getVolume24hValue } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IntlShape } from 'react-intl';
+
+const POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH = 260;
 
 function renderMarketCapColumnValue(
   record: IFavoriteTokenDisplay,
@@ -164,6 +167,10 @@ function renderPopularTradingStockBadges(record: IFavoriteTokenDisplay) {
   );
 }
 
+function renderPopularTradingCommunityBadge(record: IFavoriteTokenDisplay) {
+  return record.communityRecognized ? <CommunityRecognizedBadge /> : null;
+}
+
 function renderPopularTradingRightMetrics(
   record: IFavoriteTokenDisplay,
   useStockMetadataColumns: boolean,
@@ -214,7 +221,9 @@ function renderPopularTradingRightMetrics(
 }
 
 export {
+  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
   getPopularTradingMetricColumns,
+  renderPopularTradingCommunityBadge,
   renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
   renderPopularTradingTokenSubtitle,

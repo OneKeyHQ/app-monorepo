@@ -1,11 +1,4 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -33,11 +26,14 @@ import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -47,6 +43,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IExplorersInfo,
@@ -86,6 +83,13 @@ type ISwapHistoryDetailAssetItem = {
   isNative: boolean;
   price?: string;
   amount?: string;
+};
+
+type IPrivateSendDisplayPriceTarget = {
+  key?: string;
+  networkId?: string;
+  tokenAddress?: string;
+  isNative?: boolean;
 };
 
 type IPrivateSendProgressStepStatus = 'todo' | 'process' | 'done' | 'error';
@@ -559,129 +563,260 @@ function getPositiveTokenPrice(value?: number | string) {
   return valueBN.toFixed();
 }
 
-function getNativeTokenPriceFromGasFee(item?: ISwapTxHistory) {
-  const gasFeeInNativeBN = new BigNumber(item?.txInfo.gasFeeInNative ?? '');
-  const gasFeeFiatValueBN = new BigNumber(item?.txInfo.gasFeeFiatValue ?? '');
+function getPrivateSendDisplayPriceKey({
+  networkId,
+  tokenAddress,
+  isNative,
+}: {
+  networkId?: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+}) {
+  if (!networkId) {
+    return undefined;
+  }
+  if (isNative) {
+    return `${networkId}:native`;
+  }
+  if (!tokenAddress) {
+    return undefined;
+  }
+  return `${networkId}:${tokenAddress.toLowerCase()}`;
+}
 
+function getPrivateSendBaseTokenPriceKey(item?: ISwapTxHistory) {
+  return getPrivateSendDisplayPriceKey({
+    networkId:
+      item?.baseInfo.fromToken.networkId ??
+      item?.baseInfo.fromNetwork?.networkId ??
+      item?.accountInfo.sender.networkId,
+    tokenAddress: item?.baseInfo.fromToken.contractAddress,
+    isNative: item?.baseInfo.fromToken.isNative,
+  });
+}
+
+function getPrivateSendNetworkNativePriceKey(item?: ISwapTxHistory) {
+  return getPrivateSendDisplayPriceKey({
+    networkId:
+      item?.baseInfo.fromNetwork?.networkId ??
+      item?.accountInfo.sender.networkId,
+    isNative: true,
+  });
+}
+
+function getPrivateSendTransferPriceKey({
+  transfer,
+  item,
+}: {
+  transfer: IDecodedTxTransferInfo;
+  item?: ISwapTxHistory;
+}) {
+  const isBaseToken = isBasePrivateSendTransfer({
+    transfer,
+    txHistory: item,
+  });
+  return getPrivateSendDisplayPriceKey({
+    networkId:
+      transfer.networkId ??
+      item?.baseInfo.fromNetwork?.networkId ??
+      item?.accountInfo.sender.networkId,
+    tokenAddress:
+      transfer.tokenIdOnNetwork ||
+      (isBaseToken ? item?.baseInfo.fromToken.contractAddress : undefined),
+    isNative:
+      transfer.isNative || (isBaseToken && item?.baseInfo.fromToken.isNative),
+  });
+}
+
+function convertPrivateSendTokenDisplayPrice({
+  price,
+  sourceCurrency,
+  targetCurrency,
+  currencyMap,
+}: {
+  price?: number | string;
+  sourceCurrency?: string;
+  targetCurrency: string;
+  currencyMap: Record<string, ICurrencyItem>;
+}) {
+  const validPrice = getPositiveTokenPrice(price);
+  if (!validPrice) {
+    return undefined;
+  }
+
+  const resolvedSourceCurrency = sourceCurrency || USD_CURRENCY_ID;
   if (
-    gasFeeInNativeBN.isNaN() ||
-    !gasFeeInNativeBN.isFinite() ||
-    !gasFeeInNativeBN.isGreaterThan(0) ||
-    gasFeeFiatValueBN.isNaN() ||
-    !gasFeeFiatValueBN.isFinite() ||
-    !gasFeeFiatValueBN.isGreaterThan(0)
+    resolvedSourceCurrency !== targetCurrency &&
+    (!currencyMap[resolvedSourceCurrency] || !currencyMap[targetCurrency])
   ) {
     return undefined;
   }
 
-  return gasFeeFiatValueBN.div(gasFeeInNativeBN).toFixed();
-}
-
-function getPrivateSendTransferPrice({
-  transfer,
-  isBaseToken,
-  fromAssetPrice,
-  nativeTokenPrice,
-}: {
-  transfer: IDecodedTxTransferInfo;
-  isBaseToken: boolean;
-  fromAssetPrice?: string;
-  nativeTokenPrice?: string;
-}) {
-  return (
-    getPositiveTokenPrice(transfer.price) ??
-    (isBaseToken ? getPositiveTokenPrice(fromAssetPrice) : undefined) ??
-    (transfer.isNative ? nativeTokenPrice : undefined)
-  );
-}
-
-function applyPrivateSendTokenPrice({
-  item,
-  price,
-  force,
-}: {
-  item: ISwapTxHistory;
-  price: string;
-  force?: boolean;
-}) {
-  const hasFromTokenPrice = !!getPositiveTokenPrice(
-    item.baseInfo.fromToken.price,
-  );
-  const hasToTokenPrice = !!getPositiveTokenPrice(item.baseInfo.toToken.price);
-
-  return {
-    ...item,
-    baseInfo: {
-      ...item.baseInfo,
-      fromToken:
-        hasFromTokenPrice && !force
-          ? item.baseInfo.fromToken
-          : { ...item.baseInfo.fromToken, price },
-      toToken:
-        hasToTokenPrice && !force
-          ? item.baseInfo.toToken
-          : { ...item.baseInfo.toToken, price },
-    },
-  };
-}
-
-function isSamePrivateSendHistoryToken({
-  source,
-  target,
-}: {
-  source?: ISwapTxHistory;
-  target?: ISwapTxHistory;
-}) {
-  if (!source || !target) {
-    return false;
-  }
-  return equalTokenNoCaseSensitive({
-    token1: source.baseInfo.fromToken,
-    token2: target.baseInfo.fromToken,
+  return convertFiat({
+    value: validPrice,
+    sourceCurrency: resolvedSourceCurrency,
+    targetCurrency,
+    currencyMap,
   });
 }
 
-function getPrivateSendPriceBackfillKey(item?: ISwapTxHistory) {
-  if (!item) {
-    return undefined;
-  }
-  const accountId = item.accountInfo.sender.accountId;
-  const networkId =
-    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
-  const tokenAddress = item.baseInfo.fromToken.isNative
-    ? 'native'
-    : item.baseInfo.fromToken.contractAddress;
-  if (!accountId || !networkId || !tokenAddress) {
-    return undefined;
-  }
-  return `${item.swapInfo.orderId ?? item.txInfo.txId ?? ''}:${accountId}:${networkId}:${tokenAddress}`;
-}
-
-async function fetchPrivateSendTokenPrice(item: ISwapTxHistory) {
+async function fetchPrivateSendTokenDisplayPriceMap({
+  item,
+  targetCurrency,
+  currencyMap,
+}: {
+  item: ISwapTxHistory;
+  targetCurrency: string;
+  currencyMap: Record<string, ICurrencyItem>;
+}) {
   const accountId = item.accountInfo.sender.accountId;
   if (!accountId) {
-    return undefined;
+    return {};
   }
 
-  const networkId =
-    item.baseInfo.fromToken.networkId ?? item.accountInfo.sender.networkId;
-  let tokenAddress = item.baseInfo.fromToken.contractAddress;
+  const displayTransfers = getPrivateSendDisplayTransfers(item);
+  const displayTargets: IPrivateSendDisplayPriceTarget[] =
+    displayTransfers.length
+      ? displayTransfers.map((transfer) => {
+          const isBaseToken = isBasePrivateSendTransfer({
+            transfer,
+            txHistory: item,
+          });
+          return {
+            key: getPrivateSendTransferPriceKey({ transfer, item }),
+            networkId:
+              transfer.networkId ??
+              item.baseInfo.fromNetwork?.networkId ??
+              item.accountInfo.sender.networkId,
+            tokenAddress:
+              transfer.tokenIdOnNetwork ||
+              (isBaseToken
+                ? item.baseInfo.fromToken.contractAddress
+                : undefined),
+            isNative:
+              transfer.isNative ||
+              (isBaseToken && item.baseInfo.fromToken.isNative),
+          };
+        })
+      : [
+          {
+            key: getPrivateSendBaseTokenPriceKey(item),
+            networkId:
+              item.baseInfo.fromToken.networkId ??
+              item.baseInfo.fromNetwork?.networkId ??
+              item.accountInfo.sender.networkId,
+            tokenAddress: item.baseInfo.fromToken.contractAddress,
+            isNative: item.baseInfo.fromToken.isNative,
+          },
+        ];
+  const nativePriceKey = getPrivateSendNetworkNativePriceKey(item);
+  const nativeNetworkId =
+    item.baseInfo.fromNetwork?.networkId ?? item.accountInfo.sender.networkId;
+  const targets =
+    nativePriceKey && nativeNetworkId
+      ? [
+          ...displayTargets,
+          {
+            key: nativePriceKey,
+            networkId: nativeNetworkId,
+            isNative: true,
+          },
+        ]
+      : displayTargets;
 
-  if (item.baseInfo.fromToken.isNative || !tokenAddress) {
-    tokenAddress = await backgroundApiProxy.serviceToken.getNativeTokenAddress({
-      networkId,
-    });
+  const priceMap: Record<string, string> = {};
+  const targetsByNetwork = new Map<
+    string,
+    { key: string; tokenAddress?: string; isNative?: boolean }[]
+  >();
+
+  for (const target of targets) {
+    if (target.key && target.networkId) {
+      const list = targetsByNetwork.get(target.networkId) ?? [];
+      list.push({
+        key: target.key,
+        tokenAddress: target.tokenAddress,
+        isNative: target.isNative,
+      });
+      targetsByNetwork.set(target.networkId, list);
+    }
   }
 
-  const tokenDetails = await backgroundApiProxy.serviceToken.fetchTokensDetails(
-    {
-      accountId,
-      networkId,
-      contractList: [tokenAddress],
-    },
+  await Promise.all(
+    [...targetsByNetwork.entries()].map(async ([networkId, networkTargets]) => {
+      const resolvedTargets = await Promise.all(
+        networkTargets.map(async (target) => {
+          let tokenAddress = target.tokenAddress;
+          if (target.isNative || !tokenAddress) {
+            tokenAddress =
+              await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+                networkId,
+              });
+          }
+          return target.isNative || tokenAddress
+            ? { ...target, tokenAddress: tokenAddress ?? '' }
+            : undefined;
+        }),
+      );
+      const validTargets = resolvedTargets.filter(
+        (
+          target,
+        ): target is {
+          key: string;
+          tokenAddress: string;
+          isNative?: boolean;
+        } => !!target && (target.isNative || !!target.tokenAddress),
+      );
+      if (!validTargets.length) {
+        return;
+      }
+
+      const uniqueTokenAddresses = [
+        ...new Set(validTargets.map((target) => target.tokenAddress)),
+      ];
+      const tokenDetails =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId,
+          networkId,
+          contractList: uniqueTokenAddresses,
+        });
+
+      const tokenDetailsByAddress = new Map<
+        string,
+        (typeof tokenDetails)[number]
+      >();
+      tokenDetails.forEach((tokenDetail) => {
+        const address = tokenDetail.info.address;
+        if (address) {
+          tokenDetailsByAddress.set(address.toLowerCase(), tokenDetail);
+        }
+      });
+
+      uniqueTokenAddresses.forEach((tokenAddress, index) => {
+        const tokenAddressKey = tokenAddress.toLowerCase();
+        const tokenDetail =
+          tokenDetailsByAddress.get(tokenAddressKey) ?? tokenDetails[index];
+        const price = convertPrivateSendTokenDisplayPrice({
+          price: tokenDetail?.price,
+          sourceCurrency: tokenDetail?.currency ?? USD_CURRENCY_ID,
+          targetCurrency,
+          currencyMap,
+        });
+        if (!price) {
+          return;
+        }
+        validTargets
+          .filter(
+            (target) => target.tokenAddress.toLowerCase() === tokenAddressKey,
+          )
+          .forEach((target) => {
+            priceMap[target.key] = price;
+          });
+      });
+    }),
   );
 
-  return getPositiveTokenPrice(tokenDetails?.[0]?.price);
+  return priceMap;
 }
 
 const SwapHistoryDetailModal = () => {
@@ -694,8 +829,8 @@ const SwapHistoryDetailModal = () => {
   const intl = useIntl();
   const { txHistoryOrderId, txHistoryList } = route.params ?? {};
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
-  const privateSendPriceBackfillKeysRef = useRef(new Set<string>());
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { result: swapTxHistoryList } = usePromiseResult(
     async () => {
       const histories =
@@ -751,29 +886,7 @@ const SwapHistoryDetailModal = () => {
               : item,
           )
         : rawNextTxHistoryList;
-    const currentTxHistory = txHistoryListState?.find(
-      (item) => item.swapInfo.orderId === txHistoryOrderId,
-    );
-    const currentPrivateSendPrice =
-      currentTxHistory && isPrivateSendSwapTxHistory(currentTxHistory)
-        ? (getPositiveTokenPrice(currentTxHistory.baseInfo.fromToken.price) ??
-          getPositiveTokenPrice(currentTxHistory.baseInfo.toToken.price))
-        : undefined;
-    const nextTxHistoryList = currentPrivateSendPrice
-      ? nextRawTxHistoryList.map((item) =>
-          item.swapInfo.orderId === txHistoryOrderId &&
-          isPrivateSendSwapTxHistory(item) &&
-          isSamePrivateSendHistoryToken({
-            source: currentTxHistory,
-            target: item,
-          })
-            ? applyPrivateSendTokenPrice({
-                item,
-                price: currentPrivateSendPrice,
-              })
-            : item,
-        )
-      : nextRawTxHistoryList;
+    const nextTxHistoryList = nextRawTxHistoryList;
     if (
       JSON.stringify(nextTxHistoryList) !== JSON.stringify(txHistoryListState)
     ) {
@@ -791,58 +904,22 @@ const SwapHistoryDetailModal = () => {
     () => isPrivateSendSwapTxHistory(txHistory),
     [txHistory],
   );
-  useEffect(() => {
-    if (!txHistory || !isPrivateSendHistory) {
-      return;
-    }
-
-    const priceBackfillKey = getPrivateSendPriceBackfillKey(txHistory);
-    if (
-      !priceBackfillKey ||
-      privateSendPriceBackfillKeysRef.current.has(priceBackfillKey)
-    ) {
-      return;
-    }
-    privateSendPriceBackfillKeysRef.current.add(priceBackfillKey);
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const price = await fetchPrivateSendTokenPrice(txHistory);
-        if (!price || cancelled) {
-          privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
-          return;
-        }
-
-        const nextTxHistory = applyPrivateSendTokenPrice({
-          item: txHistory,
-          price,
-          force: true,
-        });
-        if (JSON.stringify(nextTxHistory) === JSON.stringify(txHistory)) {
-          return;
-        }
-        setTxHistoryListState((prev) =>
-          prev?.map((item) =>
-            item.swapInfo.orderId === nextTxHistory.swapInfo.orderId
-              ? nextTxHistory
-              : item,
-          ),
-        );
-        await backgroundApiProxy.serviceSwap.updateSwapHistoryItem(
-          nextTxHistory,
-          { shouldShowToast: false },
-        );
-      } catch {
-        privateSendPriceBackfillKeysRef.current.delete(priceBackfillKey);
-        // Price backfill is best-effort and should not affect history details.
+  const displayCurrencyId = settingsPersistAtom.currencyInfo.id;
+  const currentCurrencySymbol = settingsPersistAtom.currencyInfo.symbol;
+  const displayCurrencySymbol = isPrivateSendHistory
+    ? currentCurrencySymbol
+    : (txHistory?.currency ?? currentCurrencySymbol);
+  const { result: privateSendTokenDisplayPriceMap } =
+    usePromiseResult(async () => {
+      if (!txHistory || !isPrivateSendHistory) {
+        return undefined;
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isPrivateSendHistory, txHistory]);
+      return fetchPrivateSendTokenDisplayPriceMap({
+        item: txHistory,
+        targetCurrency: displayCurrencyId,
+        currencyMap,
+      });
+    }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
   const shouldRenderOrderId =
     !!txHistory?.txInfo.orderId && !isPrivateSendHistory;
 
@@ -900,7 +977,6 @@ const SwapHistoryDetailModal = () => {
       const privateSendDisplayTransfers =
         getPrivateSendDisplayTransfers(txHistory);
       if (privateSendDisplayTransfers.length) {
-        const nativeTokenPrice = getNativeTokenPriceFromGasFee(txHistory);
         return (
           <>
             {privateSendDisplayTransfers.map((transfer, index) => {
@@ -908,6 +984,13 @@ const SwapHistoryDetailModal = () => {
                 transfer,
                 txHistory,
               });
+              const displayPriceKey = getPrivateSendTransferPriceKey({
+                transfer,
+                item: txHistory,
+              });
+              const displayPrice = displayPriceKey
+                ? privateSendTokenDisplayPriceMap?.[displayPriceKey]
+                : undefined;
               const asset = {
                 name:
                   transfer.name ||
@@ -926,12 +1009,7 @@ const SwapHistoryDetailModal = () => {
                     : ''),
                 isNFT: transfer.isNFT,
                 isNative: transfer.isNative,
-                price: getPrivateSendTransferPrice({
-                  transfer,
-                  isBaseToken,
-                  fromAssetPrice: fromAsset.price,
-                  nativeTokenPrice,
-                }),
+                price: displayPrice,
               };
 
               return (
@@ -945,10 +1023,7 @@ const SwapHistoryDetailModal = () => {
                   isAllNetworks
                   amount={transfer.amount}
                   networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
-                  currencySymbol={
-                    txHistory?.currency ??
-                    settingsPersistAtom.currencyInfo.symbol
-                  }
+                  currencySymbol={displayCurrencySymbol}
                   networkId={
                     transfer.networkId ??
                     txHistory?.baseInfo.fromNetwork?.networkId
@@ -959,17 +1034,22 @@ const SwapHistoryDetailModal = () => {
           </>
         );
       }
+      const baseTokenPriceKey = getPrivateSendBaseTokenPriceKey(txHistory);
+      const privateSendFromAsset: ISwapHistoryDetailAssetItem = {
+        ...fromAsset,
+        price: baseTokenPriceKey
+          ? privateSendTokenDisplayPriceMap?.[baseTokenPriceKey]
+          : undefined,
+      };
       return (
         <AssetItem
           index={0}
           direction={EDecodedTxDirection.OUT}
-          asset={fromAsset}
+          asset={privateSendFromAsset}
           isAllNetworks
           amount={fromTokenAmount ?? '0'}
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
-          currencySymbol={
-            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
-          }
+          currencySymbol={displayCurrencySymbol}
         />
       );
     }
@@ -982,9 +1062,7 @@ const SwapHistoryDetailModal = () => {
           isAllNetworks
           amount={txHistory?.baseInfo.toAmount ?? '0'}
           networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
-          currencySymbol={
-            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
-          }
+          currencySymbol={displayCurrencySymbol}
         />
         <AssetItem
           index={1}
@@ -993,9 +1071,7 @@ const SwapHistoryDetailModal = () => {
           isAllNetworks
           amount={fromTokenAmount ?? '0'}
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
-          currencySymbol={
-            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
-          }
+          currencySymbol={displayCurrencySymbol}
         />
         {otherAsset.map((item, index) => (
           <AssetItem
@@ -1006,16 +1082,15 @@ const SwapHistoryDetailModal = () => {
             isAllNetworks
             amount={item.amount ?? '0'}
             networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
-            currencySymbol={
-              txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
-            }
+            currencySymbol={displayCurrencySymbol}
           />
         ))}
       </>
     );
   }, [
+    displayCurrencySymbol,
     isPrivateSendHistory,
-    settingsPersistAtom.currencyInfo.symbol,
+    privateSendTokenDisplayPriceMap,
     txHistory,
   ]);
 
@@ -1217,7 +1292,6 @@ const SwapHistoryDetailModal = () => {
   const renderNetworkFee = useCallback(() => {
     const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? '');
-    const gasFeeFiatValueBN = new BigNumber(gasFeeFiatValue ?? '');
     if (gasFeeInNativeBN.isNaN() || !gasFeeInNativeBN.isFinite()) {
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1226,8 +1300,23 @@ const SwapHistoryDetailModal = () => {
       );
     }
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
+    const nativePriceKey = getPrivateSendNetworkNativePriceKey(txHistory);
+    let privateSendGasFeeFiatValue: string | undefined;
+    if (isPrivateSendHistory && nativePriceKey) {
+      const nativeTokenPrice =
+        privateSendTokenDisplayPriceMap?.[nativePriceKey];
+      if (nativeTokenPrice) {
+        privateSendGasFeeFiatValue = gasFeeInNativeBN
+          .times(nativeTokenPrice)
+          .toFixed();
+      }
+    }
+    const finalGasFeeFiatValue = isPrivateSendHistory
+      ? privateSendGasFeeFiatValue
+      : gasFeeFiatValue;
+    const finalGasFeeFiatValueBN = new BigNumber(finalGasFeeFiatValue ?? '');
     const shouldRenderGasFeeFiatValue =
-      !gasFeeFiatValueBN.isNaN() && gasFeeFiatValueBN.isFinite();
+      !finalGasFeeFiatValueBN.isNaN() && finalGasFeeFiatValueBN.isFinite();
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
         <NumberSizeableText
@@ -1243,20 +1332,19 @@ const SwapHistoryDetailModal = () => {
           size="$bodyMd"
           formatter="value"
           formatterOptions={{
-            currency:
-              txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
+            currency: displayCurrencySymbol,
           }}
         >
-          {shouldRenderGasFeeFiatValue ? gasFeeFiatValue : '--'}
+          {shouldRenderGasFeeFiatValue ? finalGasFeeFiatValue : '--'}
         </NumberSizeableText>
         )
       </SizableText>
     );
   }, [
-    settingsPersistAtom.currencyInfo.symbol,
-    txHistory?.baseInfo.fromNetwork?.symbol,
-    txHistory?.currency,
-    txHistory?.txInfo,
+    displayCurrencySymbol,
+    isPrivateSendHistory,
+    privateSendTokenDisplayPriceMap,
+    txHistory,
   ]);
 
   const renderRate = useCallback(
@@ -1317,16 +1405,14 @@ const SwapHistoryDetailModal = () => {
         color="$textSubdued"
         formatter="value"
         formatterOptions={{
-          currency:
-            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
+          currency: displayCurrencySymbol,
         }}
       >
         {protocolFee.toString()}
       </NumberSizeableText>
     );
   }, [
-    settingsPersistAtom.currencyInfo.symbol,
-    txHistory?.currency,
+    displayCurrencySymbol,
     txHistory?.swapInfo.otherFeeInfos,
     txHistory?.swapInfo.protocolFee,
   ]);

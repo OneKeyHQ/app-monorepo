@@ -216,9 +216,7 @@ function mergePrivateSendOrderDetailToken({
   return {
     ...currentToken,
     ...orderDetailToken,
-    price: isSameToken
-      ? (orderDetailToken.price ?? currentToken.price)
-      : orderDetailToken.price,
+    price: isSameToken ? currentToken.price : undefined,
   };
 }
 
@@ -541,6 +539,10 @@ export default class ServiceSwap extends ServiceBase {
       await this.backgroundApi.serviceNetwork.getAllNetworks({
         clearCache: options?.refreshClientNetworks,
       });
+    const deFiEnabledNetworksMapState =
+      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+        syncIfEmpty: false,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(
@@ -553,6 +555,14 @@ export default class ServiceSwap extends ServiceBase {
             shortcode: clientNetwork.shortcode,
             logoURI: clientNetwork.logoURI,
             backendIndex: clientNetwork.backendIndex ?? false,
+            ...(deFiEnabledNetworksMapState.isReady
+              ? {
+                  isDeFiEnabled:
+                    !!deFiEnabledNetworksMapState.enabledNetworksMap[
+                      network.networkId
+                    ],
+                }
+              : {}),
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,

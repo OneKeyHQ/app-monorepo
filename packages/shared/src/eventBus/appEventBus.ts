@@ -461,6 +461,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
   };
+  [EAppEventBusNames.StartAutoDownloadUpdate]: {
+    // The resolved update decision (jsBundleUpgrade / appShellUpdate /
+    // jsBundleRollback) — carried for foreground logging / diagnostics only.
+    decision: string;
+  };
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;

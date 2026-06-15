@@ -8,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
@@ -94,7 +95,12 @@ type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
 type IHistoryDecodedTransfer = NonNullable<
   IHistoryDecodedAction['assetTransfer']
 >['sends'][number];
-type IPrivateSendSwapHistoryToken = ISwapTxHistory['baseInfo']['fromToken'];
+type IPrivateSendDisplayPriceTarget = {
+  accountId: string;
+  networkId: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -223,42 +229,15 @@ function hasPrivateSendTransferPrice(transfer?: IHistoryDecodedTransfer) {
   return !!getPrivateSendPositivePriceValue(transfer?.price);
 }
 
-function hasPrivateSendSwapHistoryTokenPrice(
-  token?: IPrivateSendSwapHistoryToken,
-) {
-  return !!getPrivateSendPositivePriceValue(token?.price);
+function getPrivateSendPositiveNumberValue(value?: number | string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
 }
 
 function normalizePrivateSendTransferTokenId(tokenId?: string) {
   return tokenId?.trim().toLowerCase() ?? '';
-}
-
-function isSamePrivateSendTransferSwapToken({
-  transfer,
-  token,
-}: {
-  transfer: IHistoryDecodedTransfer;
-  token?: IPrivateSendSwapHistoryToken;
-}) {
-  if (!token) {
-    return false;
-  }
-
-  if (
-    normalizePrivateSendTransferTokenId(transfer.tokenIdOnNetwork) &&
-    normalizePrivateSendTransferTokenId(transfer.tokenIdOnNetwork) ===
-      normalizePrivateSendTransferTokenId(token.contractAddress)
-  ) {
-    return true;
-  }
-
-  return Boolean(
-    (!transfer.networkId ||
-      !token.networkId ||
-      transfer.networkId === token.networkId) &&
-    (transfer.isNative || !transfer.tokenIdOnNetwork) &&
-    (token.isNative || !token.contractAddress),
-  );
 }
 
 function isSamePrivateSendTransferForPrice({
@@ -398,42 +377,137 @@ function mergePrivateSendActionTransferPrices({
   return { actions, updated };
 }
 
-function applyPrivateSendSwapHistoryTokenPriceToTransfers({
-  transfers,
-  token,
+function getPrivateSendDisplayPriceKey({
+  networkId,
+  tokenAddress,
+  isNative,
 }: {
-  transfers: IHistoryDecodedTransfer[];
-  token: IPrivateSendSwapHistoryToken;
+  networkId?: string;
+  tokenAddress?: string;
+  isNative?: boolean;
 }) {
-  if (!hasPrivateSendSwapHistoryTokenPrice(token)) {
-    return { transfers, updated: false };
+  if (!networkId) {
+    return undefined;
   }
-
-  let updated = false;
-  const nextTransfers = transfers.map((transfer) => {
-    if (
-      hasPrivateSendTransferPrice(transfer) ||
-      !isSamePrivateSendTransferSwapToken({ transfer, token })
-    ) {
-      return transfer;
-    }
-
-    updated = true;
-    return {
-      ...transfer,
-      price: token.price,
-    };
-  });
-
-  return { transfers: nextTransfers, updated };
+  if (isNative) {
+    return `${networkId}:native`;
+  }
+  const normalizedTokenAddress =
+    normalizePrivateSendTransferTokenId(tokenAddress);
+  if (!normalizedTokenAddress) {
+    return undefined;
+  }
+  return `${networkId}:${normalizedTokenAddress}`;
 }
 
-function applyPrivateSendSwapHistoryTokenPricesToActions({
+function getPrivateSendTargetPriceKey({
+  accountId,
+  networkId,
+  tokenAddress,
+  isNative,
+}: IPrivateSendDisplayPriceTarget) {
+  const displayPriceKey = getPrivateSendDisplayPriceKey({
+    networkId,
+    tokenAddress,
+    isNative,
+  });
+  return displayPriceKey ? `${accountId}:${displayPriceKey}` : undefined;
+}
+
+function buildPrivateSendTransferDisplayPriceTarget({
+  tx,
+  transfer,
+}: {
+  tx: IAccountHistoryTx;
+  transfer: IHistoryDecodedTransfer;
+}): IPrivateSendDisplayPriceTarget | undefined {
+  if (transfer.isNFT) {
+    return undefined;
+  }
+
+  const accountId = tx.decodedTx.accountId;
+  const networkId = transfer.networkId ?? tx.decodedTx.networkId;
+  if (!accountId || !networkId) {
+    return undefined;
+  }
+
+  const tokenAddress = transfer.tokenIdOnNetwork;
+  return {
+    accountId,
+    networkId,
+    tokenAddress,
+    isNative: transfer.isNative || !tokenAddress,
+  };
+}
+
+function buildPrivateSendNativeDisplayPriceTarget(
+  tx: IAccountHistoryTx,
+): IPrivateSendDisplayPriceTarget | undefined {
+  const accountId = tx.decodedTx.accountId;
+  const networkId = tx.decodedTx.networkId;
+  if (!accountId || !networkId) {
+    return undefined;
+  }
+  return {
+    accountId,
+    networkId,
+    isNative: true,
+  };
+}
+
+function collectPrivateSendTransfersFromActions(
+  actions?: IHistoryDecodedAction[],
+) {
+  return (
+    actions?.flatMap((action) => {
+      const { assetTransfer } = action;
+      return assetTransfer
+        ? [...assetTransfer.sends, ...assetTransfer.receives]
+        : [];
+    }) ?? []
+  );
+}
+
+function convertPrivateSendDisplayPrice({
+  price,
+  sourceCurrency,
+  targetCurrency,
+  currencyMap,
+}: {
+  price?: number | string;
+  sourceCurrency?: string;
+  targetCurrency: string;
+  currencyMap: Record<string, ICurrencyItem>;
+}) {
+  const priceBN = getPrivateSendPositiveNumberValue(price);
+  if (!priceBN) {
+    return undefined;
+  }
+
+  const resolvedSourceCurrency = sourceCurrency || USD_CURRENCY_ID;
+  if (resolvedSourceCurrency === targetCurrency) {
+    return priceBN.toFixed();
+  }
+
+  const sourceCurrencyInfo = currencyMap[resolvedSourceCurrency];
+  const targetCurrencyInfo = currencyMap[targetCurrency];
+  const sourceRate = new BigNumber(sourceCurrencyInfo?.value ?? NaN);
+  const targetRate = new BigNumber(targetCurrencyInfo?.value ?? NaN);
+  if (!sourceRate.isFinite() || sourceRate.isZero() || !targetRate.isFinite()) {
+    return undefined;
+  }
+
+  return priceBN.div(sourceRate).times(targetRate).toFixed();
+}
+
+function applyPrivateSendDisplayPricesToActions({
   actions,
-  swapHistory,
+  tx,
+  priceMap,
 }: {
   actions?: IHistoryDecodedAction[];
-  swapHistory: ISwapTxHistory;
+  tx: IAccountHistoryTx;
+  priceMap: Map<string, string>;
 }) {
   if (!actions?.length) {
     return { actions, updated: false };
@@ -446,61 +520,36 @@ function applyPrivateSendSwapHistoryTokenPricesToActions({
       return action;
     }
 
-    const sendsResult = applyPrivateSendSwapHistoryTokenPriceToTransfers({
-      transfers: assetTransfer.sends,
-      token: swapHistory.baseInfo.fromToken,
-    });
-    const receivesResult = applyPrivateSendSwapHistoryTokenPriceToTransfers({
-      transfers: assetTransfer.receives,
-      token: swapHistory.baseInfo.toToken,
-    });
-    if (!sendsResult.updated && !receivesResult.updated) {
-      return action;
-    }
+    const updateTransfer = (transfer: IHistoryDecodedTransfer) => {
+      const target = buildPrivateSendTransferDisplayPriceTarget({
+        tx,
+        transfer,
+      });
+      const priceKey = target
+        ? getPrivateSendTargetPriceKey(target)
+        : undefined;
+      const price = priceKey ? priceMap.get(priceKey) : undefined;
+      if (transfer.price === price) {
+        return transfer;
+      }
+      updated = true;
+      return {
+        ...transfer,
+        price,
+      };
+    };
 
-    updated = true;
     return {
       ...action,
       assetTransfer: {
         ...assetTransfer,
-        sends: sendsResult.transfers,
-        receives: receivesResult.transfers,
+        sends: assetTransfer.sends.map(updateTransfer),
+        receives: assetTransfer.receives.map(updateTransfer),
       },
     };
   });
 
   return { actions: nextActions, updated };
-}
-
-function applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
-  tx,
-  swapHistory,
-}: {
-  tx: IAccountHistoryTx;
-  swapHistory: ISwapTxHistory;
-}) {
-  const actionsResult = applyPrivateSendSwapHistoryTokenPricesToActions({
-    actions: tx.decodedTx.actions,
-    swapHistory,
-  });
-  const outputActionsResult = applyPrivateSendSwapHistoryTokenPricesToActions({
-    actions: tx.decodedTx.outputActions,
-    swapHistory,
-  });
-  if (!actionsResult.updated && !outputActionsResult.updated) {
-    return tx;
-  }
-
-  return {
-    ...tx,
-    decodedTx: {
-      ...tx.decodedTx,
-      ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
-      ...(outputActionsResult.updated
-        ? { outputActions: outputActionsResult.actions }
-        : {}),
-    },
-  };
 }
 
 function normalizePrivateSendHistoryAddress(address?: string) {
@@ -682,25 +731,207 @@ class ServiceHistory extends ServiceBase {
           tx,
           swapHistory,
         });
-      const txWithSwapHistoryTokenPrices =
-        applyPrivateSendSwapHistoryTokenPricesToHistoryTx({
-          tx: txWithSwapHistoryRecipient,
-          swapHistory,
-        });
 
       const displayStatus = getPrivateSendHistoryDisplayStatus({
-        historyTx: txWithSwapHistoryTokenPrices,
+        historyTx: txWithSwapHistoryRecipient,
         swapHistory,
       });
 
       if (!displayStatus || displayStatus === tx.decodedTx.status) {
-        return this.clearHistoryTxDisplayStatus(txWithSwapHistoryTokenPrices);
+        return this.clearHistoryTxDisplayStatus(txWithSwapHistoryRecipient);
       }
 
       return {
-        ...txWithSwapHistoryTokenPrices,
+        ...txWithSwapHistoryRecipient,
         displayStatus,
         displayStatusSource: 'privateSendOrder',
+      };
+    });
+  }
+
+  private async attachPrivateSendDisplayPrices({
+    txs,
+    targetCurrency,
+    currencyMap,
+  }: {
+    txs: IAccountHistoryTx[];
+    targetCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+  }): Promise<IAccountHistoryTx[]> {
+    const privateSendTxs = txs.filter((tx) =>
+      isPrivateSendAccountHistoryTx(tx),
+    );
+    if (!privateSendTxs.length || !targetCurrency || !currencyMap) {
+      return txs;
+    }
+
+    const groupedTargets = new Map<
+      string,
+      Map<string, IPrivateSendDisplayPriceTarget>
+    >();
+    const addTarget = (target?: IPrivateSendDisplayPriceTarget) => {
+      if (!target) {
+        return;
+      }
+      const priceKey = getPrivateSendTargetPriceKey(target);
+      if (!priceKey) {
+        return;
+      }
+      const groupKey = `${target.accountId}:${target.networkId}`;
+      const group = groupedTargets.get(groupKey) ?? new Map();
+      group.set(priceKey, target);
+      groupedTargets.set(groupKey, group);
+    };
+
+    privateSendTxs.forEach((tx) => {
+      [
+        ...collectPrivateSendTransfersFromActions(tx.decodedTx.actions),
+        ...collectPrivateSendTransfersFromActions(tx.decodedTx.outputActions),
+      ].forEach((transfer) => {
+        addTarget(buildPrivateSendTransferDisplayPriceTarget({ tx, transfer }));
+      });
+
+      if (getPrivateSendPositiveNumberValue(tx.decodedTx.totalFeeInNative)) {
+        addTarget(buildPrivateSendNativeDisplayPriceTarget(tx));
+      }
+    });
+
+    const priceMap = new Map<string, string>();
+    await Promise.all(
+      [...groupedTargets.values()].map(async (group) => {
+        const targets = [...group.values()];
+        const firstTarget = targets[0];
+        if (!firstTarget) {
+          return;
+        }
+        const { accountId, networkId } = firstTarget;
+        try {
+          const resolvedTargets = await Promise.all(
+            targets.map(async (target) => {
+              let tokenAddress = target.tokenAddress;
+              if (target.isNative || !tokenAddress) {
+                tokenAddress =
+                  await this.backgroundApi.serviceToken.getNativeTokenAddress({
+                    networkId,
+                  });
+              }
+              return target.isNative || tokenAddress
+                ? { ...target, tokenAddress: tokenAddress ?? '' }
+                : undefined;
+            }),
+          );
+          const validTargets = resolvedTargets.filter(
+            (
+              target,
+            ): target is IPrivateSendDisplayPriceTarget & {
+              tokenAddress: string;
+            } => !!target && (target.isNative || !!target.tokenAddress),
+          );
+          if (!validTargets.length) {
+            return;
+          }
+
+          const uniqueTokenAddresses = [
+            ...new Set(validTargets.map((target) => target.tokenAddress)),
+          ];
+          const tokenDetails =
+            await this.backgroundApi.serviceToken.fetchTokensDetails({
+              accountId,
+              networkId,
+              contractList: uniqueTokenAddresses,
+            });
+          const tokenDetailsByAddress = new Map<
+            string,
+            (typeof tokenDetails)[number]
+          >();
+          tokenDetails.forEach((tokenDetail) => {
+            const address = tokenDetail.info.address;
+            if (address) {
+              tokenDetailsByAddress.set(address.toLowerCase(), tokenDetail);
+            }
+          });
+
+          uniqueTokenAddresses.forEach((tokenAddress, index) => {
+            const tokenAddressKey = tokenAddress.toLowerCase();
+            const tokenDetail =
+              tokenDetailsByAddress.get(tokenAddressKey) ?? tokenDetails[index];
+            const price = convertPrivateSendDisplayPrice({
+              price: tokenDetail?.price,
+              sourceCurrency: tokenDetail?.currency ?? USD_CURRENCY_ID,
+              targetCurrency,
+              currencyMap,
+            });
+            if (!price) {
+              return;
+            }
+            validTargets
+              .filter(
+                (target) =>
+                  target.tokenAddress.toLowerCase() === tokenAddressKey,
+              )
+              .forEach((target) => {
+                const priceKey = getPrivateSendTargetPriceKey(target);
+                if (priceKey) {
+                  priceMap.set(priceKey, price);
+                }
+              });
+          });
+        } catch {
+          // Display-price repair is best effort; unknown is better than stale.
+        }
+      }),
+    );
+
+    return txs.map((tx) => {
+      if (!isPrivateSendAccountHistoryTx(tx)) {
+        return tx;
+      }
+
+      const actionsResult = applyPrivateSendDisplayPricesToActions({
+        actions: tx.decodedTx.actions,
+        tx,
+        priceMap,
+      });
+      const outputActionsResult = applyPrivateSendDisplayPricesToActions({
+        actions: tx.decodedTx.outputActions,
+        tx,
+        priceMap,
+      });
+      const nativeTarget = buildPrivateSendNativeDisplayPriceTarget(tx);
+      const nativePriceKey = nativeTarget
+        ? getPrivateSendTargetPriceKey(nativeTarget)
+        : undefined;
+      const nativePrice = nativePriceKey
+        ? priceMap.get(nativePriceKey)
+        : undefined;
+      const totalFeeInNativeBN = getPrivateSendPositiveNumberValue(
+        tx.decodedTx.totalFeeInNative,
+      );
+      const totalFeeFiatValue =
+        totalFeeInNativeBN && nativePrice
+          ? totalFeeInNativeBN.times(nativePrice).toFixed()
+          : undefined;
+      const shouldUpdateFeeFiatValue =
+        tx.decodedTx.totalFeeFiatValue !== totalFeeFiatValue;
+
+      if (
+        !actionsResult.updated &&
+        !outputActionsResult.updated &&
+        !shouldUpdateFeeFiatValue
+      ) {
+        return tx;
+      }
+
+      return {
+        ...tx,
+        decodedTx: {
+          ...tx.decodedTx,
+          ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
+          ...(outputActionsResult.updated
+            ? { outputActions: outputActionsResult.actions }
+            : {}),
+          totalFeeFiatValue,
+        },
       };
     });
   }
@@ -891,13 +1122,19 @@ class ServiceHistory extends ServiceBase {
     });
     const txsWithPrivateSendDisplayStatus =
       await this.attachPrivateSendDisplayStatus(filtered);
+    const txsWithPrivateSendDisplayPrices =
+      await this.attachPrivateSendDisplayPrices({
+        txs: txsWithPrivateSendDisplayStatus,
+        targetCurrency: sourceCurrency,
+        currencyMap,
+      });
 
     // Load-more is single-network (the AllNetworks branch never reaches here),
     // so resolve the logo once and stamp every tx instead of per-tx fetching.
     const logoNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
-    for (const tx of txsWithPrivateSendDisplayStatus) {
+    for (const tx of txsWithPrivateSendDisplayPrices) {
       tx.decodedTx.networkLogoURI = logoNetwork.logoURI;
     }
 
@@ -910,7 +1147,7 @@ class ServiceHistory extends ServiceBase {
       isIndexer: !!onChainResult.isIndexer,
       accounts: [] as IAllNetworkAccountInfo[],
       allAccounts: [] as IAllNetworkAccountInfo[],
-      txs: txsWithPrivateSendDisplayStatus,
+      txs: txsWithPrivateSendDisplayPrices,
       addressMap: onChainResult.addressMap,
       accountsWithChangedPendingTxs: [] as {
         accountId: string;
@@ -1298,6 +1535,11 @@ class ServiceHistory extends ServiceBase {
     }
 
     result = await this.attachPrivateSendDisplayStatus(result);
+    result = await this.attachPrivateSendDisplayPrices({
+      txs: result,
+      targetCurrency: sourceCurrency,
+      currencyMap,
+    });
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
@@ -1648,9 +1890,15 @@ class ServiceHistory extends ServiceBase {
 
       const resultWithPrivateSendDisplayStatus =
         await this.attachPrivateSendDisplayStatus(result);
+      const resultWithPrivateSendDisplayPrices =
+        await this.attachPrivateSendDisplayPrices({
+          txs: resultWithPrivateSendDisplayStatus,
+          targetCurrency: sourceCurrency,
+          currencyMap,
+        });
 
       return filterHistoryTxs({
-        txs: resultWithPrivateSendDisplayStatus,
+        txs: resultWithPrivateSendDisplayPrices,
         sourceCurrency,
         targetCurrency,
         currencyMap,
@@ -1693,9 +1941,15 @@ class ServiceHistory extends ServiceBase {
 
     const resultWithPrivateSendDisplayStatus =
       await this.attachPrivateSendDisplayStatus(result);
+    const resultWithPrivateSendDisplayPrices =
+      await this.attachPrivateSendDisplayPrices({
+        txs: resultWithPrivateSendDisplayStatus,
+        targetCurrency: sourceCurrency,
+        currencyMap,
+      });
 
     return filterHistoryTxs({
-      txs: resultWithPrivateSendDisplayStatus,
+      txs: resultWithPrivateSendDisplayPrices,
       filterScam,
       filterLowValue,
       sourceCurrency,

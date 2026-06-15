@@ -667,9 +667,16 @@ class ServicePendingInstallTask {
 
     // Rollback always creates a pending task regardless of server strategy —
     // it is a corrective action that should not require user confirmation.
+    // OK-55397: silent now also queues a pending install task instead of
+    // showing a "ready" dialog, so the downloaded update is applied on the
+    // next restart (or immediately when the user taps the update button).
+    // silent + seamless together == isAutoUpdateStrategy, mirroring the
+    // shouldAutoDownload gate in ServiceAppUpdate.fetchAppUpdateInfo (kept
+    // inline here to avoid coupling to the shared helper's import path).
     if (
       decision.decision !== 'jsBundleRollback' &&
-      releaseInfo.updateStrategy !== EUpdateStrategy.seamless
+      releaseInfo.updateStrategy !== EUpdateStrategy.seamless &&
+      releaseInfo.updateStrategy !== EUpdateStrategy.silent
     ) {
       defaultLogger.app.appUpdate.pendingTaskUpsertDecision({
         traceId,

@@ -672,7 +672,9 @@ function OrderConfirmContent({
         {shouldShowStandardLimitTif ? (
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Time in Force
+              {intl.formatMessage({
+                id: ETranslations.perp_time_in_force__title,
+              })}
             </SizableText>
             <SizableText size="$bodyMdMedium">{limitTifLabel}</SizableText>
           </XStack>

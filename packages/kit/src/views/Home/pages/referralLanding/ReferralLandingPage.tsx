@@ -197,6 +197,20 @@ type IReferralUtmSource =
 const formatDiscount = (value?: { amount: number; unit: string }) =>
   value ? `${value.amount}${value.unit}` : '';
 
+const REFERRAL_LOG_KEY_SEPARATOR = '|';
+const REFERRAL_ENTER_DEDUP_WINDOW_MS = 3000;
+
+const buildReferralEntryLogKey = ({
+  referralCode,
+  landingPage,
+  utmSource,
+}: {
+  referralCode: string | undefined;
+  landingPage: string;
+  utmSource: IReferralUtmSource;
+}) =>
+  [referralCode ?? '', landingPage, utmSource].join(REFERRAL_LOG_KEY_SEPARATOR);
+
 function ReferralLandingPage() {
   const route = useAppRoute<ITabHomeParamList, IReferralLandingRouteName>();
   const navigation = useAppNavigation();
@@ -261,6 +275,43 @@ function ReferralLandingPage() {
     [code, landingPage],
   );
 
+  const recentWebEnterLogsRef = useRef(new Map<string, number>());
+  const logWebEnterDeduped = useCallback(
+    (utmSource: IReferralUtmSource) => {
+      const logKey = buildReferralEntryLogKey({
+        referralCode: code,
+        landingPage,
+        utmSource,
+      });
+      const now = Date.now();
+      const lastLoggedAt = recentWebEnterLogsRef.current.get(logKey);
+      if (
+        lastLoggedAt !== undefined &&
+        now - lastLoggedAt < REFERRAL_ENTER_DEDUP_WINDOW_MS
+      ) {
+        return;
+      }
+      recentWebEnterLogsRef.current.set(logKey, now);
+      logEnter(utmSource);
+    },
+    [code, landingPage, logEnter],
+  );
+
+  const loggedPageOpenKeysRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!isWeb) return;
+    const logKey = `${code ?? ''}${REFERRAL_LOG_KEY_SEPARATOR}${landingPage}`;
+    if (loggedPageOpenKeysRef.current.has(logKey)) {
+      return;
+    }
+    loggedPageOpenKeysRef.current.add(logKey);
+    defaultLogger.referral.page.referralPageOpen({
+      referralCode: code ?? '',
+      landingPage,
+      pageVariant: variant,
+    });
+  }, [code, isWeb, landingPage, variant]);
+
   const logReferralLandingButton = useCallback(
     ({
       buttonName,
@@ -299,9 +350,9 @@ function ReferralLandingPage() {
 
   const handleDownload = useCallback(() => {
     logReferralLandingButton({ buttonName: 'download_app' });
-    logEnter(REFERRAL_UTM_SOURCE.webAppStore);
+    logWebEnterDeduped(REFERRAL_UTM_SOURCE.webAppStore);
     redirectToStore();
-  }, [logEnter, logReferralLandingButton]);
+  }, [logReferralLandingButton, logWebEnterDeduped]);
 
   const [isDownloadHintVisible, setIsDownloadHintVisible] = useState(false);
   const downloadHintCleanupRef = useRef<(() => void) | null>(null);
@@ -320,13 +371,13 @@ function ReferralLandingPage() {
 
   const launchViaDeepLink = useCallback(
     (utmSource: IReferralUtmSource) => {
-      logEnter(utmSource);
+      logWebEnterDeduped(utmSource);
       const deepLink = buildDeepLink();
       if (!deepLink) return;
       scheduleDownloadHint();
       openAppViaDeepLink(deepLink);
     },
-    [buildDeepLink, logEnter, scheduleDownloadHint],
+    [buildDeepLink, logWebEnterDeduped, scheduleDownloadHint],
   );
 
   const { isOneKeyInstalled } = useOneKeyWalletDetection();
@@ -343,13 +394,13 @@ function ReferralLandingPage() {
   const startBindFlow = useCallback(
     (bindMethod: IReferralLandingBindMethod, utmSource: IReferralUtmSource) => {
       if (bindMethod === 'web_extension') {
-        logEnter(utmSource);
+        logWebEnterDeduped(utmSource);
         void bindViaExtension();
         return;
       }
       launchViaDeepLink(utmSource);
     },
-    [bindViaExtension, logEnter, launchViaDeepLink],
+    [bindViaExtension, logWebEnterDeduped, launchViaDeepLink],
   );
 
   const handleBind = useCallback(() => {
@@ -408,9 +459,15 @@ function ReferralLandingPage() {
     if (bindMethod) {
       startBindFlow(bindMethod, REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
     } else {
-      logEnter(REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
+      logWebEnterDeduped(REFERRAL_UTM_SOURCE.webAlreadyHaveSkip);
     }
-  }, [code, getBindMethod, logEnter, logReferralLandingButton, startBindFlow]);
+  }, [
+    code,
+    getBindMethod,
+    logReferralLandingButton,
+    logWebEnterDeduped,
+    startBindFlow,
+  ]);
 
   // Trade has no extension shortcut: opening the target tab requires the app,
   // not just sign-and-bind.

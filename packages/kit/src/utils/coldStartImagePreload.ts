@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/components/src/primitives/Image/cache';
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   getHyperliquidTokenImageUrl,
@@ -354,10 +355,16 @@ export async function prewarmImageUris(
   }
   await primeCachedImagePaths({ uris, timeoutMs: primeTimeoutMs });
   const tasks: Array<Promise<unknown>> = [];
-  if (preload) {
+  // The decoded ImageRef cache is iOS-only (see Image/cache.ts). On Android,
+  // fall back to Image.prefetch so Glide's native cache is still warmed for
+  // decode-only callers (e.g. Perps token-selector critical logos that pass
+  // preload:false), without decoding unconsumed — and crash-prone — SharedRefs.
+  const shouldPreload = preload || (platformEnv.isNativeAndroid && decode);
+  const shouldDecode = decode && !platformEnv.isNativeAndroid;
+  if (shouldPreload) {
     tasks.push(preloadImages(uris.map((uri) => ({ uri }))));
   }
-  if (decode) {
+  if (shouldDecode) {
     tasks.push(primeCachedImageRefs({ uris, timeoutMs: decodeTimeoutMs }));
   }
   if (awaitPreload) {
