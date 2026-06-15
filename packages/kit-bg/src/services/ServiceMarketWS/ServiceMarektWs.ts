@@ -72,7 +72,6 @@ class ServiceMarketWS extends ServiceBase {
   };
 
   private marketHandler = (data: unknown) => {
-    console.log('handleMarketMessage', data);
     this.handleMarketMessage(data);
   };
 
@@ -178,10 +177,6 @@ class ServiceMarketWS extends ServiceBase {
       if (!latestSubscription) {
         return;
       }
-
-      console.warn(
-        `Auto-unsubscribing due to data accumulation: ${latestSubscription.address}, channel: ${latestSubscription.type}, dataCount: ${latestSubscription.dataCount}`,
-      );
 
       if (latestSubscription.type === EChannel.tokenTxs) {
         void this.unsubscribeTokenTxs({
@@ -307,9 +302,6 @@ class ServiceMarketWS extends ServiceBase {
     if (subscriptions.length === 0) {
       return;
     }
-    console.log(
-      `Reconnected, re-subscribing ${subscriptions.length} active subscription(s)`,
-    );
     for (const sub of subscriptions) {
       const subscriptionArgs: IMarketSubscription = {
         channel: sub.type,
@@ -360,7 +352,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     if (retries <= 0) {
-      console.error('WebSocket not connected after retries, subscribe failed');
       return;
     }
 
@@ -680,8 +671,6 @@ class ServiceMarketWS extends ServiceBase {
     let processedData: any;
     let matchedSubscriptions: ISubscription[] = [];
 
-    console.log('messageData', messageData);
-
     if ('type' in messageData && 'data' in messageData) {
       messageType = messageData.type as string;
       const rawData = messageData.data as Record<string, any>;
@@ -768,24 +757,22 @@ class ServiceMarketWS extends ServiceBase {
         return;
       }
     } else {
-      console.warn('Invalid market data: missing required fields', {
-        tokenAddress,
-        originalData: data,
-      });
-
       return;
     }
 
-    this.incrementDataCountForSubscriptions(matchedSubscriptions);
+    const isSubscriptionAmbiguous = matchedSubscriptions.length > 1;
     const networkId = this.getUniqueSubscriptionNetworkId(matchedSubscriptions);
-    this.autoUnsubscribeStaleSubscriptions(matchedSubscriptions);
+    if (!isSubscriptionAmbiguous) {
+      this.incrementDataCountForSubscriptions(matchedSubscriptions);
+      this.autoUnsubscribeStaleSubscriptions(matchedSubscriptions);
+    }
 
     // Emit event to app event bus with standardized format
     appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
       channel,
       tokenAddress,
       networkId,
-      isSubscriptionAmbiguous: matchedSubscriptions.length > 1,
+      isSubscriptionAmbiguous,
       messageType,
       data: processedData,
       originalData: data,
