@@ -84,9 +84,11 @@ describe('aggCell (derived)', () => {
       orderedIds: [],
       smallBalanceIds: [],
       nonZeroIds: [],
+      fundedIds: [],
       aggMembership: { agg: ['net1', 'net2'] },
       ownerKey: 'o',
       generation: 0,
+      smallBalanceFiatValue: '0',
     });
     s.set(
       subcell(store, 'agg', 'net1'),

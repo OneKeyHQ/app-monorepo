@@ -1,4 +1,5 @@
 import {
+  computeFundedIds,
   computeNonZeroIds,
   fiatEqual,
   isAgg,
@@ -229,5 +230,96 @@ describe('computeNonZeroIds', () => {
       customTokens: [],
     });
     expect(result).toEqual([]);
+  });
+});
+
+describe('computeFundedIds (STRICT balance>0, PR-0 enabler)', () => {
+  const homeDefaultTokenMap = {
+    'evm--1_ETH': true,
+  } as Record<string, unknown>;
+
+  it('parity vs computeNonZeroIds: funded = ONLY balance>0; funded ⊊ nonZero when a 0-balance default token is kept', () => {
+    // Same fixture as computeNonZeroIds "keeps balance>0, default native, and
+    // custom hits" — proving the two sets DIFFER over identical inputs:
+    //   nonZero (hideZero VIEW) = [hasBalance, defaultNative, customHit]
+    //   funded  (STRICT)        = [hasBalance]            (balance>0 only)
+    const fiats: Record<string, ITokenFiat> = {
+      hasBalance: makeFiat({ balance: '5' }),
+      defaultNative: makeFiat({ balance: '0' }),
+      customHit: makeFiat({ balance: '0' }),
+      dropped: makeFiat({ balance: '0' }),
+    };
+    const metas: Record<string, IToken> = {
+      hasBalance: makeToken({ networkId: 'evm--1', symbol: 'USDC' }),
+      defaultNative: makeToken({
+        networkId: 'evm--1',
+        symbol: 'ETH',
+        isNative: true,
+      }),
+      customHit: makeToken({
+        networkId: 'evm--1',
+        symbol: 'CUS',
+        address: '0xcustom',
+      }),
+      dropped: makeToken({ networkId: 'evm--1', symbol: 'ZZZ' }),
+    };
+    const ids = ['hasBalance', 'defaultNative', 'customHit', 'dropped'];
+    const getFiat = (k: string) => fiats[k];
+    const getMeta = (k: string) => metas[k];
+
+    const nonZero = computeNonZeroIds({
+      ids,
+      getFiat,
+      getMeta,
+      keepDefault: true,
+      homeDefaultTokenMap,
+      customTokens: [{ address: '0xcustom', networkId: 'evm--1' } as never],
+    });
+    const funded = computeFundedIds({ ids, getFiat, getMeta });
+
+    expect(nonZero).toEqual(['hasBalance', 'defaultNative', 'customHit']);
+    expect(funded).toEqual(['hasBalance']);
+
+    // funded is a PROPER subset of nonZero (the keepDefault zero-balance tokens
+    // are present in nonZero but absent from funded).
+    const nonZeroSet = new Set(nonZero);
+    for (const id of funded) {
+      expect(nonZeroSet.has(id)).toBe(true);
+    }
+    expect(funded.length).toBeLessThan(nonZero.length);
+  });
+
+  it('is nonempty iff at least one funded token (== legacy hasHoldingsNow)', () => {
+    // all zero -> empty (hasHoldingsNow=false)
+    expect(
+      computeFundedIds({
+        ids: ['a', 'b'],
+        getFiat: () => makeFiat({ balance: '0' }),
+        getMeta: () => makeToken(),
+      }),
+    ).toEqual([]);
+
+    // one positive -> nonempty (hasHoldingsNow=true)
+    const fiats: Record<string, ITokenFiat> = {
+      a: makeFiat({ balance: '0' }),
+      b: makeFiat({ balance: '1' }),
+    };
+    expect(
+      computeFundedIds({
+        ids: ['a', 'b'],
+        getFiat: (k) => fiats[k],
+        getMeta: () => makeToken(),
+      }),
+    ).toEqual(['b']);
+  });
+
+  it('ignores keepDefault retention entirely (a fresh 0-balance native is NOT funded)', () => {
+    const funded = computeFundedIds({
+      ids: ['defaultNative'],
+      getFiat: () => makeFiat({ balance: '0' }),
+      getMeta: () =>
+        makeToken({ networkId: 'evm--1', symbol: 'ETH', isNative: true }),
+    });
+    expect(funded).toEqual([]);
   });
 });

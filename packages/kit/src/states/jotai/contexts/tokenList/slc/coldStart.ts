@@ -173,6 +173,7 @@ export function readSlcColdStartProjection(
       aggMembership: structureValue.aggMembership,
       ownerKey: structureValue.ownerKey,
       generation: structureValue.generation,
+      smallBalanceFiatValue: structureValue.smallBalanceFiatValue,
     },
     fiatByKey,
     aggFiatByKey,
@@ -284,12 +285,21 @@ export function fanOutSlimToApply(params: {
   const structure: IStructureSnapshot = {
     orderedIds: bundle.orderedIds,
     smallBalanceIds: bundle.smallBalanceIds,
-    // nonZeroIds is Phase-1 dead-weight (spec §8#2) — the slim bundle does not
-    // persist it; emit empty so the structure atom is well-formed.
+    // nonZeroIds is the hideZero VIEW filter (spec §8#2) — the slim bundle does
+    // not persist it; emit empty so the structure atom is well-formed. The first
+    // real structure frame of THIS session (which supersedes this provisional
+    // cold paint) carries the authoritative nonZeroIds.
     nonZeroIds: [],
+    // fundedIds (STRICT balance>0) is likewise not persisted in the slim bundle;
+    // emit empty here and let the first real frame populate it. The cold paint is
+    // provisional (curGeneration reset to -1 below), so any hasHoldingsNow reader
+    // resolves against the real frame, not this empty seed.
+    fundedIds: [],
     metaPatch,
     aggMembership: bundle.aggMembership,
-    smallBalanceFiatValue: '0',
+    // Restore the REAL persisted small-balance fiat scalar (PR-0 enabler) instead
+    // of hardcoding '0'; older bundles without the field fall back to '0'.
+    smallBalanceFiatValue: bundle.smallBalanceFiatValue ?? '0',
     storeData,
     ownerKey: bundle.ownerKey,
     generation: bundle.gen,

@@ -122,6 +122,7 @@ function makeStructure(
     orderedIds: [],
     smallBalanceIds: [],
     nonZeroIds: [],
+    fundedIds: [],
     metaPatch: {},
     aggMembership: {},
     smallBalanceFiatValue: '0',

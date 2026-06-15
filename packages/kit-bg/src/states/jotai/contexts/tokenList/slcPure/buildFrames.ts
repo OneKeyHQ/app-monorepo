@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import {
+  computeFundedIds,
   computeNonZeroIds,
   isAgg,
   metaEqual,
@@ -95,6 +96,7 @@ export interface IBuildFramesPrev {
     | 'orderedIds'
     | 'smallBalanceIds'
     | 'nonZeroIds'
+    | 'fundedIds'
     | 'aggMembership'
     | 'ownerKey'
     | 'generation'
@@ -208,35 +210,52 @@ export function buildFrames(
   // nested aggregateTokensMap) since they don't live in `tokenListMap`. This
   // makes `nonZeroChanged` a CORRECT structure-frame trigger for the HOME
   // hideZero list (a balance crossing 0 flips membership -> structure frame).
-  const nonZeroIds: ITokenKey[] = computeNonZeroIds({
-    ids: [...orderedIds, ...smallBalanceIds],
-    getFiat: (key) => {
-      if (isAgg(key, metaPatch[key])) {
-        const byNet = aggregateTokensMap[key];
-        if (!byNet) {
-          return undefined;
-        }
-        // Sum the per-network balances so an aggregate token with any positive
-        // sub-balance counts as non-zero (mirrors the in-view aggregate read).
-        let bal = new BigNumber(0);
-        for (const f of Object.values(byNet)) {
-          bal = bal.plus(f?.balance ?? 0);
-        }
-        return { balance: bal.toFixed() } as ITokenFiat;
+  const allListIds: ITokenKey[] = [...orderedIds, ...smallBalanceIds];
+
+  // Aggregate-aware fiat resolver shared by BOTH `nonZeroIds` and `fundedIds`:
+  // aggregate ids don't live in `tokenListMap`, so resolve their balance from the
+  // per-network fiat sum (mirrors the in-view aggregate read). Non-aggregate ids
+  // read straight from `tokenListMap`.
+  const getAggAwareFiat = (key: string): ITokenFiat | undefined => {
+    if (isAgg(key, metaPatch[key])) {
+      const byNet = aggregateTokensMap[key];
+      if (!byNet) {
+        return undefined;
       }
-      return tokenListMap[key];
-    },
+      let bal = new BigNumber(0);
+      for (const f of Object.values(byNet)) {
+        bal = bal.plus(f?.balance ?? 0);
+      }
+      return { balance: bal.toFixed() } as ITokenFiat;
+    }
+    return tokenListMap[key];
+  };
+
+  const nonZeroIds: ITokenKey[] = computeNonZeroIds({
+    ids: allListIds,
+    getFiat: getAggAwareFiat,
     getMeta: (key) => metaPatch[key],
     keepDefault,
     homeDefaultTokenMap,
     customTokens,
   });
 
+  // --- fundedIds (STRICT balance>0 set, PR-0 full-delete enabler) ----------
+  // DISTINCT from `nonZeroIds`: NO keepDefault retention — a fresh 0-balance
+  // default/native/custom token is NOT funded. Same agg-aware per-network sum so
+  // an aggregate is funded iff its summed balance > 0. This is the correct
+  // `hasHoldingsNow` signal a later PR migrates onto.
+  const fundedIds: ITokenKey[] = computeFundedIds({
+    ids: allListIds,
+    getFiat: getAggAwareFiat,
+    getMeta: (key) => metaPatch[key],
+  });
+
   // --- valuation: normal token fiat ---------------------------------------
   // Full current fiat for every NON-aggregate id; aggregate ids flow through
   // changedAggFiat only (spec §4, §3.1).
   const changedFiatById: Record<ITokenKey, ITokenFiat> = {};
-  for (const key of [...orderedIds, ...smallBalanceIds]) {
+  for (const key of allListIds) {
     if (!isAgg(key, metaPatch[key])) {
       const fiat = tokenListMap[key];
       if (fiat) {
@@ -266,6 +285,14 @@ export function buildFrames(
     nonZeroIds,
     prev.structure.nonZeroIds,
   );
+  // `fundedIds` can move INDEPENDENTLY of `nonZeroIds` (e.g. a keepDefault
+  // zero-balance token — already in nonZeroIds — gains a positive balance and
+  // joins fundedIds without changing nonZeroIds), so it is its own structure
+  // trigger to keep the atom's fundedIds correct.
+  const fundedChanged = !shallowEqualArrayOf(
+    fundedIds,
+    prev.structure.fundedIds,
+  );
   const membershipChanged = !aggMembershipEqual(
     aggMembership,
     prev.structure.aggMembership,
@@ -280,6 +307,7 @@ export function buildFrames(
     orderedChanged ||
     smallChanged ||
     nonZeroChanged ||
+    fundedChanged ||
     membershipChanged ||
     scalarChanged ||
     metaChanged;
@@ -293,6 +321,7 @@ export function buildFrames(
     orderedIds,
     smallBalanceIds,
     nonZeroIds,
+    fundedIds,
     metaPatch,
     aggMembership,
     smallBalanceFiatValue,

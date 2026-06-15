@@ -67,6 +67,7 @@ function emptyPrev(): IBuildFramesPrev {
       orderedIds: [],
       smallBalanceIds: [],
       nonZeroIds: [],
+      fundedIds: [],
       aggMembership: {},
       ownerKey: '',
       generation: -1,
@@ -109,6 +110,7 @@ function prevFromResult(
       orderedIds: result.structure.orderedIds,
       smallBalanceIds: result.structure.smallBalanceIds,
       nonZeroIds: result.structure.nonZeroIds,
+      fundedIds: result.structure.fundedIds,
       aggMembership: result.structure.aggMembership,
       ownerKey: result.structure.ownerKey,
       generation: result.structure.generation,
@@ -261,6 +263,152 @@ describe('buildFrames', () => {
     expect(r2.structure).toBeDefined();
     expect(r2.structure?.ownerKey).toBe('acc2__net2');
     expect(r2.structure?.generation).toBe(1); // monotonic across owners
+  });
+
+  describe('fundedIds (PR-0 STRICT balance>0 set)', () => {
+    it('emits fundedIds alongside nonZeroIds on the structure frame', () => {
+      const input = makeInput({
+        orderedTokens: [makeToken('a'), makeToken('b')],
+        smallBalanceTokens: [makeToken('c')],
+        tokenListMap: {
+          a: makeFiat({ balance: '10', fiatValue: '100' }),
+          b: makeFiat({ balance: '5', fiatValue: '50' }),
+          c: makeFiat({ balance: '0', fiatValue: '0' }),
+        },
+      });
+
+      const { structure } = buildFrames(input, emptyPrev());
+
+      expect(structure).toBeDefined();
+      // both fields are present on the wire structure frame
+      expect(structure?.nonZeroIds).toEqual(['a', 'b']);
+      expect(structure?.fundedIds).toEqual(['a', 'b']);
+    });
+
+    it('fundedIds ⊊ nonZeroIds when a 0-balance default token is kept', () => {
+      // `native` is a 0-balance NATIVE token that the home-default map keeps:
+      // computeNonZeroIds (keepDefault branch) keeps it, but the STRICT
+      // computeFundedIds does NOT — proving the two sets DIFFER.
+      const input = makeInput({
+        keepDefault: true,
+        homeDefaultTokenMap: {
+          'evm--1_ETH': { networkId: 'evm--1' } as never,
+        },
+        orderedTokens: [
+          makeToken('funded', { networkId: 'evm--1' }),
+          makeToken('native', {
+            networkId: 'evm--1',
+            isNative: true,
+            symbol: 'ETH',
+          }),
+        ],
+        tokenListMap: {
+          funded: makeFiat({ balance: '3', fiatValue: '9' }),
+          native: makeFiat({ balance: '0', fiatValue: '0' }),
+        },
+      });
+
+      const { structure } = buildFrames(input, emptyPrev());
+
+      expect(structure).toBeDefined();
+      // hideZero VIEW set keeps the 0-balance default native token...
+      expect(structure?.nonZeroIds).toEqual(['funded', 'native']);
+      // ...but the STRICT funded set does NOT (balance>0 only).
+      expect(structure?.fundedIds).toEqual(['funded']);
+
+      const fundedSet = new Set(structure?.fundedIds);
+      const nonZeroSet = new Set(structure?.nonZeroIds);
+      // proper subset: every funded id is non-zero, but not vice-versa.
+      for (const id of fundedSet) {
+        expect(nonZeroSet.has(id)).toBe(true);
+      }
+      expect(fundedSet.size).toBeLessThan(nonZeroSet.size);
+    });
+
+    it('fundedIds is empty when no token has a positive balance (hasHoldingsNow=false)', () => {
+      const input = makeInput({
+        keepDefault: true,
+        homeDefaultTokenMap: {
+          'evm--1_ETH': { networkId: 'evm--1' } as never,
+        },
+        orderedTokens: [
+          makeToken('native', {
+            networkId: 'evm--1',
+            isNative: true,
+            symbol: 'ETH',
+          }),
+        ],
+        tokenListMap: {
+          native: makeFiat({ balance: '0', fiatValue: '0' }),
+        },
+      });
+
+      const { structure } = buildFrames(input, emptyPrev());
+
+      // a fresh 0-balance native/default account: nonZeroIds latches it (would
+      // wrongly hide the Add-money CTA), fundedIds correctly stays empty.
+      expect(structure?.nonZeroIds).toEqual(['native']);
+      expect(structure?.fundedIds).toEqual([]);
+    });
+
+    it('is aggregate-aware: an aggregate is funded iff its per-network sum > 0', () => {
+      const input = makeInput({
+        orderedTokens: [
+          makeToken('aggregate_eth', { isAggregateToken: true }),
+          makeToken('aggregate_zero', { isAggregateToken: true }),
+        ],
+        aggregateTokensMap: {
+          aggregate_eth: {
+            'evm--1': makeFiat({ balance: '0' }),
+            'evm--10': makeFiat({ balance: '2' }),
+          },
+          aggregate_zero: {
+            'evm--1': makeFiat({ balance: '0' }),
+          },
+        },
+      });
+
+      const { structure } = buildFrames(input, emptyPrev());
+
+      expect(structure?.fundedIds).toEqual(['aggregate_eth']);
+    });
+
+    it('a keepDefault token GAINING balance flips fundedIds even when nonZeroIds is unchanged', () => {
+      const base = {
+        keepDefault: true,
+        homeDefaultTokenMap: {
+          'evm--1_ETH': { networkId: 'evm--1' } as never,
+        },
+        orderedTokens: [
+          makeToken('native', {
+            networkId: 'evm--1',
+            isNative: true,
+            symbol: 'ETH',
+          }),
+        ],
+      };
+      const input1 = makeInput({
+        ...base,
+        tokenListMap: { native: makeFiat({ balance: '0', fiatValue: '0' }) },
+      });
+      const r1 = buildFrames(input1, emptyPrev());
+      expect(r1.structure?.nonZeroIds).toEqual(['native']);
+      expect(r1.structure?.fundedIds).toEqual([]);
+      const prev = prevFromResult(input1, r1);
+
+      // native gains a positive balance: nonZeroIds is UNCHANGED (kept either
+      // way), but fundedIds moves [] -> ['native'] -> MUST emit a structure
+      // frame so the atom's fundedIds is correct.
+      const input2 = makeInput({
+        ...base,
+        tokenListMap: { native: makeFiat({ balance: '7', fiatValue: '70' }) },
+      });
+      const r2 = buildFrames(input2, prev);
+
+      expect(r2.structure).toBeDefined();
+      expect(r2.structure?.nonZeroIds).toEqual(['native']);
+      expect(r2.structure?.fundedIds).toEqual(['native']);
+    });
   });
 
   describe('aggregate channel (spec §3.1, §6)', () => {

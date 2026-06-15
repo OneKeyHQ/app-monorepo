@@ -115,6 +115,7 @@ function makeStructure(
     orderedIds: [],
     smallBalanceIds: [],
     nonZeroIds: [],
+    fundedIds: [],
     metaPatch: {},
     aggMembership: {},
     smallBalanceFiatValue: '0',
@@ -167,6 +168,26 @@ describe('applyStructureSnapshot', () => {
     expect(store.get(listStructureAtom()).orderedIds).toEqual(['a', 'b']);
     // metas applied
     expect(store.get(meta(ctx, 'a'))?.symbol).toBe('A');
+  });
+
+  it('flows smallBalanceFiatValue + fundedIds through to listStructureAtom (PR-0)', () => {
+    const { store, ctx, projection, deps } = setup();
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({
+        orderedIds: ['a', 'b'],
+        nonZeroIds: ['a', 'b'],
+        fundedIds: ['a'],
+        smallBalanceFiatValue: '123.45',
+      }),
+      deps,
+    );
+    const s = store.get(listStructureAtom());
+    expect(s.smallBalanceFiatValue).toBe('123.45');
+    expect(s.fundedIds).toEqual(['a']);
+    // nonZeroIds is untouched/independent
+    expect(s.nonZeroIds).toEqual(['a', 'b']);
   });
 
   it('keeps orderedIds reference-stable on identical structure', () => {

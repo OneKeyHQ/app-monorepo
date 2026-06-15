@@ -23,12 +23,22 @@ export interface IListStructure {
   smallBalanceIds: string[];
   /** hideZero ids; Phase-1 dead-weight, Phase-2 consumer (spec §8#2). */
   nonZeroIds: string[];
+  /**
+   * STRICT funded set: ids whose balance > 0 ONLY (risk-excluded; aggregate-aware
+   * = aggregate funded when its per-network sum > 0). DISTINCT from `nonZeroIds`,
+   * which keeps zero-balance default/custom tokens via its keepDefault branches
+   * (the hideZero VIEW filter). `fundedIds` is the correct `hasHoldingsNow`
+   * signal — pure balance>0, NO keepDefault retention (full-delete PR-0 enabler).
+   */
+  fundedIds: string[];
   /** aggKey -> networkId[] — aggCell reads members from here (spec §3.1). */
   aggMembership: Record<string, string[]>;
   /** `${accountId}__${networkId}`. */
   ownerKey: string;
   /** monotonic, UI-produced in Phase-1 (spec §3, §4.1). */
   generation: number;
+  /** §6: structure carries the small-balance fiat scalar (PR-0 enabler). */
+  smallBalanceFiatValue: string;
 }
 /** aggregate-token list-map key (e.g. `aggregate_...`). */
 export type IAggKey = string;
@@ -43,6 +53,12 @@ export interface IStructureSnapshot {
   orderedIds: ITokenKey[];
   smallBalanceIds: ITokenKey[];
   nonZeroIds: ITokenKey[];
+  /**
+   * STRICT funded set (balance>0 only, agg-aware). DISTINCT from `nonZeroIds`
+   * (which keeps keepDefault zero-balance tokens). PR-0 enabler — see
+   * `IListStructure.fundedIds`.
+   */
+  fundedIds: ITokenKey[];
   metaPatch: Record<ITokenKey, IToken>;
   /** aggregate membership: aggKey -> the networkIds that compose it. */
   aggMembership: Record<IAggKey, INetworkId[]>;

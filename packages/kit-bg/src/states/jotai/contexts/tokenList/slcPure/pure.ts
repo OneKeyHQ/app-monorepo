@@ -256,3 +256,36 @@ export function computeNonZeroIds(params: IComputeNonZeroIdsParams): string[] {
     return false;
   });
 }
+
+export interface IComputeFundedIdsParams {
+  ids: string[];
+  getFiat: (key: string) => ITokenFiat | undefined;
+  getMeta: (key: string) => IAccountToken | IToken | undefined;
+}
+
+/**
+ * STRICT funded predicate (PR-0 full-delete enabler). Unlike `computeNonZeroIds`
+ * — which is the hideZero VIEW filter and KEEPS zero-balance default/custom
+ * tokens via its keepDefault branches (so it OVER-reports funded) — this is pure
+ * `balance > 0`:
+ *   - NO keepDefault retention (a fresh 0-balance native/default token is NOT
+ *     funded), and
+ *   - aggregate-aware: callers pass a `getFiat` that returns the per-network sum
+ *     for aggregate ids, so an aggregate is funded iff its summed balance > 0.
+ *
+ * This is the correct `useHomeBalanceState.hasHoldingsNow` signal: `fundedIds`
+ * is nonempty iff at least one token actually holds a positive balance, so it
+ * will NOT latch a fresh 0-balance account as funded (which `nonZeroIds` would
+ * via keepDefault) and wrongly hide the Add-money CTA.
+ *
+ * `getMeta` is accepted for signature/parity symmetry with `computeNonZeroIds`
+ * and to leave room for future risk-level gating without a call-site churn; the
+ * balance>0 rule alone already excludes risky zero-balance tokens.
+ */
+export function computeFundedIds(params: IComputeFundedIdsParams): string[] {
+  const { ids, getFiat } = params;
+  return ids.filter((key) => {
+    const fiat = getFiat(key);
+    return new BigNumber(fiat?.balance ?? 0).gt(0);
+  });
+}

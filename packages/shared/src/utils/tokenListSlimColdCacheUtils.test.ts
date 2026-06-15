@@ -44,6 +44,7 @@ describe('buildSlimSnapshot', () => {
         aggMembership: {},
         ownerKey: 'acc__net',
         generation: 7,
+        smallBalanceFiatValue: '12.34',
       },
       fiatByKey: {
         a: makeFiat({
@@ -72,6 +73,8 @@ describe('buildSlimSnapshot', () => {
     expect(slim.gen).toBe(7);
     expect(slim.ownerKey).toBe('acc__net');
     expect(slim.currency).toBe('usd');
+    // §6 scalar persisted through (PR-0 enabler)
+    expect(slim.smallBalanceFiatValue).toBe('12.34');
 
     // compactFiat keeps only the slim fields
     expect(slim.compactFiat.a).toEqual({
@@ -160,6 +163,8 @@ describe('buildSlimSnapshot', () => {
     expect(slim.compactAggFiat).toEqual({});
     expect(slim.compactMeta).toEqual({});
     expect(slim.gen).toBe(-1);
+    // a structure without the scalar defaults to '0' on the bundle (PR-0).
+    expect(slim.smallBalanceFiatValue).toBe('0');
   });
 });
 

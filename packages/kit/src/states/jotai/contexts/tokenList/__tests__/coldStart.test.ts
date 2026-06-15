@@ -234,6 +234,40 @@ describe('fanOutSlimToApply', () => {
     // and the normal-cell registry has no aggregate entry.
     expect(projection.cells.has('aggregate_agg1')).toBe(false);
   });
+
+  it('restores the REAL persisted smallBalanceFiatValue (not a hardcoded 0) — PR-0', () => {
+    const { store, ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+    // a slim bundle persisted WITH the scalar (PR-0 enabler).
+    bundle.smallBalanceFiatValue = '88.88';
+
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+
+    expect(store.get(listStructureAtom()).smallBalanceFiatValue).toBe('88.88');
+  });
+
+  it('falls back to 0 when an OLDER bundle has no smallBalanceFiatValue', () => {
+    const { store, ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+    // simulate a pre-PR-0 persisted bundle: field absent on the wire.
+    delete (bundle as { smallBalanceFiatValue?: string }).smallBalanceFiatValue;
+
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+
+    expect(store.get(listStructureAtom()).smallBalanceFiatValue).toBe('0');
+  });
 });
 
 describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () => {
@@ -269,6 +303,7 @@ describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () =
       orderedIds: ['b', 'a'],
       smallBalanceIds: [],
       nonZeroIds: [],
+      fundedIds: [],
       metaPatch: {},
       aggMembership: {},
       smallBalanceFiatValue: '0',

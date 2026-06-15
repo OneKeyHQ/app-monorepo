@@ -48,6 +48,11 @@ export interface ISlimSnapshotStructure {
   aggMembership: Record<IAggKey, INetworkId[]>;
   ownerKey: string;
   generation: number;
+  /**
+   * §6 small-balance fiat scalar. Optional on the wire so OLDER persisted slim
+   * bundles (written before PR-0) still parse; absent -> restored as '0'.
+   */
+  smallBalanceFiatValue?: string;
 }
 
 /**
@@ -69,6 +74,12 @@ export interface ITokenListSlimColdCache {
   ownerKey: string;
   /** currency id the compact fiat values are stored in (gate, spec §3#3). */
   currency: string;
+  /**
+   * §6 small-balance fiat scalar persisted so a cold start restores the REAL
+   * value (not a hardcoded '0'). Optional so older bundles (pre-PR-0) parse;
+   * absent -> restored as '0' (PR-0 enabler).
+   */
+  smallBalanceFiatValue?: string;
 }
 
 /**
@@ -193,6 +204,7 @@ export function buildSlimSnapshot(
     gen: structure.generation,
     ownerKey: structure.ownerKey,
     currency,
+    smallBalanceFiatValue: structure.smallBalanceFiatValue ?? '0',
   };
 }
 

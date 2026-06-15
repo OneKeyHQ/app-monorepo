@@ -243,9 +243,11 @@ export function applyStructureSnapshot(
     orderedIds,
     smallBalanceIds: snapshot.smallBalanceIds,
     nonZeroIds: snapshot.nonZeroIds,
+    fundedIds: snapshot.fundedIds,
     aggMembership: snapshot.aggMembership,
     ownerKey: snapshot.ownerKey,
     generation: snapshot.generation,
+    smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
   });
   P.curGeneration = snapshot.generation;
 }

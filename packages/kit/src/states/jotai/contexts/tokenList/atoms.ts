@@ -130,9 +130,11 @@ export const { atom: listStructureAtom, use: useListStructureAtom } =
     orderedIds: [],
     smallBalanceIds: [],
     nonZeroIds: [],
+    fundedIds: [],
     aggMembership: {},
     ownerKey: '',
     generation: -1,
+    smallBalanceFiatValue: '0',
   });
 
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
