@@ -9764,7 +9764,7 @@ __metadata:
     jotai: "npm:^2.5.0"
     js-md5: "npm:^0.8.3"
     juicebox-sdk: "npm:^0.3.4"
-    lightweight-charts: "npm:^5.2.0"
+    lightweight-charts: "npm:5.2.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
@@ -9999,7 +9999,7 @@ __metadata:
     date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
     fuse.js: "npm:^7.0.0"
-    lightweight-charts: "npm:^5.2.0"
+    lightweight-charts: "npm:5.2.0"
     mime: "npm:^3.0.0"
     react-async-hook: "npm:^4.0.0"
     react-freeze: "npm:^1.0.3"
@@ -35727,7 +35727,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lightweight-charts@npm:^5.2.0":
+"lightweight-charts@npm:5.2.0":
   version: 5.2.0
   resolution: "lightweight-charts@npm:5.2.0"
   dependencies:
