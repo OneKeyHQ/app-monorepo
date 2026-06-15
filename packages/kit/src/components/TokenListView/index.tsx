@@ -1182,6 +1182,13 @@ function TokenListViewCmp(props: IProps) {
 
 const TokenListView = memo((props: IProps) => {
   const [tokenListMap] = useTokenListMapAtom();
+  // INTERIM (tokenList SLC full-delete plan, PR-1): mirror the still-living
+  // `aggregateTokensListMapAtom` into the context so the per-key leaves
+  // (TokenIconView / TokenNameView / TokenActionsView) resolve their owned
+  // aggregate sub-token list from `ownedAggregateTokenListMap` instead of
+  // importing the atom directly. PR-3/PR-7 swap the source to the SLC producer
+  // payload and drop this atom read.
+  const [ownedAggregateTokenListMap] = useAggregateTokensListMapAtom();
   // An empty scoped map (`{}`, the default home state) is NOT an override; only
   // a POPULATED scoped LP map (LP-dapp mode) overrides the whole `tokenListMap`.
   const activeAccountTokenListMap = hasActiveScopedOverride(
@@ -1237,12 +1244,14 @@ const TokenListView = memo((props: IProps) => {
   const contextValue = useMemo(() => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
+      ownedAggregateTokenListMap,
       networksMap,
       tokenListMap: visibleTokenListMap,
       useCellSeam,
     };
   }, [
     props.allAggregateTokenMap,
+    ownedAggregateTokenListMap,
     networksMap,
     visibleTokenListMap,
     useCellSeam,

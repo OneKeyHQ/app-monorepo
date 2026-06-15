@@ -15,10 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
+import { useAllTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -53,16 +50,16 @@ function TokenNameView(props: IProps) {
   } = props;
   const intl = useIntl();
 
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const { allAggregateTokenMap, networksMap } = useTokenListViewContext();
+  const { allAggregateTokenMap, ownedAggregateTokenListMap, networksMap } =
+    useTokenListViewContext();
   const [allTokenListMap] = useAllTokenListMapAtom();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
     [allAggregateTokenMap, $key],
   );
   const aggregateTokenList = useMemo(
-    () => aggregateTokensListMap[$key]?.tokens ?? [],
-    [aggregateTokensListMap, $key],
+    () => ownedAggregateTokenListMap?.[$key]?.tokens ?? [],
+    [ownedAggregateTokenListMap, $key],
   );
   const firstAggregateToken = aggregateTokenList?.[0];
   const shouldShowDeFiReceiptTokenBadge =

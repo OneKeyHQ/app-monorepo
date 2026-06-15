@@ -19,10 +19,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
+import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -36,10 +33,10 @@ function TokenActionsView(props: IProps) {
   const { token, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
+  const { tokenListMap: contextTokenListMap, ownedAggregateTokenListMap } =
+    useTokenListViewContext();
   const [globalTokenListMap] = useTokenListMapAtom();
   const tokenListMap = contextTokenListMap ?? globalTokenListMap;
-  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
 
@@ -51,7 +48,8 @@ function TokenActionsView(props: IProps) {
   useEffect(() => {
     const setActiveAggregateToken = async () => {
       if (token.isAggregateToken) {
-        const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+        const aggregateTokens =
+          ownedAggregateTokenListMap?.[token.$key]?.tokens;
         if (aggregateTokens) {
           const sortedAggregateTokens = sortTokensCommon({
             tokens: aggregateTokens,
@@ -78,7 +76,7 @@ function TokenActionsView(props: IProps) {
       }
     };
     void setActiveAggregateToken();
-  }, [token, aggregateTokenListMapAtom, tokenListMap]);
+  }, [token, ownedAggregateTokenListMap, tokenListMap]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();
