@@ -20,6 +20,12 @@ Bridge, Limit, PrivateSend-like flows, stock/order channels, and funding
 handoffs can adapt entry, asset, and settlement semantics, but they must still
 declare quote, review, execution, history, status, and repair ownership.
 
+When a visible entry is merged into another surface, keep visible tab state
+separate from internal execution and channel type. For example, Bridge can
+render under the `Swap & Bridge` tab while `BRIDGE` still owns cross-chain
+defaults, support checks, history labels, status, analytics, and provider
+semantics.
+
 ## Protocol Channel Model
 
 Before adding or reviewing any provider channel, define this contract:
@@ -72,9 +78,10 @@ Use these drills to judge whether the skill is complete enough for a new require
 - Stock-trading channel: can you model non-token asset identity, market hours
   or unavailable states, settlement currency, order status, review/risk
   display, and history rows through the same provider/channel contract?
-- Bridge/Limit channel merge: can you preserve channel semantics,
-  default-token rules, status source, analytics/history identity, and
-  pending-row filters while sharing Swap infrastructure?
+- Bridge/Limit visible-entry merge: can you preserve visible tab
+  normalization, channel semantics, default-token rules, status source,
+  analytics/history identity, and pending-row filters while sharing Swap
+  infrastructure?
 - Funding handoff: can an Earn/Market/Buy entry land in Swap with the correct network, account, token, amount, preset, and reset behavior?
 
 If a drill cannot be completed from the references, update the abstraction instead of adding another one-off case.
@@ -89,6 +96,9 @@ If a drill cannot be completed from the references, update the abstraction inste
 - Do not reuse token-list state from another surface as proof for Swap selection.
 - Do not treat Wallet/Receive DeFi-token list regressions as Swap selector bugs unless the failing owner is the Swap/Market selector or handoff state.
 - Do not collapse account, network, provider, token, and receiver resets into one path without checking dependents.
+- Do not use the visible tab atom as proof of execution type after entry
+  consolidation; trace route params, support-check type, quote/review
+  execution type, cache context, and history/status separately.
 - Do not mark transaction behavior validated from static diff alone; inspect the actual App path, payload, pending row, or visible state.
 - Do not validate cold-start or flicker fixes from the final settled screenshot only; inspect the first frames and tab/token transitions.
 - Do not edit generated locale files directly; use the repository i18n workflow.

@@ -82,6 +82,13 @@ const toNativeNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+type IReactNativeBundleUpdateWithPrune = typeof ReactNativeBundleUpdate & {
+  pruneStaleAppVersionBundles(): Promise<number>;
+};
+
+const ReactNativeBundleUpdateWithPrune =
+  ReactNativeBundleUpdate as IReactNativeBundleUpdateWithPrune;
+
 const clearPackage: IClearPackage = async () => {
   if (!isAppUpdateAvailable) {
     return;
@@ -315,7 +322,7 @@ export const BundleUpdate: IBundleUpdate = {
   isSkipGpgVerificationAllowed: () =>
     Promise.resolve(ReactNativeBundleUpdate.isSkipGpgVerificationAllowed()),
   pruneStaleAppVersionBundles: () =>
-    ReactNativeBundleUpdate.pruneStaleAppVersionBundles(),
+    ReactNativeBundleUpdateWithPrune.pruneStaleAppVersionBundles(),
   clearAllJSBundleData: () => ReactNativeBundleUpdate.clearAllJSBundleData(),
   testVerification: () => ReactNativeBundleUpdate.testVerification(),
   testSkipVerification: () => ReactNativeBundleUpdate.testSkipVerification(),

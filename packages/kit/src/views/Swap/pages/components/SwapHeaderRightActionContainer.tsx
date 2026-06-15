@@ -34,6 +34,7 @@ import {
 import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  useSwapActions,
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -289,6 +290,8 @@ const SwapSettingsDialogContent = ({
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const { cleanQuoteInterval, closeQuoteEvent, resetQuoteAction } =
+    useSwapActions().current;
   const keyboardHeight = useKeyboardHeight();
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -362,6 +365,12 @@ const SwapSettingsDialogContent = ({
     [intl, setNoPersistSettings, slippageItem.key],
   );
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
+  const handleProviderManagerSaved = useCallback(() => {
+    cleanQuoteInterval();
+    closeQuoteEvent();
+    void resetQuoteAction();
+    void dialogRef.current?.close();
+  }, [cleanQuoteInterval, closeQuoteEvent, resetQuoteAction]);
   return (
     <ScrollView
       mx="$-5"
@@ -438,10 +447,8 @@ const SwapSettingsDialogContent = ({
                   disableDrag: true,
                   renderContent: (
                     <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge={false}
+                      mode="singleSwap"
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,
@@ -461,10 +468,8 @@ const SwapSettingsDialogContent = ({
                   disableDrag: true,
                   renderContent: (
                     <ProviderManageContainer
-                      onSaved={() => {
-                        void dialogRef.current?.close();
-                      }}
-                      isBridge
+                      mode="crossChain"
+                      onSaved={handleProviderManagerSaved}
                     />
                   ),
                   showConfirmButton: false,
@@ -577,7 +582,6 @@ const SwapHeaderRightActionContainer = ({
 
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-    swapTypeSwitch === ESwapTabSwitchType.BRIDGE ||
     (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =

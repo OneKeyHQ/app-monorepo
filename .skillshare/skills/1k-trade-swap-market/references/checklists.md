@@ -29,7 +29,7 @@ Use this for PrivateSend-like, stock/order, or unusual provider channels:
 6. Build response variant is typed and routed through one adapter.
 7. Post-send identity chooses txid, order id, route id, or composite key deliberately.
 8. History row, detail page, and status polling use the same identity.
-9. List inclusion/exclusion is explicit for Swap, Bridge, Market, and channel-specific history surfaces.
+9. List inclusion/exclusion is explicit for visible Swap & Bridge, internal Bridge/history semantics, Market, and channel-specific history surfaces.
 10. Replay and repair sources are defined for app restart, account-history entry, notification entry, and backend field backfill.
 11. Error states include provider unavailable, unsupported route, expired quote, market closed, partial fill, and unknown finality when applicable.
 12. Validation covers both happy path and one provider/channel failure.
@@ -63,7 +63,8 @@ Complete this drill before wiring a stock-like protocol:
 ## Bridge/Limit Shared-Spine Drill
 
 - Which visible entry surface launches the channel?
-- Which semantic value must remain distinct from ordinary Swap after entry merge?
+- Is the visible entry a merged surface such as Swap & Bridge?
+- Which semantic value must remain distinct from the visible tab state and ordinary Swap after entry merge?
 - Which default token/network rules apply only to this channel?
 - Which history list should include or exclude the channel?
 - Which status listener owns terminal state?

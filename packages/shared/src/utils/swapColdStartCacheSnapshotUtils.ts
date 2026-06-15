@@ -1,6 +1,8 @@
 import { ESwapTabSwitchType } from '../../types/swap/types';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
+import { getVisibleSwapTabSwitchType } from './swapTypeUtils';
+
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
 const ACCOUNT_SELECTOR_HOME_SCOPE_KEY = 'store:accountSelector@home';
@@ -349,7 +351,7 @@ function normalizeSwapTypeSnapshot({
   setSwapSnapshotValue(
     snapshot,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
-    inferredSwapType,
+    getVisibleSwapTabSwitchType(inferredSwapType) ?? inferredSwapType,
   );
   snapshot[contextKey] = {
     ...cachedContext,
