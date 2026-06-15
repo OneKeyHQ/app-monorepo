@@ -5,6 +5,7 @@ import '@onekeyhq/shared/src/web/index.css';
 // Initialize desktopApiProxy singleton and assign to globalThis.desktopApiProxy.
 // Must run before any consumer reads globalThis.desktopApiProxy (e.g. Bootstrap, DesktopWebView).
 import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import '@onekeyhq/shared/src/security/sesHarden/installDesktopRenderer';
 import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { KitProvider } from '@onekeyhq/kit';

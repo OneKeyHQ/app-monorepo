@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-template-expressions, import-js/order */
 import '@onekeyhq/shared/src/polyfills';
+import { maybeLockdownOneKeyRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { startKeepAlivePolling } from '../background/keepAlive';
@@ -9,6 +10,7 @@ import { offscreenSetup } from '../offscreen/offscreenSetup';
 startKeepAlivePolling();
 
 const offscreenBridge = offscreenSetup();
+maybeLockdownOneKeyRuntime({ runtime: 'ext-offscreen' });
 
 let timer: any = null;
 // background may be down or reloaded (like hot reloading)
