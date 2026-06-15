@@ -383,14 +383,6 @@ function getSwapHistoryStateOrderId({
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
-  private _quoteAbortControllerMap: Partial<
-    Record<EProtocolOfExchange, AbortController | undefined>
-  > = {
-    [EProtocolOfExchange.SWAP]: undefined,
-    [EProtocolOfExchange.LIMIT]: undefined,
-    [EProtocolOfExchange.PRIVATE_SEND]: undefined,
-  };
-
   private _speedSwapQuoteAbortController?: AbortController;
 
   private _checkTokenApproveAllowanceAbortController?: AbortController;
@@ -448,19 +440,6 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   // --------------------- fetch
-  @backgroundMethod()
-  async cancelFetchQuotes(
-    protocol:
-      | ESwapTabSwitchType
-      | EProtocolOfExchange = ESwapTabSwitchType.SWAP,
-  ) {
-    const abortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
-    if (this._quoteAbortControllerMap[abortControllerKey]) {
-      this._quoteAbortControllerMap[abortControllerKey]?.abort();
-      this._quoteAbortControllerMap[abortControllerKey] = undefined;
-    }
-  }
-
   @backgroundMethod()
   async cancelCheckTokenApproveAllowance() {
     if (this._checkTokenApproveAllowanceAbortController) {
@@ -861,128 +840,6 @@ export default class ServiceSwap extends ServiceBase {
       console.error(e);
       return [];
     }
-  }
-
-  @backgroundMethod()
-  async fetchQuotes({
-    fromToken,
-    toToken,
-    fromTokenAmount,
-    userAddress,
-    slippagePercentage,
-    autoSlippage,
-    blockNumber,
-    receivingAddress,
-    incognito,
-    accountId,
-    protocol,
-    expirationTime,
-    limitPartiallyFillable,
-    kind,
-    toTokenAmount,
-    userMarketPriceRate,
-  }: {
-    fromToken: ISwapToken;
-    toToken: ISwapToken;
-    fromTokenAmount?: string;
-    userAddress?: string;
-    slippagePercentage: number;
-    autoSlippage?: boolean;
-    receivingAddress?: string;
-    incognito?: boolean;
-    blockNumber?: number;
-    accountId?: string;
-    expirationTime?: number;
-    protocol: ESwapTabSwitchType;
-    limitPartiallyFillable?: boolean;
-    kind?: ESwapQuoteKind;
-    toTokenAmount?: string;
-    userMarketPriceRate?: string;
-  }): Promise<IFetchQuoteResult[]> {
-    await this.cancelFetchQuotes(protocol);
-    const denyCrossChainProvider = await this.getDenyCrossChainProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
-    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
-      fromToken.networkId,
-      toToken.networkId,
-    );
-    const walletDevice =
-      await this.backgroundApi.serviceAccount.getAccountDeviceSafe({
-        accountId: accountId ?? '',
-      });
-    const params: IFetchQuotesParams = {
-      fromTokenAddress: fromToken.contractAddress,
-      toTokenAddress: toToken.contractAddress,
-      fromTokenAmount,
-      fromNetworkId: fromToken.networkId,
-      toNetworkId: toToken.networkId,
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
-      userAddress,
-      slippagePercentage,
-      autoSlippage,
-      blockNumber,
-      receivingAddress,
-      expirationTime,
-      limitPartiallyFillable,
-      kind,
-      toTokenAmount,
-      userMarketPriceRate,
-      denyCrossChainProvider,
-      denySingleSwapProvider,
-      walletDeviceType: walletDevice?.deviceType,
-      ...(incognito ? { incognito } : {}),
-    };
-    const quoteAbortControllerKey = getProtocolOfExchangeFromSwapTab(protocol);
-    const quoteAbortController = new AbortController();
-    this._quoteAbortControllerMap[quoteAbortControllerKey] =
-      quoteAbortController;
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const fetchUrl = '/swap/v1/quote';
-    try {
-      const { data } = await client.get<IFetchResponse<IFetchQuoteResult[]>>(
-        fetchUrl,
-        {
-          params,
-          signal: quoteAbortController.signal,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
-              {
-                accountId,
-              },
-            ),
-        },
-      );
-
-      if (data?.code === 0 && data?.data?.length) {
-        return data?.data;
-      }
-    } catch (e) {
-      if (axios.isCancel(e)) {
-        // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
-        throw new Error('swap fetch quote cancel', {
-          cause: ESwapFetchCancelCause.SWAP_QUOTE_CANCEL,
-        });
-      }
-      if (isPrivateSendProtocol(protocol)) {
-        throw e;
-      }
-    } finally {
-      if (
-        this._quoteAbortControllerMap[quoteAbortControllerKey] ===
-        quoteAbortController
-      ) {
-        this._quoteAbortControllerMap[quoteAbortControllerKey] = undefined;
-      }
-    }
-    return [
-      {
-        info: { provider: '', providerName: '' },
-        fromTokenInfo: fromToken,
-        toTokenInfo: toToken,
-      },
-    ]; //  no support providers
   }
 
   @backgroundMethod()
