@@ -83,6 +83,7 @@ import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -168,6 +169,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceBatchCreateAccount: ServiceBatchCreateAccount;
   serviceAllNetwork: ServiceAllNetwork;
   serviceToken: ServiceToken;
+  serviceTokenViewModel: ServiceTokenViewModel;
   serviceNFT: ServiceNFT;
   serviceAppCleanup: ServiceAppCleanup;
   serviceHistory: ServiceHistory;

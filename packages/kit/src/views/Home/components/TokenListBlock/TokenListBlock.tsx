@@ -69,6 +69,7 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
+  EJotaiContextStoreNames,
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -126,13 +127,25 @@ import {
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
+  ICustomTokenItem,
   IFetchAccountTokensResp,
+  IHomeDefaultToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import { RichBlock } from '../RichBlock/RichBlock';
 
 const networkIdsMap = getNetworkIdsMap();
+
+/**
+ * TokenList SLC Phase-2 BG — DARK / flag-OFF dual-write gate (design §5 step 2,
+ * D5). When ON, the home refresh flow ALSO hands each settled fetch round to the
+ * BG `serviceTokenViewModel.ingestRound(...)` (which builds + pushes the BG
+ * frames). When OFF (the PR-1 default), `ingestRound` is NEVER called and there
+ * is zero behavior change — the UI stays driven by `useTokenListSlcProducer` +
+ * the legacy atoms. Cut-over (UI consuming the BG frames, H4 death) is PR-2.
+ */
+const ENABLE_BG_TOKEN_VIEW_MODEL = false;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -205,6 +218,19 @@ function TokenListBlock({
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
+  // TokenList SLC Phase-2 BG dual-write inputs (DARK / flag-OFF — design §5
+  // step 2). The owner key + hideZero inputs are computed later in the body
+  // (`slcOwnerKey` / `slcNonZeroInputs`); the refresh callbacks above read them
+  // off this ref so the dead-when-OFF `ingestRound` call adds no render deps and
+  // never reaches uninitialized consts.
+  const slcIngestInputsRef = useRef<{
+    ownerKey: string;
+    nonZeroInputs: {
+      keepDefault?: boolean;
+      homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+      customTokens?: ICustomTokenItem[];
+    };
+  }>({ ownerKey: '', nonZeroInputs: {} });
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
@@ -627,6 +653,33 @@ function TokenListBlock({
           value: r.smallBalanceTokens.fiatValue ?? '0',
         });
 
+        // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
+        // 2). Hand the SAME settled slices this single-network round just wrote
+        // to the atoms over to the BG view-model so it can build + push the BG
+        // frames in parallel. No-op when the flag is OFF (the PR-1 default), so
+        // there is zero behavior change. The single-network path has no
+        // aggregate tokens, so the nested aggregate map is empty. Owner key +
+        // hideZero inputs are read off a ref (assigned next to the SLC consts)
+        // so this dead-when-OFF call needs no extra render deps.
+        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+          backgroundApiProxy.serviceTokenViewModel.ingestRound({
+            ownerKey: slcIngestInputsRef.current.ownerKey,
+            orderedTokens: r.tokens.data,
+            smallBalanceTokens: r.smallBalanceTokens.data,
+            tokenListMap: {
+              ...r.tokens.map,
+              ...r.smallBalanceTokens.map,
+            },
+            aggregateTokensMap: {},
+            smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
+            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+            keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
+            homeDefaultTokenMap:
+              slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+            customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+          });
+        }
+
         if (r.allTokens) {
           refreshAllTokenList({
             keys: r.allTokens?.keys,
@@ -903,6 +956,14 @@ function TokenListBlock({
   );
   useTokenListSlcProducer(slcOwnerKey, slcCurrencyId, slcNonZeroInputs);
 
+  // Keep the BG dual-write inputs ref current so the refresh callbacks can hand
+  // the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
+  // (DARK / flag-OFF — design §5 step 2).
+  slcIngestInputsRef.current = {
+    ownerKey: slcOwnerKey,
+    nonZeroInputs: slcNonZeroInputs,
+  };
+
   const updateAllNetworkData = useThrottledCallback(() => {
     refreshTokenList({
       keys: tokenListRef.current.keys,
@@ -1171,13 +1232,38 @@ function TokenListBlock({
           });
         }
 
-        if (r.aggregateTokenMap) {
-          refreshAggregateTokensMap({
-            tokens: nestAggregateTokensMap({
+        const nestedAggregateTokensMap = r.aggregateTokenMap
+          ? nestAggregateTokensMap({
               aggregateTokenMap: r.aggregateTokenMap,
               networkId,
-            }),
+            })
+          : {};
+        if (r.aggregateTokenMap) {
+          refreshAggregateTokensMap({
+            tokens: nestedAggregateTokensMap,
             merge: isSingleRequest,
+          });
+        }
+
+        // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
+        // 2). Hand this all-network round's settled slices to the BG view-model
+        // alongside the atom writes. No-op when the flag is OFF (the PR-1
+        // default), so there is zero behavior change. The all-network
+        // accumulation/merge living in the VM is future work (design §3); here
+        // we feed the per-round slices + this round's nested aggregate map.
+        if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+          backgroundApiProxy.serviceTokenViewModel.ingestRound({
+            ownerKey: slcIngestInputsRef.current.ownerKey,
+            orderedTokens: r.tokens.data,
+            smallBalanceTokens: r.smallBalanceTokens.data,
+            tokenListMap: mergedMap,
+            aggregateTokensMap: nestedAggregateTokensMap,
+            smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
+            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+            keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
+            homeDefaultTokenMap:
+              slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+            customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
           });
         }
 

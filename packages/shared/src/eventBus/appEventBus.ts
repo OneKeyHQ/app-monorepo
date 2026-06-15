@@ -10,6 +10,10 @@ import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Ta
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IStructureSnapshot,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -274,6 +278,22 @@ export interface IAppEventBusPayload {
     keys: string;
     map: Record<string, ITokenFiat>;
     merge?: boolean;
+  };
+  // TokenList SLC Phase-2 BG frame transport (D2=A). The structure event
+  // carries the FULL idempotent structure snapshot for an owner (generation is
+  // monotonic); the valuation event carries the FULL current fiat map for an
+  // owner (idempotent, self-healing via the apply-layer fiatEqual guard). Both
+  // carry their owner key + a monotonic version so the UI shell can drop a
+  // stale PULL result and detect a generation/version gap.
+  [EAppEventBusNames.TokenListSlcStructureFrame]: {
+    ownerKey: string;
+    structureVersion: number;
+    structure: IStructureSnapshot;
+  };
+  [EAppEventBusNames.TokenListSlcValuationFrame]: {
+    ownerKey: string;
+    valuationVersion: number;
+    valuation: IValuationFrame;
   };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined

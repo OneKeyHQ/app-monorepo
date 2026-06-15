@@ -84,6 +84,7 @@ import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
@@ -152,6 +153,10 @@ class BackgroundApiProxy
   serviceSwap = this._createProxyService('serviceSwap') as ServiceSwap;
 
   serviceToken = this._createProxyService('serviceToken') as ServiceToken;
+
+  serviceTokenViewModel = this._createProxyService(
+    'serviceTokenViewModel',
+  ) as ServiceTokenViewModel;
 
   serviceNFT = this._createProxyService('serviceNFT') as ServiceNFT;
 
