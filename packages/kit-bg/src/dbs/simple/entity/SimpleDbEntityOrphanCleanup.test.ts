@@ -137,15 +137,17 @@ describe('SimpleDbEntityLocalTokens.removeOrphanData', () => {
 });
 
 describe('SimpleDbEntityLocalHistory.removeOrphanData', () => {
-  test('keeps valid keys, prunes stale pending txs, keeps timestamp-less pending', async () => {
+  test('drops only orphan keys; keeps ALL pending txs of valid owners (no age prune)', async () => {
     const entity = new SimpleDbEntityLocalHistory();
     const now = Date.now();
     const existing = {
       pendingTxs: {
         'evm--1_0xalice': [
-          { decodedTx: { createdAt: now } }, // fresh -> keep
-          { decodedTx: { createdAt: now - 15 * DAY_MS } }, // stale -> drop
-          { decodedTx: {} }, // no timestamp -> keep (can't prove stale)
+          { decodedTx: { createdAt: now } },
+          // Old, but NOT pruned: ServiceFreshAddress reads pendingTxs to avoid
+          // BTC address reuse, so age-pruning was removed.
+          { decodedTx: { createdAt: now - 15 * DAY_MS } },
+          { decodedTx: {} }, // no timestamp
         ],
         'evm--1_0xbob': [{ decodedTx: { createdAt: now } }], // orphan -> drop key
       },
@@ -159,7 +161,8 @@ describe('SimpleDbEntityLocalHistory.removeOrphanData', () => {
     });
     const result = builder(existing);
     expect(Object.keys(result.pendingTxs)).toEqual(['evm--1_0xalice']);
-    expect(result.pendingTxs['evm--1_0xalice']).toHaveLength(2); // fresh + no-ts
+    // all 3 retained — no age prune (protects ServiceFreshAddress dedup)
+    expect(result.pendingTxs['evm--1_0xalice']).toHaveLength(3);
     expect(Object.keys(result.confirmedTxs)).toEqual(['evm--1_0xalice']);
   });
 

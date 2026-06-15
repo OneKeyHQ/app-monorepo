@@ -45,13 +45,6 @@ function clearLocalHistoryDisplayStatus(
   };
 }
 
-// Stale-pending cutoff. pendingTxs is uncapped per key and normally drains as txs
-// confirm, but abandoned/replaced txs can linger forever. Pending txs older than
-// this are almost certainly already settled/dropped on-chain; pure cache, so
-// re-derived from chain on the next refresh. Kept conservative to avoid hiding a
-// genuinely-pending tx.
-const PENDING_TX_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-
 export interface ILocalHistory {
   pendingTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
   confirmedTxs: Record<string, IAccountHistoryTx[]>; // Record<networkId_accountAddress/xpub, IAccountHistoryTx[]>
@@ -132,12 +125,17 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       return;
     }
     const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
-    const now = Date.now();
     await this.setRawData((rawData) => {
       // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
       // concurrent clearRawData ("Clear cache" calls localHistory.clearRawData)
       // nulls the store, and `?? existing` would resurrect the cleared cache.
       const base = rawData;
+      // Only orphan-filter (drop keys for removed accounts); do NOT age-prune
+      // pendingTxs. ServiceFreshAddress derives "addresses occupied by a local
+      // pending tx" from pendingTxs, so dropping a still-unconfirmed entry would
+      // let BTC fresh-address hand back an address that is already in use — even
+      // when the chain has not yet surfaced the tx. pendingTxs drains naturally
+      // as txs confirm, and removed-account keys are still dropped below.
       const nextPending: Record<string, IAccountHistoryTx[]> = {};
       for (const [key, txs] of Object.entries(base?.pendingTxs ?? {})) {
         if (
@@ -146,20 +144,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
             validOwners: validOwnerSet,
           })
         ) {
-          const fresh = txs.filter((tx) => {
-            const ts = tx.decodedTx?.createdAt ?? tx.decodedTx?.updatedAt;
-            // decodedTx.createdAt is optional and may be unset for some
-            // locally-submitted pending txs. Without a resolvable timestamp we
-            // cannot prove the tx is stale, so keep it — never drop a tx that
-            // might still be genuinely pending on-chain.
-            if (!ts) {
-              return true;
-            }
-            return now - ts < PENDING_TX_MAX_AGE_MS;
-          });
-          if (fresh.length) {
-            nextPending[key] = fresh;
-          }
+          nextPending[key] = txs;
         }
       }
       const nextConfirmed: Record<string, IAccountHistoryTx[]> = {};

@@ -125,16 +125,26 @@ class ServiceAppCleanup extends ServiceBase {
   @backgroundMethod()
   async cleanupOrphanedAssetCaches() {
     try {
-      // getAllAccounts throws on a genuine enumeration failure (caught below, so
-      // we skip the sweep and keep caches). A successful empty result is NOT a
-      // failure — it means the user has zero accounts (e.g. just deleted their
-      // last one), so we proceed and let every per-account cache key be treated
-      // as an orphan and dropped. Do NOT early-return on empty, or deleting the
-      // last account would leave its caches behind forever.
-      const { accounts, allIndexedAccounts } =
-        await this.backgroundApi.serviceAccount.getAllAccounts({
-          filterRemoved: true,
-        });
+      // Derive the keep-set from the RAW DB enumeration (localDb), NOT
+      // serviceAccount.getAllAccounts({ filterRemoved: true }). The latter drops
+      // (a) locked passphrase/hidden wallets (isTempWalletRemoved — their rows
+      // are still on disk, this session just hasn't entered the passphrase) and
+      // (b) the URL account (isUrlAccountFn). Both still physically exist, so
+      // their caches — including localHistory.pendingTxs that ServiceFreshAddress
+      // reads to avoid BTC address reuse — must NOT be treated as orphans.
+      // localDb returns every account row, so the only keys dropped are those
+      // with no surviving row at all.
+      //
+      // A genuine enumeration failure throws and is caught below (sweep skipped,
+      // caches kept). A successful empty result is NOT a failure — the user has
+      // zero accounts (e.g. just deleted their last one), so we proceed and drop
+      // every per-account key. Do NOT early-return on empty, or deleting the last
+      // account would leave its caches behind forever.
+      const [{ accounts }, { indexedAccounts: allIndexedAccounts }] =
+        await Promise.all([
+          localDb.getAllAccounts(),
+          localDb.getAllIndexedAccounts(),
+        ]);
 
       const validOwners: string[] = [];
       const validAccountIds: string[] = [];
