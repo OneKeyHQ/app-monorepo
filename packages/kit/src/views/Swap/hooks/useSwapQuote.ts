@@ -17,6 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
@@ -42,6 +43,7 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectTokenNetworkAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
   useSwapToAnotherAccountAddressAtom,
@@ -50,6 +52,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { getSwapExecutionType } from '../utils/swapTypeUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -78,6 +81,10 @@ export function useSwapQuote() {
   const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+  const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const shouldPauseQuoteForTokenSelector = Boolean(
+    currentSelectNetwork?.networkId,
+  );
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -242,6 +249,7 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (!isFocusRef.current) return;
+    if (shouldPauseQuoteForTokenSelector) return;
     if (!fromTokenAmount.value && fromTokenAmount.isInput) {
       void quoteAction(
         swapSlippageRef.current,
@@ -254,10 +262,11 @@ export function useSwapQuote() {
         swapToAddressInfoRef.current.address,
       );
     }
-  }, [fromTokenAmount, quoteAction]);
+  }, [fromTokenAmount, quoteAction, shouldPauseQuoteForTokenSelector]);
 
   useEffect(() => {
     if (!isFocusRef.current) return;
+    if (shouldPauseQuoteForTokenSelector) return;
     if (
       !toTokenAmount.value &&
       toTokenAmount.isInput &&
@@ -274,9 +283,12 @@ export function useSwapQuote() {
         swapToAddressInfoRef.current.address,
       );
     }
-  }, [toTokenAmount, quoteAction]);
+  }, [toTokenAmount, quoteAction, shouldPauseQuoteForTokenSelector]);
 
   useEffect(() => {
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
       // cleanQuoteInterval();
     } else if (
@@ -299,6 +311,7 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
+    shouldPauseQuoteForTokenSelector,
   ]);
 
   // Re-quote when slippage is changed via the settings dialog (not via the main
@@ -329,6 +342,9 @@ export function useSwapQuote() {
     if (!keyChanged && !customValueChanged) {
       return;
     }
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
 
     void quoteAction(
       slippageItem,
@@ -340,9 +356,17 @@ export function useSwapQuote() {
       undefined,
       swapToAddressInfoRef.current.address,
     );
-  }, [slippageItem, swapSlippageDialogOpening.status, quoteAction]);
+  }, [
+    slippageItem,
+    swapSlippageDialogOpening.status,
+    quoteAction,
+    shouldPauseQuoteForTokenSelector,
+  ]);
 
   useEffect(() => {
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
     if (
       !isFocusRef.current &&
       swapToAddressInfo.address ===
@@ -427,9 +451,13 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentDecimal,
     fromAmountDebounce,
+    shouldPauseQuoteForTokenSelector,
   ]);
 
   useEffect(() => {
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
     let kind = ESwapQuoteKind.SELL;
     if (swapTabSwitchType === ESwapTabSwitchType.LIMIT) {
       if (
@@ -449,7 +477,7 @@ export function useSwapQuote() {
       undefined,
       swapToAddressInfoRef.current.address,
     );
-  }, [quoteAction, swapTabSwitchType]);
+  }, [quoteAction, swapTabSwitchType, shouldPauseQuoteForTokenSelector]);
 
   useEffect(
     () => () => {
@@ -459,6 +487,9 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
     if (
       !isFocusRef.current &&
       swapToAddressInfo.address ===
@@ -546,10 +577,14 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentToDecimal,
     toAmountDebounce,
+    shouldPauseQuoteForTokenSelector,
   ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
   useEffect(() => {
+    if (shouldPauseQuoteForTokenSelector) {
+      return;
+    }
     if (isFocusRef.current) return;
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
@@ -578,7 +613,10 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [swapAddressInfo.accountInfo?.deriveType]);
+  }, [
+    swapAddressInfo.accountInfo?.deriveType,
+    shouldPauseQuoteForTokenSelector,
+  ]);
 
   const swapApprovingSuccessAction = useCallback(
     async (data: {
@@ -699,7 +737,14 @@ export function useSwapQuote() {
         fromAddress: swapAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
         walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
-        quoteType: swapTabSwitchTypeRef.current,
+        quoteType: getSwapExecutionType({
+          protocol:
+            swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT
+              ? EProtocolOfExchange.LIMIT
+              : undefined,
+          fromNetworkId: fromTokenRef.current?.networkId,
+          toNetworkId: toTokenRef.current?.networkId,
+        }),
         slippageSetting:
           settingsAtomRef.current.swapSlippagePercentageMode ===
           ESwapSlippageSegmentKey.AUTO

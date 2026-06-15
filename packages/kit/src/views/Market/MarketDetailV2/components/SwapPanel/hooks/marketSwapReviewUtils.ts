@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -11,7 +12,6 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapQuoteKind,
-  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -334,7 +334,7 @@ export function buildMarketSwapApprovingTransaction({
   isResetApprove?: boolean;
 }): ISwapApproveTransaction {
   return {
-    swapType: ESwapTabSwitchType.SWAP,
+    swapType: getSwapExecutionTypeFromQuoteResult(quoteResult),
     protocol: quoteResult.protocol ?? EProtocolOfExchange.SWAP,
     provider: quoteResult.info.provider,
     providerName: quoteResult.info.providerName,
