@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
@@ -41,9 +41,11 @@ type IMarketHomeTokenSubscription = {
 
 type IMarketHomeTokenListWebSocketParams = {
   tokens: IMarketToken[];
+  subscriptionTokens?: IMarketToken[];
   enabled?: boolean;
   chartType?: string;
   currency?: string;
+  onSubscriptionCountChange?: (count: number) => void;
 };
 
 type IMarketWSDataUpdatePayload = {
@@ -279,18 +281,36 @@ export function applyMarketTokenListLiveOverrides({
 
 export function useMarketHomeTokenListWebSocket({
   tokens,
+  subscriptionTokens,
   enabled = true,
   chartType = DEFAULT_MARKET_HOME_WS_CHART_TYPE,
   currency = DEFAULT_MARKET_HOME_WS_CURRENCY,
+  onSubscriptionCountChange,
 }: IMarketHomeTokenListWebSocketParams) {
+  const tokensForSubscription = subscriptionTokens ?? tokens;
   const subscriptions = useMemo(
-    () => buildMarketHomeTokenSubscriptions({ tokens, chartType, currency }),
-    [tokens, chartType, currency],
+    () =>
+      buildMarketHomeTokenSubscriptions({
+        tokens: tokensForSubscription,
+        chartType,
+        currency,
+      }),
+    [tokensForSubscription, chartType, currency],
   );
   const subscriptionsRef = useRef(subscriptions);
   subscriptionsRef.current = subscriptions;
   const tokensRef = useRef(tokens);
   tokensRef.current = tokens;
+  const desiredSubscriptionsRef = useRef<
+    Map<string, IMarketHomeTokenSubscription>
+  >(new Map());
+  const ownedSubscriptionsRef = useRef<
+    Map<string, IMarketHomeTokenSubscription>
+  >(new Map());
+  const onSubscriptionCountChangeRef = useRef(onSubscriptionCountChange);
+  onSubscriptionCountChangeRef.current = onSubscriptionCountChange;
+  const isSyncingSubscriptionsRef = useRef(false);
+  const syncRequestIdRef = useRef(0);
 
   const subscriptionIdentity = useMemo(
     () => subscriptions.map((item) => item.key).join('|'),
@@ -299,6 +319,14 @@ export function useMarketHomeTokenListWebSocket({
   const [liveOverridesByKey, setLiveOverridesByKey] = useState<
     Record<string, IMarketTokenListStoredLiveOverride>
   >({});
+
+  const emitSubscriptionCountChange = useCallback(() => {
+    onSubscriptionCountChangeRef.current?.(ownedSubscriptionsRef.current.size);
+  }, []);
+
+  useEffect(() => {
+    onSubscriptionCountChange?.(ownedSubscriptionsRef.current.size);
+  }, [onSubscriptionCountChange]);
 
   useEffect(() => {
     if (!enabled) {
@@ -357,62 +385,170 @@ export function useMarketHomeTokenListWebSocket({
     });
   }, [tokens]);
 
-  useEffect(() => {
-    const activeSubscriptions = subscriptionsRef.current;
-    if (!enabled || activeSubscriptions.length === 0) {
+  const unsubscribeSubscription = useCallback(
+    async (subscription: IMarketHomeTokenSubscription) => {
+      await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
+        networkId: subscription.networkId,
+        tokenAddress: subscription.address,
+        chartType: subscription.chartType,
+        currency: subscription.currency,
+      });
+    },
+    [],
+  );
+
+  const subscribeSubscription = useCallback(
+    async (subscription: IMarketHomeTokenSubscription) => {
+      await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
+        networkId: subscription.networkId,
+        tokenAddress: subscription.address,
+        chartType: subscription.chartType,
+        currency: subscription.currency,
+      });
+      return subscription;
+    },
+    [],
+  );
+
+  const syncMarketHomeTokenSubscriptions = useCallback(async () => {
+    if (isSyncingSubscriptionsRef.current) {
       return;
     }
 
-    let isDisposed = false;
+    isSyncingSubscriptionsRef.current = true;
+    let handledRequestId = -1;
 
-    async function subscribeMarketHomeTokens() {
-      try {
-        await backgroundApiProxy.serviceMarketWS.connect();
-        if (isDisposed) {
-          return;
+    try {
+      while (handledRequestId !== syncRequestIdRef.current) {
+        handledRequestId = syncRequestIdRef.current;
+        const desiredSubscriptions = desiredSubscriptionsRef.current;
+        const ownedSubscriptions = ownedSubscriptionsRef.current;
+        const subscriptionsToUnsubscribe = [
+          ...ownedSubscriptions.values(),
+        ].filter((item) => !desiredSubscriptions.has(item.key));
+
+        if (subscriptionsToUnsubscribe.length > 0) {
+          const unsubscribeResults = await Promise.allSettled(
+            subscriptionsToUnsubscribe.map(unsubscribeSubscription),
+          );
+          let hasSubscriptionCountChanged = false;
+          unsubscribeResults.forEach((result, index) => {
+            const subscription = subscriptionsToUnsubscribe[index];
+            if (result.status === 'fulfilled') {
+              ownedSubscriptionsRef.current.delete(subscription.key);
+              hasSubscriptionCountChanged = true;
+              return;
+            }
+
+            defaultLogger.networkDoctor.log.error({
+              info: `Failed to unsubscribe market home token data: ${getErrorMessage(
+                result.reason,
+              )}`,
+            });
+          });
+          if (hasSubscriptionCountChanged) {
+            emitSubscriptionCountChange();
+          }
         }
 
-        await Promise.all(
-          activeSubscriptions.map((subscription) =>
-            backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
-              networkId: subscription.networkId,
-              tokenAddress: subscription.address,
-              chartType: subscription.chartType,
-              currency: subscription.currency,
-            }),
-          ),
-        );
-      } catch (error) {
-        defaultLogger.networkDoctor.log.error({
-          info: `Failed to subscribe market home token data: ${getErrorMessage(
-            error,
-          )}`,
-        });
+        const latestDesiredSubscriptions = desiredSubscriptionsRef.current;
+        const latestOwnedSubscriptions = ownedSubscriptionsRef.current;
+        const subscriptionsToSubscribe = [
+          ...latestDesiredSubscriptions.values(),
+        ].filter((item) => !latestOwnedSubscriptions.has(item.key));
+
+        if (subscriptionsToSubscribe.length > 0) {
+          let isConnected = false;
+          try {
+            await backgroundApiProxy.serviceMarketWS.connect();
+            isConnected = true;
+          } catch (error) {
+            defaultLogger.networkDoctor.log.error({
+              info: `Failed to connect market home token websocket: ${getErrorMessage(
+                error,
+              )}`,
+            });
+          }
+
+          if (isConnected) {
+            const desiredAfterConnect = desiredSubscriptionsRef.current;
+            const ownedAfterConnect = ownedSubscriptionsRef.current;
+            const subscriptionsToSubscribeAfterConnect = [
+              ...desiredAfterConnect.values(),
+            ].filter((item) => !ownedAfterConnect.has(item.key));
+
+            const subscribeResults = await Promise.allSettled(
+              subscriptionsToSubscribeAfterConnect.map(subscribeSubscription),
+            );
+
+            let hasSubscriptionCountChanged = false;
+            subscribeResults.forEach((result) => {
+              if (result.status === 'rejected') {
+                defaultLogger.networkDoctor.log.error({
+                  info: `Failed to subscribe market home token data: ${getErrorMessage(
+                    result.reason,
+                  )}`,
+                });
+                return;
+              }
+
+              const subscription = result.value;
+              if (desiredSubscriptionsRef.current.has(subscription.key)) {
+                ownedSubscriptionsRef.current.set(
+                  subscription.key,
+                  subscription,
+                );
+                hasSubscriptionCountChanged = true;
+                return;
+              }
+
+              void unsubscribeSubscription(subscription).catch((error) => {
+                defaultLogger.networkDoctor.log.error({
+                  info: `Failed to rollback market home token subscription: ${getErrorMessage(
+                    error,
+                  )}`,
+                });
+              });
+            });
+            if (hasSubscriptionCountChanged) {
+              emitSubscriptionCountChange();
+            }
+          }
+        }
       }
+    } finally {
+      isSyncingSubscriptionsRef.current = false;
     }
 
-    void subscribeMarketHomeTokens();
+    if (handledRequestId !== syncRequestIdRef.current) {
+      void syncMarketHomeTokenSubscriptions();
+    }
+  }, [
+    emitSubscriptionCountChange,
+    subscribeSubscription,
+    unsubscribeSubscription,
+  ]);
 
+  useEffect(() => {
+    desiredSubscriptionsRef.current = enabled
+      ? new Map(subscriptions.map((item) => [item.key, item]))
+      : new Map<string, IMarketHomeTokenSubscription>();
+    syncRequestIdRef.current += 1;
+    void syncMarketHomeTokenSubscriptions();
+  }, [
+    enabled,
+    subscriptions,
+    subscriptionIdentity,
+    syncMarketHomeTokenSubscriptions,
+  ]);
+
+  useEffect(() => {
     return () => {
-      isDisposed = true;
-      void Promise.all(
-        activeSubscriptions.map((subscription) =>
-          backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
-            networkId: subscription.networkId,
-            tokenAddress: subscription.address,
-            chartType: subscription.chartType,
-            currency: subscription.currency,
-          }),
-        ),
-      ).catch((error) => {
-        defaultLogger.networkDoctor.log.error({
-          info: `Failed to unsubscribe market home token data: ${getErrorMessage(
-            error,
-          )}`,
-        });
-      });
+      desiredSubscriptionsRef.current = new Map();
+      syncRequestIdRef.current += 1;
+      void syncMarketHomeTokenSubscriptions();
     };
-  }, [enabled, subscriptionIdentity]);
+  }, [syncMarketHomeTokenSubscriptions]);
 
   useEffect(() => {
     if (!enabled) {
