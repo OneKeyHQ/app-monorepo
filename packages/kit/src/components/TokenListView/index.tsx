@@ -92,6 +92,11 @@ import type {
   IScopedActiveTokenListState,
 } from '../TokenSelectorFilter/utils';
 
+// Stable module-level empty defaults so the PR-3 selector branches don't hand a
+// fresh `{}` to `useMemo` deps every render (would defeat memoization).
+const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
+const EMPTY_AGGREGATE_MAP: Record<string, { tokens: IAccountToken[] }> = {};
+
 type IProps = {
   accountId: string;
   networkId: string;
@@ -131,6 +136,37 @@ type IProps = {
   scopedActiveAccountTokenList?: IScopedActiveTokenList;
   scopedActiveAccountTokenListState?: IScopedActiveTokenListState;
   scopedActiveAccountTokenListMap?: Record<string, ITokenFiat>;
+  // TokenSelector self-fetched data threaded as props (tokenList SLC
+  // full-delete plan, PR-3). Consumed ONLY on the `isTokenSelector` branch so
+  // the selector no longer reads `tokenListAtom`/`tokenListMapAtom`/
+  // `smallBalanceTokenListAtom`/`aggregateTokensListMapAtom` for its display
+  // path. The home + active-account branches keep reading the atoms.
+  tokenSelectorTokenList?: {
+    tokens: IAccountToken[];
+    smallBalanceTokens: IAccountToken[];
+  };
+  // Fiat map for selector rows (hideZero / exchange filters) and the
+  // network-search `tokenFiatMap`.
+  tokenSelectorTokenListMap?: Record<string, ITokenFiat>;
+  // Scoped owned-aggregate sub-token list map (replaces the §5
+  // `localAggregateTokensListMap` atom read on the selector / network-search
+  // path; also feeds `ownedAggregateTokenListMap` context for badges).
+  tokenSelectorAggregateTokenListMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
+  // PR-3: `false` until TokenSelector's self-fetch `usePromiseResult` resolves
+  // the first time. On the `isTokenSelector` branch the displayed list comes
+  // from `tokenSelectorTokenList` (props) which starts empty, but the home
+  // mirror keeps `tokenListState.initialized === true`, so without this flag
+  // the selector would render EmptyToken for a frame before the self-fetch
+  // lands. We gate the selector skeleton + cold-start fallback on this so the
+  // selector shows a SKELETON (or its per-owner cached list) until ready,
+  // matching the pre-PR-3 instant render. The active-account branch is
+  // unaffected (it uses `activeAccountTokenListState`).
+  tokenSelectorInitialized?: boolean;
   onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
@@ -216,6 +252,10 @@ function TokenListViewCmp(props: IProps) {
     testID,
     tokenItemTestIDPrefix,
     scopedActiveAccountTokenListMap,
+    tokenSelectorTokenList,
+    tokenSelectorTokenListMap,
+    tokenSelectorAggregateTokenListMap,
+    tokenSelectorInitialized,
   } = props;
 
   const intl = useIntl();
@@ -260,9 +300,24 @@ function TokenListViewCmp(props: IProps) {
   )
     ? (scopedActiveAccountTokenListMap ?? tokenListMap)
     : tokenListMap;
-  const visibleTokenListMap = showActiveAccountTokenList
-    ? activeAccountTokenListMap
-    : tokenListMap;
+  // Selector fiat map (tokenList SLC full-delete plan, PR-3): on the selector
+  // path the displayed list + fiat map are self-fetched by TokenSelector and
+  // threaded as props, so the selector no longer reads the home `tokenListMap`
+  // atom. The active-account scoped branch (LP-dapp / cross-account view) keeps
+  // its own scoped map and is unaffected.
+  const selectorFiatMap = useMemo(
+    () => tokenSelectorTokenListMap ?? EMPTY_FIAT_MAP,
+    [tokenSelectorTokenListMap],
+  );
+  // Priority: active-account scoped map (LP-dapp / cross-account, used by both
+  // home AND selector) wins; then the selector's self-fetched map; then the
+  // home `tokenListMap` atom.
+  let visibleTokenListMap = tokenListMap;
+  if (showActiveAccountTokenList) {
+    visibleTokenListMap = activeAccountTokenListMap;
+  } else if (isTokenSelector) {
+    visibleTokenListMap = selectorFiatMap;
+  }
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
@@ -319,8 +374,10 @@ function TokenListViewCmp(props: IProps) {
     if (showActiveAccountTokenList) {
       resultTokens = activeAccountTokenList.tokens;
     } else if (isTokenSelector) {
-      resultTokens = tokenList.tokens.concat(
-        smallBalanceTokenList.smallBalanceTokens,
+      // PR-3: the selector list is self-fetched by TokenSelector and threaded
+      // as props (no longer the home `tokenListAtom`/`smallBalanceTokenListAtom`).
+      resultTokens = (tokenSelectorTokenList?.tokens ?? []).concat(
+        tokenSelectorTokenList?.smallBalanceTokens ?? [],
       );
     } else if (searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       resultTokens = tokenList.tokens.concat(
@@ -401,10 +458,19 @@ function TokenListViewCmp(props: IProps) {
     // Cold-start fallback: when atoms haven't loaded yet for the current
     // owner, reuse the per-owner cache so the user sees their last known list
     // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
+    // PR-3: on the selector path the displayed list is the self-fetched
+    // `tokenSelectorTokenList` (props), NOT the home atoms, so `initialized`
+    // here means "selector self-fetch resolved". The home mirror keeps
+    // `tokenListState.initialized === true`, so gate on `tokenSelectorInitialized`
+    // for the selector branch to keep the cache fallback firing pre-fetch.
+    const notYetInitialized =
+      isTokenSelector && !showActiveAccountTokenList
+        ? !tokenSelectorInitialized
+        : !tokenListState.initialized;
     if (
       !showActiveAccountTokenList &&
       resultTokens.length === 0 &&
-      !tokenListState.initialized
+      notYetInitialized
     ) {
       const cached =
         ownerCacheKey &&
@@ -426,6 +492,8 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
+    tokenSelectorTokenList,
+    tokenSelectorInitialized,
     visibleTokenListMap,
     aggregateTokenMap,
     keepDefaultZeroBalanceTokens,
@@ -548,7 +616,6 @@ function TokenListViewCmp(props: IProps) {
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
   const { networksMap, useCellSeam } = useTokenListViewContext();
-  const [localAggregateTokensListMap] = useAggregateTokensListMapAtom();
   // HOME projection path marker — read the SAME context flag the leaves read so
   // home/leaf agree (spec §5, PR-S). The wrapper computes
   // `useCellSeam = enableCellSeam && !isTokenSelector &&
@@ -580,7 +647,7 @@ function TokenListViewCmp(props: IProps) {
         : undefined,
       localAggregateTokenListMap:
         useNetworkSearch && !showActiveAccountTokenList
-          ? localAggregateTokensListMap
+          ? tokenSelectorAggregateTokenListMap
           : undefined,
     });
 
@@ -623,7 +690,7 @@ function TokenListViewCmp(props: IProps) {
     allAggregateTokenMap,
     searchKeyLengthThreshold,
     networksMap,
-    localAggregateTokensListMap,
+    tokenSelectorAggregateTokenListMap,
     showActiveAccountTokenList,
     sortType,
     sortDirection,
@@ -851,6 +918,20 @@ function TokenListViewCmp(props: IProps) {
     if (ownerMismatch && !showActiveAccountTokenList) {
       return true;
     }
+    // PR-3: selector list is the self-fetched `tokenSelectorTokenList` (props),
+    // not the home atoms. The home mirror keeps `tokenListState.initialized`
+    // true, so the final clause below never fires for the selector and the
+    // selector would render EmptyToken for a frame before the self-fetch lands.
+    // Show a skeleton until the selector self-fetch resolves (the cache-hit
+    // check above already returned `false` when a per-owner cached list exists,
+    // matching the pre-PR-3 instant render).
+    if (
+      isTokenSelector &&
+      !showActiveAccountTokenList &&
+      !tokenSelectorInitialized
+    ) {
+      return true;
+    }
     return (
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
       (!isTokenSelector && searchTokenState.isSearching) ||
@@ -860,6 +941,7 @@ function TokenListViewCmp(props: IProps) {
     ownerMismatch,
     ownerCacheKey,
     isTokenSelector,
+    tokenSelectorInitialized,
     searchAll,
     tokenSelectorSearchKey,
     tokenSelectorSearchTokenList.searchKey,
@@ -1188,17 +1270,48 @@ const TokenListView = memo((props: IProps) => {
   // aggregate sub-token list from `ownedAggregateTokenListMap` instead of
   // importing the atom directly. PR-3/PR-7 swap the source to the SLC producer
   // payload and drop this atom read.
-  const [ownedAggregateTokenListMap] = useAggregateTokensListMapAtom();
+  const [aggregateTokensListMapValueFromAtom] = useAggregateTokensListMapAtom();
+  // PR-3: the SELECTOR no longer depends on the home
+  // `aggregateTokensListMapAtom` — it uses its self-fetched map threaded as a
+  // prop. The home / non-selector path keeps the atom read (PR-7 removes it).
+  // Memoized so the empty-default `{}` keeps a stable reference and does not
+  // re-run the `contextValue` memo every render.
+  const ownedAggregateTokenListMap = useMemo(() => {
+    if (props.isTokenSelector) {
+      return props.tokenSelectorAggregateTokenListMap ?? EMPTY_AGGREGATE_MAP;
+    }
+    return aggregateTokensListMapValueFromAtom;
+  }, [
+    props.isTokenSelector,
+    props.tokenSelectorAggregateTokenListMap,
+    aggregateTokensListMapValueFromAtom,
+  ]);
   // An empty scoped map (`{}`, the default home state) is NOT an override; only
   // a POPULATED scoped LP map (LP-dapp mode) overrides the whole `tokenListMap`.
-  const activeAccountTokenListMap = hasActiveScopedOverride(
+  // PR-3: on the selector path the leaves resolve per-row fiat from the
+  // selector's self-fetched map (threaded as a prop) instead of the home
+  // `tokenListMap` atom. The active-account scoped branch (used by both home
+  // and selector) still wins. The home / non-selector path keeps the atom.
+  const visibleTokenListMap = useMemo(() => {
+    if (hasActiveScopedOverride(props.scopedActiveAccountTokenListMap)) {
+      if (props.showActiveAccountTokenList) {
+        return props.scopedActiveAccountTokenListMap ?? tokenListMap;
+      }
+    }
+    if (props.showActiveAccountTokenList) {
+      return tokenListMap;
+    }
+    if (props.isTokenSelector) {
+      return props.tokenSelectorTokenListMap ?? EMPTY_FIAT_MAP;
+    }
+    return tokenListMap;
+  }, [
     props.scopedActiveAccountTokenListMap,
-  )
-    ? (props.scopedActiveAccountTokenListMap ?? tokenListMap)
-    : tokenListMap;
-  const visibleTokenListMap = props.showActiveAccountTokenList
-    ? activeAccountTokenListMap
-    : tokenListMap;
+    props.showActiveAccountTokenList,
+    props.isTokenSelector,
+    props.tokenSelectorTokenListMap,
+    tokenListMap,
+  ]);
   const needNetworksMap =
     !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
   const { result: allNetworksResp } = usePromiseResult<{

@@ -9,10 +9,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -44,12 +41,11 @@ export function UniversalSearchAccountAssetItem({
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
-  // `TokenName` no longer reads `aggregateTokensListMapAtom` itself (tokenList
-  // SLC full-delete plan, PR-1); this caller — mounted under the home tokenList
-  // mirror provider — resolves the per-`$key` owned aggregate sub-token list and
-  // passes it down so badge behavior stays identical. PR-3 migrates the rest of
-  // UniversalSearch off the atom.
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  // PR-3 (tokenList SLC full-delete): no longer reads `aggregateTokensListMapAtom`.
+  // `TokenName` defaults `aggregateTokenList` to `[]` when the prop is omitted and
+  // derives the aggregate badge from `allAggregateTokenMap` (passed in via the
+  // `allAggregateTokenMap` prop, fetched by UniversalSearch), so badge behavior is
+  // preserved without the per-`$key` owned-sub-token list.
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
     priceChange,
   });
@@ -148,9 +144,6 @@ export function UniversalSearchAccountAssetItem({
           }}
           withAggregateBadge
           allAggregateTokenMap={allAggregateTokenMap}
-          aggregateTokenList={
-            token?.$key ? aggregateTokensListMap[token.$key]?.tokens : undefined
-          }
         />
         <NumberSizeableTextWrapper
           formatter="balance"

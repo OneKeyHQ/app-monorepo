@@ -43,7 +43,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
   useProcessingTokenStateAtom,
   useTokenListActions,
@@ -274,6 +273,7 @@ function AggregateTokenSelector() {
   const {
     title,
     aggregateToken,
+    aggregateSubTokenList,
     searchPlaceholder,
     onSelect,
     closeAfterSelect,
@@ -292,11 +292,15 @@ function AggregateTokenSelector() {
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
 
-  const [aggregateTokensListMapAtom] = useAggregateTokensListMapAtom();
-
+  // PR-3 (tokenList SLC full-delete): the owned sub-tokens are passed in as a
+  // route param by TokenSelector (the only navigator into this screen) instead
+  // of reading `aggregateTokensListMapAtom`. Falls back to `[]` for any future
+  // direct entry / restore where the param is absent — matching the old
+  // empty-atom miss behavior. `allAggregateTokenList` (also a route param) is
+  // still merged in below, so the cross-network rows still render.
   const aggregateTokens = useMemo(() => {
-    return aggregateTokensListMapAtom[aggregateToken.$key]?.tokens ?? [];
-  }, [aggregateTokensListMapAtom, aggregateToken.$key]);
+    return aggregateSubTokenList ?? [];
+  }, [aggregateSubTokenList]);
 
   const { result: allNetworksState, run: refreshAllNetworkState } =
     usePromiseResult(

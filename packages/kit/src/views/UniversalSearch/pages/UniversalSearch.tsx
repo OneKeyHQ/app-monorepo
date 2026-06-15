@@ -48,7 +48,6 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
@@ -164,7 +163,6 @@ export function UniversalSearch({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
-  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
 
   const { result: allAggregateTokenInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
@@ -313,14 +311,12 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
-      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
-    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -562,9 +558,13 @@ export function UniversalSearch({
         tokenListCacheMap: shouldUseTokensCacheData
           ? allTokenListMap
           : undefined,
-        aggregateTokenListCacheMap: shouldUseTokensCacheData
-          ? aggregateTokenListMap
-          : undefined,
+        // PR-3 D2=B1 (tokenList SLC full-delete): the UI no longer threads the
+        // home `aggregateTokensListMapAtom`. The BG
+        // `universalSearchOfAccountAssets` SELF-DERIVES the scoped owned
+        // sub-token list map for the searched owner (via
+        // `serviceToken.getLocalAggregateTokenListMap`) when this is absent, so
+        // aggregate sub-token (contract-address) matching is preserved.
+        aggregateTokenListCacheMap: undefined,
       };
       try {
         const primaryResult =

@@ -19,7 +19,6 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import {
-  useAggregateTokensListMapAtom,
   useAllTokenListMapAtom,
   useTokenListActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
@@ -180,8 +179,6 @@ function TokenSelector() {
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-
   const {
     title,
     networkId,
@@ -259,6 +256,28 @@ function TokenSelector() {
     searchKey: string;
   }>({ tokens: [], searchKey: '' });
   const latestSearchKeywordsRef = useRef('');
+
+  // PR-3 (tokenList SLC full-delete): the selector self-fetches its displayed
+  // list + fiat map + owned-aggregate map and threads them as props into
+  // TokenListView, so the selector no longer reads the home
+  // `tokenListAtom`/`tokenListMapAtom`/`smallBalanceTokenListAtom`/
+  // `aggregateTokensListMapAtom`. The active-account branch keeps its own
+  // scoped fetch (`scopedActiveTokenList*`).
+  const [selectorTokenList, setSelectorTokenList] = useState<{
+    tokens: IAccountToken[];
+    smallBalanceTokens: IAccountToken[];
+  }>({ tokens: [], smallBalanceTokens: [] });
+  const [selectorTokenListMap, setSelectorTokenListMap] = useState<
+    Record<string, ITokenFiat>
+  >({});
+  const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
+    useState<Record<string, { tokens: IAccountToken[] }>>({});
+  // PR-3: `false` until the self-fetch below resolves the first time. Threaded
+  // into TokenListView so the selector shows a skeleton (or its per-owner
+  // cached list) until the self-fetch lands instead of flashing EmptyToken —
+  // the home tokenList mirror keeps `tokenListState.initialized === true`, so
+  // TokenListView cannot infer "selector not yet fetched" on its own.
+  const [selectorInitialized, setSelectorInitialized] = useState(false);
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -342,7 +361,7 @@ function TokenSelector() {
         const allAggregateTokenList =
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
         const aggregateTokenList =
-          aggregateTokensListMap[token.$key]?.tokens ?? [];
+          selectorAggregateTokenListMap[token.$key]?.tokens ?? [];
         if (
           aggregateTokenList.length === 1 &&
           allAggregateTokenList.length === 0
@@ -375,6 +394,7 @@ function TokenSelector() {
               accountId,
               indexedAccountId,
               aggregateToken: token,
+              aggregateSubTokenList: aggregateTokenList,
               onSelect,
               allAggregateTokenList,
               enableNetworkAfterSelect,
@@ -519,7 +539,7 @@ function TokenSelector() {
       network?.id,
       closeAfterSelect,
       allAggregateTokenMap,
-      aggregateTokensListMap,
+      selectorAggregateTokenListMap,
       allTokenListMap,
       onSelect,
       navigation,
@@ -914,6 +934,66 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // PR-3 selector self-fetch: on the NORMAL selector path (not the
+  // active-account / LP-dapp branch, which already self-fetches into
+  // `scopedActiveTokenList*`), fetch the displayable wallet token list + fiat
+  // map (same `token-selector` flag/path the active-account branch uses) and
+  // the scoped owned-aggregate map. These feed TokenListView via props so the
+  // selector no longer reads the home tokenList atoms.
+  usePromiseResult(async () => {
+    if (effectiveShowActiveAccountTokenList) {
+      // Active-account / LP-dapp branch uses `scopedActiveTokenList*`; the
+      // normal selector self-fetch is inactive here. Mark initialized so the
+      // skeleton gate (which is also guarded by `!showActiveAccountTokenList`)
+      // never holds on a stale value.
+      setSelectorInitialized(true);
+      return;
+    }
+    if (!accountId || !networkId) {
+      setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
+      setSelectorTokenListMap({});
+      setSelectorAggregateTokenListMap({});
+      setSelectorInitialized(true);
+      return;
+    }
+
+    // Reset to `false` while (re)fetching for a new owner so TokenListView
+    // shows a skeleton (or the per-owner cache) instead of the previous owner's
+    // list for a frame.
+    setSelectorInitialized(false);
+
+    const [r, aggregateTokenListMap] = await Promise.all([
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        indexedAccountId,
+        flag: 'token-selector',
+        ...tokenSelectorFilterParams,
+      }),
+      backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    setSelectorTokenList({
+      tokens: r.tokens.data,
+      smallBalanceTokens: r.smallBalanceTokens.data,
+    });
+    setSelectorTokenListMap({
+      ...r.tokens.map,
+      ...r.smallBalanceTokens.map,
+    });
+    setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
+    setSelectorInitialized(true);
+  }, [
+    accountId,
+    networkId,
+    indexedAccountId,
+    effectiveShowActiveAccountTokenList,
+    tokenSelectorFilterParams,
+  ]);
+
   useEffect(() => {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
@@ -955,6 +1035,10 @@ function TokenSelector() {
           scopedActiveAccountTokenList={scopedActiveTokenList}
           scopedActiveAccountTokenListState={scopedActiveTokenListState}
           scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
+          tokenSelectorTokenList={selectorTokenList}
+          tokenSelectorTokenListMap={selectorTokenListMap}
+          tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
+          tokenSelectorInitialized={selectorInitialized}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isSelectorAllNetworks}
           withNetwork={isSelectorAllNetworks}
