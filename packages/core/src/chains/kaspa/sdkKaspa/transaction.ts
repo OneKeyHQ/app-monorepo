@@ -62,9 +62,16 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
   let txn = new Transaction()
     .from(inputs.map((input) => new UnspentOutput(input)))
     .setVersion(0)
-    .fee(parseInt(fee, 10))
+    .fee(parseInt(fee, 10));
+
+  // Without a change script, kaspa-core-lib creates no change output and the
+  // whole input surplus is left as fee. The KRC20 commit uses this to fold a
+  // sub-dust change into the fee (a small change output would inflate the
+  // KIP-0009 storage mass beyond the node's max-allowed mass limit).
+  if (!tx.dropChangeToFee) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    .change(changeAddress ?? from?.toString());
+    txn = txn.change(changeAddress ?? from?.toString());
+  }
 
   if (to) {
     txn = txn.to(to, sendAmount.toFixed());

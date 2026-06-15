@@ -210,6 +210,46 @@ export default class Vault extends VaultBase {
       encodedTx.mass = massAndSize.mass;
     }
 
+    // KRC20 commit storage-mass guard.
+    // The commit pays a fixed 1.3 KAS into the P2SH output and returns the rest
+    // as change. A small change output makes the KIP-0009 storage mass explode
+    // (storage_mass ≈ STORAGE_MASS_PARAMETER / change_value), so the node
+    // rejects the commit as non-standard ("storage mass ... is larger than max
+    // allowed"). Under KRC20 load the elevated fee rate shrinks the change into
+    // this danger zone. Since the commit only needs to fund the P2SH output,
+    // fold a sub-dust change into the fee so the tx carries a single output and
+    // its storage mass collapses to ~0.
+    if (isKRC20) {
+      const feeValue = new BigNumber(
+        encodedTx.feeInfo?.price ?? DEFAULT_FEE_RATE,
+      ).multipliedBy(encodedTx.mass);
+      const sumInputs = encodedTx.inputs.reduce(
+        (acc, input) => acc.plus(input.satoshis),
+        new BigNumber(0),
+      );
+      const sendValue = new BigNumber(encodedTx.outputs[0]?.value ?? 0);
+      const changeValue = sumInputs.minus(sendValue).minus(feeValue);
+
+      if (changeValue.isGreaterThan(0) && changeValue.isLessThan(DUST_AMOUNT)) {
+        encodedTx.dropChangeToFee = true;
+        const foldedTxn = toTransaction(encodedTx);
+        const massAndSize = foldedTxn.getMassAndSize();
+        if (encodedTx.feeInfo) {
+          encodedTx.feeInfo.limit = massAndSize.mass.toString();
+        }
+        encodedTx.mass = massAndSize.mass;
+      }
+
+      // Defense in depth: if the storage mass is still over the limit (driven by
+      // the inputs, which folding the change cannot fix), fail loudly instead of
+      // broadcasting a commit the node will reject.
+      if (encodedTx.mass > MAX_ORPHAN_TX_MASS) {
+        throw new OneKeyLocalError(
+          'Kaspa KRC20 commit transaction exceeds the maximum storage mass. Please consolidate your KAS UTXOs and try again.',
+        );
+      }
+    }
+
     return encodedTx;
   }
 
