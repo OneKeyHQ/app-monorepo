@@ -23,16 +23,20 @@ const DEFAULT_TRACK_HEIGHT = 4;
 // uncontrolled) native view imperatively via `setValue`.
 type ISegmentSliderHybridRef = HybridRef<
   SegmentSliderProps,
-  SegmentSliderMethods
+  SegmentSliderMethods & {
+    setValue(value: number): void;
+  }
 >;
 
 // The module wrapper types its props as `SegmentSliderProps & ViewProps`, which
 // omits the Nitro-injected `hybridRef`. Re-add it so we can grab the ref. (It
 // must be wrapped with `callback(...)` to cross the JSI boundary.)
-type ISegmentSliderNativeViewProps = ComponentProps<
-  typeof SegmentSliderView
+type ISegmentSliderNativeViewProps = Omit<
+  ComponentProps<typeof SegmentSliderView>,
+  'value' | 'epoch'
 > & {
   hybridRef?: NitroViewWrappedCallback<(ref: ISegmentSliderHybridRef) => void>;
+  defaultValue?: number;
 };
 
 const SegmentSliderNativeView =

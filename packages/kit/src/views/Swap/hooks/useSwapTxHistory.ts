@@ -94,14 +94,12 @@ export function useSwapTxHistoryActions() {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '0',
+            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '',
             provider: swapTxInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl:
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee:
-              swapTxInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-            protocolFee:
-              swapTxInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
+            protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
             orderId:

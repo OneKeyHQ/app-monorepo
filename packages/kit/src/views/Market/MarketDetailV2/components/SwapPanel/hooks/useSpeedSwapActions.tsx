@@ -26,6 +26,7 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -559,13 +560,11 @@ export function useSpeedSwapActions(props: {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '0',
+            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
             provider: swapInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee:
-              swapInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-            protocolFee:
-              swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
+            protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
             orderId: serviceOrderId,
@@ -721,6 +720,9 @@ export function useSpeedSwapActions(props: {
         buildRes,
         quoteResult,
       });
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        buildResFinal.result,
+      );
       return buildMarketExecutionPayload({
         accountId,
         buildRes: buildResFinal,
@@ -733,6 +735,7 @@ export function useSpeedSwapActions(props: {
         fromAmount,
         receivingAddress: userAddress,
         slippage,
+        swapType,
         userAddress,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
@@ -1048,7 +1051,7 @@ export function useSpeedSwapActions(props: {
         status,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
-        swapType: ESwapTabSwitchType.SWAP,
+        swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
         slippage: slippage.toString(),
         sourceChain: fromToken.networkId ?? '',
         receivedChain: toToken.networkId ?? '',

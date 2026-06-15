@@ -27,16 +27,11 @@ export function useHandleSwap() {
 
   const handleSwap = useCallback(
     async ({ token, networkId }: { token: IToken; networkId: string }) => {
-      const { isSupportSwap } =
-        await backgroundApiProxy.serviceSwap.checkSupportSwap({
-          networkId,
-        });
       const network = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
       const { importFromToken, swapTabSwitchType } = getImportFromToken({
         networkId,
-        isSupportSwap,
         tokenAddress: token.address,
       });
       defaultLogger.wallet.walletActions.actionTrade({

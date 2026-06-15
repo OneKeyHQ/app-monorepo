@@ -138,7 +138,10 @@ const SwapHeaderContainer = ({
 
   const handleSwapTypeChange = useCallback(
     async (value: string | number) => {
-      const newType = value as ESwapTabSwitchType;
+      const newType =
+        value === ESwapTabSwitchType.BRIDGE
+          ? ESwapTabSwitchType.SWAP
+          : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
       if (newType === ESwapTabSwitchType.LIMIT) {
@@ -162,15 +165,14 @@ const SwapHeaderContainer = ({
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
     gtLg && pageType !== 'modal' && !platformEnv.isNative;
+  const swapBridgeLabel = `${intl.formatMessage({
+    id: ETranslations.swap_page_swap,
+  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
 
   const segmentOptions = [
     {
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+      label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
-    },
-    {
-      label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
-      value: ESwapTabSwitchType.BRIDGE,
     },
     {
       label: intl.formatMessage({
@@ -235,25 +237,7 @@ const SwapHeaderContainer = ({
           }
         }}
       >
-        {intl.formatMessage({ id: ETranslations.swap_page_swap })}
-      </CustomTabItem>
-
-      <CustomTabItem
-        compact={isNativeLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
-        onPress={async () => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-            if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-              await updateSelectedAccountNetworkAction(fromToken?.networkId);
-            }
-            void swapTypeSwitchAction(
-              ESwapTabSwitchType.BRIDGE,
-              fromToken?.networkId || networkId,
-            );
-          }
-        }}
-      >
-        {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
+        {swapBridgeLabel}
       </CustomTabItem>
       <CustomTabItem
         compact={isNativeLayout}

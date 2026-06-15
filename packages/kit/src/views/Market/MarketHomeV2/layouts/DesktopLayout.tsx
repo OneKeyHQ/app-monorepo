@@ -244,6 +244,7 @@ export function DesktopLayout({
             tabIntegrated
             tabName={watchlistTabName}
             listContainerProps={listContainerProps}
+            enableWebSocket={activeTabName === watchlistTabName}
           />
         ) : null}
       </YStack>
@@ -263,6 +264,7 @@ export function DesktopLayout({
                 item.categoryId,
               )}
               onStockDataChange={handleStockDataChange}
+              enableWebSocket={activeTabName === item.tabName}
             />
           ) : null}
         </YStack>
