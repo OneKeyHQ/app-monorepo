@@ -363,7 +363,6 @@ function MobileLayoutComponent({
       <MobileMarketWatchlistFlatList
         selectedFilter={watchlistFilter}
         listContainerProps={listContainerProps}
-        enableWebSocket={activeTabName === watchlistTabName}
       />
     </Tabs.Tab>,
     ...spotTabItems.map((item) => (
@@ -374,7 +373,6 @@ function MobileLayoutComponent({
           timeRange={filterBarProps.timeRange}
           listContainerProps={listContainerProps}
           onStockDataChange={handleStockDataChange}
-          enableWebSocket={activeTabName === item.tabName}
         />
       </Tabs.Tab>
     )),
