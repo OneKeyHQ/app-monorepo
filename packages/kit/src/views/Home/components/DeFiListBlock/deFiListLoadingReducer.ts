@@ -1,6 +1,7 @@
 export type IDeFiListLoadingState = {
   isRefreshing: boolean;
   initialized: boolean;
+  loadedOwnerKey?: string;
 };
 
 export type IDeFiListLoadingEvent =
@@ -32,4 +33,26 @@ export function deFiListLoadingReducer(
       return _exhaustive;
     }
   }
+}
+
+export function shouldShowDeFiEmptyState({
+  initialized,
+  isRefreshing,
+  loadedOwnerKey,
+  ownerKey,
+  protocolsLength,
+}: {
+  initialized: boolean;
+  isRefreshing: boolean;
+  loadedOwnerKey?: string;
+  ownerKey?: string;
+  protocolsLength: number;
+}) {
+  return (
+    protocolsLength === 0 &&
+    initialized &&
+    !isRefreshing &&
+    Boolean(ownerKey) &&
+    loadedOwnerKey === ownerKey
+  );
 }
