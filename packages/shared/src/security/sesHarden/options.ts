@@ -24,7 +24,13 @@ export const SES_HARDEN_LOOSE_LOCKDOWN_OPTIONS = {
 // would throw a CSP `EvalError` at startup and brick every extension context.
 // Force `'no-eval'` for all extension runtimes regardless of the configured
 // level, while keeping the remaining (non-eval) taming dimensions intact.
-function isExtensionRuntime(runtime?: ISesHardenRuntime): boolean {
+// Exported so the runtime self-check (runtimeCheck.ts) can reuse the exact
+// same "is this an extension runtime" notion instead of re-deriving the
+// `'ext-'` prefix logic. Accepts a plain string as well so callers holding a
+// raw `state.runtime` value can pass it through without a cast.
+export function isExtensionRuntime(
+  runtime?: ISesHardenRuntime | string,
+): boolean {
   return runtime?.startsWith('ext-') === true;
 }
 

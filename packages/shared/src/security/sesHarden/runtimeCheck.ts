@@ -2,6 +2,7 @@
 import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 
+import { isExtensionRuntime } from './options';
 import {
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHardenLevelFromRuntime,
@@ -190,7 +191,7 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
       functionality:
         "执行 Function('return this')()，检查动态函数是否还能拿到 globalThis。",
       hardening:
-        'L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸。',
+        'web/desktop L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸；扩展 runtime 强制 no-eval，任何等级下动态函数都应被阻止。',
     },
     {
       name: 'JSON roundtrip',
@@ -663,39 +664,54 @@ function buildDimensionSummary(
   return summary;
 }
 
-function runFunctionGlobalEscapeCheck(
+// Exported for the SES self-check test suite so the ext no-eval expectation can
+// be asserted directly without standing up a full lockdown.
+export function runFunctionGlobalEscapeCheck(
   level: ISesHardenLevel,
+  runtime?: ISesHardenRuntime,
 ): ISesRuntimeCheckItem {
+  // Extension runtimes are forced to `evalTaming: 'no-eval'` for every level
+  // (see getSesLockdownOptions in options.ts), because the extension CSP forbids
+  // host eval / new Function. On ext, `new Function('return this')()` is
+  // therefore expected to be blocked entirely (throws) regardless of L1/L2, so a
+  // blocked dynamic function IS the secure outcome here. For web/desktop the
+  // level-based expectation stays: L1 keeps native eval, L2 (safe-eval) must
+  // prevent the globalThis escape.
+  const evalBlockedByDesign = isExtensionRuntime(runtime);
+  const purpose = '验证 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
+  const expectsBlocked = evalBlockedByDesign || level === 'L2';
+
   try {
     const getGlobal = Reflect.construct(Function, [
       'return this',
     ]) as () => unknown;
     const result = getGlobal();
     const reachesGlobal = result === globalThis;
-    const expected = level === 'L2' ? !reachesGlobal : reachesGlobal;
+    // When eval is blocked by design, `new Function` should not even succeed;
+    // if it does run and reaches globalThis here, that is the insecure outcome.
+    const expected = expectsBlocked ? !reachesGlobal : reachesGlobal;
 
     return buildCheck(
       'Function global escape',
       'tamper-resistance',
-      '验证 L2 safe-eval 后动态函数不能逃逸拿到 globalThis。',
+      purpose,
       expected,
-      `reachesGlobal=${String(reachesGlobal)}, expected ${
-        level === 'L2' ? 'blocked' : 'native'
-      }`,
+      `reachesGlobal=${String(reachesGlobal)}, runtime=${
+        runtime ?? 'unknown'
+      }, expected ${expectsBlocked ? 'blocked' : 'native'}`,
     );
   } catch (error) {
+    // A thrown `new Function` means dynamic code execution is blocked. That is
+    // the secure expectation whenever eval is blocked by design (ext, any level)
+    // or for L2 safe-eval; it is only a failure when we expected native eval.
     return buildCheck(
       'Function global escape',
       'tamper-resistance',
-      '验证 L2 safe-eval 后动态函数不能逃逸拿到 globalThis。',
-      level === 'L2',
-      `threw=${getErrorMessage(error)}`,
+      purpose,
+      expectsBlocked,
+      `threw=${getErrorMessage(error)}, runtime=${runtime ?? 'unknown'}`,
     );
   }
-}
-
-function isExtensionRuntime(runtime?: string): boolean {
-  return runtime?.startsWith('ext-') === true;
 }
 
 function runArrayPatchMethodsCheck(): ISesRuntimeCheckItem {
@@ -1344,7 +1360,7 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
     );
   }
 
-  checks.push(runFunctionGlobalEscapeCheck(level));
+  checks.push(runFunctionGlobalEscapeCheck(level, state?.runtime));
 
   try {
     const parsed = JSON.parse(JSON.stringify({ ok: true })) as { ok: boolean };
