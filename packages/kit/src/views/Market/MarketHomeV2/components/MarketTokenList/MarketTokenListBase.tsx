@@ -576,13 +576,15 @@ function MarketTokenListBase({
   onItemLongPressRef.current = onItemLongPress;
   const onItemContextMenuRef = useRef(onItemContextMenu);
   onItemContextMenuRef.current = onItemContextMenu;
-  const subscriptionRangeRef = useRef(subscriptionRange);
-  subscriptionRangeRef.current = subscriptionRange;
+  const debugSubscriptionRangeStart = showWebSocketDebugRows
+    ? subscriptionRange.start
+    : 0;
+  const debugSubscriptionRangeEnd = showWebSocketDebugRows
+    ? subscriptionRange.end
+    : 0;
 
   const stableOnRow = useCallback(
     (item: IMarketToken, index: number) => {
-      const currentSubscriptionRange = subscriptionRangeRef.current;
-
       return {
         onPress: onItemPressRef.current
           ? () => onItemPressRef.current!(item)
@@ -610,13 +612,19 @@ function MarketTokenListBase({
           !item.perpsCoin &&
           !!item.networkId &&
           !!item.address &&
-          index >= currentSubscriptionRange.start &&
-          index < currentSubscriptionRange.end
+          index >= debugSubscriptionRangeStart &&
+          index < debugSubscriptionRangeEnd
             ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
             : undefined,
       };
     },
-    [navigateToPerps, showWebSocketDebugRows, toMarketDetailPage],
+    [
+      debugSubscriptionRangeEnd,
+      debugSubscriptionRangeStart,
+      navigateToPerps,
+      showWebSocketDebugRows,
+      toMarketDetailPage,
+    ],
   );
 
   // Show skeleton only when there's no data to display.
