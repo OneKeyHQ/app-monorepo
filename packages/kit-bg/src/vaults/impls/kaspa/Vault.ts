@@ -796,17 +796,14 @@ export default class Vault extends VaultBase {
   }
 
   async _waitForCommitTxConfirmation(txid: string) {
-    let confirmed = false;
+    // Throw after 2 minutes. The timeout must be raised from within this async
+    // function so the rejection propagates to the caller; a `throw` inside a
+    // setTimeout callback would only surface as an unhandled exception while
+    // this method resolves normally, letting the reveal proceed on an
+    // unconfirmed commit.
+    const timeoutAt = Date.now() + 2 * 60 * 1000;
 
-    // throw error after 2 minutes
-    const timeout = setTimeout(
-      () => {
-        confirmed = true;
-        throw new OneKeyLocalError('Commit transaction timeout');
-      },
-      2 * 60 * 1000,
-    );
-    while (!confirmed) {
+    for (;;) {
       const tx = await this.backgroundApi.serviceHistory.fetchTxDetails({
         networkId: this.networkId,
         accountId: this.accountId,
@@ -814,13 +811,16 @@ export default class Vault extends VaultBase {
       });
 
       if (tx?.data.status === EOnChainHistoryTxStatus.Success) {
-        confirmed = true;
+        return;
+      }
+
+      if (Date.now() > timeoutAt) {
+        throw new OneKeyLocalError('Commit transaction timeout');
       }
 
       // wait and check every 500ms
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    clearTimeout(timeout);
   }
 
   _createKRC20TransferData({
