@@ -21,6 +21,7 @@ const TAB_PARAM_MAP: Record<string, ESwapTabSwitchType> = {
   bridge: ESwapTabSwitchType.BRIDGE,
   crosschain: ESwapTabSwitchType.BRIDGE,
   limit: ESwapTabSwitchType.LIMIT,
+  stock: ESwapTabSwitchType.STOCK,
 };
 
 const SwapPageContainer = () => {

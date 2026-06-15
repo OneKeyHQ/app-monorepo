@@ -150,7 +150,9 @@ export function useSwapQuoteEventFetching() {
       getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
-          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+          swapIncognitoMode &&
+          swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+          swapTypeSwitch !== ESwapTabSwitchType.STOCK
             ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
             : undefined,
       }),
@@ -341,6 +343,13 @@ export function useSwapActionState() {
       quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
       !isRefreshQuote
     ) {
       infoRes.disable = true;

@@ -314,6 +314,13 @@ function isPrivateSendProtocol(protocol?: string) {
   );
 }
 
+function isStockProtocol(protocol?: string) {
+  return (
+    protocol === ESwapTabSwitchType.STOCK ||
+    protocol === EProtocolOfExchange.STOCK
+  );
+}
+
 function getProtocolOfExchangeFromSwapTab(
   protocol?: string,
 ): EProtocolOfExchange {
@@ -325,6 +332,9 @@ function getProtocolOfExchangeFromSwapTab(
   }
   if (isPrivateSendProtocol(protocol)) {
     return EProtocolOfExchange.PRIVATE_SEND;
+  }
+  if (isStockProtocol(protocol)) {
+    return EProtocolOfExchange.STOCK;
   }
   return EProtocolOfExchange.SWAP;
 }
@@ -395,6 +405,7 @@ export default class ServiceSwap extends ServiceBase {
     [EProtocolOfExchange.SWAP]: undefined,
     [EProtocolOfExchange.LIMIT]: undefined,
     [EProtocolOfExchange.PRIVATE_SEND]: undefined,
+    [EProtocolOfExchange.STOCK]: undefined,
   };
 
   private _speedSwapQuoteAbortController?: AbortController;
@@ -575,6 +586,7 @@ export default class ServiceSwap extends ServiceBase {
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
             supportPrivateSend: network.supportPrivateSend,
+            supportStock: network.supportStock,
           };
         }
         return null;

@@ -102,6 +102,9 @@ export const {
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
     }
+    if (swapType === ESwapTabSwitchType.STOCK) {
+      return net.supportStock;
+    }
     return net.supportSingleSwap || net.supportCrossChainSwap;
   });
   const allNetwork = {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -7,6 +7,7 @@ import {
   Popover,
   SearchBar,
   SizableText,
+  Spinner,
   XStack,
   YStack,
   usePopoverContext,
@@ -20,6 +21,7 @@ import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerp
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
+import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -64,7 +66,19 @@ const SelectorTabItem = memo(
 );
 SelectorTabItem.displayName = 'SelectorTabItem';
 
-function BaseMarketTokenSelectorContent() {
+type IMarketTokenSelectorMode = 'all' | 'stock';
+type IMarketTokenSelectorTriggerVariant = 'default' | 'compact';
+
+interface IMarketTokenSelectorProps {
+  mode?: IMarketTokenSelectorMode;
+  triggerVariant?: IMarketTokenSelectorTriggerVariant;
+  onSelectToken?: (token: IMarketToken) => void;
+}
+
+function BaseMarketTokenSelectorContent({
+  mode = 'all',
+  onSelectToken,
+}: Pick<IMarketTokenSelectorProps, 'mode' | 'onSelectToken'>) {
   const intl = useIntl();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
@@ -74,7 +88,10 @@ function BaseMarketTokenSelectorContent() {
     useMarketTokenSelectorConfigAtom();
   const { isWatchlistMode } = selectorConfig;
 
-  const [startListSelect, setStartListSelect] = useState(isWatchlistMode);
+  const isStockMode = mode === 'stock';
+  const [startListSelect, setStartListSelect] = useState(
+    !isStockMode && isWatchlistMode,
+  );
   const [selectedCategory, setSelectedCategory] = useState('trending');
 
   const allNetworkId = ALL_NETWORK_ID;
@@ -97,11 +114,50 @@ function BaseMarketTokenSelectorContent() {
       },
     ];
   }, [apiSpotCategories, intl]);
+  const visibleCategories = useMemo(
+    () =>
+      isStockMode
+        ? categories.filter((category) => isMarketStockCategory(category))
+        : categories,
+    [categories, isStockMode],
+  );
+  const stockCategoryReady = !isStockMode || visibleCategories.length > 0;
+  const effectiveSelectedCategory = useMemo(() => {
+    const firstVisibleCategory = visibleCategories[0];
+    if (
+      isStockMode &&
+      firstVisibleCategory &&
+      !visibleCategories.some((category) => category.id === selectedCategory)
+    ) {
+      return firstVisibleCategory.id;
+    }
+    return selectedCategory;
+  }, [isStockMode, selectedCategory, visibleCategories]);
+
+  useEffect(() => {
+    const firstVisibleCategory = visibleCategories[0];
+    if (!firstVisibleCategory) {
+      return;
+    }
+    if (
+      !visibleCategories.some((category) => category.id === selectedCategory)
+    ) {
+      setSelectedCategory(firstVisibleCategory.id);
+      setStartListSelect(false);
+    }
+  }, [selectedCategory, visibleCategories]);
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
   const { searchLoading, searchTokenList } =
     useSwapProTokenSearch(searchValueDebounce);
+  const visibleSearchTokenList = useMemo(
+    () =>
+      isStockMode
+        ? searchTokenList.filter((item) => !!item.stock)
+        : searchTokenList,
+    [isStockMode, searchTokenList],
+  );
 
   const handleCategoryChange = useCallback(
     (categoryId: string) => {
@@ -146,9 +202,17 @@ function BaseMarketTokenSelectorContent() {
 
   const handleSelectToken = useCallback(
     (item: IMarketToken) => {
+      if (isStockMode && !item.stock) {
+        return;
+      }
+      if (onSelectToken) {
+        onSelectToken(item);
+        void closePopover?.();
+        return;
+      }
       navigateToTokenDetail(item);
     },
-    [navigateToTokenDetail],
+    [closePopover, isStockMode, navigateToTokenDetail, onSelectToken],
   );
 
   return (
@@ -172,7 +236,7 @@ function BaseMarketTokenSelectorContent() {
         </XStack>
 
         {/* Tabs - hidden during search */}
-        {searchValueDebounce ? null : (
+        {searchValueDebounce || isStockMode ? null : (
           <XStack
             borderBottomWidth="$px"
             borderBottomColor="$borderSubdued"
@@ -187,13 +251,13 @@ function BaseMarketTokenSelectorContent() {
               isFocused={startListSelect}
               onPress={handleStartListSelect}
             />
-            {categories.map((item) => (
+            {visibleCategories.map((item) => (
               <SelectorTabItem
                 key={item.id}
                 id={item.id}
                 name={item.name}
                 isFocused={Boolean(
-                  !startListSelect && item.id === selectedCategory,
+                  !startListSelect && item.id === effectiveSelectedCategory,
                 )}
                 onPress={handleCategoryChange}
               />
@@ -202,33 +266,54 @@ function BaseMarketTokenSelectorContent() {
         )}
 
         {/* List content */}
-        <MarketTokenSelectorList
-          networkId={allNetworkId}
-          selectedCategory={selectedCategory}
-          timeRange="1h"
-          onItemPress={handleSelectToken}
-          pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
-          isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
-          searchQuery={searchValueDebounce}
-          searchLoading={searchLoading}
-          searchResults={searchTokenList}
-        />
+        {!searchValueDebounce && !stockCategoryReady ? (
+          <YStack flex={1} alignItems="center" justifyContent="center">
+            <Spinner size="large" />
+          </YStack>
+        ) : (
+          <MarketTokenSelectorList
+            networkId={allNetworkId}
+            selectedCategory={effectiveSelectedCategory}
+            timeRange="1h"
+            onItemPress={handleSelectToken}
+            pollingInterval={TOKEN_SELECTOR_POLLING_INTERVAL}
+            isWatchlistMode={Boolean(!searchValueDebounce && startListSelect)}
+            searchQuery={searchValueDebounce}
+            searchLoading={searchLoading}
+            searchResults={visibleSearchTokenList}
+          />
+        )}
       </YStack>
     </YStack>
   );
 }
 
 // Only render content when open to avoid stale state on reopen
-function MarketTokenSelectorContent({ isOpen }: { isOpen: boolean }) {
-  return isOpen ? <BaseMarketTokenSelectorContent /> : null;
+function MarketTokenSelectorContent({
+  isOpen,
+  mode,
+  onSelectToken,
+}: {
+  isOpen: boolean;
+  mode?: IMarketTokenSelectorMode;
+  onSelectToken?: (token: IMarketToken) => void;
+}) {
+  return isOpen ? (
+    <BaseMarketTokenSelectorContent mode={mode} onSelectToken={onSelectToken} />
+  ) : null;
 }
 
 const MarketTokenSelectorContentMemo = memo(MarketTokenSelectorContent);
 
-function BaseMarketTokenSelector() {
+function BaseMarketTokenSelector({
+  mode = 'all',
+  triggerVariant = 'default',
+  onSelectToken,
+}: IMarketTokenSelectorProps) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const { tokenDetail, networkId } = useTokenDetail();
+  const compact = triggerVariant === 'compact';
 
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
@@ -262,12 +347,12 @@ function BaseMarketTokenSelector() {
         renderTrigger={
           // eslint-disable-next-line props-checker/validator -- Popover injects the trigger press handler.
           <XStack
-            gap="$2"
+            gap={compact ? '$2.5' : '$2'}
             alignItems="center"
             cursor="pointer"
-            bg="$bgApp"
-            px="$2"
-            py="$1.5"
+            bg={compact ? '$transparent' : '$bgApp'}
+            px={compact ? '$0' : '$2'}
+            py={compact ? '$0' : '$1.5'}
             borderRadius="$full"
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
@@ -277,14 +362,16 @@ function BaseMarketTokenSelector() {
               tokenImageUri={logoUrl}
               tokenImageUris={stableLogoUrls}
               networkImageUri={effectiveNetworkLogoUri}
+              showNetworkIconBorder={!compact}
+              bg={compact ? '$transparent' : undefined}
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText
-              size="$heading2xl"
+              size={compact ? '$headingSm' : '$heading2xl'}
               color="$text"
               numberOfLines={1}
               ellipsizeMode="tail"
-              maxWidth="$48"
+              maxWidth={compact ? '$32' : '$48'}
               flexShrink={1}
             >
               {symbol}
@@ -297,11 +384,25 @@ function BaseMarketTokenSelector() {
           </XStack>
         }
         renderContent={({ isOpen: isOpenProp }) => (
-          <MarketTokenSelectorContentMemo isOpen={isOpenProp ?? false} />
+          <MarketTokenSelectorContentMemo
+            isOpen={isOpenProp ?? false}
+            mode={mode}
+            onSelectToken={onSelectToken}
+          />
         )}
       />
     ),
-    [isOpen, symbol, logoUrl, stableLogoUrls, effectiveNetworkLogoUri, intl],
+    [
+      compact,
+      effectiveNetworkLogoUri,
+      intl,
+      isOpen,
+      logoUrl,
+      mode,
+      onSelectToken,
+      stableLogoUrls,
+      symbol,
+    ],
   );
 
   return content;

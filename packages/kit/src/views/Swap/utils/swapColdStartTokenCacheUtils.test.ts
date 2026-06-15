@@ -84,17 +84,20 @@ function buildSwapNetwork({
   supportCrossChainSwap,
   supportLimit,
   supportSingleSwap,
+  supportStock,
 }: {
   networkId: string;
   supportCrossChainSwap?: boolean;
   supportLimit?: boolean;
   supportSingleSwap?: boolean;
+  supportStock?: boolean;
 }): ISwapNetwork {
   return {
     networkId,
     supportCrossChainSwap,
     supportLimit,
     supportSingleSwap,
+    supportStock,
   } as ISwapNetwork;
 }
 
@@ -612,6 +615,35 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
   });
 
+  it('checks Stock runtime support from supportStock', () => {
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.STOCK,
+        fromToken: buildSwapToken('evm--1'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--1',
+            supportLimit: true,
+            supportStock: false,
+          }),
+        ],
+      }),
+    ).toBe(false);
+
+    expect(
+      getSelectedTokensColdStartLimitSupport({
+        swapType: ESwapTabSwitchType.STOCK,
+        fromToken: buildSwapToken('evm--56'),
+        swapNetworks: [
+          buildSwapNetwork({
+            networkId: 'evm--56',
+            supportStock: true,
+          }),
+        ],
+      }),
+    ).toBe(true);
+  });
+
   it('keeps synced Limit tokens when the current runtime list omits their network', () => {
     expect(
       getSelectedTokensColdStartLimitSupport({
@@ -654,6 +686,10 @@ describe('swap cold-start selected token context', () => {
         supportLimit: true,
         supportSingleSwap: true,
       }),
+      buildSwapNetwork({
+        networkId: 'evm--56',
+        supportStock: true,
+      }),
     ];
 
     expect(
@@ -682,6 +718,12 @@ describe('swap cold-start selected token context', () => {
         swapNetworks,
       }),
     ).toEqual([ESwapTabSwitchType.SWAP, ESwapTabSwitchType.LIMIT]);
+    expect(
+      getSwapTokenSupportTypes({
+        token: buildSwapToken('evm--56'),
+        swapNetworks,
+      }),
+    ).toEqual([ESwapTabSwitchType.STOCK]);
   });
 
   it('handles home network changes only before the first swap token sync completes', () => {

@@ -41,6 +41,7 @@ export function useSwapTxHistoryActions() {
         swapTxInfo &&
         (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
           swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+          swapTxInfo.protocol === EProtocolOfExchange.STOCK ||
           swapTxInfo.swapBuildResData.result.isWrapped)
       ) {
         const useOrderId = Boolean(

@@ -62,15 +62,13 @@ export function useStockSecurityStats(stock: IMarketStockInfo | undefined) {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
-        value: assetAnalysis?.turnoverRate
-          ? `${formatMarketCapValue(assetAnalysis.turnoverRate)}%`
-          : STAT_FALLBACK_VALUE,
+        value: formatPercentValue(assetAnalysis?.turnoverRate),
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
         }),
-        value: formatMarketCapValue(assetAnalysis?.avgDailyVolume1y),
+        value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
       },
       {
         label: intl.formatMessage({

@@ -46,7 +46,8 @@ export function buildSwapTokenSelectorDisableNetworks({
 
   if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
     if (
-      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+      (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
+        swapTypeSwitch === ESwapTabSwitchType.STOCK) &&
       type === ESwapDirectionType.TO &&
       fromToken?.networkId
     ) {

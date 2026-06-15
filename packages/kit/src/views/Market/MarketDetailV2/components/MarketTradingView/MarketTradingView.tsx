@@ -1,7 +1,10 @@
 import { memo, useCallback } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type {
+  ITradingViewDisabledFeature,
+  ITradingViewPriceUpdateData,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import { MarketTestIDs } from '../../../testIDs';
@@ -68,6 +71,7 @@ interface IMarketTradingViewProps {
   pageWidth?: number;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  disabledFeatures?: readonly ITradingViewDisabledFeature[];
 }
 
 export const MarketTradingView = memo(
@@ -80,6 +84,7 @@ export const MarketTradingView = memo(
     pageWidth,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    disabledFeatures,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -127,6 +132,7 @@ export const MarketTradingView = memo(
         w={pageWidth}
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
+        disabledFeatures={disabledFeatures}
         onPriceUpdate={handlePriceUpdate}
       />
     );

@@ -109,6 +109,9 @@ const SwapOldSwapBridgeLimitContainer = ({
   const bridgeLabel = intl.formatMessage({
     id: ETranslations.swap_page_bridge,
   });
+  const stockLabel = intl.formatMessage({
+    id: ETranslations.perps_token_selector_stocks,
+  });
   const effectiveSwapType = getSwapExecutionType({
     fromNetworkId: fromToken?.networkId,
     toNetworkId: toToken?.networkId,
@@ -116,37 +119,44 @@ const SwapOldSwapBridgeLimitContainer = ({
   const isEffectiveBridge =
     effectiveSwapType === ESwapTabSwitchType.BRIDGE &&
     swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
-  const swapTitleContent =
-    swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+  let swapTitleContent = (
+    <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
+      <SizableText
+        size="$headingLg"
+        color={isEffectiveBridge ? '$textSubdued' : '$text'}
+      >
+        {swapLabel}
+      </SizableText>
+      <SizableText size="$headingLg" color="$textSubdued">
+        &
+      </SizableText>
+      <SizableText
+        size="$headingLg"
+        color={isEffectiveBridge ? '$text' : '$textSubdued'}
+      >
+        {bridgeLabel}
+      </SizableText>
+    </XStack>
+  );
+  if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+    swapTitleContent = (
+      <SizableText size="$headingLg">{stockLabel}</SizableText>
+    );
+  } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    swapTitleContent = (
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.swap_page_limit })}
       </SizableText>
-    ) : (
-      <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
-        <SizableText
-          size="$headingLg"
-          color={isEffectiveBridge ? '$textSubdued' : '$text'}
-        >
-          {swapLabel}
-        </SizableText>
-        <SizableText size="$headingLg" color="$textSubdued">
-          &
-        </SizableText>
-        <SizableText
-          size="$headingLg"
-          color={isEffectiveBridge ? '$text' : '$textSubdued'}
-        >
-          {bridgeLabel}
-        </SizableText>
-      </XStack>
     );
+  }
 
   // Desktop: show provider panel on the right side
   // Show when: on large desktop (gtLg), not in modal, and not in Limit mode
   const showDesktopProviderPanel =
     gtLg &&
     pageType !== EPageType.modal &&
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const showLimitDesktopCard =
     gtLg &&
