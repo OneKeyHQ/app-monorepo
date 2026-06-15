@@ -5,6 +5,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -193,14 +194,17 @@ class ServiceAppCleanup extends ServiceBase {
       const results = await Promise.allSettled(tasks.map(([, p]) => p));
       results.forEach((r, i) => {
         if (r.status === 'rejected') {
-          console.error(
-            `cleanupOrphanedAssetCaches: ${tasks[i][0]} cleanup failed`,
-            r.reason,
+          defaultLogger.app.error.log(
+            `cleanupOrphanedAssetCaches: ${tasks[i][0]} cleanup failed: ${String(
+              r.reason,
+            )}`,
           );
         }
       });
     } catch (error) {
-      console.error(error);
+      defaultLogger.app.error.log(
+        `cleanupOrphanedAssetCaches error: ${String(error)}`,
+      );
     }
   }
 

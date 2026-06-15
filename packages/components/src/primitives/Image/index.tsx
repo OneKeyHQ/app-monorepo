@@ -18,9 +18,10 @@ export const Image = withStaticProperties(ImageV2, {
   preloadImages,
   loadImage,
   // Expose expo-image's cache controls so the "Clear cache" flow can purge the
-  // image disk cache (otherwise unbounded on disk; size-capped natively in
-  // AppDelegate / AppGlideModule). Native-only effect; no-op on web. Wrapped in
-  // arrows so the static methods aren't passed as unbound references.
+  // image disk cache. There is NO native hard size cap in this build — eviction
+  // relies on expo-image's default age-based policy (a size ceiling is deferred
+  // to a follow-up). Native-only effect; no-op on web. Wrapped in arrows so the
+  // static methods aren't passed as unbound references.
   clearDiskCache: () => ExpoImage.clearDiskCache(),
   clearMemoryCache: () => ExpoImage.clearMemoryCache(),
 });

@@ -136,7 +136,9 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
     }
     const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
     await this.setRawData((rawData) => {
-      const base = rawData ?? existing;
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot, so
+      // a concurrent clearRawData is never undone by an `existing` fallback.
+      const base = rawData;
       const overview = base?.overview ?? {};
       const nextOverview: NonNullable<IDeFiDBStruct['overview']> = {};
       for (const [key, value] of Object.entries(overview)) {

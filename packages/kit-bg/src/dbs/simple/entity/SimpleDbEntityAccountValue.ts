@@ -1,3 +1,4 @@
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -434,6 +435,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
   // is the set of lowercased addresses/xpubs of all surviving accounts. The
   // `_legacy_*` / migration fields are preserved. Pure-cache cleanup.
   // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
   async removeOrphanData({ validOwners }: { validOwners: string[] }) {
     const existing = await this.getRawData();
     if (!existing) {
@@ -441,7 +443,10 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     }
     const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
     await this.setRawData((rawData) => {
-      const base = rawData ?? existing;
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot:
+      // a concurrent clearRawData (e.g. "Clear cache") nulls the store, and
+      // falling back to `existing` would resurrect the just-cleared cache.
+      const base = rawData;
       const nextByAddress: Record<string, IAccountValueEntry> = {};
       for (const [key, value] of Object.entries(base?.byAddress ?? {})) {
         if (

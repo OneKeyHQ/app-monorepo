@@ -294,7 +294,9 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       return result;
     };
     await this.setRawData((rawData) => {
-      const base = rawData ?? existing;
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot, so
+      // a concurrent clearRawData is never undone by an `existing` fallback.
+      const base = rawData;
       return {
         ...base,
         aggregateTokenMapV2: filterById(base?.aggregateTokenMapV2),

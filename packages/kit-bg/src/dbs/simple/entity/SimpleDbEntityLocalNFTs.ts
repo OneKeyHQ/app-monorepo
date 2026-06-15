@@ -93,7 +93,10 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
     }
     const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
     await this.setRawData((rawData) => {
-      const list = (rawData ?? existing)?.list ?? {};
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
+      // concurrent clearRawData ("Clear cache" calls localNFTs.clearRawData)
+      // nulls the store, and falling back to `existing` would resurrect it.
+      const list = rawData?.list ?? {};
       const nextList: Record<string, IAccountNFT[]> = {};
       for (const [key, value] of Object.entries(list)) {
         if (

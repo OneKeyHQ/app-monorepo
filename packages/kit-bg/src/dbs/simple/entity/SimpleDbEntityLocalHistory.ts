@@ -134,7 +134,10 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
     const now = Date.now();
     await this.setRawData((rawData) => {
-      const base = rawData ?? existing;
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
+      // concurrent clearRawData ("Clear cache" calls localHistory.clearRawData)
+      // nulls the store, and `?? existing` would resurrect the cleared cache.
+      const base = rawData;
       const nextPending: Record<string, IAccountHistoryTx[]> = {};
       for (const [key, txs] of Object.entries(base?.pendingTxs ?? {})) {
         if (

@@ -359,7 +359,10 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       return result;
     };
     await this.setRawData((rawData) => {
-      const base = rawData ?? existing;
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
+      // concurrent clearRawData ("Clear cache" calls localTokens.clearRawData)
+      // nulls the store, and `?? existing` would resurrect the cleared cache.
+      const base = rawData;
       return {
         // `data` is global token metadata (networkId_tokenAddress), not per
         // account; it can't be orphan-filtered, so cap total entries instead.
