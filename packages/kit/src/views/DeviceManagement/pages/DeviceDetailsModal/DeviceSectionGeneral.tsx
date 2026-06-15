@@ -33,6 +33,18 @@ import { ListItemGroup } from '../ListItemGroup';
 const NEVER_LOCK_VALUE = 268_435_456;
 const LOCKED_VALUE = 0;
 
+type IDeviceLanguageOption = {
+  label: string;
+  code: string;
+};
+
+type IDeviceDelayOption = {
+  seconds: number;
+  minute: number;
+  hour: number;
+  day: number;
+};
+
 export function LanguageListItem({
   languageOptions,
 }: {
@@ -295,7 +307,9 @@ function DeviceSectionGeneral() {
   const { result: languageOptions } = usePromiseResult(
     async () => {
       if (!deviceType) return [];
-      const options = await deviceUtils.getLanguageConfig({ deviceType });
+      const options = (await deviceUtils.getLanguageConfig({
+        deviceType,
+      })) as IDeviceLanguageOption[];
       return options.map((option) => ({
         label: option.label,
         value: option.code,
@@ -311,7 +325,9 @@ function DeviceSectionGeneral() {
   const { result: autoLockOptions } = usePromiseResult(
     async () => {
       if (!deviceType) return [];
-      const options = await deviceUtils.getAutoLockOptions({ deviceType });
+      const options = (await deviceUtils.getAutoLockOptions({
+        deviceType,
+      })) as IDeviceDelayOption[];
       return options.map((option) => {
         const value = timerUtils.getTimeDurationMs(option);
         if (
@@ -348,7 +364,9 @@ function DeviceSectionGeneral() {
   const { result: autoShutDownOptions } = usePromiseResult(
     async () => {
       if (!deviceType) return [];
-      const options = await deviceUtils.getAutoShutDownOptions({ deviceType });
+      const options = (await deviceUtils.getAutoShutDownOptions({
+        deviceType,
+      })) as IDeviceDelayOption[];
       return options.map((option) => {
         const value = timerUtils.getTimeDurationMs(option);
         if (

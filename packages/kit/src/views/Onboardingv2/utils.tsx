@@ -5,13 +5,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
-import type { IConnectYourDeviceItem } from '@onekeyhq/shared/types/device';
+import type {
+  IConnectYourDeviceItem,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-import type { Features } from '@onekeyfe/hd-transport';
 
 // Helper function to convert transport type enum to analytics string
 export type IHardwareCommunicationType =
@@ -138,7 +140,7 @@ export const trackHardwareWalletConnection = async ({
   status: 'success' | 'failure';
   deviceType: IDeviceType;
   isSoftwareWalletOnlyUser: boolean;
-  features?: Features;
+  features?: IOneKeyDeviceFeatures;
   hardwareTransportType: EHardwareTransportType | undefined | 'QRCode';
   vendor?: EHardwareVendor;
 }) => {

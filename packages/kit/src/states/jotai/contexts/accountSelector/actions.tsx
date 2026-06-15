@@ -1147,7 +1147,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
           const shouldCreateHiddenWalletOnly = Boolean(
-            params?.features?.passphrase_protection,
+            params?.features?.passphraseProtection,
           );
           const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(

@@ -18,12 +18,11 @@ import type {
   Unsuccessful,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features as FeaturesTransport } from '@onekeyfe/hd-transport';
 import type { ImageSourcePropType } from 'react-native';
 
 export type IOneKeyDeviceType = IDeviceType;
 
-export type IOneKeyDeviceFeatures = FeaturesTransport;
+export type IOneKeyDeviceFeatures = FeaturesCore;
 export type IOneKeyDeviceFeaturesCore = FeaturesCore;
 export type IOneKeyDeviceFeaturesWithAppParams = IOneKeyDeviceFeatures & {
   $app_firmware_type?: EFirmwareType;
@@ -405,11 +404,9 @@ export interface IDeviceVerifyVersionCompareResult {
 }
 
 export type IDeviceVersionCacheInfo = {
-  onekey_firmware_version: string | undefined;
-  onekey_ble_version: string | undefined;
-  ble_ver: string | undefined;
-  onekey_boot_version: string | undefined;
-  bootloader_version: string | undefined;
+  firmwareVersion: string | undefined;
+  bleVersion: string | undefined;
+  bootloaderVersion: string | undefined;
 };
 
 export type IFirmwareUpdateV3VersionParams = {

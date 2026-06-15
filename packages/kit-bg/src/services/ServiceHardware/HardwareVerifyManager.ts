@@ -89,7 +89,7 @@ function buildSkippedFirmwareHashResult(
   return {
     certificate: {
       isMatch: true,
-      format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
+      format: onekeyFeatures?.onekey_serial_no ?? '',
     },
     firmware: {
       isMatch: true,
@@ -276,12 +276,6 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       return false;
     }
 
-    // onekey_firmware_version
-    // onekey_firmware_hash
-    // onekey_ble_version
-    // onekey_ble_hash
-    // onekey_boot_version
-    // onekey_boot_hash
     if (!features) {
       return false;
     }
@@ -396,7 +390,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const defaultResult = {
       certificate: {
         isMatch: true,
-        format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
+        format: onekeyFeatures?.onekey_serial_no ?? '',
       },
       firmware: { isMatch: false, format: '' },
       bluetooth: { isMatch: false, format: '' },
@@ -408,8 +402,8 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     }
 
     const verifyVersions =
-      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
-        features: onekeyFeatures,
+      await deviceUtils.getDeviceVerifyVersionsFromRawOnekeyFeatures({
+        onekeyFeatures,
         deviceType,
       });
     if (!verifyVersions) {
@@ -450,7 +444,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     return {
       certificate: {
         isMatch: true,
-        format: deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures),
+        format: onekeyFeatures.onekey_serial_no ?? '',
       },
       firmware: {
         isMatch: firmwareMatch,

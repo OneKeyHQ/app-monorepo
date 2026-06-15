@@ -73,7 +73,7 @@ function makeDeps(overrides: { sdk?: Partial<CoreApi> } = {}): {
         {
           connectId: device.connectId,
           deviceId: device.deviceId,
-          features: { device_id: device.deviceId, session_id: 'session-123' },
+          sessionId: 'session-123',
         },
       ]),
     ),

@@ -640,7 +640,7 @@ export default function HardwareHomeScreenModal({
       const { getDeviceFirmwareVersion } = await CoreSDKLoader();
 
       const serialNumber = device?.featuresInfo
-        ? deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo)
+        ? deviceUtils.getDeviceSerialNoFromFeatures(device.featuresInfo) ?? ''
         : '';
 
       const firmwareVersion = device?.featuresInfo

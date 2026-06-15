@@ -41,6 +41,10 @@ import type {
   SearchDevice,
 } from '@onekeyfe/hd-core';
 
+type RawOnekeyFeaturesForVerify = OnekeyFeatures & {
+  fw_vendor?: string | null;
+};
+
 export enum EHardwareUiStateAction {
   DeviceChecking = 'DeviceChecking',
   EnterPinOnDevice = 'EnterPinOnDevice',
@@ -146,20 +150,20 @@ async function getDeviceVersion(params: IGetDeviceVersionParams): Promise<{
     features || dbDevice?.featuresInfo || knownDevice?.features;
 
   const bootloaderVersion = usedFeatures
-    ? (getDeviceBootloaderVersion(usedFeatures) || []).join('.') ||
-      usedFeatures?.bootloader_version ||
+    ? usedFeatures?.bootloaderVersion ||
+      (getDeviceBootloaderVersion(usedFeatures) || []).join('.') ||
       ''
     : '';
 
   const bleVersion =
     (knownDevice?.bleFirmwareVersion || []).join('.') ||
-    usedFeatures?.ble_ver ||
+    usedFeatures?.bleVersion ||
     '';
 
   const firmwareVersion = usedFeatures
-    ? (getDeviceFirmwareVersion(usedFeatures) || []).join('.') ||
+    ? usedFeatures?.firmwareVersion ||
+      (getDeviceFirmwareVersion(usedFeatures) || []).join('.') ||
       (knownDevice?.firmwareVersion || []).join('.') ||
-      usedFeatures?.onekey_firmware_version ||
       ''
     : '';
 
@@ -214,7 +218,7 @@ async function getDeviceModeFromFeatures({
   // if (features?.no_backup) return EOneKeyDeviceMode.seedless;
   // return EOneKeyDeviceMode.normal;
 
-  if (features?.bootloader_mode) {
+  if (features?.bootloaderMode) {
     // bootloader mode
     return EOneKeyDeviceMode.bootloader;
   }
@@ -223,7 +227,7 @@ async function getDeviceModeFromFeatures({
     return EOneKeyDeviceMode.notInitialized;
   }
 
-  if (features?.no_backup) {
+  if (features?.noBackup) {
     // backup mode
     return EOneKeyDeviceMode.backupMode;
   }
@@ -248,7 +252,7 @@ async function existsFirmwareByFeatures({
 }: {
   features: IOneKeyDeviceFeatures;
 }) {
-  return features?.firmware_present === true;
+  return features?.firmwarePresent === true;
 }
 
 async function isBootloaderModeFromSearchDevice({
@@ -466,12 +470,12 @@ async function getDeviceVerifyVersionsFromFeatures({
   features,
 }: {
   deviceType?: IDeviceType;
-  features: OnekeyFeatures | IOneKeyDeviceFeatures;
+  features: IOneKeyDeviceFeatures;
 }): Promise<IFetchFirmwareVerifyHashParams | null> {
   let finalDeviceType = deviceType;
   if (!deviceType) {
     finalDeviceType = await getDeviceTypeFromFeatures({
-      features: features as IOneKeyDeviceFeatures,
+      features,
     });
   }
   if (!finalDeviceType || finalDeviceType === 'unknown') {
@@ -479,14 +483,12 @@ async function getDeviceVerifyVersionsFromFeatures({
   }
 
   const firmwareType = await getFirmwareType({
-    features: features as IOneKeyDeviceFeatures,
+    features,
   });
 
-  const {
-    onekey_firmware_version: onekeyFirmwareVersion,
-    onekey_ble_version: onekeyBleVersion,
-    onekey_boot_version: onekeyBootVersion,
-  } = features;
+  const onekeyFirmwareVersion = features.firmwareVersion;
+  const onekeyBleVersion = features.bleVersion;
+  const onekeyBootVersion = features.bootloaderVersion;
   if (!onekeyFirmwareVersion || !onekeyBleVersion || !onekeyBootVersion) {
     return null;
   }
@@ -497,6 +499,33 @@ async function getDeviceVerifyVersionsFromFeatures({
     bluetoothVersion: onekeyBleVersion,
     bootloaderVersion: onekeyBootVersion,
     firmwareType,
+  };
+}
+
+async function getDeviceVerifyVersionsFromRawOnekeyFeatures({
+  deviceType,
+  onekeyFeatures,
+}: {
+  deviceType: IDeviceType;
+  onekeyFeatures: RawOnekeyFeaturesForVerify;
+}): Promise<IFetchFirmwareVerifyHashParams | null> {
+  const firmwareVersion = onekeyFeatures.onekey_firmware_version;
+  const bluetoothVersion = onekeyFeatures.onekey_ble_version;
+  const bootloaderVersion = onekeyFeatures.onekey_boot_version;
+
+  if (!firmwareVersion || !bluetoothVersion || !bootloaderVersion) {
+    return null;
+  }
+
+  return {
+    deviceType,
+    firmwareVersion,
+    bluetoothVersion,
+    bootloaderVersion,
+    firmwareType:
+      onekeyFeatures.fw_vendor === 'OneKey Bitcoin-only'
+        ? EFirmwareType.BitcoinOnly
+        : EFirmwareType.Universal,
   };
 }
 
@@ -643,7 +672,7 @@ function getRawDeviceId({
 }) {
   const knownDevice = device as KnownDevice | undefined;
   const usedFeatures = features || knownDevice?.features;
-  return device.deviceId || usedFeatures?.device_id || '';
+  return device.deviceId || usedFeatures?.deviceId || '';
 }
 
 /**
@@ -861,6 +890,7 @@ export default {
   buildDeviceBleName,
   buildDeviceBleNameFromProfile,
   getDeviceVerifyVersionsFromFeatures,
+  getDeviceVerifyVersionsFromRawOnekeyFeatures,
   formatVersionWithHash,
   parseLocalDeviceVersions,
   parseServerVersionInfos,

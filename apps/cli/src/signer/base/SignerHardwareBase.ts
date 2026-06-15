@@ -211,12 +211,9 @@ export abstract class SignerHardwareBase implements ISigner {
         const devices = search.payload as Array<{
           deviceId?: string | null;
           sessionId?: string | null;
-          features?: { device_id?: string; session_id?: string };
         }>;
-        // Backward-compatible fallback for SDK builds that do not return
-        // session_id directly from getPassphraseState.
         const match = devices.find((d) => d.deviceId === this.device.deviceId);
-        sessionId = match?.sessionId ?? match?.features?.session_id;
+        sessionId = match?.sessionId ?? undefined;
       }
       if (!sessionId) return;
 
@@ -257,7 +254,6 @@ export abstract class SignerHardwareBase implements ISigner {
       const devices = result.payload as Array<{
         connectId?: string | null;
         deviceId?: string | null;
-        features?: { device_id?: string };
       }>;
       if (!Array.isArray(devices)) return;
       // Match on stable deviceId (device UUID), not connectId.

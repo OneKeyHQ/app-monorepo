@@ -3194,7 +3194,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         updater: async (item) => {
           item.features = JSON.stringify({
             ...device.featuresInfo,
-            passphrase_protection: passphraseProtection,
+            passphraseProtection,
           });
           return item;
         },
@@ -3779,7 +3779,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       vendor,
     } = params;
     const deviceUUID =
-      device.uuid || deviceUtils.getDeviceSerialNoFromFeatures(features);
+      device.uuid || deviceUtils.getDeviceSerialNoFromFeatures(features) || '';
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
@@ -6345,7 +6345,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         let uuidInDb = item.uuid;
         if (!uuidInDb) {
           uuidInDb = item.featuresInfo
-            ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo)
+            ? deviceUtils.getDeviceSerialNoFromFeatures(item.featuresInfo) || ''
             : '';
         }
         const uuidInQuery = features

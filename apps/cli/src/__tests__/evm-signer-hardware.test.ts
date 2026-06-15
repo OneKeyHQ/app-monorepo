@@ -98,10 +98,7 @@ function makeDeps(
         {
           connectId: DEVICE.connectId,
           deviceId: DEVICE.deviceId,
-          features: {
-            device_id: DEVICE.deviceId,
-            session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
-          },
+          sessionId: MOCK_FRESH_SID_AFTER_RESOLVE,
         },
       ]),
     ),
@@ -565,10 +562,7 @@ describe('SignerHardware', () => {
               {
                 connectId: FRESH_CONNECT_ID,
                 deviceId: DEVICE.deviceId,
-                features: {
-                  device_id: DEVICE.deviceId,
-                  session_id: MOCK_FRESH_SID_AFTER_RESOLVE,
-                },
+                sessionId: MOCK_FRESH_SID_AFTER_RESOLVE,
               },
             ]),
           ),
@@ -622,7 +616,6 @@ describe('SignerHardware', () => {
               {
                 connectId: 'other-device-connect',
                 deviceId: 'other-device-id',
-                features: { device_id: 'other-device-id' },
               },
             ]),
           ),

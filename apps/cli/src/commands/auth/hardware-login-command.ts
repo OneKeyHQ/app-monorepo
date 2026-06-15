@@ -291,8 +291,6 @@ export async function executeHardwareLoginCommand({
   if (passphraseState) {
     let resolvedDeviceId = deviceId;
     if (!resolvedSessionId) {
-      // Backward-compatible fallback for SDK builds that only expose the
-      // passphrase state string: refresh devices and match by connectId.
       const refreshResult = await sdk.searchDevices();
       const refreshedDevices = unwrapSDKResult(
         refreshResult,
@@ -301,13 +299,11 @@ export async function executeHardwareLoginCommand({
         connectId?: string;
         deviceId?: string;
         sessionId?: string;
-        features?: { session_id?: string; device_id?: string };
       }>;
       const targetDevice = refreshedDevices.find(
         (d) => d.connectId === connectId,
       );
-      resolvedSessionId =
-        targetDevice?.sessionId ?? targetDevice?.features?.session_id;
+      resolvedSessionId = targetDevice?.sessionId;
       resolvedDeviceId = targetDevice?.deviceId || deviceId;
     }
     if (resolvedSessionId) {

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import { Cell } from '@ton/core';
 
 import {
@@ -55,6 +54,7 @@ import type {
   TonSignDataType,
   TonSignMessageParams,
 } from '@onekeyfe/hd-core';
+import { TonWalletVersion } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;

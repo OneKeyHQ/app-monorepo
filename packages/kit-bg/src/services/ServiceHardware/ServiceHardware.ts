@@ -165,7 +165,6 @@ function buildOnekeyFeaturesFromDeviceInfo(
 ): OnekeyFeatures {
   const rawFeatures = {
     ...deviceInfo.raw?.features,
-    ...deviceInfo.raw?.onekeyFeatures,
   } as OnekeyFeatures;
   const { verify, versions } = deviceInfo;
 
@@ -613,7 +612,9 @@ class ServiceHardware extends ServiceBase {
           newPayload.requestPinType = 'AttachPin';
         }
       } else {
-        const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
+        const inputPinOnSoftware = features
+          ? supportInputPinOnSoftwareSdk(features)
+          : { support: false };
         const supportInputPinOnSoftware =
           dbDevice?.settings?.inputPinOnSoftware !== false &&
           inputPinOnSoftware.support;
@@ -1138,9 +1139,9 @@ class ServiceHardware extends ServiceBase {
 
     if (!features.unlocked) {
       // unlock device
-      features = await this.unlockDevice({
+      features = (await this.unlockDevice({
         connectId: compatibleConnectId,
-      });
+      })) as unknown as IOneKeyDeviceFeatures;
     }
 
     return features;
@@ -1469,13 +1470,32 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-    return convertDeviceResponse(() =>
+    const payload = await convertDeviceResponse(() =>
       hardwareSDK?.getPassphraseState(connectId, {
         initSession: forceInputPassphrase, // always re-input passphrase on device
         useEmptyPassphrase,
         // deriveCardano, // TODO gePassphraseState different if networkImpl === IMPL_ADA ?
       }),
     );
+
+    const rawPayload = payload as unknown as {
+      passphrase_state?: unknown;
+      session_id?: unknown;
+      unlocked_attach_pin?: unknown;
+      passphrase_protection?: unknown;
+    };
+    if (
+      rawPayload.passphrase_state !== undefined ||
+      rawPayload.session_id !== undefined ||
+      rawPayload.unlocked_attach_pin !== undefined ||
+      rawPayload.passphrase_protection !== undefined
+    ) {
+      throw new OneKeyLocalError(
+        'getPassphraseState returned protocol payload fields. Please rebuild/clear the loaded hardware SDK bundle so it returns the hd-core standard payload.',
+      );
+    }
+
+    return payload;
   }
 
   @backgroundMethod()
@@ -1827,26 +1847,22 @@ class ServiceHardware extends ServiceBase {
       return;
     }
     const versionInfo: IDeviceVersionCacheInfo = {
-      onekey_firmware_version: undefined,
-      onekey_ble_version: undefined,
-      ble_ver: undefined,
-      onekey_boot_version: undefined,
-      bootloader_version: undefined,
+      firmwareVersion: undefined,
+      bleVersion: undefined,
+      bootloaderVersion: undefined,
     };
     if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
       const bootVersion =
         params.releaseResult.updateInfos.bootloader?.toVersion;
-      versionInfo.onekey_boot_version = bootVersion;
-      versionInfo.bootloader_version = bootVersion;
+      versionInfo.bootloaderVersion = bootVersion;
     }
     if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
-      versionInfo.onekey_firmware_version =
+      versionInfo.firmwareVersion =
         params.releaseResult.updateInfos.firmware?.toVersion;
     }
     if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
       const bleVersion = params.releaseResult.updateInfos.ble?.toVersion;
-      versionInfo.onekey_ble_version = bleVersion;
-      versionInfo.ble_ver = bleVersion;
+      versionInfo.bleVersion = bleVersion;
     }
 
     const filteredVersionInfo: Partial<IDeviceVersionCacheInfo> = {};
@@ -2386,7 +2402,7 @@ class ServiceHardware extends ServiceBase {
       }
 
       // Step 2: Get expected device name from features
-      const expectedDeviceName = features.ble_name;
+      const expectedDeviceName = features.bleName;
 
       // Step 3: Find matching device by name
       const matchingDevice = searchResult.payload.find((device) => {
@@ -2420,7 +2436,7 @@ class ServiceHardware extends ServiceBase {
         },
       });
 
-      if (connectResult && connectResult.device_id === expectedDeviceId) {
+      if (connectResult && connectResult.deviceId === expectedDeviceId) {
         // Step 5: Update device in DB with BLE connectId
         const device = await localDb.getDeviceByQuery({
           connectId,

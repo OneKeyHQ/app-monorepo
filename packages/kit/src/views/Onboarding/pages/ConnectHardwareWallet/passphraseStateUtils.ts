@@ -13,8 +13,8 @@ export async function resolveHardwarePassphraseEnabled({
   device: SearchDevice;
   features: IOneKeyDeviceFeatures;
 }) {
-  if (typeof features.passphrase_protection === 'boolean') {
-    return features.passphrase_protection;
+  if (typeof features.passphraseProtection === 'boolean') {
+    return features.passphraseProtection;
   }
 
   let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
@@ -25,7 +25,7 @@ export async function resolveHardwarePassphraseEnabled({
   }
 
   if (deviceType !== EDeviceType.Pro2) {
-    return Boolean(features.passphrase_protection);
+    return Boolean(features.passphraseProtection);
   }
 
   try {
@@ -36,15 +36,15 @@ export async function resolveHardwarePassphraseEnabled({
         useEmptyPassphrase: true,
       });
     const passphraseEnabled = Boolean(
-      passphraseStatePayload?.passphrase_state ||
-      passphraseStatePayload?.passphrase_protection === true,
+      passphraseStatePayload?.passphraseState ||
+        passphraseStatePayload?.passphraseProtection === true,
     );
 
     if (passphraseEnabled) {
-      features.passphrase_protection = true;
+      features.passphraseProtection = true;
     }
-    if (passphraseStatePayload?.unlocked_attach_pin !== undefined) {
-      features.unlocked_attach_pin = passphraseStatePayload.unlocked_attach_pin;
+    if (passphraseStatePayload?.unlockedAttachPin !== undefined) {
+      features.unlockedAttachPin = passphraseStatePayload.unlockedAttachPin;
     }
 
     return passphraseEnabled;

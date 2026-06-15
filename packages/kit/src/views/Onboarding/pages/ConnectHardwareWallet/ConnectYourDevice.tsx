@@ -532,7 +532,6 @@ function useDeviceConnection({
         if (currentTabValueRef.current === tabValue) {
           if (tabValue === EConnectDeviceChannel.bluetooth) {
             const isUsbData = sortedDevices.some((device) =>
-              // @ts-expect-error
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               isString(deviceUtils.getRawDeviceId({ device: device as any })),
             );
@@ -1367,7 +1366,7 @@ export function ConnectYourDevicePage() {
       }
 
       return {
-        unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
+        unlockedAttachPin: features.unlockedAttachPin ?? undefined,
         unlocked: features.unlocked ?? undefined,
         passphraseEnabled: await resolveHardwarePassphraseEnabled({
           device,

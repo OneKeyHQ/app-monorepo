@@ -108,9 +108,9 @@ async function createLedgerHwWallet({
       device,
       hideCheckingDeviceLoading: true,
       features: {
-        device_id: device.deviceId || '',
+        deviceId: device.deviceId || '',
         vendor,
-      } as IOneKeyDeviceFeatures,
+      } as unknown as IOneKeyDeviceFeatures,
       isFirmwareVerified: true,
       defaultIsTemp: true,
       vendor,
@@ -267,7 +267,7 @@ export function useDeviceConnect({
 
       const features = await connectDevice(device, hardwareCallContext);
       // If device was in bootloader mode and connectId is empty, search for the updated device
-      if (device.connectId === '' && isBootMode && !features?.bootloader_mode) {
+      if (device.connectId === '' && isBootMode && !features?.bootloaderMode) {
         const searchedDevices =
           await backgroundApiProxy.serviceHardware.searchDevices();
         if (searchedDevices.success && searchedDevices.payload.length === 1) {
@@ -741,7 +741,7 @@ export function useDeviceConnect({
       }
 
       return {
-        unlockedAttachPin: features.unlocked_attach_pin ?? undefined,
+        unlockedAttachPin: features.unlockedAttachPin ?? undefined,
         unlocked: features.unlocked ?? undefined,
         passphraseEnabled: await resolveHardwarePassphraseEnabled({
           device,

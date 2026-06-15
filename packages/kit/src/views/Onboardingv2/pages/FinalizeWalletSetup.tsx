@@ -500,9 +500,9 @@ function FinalizeWalletSetupPage({
               device: ledgerDevice,
               hideCheckingDeviceLoading: true,
               features: {
-                device_id: ledgerDevice?.deviceId || '',
+                deviceId: ledgerDevice?.deviceId || '',
                 vendor: deviceData.vendor,
-              } as IOneKeyDeviceFeatures,
+              } as unknown as IOneKeyDeviceFeatures,
               isFirmwareVerified: true,
               defaultIsTemp: true,
               vendor: deviceData.vendor,

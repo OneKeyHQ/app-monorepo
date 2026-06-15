@@ -243,6 +243,13 @@ export class SignerHardware extends SignerHardwareBase {
 
     if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
       const applicationDomain = unsignedMsg.payload?.applicationDomain;
+      const guessedMessageFormat = OffchainMessage.guessMessageFormat(
+        Buffer.from(unsignedMsg.message ?? ''),
+      );
+      const messageFormat =
+        guessedMessageFormat === 0 || guessedMessageFormat === 1
+          ? guessedMessageFormat
+          : undefined;
       const result = await sdk.solSignOffchainMessage(
         this.device.connectId,
         this.device.deviceId,
@@ -255,10 +262,7 @@ export class SignerHardware extends SignerHardwareBase {
                   Buffer.from(applicationDomain).toString('hex'),
               }
             : {}),
-          // @ts-expect-error firmware SDK accepts the format hint without typing it
-          messageFormat: OffchainMessage.guessMessageFormat(
-            Buffer.from(unsignedMsg.message ?? ''),
-          ),
+          messageFormat,
           ...commonParams,
         },
       );

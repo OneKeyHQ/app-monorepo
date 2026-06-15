@@ -47,7 +47,6 @@ import type {
   AllNetworkAddressParams,
   RefTransaction,
 } from '@onekeyfe/hd-core';
-import type { Messages } from '@onekeyfe/hd-transport';
 
 export class KeyringHardware extends KeyringHardwareBtcBase {
   override coreApi = coreChainApi.btc.hd;

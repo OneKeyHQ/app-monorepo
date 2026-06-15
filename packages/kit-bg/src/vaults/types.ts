@@ -73,8 +73,11 @@ import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
 import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';
-import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
-import type { HDNodeType } from '@onekeyfe/hd-transport';
+import type {
+  AllNetworkAddressParams,
+  HDNodeType,
+  IDeviceType,
+} from '@onekeyfe/hd-core';
 import type { SignClientTypes } from '@walletconnect/types';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -88,6 +91,7 @@ export enum EVaultKeyringTypes {
 }
 
 export { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
+export type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
 // AccountNameInfo
 export type IAccountDeriveInfoItems = {

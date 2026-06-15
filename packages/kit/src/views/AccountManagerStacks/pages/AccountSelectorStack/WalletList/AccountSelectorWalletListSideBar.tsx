@@ -328,7 +328,7 @@ export function AccountSelectorWalletListSideBar({
           !accountUtils.isQrWallet({
             walletId: wallet.id,
           }) &&
-          (wallet?.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
+          (wallet?.associatedDeviceInfo?.featuresInfo?.passphraseProtection ===
             true ||
             (wallet?.hiddenWallets?.length ?? 0) > 0)
         ) {

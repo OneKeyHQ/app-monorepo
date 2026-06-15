@@ -3340,7 +3340,7 @@ class ServiceAccount extends ServiceBase {
             connectId: compatibleConnectId,
             forceInputPassphrase: true,
           });
-        const passphraseState = passphraseStatePayload?.passphrase_state;
+        const passphraseState = passphraseStatePayload?.passphraseState;
 
         if (!passphraseState) {
           const deviceNotOpenedPassphraseError = new DeviceNotOpenedPassphrase({
@@ -3365,10 +3365,23 @@ class ServiceAccount extends ServiceBase {
               includeRaw: true,
             },
           });
-        const features =
-          deviceInfo.raw?.features || dbDevice.featuresInfo || ({} as any);
+        if (!dbDevice.featuresInfo) {
+          throw new OneKeyLocalError('device featuresInfo is required');
+        }
+        const features = {
+          ...dbDevice.featuresInfo,
+          ...(deviceInfo.deviceId ? { deviceId: deviceInfo.deviceId } : {}),
+          ...(deviceInfo.serialNo ? { serialNo: deviceInfo.serialNo } : {}),
+          ...(deviceInfo.label ? { label: deviceInfo.label } : {}),
+          ...(deviceInfo.bleName ? { bleName: deviceInfo.bleName } : {}),
+        };
+        const device = {
+          ...deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          ...(deviceInfo.deviceId ? { deviceId: deviceInfo.deviceId } : {}),
+          ...(deviceInfo.serialNo ? { uuid: deviceInfo.serialNo } : {}),
+        };
         const dbWallet = await this.createHWWalletBase({
-          device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
+          device,
           features,
           passphraseState,
           fillingXfpByCallingSdk: true,
@@ -3401,8 +3414,8 @@ class ServiceAccount extends ServiceBase {
         return {
           ...dbWallet,
           isAttachPinMode:
-            passphraseStatePayload?.unlocked_attach_pin ??
-            features.unlocked_attach_pin,
+            passphraseStatePayload?.unlockedAttachPin ??
+            features.unlockedAttachPin,
         };
       },
       {
@@ -7395,7 +7408,7 @@ class ServiceAccount extends ServiceBase {
       promise: true,
       primitive: true,
       normalizer: ([options]) => {
-        const fwVendor = options.featuresInfo?.fw_vendor || '';
+        const fwVendor = options.featuresInfo?.vendor || '';
         const capabilities =
           options.featuresInfo?.capabilities?.join(',') ?? '';
         return `${options.walletId}-${fwVendor}-${capabilities}`;

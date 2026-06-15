@@ -76,14 +76,14 @@ async function buildDeviceMetaState(
     return undefined;
   }
   const isVerified = Boolean(device.verifiedAtVersion);
-  const autoLockDelayMs = features.auto_lock_delay_ms ?? 0;
-  const autoShutDownDelayMs = features.auto_shutdown_delay_ms ?? 0;
+  const autoLockDelayMs = features.autoLockDelayMs ?? 0;
+  const autoShutDownDelayMs = features.autoLockDelayMs ?? 0;
   const language = features.language ?? undefined;
-  const hapticFeedback = features.haptic_feedback ?? false;
+  const hapticFeedback = false;
 
   return {
     isVerified,
-    passphraseEnabled: Boolean(features?.passphrase_protection),
+    passphraseEnabled: Boolean(features?.passphraseProtection),
     pinOnAppEnabled: Boolean(device.settings?.inputPinOnSoftware),
     autoLockDelayMs,
     autoShutDownDelayMs,

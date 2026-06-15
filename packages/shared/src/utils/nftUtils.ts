@@ -1,4 +1,4 @@
-import { ResourceType } from '@onekeyfe/hd-transport';
+import { ResourceType } from '@onekeyfe/hd-core';
 
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 

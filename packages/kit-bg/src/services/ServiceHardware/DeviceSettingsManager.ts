@@ -1,4 +1,3 @@
-import { ResourceType, type Success } from '@onekeyfe/hd-transport';
 import { isNil } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -21,11 +20,13 @@ import type {
   IDBDeviceSettings as IDBDeviceDbSettings,
 } from '../../dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
-import type {
-  CoreApi,
-  DeviceSettingsParams,
-  DeviceUploadResourceParams,
-  DeviceUploadResourceResponse,
+import {
+  ResourceType,
+  type DeviceSuccess,
+  type CoreApi,
+  type DeviceSettingsParams,
+  type DeviceUploadResourceParams,
+  type DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -177,7 +178,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
     connectId,
     featuresDeviceId,
     remove,
-  }: IChangePinParams): Promise<Success> {
+  }: IChangePinParams): Promise<DeviceSuccess> {
     return this._withDeviceProcessing({
       walletId,
       connectId,
@@ -221,7 +222,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
-        // touch or Pro should unlock device first, otherwise features?.passphrase_protection will return undefined
+        // touch or Pro should unlock device first, otherwise features?.passphraseProtection will return undefined
         await this.serviceHardware.unlockDevice({
           connectId: dbDevice.connectId,
         });
@@ -236,7 +237,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
         const inputPinOnSoftwareSupport = Boolean(
           supportFeatures?.inputPinOnSoftware?.support,
         );
-        const passphraseEnabled = Boolean(features?.passphrase_protection);
+        const passphraseEnabled = Boolean(features?.passphraseProtection);
         const inputPinOnSoftware = Boolean(
           dbDevice?.settings?.inputPinOnSoftware,
         );
@@ -414,7 +415,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               await localDb.updateDevice({
                 features: device.featuresInfo,
                 preciseUpdateFields: {
-                  passphrase_protection: passphraseEnabled,
+                  passphraseProtection: passphraseEnabled,
                 },
               });
             }
@@ -445,7 +446,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               await localDb.updateDevice({
                 features: device.featuresInfo,
                 preciseUpdateFields: {
-                  auto_lock_delay_ms: autoLockDelayMs,
+                  autoLockDelayMs,
                 },
               });
             }
@@ -476,7 +477,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
               await localDb.updateDevice({
                 features: device.featuresInfo,
                 preciseUpdateFields: {
-                  auto_shutdown_delay_ms: autoShutdownDelayMs,
+                  autoLockDelayMs: autoShutdownDelayMs,
                 },
               });
             }
@@ -555,9 +556,6 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             if (res.success && device.featuresInfo) {
               await localDb.updateDevice({
                 features: device.featuresInfo,
-                preciseUpdateFields: {
-                  haptic_feedback: hapticFeedback,
-                },
               });
             }
             return res;

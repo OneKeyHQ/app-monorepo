@@ -20,8 +20,8 @@ export function extractPassphraseSessionFromPayload(
   payload: GetPassphraseStatePayload | undefined,
 ): IResolvedPassphraseSession {
   return {
-    passphraseState: payload?.passphrase_state || undefined,
-    sessionId: payload?.session_id || undefined,
+    passphraseState: payload?.passphraseState || undefined,
+    sessionId: payload?.sessionId || undefined,
   };
 }
 
@@ -370,7 +370,7 @@ export async function searchDevice(opts?: { deviceIdHint?: string }): Promise<{
  * Matches the app-monorepo pattern (ServiceHardware.getPassphraseStateBase):
  * - Calls sdk.getPassphraseState with initSession=true so the device
  *   prompts for passphrase entry (host input or on-device input).
- * - Returns passphrase_state for subsequent SDK calls and session_id for
+ * - Returns passphraseState for subsequent SDK calls and sessionId for
  *   SDK session cache/keychain reuse.
  * - Returns an empty object for standard wallets (no passphrase).
  */
@@ -445,7 +445,7 @@ export async function resolvePassphraseState(
  *   provider tells device to show passphrase input on its screen.
  *
  * SECURITY: passphrase exists only in memory during provider callback.
- * passphraseState/session_id are returned in memory; persistence is handled
+ * passphraseState/sessionId are returned in memory; persistence is handled
  * by the caller only after the downstream operation succeeds.
  */
 export async function resolvePassphraseSessionByMode(

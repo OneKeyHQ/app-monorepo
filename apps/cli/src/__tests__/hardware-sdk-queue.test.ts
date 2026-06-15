@@ -129,12 +129,12 @@ describe('createQueuedHardwareSDK', () => {
 });
 
 describe('extractPassphraseStateFromPayload', () => {
-  it('reads passphrase_state from the unified SDK payload', () => {
+  it('reads passphraseState from the unified SDK payload', () => {
     const payload = {
-      passphrase_state: 'state-1',
-      session_id: 'session-1',
-      unlocked_attach_pin: false,
-      passphrase_protection: true,
+      passphraseState: 'state-1',
+      sessionId: 'session-1',
+      unlockedAttachPin: false,
+      passphraseProtection: true,
     };
     expect(extractPassphraseStateFromPayload(payload)).toBe('state-1');
     expect(extractPassphraseSessionFromPayload(payload)).toEqual({

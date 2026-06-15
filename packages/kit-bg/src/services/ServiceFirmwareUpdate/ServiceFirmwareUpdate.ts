@@ -87,13 +87,13 @@ import type {
 import type {
   AllFirmwareRelease,
   CoreApi,
+  DeviceSuccess,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
   IDeviceType,
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { EFirmwareType } from '@onekeyfe/hd-shared';
-import type { Features, Success } from '@onekeyfe/hd-transport';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -112,7 +112,7 @@ export type IUpdateFirmwareTaskFn = ({
   id,
 }: {
   id: number;
-}) => Promise<Success | undefined>; // return Success | undefined go to next task, throw error to retry
+}) => Promise<DeviceSuccess | undefined>; // return DeviceSuccess | undefined go to next task, throw error to retry
 
 interface IFirmwareUpdateResult {
   bleVersion?: string;
@@ -160,7 +160,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async rebootToBoardloader(connectId: string): Promise<Success> {
+  async rebootToBoardloader(connectId: string): Promise<DeviceSuccess> {
     const hardwareSDK = await this.getSDKInstance({
       connectId,
     });
@@ -381,7 +381,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     baseReleaseInfoCache?: AllFirmwareRelease;
   }): Promise<ICheckAllFirmwareReleaseResult> {
     if (SKIP_APP_FIRMWARE_UPDATE_CHECK) {
-      const features = baseReleaseInfoCache?.features;
+      const features = baseReleaseInfoCache?.features as IOneKeyDeviceFeatures | undefined;
       const deviceType = features
         ? await deviceUtils.getDeviceTypeFromFeatures({ features })
         : undefined;
@@ -476,9 +476,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.checkDeviceIsBootloaderMode({
         connectId: originalConnectId,
         allowEmptyConnectId: true,
-        featuresCache: releaseInfoCache?.features,
+        featuresCache: releaseInfoCache?.features as IOneKeyDeviceFeatures | undefined,
       });
-    let features: Features = initialFeatures as Features;
+    let features: IOneKeyDeviceFeatures = initialFeatures as IOneKeyDeviceFeatures;
 
     // use originalConnectId getFeatures() make sure sdk throw DeviceNotFound if connected device not matched with originalConnectId
     if (isBootloaderMode || !features) {
@@ -500,7 +500,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }));
 
     const currentFirmwareType = await deviceUtils.getFirmwareType({
-      features: releaseInfo.features,
+      features: releaseInfo.features as unknown as IOneKeyDeviceFeatures,
     });
 
     const firmware = await this.checkFirmwareRelease({
@@ -657,7 +657,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       deviceType,
       deviceName,
       deviceBleName,
-      deviceUUID,
+      deviceUUID: deviceUUID ?? '',
       hasUpgrade,
       isBootloaderMode: features
         ? (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
@@ -1204,7 +1204,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async updatingBootloader(
     params: IUpdateFirmwareWorkflowParams,
     updateInfo: IBootloaderUpdateInfo,
-  ): Promise<undefined | Success> {
+  ): Promise<undefined | DeviceSuccess> {
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.releaseResult.updatingConnectId,
     });
@@ -1323,7 +1323,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     { connectId, version, firmwareType, deviceType }: IAutoUpdateFirmwareParams,
     updateInfo: IBleFirmwareUpdateInfo | IFirmwareUpdateInfo,
     workflowParams: IUpdateFirmwareWorkflowParams,
-  ): Promise<Success> {
+  ): Promise<DeviceSuccess> {
     // const { dispatch } = this.backgroundApi;
     // dispatch(setUpdateFirmwareStep(''));
 
@@ -2040,7 +2040,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async updatingFirmwareV3(
     params: IFirmwareUpdateV3VersionParams,
-  ): Promise<Success> {
+  ): Promise<DeviceSuccess> {
     const hardwareSDK = await this.getSDKInstance({
       connectId: params.connectId,
     });
@@ -2246,7 +2246,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     const { features: deviceFeatures } = params.releaseResult;
 
-    let batteryLevel: number | undefined = deviceFeatures?.battery_level;
+    let batteryLevel: number | undefined = undefined;
 
     const mockLowBattery =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(

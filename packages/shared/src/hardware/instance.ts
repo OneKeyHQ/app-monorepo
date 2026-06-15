@@ -87,11 +87,14 @@ const createHardwareSDKInstance = async (params: {
 
     const configFetcher = await createConfigFetcher();
 
-    const settings: Partial<ConnectSettings> = {
+    const settings: Partial<ConnectSettings> & {
+      protocolV2DeviceInfoMockEnabled?: boolean;
+    } = {
       debug: params.debugMode,
       fetchConfig: true,
       env,
       configFetcher,
+      protocolV2DeviceInfoMockEnabled: false,
     };
 
     HardwareSDK = await importHardwareSDK({

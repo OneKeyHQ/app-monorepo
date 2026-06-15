@@ -15,13 +15,11 @@ interface ISearchedDevice {
   label?: string;
   firmwareVersion?: [number, number, number] | null;
   features?: {
-    onekey_device_type?: string;
-    onekey_serial?: string;
-    onekey_serial_no?: string;
-    serial_no?: string;
-    onekey_firmware_version?: string;
+    deviceType?: string;
+    serialNo?: string;
+    firmwareVersion?: string;
     unlocked?: boolean;
-    passphrase_protection?: boolean;
+    passphraseProtection?: boolean;
   };
 }
 
@@ -52,19 +50,14 @@ export function registerDeviceSearchCommand(parent: Command): void {
             connectId: d.connectId,
             deviceId: d.deviceId ?? '',
             name: d.name ?? d.label ?? 'Unknown',
-            model: d.deviceType ?? d.features?.onekey_device_type ?? 'Unknown',
-            serial:
-              d.uuid ??
-              d.features?.onekey_serial_no ??
-              d.features?.onekey_serial ??
-              d.features?.serial_no ??
-              '',
+            model: d.deviceType ?? d.features?.deviceType ?? 'Unknown',
+            serial: d.uuid ?? d.features?.serialNo ?? '',
             firmware:
               formatVersion(d.firmwareVersion) ||
-              d.features?.onekey_firmware_version ||
+              d.features?.firmwareVersion ||
               '',
             unlocked: d.features?.unlocked ?? null,
-            passphraseProtection: d.features?.passphrase_protection ?? false,
+            passphraseProtection: d.features?.passphraseProtection ?? false,
           };
         });
 
