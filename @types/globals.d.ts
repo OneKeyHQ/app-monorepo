@@ -46,6 +46,7 @@ declare global {
     getAppName: () => string;
     getBundleIndexHtmlPath: () => string | undefined;
     useJsBundle: () => boolean;
+    softRestartRenderer: () => Promise<void>;
   };
 
   var $$appGlobals: IAppGlobals;

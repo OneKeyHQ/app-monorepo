@@ -778,6 +778,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 await serviceAccount.removeFailedOnboardingHwWallet({
                   walletId,
                 });
+                // Advance selection off the just-removed walletId.
+                await this.autoSelectNextAccount.call(set, {
+                  num: 0,
+                  triggerBy: EAccountSelectorAutoSelectTriggerBy.removeWallet,
+                });
               }
             } catch (cleanupErr) {
               defaultLogger.app.error.log(
@@ -831,6 +836,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       // view. A specific-network (single) add keeps the per-app install prompt.
       const isAutoCreateMultiNetwork =
         !!isCreateWallet || networkUtils.isAllNetwork({ networkId });
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
       const customNetworks =
         networkId && deriveType ? [{ networkId, deriveType }] : undefined;
       let ledgerRequiredApps: ILedgerCoreAppName[] = [];
@@ -850,7 +856,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       };
 
       if (!params.wallet.isMocked) {
-        if (isAutoCreateMultiNetwork) {
+        if (isAutoCreateMultiNetwork && isHwWallet) {
           const device =
             await backgroundApiProxy.serviceAccount.getWalletDevice({
               walletId: wallet.id,

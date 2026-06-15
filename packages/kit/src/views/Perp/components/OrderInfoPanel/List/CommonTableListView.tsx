@@ -63,8 +63,9 @@ const TradesHistoryLoadingView = () => {
     <Stack
       flex={1}
       alignItems="flex-start"
-      justifyContent="center"
+      justifyContent="flex-start"
       p="$6"
+      pt="$10"
       gap="$2"
     >
       <Skeleton h="$8" w="$40" />
@@ -752,7 +753,7 @@ export function CommonTableListView<T>({
     </XStack>
   );
   const desktopTable = (
-    <XStack>
+    <XStack flex={1}>
       {/* Scrollable columns */}
       <ScrollView
         ref={scrollViewRef}
@@ -821,17 +822,16 @@ export function CommonTableListView<T>({
           cursor="default"
           bg="$bgApp"
           $platform-web={{
-            boxShadow:
-              showFixedShadow && paginatedData.length > 0
-                ? getWebShadowStyle('right', isDark)
-                : 'none',
+            boxShadow: showFixedShadow
+              ? getWebShadowStyle('right', isDark)
+              : 'none',
             clipPath: getWebClipPath('right'),
             transition: `box-shadow ${SHADOW_CONSTANTS.TRANSITION_DURATION} ease-in-out`,
           }}
         >
           <FixedColumnShadowOverlay
             position="right"
-            visible={showFixedShadow ? paginatedData.length > 0 : false}
+            visible={showFixedShadow}
             isDark={isDark}
           />
           <XStack

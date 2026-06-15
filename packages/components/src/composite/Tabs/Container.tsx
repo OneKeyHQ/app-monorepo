@@ -357,6 +357,18 @@ export function Container({
       tabIndex >= 0 ? listContainerRef.current.children.item(tabIndex) : null;
     const element = (registeredElement ??
       fallbackElement) as HTMLElement | null;
+    // Fallback-measured tabs (no registered Tabs.List/ScrollView element)
+    // observe the page div, but that div is a flex item stretched to the
+    // pinned container height — its border box never resizes when inner
+    // content grows (sub-tab switches, async data), so the observer stays
+    // silent and the container keeps a stale, too-small height that clips
+    // the content. Observe the content child instead: the page div is a
+    // block container, so the child's height stays content-driven and the
+    // observer fires on growth. Measurement still reads the page div.
+    const observedElement =
+      !registeredElement && element
+        ? ((element.firstElementChild as HTMLElement | null) ?? element)
+        : element;
     const apply = (targetElement: HTMLElement) => {
       const containerElement = listContainerRef.current as HTMLElement | null;
       if (!containerElement) return;
@@ -399,7 +411,7 @@ export function Container({
       }
     };
     // Same element + already observing -> nothing to do.
-    if (element && observedElementRef.current === element) {
+    if (element && observedElementRef.current === observedElement) {
       apply(element);
       return;
     }
@@ -407,15 +419,15 @@ export function Container({
       resizeObserverRef.current.disconnect();
       resizeObserverRef.current = null;
     }
-    observedElementRef.current = element;
-    if (!element) {
+    observedElementRef.current = observedElement;
+    if (!element || !observedElement) {
       return;
     }
     // Synchronous initial measurement so the container doesn't flicker
     // between 0-height and the first observer callback.
     apply(element);
     const ro = new ResizeObserver(() => apply(element));
-    ro.observe(element);
+    ro.observe(observedElement);
     resizeObserverRef.current = ro;
   }, [focusedTab, getTabContentHeight, tabNames, refreshScrollExtent]);
 

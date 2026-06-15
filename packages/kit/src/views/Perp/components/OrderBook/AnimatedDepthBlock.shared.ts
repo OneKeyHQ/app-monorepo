@@ -73,6 +73,15 @@ export type IDepthBarColumnProps = {
   sizeFontSize?: number;
   textInset?: number;
   onRowPress?: (rowIndex: number) => void;
+  /**
+   * Per-row placeholder text drawn by the column itself while it has no real
+   * data (e.g. "--"). The view owns its empty state — no RN skeleton/overlay —
+   * so it swaps atomically to real numbers with no blank handoff frame. Drawn in
+   * `priceColor` (left) / `sizeColor` (right), no bar fill.
+   */
+  placeholderText?: string;
+  /** Number of placeholder rows to draw while `placeholderText` is shown. */
+  placeholderRows?: number;
 };
 
 export type ISideRatioSegmentsProps = {

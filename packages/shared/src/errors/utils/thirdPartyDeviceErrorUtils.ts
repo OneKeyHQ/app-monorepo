@@ -191,11 +191,19 @@ export function classifyThirdPartyHwCreateFailures<
     failedAccounts.every(
       (f) => f.error.code === ThirdPartyHwErrorCode.AppNotInstalled,
     );
-  const genuineFailures = failedAccounts.filter(
-    (f) =>
-      f.error.code !== ThirdPartyHwErrorCode.AppNotInstalled &&
-      !isThirdPartyInstallAppUserCancelCode(f.error.code),
-  );
+  const genuineFailures = failedAccounts.filter((f) => {
+    if (f.error.code === ThirdPartyHwErrorCode.AppNotInstalled) return false;
+    if (isThirdPartyInstallAppUserCancelCode(f.error.code)) return false;
+    // If at least one chain succeeded, transient mid-flow re-pair errors with
+    // changed BLE/USB connectId shouldn't fail the flow.
+    if (
+      addedCount > 0 &&
+      f.error.code === ThirdPartyHwErrorCode.DeviceNotFound
+    ) {
+      return false;
+    }
+    return true;
+  });
   return { allAppNotInstalled, genuineFailures };
 }
 

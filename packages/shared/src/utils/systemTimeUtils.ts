@@ -55,6 +55,9 @@ const localServerTimeDiff = timerUtils.getTimeDurationMs({
   // loose a window lets a fast clock leak future dataTime into sync items.
   minute: 10,
 });
+const lastValidServerTimeStorageKey =
+  EAppSyncStorageKeys.last_valid_server_time;
+const lastValidLocalTimeStorageKey = EAppSyncStorageKeys.last_valid_local_time;
 
 function isTimeValid({ time }: { time: number | undefined }): boolean {
   if (
@@ -77,21 +80,30 @@ function getMonotonicTimeNow(): number | undefined {
   return time;
 }
 
+function normalizeTimestamp(time: number | undefined): number | undefined {
+  if (!isNumber(time) || isNaN(time) || isNil(time)) {
+    return undefined;
+  }
+  return Math.floor(time);
+}
+
 class SystemTimeUtils {
   constructor() {
     const lastServerTimeInStorage = appStorage.syncStorage.getNumber(
-      EAppSyncStorageKeys.last_valid_server_time,
+      lastValidServerTimeStorageKey,
     );
     this.setLastServerTimeValue({
       value: lastServerTimeInStorage,
       updateEstimateBaseline: false,
       persist: false,
     });
-
     const lastLocalTimeInStorage = appStorage.syncStorage.getNumber(
-      EAppSyncStorageKeys.last_valid_local_time,
+      lastValidLocalTimeStorageKey,
     );
-    this.lastLocalTime = lastLocalTimeInStorage;
+    this.setLastLocalTimeValue({
+      value: lastLocalTimeInStorage,
+      persist: false,
+    });
   }
 
   systemTimeStatus: ELocalSystemTimeStatus = ELocalSystemTimeStatus.UNKNOWN;
@@ -121,7 +133,8 @@ class SystemTimeUtils {
     updateEstimateBaseline: boolean;
     persist: boolean;
   }) {
-    if (!this.isTimeValid({ time: value })) {
+    const timestamp = normalizeTimestamp(value);
+    if (!this.isTimeValid({ time: timestamp })) {
       this._lastServerTime = appBuildTime;
       this._serverTimeEstimateBase = undefined;
       this._lastServerTimePerfBase = undefined;
@@ -129,18 +142,18 @@ class SystemTimeUtils {
       this._lastServerTimeCanBeFallback = false;
       return;
     }
-    this._lastServerTime = value;
+    this._lastServerTime = timestamp;
     this._lastServerTimeCanBeFallback = true;
     if (updateEstimateBaseline) {
-      this._serverTimeEstimateBase = value;
+      this._serverTimeEstimateBase = timestamp;
       this._lastServerTimePerfBase = getMonotonicTimeNow();
       this._lastServerTimeIsReal = true;
     }
-    if (value && persist) {
-      appStorage.syncStorage.set(
-        EAppSyncStorageKeys.last_valid_server_time,
-        value,
-      );
+    if (timestamp && persist) {
+      this.persistTimeValue({
+        key: lastValidServerTimeStorageKey,
+        value: timestamp,
+      });
     }
   }
 
@@ -158,21 +171,50 @@ class SystemTimeUtils {
     return this._lastLocalTime;
   }
 
-  set lastLocalTime(value: number | undefined) {
-    if (!this.isTimeValid({ time: value })) {
+  private setLastLocalTimeValue({
+    value,
+    persist,
+  }: {
+    value: number | undefined;
+    persist: boolean;
+  }) {
+    const timestamp = normalizeTimestamp(value);
+    if (!this.isTimeValid({ time: timestamp })) {
       this._lastLocalTime = appBuildTime;
       return;
     }
-    this._lastLocalTime = value;
-    if (value) {
-      appStorage.syncStorage.set(
-        EAppSyncStorageKeys.last_valid_local_time,
-        value,
-      );
+    this._lastLocalTime = timestamp;
+
+    if (timestamp && persist) {
+      this.persistTimeValue({
+        key: lastValidLocalTimeStorageKey,
+        value: timestamp,
+      });
     }
   }
 
+  set lastLocalTime(value: number | undefined) {
+    this.setLastLocalTimeValue({
+      value,
+      persist: true,
+    });
+  }
+
   _serverTimeInterval: ReturnType<typeof setInterval> | undefined;
+
+  private persistTimeValue({
+    key,
+    value,
+  }: {
+    key: EAppSyncStorageKeys;
+    value: number;
+  }) {
+    try {
+      appStorage.syncStorage.set(key, value);
+    } catch (_error) {
+      // Cache persistence is best-effort and should not affect time checks.
+    }
+  }
 
   private setSystemTimeStatus(status: ELocalSystemTimeStatus) {
     if (this.systemTimeStatus === status) {
@@ -246,14 +288,27 @@ class SystemTimeUtils {
     if (this._serverTimeInterval) {
       return;
     }
-    void this.ensureFreshServerTime().catch(() => {
-      this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
-    });
+    void this.ensureFreshServerTime()
+      .then((success) => {
+        if (!success) {
+          this.updateSystemTimeStatusByEstimatedServerTime();
+        }
+      })
+      .catch(() => {
+        if (!this.updateSystemTimeStatusByEstimatedServerTime()) {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
+        }
+      });
     this._serverTimeInterval = setInterval(async () => {
       try {
-        await this.refreshServerTime();
+        const success = await this.refreshServerTime();
+        if (!success) {
+          this.updateSystemTimeStatusByEstimatedServerTime();
+        }
       } catch (_error) {
-        this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
+        if (!this.updateSystemTimeStatusByEstimatedServerTime()) {
+          this.setSystemTimeStatus(ELocalSystemTimeStatus.UNKNOWN);
+        }
       }
     }, intervalTimeout);
   }
@@ -281,7 +336,9 @@ class SystemTimeUtils {
       return undefined;
     }
 
-    const estimated = (this._serverTimeEstimateBase ?? 0) + elapsed;
+    const estimated = normalizeTimestamp(
+      (this._serverTimeEstimateBase ?? 0) + elapsed,
+    );
     if (!this.isTimeValid({ time: estimated })) {
       return undefined;
     }
@@ -307,7 +364,10 @@ class SystemTimeUtils {
       })
     ) {
       return {
-        time: Math.max(localNow, this.lastServerTime, appBuildTime),
+        time:
+          normalizeTimestamp(
+            Math.max(localNow, this.lastServerTime, appBuildTime),
+          ) ?? appBuildTime,
         source: ECloudSyncDataTimeSource.TrustedLocal,
       };
     }
@@ -410,6 +470,41 @@ class SystemTimeUtils {
     if (!localTimeValid) {
       appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
     }
+  }
+
+  private updateSystemTimeStatusByEstimatedServerTime(): boolean {
+    const estimatedServerTime = this.getEstimatedServerTime();
+    if (!this.isTimeValid({ time: estimatedServerTime })) {
+      return false;
+    }
+
+    const localTimestamp = Date.now();
+    if (
+      !isNumber(localTimestamp) ||
+      isNaN(localTimestamp) ||
+      isNil(localTimestamp)
+    ) {
+      return false;
+    }
+
+    const localTimeValid = this.isLocalTimeValid({
+      localTime: localTimestamp,
+      serverTime: estimatedServerTime,
+    });
+    if (localTimeValid) {
+      this.lastLocalTime = localTimestamp;
+    }
+
+    this.setSystemTimeStatus(
+      localTimeValid
+        ? ELocalSystemTimeStatus.VALID
+        : ELocalSystemTimeStatus.INVALID,
+    );
+
+    if (!localTimeValid) {
+      appEventBus.emit(EAppEventBusNames.LocalSystemTimeInvalid, undefined);
+    }
+    return true;
   }
 
   increaseTimeCache = throttle(

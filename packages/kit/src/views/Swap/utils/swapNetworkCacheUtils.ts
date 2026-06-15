@@ -13,7 +13,8 @@ function hasSwapNetworkSupportFields(network: ISwapNetwork) {
 export function isSwapNetworkReadyForTokenSelector(network: ISwapNetwork) {
   return (
     hasSwapNetworkSupportFields(network) &&
-    typeof network.backendIndex === 'boolean'
+    typeof network.backendIndex === 'boolean' &&
+    typeof network.isDeFiEnabled === 'boolean'
   );
 }
 
@@ -68,7 +69,11 @@ export function mergeSwapNetworksWithCachedSort({
       const fetchedNetwork = fetchedNetworks.find(
         (item) => item.networkId === network.networkId,
       );
-      return { ...network, ...fetchedNetwork };
+      const mergedNetwork = { ...network, ...fetchedNetwork };
+      if (typeof fetchedNetwork?.isDeFiEnabled !== 'boolean') {
+        delete mergedNetwork.isDeFiEnabled;
+      }
+      return mergedNetwork;
     })
     .concat(
       fetchedNetworks.filter(
@@ -87,6 +92,7 @@ export function buildSwapNetworkReadyKey(networks: ISwapNetwork[]) {
         network.supportCrossChainSwap,
         network.supportLimit,
         network.backendIndex,
+        network.isDeFiEnabled,
       ].join(':'),
     )
     .join('|');

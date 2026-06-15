@@ -59,13 +59,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
-  SCALE_ORDER_MIN_NOTIONAL,
   buildScaleOrderLegs,
   getScaleOrderReferencePrice,
   getScaleOrderSizeSkew,
   validateScaleOrderLegs,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
@@ -98,7 +98,10 @@ import {
 import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
-import { SizeInput } from '../inputs/SizeInput';
+import {
+  type ISizeInputDisplayValueChangePayload,
+  SizeInput,
+} from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
@@ -113,9 +116,19 @@ interface IPerpTradingFormProps {
   isMobile?: boolean;
   reserveMobileEnableTradingLayout?: boolean;
 }
+
 type IPrimaryOrderType = 'market' | 'limit' | 'trigger';
 type ITriggerDropdownValue = ETriggerOrderType | 'scale' | 'twap';
 type ITwapDurationInputField = 'hours' | 'minutes';
+type IOrderTypeInfoValue = IPrimaryOrderType | ITriggerDropdownValue;
+type ISizeInputDraft = ISizeInputDisplayValueChangePayload;
+type IOrderTypeInfoItem = {
+  description: string;
+  helpUrl?: string;
+  label: string;
+  value: IOrderTypeInfoValue;
+};
+
 const DESKTOP_TRADING_HEADER_HEIGHT =
   PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight;
 
@@ -163,6 +176,7 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
+const ORDER_TYPE_HELP_CENTER_URL = 'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -349,6 +363,89 @@ function SpotAvailableActionPopover({
   );
 }
 
+function OrderTypeInfoContent({
+  description,
+  helpUrl,
+}: {
+  description: string;
+  helpUrl?: string;
+}) {
+  const intl = useIntl();
+  const handleOpenHelp = useCallback(() => {
+    if (helpUrl) {
+      openUrlExternal(helpUrl);
+    }
+  }, [helpUrl]);
+
+  return (
+    <YStack maxWidth={260}>
+      <SizableText size="$bodySm" color="$textSubdued">
+        {description}
+        {helpUrl ? ' ' : null}
+        {helpUrl ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSuccess"
+            textDecorationLine="underline"
+            cursor="pointer"
+            onPress={handleOpenHelp}
+          >
+            {intl.formatMessage({ id: ETranslations.global_learn_more })}
+          </SizableText>
+        ) : null}
+      </SizableText>
+    </YStack>
+  );
+}
+
+function OrderTypeInfoButton({
+  description,
+  helpUrl,
+  isMobile,
+}: {
+  description: string;
+  helpUrl?: string;
+  isMobile: boolean;
+}) {
+  const trigger = (
+    <IconButton
+      testID={PerpTestIDs.OrderTypeInfoButton}
+      variant="tertiary"
+      size="small"
+      icon="InfoCircleOutline"
+      iconSize="$4"
+      iconProps={{ color: '$iconSubdued' }}
+      cursor="pointer"
+    />
+  );
+  const content = (
+    <OrderTypeInfoContent description={description} helpUrl={helpUrl} />
+  );
+
+  if (isMobile) {
+    return (
+      <Popover
+        title=""
+        showHeader={false}
+        placement="bottom-end"
+        floatingPanelProps={{ width: 360 }}
+        renderTrigger={trigger}
+        renderContent={<YStack p="$4">{content}</YStack>}
+      />
+    );
+  }
+
+  return (
+    <Tooltip
+      hovering
+      placement="bottom-end"
+      renderTrigger={trigger}
+      renderContent={<YStack p="$1">{content}</YStack>}
+      contentProps={{ maxWidth: 280 }}
+    />
+  );
+}
+
 function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
@@ -369,6 +466,9 @@ function PerpTradingForm({
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const tradingComputed = useTradingFormSizeInputComputed();
   const advancedComputedSizeBN = useTradingFormComputedSize();
+  const [sizeInputDraft, setSizeInputDraft] = useState<
+    ISizeInputDraft | undefined
+  >();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
   const shouldUseLiveTradingPrice = Boolean(
@@ -467,6 +567,27 @@ function PerpTradingForm({
   const isSelectedTradeAssetCtxReady = isSpot
     ? isSpotActiveAssetCtxReady
     : isPerpsActiveAssetCtxReady;
+  const handleSizeInputDisplayValueChange = useCallback(
+    (payload: ISizeInputDraft) => {
+      setSizeInputDraft(payload.displayValue.trim() ? payload : undefined);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    setSizeInputDraft(undefined);
+  }, [
+    activeTradeInstrument.assetId,
+    activeTradeInstrument.mode,
+    formData.side,
+    selectedTradeAsset?.coin,
+  ]);
+
+  useEffect(() => {
+    if (formData.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+      setSizeInputDraft(undefined);
+    }
+  }, [formData.sizeInputMode]);
 
   const spotAvailableBaseBN = useMemo(() => {
     if (!spotUniverse?.baseName) {
@@ -856,10 +977,7 @@ function PerpTradingForm({
       orderCount < SCALE_ORDER_MIN_COUNT ||
       orderCount > SCALE_ORDER_MAX_COUNT
     ) {
-      return {
-        text: `Enter ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
-        tone: 'error' as const,
-      };
+      return undefined;
     }
 
     const lowerPrice = new BigNumber(formData.scaleLowerPrice ?? 0);
@@ -873,12 +991,7 @@ function PerpTradingForm({
       if (!hasPriceInput) {
         return undefined;
       }
-      return {
-        text: intl.formatMessage({
-          id: ETranslations.perp_scale_price_range_required__msg,
-        }),
-        tone: 'error' as const,
-      };
+      return undefined;
     }
     if (lowerPrice.eq(upperPrice)) {
       return {
@@ -889,13 +1002,7 @@ function PerpTradingForm({
       };
     }
     if (!hasSizeInput) {
-      return {
-        text: intl.formatMessage(
-          { id: ETranslations.perp_scale_order_size_required_hint__desc },
-          { min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-        ),
-        tone: 'helper' as const,
-      };
+      return undefined;
     }
 
     const legs = buildScaleOrderLegs({
@@ -910,6 +1017,7 @@ function PerpTradingForm({
     });
     const validation = validateScaleOrderLegs({ legs });
     if (!validation.isValid) {
+      const primaryIssue = validation.issues[0];
       return {
         text: getScaleOrderValidationErrorMessage({
           intl,
@@ -918,17 +1026,14 @@ function PerpTradingForm({
             id: ETranslations.perp_invalid_scale_order__msg,
           }),
         }),
-        tone: 'error' as const,
+        tone:
+          primaryIssue?.code === 'minNotionalTooSmall'
+            ? ('info' as const)
+            : ('error' as const),
       };
     }
 
-    return {
-      text: intl.formatMessage(
-        { id: ETranslations.perp_scale_preview_summary_hint__desc },
-        { count: legs.length, min: `$${SCALE_ORDER_MIN_NOTIONAL}` },
-      ),
-      tone: 'helper' as const,
-    };
+    return undefined;
   }, [
     formData.scaleLowerPrice,
     formData.scaleOrderCount,
@@ -976,6 +1081,45 @@ function PerpTradingForm({
     }
   }, [formData.twapDurationMinutes, intl, isTwapMode]);
 
+  const twapEstimatedOrderNotional = useMemo(() => {
+    if (!isTwapMode) {
+      return undefined;
+    }
+    if (!midPriceBN.isFinite() || midPriceBN.lte(0)) {
+      return undefined;
+    }
+
+    const draft = sizeInputDraft;
+    const draftDisplayValue = draft?.displayValue?.trim();
+    if (draft && draftDisplayValue) {
+      const draftDisplayValueBN = new BigNumber(draftDisplayValue);
+      if (draftDisplayValueBN.isFinite() && draftDisplayValueBN.gt(0)) {
+        if (draft.inputMode === 'usd') {
+          return draftDisplayValueBN;
+        }
+        if (draft.inputMode === 'margin') {
+          const leverageBN = new BigNumber(formData.leverage ?? 1);
+          return draftDisplayValueBN.multipliedBy(
+            leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : 1,
+          );
+        }
+        return draftDisplayValueBN.multipliedBy(midPriceBN);
+      }
+    }
+
+    if (!advancedComputedSizeBN.isFinite() || advancedComputedSizeBN.lte(0)) {
+      return undefined;
+    }
+
+    return advancedComputedSizeBN.multipliedBy(midPriceBN);
+  }, [
+    advancedComputedSizeBN,
+    formData.leverage,
+    isTwapMode,
+    midPriceBN,
+    sizeInputDraft,
+  ]);
+
   const twapEstimatedSliceNotional = useMemo(() => {
     if (!isTwapMode) {
       return undefined;
@@ -985,10 +1129,9 @@ function PerpTradingForm({
       !Number.isInteger(duration) ||
       duration < TWAP_MIN_DURATION_MINUTES ||
       duration > TWAP_MAX_DURATION_MINUTES ||
-      !advancedComputedSizeBN.isFinite() ||
-      advancedComputedSizeBN.lte(0) ||
-      !midPriceBN.isFinite() ||
-      midPriceBN.lte(0)
+      !twapEstimatedOrderNotional ||
+      !twapEstimatedOrderNotional.isFinite() ||
+      twapEstimatedOrderNotional.lte(0)
     ) {
       return undefined;
     }
@@ -997,20 +1140,14 @@ function PerpTradingForm({
       1,
       Math.ceil(duration / TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES),
     );
-    const estimatedSliceNotional = advancedComputedSizeBN
-      .multipliedBy(midPriceBN)
-      .dividedBy(estimatedSlices);
+    const estimatedSliceNotional =
+      twapEstimatedOrderNotional.dividedBy(estimatedSlices);
     if (!estimatedSliceNotional.isFinite() || estimatedSliceNotional.lte(0)) {
       return undefined;
     }
 
     return estimatedSliceNotional;
-  }, [
-    formData.twapDurationMinutes,
-    isTwapMode,
-    midPriceBN,
-    advancedComputedSizeBN,
-  ]);
+  }, [formData.twapDurationMinutes, isTwapMode, twapEstimatedOrderNotional]);
 
   const twapEstimatedSliceNotionalDisplay = useMemo(() => {
     if (!twapEstimatedSliceNotional) {
@@ -1593,6 +1730,87 @@ function PerpTradingForm({
       ...algoOrderOptions,
     ];
   }, [intl, isSpot]);
+  const orderTypeInfoItems = useMemo(
+    () =>
+      [
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+          value: 'market',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+          value: 'limit',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_market_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_market,
+          }),
+          value: ETriggerOrderType.TRIGGER_MARKET,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_trigger_limit_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_order_trigger_limit,
+          }),
+          value: ETriggerOrderType.TRIGGER_LIMIT,
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_scale_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_scale_order__title,
+          }),
+          value: 'scale',
+        },
+        {
+          description: intl.formatMessage({
+            id: ETranslations.perp_order_type_twap_desc__desc,
+          }),
+          helpUrl: ORDER_TYPE_HELP_CENTER_URL,
+          label: intl.formatMessage({
+            id: ETranslations.perp_twap_order__title,
+          }),
+          value: 'twap',
+        },
+      ] as const satisfies readonly IOrderTypeInfoItem[],
+    [intl],
+  );
+  const selectedOrderTypeInfo = useMemo(() => {
+    if (isScaleMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'scale');
+    }
+    if (isTwapMode) {
+      return orderTypeInfoItems.find((item) => item.value === 'twap');
+    }
+    if (formData.orderMode === 'trigger') {
+      return orderTypeInfoItems.find((item) => item.value === triggerOrderType);
+    }
+    return orderTypeInfoItems.find((item) => item.value === formData.type);
+  }, [
+    formData.orderMode,
+    formData.type,
+    isScaleMode,
+    isTwapMode,
+    orderTypeInfoItems,
+    triggerOrderType,
+  ]);
 
   const lastAdvancedOrderType = useMemo(
     () =>
@@ -2350,8 +2568,9 @@ function PerpTradingForm({
                   flex={1}
                   numberOfLines={1}
                 >
-                  {/* TODO: replace hardcoded QA copy with ETranslations after the i18n key is added. */}
-                  Per child order size
+                  {intl.formatMessage({
+                    id: ETranslations.perp_twap_child_order_size__title,
+                  })}
                 </SizableText>
                 <SizableText
                   size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
@@ -2748,6 +2967,15 @@ function PerpTradingForm({
                   </XStack>
                 )}
               />
+              {selectedOrderTypeInfo ? (
+                <XStack ml="auto" alignItems="center">
+                  <OrderTypeInfoButton
+                    description={selectedOrderTypeInfo.description}
+                    helpUrl={selectedOrderTypeInfo.helpUrl}
+                    isMobile={isMobile}
+                  />
+                </XStack>
+              ) : null}
             </XStack>
           </YStack>
         </>
@@ -2852,6 +3080,7 @@ function PerpTradingForm({
         symbol={activeBaseName || perpsSelectedDisplayName}
         value={formData.size}
         onChange={handleManualSizeChange}
+        onDisplayValueChange={handleSizeInputDisplayValueChange}
         sizeInputMode={tradingComputed.sizeInputMode}
         sliderPercent={tradingComputed.sizePercent}
         onRequestManualMode={switchToManual}

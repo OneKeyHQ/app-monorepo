@@ -7,35 +7,118 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
+  swapInitialSelectedTokensSyncedAtom,
+  swapSelectFromTokenAtom,
+  swapSelectToTokenAtom,
+  swapSelectedTokensColdStartContextAtom,
+  swapTypeSwitchAtom,
+  useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedTokensColdStartContextAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { useJotaiContextRootStore } from '../../../states/jotai/utils/useJotaiContextRootStore';
-import { shouldClearSwapSelectedTokensOnHomeAccountUpdate } from '../utils/swapColdStartTokenCacheUtils';
+import { getSwapDefaultSelectedTokensFromGlobalHomeSnapshot } from '../hooks/useSwapColdStartDisplayTokens';
+import {
+  SWAP_COLD_START_HOME_SCENE_NAME,
+  buildSwapDefaultSelectedTokensFromHomeAccount,
+  shouldHandleSwapColdStartHomeAccountUpdate,
+  shouldPreserveSwapUserInputAmountOnAccountSwitch,
+  shouldPreserveSwapUserInputOnAccountSwitch,
+} from '../utils/swapColdStartTokenCacheUtils';
+
+type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
+
+export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
+  store: ISwapContextStore,
+) {
+  const hasSelectedTokens = Boolean(
+    store.get(swapSelectFromTokenAtom()) || store.get(swapSelectToTokenAtom()),
+  );
+  if (hasSelectedTokens || store.get(swapInitialSelectedTokensSyncedAtom())) {
+    return false;
+  }
+
+  const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
+    allNetworksOnly: true,
+    swapType: store.get(swapTypeSwitchAtom()),
+  });
+  if (!defaultTokens) {
+    return false;
+  }
+
+  store.set(swapSelectFromTokenAtom(), defaultTokens.fromToken);
+  store.set(swapSelectToTokenAtom(), defaultTokens.toToken);
+  store.set(swapSelectedTokensColdStartContextAtom(), defaultTokens.context);
+  store.set(swapTypeSwitchAtom(), defaultTokens.swapType);
+  return true;
+}
 
 function SwapColdStartCacheSync() {
-  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [, setSwapFromToken] = useSwapSelectFromTokenAtom();
-  const [, setSwapToToken] = useSwapSelectToTokenAtom();
+  const [swapTypeSwitch, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapFromToken, setSwapFromToken] = useSwapSelectFromTokenAtom();
+  const [swapToToken, setSwapToToken] = useSwapSelectToTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [initialSelectedTokensSynced, setInitialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
     useSwapSelectedTokensColdStartContextAtom();
   const selectedTokensColdStartContextRef = useRef(
     selectedTokensColdStartContext,
   );
   selectedTokensColdStartContextRef.current = selectedTokensColdStartContext;
+  const initialSelectedTokensSyncedRef = useRef(initialSelectedTokensSynced);
+  initialSelectedTokensSyncedRef.current = initialSelectedTokensSynced;
+  const swapTypeSwitchRef = useRef(swapTypeSwitch);
+  swapTypeSwitchRef.current = swapTypeSwitch;
+  const swapFromTokenRef = useRef(swapFromToken);
+  swapFromTokenRef.current = swapFromToken;
+  const swapToTokenRef = useRef(swapToToken);
+  swapToTokenRef.current = swapToToken;
+  const fromTokenAmountRef = useRef(fromTokenAmount);
+  fromTokenAmountRef.current = fromTokenAmount;
+  const toTokenAmountRef = useRef(toTokenAmount);
+  toTokenAmountRef.current = toTokenAmount;
 
   useEffect(() => {
+    const markInitialSelectedTokensSynced = () => {
+      if (initialSelectedTokensSyncedRef.current) {
+        return;
+      }
+      initialSelectedTokensSyncedRef.current = true;
+      setInitialSelectedTokensSynced(true);
+    };
+
     const clearSelectedTokens = () => {
       setSwapFromToken(undefined);
       setSwapToToken(undefined);
       setSelectedTokensColdStartContext(undefined);
-      setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+      markInitialSelectedTokensSynced();
+    };
+
+    const setDefaultSelectedTokensFromHomeAccount = (
+      selectedAccount?: IAccountSelectorSelectedAccount,
+    ) => {
+      const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: selectedAccount,
+        swapType: swapTypeSwitchRef.current,
+      });
+      if (!defaultTokens) {
+        return false;
+      }
+
+      setSwapFromToken(defaultTokens.fromToken);
+      setSwapToToken(defaultTokens.toToken);
+      setSelectedTokensColdStartContext(defaultTokens.context);
+      setSwapTypeSwitch(defaultTokens.swapType);
+      return true;
     };
 
     const handleHomeSelectedAccountUpdate = (eventPayload: {
@@ -44,12 +127,47 @@ function SwapColdStartCacheSync() {
       num: number;
     }) => {
       if (
-        shouldClearSwapSelectedTokensOnHomeAccountUpdate({
-          cachedContext: selectedTokensColdStartContextRef.current,
-          eventPayload,
+        eventPayload.sceneName !== SWAP_COLD_START_HOME_SCENE_NAME ||
+        eventPayload.num !== 0
+      ) {
+        return;
+      }
+      if (
+        shouldPreserveSwapUserInputAmountOnAccountSwitch({
+          fromTokenAmount: fromTokenAmountRef.current,
+          toTokenAmount: toTokenAmountRef.current,
         })
       ) {
-        clearSelectedTokens();
+        markInitialSelectedTokensSynced();
+        return;
+      }
+      if (
+        shouldPreserveSwapUserInputOnAccountSwitch({
+          fromTokenAmount: fromTokenAmountRef.current,
+          hasSelectedTokens: Boolean(
+            swapFromTokenRef.current || swapToTokenRef.current,
+          ),
+          toTokenAmount: toTokenAmountRef.current,
+        })
+      ) {
+        markInitialSelectedTokensSynced();
+        return;
+      }
+      if (
+        shouldHandleSwapColdStartHomeAccountUpdate({
+          cachedContext: selectedTokensColdStartContextRef.current,
+          eventPayload,
+          hasSelectedTokens: Boolean(
+            swapFromTokenRef.current || swapToTokenRef.current,
+          ),
+          initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
+        })
+      ) {
+        if (
+          !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
+        ) {
+          clearSelectedTokens();
+        }
       }
     };
 
@@ -64,6 +182,7 @@ function SwapColdStartCacheSync() {
       );
     };
   }, [
+    setInitialSelectedTokensSynced,
     setSelectedTokensColdStartContext,
     setSwapFromToken,
     setSwapToToken,
@@ -88,6 +207,11 @@ export function useSwapContextStoreInitData(
 export const SwapRootProvider = memo(() => {
   const data = useSwapContextStoreInitData(EJotaiContextStoreNames.swap);
   const store = useJotaiContextRootStore(data);
+  const hasHydratedAllNetworkDefaultsRef = useRef(false);
+  if (!hasHydratedAllNetworkDefaultsRef.current) {
+    hasHydratedAllNetworkDefaultsRef.current = true;
+    hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(store);
+  }
   return (
     <ProviderJotaiContextSwap store={store}>
       <SwapColdStartCacheSync />
@@ -99,6 +223,10 @@ SwapRootProvider.displayName = 'SwapRootProvider';
 export const SwapModalRootProvider = memo(() => {
   const data = useSwapContextStoreInitData(EJotaiContextStoreNames.swapModal);
   const store = useJotaiContextRootStore(data);
-  return <ProviderJotaiContextSwap store={store} />;
+  return (
+    <ProviderJotaiContextSwap store={store}>
+      <SwapColdStartCacheSync />
+    </ProviderJotaiContextSwap>
+  );
 });
 SwapModalRootProvider.displayName = 'SwapModalRootProvider';

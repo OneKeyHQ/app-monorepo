@@ -52,6 +52,7 @@ interface IMobileMarketWatchlistFlatListProps {
     paddingBottom: number;
   };
   enableWebSocket?: boolean;
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -66,6 +67,7 @@ function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
   enableWebSocket,
+  shouldSuppressItemPress,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -262,11 +264,16 @@ function MobileMarketWatchlistFlatListImpl({
         <TokenListItem
           item={item}
           onPress={() => {
+            clearMenuTimer();
+            if (shouldSuppressItemPress?.()) {
+              gestureRef.current.consumeNextPress = false;
+              resetGestureSession();
+              return;
+            }
             if (gestureRef.current.consumeNextPress) {
               gestureRef.current.consumeNextPress = false;
               return;
             }
-            clearMenuTimer();
             if (item.perpsCoin) {
               navigateToPerps(item.perpsCoin);
               return;
@@ -276,7 +283,6 @@ function MobileMarketWatchlistFlatListImpl({
               tokenAddress: item.address,
               networkId: item.networkId,
               isNative: item.isNative,
-              decimals: item.decimals,
             });
           }}
           onPressIn={(event: GestureResponderEvent) => {
@@ -364,6 +370,7 @@ function MobileMarketWatchlistFlatListImpl({
       handleShowContextMenu,
       navigateToPerps,
       resetGestureSession,
+      shouldSuppressItemPress,
       toMarketDetailPage,
     ],
   );
@@ -392,7 +399,7 @@ function MobileMarketWatchlistFlatListImpl({
   const tabBarHeight = useScrollContentTabBarOffset();
   const contentContainerStyle = useMemo(
     () => ({
-      ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+      ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
       paddingBottom: platformEnv.isNativeAndroid
         ? listContainerProps.paddingBottom
         : tabBarHeight,

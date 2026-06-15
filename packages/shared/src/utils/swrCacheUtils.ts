@@ -49,6 +49,12 @@ function loadStore(): ISWRStore {
   return _cache;
 }
 
+function reloadFromStorage(): void {
+  flush();
+  _cache = undefined;
+  loadStore();
+}
+
 function flush() {
   if (!_dirty || !_cache) return;
   try {
@@ -157,6 +163,7 @@ function flushNow(): void {
 const NS = {
   allNetworksCompatible: 'allNetCompat',
   unifiedNetworkSelectorMeta: 'unsMeta',
+  unifiedNetworkSelectorValues: 'unsValues',
   networkContentData: 'netContent',
   recentNetworks: 'recentNets',
   walletListSideBar: 'walletList',
@@ -209,6 +216,28 @@ export const swrKeys = {
     accountId?: string;
   }) =>
     [NS.unifiedNetworkSelectorMeta, 'v1', walletId, accountId ?? ''].join(':'),
+  // UnifiedNetworkSelector modal's balances/DeFi bundle: formatted per-network
+  // USD values + currency + DeFi overview. SWR-cached (cold-start MMKV) so the
+  // "networks with assets" section is present on the first frame, eliminating
+  // the layout jump. Currency is deliberately NOT in the key — it only labels
+  // the same primitive values. Each account keeps its own snapshot via
+  // walletId + accountId + indexedAccountId.
+  unifiedNetworkSelectorValues: ({
+    walletId,
+    accountId,
+    indexedAccountId,
+  }: {
+    walletId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+  }) =>
+    [
+      NS.unifiedNetworkSelectorValues,
+      'v1',
+      walletId,
+      accountId ?? '',
+      indexedAccountId ?? '',
+    ].join(':'),
   // NetworkContent (the "Network" tab inside UnifiedNetworkSelector) bundles
   // sorted chainSelectorNetworks + account balances + DeFi overview into one
   // result object. Balances/DeFi are included despite being volatile because
@@ -330,7 +359,13 @@ export const swrKeys = {
     [NS.perpsL2BookSnapshot, 'v1', coin, nSigFigs ?? '', mantissa ?? ''].join(
       ':',
     ),
+  perpsL2BookSnapshotLatest: ({ coin }: { coin: string }) =>
+    [NS.perpsL2BookSnapshot, 'v1', coin, 'latest'].join(':'),
 };
+
+function uniqueCacheKeys(keys: string[]) {
+  return Array.from(new Set(keys));
+}
 
 export function getPerpsL2BookSnapshotCacheKeys({
   coin,
@@ -341,13 +376,16 @@ export function getPerpsL2BookSnapshotCacheKeys({
   nSigFigs?: number | null;
   mantissa?: number | null;
 }) {
-  return [
+  return uniqueCacheKeys([
     swrKeys.perpsL2BookSnapshot({
       coin,
       nSigFigs,
       mantissa,
     }),
-  ];
+    swrKeys.perpsL2BookSnapshotLatest({
+      coin,
+    }),
+  ]);
 }
 
 export const swrCacheUtils = {
@@ -359,4 +397,5 @@ export const swrCacheUtils = {
   isFresh,
   clearAll,
   flushNow,
+  reloadFromStorage,
 };

@@ -419,6 +419,7 @@ export interface IMarketBasicConfigToken {
   name: string;
   symbol: string;
   logo?: string;
+  communityRecognized?: boolean;
 }
 
 export interface IMarketBasicConfigNetworkFeature {
@@ -458,8 +459,15 @@ export interface IMarketBasicConfigData {
   feature?: IMarketBasicConfigFeature;
   lowLiquidKlineSourceTokens?: IMarketBasicConfigLowLiquidKlineSourceToken[];
   HyperLiquidKlineSourceTokens?: IMarketBasicConfigHyperLiquidKlineSourceToken[];
+  homeTab?: IMarketBasicConfigHomeTab[];
   perpsCategories?: IMarketPerpsCategory[];
   spotCategories?: IMarketSpotCategory[];
+}
+
+export interface IMarketBasicConfigHomeTab {
+  type: string;
+  name: string;
+  icon?: string;
 }
 
 export interface IMarketSpotCategory {

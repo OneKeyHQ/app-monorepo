@@ -39,7 +39,10 @@ import {
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
-import { shouldShowStockSubtitleForTokens } from './utils/tokenListHelpers';
+import {
+  shouldShowStockSubtitleForTokens,
+  shouldUseStockMetadataColumnsForTokens,
+} from './utils/tokenListHelpers';
 
 import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
 
@@ -51,26 +54,14 @@ const SORTABLE_COLUMNS = {
   turnover: 'v24hUSD',
 } as const;
 
-// Client sort mode: all numeric columns are sortable (client-side sort)
+// Client sort mode is used by banner detail and only supports 24h change.
 const CLIENT_SORTABLE_COLUMNS: Record<string, string> = {
-  ...SORTABLE_COLUMNS,
-  price: 'price',
   change24h: 'change24h',
-  transactions: 'transactions',
-  uniqueTraders: 'uniqueTraders',
-  holders: 'holders',
 };
 
 // Sort key → IMarketToken field mapping for client-side sorting
 const CLIENT_SORT_FIELD_MAP: Record<string, keyof IMarketToken> = {
-  price: 'price',
   change24h: 'change24h',
-  mc: 'marketCap',
-  liquidity: 'liquidity',
-  v24hUSD: 'turnover',
-  transactions: 'transactions',
-  uniqueTraders: 'uniqueTraders',
-  holders: 'holders',
 };
 
 // Map sort keys to ESortWay enum values for logging
@@ -79,6 +70,12 @@ const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
   mc: ESortWay.MC,
   v24hUSD: ESortWay.Volume,
 };
+
+const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
+  'marketCap',
+  'liquidity',
+  'turnover',
+]);
 
 export type IMarketTokenListResult = {
   data: IMarketToken[];
@@ -195,6 +192,13 @@ function MarketTokenListBase({
 
     return shouldShowStockSubtitleForTokens(rawData);
   }, [rawData, showStockSubtitle]);
+  const useStockMetadataColumns = useMemo(
+    () =>
+      (showStockSubtitle === 'auto' ||
+        (isWatchlistMode && showStockSubtitle !== false)) &&
+      shouldUseStockMetadataColumnsForTokens(rawData),
+    [isWatchlistMode, rawData, showStockSubtitle],
+  );
 
   const marketTokenColumns = useMarketTokenColumns(
     networkId,
@@ -206,6 +210,7 @@ function MarketTokenListBase({
     resolvedShowStockSubtitle,
     hiddenDesktopColumns,
     change24hColumnTitle,
+    useStockMetadataColumns,
   );
 
   // Client-side sorting: sort data locally when clientSort is enabled
@@ -301,8 +306,15 @@ function MarketTokenListBase({
         return undefined;
       }
 
-      // Client sort mode uses all numeric columns,
-      // watchlist mode uses restricted server-side sortable columns
+      if (
+        useStockMetadataColumns &&
+        STOCK_METADATA_COLUMN_DATA_INDEXES.has(String(column.dataIndex))
+      ) {
+        return undefined;
+      }
+
+      // Client sort mode is used by banner detail for 24h change sorting,
+      // watchlist mode uses restricted server-side sortable columns.
       const columnsMap = clientSort
         ? CLIENT_SORTABLE_COLUMNS
         : SORTABLE_COLUMNS;
@@ -328,6 +340,7 @@ function MarketTokenListBase({
       clientSort,
       currentSortBy,
       currentSortType,
+      useStockMetadataColumns,
     ],
   );
 
@@ -370,7 +383,6 @@ function MarketTokenListBase({
               tokenAddress: item.address,
               networkId: item.networkId,
               isNative: item.isNative,
-              decimals: item.decimals,
             });
           },
       onLongPress: onItemLongPressRef.current
@@ -503,7 +515,7 @@ function MarketTokenListBase({
 
   const tableContentContainerStyle = tabIntegrated
     ? {
-        paddingTop: 8 + (platformEnv.isNative ? 195 : 0),
+        paddingTop: 4 + (platformEnv.isNative ? 195 : 0),
         paddingBottom: integratedContentPaddingBottom,
       }
     : {

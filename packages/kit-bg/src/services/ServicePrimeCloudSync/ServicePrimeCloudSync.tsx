@@ -2529,7 +2529,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       key: localItem.id,
       dataType: localItem.dataType,
       data: localItem.data || '',
-      dataTimestamp: dataTimestamp ?? localItem.dataTime,
+      dataTimestamp: cloudSyncItemBuilder.normalizeDataTime(
+        dataTimestamp ?? localItem.dataTime,
+      ),
       isDeleted: localItem.isDeleted,
       pwdHash: localItem.pwdHash,
     };
@@ -2561,7 +2563,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       rawData: '',
       dataType: serverItem.dataType, // TODO return from server
       data: serverItem.data,
-      dataTime: serverItem.dataTimestamp,
+      dataTime: cloudSyncItemBuilder.normalizeDataTime(
+        serverItem.dataTimestamp,
+      ),
       isDeleted: serverItem.isDeleted,
       pwdHash: serverItem.pwdHash || serverPwdHash,
       localSceneUpdated: false, // server item

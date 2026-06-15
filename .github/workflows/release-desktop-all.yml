@@ -34,7 +34,6 @@ on:
 
 permissions:
   contents: read
-  packages: read # read:packages for the offline TradingView chart bundle (cross-repo)
 
 env:
   ONEKEY_ALLOW_SKIP_GPG_VERIFICATION: ${{ github.event.inputs.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION || 'false' }}
@@ -136,12 +135,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
-
-      - name: Stage TradingView offline chart assets
-        env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRADINGVIEW_ASSETS_REQUIRED: '1'
-        run: node development/scripts/fetch-tradingview-assets.mjs
 
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4
@@ -369,7 +362,11 @@ jobs:
   # ═══════════════════════════════════════════════════
   package-win:
     needs: renderer
-    runs-on: windows-2025
+    # Pin to windows-2022 (VS 2022 / v17). The windows-2025 runner image now
+    # ships Visual Studio 18, which the bundled node-gyp cannot detect
+    # ("find VS unknown version undefined found at ...\Visual Studio\18"),
+    # breaking every native module rebuild during `install-app-deps`.
+    runs-on: windows-2022
     strategy:
       matrix:
         node-version: [24.x]
@@ -444,12 +441,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
-
-      - name: Stage TradingView offline chart assets
-        env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRADINGVIEW_ASSETS_REQUIRED: '1'
-        run: node development/scripts/fetch-tradingview-assets.mjs
 
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4
@@ -659,7 +650,13 @@ jobs:
           echo "::warning::GPG verification is SKIPPED for this build. This should only be used in CI/dev builds."
 
       - name: Install Snapcraft
-        uses: samuelmeuli/action-snapcraft@v2
+        # Pin to the 8.x track. snapcraft 9.0.0 removed the `snap` subcommand
+        # (renamed to `pack`), which electron-builder's app-builder still calls,
+        # causing `exit status 64`. 8.x keeps `snap` and still supports the
+        # core24 base used by this snap config.
+        run: |
+          sudo snap install snapcraft --classic --channel=8.x/stable \
+            || sudo snap refresh snapcraft --classic --channel=8.x/stable
 
       - name: Install snap dependencies for snapcraft build
         run: |
@@ -697,12 +694,6 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn install --immutable
-
-      - name: Stage TradingView offline chart assets
-        env:
-          NPM_GITHUB_READ_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRADINGVIEW_ASSETS_REQUIRED: '1'
-        run: node development/scripts/fetch-tradingview-assets.mjs
 
       - name: Download Renderer Artifact
         uses: actions/download-artifact@v4

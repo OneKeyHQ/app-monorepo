@@ -436,8 +436,6 @@ export function createBaseConfig({
           test: [
             /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
             /(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
-            /react-router/,
-            /turbo-stream/,
             /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
 

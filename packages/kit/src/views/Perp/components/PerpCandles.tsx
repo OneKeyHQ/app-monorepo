@@ -14,8 +14,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export function PerpCandles({
+  collapseChartExpandSignal,
   onTouchScroll,
 }: {
+  collapseChartExpandSignal?: number;
   onTouchScroll?: (deltaY: number) => void;
 }) {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
@@ -48,6 +50,7 @@ export function PerpCandles({
           symbol={activeTradeInstrument.coin}
           displayPair={displayPair}
           displayCoin={displayCoin}
+          collapseChartExpandSignal={collapseChartExpandSignal}
           w="100%"
           onTouchScroll={onTouchScroll}
         />

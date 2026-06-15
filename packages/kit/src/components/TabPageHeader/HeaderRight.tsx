@@ -23,6 +23,7 @@ import { MoreActionButton } from '../MoreActionButton';
 import {
   GiftAction,
   HeaderNotificationIconButton,
+  HeaderUpdateButton,
   WalletConnectionForWeb,
 } from './components';
 
@@ -101,6 +102,7 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
+        <HeaderUpdateButton />
         <HeaderNotificationIconButton testID="header-right-notification" />
         <MoreAction />
       </>
