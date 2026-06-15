@@ -157,6 +157,12 @@ type IProps = {
       tokens: IAccountToken[];
     }
   >;
+  // PR-6: the selector's self-fetched, flattened aggregate fiat map
+  // ($key -> summed ITokenFiat across networks). The per-row
+  // `tokenSelectorTokenListMap` does NOT carry aggregate `$key` fiat, so the
+  // selector path feeds THIS into `context.aggregateTokenFiatMap` (instead of
+  // EMPTY) and the non-cell leaves resolve aggregate-row balance/value/price.
+  tokenSelectorAggregateTokenFiatMap?: Record<string, ITokenFiat>;
   // PR-3: `false` until TokenSelector's self-fetch `usePromiseResult` resolves
   // the first time. On the `isTokenSelector` branch the displayed list comes
   // from `tokenSelectorTokenList` (props) which starts empty, but the home
@@ -318,6 +324,17 @@ function TokenListViewCmp(props: IProps) {
   } else if (isTokenSelector) {
     visibleTokenListMap = selectorFiatMap;
   }
+
+  const { networksMap, useCellSeam } = useTokenListViewContext();
+  // HOME projection path marker — read the SAME context flag the leaves read so
+  // home/leaf agree (spec §5, PR-S). The wrapper computes
+  // `useCellSeam = enableCellSeam && !isTokenSelector &&
+  // !showActiveAccountTokenList && !scopedActiveAccountTokenListMap`; the inner
+  // cmp reads it here rather than recomputing divergently. Hoisted above the
+  // `tokens`/`filteredTokens` memos so those legacy-atom memos can early-return
+  // on the home projection path (PR-6: free the HOME data path of the legacy
+  // atom values).
+  const isHomeProjectionPath = !!useCellSeam;
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
@@ -615,13 +632,6 @@ function TokenListViewCmp(props: IProps) {
 
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
-  const { networksMap, useCellSeam } = useTokenListViewContext();
-  // HOME projection path marker — read the SAME context flag the leaves read so
-  // home/leaf agree (spec §5, PR-S). The wrapper computes
-  // `useCellSeam = enableCellSeam && !isTokenSelector &&
-  // !showActiveAccountTokenList && !scopedActiveAccountTokenListMap`; the inner
-  // cmp reads it here rather than recomputing divergently.
-  const isHomeProjectionPath = !!useCellSeam;
   // The per-store cell registry handle — used for NON-REACTIVE per-id cell/meta
   // reads inside the displayIds projection (store.get, NOT useAtomValue) so a
   // price tick that only writes a cell does not re-run the projection memo
@@ -630,6 +640,17 @@ function TokenListViewCmp(props: IProps) {
   const { store: tokenListStore } = useTokenListContextData();
 
   const filteredTokens = useMemo(() => {
+    // PR-6: the HOME path derives its order/membership from `homeProjectedIds`
+    // (off `listStructure` + cells via `projectHomeDisplayIds`), so this memo —
+    // and its `visibleTokenListMap`/`aggregateTokenMap` whole-map reads for
+    // search/sort — must NOT run on home. `tokens` here is the raw UNSORTED home
+    // list (= `tokenList.tokens`, non-empty on home); it is intentionally
+    // bypassed because home order/membership come from `homeProjectedIds`. The
+    // early-return keeps this memo off the legacy fiat maps so a price tick
+    // cannot re-run a whole-map spread here (PR-S invariant).
+    if (isHomeProjectionPath) {
+      return tokens;
+    }
     const useNetworkSearch = !!isTokenSelector && !!searchAll;
     let resp = getFilteredTokenBySearchKey({
       tokens,
@@ -680,6 +701,7 @@ function TokenListViewCmp(props: IProps) {
 
     return resp;
   }, [
+    isHomeProjectionPath,
     tokens,
     isTokenSelector,
     tokenSelectorSearchKey,
@@ -1264,6 +1286,19 @@ function TokenListViewCmp(props: IProps) {
 
 const TokenListView = memo((props: IProps) => {
   const [tokenListMap] = useTokenListMapAtom();
+  // INTERIM (tokenList SLC full-delete plan, PR-6): mirror the still-living
+  // `flattenAggregateTokensMapAtom` into `context.aggregateTokenFiatMap` so the
+  // per-key leaves resolve aggregate fiat on the NON-cell paths from context
+  // instead of reading the atom directly. On the AssetList isolated store this
+  // is THIS store's scoped value (fed by its own refreshAggregateTokensMap) —
+  // byte-identical to what the 5 leaves used to read, just relocated to a single
+  // wrapper read. On the HOME cell path the leaves take `aggCell` so this is
+  // unused; on the selector path it is replaced by the selector's OWN flattened
+  // aggregate fiat map (`tokenSelectorAggregateTokenFiatMap` prop) — see the
+  // `aggregateTokenFiatMap` memo below. PR-7 moves AssetList onto the cell seam
+  // and drops this atom read.
+  const [flattenAggregateTokensMapFromAtom] =
+    useFlattenAggregateTokensMapAtom();
   // INTERIM (tokenList SLC full-delete plan, PR-1): mirror the still-living
   // `aggregateTokensListMapAtom` into the context so the per-key leaves
   // (TokenIconView / TokenNameView / TokenActionsView) resolve their owned
@@ -1312,6 +1347,27 @@ const TokenListView = memo((props: IProps) => {
     props.tokenSelectorTokenListMap,
     tokenListMap,
   ]);
+  // PR-6: aggregate fiat the NON-cell leaves resolve from context.
+  //  - AssetList / active-account / LP-scoped (non-selector): this store's
+  //    scoped flatten map (interim atom mirror; PR-7 retires).
+  //  - selector: the selector's OWN flattened aggregate fiat map (threaded as a
+  //    prop from TokenSelector's self-fetch). The per-row
+  //    `tokenSelectorTokenListMap` (selectorFiatMap) does NOT carry aggregate
+  //    `$key` fiat, so without this the all-networks selector rows lose
+  //    balance/value/price. The home flatten atom would be the WRONG owner for a
+  //    cross-account selector, so it stays unused here.
+  //  - home cell path: unused (leaves take `aggCell` via `useTokenFiat`).
+  const aggregateTokenFiatMap = useMemo(() => {
+    if (props.isTokenSelector) {
+      return props.tokenSelectorAggregateTokenFiatMap ?? EMPTY_FIAT_MAP;
+    }
+    return flattenAggregateTokensMapFromAtom;
+  }, [
+    props.isTokenSelector,
+    props.tokenSelectorAggregateTokenFiatMap,
+    flattenAggregateTokensMapFromAtom,
+  ]);
+
   const needNetworksMap =
     !!props.isAllNetworks && (!!props.showNetworkIcon || !!props.withNetwork);
   const { result: allNetworksResp } = usePromiseResult<{
@@ -1360,6 +1416,7 @@ const TokenListView = memo((props: IProps) => {
       ownedAggregateTokenListMap,
       networksMap,
       tokenListMap: visibleTokenListMap,
+      aggregateTokenFiatMap,
       useCellSeam,
     };
   }, [
@@ -1367,6 +1424,7 @@ const TokenListView = memo((props: IProps) => {
     ownedAggregateTokenListMap,
     networksMap,
     visibleTokenListMap,
+    aggregateTokenFiatMap,
     useCellSeam,
   ]);
 

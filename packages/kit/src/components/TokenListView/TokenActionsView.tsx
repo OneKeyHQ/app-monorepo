@@ -13,17 +13,20 @@ import {
   ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { useTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
 import type { XStackProps } from 'tamagui';
+
+// Stable module-level empty default so the non-home fallback does not hand a
+// fresh `{}` to the sort effect's deps every render.
+const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 
 type IProps = {
   token: IAccountToken;
@@ -35,8 +38,11 @@ function TokenActionsView(props: IProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { tokenListMap: contextTokenListMap, ownedAggregateTokenListMap } =
     useTokenListViewContext();
-  const [globalTokenListMap] = useTokenListMapAtom();
-  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
+  // PR-6: drop the `useTokenListMapAtom` fallback. On home `contextTokenListMap`
+  // is the wrapper's `visibleTokenListMap` (still the atom until PR-7); on
+  // non-home it is the path's map. The empty fallback only matters before the
+  // wrapper map lands, where there are no aggregate sub-tokens to sort yet.
+  const tokenListMap = contextTokenListMap ?? EMPTY_FIAT_MAP;
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
 

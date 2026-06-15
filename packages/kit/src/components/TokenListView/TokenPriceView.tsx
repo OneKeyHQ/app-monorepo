@@ -3,10 +3,6 @@ import { memo } from 'react';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import {
-  useFlattenAggregateTokensMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
 import { useTokenFiat } from '../../states/jotai/contexts/tokenList/slc';
 import { Currency } from '../Currency';
 
@@ -18,16 +14,16 @@ type IProps = {
 
 function TokenPriceView(props: IProps) {
   const { $key, ...rest } = props;
-  const { tokenListMap: contextTokenListMap, useCellSeam } =
-    useTokenListViewContext();
-  const [globalTokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  // Home path (spec §5): per-key cell subscription; other paths keep the
-  // `contextTokenListMap ?? globalMap` fallback.
+  const {
+    tokenListMap: contextTokenListMap,
+    aggregateTokenFiatMap: contextAggregateTokenFiatMap,
+    useCellSeam,
+  } = useTokenListViewContext();
+  // Home path (spec §5): per-key cell subscription; non-cell paths resolve from
+  // the context map + context aggregate fiat (PR-6).
   const cellToken = useTokenFiat($key);
   const mapToken =
-    (contextTokenListMap ?? globalTokenListMap)[$key] ??
-    aggregateTokensMap[$key];
+    contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
   const token = useCellSeam ? cellToken : mapToken;
 
   return (

@@ -44,7 +44,11 @@ import {
   buildTokenSelectorDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkIsOnlyOneTokenHasBalance,
+  flattenAggregateTokensMap,
+  nestAggregateTokensMap,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -272,6 +276,15 @@ function TokenSelector() {
   >({});
   const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
     useState<Record<string, { tokens: IAccountToken[] }>>({});
+  // PR-6: the flattened ($key -> summed ITokenFiat) aggregate fiat map for the
+  // selector's all-networks rows. The self-fetch response's `aggregateTokenMap`
+  // is FLAT per single-network request; we nest it by networkId and re-flatten
+  // with the SAME sum semantics the home `flattenAggregateTokensMapAtom` uses
+  // so the aggregate (all-networks) selector rows resolve real balance/value/
+  // price (the per-row `tokenSelectorTokenListMap` does NOT carry aggregate
+  // `$key` fiat). Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
+  const [selectorAggregateTokenFiatMap, setSelectorAggregateTokenFiatMap] =
+    useState<Record<string, ITokenFiat>>({});
   // PR-3: `false` until the self-fetch below resolves the first time. Threaded
   // into TokenListView so the selector shows a skeleton (or its per-owner
   // cached list) until the self-fetch lands instead of flashing EmptyToken —
@@ -953,6 +966,7 @@ function TokenSelector() {
       setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
       setSelectorTokenListMap({});
       setSelectorAggregateTokenListMap({});
+      setSelectorAggregateTokenFiatMap({});
       setSelectorInitialized(true);
       return;
     }
@@ -985,6 +999,19 @@ function TokenSelector() {
       ...r.smallBalanceTokens.map,
     });
     setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
+    // The response `aggregateTokenMap` is FLAT ($key -> ITokenFiat) for this
+    // single-network request; nest it by networkId then flatten with the home
+    // sum semantics so aggregate rows resolve correct fiat in TokenListView.
+    setSelectorAggregateTokenFiatMap(
+      r.aggregateTokenMap
+        ? flattenAggregateTokensMap(
+            nestAggregateTokensMap({
+              aggregateTokenMap: r.aggregateTokenMap,
+              networkId,
+            }),
+          )
+        : {},
+    );
     setSelectorInitialized(true);
   }, [
     accountId,
@@ -1038,6 +1065,7 @@ function TokenSelector() {
           tokenSelectorTokenList={selectorTokenList}
           tokenSelectorTokenListMap={selectorTokenListMap}
           tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
+          tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
           tokenSelectorInitialized={selectorInitialized}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isSelectorAllNetworks}

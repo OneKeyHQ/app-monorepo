@@ -26,6 +26,18 @@ export interface ITokenListViewContextValue {
   >;
   networksMap?: Record<string, IServerNetwork>;
   tokenListMap?: Record<string, ITokenFiat>;
+  // Per-$key AGGREGATE fiat map (sum-of-subcells shape, `ITokenFiat`). Distinct
+  // from `ownedAggregateTokenListMap` above, which carries aggregate sub-token
+  // METADATA (the nested `{ tokens }` list); this carries the FLATTENED
+  // aggregate FIAT a row renders. The host fills it on the NON-cell paths only
+  // so the per-key leaves (Balance/Value/Price/PriceChange) resolve aggregate
+  // fiat from context instead of reading `flattenAggregateTokensMapAtom`
+  // directly (tokenList SLC full-delete plan, PR-6). On the HOME cell path it is
+  // unused — the leaves take `aggCell` via `useTokenFiat`. INTERIM for the
+  // AssetList isolated store: the host mirrors that store's
+  // `flattenAggregateTokensMapAtom`; PR-7 moves AssetList onto the cell seam and
+  // retires this fill.
+  aggregateTokenFiatMap?: Record<string, ITokenFiat>;
   // TokenList SLC render binding (spec §5). When true, the per-key leaves
   // (Balance/Value/Price/PriceChange) read the per-store cell via
   // `useTokenFiat($key)` instead of the whole `tokenListMap`. Set ONLY on the
@@ -42,6 +54,7 @@ export const TokenListViewContext = createContext<ITokenListViewContextValue>({
   ownedAggregateTokenListMap: {},
   networksMap: undefined,
   tokenListMap: undefined,
+  aggregateTokenFiatMap: undefined,
   useCellSeam: false,
 });
 
