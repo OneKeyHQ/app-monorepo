@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -89,6 +89,8 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
   const theme = useThemeVariant();
+  const themeColors = useTheme();
+  const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [
@@ -194,6 +196,13 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     additionalParams,
     disabledFeatures,
   });
+  const tradingViewWebViewStyleProps = useMemo(
+    () => ({
+      containerStyle: { backgroundColor: tradingViewBackgroundColor },
+      style: { backgroundColor: tradingViewBackgroundColor },
+    }),
+    [tradingViewBackgroundColor],
+  );
 
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
@@ -361,6 +370,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     () => (
       <WebView
         key={`${theme}:${tradingViewUrlWithParams}`}
+        containerProps={{ bg: '$bgApp' }}
+        containerStyle={tradingViewWebViewStyleProps.containerStyle}
+        style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={async (data) => {
           const receiveData = data as ICustomReceiveHandlerData;
           await customReceiveHandler(receiveData);
@@ -387,6 +399,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       onShouldStartLoadWithRequest,
       theme,
       tradingViewUrlWithParams,
+      tradingViewWebViewStyleProps,
     ],
   );
 

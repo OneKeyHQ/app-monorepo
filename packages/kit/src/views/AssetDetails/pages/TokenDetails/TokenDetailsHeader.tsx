@@ -56,9 +56,11 @@ import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -337,31 +339,47 @@ function TokenDetailsHeaderContent({
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const createSwapActionHandler = useCallback(
-    (actionType: ESwapTabSwitchType) => async () => {
+    () => async () => {
+      const importFromToken: ISwapToken = {
+        contractAddress: tokenInfo.address,
+        symbol: tokenInfo.symbol,
+        networkId,
+        isNative: tokenInfo.isNative,
+        decimals: tokenInfo.decimals,
+        name: tokenInfo.name,
+        logoURI: tokenInfo.logoURI,
+        networkLogoURI: network?.logoURI,
+      };
+      let importToToken: ISwapToken | undefined;
+      try {
+        const { isSupportSwap, isSupportCrossChain } =
+          await backgroundApiProxy.serviceSwap.checkSupportSwap({
+            networkId,
+          });
+        if (!isSupportSwap && isSupportCrossChain) {
+          importToToken = getSwapBridgeDefaultToToken(importFromToken);
+        }
+      } catch {
+        // Keep the existing Swap fallback if capability refresh fails.
+      }
+      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
+
       defaultLogger.wallet.walletActions.actionTrade({
         walletType: wallet?.type ?? '',
         networkId: network?.id ?? '',
         source: 'tokenDetails',
-        tradeType: actionType,
+        tradeType: swapTabSwitchType,
         isSoftwareWalletOnlyUser,
       });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
           importNetworkId: networkId,
-          importFromToken: {
-            contractAddress: tokenInfo.address,
-            symbol: tokenInfo.symbol,
-            networkId,
-            isNative: tokenInfo.isNative,
-            decimals: tokenInfo.decimals,
-            name: tokenInfo.name,
-            logoURI: tokenInfo.logoURI,
-            networkLogoURI: network?.logoURI,
-          },
+          importFromToken,
+          importToToken,
           importDeriveType: deriveType,
-          ...(actionType && {
-            swapTabSwitchType: actionType,
+          ...(swapTabSwitchType && {
+            swapTabSwitchType,
           }),
           swapSource: ESwapSource.TOKEN_DETAIL,
         },
@@ -384,7 +402,7 @@ function TokenDetailsHeaderContent({
     ],
   );
 
-  const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
+  const handleOnSwap = createSwapActionHandler();
 
   const disableSwapAction = useMemo(
     () => accountUtils.isUrlAccountFn({ accountId }),

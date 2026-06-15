@@ -76,7 +76,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSendRoutes,
+  EModalSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
@@ -99,6 +103,7 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   privateSendHelpCenterUrl,
   privateSendProvider,
+  swapDefaultSetTokens,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -112,6 +117,7 @@ import {
   EProtocolOfExchange,
   ESwapFetchCancelCause,
   ESwapQuoteKind,
+  ESwapSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -210,6 +216,25 @@ type IPrivateSendBuildCtx = {
 const privateSendValueDropWarningPercent = 5;
 const privateSendValueDropCountdownSeconds = 5;
 
+function convertBaseTokenToSwapToken({
+  networkId,
+  tokenInfo,
+}: {
+  networkId: string;
+  tokenInfo?: IToken | null;
+}): ISwapToken | undefined {
+  if (!tokenInfo) return undefined;
+  return {
+    networkId,
+    contractAddress: tokenInfo.address,
+    isNative: tokenInfo.isNative,
+    symbol: tokenInfo.symbol,
+    decimals: tokenInfo.decimals,
+    name: tokenInfo.name,
+    logoURI: tokenInfo.logoURI,
+  };
+}
+
 function convertTokenToSwapToken({
   networkId,
   tokenDetails,
@@ -217,19 +242,43 @@ function convertTokenToSwapToken({
   networkId: string;
   tokenDetails?: { info: IToken } & ITokenFiat;
 }): ISwapToken | undefined {
-  if (!tokenDetails?.info) return undefined;
-  return {
+  if (!tokenDetails) return undefined;
+  const swapToken = convertBaseTokenToSwapToken({
     networkId,
-    contractAddress: tokenDetails.info.address,
-    isNative: tokenDetails.info.isNative,
-    symbol: tokenDetails.info.symbol,
-    decimals: tokenDetails.info.decimals,
-    name: tokenDetails.info.name,
-    logoURI: tokenDetails.info.logoURI,
+    tokenInfo: tokenDetails.info,
+  });
+  if (!swapToken) return undefined;
+  return {
+    ...swapToken,
     balanceParsed: tokenDetails.balanceParsed,
     price: tokenDetails.price?.toString(),
     fiatValue: tokenDetails.fiatValue,
   };
+}
+
+function getSendSwapDefaultFromToken({
+  networkId,
+  targetToken,
+}: {
+  networkId: string;
+  targetToken?: ISwapToken;
+}): ISwapToken | undefined {
+  if (!targetToken) return undefined;
+  const defaultTokens = swapDefaultSetTokens[networkId];
+  const candidates = [
+    defaultTokens?.fromToken,
+    defaultTokens?.toToken,
+    defaultTokens?.limitFromToken,
+    defaultTokens?.limitToToken,
+  ];
+  return candidates.find(
+    (candidate) =>
+      candidate &&
+      !equalTokenNoCaseSensitive({
+        token1: candidate,
+        token2: targetToken,
+      }),
+  );
 }
 
 function buildPrivateSendQuoteScopeKey({
@@ -599,6 +648,23 @@ function SendAmountInputContainer() {
   const privateSendToken = useMemo(
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
+  );
+  const sendSwapTargetToken = useMemo(
+    () =>
+      privateSendToken ??
+      convertBaseTokenToSwapToken({
+        networkId,
+        tokenInfo,
+      }),
+    [networkId, privateSendToken, tokenInfo],
+  );
+  const sendSwapFromToken = useMemo(
+    () =>
+      getSendSwapDefaultFromToken({
+        networkId,
+        targetToken: sendSwapTargetToken,
+      }),
+    [networkId, sendSwapTargetToken],
   );
 
   const { result: isPrivateSendSupported = false } = usePromiseResult(
@@ -1553,6 +1619,23 @@ function SendAmountInputContainer() {
       isWatchingWallet,
     ],
   );
+  const showSwapButton = useMemo(
+    () =>
+      isInsufficientBalance &&
+      !isNFT &&
+      showReviewControl &&
+      !!sendSwapTargetToken &&
+      !!sendSwapFromToken &&
+      !(isWatchingWallet && !platformEnv.isDev),
+    [
+      isInsufficientBalance,
+      isNFT,
+      showReviewControl,
+      sendSwapTargetToken,
+      sendSwapFromToken,
+      isWatchingWallet,
+    ],
+  );
   const [isBuyLoading, setIsBuyLoading] = useState(false);
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
@@ -1575,6 +1658,26 @@ function SendAmountInputContainer() {
       setIsBuyLoading(false);
     }
   }, [networkId, tokenInfo?.address, currentAccountId]);
+  const handleSwapToken = useCallback(() => {
+    if (!sendSwapTargetToken) return;
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importDeriveType: deriveType,
+        importFromToken: sendSwapFromToken,
+        importToToken: sendSwapTargetToken,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.WALLET_TAB,
+      },
+    });
+  }, [
+    deriveType,
+    navigation,
+    networkId,
+    sendSwapFromToken,
+    sendSwapTargetToken,
+  ]);
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
@@ -2294,12 +2397,10 @@ function SendAmountInputContainer() {
                   updated: created,
                 },
                 swapInfo: {
-                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '0',
+                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
-                  oneKeyFee:
-                    normalizedBuildSwapRes.result.fee?.percentageFee ?? 0,
-                  protocolFee:
-                    normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
+                  oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
                   orderId: privateSendOrderId,
@@ -3697,9 +3798,26 @@ function SendAmountInputContainer() {
     : intl.formatMessage({
         id: ETranslations.send_preview_button,
       });
+  const isInsufficientActionAvailable = showSwapButton || showBuyButton;
 
-  const renderPrivateSendFooterButtons = showBuyButton ? (
-    <>
+  let renderInsufficientPrimaryButton: ReactNode = null;
+  if (showSwapButton) {
+    renderInsufficientPrimaryButton = (
+      <Button
+        testID={SendTestIDs.swapTokenButton}
+        variant="primary"
+        onPress={handleSwapToken}
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_swap,
+        })} ${tokenSymbol}`}
+      </Button>
+    );
+  } else if (showBuyButton) {
+    renderInsufficientPrimaryButton = (
       <Button
         testID={SendTestIDs.buyTokenButton}
         variant="primary"
@@ -3718,6 +3836,12 @@ function SendAmountInputContainer() {
           id: ETranslations.global_buy,
         })} ${tokenSymbol}`}
       </Button>
+    );
+  }
+
+  const renderPrivateSendFooterButtons = isInsufficientActionAvailable ? (
+    <>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3757,26 +3881,9 @@ function SendAmountInputContainer() {
     </Button>
   );
 
-  const renderDefaultBuyFooterButtons = (
+  const renderDefaultInsufficientFooterButtons = (
     <XStack gap="$2.5" flex={1}>
-      <Button
-        testID={SendTestIDs.buyTokenButton}
-        variant="primary"
-        onPress={handleBuyToken}
-        loading={isBuyLoading}
-        flexGrow={1}
-        flexShrink={1}
-        textEllipsis
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-      >
-        {`${intl.formatMessage({
-          id: ETranslations.global_buy,
-        })} ${tokenSymbol}`}
-      </Button>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3819,9 +3926,11 @@ function SendAmountInputContainer() {
         {media.gtMd ? null : renderPrivateSendFooterHelp}
       </Stack>
     );
-  } else if (showBuyButton) {
+  } else if (isInsufficientActionAvailable) {
     renderFooterActions = (
-      <Page.FooterActions confirmButton={renderDefaultBuyFooterButtons} />
+      <Page.FooterActions
+        confirmButton={renderDefaultInsufficientFooterButtons}
+      />
     );
   } else {
     renderFooterActions = (

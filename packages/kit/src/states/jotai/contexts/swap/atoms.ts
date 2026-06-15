@@ -99,13 +99,10 @@ export const {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
   networks = networks.filter((net) => {
-    if (swapType === ESwapTabSwitchType.BRIDGE) {
-      return net.supportCrossChainSwap;
-    }
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
     }
-    return net.supportSingleSwap;
+    return net.supportSingleSwap || net.supportCrossChainSwap;
   });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
@@ -153,6 +150,17 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
     coldStartCache: true,
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   });
+
+export const {
+  atom: swapLastNonLimitSelectedTokensAtom,
+  use: useSwapLastNonLimitSelectedTokensAtom,
+} = contextAtom<
+  | {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }
+  | undefined
+>(undefined);
 
 export const {
   atom: swapSelectedTokensColdStartContextAtom,

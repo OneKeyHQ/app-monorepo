@@ -6,6 +6,7 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -384,6 +385,22 @@ describe('marketSwapReviewUtils', () => {
     expect(result.status).toBe(ESwapApproveTransactionStatus.PENDING);
     expect(result.providerName).toBe('OneKey');
     expect(result.resetApproveValue).toBe('0');
+  });
+
+  it('marks cross-network approving transactions as Bridge', () => {
+    const result = buildMarketSwapApprovingTransaction({
+      quoteResult: createQuoteResult({
+        toTokenInfo: {
+          ...toToken,
+          networkId: 'evm--137',
+        },
+      }),
+      amount: '1',
+      useAddress: '0xuser',
+      spenderAddress: '0xspender',
+    });
+
+    expect(result.swapType).toBe(ESwapTabSwitchType.BRIDGE);
   });
 
   it('builds a wrapped quote result for wrap review flows', () => {

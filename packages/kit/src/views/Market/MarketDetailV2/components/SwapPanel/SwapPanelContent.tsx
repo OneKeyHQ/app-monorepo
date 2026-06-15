@@ -45,7 +45,6 @@ export type ISwapPanelContentProps = {
   supportSpeedSwap: {
     enabled?: boolean;
     warningMessage?: string;
-    actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;
     actionOtherToken?: ISwapToken;
     onlySupportCrossChain?: boolean;

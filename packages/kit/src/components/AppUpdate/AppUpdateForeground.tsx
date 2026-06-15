@@ -16,6 +16,10 @@ import {
   isWhatsNewShown,
   markWhatsNewShown,
 } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -347,8 +351,14 @@ export function useAppUpdateForegroundEffects(enabled = true) {
         });
         const whatsNewAlreadyShown = isWhatsNewShown();
         markWhatsNewShown(Boolean(info.jsBundleVersion));
+        // Auto-update strategies (silent + seamless) complete invisibly, so
+        // they must NOT pop the changelog / "what's new" page after the update
+        // applies — only user-facing (manual / force) updates do. Previously
+        // only `seamless` was excluded; `silent` is now treated identically
+        // per product requirement (silent updates must not show the changelog
+        // on completion, same as seamless).
         if (
-          info.updateStrategy !== EUpdateStrategy.seamless &&
+          !isAutoUpdateStrategy(info.updateStrategy) &&
           !whatsNewAlreadyShown
         ) {
           onViewReleaseInfo();
@@ -474,6 +484,43 @@ export function useAppUpdateForegroundEffects(enabled = true) {
     // would re-fire on every unrelated field mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, appUpdateInfo.status, appUpdateInfo.updateStrategy]);
+
+  // Mid-session auto-download bridge.
+  //
+  // When fetchAppUpdateInfo discovers an update mid-session whose strategy is
+  // auto (silent/seamless) or which is a rollback, the background keeps the
+  // persist atom at `notify` and only emits StartAutoDownloadUpdate — it
+  // cannot pull bytes. The native transfer (BundleUpdate.downloadBundle, with
+  // headers + retry/backoff) lives only in the foreground useDownloadPackage
+  // hook, and it is that hook's serviceAppUpdate.downloadPackage() call which
+  // actually flips `notify` → `downloadPackage` (notify ∈
+  // DOWNLOAD_ENTRY_STATUSES, so it is accepted) and starts the transfer.
+  //
+  // This listener is the only thing that drives a *mid-session* transition:
+  // the first-launch dispatch above also calls downloadPackage(), but it runs
+  // exactly once per app lifecycle so it cannot catch an in-session discovery.
+  // On the event we kick the real download now instead of waiting for the next
+  // cold start. (If the app is killed before this fires, status is still
+  // `notify`, and the next cold start's checkForUpdates re-detects and
+  // re-triggers downloadPackage() — no update is lost.)
+  //
+  // withDownloadMutex inside downloadPackage() collapses this with any
+  // concurrent foreground-initiated download (user click / cold-start dispatch
+  // / AppState resume) into a single in-flight transfer, so a redundant event
+  // never starts a second download.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handler = (payload: { decision: string }) => {
+      defaultLogger.app.appUpdate.log(
+        `StartAutoDownloadUpdate received → foreground downloadPackage (${payload?.decision})`,
+      );
+      void downloadPackage();
+    };
+    appEventBus.on(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.StartAutoDownloadUpdate, handler);
+    };
+  }, [downloadPackage, enabled]);
 
   // Single AppState listener for the whole app — replaces the per-mount
   // listeners that previously lived in `useAppUpdateInfo`. The service-

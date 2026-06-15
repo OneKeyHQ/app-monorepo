@@ -1,6 +1,8 @@
-import { Link } from 'react-router-dom';
-
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+
+function buildWebEmbedRouteHref(routePath: EWebEmbedRoutePath) {
+  return `#${routePath}`;
+}
 
 export default function PageIndex() {
   return (
@@ -8,10 +10,14 @@ export default function PageIndex() {
       <h1>PageIndex</h1>
       <ul>
         <li>
-          <Link to={EWebEmbedRoutePath.webEmbedApi}>WebEmbedApi</Link>
+          <a href={buildWebEmbedRouteHref(EWebEmbedRoutePath.webEmbedApi)}>
+            WebEmbedApi
+          </a>
         </li>
         <li>
-          <Link to={EWebEmbedRoutePath.primePurchase}>PrimePurchase</Link>
+          <a href={buildWebEmbedRouteHref(EWebEmbedRoutePath.primePurchase)}>
+            PrimePurchase
+          </a>
         </li>
       </ul>
     </div>

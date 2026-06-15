@@ -406,6 +406,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
     tokenAddress: string;
+    networkId?: string;
+    isSubscriptionAmbiguous?: boolean;
     messageType?: string;
     data: any;
     originalData?: any;
@@ -460,6 +462,11 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowFallbackUpdateDialog]: {
     version: string | null | undefined;
+  };
+  [EAppEventBusNames.StartAutoDownloadUpdate]: {
+    // The resolved update decision (jsBundleUpgrade / appShellUpdate /
+    // jsBundleRollback) — carried for foreground logging / diagnostics only.
+    decision: string;
   };
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
