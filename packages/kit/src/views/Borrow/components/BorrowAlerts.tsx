@@ -1,9 +1,12 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type {
@@ -37,9 +40,10 @@ export const BorrowAlerts = memo(
     indexedAccountId,
     marketNetworkId,
   }: IBorrowAlertsProps) => {
+    const intl = useIntl();
     const navigation = useAppNavigation();
-    const bridgeFromToken = swapDefaultSetTokens['evm--1']?.fromToken;
-    const bridgeToToken = swapDefaultSetTokens['sol--101']?.fromToken;
+    const swapFromToken = swapDefaultSetTokens['evm--1']?.fromToken;
+    const swapToToken = swapDefaultSetTokens['sol--101']?.fromToken;
     const alertItems = alerts ?? [];
     const hasAlerts = alertItems.length > 0;
 
@@ -82,21 +86,20 @@ export const BorrowAlerts = memo(
       }
     }, [accountId, indexedAccountId, marketNetworkId, navigation, walletId]);
 
-    const handleBridgePress = useCallback(() => {
-      if (!bridgeFromToken || !bridgeToToken) {
-        console.warn('Borrow alert bridge action missing swap tokens.');
+    const handleSwapPress = useCallback(() => {
+      if (!swapFromToken || !swapToToken) {
         return;
       }
 
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
-          importFromToken: bridgeFromToken,
-          importToToken: bridgeToToken,
-          swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+          importFromToken: swapFromToken,
+          importToToken: swapToToken,
+          swapTabSwitchType: ESwapTabSwitchType.SWAP,
         },
       });
-    }, [bridgeFromToken, bridgeToToken, navigation]);
+    }, [navigation, swapFromToken, swapToToken]);
 
     const resolveAlertButton = useCallback(
       (button?: IBorrowAlertButton): IAlertActionButton | null => {
@@ -115,9 +118,9 @@ export const BorrowAlerts = memo(
             };
           case 'bridge':
             return {
-              label: button.text.text,
+              label: intl.formatMessage({ id: ETranslations.global_swap }),
               onPress: () => {
-                handleBridgePress();
+                handleSwapPress();
               },
               disabled: button.disabled,
             };
@@ -128,7 +131,7 @@ export const BorrowAlerts = memo(
             return null;
         }
       },
-      [handleBridgePress, handleReceivePress],
+      [handleReceivePress, handleSwapPress, intl],
     );
 
     const resolveAlertAction = useCallback(

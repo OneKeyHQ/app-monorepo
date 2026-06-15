@@ -837,7 +837,7 @@ function buildPrivateSendHistoryItemFromAccountHistory({
         providerName: privateSendPayload?.providerName ?? 'Private Send',
         providerLogo: privateSendPayload?.providerLogo,
       },
-      instantRate: '0',
+      instantRate: '',
       orderId,
       supportUrl: privateSendPayload?.supportUrl ?? privateSendHelpCenterUrl,
     },

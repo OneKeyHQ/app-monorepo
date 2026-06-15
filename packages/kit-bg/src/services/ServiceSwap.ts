@@ -40,6 +40,12 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  getDenyBridgeProviderString,
+  getDenySwapProviderString,
+  hasUnifiedCrossChainSwapProviderManagers,
+  mergeDenyProviderStrings,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -1187,12 +1193,18 @@ export default class ServiceSwap extends ServiceBase {
     if (fromNetworkId === toNetworkId) {
       return undefined;
     }
-    const { bridgeProviderManager } = await inAppNotificationAtom.get();
-    const denyBridges = bridgeProviderManager.filter((item) => !item.enable);
-    if (!denyBridges?.length) {
-      return undefined;
-    }
-    return denyBridges.map((item) => item.providerInfo.provider).join(',');
+    const { swapProviderManager, bridgeProviderManager } =
+      await inAppNotificationAtom.get();
+    return mergeDenyProviderStrings(
+      getDenySwapProviderString({
+        providerManagers: swapProviderManager,
+        fromNetworkId,
+        toNetworkId,
+      }),
+      getDenyBridgeProviderString({
+        providerManagers: bridgeProviderManager,
+      }),
+    );
   }
 
   async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {
@@ -1200,27 +1212,11 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
     const { swapProviderManager } = await inAppNotificationAtom.get();
-    const denyDexs = swapProviderManager.filter((item) => !item.enable);
-    let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
-    const denyDexNetworks = swapProviderManager.filter((item) => {
-      if (item.enable) {
-        const netDisEnable = item.disableNetworks?.find(
-          (net) => net.networkId === fromNetworkId,
-        );
-        if (netDisEnable) {
-          return true;
-        }
-        return false;
-      }
-      return false;
+    return getDenySwapProviderString({
+      providerManagers: swapProviderManager,
+      fromNetworkId,
+      toNetworkId,
     });
-    if (denyDexNetworks?.length) {
-      denyDexArr = [
-        ...(denyDexArr ?? []),
-        ...denyDexNetworks.map((item) => item.providerInfo.provider),
-      ];
-    }
-    return denyDexArr?.join(',');
   }
 
   @backgroundMethod()
@@ -1583,7 +1579,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapProviderManager(
     data: ISwapProviderManager[],
-    isBridge: boolean,
+    isBridge?: boolean,
   ) {
     if (isBridge) {
       await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
@@ -1593,15 +1589,24 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         bridgeProviderManager: data,
       }));
-    } else {
-      await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(
-        data,
-      );
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapProviderManager: data,
-      }));
+      return;
     }
+    const shouldClearLegacyBridgeProviderManager =
+      hasUnifiedCrossChainSwapProviderManagers(data);
+
+    await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
+    if (shouldClearLegacyBridgeProviderManager) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        [],
+      );
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapProviderManager: data,
+      ...(shouldClearLegacyBridgeProviderManager
+        ? { bridgeProviderManager: [] }
+        : undefined),
+    }));
   }
 
   @backgroundMethod()

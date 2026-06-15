@@ -18,8 +18,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  buildUnifiedSwapProviderManagers,
+  canUseUnifiedSwapProviderManagers,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -62,10 +65,8 @@ import {
   getSelectedTokensColdStartLimitSupport,
   getSwapDefaultToTokenForSwapType,
   getSwapSelectedTokensColdStartContextNetworkId,
-  getSwapTokenSupportTypes,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
-  isSwapTokenSupportedBySwapType,
   shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
@@ -79,6 +80,12 @@ import {
   isSwapNetworkCacheReadyForBasicList,
   mergeSwapNetworksWithCachedSort,
 } from '../utils/swapNetworkCacheUtils';
+import {
+  getSwapNetworkSupportTabSwitchTypes,
+  getSwapSupportCheckType,
+  getVisibleSwapTabSwitchType,
+  getVisibleSwapTabSwitchUpdate,
+} from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapProInputToken } from './useSwapPro';
@@ -161,6 +168,12 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
     useState<boolean>(false);
+  const normalizedSwapTabSwitchType = getVisibleSwapTabSwitchType(
+    params?.swapTabSwitchType,
+  );
+  const supportCheckSwapTabSwitchType = getSwapSupportCheckType(
+    params?.swapTabSwitchType,
+  );
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
   const [, setInAppNotification] = useInAppNotificationAtom();
@@ -308,19 +321,34 @@ export function useSwapInit(params?: ISwapInitParams) {
       fromToken: fromTokenRef.current,
       toToken: toTokenRef.current,
     });
-    if (nextSwapType === swapTypeSwitchRef.current) {
+    const { nextVisibleSwapType, shouldUpdate } = getVisibleSwapTabSwitchUpdate(
+      {
+        currentSwapType: swapTypeSwitchRef.current,
+        nextSwapType,
+      },
+    );
+    if (!shouldUpdate) {
       return;
     }
-    void swapTypeSwitchAction(nextSwapType, fromTokenRef.current?.networkId);
+    swapTypeSwitchRef.current = nextVisibleSwapType;
+    void swapTypeSwitchAction(
+      nextVisibleSwapType,
+      fromTokenRef.current?.networkId,
+    );
   }, [swapTypeSwitchAction]);
 
   const switchSwapTypeIfNeeded = useCallback(
     (nextSwapType: ESwapTabSwitchType, networkId?: string) => {
-      if (nextSwapType === swapTypeSwitchRef.current) {
+      const { nextVisibleSwapType, shouldUpdate } =
+        getVisibleSwapTabSwitchUpdate({
+          currentSwapType: swapTypeSwitchRef.current,
+          nextSwapType,
+        });
+      if (!shouldUpdate) {
         return;
       }
-      swapTypeSwitchRef.current = nextSwapType;
-      void swapTypeSwitchAction(nextSwapType, networkId);
+      swapTypeSwitchRef.current = nextVisibleSwapType;
+      void swapTypeSwitchAction(nextVisibleSwapType, networkId);
     },
     [swapTypeSwitchAction],
   );
@@ -654,221 +682,51 @@ export function useSwapInit(params?: ISwapInitParams) {
         await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
       const bridgeProviderManagerSimpleDb =
         await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
-      setInAppNotification((pre) => ({
-        ...pre,
-        swapProviderManager: swapProviderManagerSimpleDb,
-        bridgeProviderManager: bridgeProviderManagerSimpleDb,
-      }));
+      const setProviderManagersFromCache = () => {
+        setInAppNotification((pre) => ({
+          ...pre,
+          swapProviderManager: swapProviderManagerSimpleDb,
+          bridgeProviderManager: bridgeProviderManagerSimpleDb,
+        }));
+      };
+      setProviderManagersFromCache();
       if (noFetch) {
         return;
       }
-      const swapProviderManagerFromServer =
-        await backgroundApiProxy.serviceSwap.getSwapProviderManager();
 
-      if (swapProviderManagerFromServer.length) {
-        const supportSingleSwap = swapProviderManagerFromServer.filter(
-          (provider) => provider.isSupportSingleSwap,
-        );
-        const supportCrossChainSwap = swapProviderManagerFromServer.filter(
-          (provider) => provider.isSupportCrossChain,
-        );
-        // swapProviderManager
-        if (!swapProviderManagerSimpleDb.length) {
-          const syncSingleSwapProviderData = supportSingleSwap.map(
-            (provider) => {
-              const providerInfo = provider.providerInfo;
-              const enable = true;
-              const providerInitData: ISwapProviderManager = {
-                providerInfo,
-                enable,
-                serviceDisable: provider.providerServiceDisable,
-                supportNetworks: provider.supportSingleSwapNetworks,
-                disableNetworks: [],
-                serviceDisableNetworks: provider.serviceDisableNetworks,
-              };
-              return providerInitData;
-            },
-          );
-          await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
-            syncSingleSwapProviderData,
-          );
-        } else {
-          const findNewProvider = supportSingleSwap.filter(
-            (provider) =>
-              !swapProviderManagerSimpleDb.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              ),
-          );
-          if (findNewProvider.length) {
-            const syncNewSingleSwapProviderData = findNewProvider.map(
-              (provider) => {
-                const providerInfo = provider.providerInfo;
-                const enable = true;
-                const providerInitData: ISwapProviderManager = {
-                  providerInfo,
-                  enable,
-                  serviceDisable: provider.providerServiceDisable,
-                  supportNetworks: provider.supportSingleSwapNetworks,
-                  disableNetworks: [],
-                  serviceDisableNetworks: provider.serviceDisableNetworks,
-                };
-                return providerInitData;
-              },
-            );
-            await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
-              [
-                ...swapProviderManagerSimpleDb,
-                ...syncNewSingleSwapProviderData,
-              ],
-            );
+      try {
+        const swapProviderManagerFromServer =
+          await backgroundApiProxy.serviceSwap.getSwapProviderManager();
+
+        if (swapProviderManagerFromServer.length) {
+          const unifiedProviderManager = buildUnifiedSwapProviderManagers({
+            serverProviders: swapProviderManagerFromServer,
+            swapProviderManagers: swapProviderManagerSimpleDb,
+            bridgeProviderManagers: bridgeProviderManagerSimpleDb,
+          });
+          if (
+            !canUseUnifiedSwapProviderManagers({
+              serverProviders: swapProviderManagerFromServer,
+              unifiedProviderManagers: unifiedProviderManager,
+              bridgeProviderManagers: bridgeProviderManagerSimpleDb,
+            })
+          ) {
+            return;
           }
-          const findNoProvider = swapProviderManagerSimpleDb.filter(
-            (provider) =>
-              !swapProviderManagerFromServer.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              ),
-          );
-          if (findNoProvider.length) {
-            const simpleDbSwapProviderManager =
-              await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
-            const syncNoProviderData = simpleDbSwapProviderManager.filter(
-              (provider) =>
-                !findNoProvider.find(
-                  (p) =>
-                    p.providerInfo.provider === provider.providerInfo.provider,
-                ),
-            );
-            await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
-              syncNoProviderData,
-            );
-          }
-          // update serviceDisable
-          const simpleDbCurrentSwapProviderManager =
-            await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
-          const syncServiceDisable = simpleDbCurrentSwapProviderManager.map(
-            (provider) => {
-              const findProvider = swapProviderManagerFromServer.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              );
-              let serviceDisable;
-              let serviceDisableNetworks;
-              if (findProvider) {
-                serviceDisable = findProvider.providerServiceDisable;
-                serviceDisableNetworks = findProvider.serviceDisableNetworks;
-              }
-              let supportNetworks = provider.supportNetworks;
-              let disableNetworks = provider.disableNetworks;
-              if (
-                findProvider?.supportSingleSwapNetworks &&
-                findProvider.isSupportSingleSwap
-              ) {
-                supportNetworks = findProvider?.supportSingleSwapNetworks;
-                disableNetworks = provider.disableNetworks?.filter((net) =>
-                  findProvider?.supportSingleSwapNetworks?.includes(net),
-                );
-              }
-              return {
-                ...provider,
-                serviceDisable,
-                serviceDisableNetworks,
-                supportNetworks,
-                disableNetworks,
-              };
-            },
-          );
           await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
-            syncServiceDisable,
-          );
-        }
-        // bridgeProviderManager
-        if (!bridgeProviderManagerSimpleDb) {
-          const syncBridgeProviderManagerData = supportCrossChainSwap.map(
-            (provider) => {
-              const providerInfo = provider.providerInfo;
-              const enable = true;
-              return {
-                providerInfo,
-                enable,
-                serviceDisable: provider.providerServiceDisable,
-              };
-            },
+            unifiedProviderManager,
           );
           await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
-            syncBridgeProviderManagerData,
+            [],
           );
-        } else {
-          const findNewBridgeProvider = supportCrossChainSwap.filter(
-            (provider) =>
-              !bridgeProviderManagerSimpleDb.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              ),
-          );
-          if (findNewBridgeProvider.length) {
-            const syncNewBridgeProviderData = findNewBridgeProvider.map(
-              (provider) => {
-                const providerInfo = provider.providerInfo;
-                const enable = true;
-                return {
-                  providerInfo,
-                  enable,
-                  serviceDisable: provider.providerServiceDisable,
-                };
-              },
-            );
-            await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
-              [...bridgeProviderManagerSimpleDb, ...syncNewBridgeProviderData],
-            );
-          }
-          const findNoBridgeProvider = bridgeProviderManagerSimpleDb.filter(
-            (provider) =>
-              !swapProviderManagerFromServer.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              ),
-          );
-          if (findNoBridgeProvider.length) {
-            const simpleDbBridgeProviderManager =
-              await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
-            const syncNoBridgeProviderData =
-              simpleDbBridgeProviderManager.filter(
-                (provider) =>
-                  !findNoBridgeProvider.find(
-                    (p) =>
-                      p.providerInfo.provider ===
-                      provider.providerInfo.provider,
-                  ),
-              );
-            await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
-              syncNoBridgeProviderData,
-            );
-          }
-          // update serviceDisable
-          const simpleDbCurrentBridgeProviderManager =
-            await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
-          const syncServiceDisable = simpleDbCurrentBridgeProviderManager.map(
-            (provider) => {
-              const findProvider = swapProviderManagerFromServer.find(
-                (p) =>
-                  p.providerInfo.provider === provider.providerInfo.provider,
-              );
-              if (findProvider) {
-                return {
-                  ...provider,
-                  serviceDisable: findProvider.providerServiceDisable,
-                };
-              }
-              return provider;
-            },
-          );
-          await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
-            syncServiceDisable,
-          );
+          setInAppNotification((pre) => ({
+            ...pre,
+            swapProviderManager: unifiedProviderManager,
+            bridgeProviderManager: [],
+          }));
         }
-        void fetchSyncSwapProviderManager(true);
+      } catch {
+        // Keep cached provider settings usable when the provider list refresh fails.
       }
     },
     [setInAppNotification],
@@ -876,8 +734,17 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const checkSupportTokenSwapType = useCallback(
     (token: ISwapToken, enableSwitchAction?: boolean) => {
-      const supportTypes = getSwapTokenSupportTypes({ token, swapNetworks });
-      if (!params?.swapTabSwitchType && enableSwitchAction) {
+      const supportNet = swapNetworks.find(
+        (net) => net.networkId === token.networkId,
+      );
+      const supportTypes = supportNet
+        ? getSwapNetworkSupportTabSwitchTypes({
+            supportSingleSwap: supportNet.supportSingleSwap,
+            supportCrossChainSwap: supportNet.supportCrossChainSwap,
+            supportLimit: supportNet.supportLimit,
+          })
+        : [];
+      if (!normalizedSwapTabSwitchType && enableSwitchAction) {
         if (
           supportTypes.length > 0 &&
           !supportTypes.includes(swapTypeSwitch) &&
@@ -896,7 +763,7 @@ export function useSwapInit(params?: ISwapInitParams) {
       return supportTypes;
     },
     [
-      params?.swapTabSwitchType,
+      normalizedSwapTabSwitchType,
       swapNetworks,
       swapTypeSwitch,
       swapTypeSwitchAction,
@@ -905,10 +772,11 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncDefaultSelectedToken = useCallback(async () => {
+    const hasImportTokenParams = Boolean(
+      params?.importFromToken || params?.importToToken,
+    );
     const hasImportParams = Boolean(
-      params?.importFromToken ||
-      params?.importToToken ||
-      params?.importNetworkId,
+      hasImportTokenParams || params?.importNetworkId,
     );
     let hasSelectedTokens = Boolean(fromTokenRef.current || toTokenRef.current);
     if (
@@ -936,6 +804,97 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (homeAccountSyncResult.synced) {
       if (homeAccountSyncResult.clearedSelectedTokens) {
         hasSelectedTokens = false;
+      }
+    }
+    if (
+      params?.fromAmount &&
+      (!fromTokenAmount.isInput || fromTokenAmount.value !== params.fromAmount)
+    ) {
+      void setFromTokenAmount({
+        value: params.fromAmount,
+        isInput: true,
+      });
+    }
+    if (hasImportTokenParams) {
+      if (!swapNetworksRef.current.length) {
+        return;
+      }
+      const hasImportTokenNetwork =
+        Boolean(
+          params?.importFromToken &&
+          swapNetworksRef.current.find(
+            (net) => net.networkId === params?.importFromToken?.networkId,
+          ),
+        ) ||
+        Boolean(
+          params?.importToToken &&
+          swapNetworksRef.current.find(
+            (net) => net.networkId === params?.importToToken?.networkId,
+          ),
+        );
+      if (!hasImportTokenNetwork) {
+        clearSelectedTokensColdStartCache();
+        hasSelectedTokens = false;
+      } else {
+        const importTokenSupportCheckType =
+          supportCheckSwapTabSwitchType ?? ESwapTabSwitchType.SWAP;
+        const isImportFromTokenSupported = Boolean(
+          params?.importFromToken &&
+          importTokenSupportCheckType &&
+          checkSupportTokenSwapType(params.importFromToken).includes(
+            importTokenSupportCheckType,
+          ),
+        );
+        const isImportToTokenSupported = Boolean(
+          params?.importToToken &&
+          importTokenSupportCheckType &&
+          checkSupportTokenSwapType(params.importToToken).includes(
+            importTokenSupportCheckType,
+          ),
+        );
+        const hasUnsupportedImportToken =
+          (Boolean(params?.importFromToken) && !isImportFromTokenSupported) ||
+          (Boolean(params?.importToToken) && !isImportToTokenSupported);
+        if (hasUnsupportedImportToken) {
+          clearSelectedTokensColdStartCache();
+        }
+        let didSetImportFromToken = false;
+        if (params?.importFromToken) {
+          if (isImportFromTokenSupported) {
+            setSwapFromToken(params?.importFromToken);
+            didSetImportFromToken = true;
+          }
+        }
+        if (params?.importToToken) {
+          if (isImportToTokenSupported) {
+            setToToken(params?.importToToken);
+          }
+        }
+        if (
+          params?.importFromToken &&
+          !params?.importToToken &&
+          didSetImportFromToken
+        ) {
+          const defaultTokenSwapType = importTokenSupportCheckType;
+          const needSetToToken = needChangeToken({
+            token: params.importFromToken,
+            swapTypeSwitchValue: defaultTokenSwapType,
+          });
+          if (needSetToToken) {
+            const defaultTokenSupportTypes =
+              checkSupportTokenSwapType(needSetToToken);
+            if (defaultTokenSupportTypes.includes(defaultTokenSwapType)) {
+              setToToken(needSetToToken);
+            }
+          }
+        }
+        void syncNetworksSort(
+          params?.importFromToken?.networkId ??
+            params?.importToToken?.networkId ??
+            getNetworkIdsMap().onekeyall,
+        );
+        markInitialSelectedTokensSynced();
+        return;
       }
     }
     if (
@@ -999,75 +958,6 @@ export function useSwapInit(params?: ISwapInitParams) {
 
       shouldResetInvalidColdStartSwapType = true;
       clearSelectedTokensColdStartCache();
-    }
-    if (params?.fromAmount) {
-      void setFromTokenAmount({
-        value: params.fromAmount,
-        isInput: true,
-      });
-    }
-    if (
-      (params?.importFromToken &&
-        swapNetworksRef.current.find(
-          (net) => net.networkId === params?.importFromToken?.networkId,
-        )) ||
-      (params?.importToToken &&
-        swapNetworksRef.current.find(
-          (net) => net.networkId === params?.importToToken?.networkId,
-        ))
-    ) {
-      const importSwapType =
-        params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP;
-      const isImportFromTokenSupported = isSwapTokenSupportedBySwapType({
-        token: params?.importFromToken,
-        swapNetworks: swapNetworksRef.current,
-        swapType: importSwapType,
-      });
-      const isImportToTokenSupported = isSwapTokenSupportedBySwapType({
-        token: params?.importToToken,
-        swapNetworks: swapNetworksRef.current,
-        swapType: importSwapType,
-      });
-      const hasUnsupportedImportToken =
-        (Boolean(params?.importFromToken) && !isImportFromTokenSupported) ||
-        (Boolean(params?.importToToken) && !isImportToTokenSupported);
-      if (hasUnsupportedImportToken) {
-        clearSelectedTokensColdStartCache();
-      }
-      if (params?.importFromToken) {
-        if (isImportFromTokenSupported) {
-          setSwapFromToken(params?.importFromToken);
-        }
-      }
-      if (params?.importToToken) {
-        if (isImportToTokenSupported) {
-          setToToken(params?.importToToken);
-        }
-      }
-      if (
-        params?.importFromToken &&
-        !params?.importToToken &&
-        !hasUnsupportedImportToken
-      ) {
-        const needSetToToken = needChangeToken({
-          token: params.importFromToken,
-          swapTypeSwitchValue: importSwapType,
-        });
-        if (needSetToToken) {
-          const defaultTokenSupportTypes =
-            checkSupportTokenSwapType(needSetToToken);
-          if (defaultTokenSupportTypes.includes(importSwapType)) {
-            setToToken(needSetToToken);
-          }
-        }
-      }
-      void syncNetworksSort(
-        params?.importFromToken?.networkId ??
-          params?.importToToken?.networkId ??
-          getNetworkIdsMap().onekeyall,
-      );
-      markInitialSelectedTokensSynced();
-      return;
     }
     const defaultTokenNetworkId = homeAccountSyncResult.synced
       ? homeAccountSyncResult.homeSelectedAccount.networkId
@@ -1168,9 +1058,9 @@ export function useSwapInit(params?: ISwapInitParams) {
             defaultFromTokenWithLogo,
           );
           const defaultSwapTypes = [
-            params?.swapTabSwitchType,
+            supportCheckSwapTabSwitchType,
+            normalizedSwapTabSwitchType,
             swapTypeSwitch,
-            ESwapTabSwitchType.BRIDGE,
             ESwapTabSwitchType.SWAP,
             ESwapTabSwitchType.LIMIT,
           ].filter(
@@ -1235,7 +1125,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importToToken,
     params?.importNetworkId,
     params?.swapTabSwitchType,
+    normalizedSwapTabSwitchType,
+    supportCheckSwapTabSwitchType,
     skipSyncDefaultSelectedToken,
+    fromTokenAmount.isInput,
+    fromTokenAmount.value,
     setFromTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
