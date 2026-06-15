@@ -65,6 +65,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   __esModule: true,
   default: {
     getCredential: jest.fn(),
+    getCredentialInner: jest.fn(),
     updateKeylessWalletDetailsInfo: jest.fn(),
   },
 }));
@@ -305,6 +306,7 @@ function mockResetPinHappyPath(
   );
   serviceAny.decryptKeylessMnemonic = jest.fn(async () => 'mnemonic');
   localDb.getCredential.mockResolvedValue({ credential: 'credential' });
+  localDb.getCredentialInner.mockResolvedValue({ credential: 'credential' });
   localDb.updateKeylessWalletDetailsInfo.mockResolvedValue(undefined);
   decryptRevealableSeed.mockResolvedValue({
     entropyWithLangPrefixed: 'entropy',
