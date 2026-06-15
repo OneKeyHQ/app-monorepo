@@ -1,5 +1,3 @@
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-
 import {
   computeNonZeroIds,
   fiatEqual,
@@ -7,7 +5,8 @@ import {
   metaEqual,
   sortKeyFor,
   sumAggregateEntry,
-} from '../slc/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 function makeFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
   return {

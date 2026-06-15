@@ -15,9 +15,6 @@
  * the per-store WeakMap which the producer/tests seed with this projection).
  */
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-
-import type { IStoreProjection } from './projection';
 import type {
   IAggKey,
   IListStructure,
@@ -25,7 +22,10 @@ import type {
   IStructureSnapshot,
   ITokenKey,
   IValuationFrame,
-} from './types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import type { IStoreProjection } from './projection';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 import type { Atom, PrimitiveAtom } from 'jotai';
 

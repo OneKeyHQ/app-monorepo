@@ -1,10 +1,9 @@
+import type { IListStructure } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
-
-import type { IListStructure } from './slc/types';
 
 const {
   Provider: ProviderJotaiContextTokenList,

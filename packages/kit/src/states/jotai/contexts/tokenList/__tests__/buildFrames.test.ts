@@ -17,16 +17,20 @@
  */
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  buildFrames,
+  metaByKeyFromTokens,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import type {
+  IBuildFramesInput,
+  IBuildFramesPrev,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAccountToken,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
-
-import { buildFrames, metaByKeyFromTokens } from '../slc/buildFrames';
-
-import type { IBuildFramesInput, IBuildFramesPrev } from '../slc/buildFrames';
 
 const STORE_DATA = {
   storeName: EJotaiContextStoreNames.homeTokenList,

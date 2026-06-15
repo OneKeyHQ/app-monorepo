@@ -14,14 +14,17 @@
 import { atom } from 'jotai';
 
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { sumAggregateEntry } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type {
+  IAggKey,
+  INetworkId,
+  ITokenKey,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { jotaiContextStore } from '../../../utils/jotaiContextStore';
 import { listStructureAtom } from '../atoms';
 
-import { sumAggregateEntry } from './pure';
-
-import type { IAggKey, INetworkId, ITokenKey } from './types';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 import type { Atom, PrimitiveAtom } from 'jotai';
 

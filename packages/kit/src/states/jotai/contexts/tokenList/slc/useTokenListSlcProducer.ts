@@ -37,6 +37,17 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
+import {
+  buildFrames,
+  metaByKeyFromTokens,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import type { IBuildFramesPrev } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import {
+  fiatEqual,
+  isAgg,
+  metaEqual,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import type {
   ICustomTokenItem,
   IHomeDefaultToken,
@@ -60,7 +71,6 @@ import {
   buildApplyDeps,
   shallowEqualArray,
 } from './apply';
-import { buildFrames, metaByKeyFromTokens } from './buildFrames';
 import { persistSlimColdCache } from './coldStart';
 import {
   aggCell,
@@ -72,10 +82,7 @@ import {
   resolveStoreData,
   subcell,
 } from './projection';
-import { fiatEqual, isAgg, metaEqual } from './pure';
 
-import type { IBuildFramesPrev } from './buildFrames';
-import type { ITokenKey } from './types';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 
 const STRUCTURE_THROTTLE_MS = 500;

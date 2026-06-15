@@ -31,6 +31,18 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 
 import {
+  fiatEqual,
+  isAgg,
+  metaEqual,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type {
+  IAggKey,
+  INetworkId,
+  IStructureSnapshot,
+  ITokenKey,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import {
   purgeOldColdStartRuntimeKeys,
   readColdStartSnapshotKey,
   writeColdStartSnapshotKey,
@@ -75,17 +87,9 @@ import {
   resolveStoreData,
   subcell,
 } from './projection';
-import { fiatEqual, isAgg, metaEqual } from './pure';
 
 import type { IApplyDeps } from './apply';
 import type { IStoreProjection } from './projection';
-import type {
-  IAggKey,
-  INetworkId,
-  IStructureSnapshot,
-  ITokenKey,
-  IValuationFrame,
-} from './types';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';

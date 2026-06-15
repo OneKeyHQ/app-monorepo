@@ -22,6 +22,13 @@ import { createStore } from 'jotai';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { buildFrames } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import type { IBuildFramesPrev } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import {
+  fiatEqual,
+  isAgg,
+  metaEqual,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
 import {
   getFilteredTokenBySearchKey,
   sortTokensByFiatValue,
@@ -42,7 +49,6 @@ import {
   buildApplyDeps,
   shallowEqualArray,
 } from '../slc/apply';
-import { buildFrames } from '../slc/buildFrames';
 import { projectHomeDisplayIds } from '../slc/homeProjection';
 import {
   aggCell,
@@ -52,10 +58,8 @@ import {
   meta as metaCell,
   subcell,
 } from '../slc/projection';
-import { fiatEqual, isAgg, metaEqual } from '../slc/pure';
 
 import type { IApplyDeps } from '../slc/apply';
-import type { IBuildFramesPrev } from '../slc/buildFrames';
 
 function makeFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
   return {

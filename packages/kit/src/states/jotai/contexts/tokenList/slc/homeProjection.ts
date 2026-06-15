@@ -21,11 +21,10 @@
  */
 import BigNumber from 'bignumber.js';
 
+import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
-
-import type { ITokenKey } from './types';
 
 export interface IProjectHomeDisplayIdsParams {
   /** producer-sorted high-value ids. */

@@ -12,6 +12,11 @@ import { createStore } from 'jotai';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  fiatEqual,
+  isAgg,
+  metaEqual,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
@@ -28,7 +33,6 @@ import {
   meta,
   subcell,
 } from '../slc/projection';
-import { fiatEqual, isAgg, metaEqual } from '../slc/pure';
 
 import type { IApplyDeps } from '../slc/apply';
 import type { IStoreProjection } from '../slc/projection';

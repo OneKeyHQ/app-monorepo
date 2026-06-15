@@ -17,6 +17,15 @@ import { createStore } from 'jotai';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  fiatEqual,
+  isAgg,
+  metaEqual,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import type {
+  IStructureSnapshot,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
@@ -34,11 +43,9 @@ import {
   meta,
   subcell,
 } from '../slc/projection';
-import { fiatEqual, isAgg, metaEqual } from '../slc/pure';
 
 import type { IApplyDeps } from '../slc/apply';
 import type { IStoreProjection } from '../slc/projection';
-import type { IStructureSnapshot, IValuationFrame } from '../slc/types';
 
 type IStore = ReturnType<typeof createStore>;
 

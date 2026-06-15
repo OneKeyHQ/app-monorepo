@@ -13,12 +13,12 @@
  */
 import { useAtomValue } from 'jotai';
 
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../atoms';
 
 import { aggCell, cell, meta } from './projection';
-import { isAgg } from './pure';
 
 const EMPTY_FIAT: ITokenFiat | undefined = undefined;
 
