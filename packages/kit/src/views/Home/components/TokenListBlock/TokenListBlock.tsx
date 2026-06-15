@@ -57,13 +57,20 @@ import {
   useTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useTokenListSlcColdStartHydrate,
+  useTokenListSlcProducer,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsPersistAtom,
+  useTokenSelectorFilterPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
@@ -844,6 +851,34 @@ function TokenListBlock({
     accountId: allTokenListAtomValue.accountId,
     networkId: allTokenListAtomValue.networkId,
   };
+
+  // TokenList SLC producer (spec §4.1, §6). Observes the settled atoms the
+  // refresh* writers above land into and projects each fetch round into the
+  // structure atom + per-key cells (structure only on structural change, pure
+  // price ticks emit valuation only). The existing refresh* writers are
+  // unchanged — risky/allTokenList stay whole-object. The owner key matches the
+  // per-owner cache axis (indexedAccountId in merge mode) so it survives
+  // derive-type switches the same way the cache does.
+  const slcOwnerKey = useMemo(() => {
+    const ownerAccountId = getTokenListOwnerCacheAccountId({
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+      mergeDeriveAddressData: !!mergeDeriveAddressData,
+    });
+    return ownerAccountId && network?.id
+      ? `${ownerAccountId}__${network.id}`
+      : '';
+  }, [account?.id, indexedAccount?.id, mergeDeriveAddressData, network?.id]);
+  // Current settings currency id — the slim cold-start bundle stores fiat in
+  // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
+  const [{ currencyInfo }] = useSettingsPersistAtom();
+  const slcCurrencyId = currencyInfo?.id ?? '';
+  // T0 cold-start fan-out hydrate (spec §7). Runs eagerly, once per owner,
+  // before the async fetch — paints rows + price + name/icon at cold start via
+  // the SAME apply contract the producer uses; also schedules the one-time
+  // version-flag purge of the OLD persisted cold-start key on HomePageReady.
+  useTokenListSlcColdStartHydrate(slcOwnerKey, slcCurrencyId);
+  useTokenListSlcProducer(slcOwnerKey, slcCurrencyId);
 
   const updateAllNetworkData = useThrottledCallback(() => {
     refreshTokenList({
@@ -2955,6 +2990,11 @@ function TokenListBlock({
         inTabList
         hideValue
         withSwapAction
+        // SLC render binding (spec §5): TokenListBlock mounts the SLC producer
+        // (`useTokenListSlcProducer`), so its global home list may bind leaves
+        // to per-key cells. The flag is further gated inside TokenListView so
+        // the scoped LP-token override path keeps reading the whole map.
+        enableCellSeam
         showActiveAccountTokenList={showLpTokensOnly}
         scopedActiveAccountTokenList={scopedLpTokenList}
         scopedActiveAccountTokenListState={scopedLpTokenListState}

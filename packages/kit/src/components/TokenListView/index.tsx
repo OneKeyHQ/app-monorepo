@@ -49,6 +49,7 @@ import {
   useAggregateTokensMapAtom,
   useAllTokenListAtom,
   useFlattenAggregateTokensMapAtom,
+  useListStructureAtom,
   useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
@@ -150,6 +151,14 @@ type IProps = {
   // AssetList, TokenSelector, …) produce unique testIDs instead of every
   // scene reusing the shared component's default `home-token-item-*` prefix.
   tokenItemTestIDPrefix?: string;
+  // TokenList SLC render binding (spec §5). Opt-in flag set ONLY by the home
+  // `TokenListBlock`, where `useTokenListSlcProducer` is mounted and feeds the
+  // per-key cells off the global `tokenListAtom`/`tokenListMapAtom`. When true
+  // AND the list is rendering the global (non-selector, non-scoped) map, the
+  // per-key leaves subscribe to their cell via `useTokenFiat($key)`. Other
+  // callers (AssetList, TokenSelector) leave it unset so leaves keep reading
+  // the whole `tokenListMap` (cells are empty without a producer).
+  enableCellSeam?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -600,6 +609,39 @@ function TokenListViewCmp(props: IProps) {
     return filteredTokens;
   }, [filteredTokens, overFlowState.isOverflow, overFlowState.isSliced, limit]);
 
+  // SLC render binding (spec §5, item 2): the container subscribes to
+  // `listStructureAtom` and derives `displayIds`. Phase-1 KEEPS the existing
+  // `filteredTokens` sort/filter over the whole map (do NOT delete it — that is
+  // Phase-2, spec §1/§6#4/§8#5); `displayIds` is therefore the current filtered
+  // order `.map($key)`. The `listStructureAtom` subscription stands up the seam
+  // (structural changes flow through it for Phase-2's `project(orderedIds,...)`)
+  // without yet driving ordering — Phase-1 ordering still comes from
+  // `limitedTokens`. Rows still receive the full `token` object so
+  // `TokenListItem` reads its static meta fields directly (Phase-1).
+  const [listStructure] = useListStructureAtom();
+  const displayIds = useMemo(
+    () => limitedTokens.map((item) => item.$key),
+    [limitedTokens],
+  );
+  // Lookup so the list can render from `displayIds` while the row still gets the
+  // full token object for its static meta. `$key` is the canonical unique id.
+  const tokenByKey = useMemo(() => {
+    const map = new Map<string, IAccountToken>();
+    for (const item of limitedTokens) {
+      map.set(item.$key, item);
+    }
+    return map;
+  }, [limitedTokens]);
+  // The list data is the structure-driven id projection. In Phase-1 it equals
+  // `limitedTokens` order; the `listStructure.generation` read keeps the
+  // container subscribed to structural changes for Phase-2.
+  const listData = useMemo(() => {
+    void listStructure.generation;
+    return displayIds
+      .map((key) => tokenByKey.get(key))
+      .filter((t): t is IAccountToken => !!t);
+  }, [displayIds, tokenByKey, listStructure.generation]);
+
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
@@ -861,7 +903,7 @@ function TokenListViewCmp(props: IProps) {
       return <ListLoading isTokenSelectorView={!tableLayout} />;
     }
 
-    if (!limitedTokens || limitedTokens.length === 0) {
+    if (!listData || listData.length === 0) {
       return searchKey ? (
         <EmptySearch
           onManageToken={onManageToken}
@@ -884,7 +926,7 @@ function TokenListViewCmp(props: IProps) {
             })}
           />
         ) : null}
-        {limitedTokens.map((item) => (
+        {listData.map((item) => (
           <TokenListItem
             hideValue={hideValue}
             hideBalanceAndValue={hideBalanceAndValue}
@@ -923,8 +965,8 @@ function TokenListViewCmp(props: IProps) {
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }
-      extraData={limitedTokens.length}
-      data={limitedTokens}
+      extraData={listData.length}
+      data={listData}
       windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       contentContainerStyle={resolvedContentContainerStyle as any}
       ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
@@ -962,7 +1004,7 @@ function TokenListViewCmp(props: IProps) {
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
-          index === limitedTokens.length - 1 ? (
+          index === listData.length - 1 ? (
             <ListLoading isTokenSelectorView={!tableLayout} />
           ) : null}
         </>
@@ -1027,13 +1069,30 @@ const TokenListView = memo((props: IProps) => {
     return map;
   }, [needNetworksMap, allNetworksResp]);
 
+  // SLC cell seam (spec §5): only the home path may bind leaves to per-key
+  // cells. Requires the producer (gated by `enableCellSeam`, set by
+  // TokenListBlock) AND that this list renders the global map — not the
+  // TokenSelector path and not a scoped/active-account override map (those have
+  // no producer feeding their cells).
+  const useCellSeam =
+    !!props.enableCellSeam &&
+    !props.isTokenSelector &&
+    !props.showActiveAccountTokenList &&
+    !props.scopedActiveAccountTokenListMap;
+
   const contextValue = useMemo(() => {
     return {
       allAggregateTokenMap: props.allAggregateTokenMap,
       networksMap,
       tokenListMap: visibleTokenListMap,
+      useCellSeam,
     };
-  }, [props.allAggregateTokenMap, networksMap, visibleTokenListMap]);
+  }, [
+    props.allAggregateTokenMap,
+    networksMap,
+    visibleTokenListMap,
+    useCellSeam,
+  ]);
 
   return (
     <TokenListViewContext.Provider value={contextValue}>

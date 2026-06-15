@@ -1,9 +1,10 @@
-import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
+
+import type { IListStructure } from './slc/types';
 
 const {
   Provider: ProviderJotaiContextTokenList,
@@ -11,11 +12,16 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData: useTokenListContextData,
 } = createJotaiContext();
 export {
   ProviderJotaiContextTokenList,
   contextAtomMethod,
   withTokenListProvider,
+  // Exposes the per-store handle for the SLC cell seam (slc/projection.ts,
+  // slc/useTokenFiat.ts). Other consumers should keep using the typed
+  // `use*Atom` hooks.
+  useTokenListContextData,
 };
 
 export const { atom: searchTokenStateAtom, use: useSearchTokenStateAtom } =
@@ -107,6 +113,28 @@ export const {
 
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
+
+/**
+ * TokenList SLC — structure atom (spec §3, Phase-1 Slice 1).
+ *
+ * Lives in the existing per-store contextAtom store. Holds ONLY the ids +
+ * aggregate membership + owner/generation; per-key fiat/meta VALUES live in
+ * the cells registered in `storeProjection` (slc/projection.ts). Price ticks
+ * write cells and do NOT touch this atom — that low frequency is the premise
+ * of "only the changed leaf re-renders" (spec §4.1, §5).
+ *
+ * Written exclusively via `applyStructureSnapshot` (slc/projection.ts); never
+ * set directly by components (spec §4.1).
+ */
+export const { atom: listStructureAtom, use: useListStructureAtom } =
+  contextAtom<IListStructure>({
+    orderedIds: [],
+    smallBalanceIds: [],
+    nonZeroIds: [],
+    aggMembership: {},
+    ownerKey: '',
+    generation: -1,
+  });
 
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   contextAtom<{
@@ -208,12 +236,20 @@ export const RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS = 50;
  * the previous owner's map (no balance, no price) until the async
  * `getAccountLocalTokens` fetch returns.
  *
- * Used for:
- *  1. Cold start: the last UI-visible list and its map are restored on next
- *     launch.
- *  2. Network/account switching within a session: `TokenListBlock` looks the
- *     entry up by current `${accountId}__${networkId}` and eagerly hydrates
- *     the singleton atoms before `initTokenListData`'s async fetch runs.
+ * ROLE (post TokenList SLC §7 migration): this atom is now IN-MEMORY ONLY (no
+ * `coldStartCache`). It serves ONLY the in-session network/account SWITCH
+ * eager-hydrate (`TokenListBlock` looks the entry up by current
+ * `${accountId}__${networkId}` and hydrates the singleton atoms before
+ * `initTokenListData`'s async fetch runs; `TokenListView`'s effect MRU-writes
+ * it). The COLD-START persisted role (role-1) is replaced by the slim bundle
+ * (slc/coldStart.ts, key `ctx:tokenListSlimColdCache`). Dropping
+ * `coldStartCache` here is what stops the OLD `ctx:renderedTokenListCacheAtom`
+ * key from re-entering `coldStartValuesMap` on the new build — the root cause
+ * of the double-authority revival (memory
+ * reference_coldstart_cache_double_authority). The byOwner shape and BOTH call
+ * sites stay intact, so switch-hydrate is unaffected; the in-memory MRU map is
+ * rebuilt within the session as the user navigates and survives
+ * PortfolioContainer remounts via the singleton store.
  *
  * Capacity is bounded — see `RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS`. Writers
  * are responsible for MRU-evicting older entries before persisting.
@@ -241,11 +277,4 @@ export const {
       networkId: string;
     }
   >;
-}>(
-  { byOwner: {} },
-  {
-    coldStartCache: true,
-    coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
-  },
-);
+}>({ byOwner: {} });

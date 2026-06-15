@@ -518,6 +518,152 @@ function ensureColdStartAppStateListener() {
   });
 }
 
+// ============================================================
+// TokenList SLC — slim cold-start snapshot slot (spec §7).
+//
+// The SLC owns its slim bundle slot inside the SAME physical
+// `onekey_jotai_context_atoms_snapshot` blob the generic flusher uses, BUT it
+// is intentionally kept OFF `coldStartValuesMap` / `coldStartDirtyKeys` so the
+// generic flusher never re-derives or revives it. The SLC drives both write
+// (debounced RMW) and T0 read explicitly so it controls the fan-out-via-apply
+// hydrate (spec §7 design decision).
+// ============================================================
+
+function getColdStartCacheStorage() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { coldStartCacheStorage } =
+    require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+  return coldStartCacheStorage;
+}
+
+/**
+ * Synchronously read a single scoped key out of the shared cold-start snapshot
+ * blob (spec §7 T0 read). Returns undefined when absent / unparseable. Used by
+ * the SLC slim hydrate on web/desktop (native reads the already-parsed
+ * `__ONEKEY_CTX_ATOM_SNAPSHOT__` directly).
+ */
+export function readColdStartSnapshotKey({
+  scopedKey,
+}: {
+  scopedKey: string;
+}): unknown {
+  try {
+    const storage = getColdStartCacheStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    const raw = storage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = parseColdStartSnapshotRaw(raw);
+    if (!snapshot) {
+      return undefined;
+    }
+    return snapshot[scopedKey];
+  } catch {
+    return undefined;
+  }
+}
+
+// Pending slim writes (scopedKey -> value), flushed on a ~2s debounce or on the
+// cold-start flush trigger (app background). Kept separate from
+// coldStartValuesMap/coldStartDirtyKeys so this slot stays SLC-owned.
+const slcSlimPendingWrites = new Map<string, unknown>();
+let slcSlimSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let slcSlimFlushTriggerRegistered = false;
+
+function flushSlcSlimColdStartWrites() {
+  if (slcSlimPendingWrites.size === 0) return;
+  try {
+    const storage = getColdStartCacheStorage();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+    // Read-modify-write the shared blob so we co-exist with the generic flusher
+    // (main thread only; safe per the same single-thread assumption flushColdStartCache relies on).
+    const raw = storage.getString(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+    );
+    const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
+    for (const [scopedKey, value] of slcSlimPendingWrites) {
+      snapshot[scopedKey] = value;
+    }
+    const prepared = prepareColdStartSnapshotForWrite(snapshot);
+    storage.set(
+      EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
+      prepared.serialized,
+    );
+    slcSlimPendingWrites.clear();
+  } catch {
+    /* best-effort */
+  }
+}
+
+function ensureSlcSlimFlushTrigger() {
+  if (slcSlimFlushTriggerRegistered) return;
+  slcSlimFlushTriggerRegistered = true;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { registerColdStartFlushTrigger } =
+      require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
+    registerColdStartFlushTrigger(() => {
+      if (slcSlimSaveTimer) {
+        clearTimeout(slcSlimSaveTimer);
+        slcSlimSaveTimer = undefined;
+      }
+      flushSlcSlimColdStartWrites();
+    });
+  } catch {
+    /* coldStartFlushTrigger may be unavailable in some test harnesses */
+  }
+}
+
+/**
+ * Debounced write of a single SLC-owned scoped key into the shared cold-start
+ * snapshot blob (spec §7 落盘). ~2s debounce to avoid main-thread RMW storms; an
+ * app-background flush trigger forces the final value out. Does NOT touch
+ * coldStartValuesMap/coldStartDirtyKeys.
+ */
+export function writeColdStartSnapshotKey({
+  scopedKey,
+  value,
+}: {
+  scopedKey: string;
+  value: unknown;
+}): void {
+  ensureSlcSlimFlushTrigger();
+  slcSlimPendingWrites.set(scopedKey, value);
+  if (slcSlimSaveTimer) {
+    clearTimeout(slcSlimSaveTimer);
+  }
+  slcSlimSaveTimer = setTimeout(() => {
+    slcSlimSaveTimer = undefined;
+    flushSlcSlimColdStartWrites();
+  }, 2000);
+}
+
+/**
+ * Defensive double-authority kill (spec §7, memory
+ * reference_coldstart_cache_double_authority): delete every in-memory tracker
+ * entry whose scoped key ends with `suffix` (the OLD
+ * `::ctx:renderedTokenListCacheAtom`). Without this, deleting only the disk
+ * field would be revived within ~2s by the next flushColdStartCache rebuild
+ * from `coldStartValuesMap`. The NEW slim key never matches the OLD suffix so
+ * it is never touched here.
+ */
+export function purgeOldColdStartRuntimeKeys(suffix: string): void {
+  for (const key of coldStartValuesMap.keys()) {
+    if (key.endsWith(suffix)) {
+      coldStartValuesMap.delete(key);
+    }
+  }
+  for (const key of coldStartDirtyKeys) {
+    if (key.endsWith(suffix)) {
+      coldStartDirtyKeys.delete(key);
+    }
+  }
+}
+
 export function hydrateContextColdStartCacheForProvider({
   store,
   coldStartScopeKey,

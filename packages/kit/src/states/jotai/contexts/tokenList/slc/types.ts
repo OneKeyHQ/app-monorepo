@@ -1,0 +1,67 @@
+/**
+ * TokenList SLC — Phase-1 wire-payload types (spec §4.0).
+ *
+ * These are the authoritative shapes the producer emits and the apply layer
+ * consumes. They are pure data (no React / store handles other than the
+ * identity-check `storeData`) so the producer payload can be constructed and
+ * fed to apply in node tests (spec §11.5).
+ */
+import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+/** `$key` alias for readability — a token's stable list key. */
+export type ITokenKey = string;
+
+/**
+ * Runtime value held by `listStructureAtom` inside the contextAtom store
+ * (spec §3). Distinct from the over-the-wire `IStructureSnapshot`: this is the
+ * applied, in-memory projection of ids + membership + owner/generation. Values
+ * live in the per-key cells, NOT here (spec §7 "运行时拆/磁盘合").
+ */
+export interface IListStructure {
+  orderedIds: string[];
+  smallBalanceIds: string[];
+  /** hideZero ids; Phase-1 dead-weight, Phase-2 consumer (spec §8#2). */
+  nonZeroIds: string[];
+  /** aggKey -> networkId[] — aggCell reads members from here (spec §3.1). */
+  aggMembership: Record<string, string[]>;
+  /** `${accountId}__${networkId}`. */
+  ownerKey: string;
+  /** monotonic, UI-produced in Phase-1 (spec §3, §4.1). */
+  generation: number;
+}
+/** aggregate-token list-map key (e.g. `aggregate_...`). */
+export type IAggKey = string;
+export type INetworkId = string;
+
+/**
+ * Structure frame — emitted only when the structure changes (add/remove
+ * token, reorder, owner switch, meta change). Pure price ticks do NOT emit a
+ * structure frame (spec §4.1).
+ */
+export interface IStructureSnapshot {
+  orderedIds: ITokenKey[];
+  smallBalanceIds: ITokenKey[];
+  nonZeroIds: ITokenKey[];
+  metaPatch: Record<ITokenKey, IToken>;
+  /** aggregate membership: aggKey -> the networkIds that compose it. */
+  aggMembership: Record<IAggKey, INetworkId[]>;
+  /** §6: structure must co-produce the small-balance fiat scalar. */
+  smallBalanceFiatValue: string;
+  /** identity check (NOT a string id) — see resolveCurrentStore. */
+  storeData: IJotaiContextStoreData;
+  ownerKey: string;
+  generation: number;
+}
+
+/**
+ * Valuation frame — emitted on every fiat tick. Carries only changed values.
+ * Aggregate tokens flow through the dedicated `changedAggFiat` per-network
+ * channel (spec §4, §3.1), never through `changedFiatById`.
+ */
+export interface IValuationFrame {
+  changedFiatById: Record<ITokenKey, ITokenFiat>;
+  changedAggFiat: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  storeData: IJotaiContextStoreData;
+  ownerKey: string;
+}

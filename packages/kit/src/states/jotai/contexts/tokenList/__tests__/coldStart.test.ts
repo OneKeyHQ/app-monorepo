@@ -1,0 +1,290 @@
+/**
+ * TokenList SLC — COLD START fan-out hydrate integration tests (spec §7,
+ * §11.2, §11.4). MERGE GATE for the §7 cold-start wiring. Run with node + a
+ * real jotai `createStore()` (no React, no native). They assert:
+ *  - a slim bundle fans out through the SAME apply contract: cells / metas /
+ *    aggregate sub-cells + listStructureAtom are populated at T0;
+ *  - the currency gate (shared shouldUseSlim) is a HARD merge gate: a matched
+ *    currency paints, a mismatched currency MISSES (no paint) — exercised
+ *    end-to-end through `hydrateSlcFromColdStart` reading the native snapshot.
+ */
+import { createStore } from 'jotai';
+
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
+import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
+import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+
+import { listStructureAtom } from '../atoms';
+import { buildApplyDeps, shallowEqualArray } from '../slc/apply';
+import { fanOutSlimToApply, hydrateSlcFromColdStart } from '../slc/coldStart';
+import {
+  aggCell,
+  cell,
+  clearAll,
+  ensureStoreProjection,
+  meta,
+  subcell,
+} from '../slc/projection';
+import { fiatEqual, isAgg, metaEqual } from '../slc/pure';
+
+import type { IApplyDeps } from '../slc/apply';
+import type { IStoreProjection } from '../slc/projection';
+
+type IStore = ReturnType<typeof createStore>;
+
+const STORE_DATA = {
+  storeName: EJotaiContextStoreNames.homeTokenList,
+} as IJotaiContextStoreData;
+
+const OWNER_KEY = 'acc1__net1';
+const SCOPE_KEY = 'store:homeTokenList';
+const SLIM_SCOPED_KEY = `${SCOPE_KEY}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.tokenListSlimColdCacheAtom}`;
+
+function makeFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
+  return {
+    balance: '0',
+    balanceParsed: '0',
+    fiatValue: '0',
+    price: 0,
+    ...overrides,
+  };
+}
+
+function makeToken(overrides: Partial<IToken> = {}): IToken {
+  return {
+    name: 'Token',
+    symbol: 'TKN',
+    decimals: 18,
+    address: '0xabc',
+    isNative: false,
+    ...overrides,
+  };
+}
+
+function makeDeps(
+  store: IStore,
+  resolve: (data: IJotaiContextStoreData) => IStore | undefined,
+): IApplyDeps {
+  const asCtx = store as unknown as Parameters<typeof cell>[0];
+  return buildApplyDeps({
+    store: asCtx,
+    listStructureAtom: listStructureAtom(),
+    resolveCurrentStore: (data) =>
+      resolve(data) as unknown as ReturnType<IApplyDeps['resolveCurrentStore']>,
+    fiatEqual,
+    metaEqual,
+    isAgg,
+    clearAll,
+    shallowEqual: shallowEqualArray,
+    meta,
+    cell,
+    subcell,
+    aggCell,
+  });
+}
+
+function setup(): {
+  store: IStore;
+  ctx: Parameters<typeof cell>[0];
+  projection: IStoreProjection;
+  deps: IApplyDeps;
+} {
+  const store = createStore();
+  // Stamp the cold-start scope key the way jotaiContextStore.createStore does,
+  // so resolveStoreData round-trips through the injected resolveCurrentStore.
+  (
+    store as unknown as { __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string }
+  ).__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__ = SCOPE_KEY;
+  const ctx = store as unknown as Parameters<typeof cell>[0];
+  const projection = ensureStoreProjection(ctx);
+  const deps = makeDeps(store, (data) =>
+    data.storeName === STORE_DATA.storeName ? store : undefined,
+  );
+  return { store, ctx, projection, deps };
+}
+
+// A representative slim bundle: 2 normal ordered tokens, 1 small-balance, and
+// 1 aggregate token spanning two networks (so the derived aggCell must sum).
+function buildSlimFixture(currency: string) {
+  const structure: ISlimSnapshotStructure = {
+    orderedIds: ['a', 'b', 'aggregate_agg1'],
+    smallBalanceIds: ['c'],
+    aggMembership: { aggregate_agg1: ['net1', 'net2'] },
+    ownerKey: OWNER_KEY,
+    generation: 7,
+  };
+  const fiatByKey: Record<string, ITokenFiat | undefined> = {
+    a: makeFiat({ balance: '100', fiatValue: '200', price: 2, currency }),
+    b: makeFiat({ balance: '5', fiatValue: '50', price: 10, currency }),
+    c: makeFiat({ balance: '1', fiatValue: '1', price: 1, currency }),
+  };
+  const aggFiatByKey: Record<string, Record<string, ITokenFiat | undefined>> = {
+    aggregate_agg1: {
+      net1: makeFiat({
+        balance: '10',
+        balanceParsed: '10',
+        fiatValue: '30',
+        price: 3,
+        currency,
+      }),
+      net2: makeFiat({
+        balance: '20',
+        balanceParsed: '20',
+        fiatValue: '60',
+        price: 3,
+        currency,
+      }),
+    },
+  };
+  const metaByKey: Record<string, IToken | undefined> = {
+    a: makeToken({ symbol: 'A' }),
+    b: makeToken({ symbol: 'B' }),
+    c: makeToken({ symbol: 'C' }),
+    aggregate_agg1: makeToken({ symbol: 'AGG', isAggregateToken: true }),
+  };
+  return buildSlimSnapshot({
+    structure,
+    fiatByKey,
+    aggFiatByKey,
+    metaByKey,
+    currency,
+  });
+}
+
+describe('fanOutSlimToApply', () => {
+  it('fans a slim bundle out through apply: cells + metas + listStructure + aggCell sum', () => {
+    const { store, ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+
+    // listStructure populated (ids + membership + owner/gen).
+    const structure = store.get(listStructureAtom());
+    expect(structure.orderedIds).toEqual(['a', 'b', 'aggregate_agg1']);
+    expect(structure.smallBalanceIds).toEqual(['c']);
+    expect(structure.aggMembership).toEqual({
+      aggregate_agg1: ['net1', 'net2'],
+    });
+    expect(structure.ownerKey).toBe(OWNER_KEY);
+    expect(structure.generation).toBe(7);
+
+    // normal cells painted (price + value at T0).
+    expect(store.get(cell(ctx, 'a'))?.fiatValue).toBe('200');
+    expect(store.get(cell(ctx, 'a'))?.price).toBe(2);
+    expect(store.get(cell(ctx, 'b'))?.fiatValue).toBe('50');
+    expect(store.get(cell(ctx, 'c'))?.fiatValue).toBe('1');
+
+    // normal-token meta cells painted (name/icon at T0).
+    expect(store.get(meta(ctx, 'a'))?.symbol).toBe('A');
+    expect(store.get(meta(ctx, 'b'))?.symbol).toBe('B');
+    // Aggregate-token meta is NOT retained in P.metas (apply prunes non-normal
+    // keys from the meta registry — agg identity falls back to the `aggregate_`
+    // prefix, so the agg row still resolves its fiat through aggCell). This
+    // mirrors the existing apply contract; the slim bundle carries compactMeta
+    // for it but apply does not keep it in P.metas.
+    expect(projection.metas.has('aggregate_agg1')).toBe(false);
+
+    // aggregate per-network sub-cells painted.
+    expect(store.get(subcell(ctx, 'aggregate_agg1', 'net1'))?.fiatValue).toBe(
+      '30',
+    );
+    expect(store.get(subcell(ctx, 'aggregate_agg1', 'net2'))?.fiatValue).toBe(
+      '60',
+    );
+
+    // derived aggCell sums the per-network sub-cells (30 + 60 = 90).
+    const agg = store.get(aggCell(ctx, 'aggregate_agg1'));
+    expect(agg?.fiatValue).toBe('90');
+    expect(agg?.balanceParsed).toBe('30');
+    // price/currency taken from the first member.
+    expect(agg?.price).toBe(3);
+    expect(agg?.currency).toBe('usd');
+  });
+
+  it('aggregate ids do NOT get a normal cell (flow through agg channel only)', () => {
+    const { ctx, projection, deps } = setup();
+    const bundle = buildSlimFixture('usd');
+    fanOutSlimToApply({
+      store: ctx,
+      projection,
+      deps,
+      bundle,
+      storeData: STORE_DATA,
+    });
+    // buildSlimSnapshot never writes a compactFiat entry for an aggregate id.
+    expect(bundle.compactFiat.aggregate_agg1).toBeUndefined();
+    // and the normal-cell registry has no aggregate entry.
+    expect(projection.cells.has('aggregate_agg1')).toBe(false);
+  });
+});
+
+describe('hydrateSlcFromColdStart — currency gate (merge gate, spec §11.4)', () => {
+  const globalRef = globalThis as typeof globalThis & {
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+
+  afterEach(() => {
+    delete globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  });
+
+  it('paints when the stored currency matches the current currency', () => {
+    const { store, ctx, projection, deps } = setup();
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
+    };
+
+    const painted = hydrateSlcFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      currentCurrency: 'usd',
+    });
+
+    expect(painted).toBe(true);
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([
+      'a',
+      'b',
+      'aggregate_agg1',
+    ]);
+    expect(store.get(cell(ctx, 'a'))?.fiatValue).toBe('200');
+  });
+
+  it('MISSES (no paint) when the stored currency mismatches the current currency', () => {
+    const { store, ctx, projection, deps } = setup();
+    globalRef.__ONEKEY_CTX_ATOM_SNAPSHOT__ = {
+      [SLIM_SCOPED_KEY]: buildSlimFixture('eur'),
+    };
+
+    const painted = hydrateSlcFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      currentCurrency: 'usd',
+    });
+
+    expect(painted).toBe(false);
+    // nothing painted: structure untouched, no cells.
+    expect(store.get(listStructureAtom()).orderedIds).toEqual([]);
+    expect(projection.cells.size).toBe(0);
+  });
+
+  it('MISSES when no slim bundle is present', () => {
+    const { ctx, projection, deps } = setup();
+    const painted = hydrateSlcFromColdStart({
+      store: ctx,
+      projection,
+      deps,
+      currentCurrency: 'usd',
+    });
+    expect(painted).toBe(false);
+  });
+});
