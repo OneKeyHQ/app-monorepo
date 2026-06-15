@@ -64,6 +64,28 @@ type IPortfolioServerSubmitResult = NonNullable<
   IPortfolioSyncLastResult['serverSubmit']
 >;
 
+const LOG_PREFIX = '[PRO2-PORTFOLIO-SYNC]';
+
+function stringifyLogValue(value: unknown) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function debugPortfolioSyncLog(label: string, value?: unknown) {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  const valueText = value === undefined ? '' : ` ${stringifyLogValue(value)}`;
+  // eslint-disable-next-line no-console
+  console.log(`${LOG_PREFIX} ${label}${valueText}`);
+}
+
 @backgroundClass()
 class ServicePortfolioSync extends ServiceBase {
   private initialized = false;
@@ -94,11 +116,19 @@ class ServicePortfolioSync extends ServiceBase {
       EAppEventBusNames.AllNetworksTokenListSettled,
       this.handleAllNetworksTokenListSettled,
     );
+    debugPortfolioSyncLog('listener-init');
   }
 
   private handleAllNetworksTokenListSettled = (
     eventPayload: IPortfolioSyncSettledPayload,
   ) => {
+    debugPortfolioSyncLog('settled-event', {
+      hasDeviceConnectId: Boolean(eventPayload.deviceConnectId),
+      isHardwareWallet: accountUtils.isHwWallet({
+        walletId: eventPayload.walletId,
+      }),
+      totalTokenCount: eventPayload.tokens.length,
+    });
     this.syncDebounced(eventPayload);
   };
 
@@ -166,6 +196,13 @@ class ServicePortfolioSync extends ServiceBase {
     const { contentHash, portfolioJsonBytes, portfolioJsonText } = artifacts;
     void portfolioJsonText;
 
+    debugPortfolioSyncLog('server-submit-ready', {
+      bytesLength: portfolioJsonBytes.byteLength,
+      contentHash,
+      tokenCount: artifacts.portfolio.tokens.length,
+      totalTokenCount: artifacts.portfolio.tokenCount,
+    });
+
     // TODO: POST `portfolioJsonBytes` as portfolio.json to the Pro 2
     // portfolio-pack API once the server endpoint is finalized. The server,
     // not the App, must validate, normalize, pack the archive/PP payload, and
@@ -183,11 +220,13 @@ class ServicePortfolioSync extends ServiceBase {
     const updatedAt = Date.now();
     try {
       if (!(await this.shouldRunDevFlow())) {
+        debugPortfolioSyncLog('skip-disabled');
         this.setLastResult({ status: 'disabled', updatedAt });
         return;
       }
 
       if (!eventPayload.tokens.length) {
+        debugPortfolioSyncLog('skip-empty');
         this.setLastResult({ status: 'empty', updatedAt });
         return;
       }
@@ -203,6 +242,11 @@ class ServicePortfolioSync extends ServiceBase {
 
       const isDuplicate = artifacts.contentHash === this.lastContentHash;
       if (isDuplicate) {
+        debugPortfolioSyncLog('skip-duplicate', {
+          contentHash: artifacts.contentHash,
+          tokenCount: artifacts.portfolio.tokens.length,
+          totalTokenCount: eventPayload.tokens.length,
+        });
         this.setLastResult(
           this.buildResultBase({
             artifacts,
@@ -228,6 +272,9 @@ class ServicePortfolioSync extends ServiceBase {
             connectId: deviceConnectId,
           });
         if (hardwareBusy) {
+          debugPortfolioSyncLog('skip-hardware-busy', {
+            contentHash: artifacts.contentHash,
+          });
           this.setLastResult(
             this.buildResultBase({
               artifacts,
@@ -261,6 +308,10 @@ class ServicePortfolioSync extends ServiceBase {
           }),
           mockUpload,
         });
+        debugPortfolioSyncLog('mock-uploaded', {
+          bytesLength: mockUpload.bytesLength,
+          contentHash: mockUpload.contentHash,
+        });
         return;
       }
 
@@ -273,7 +324,14 @@ class ServicePortfolioSync extends ServiceBase {
           updatedAt,
         }),
       );
+      debugPortfolioSyncLog('built', {
+        contentHash: artifacts.contentHash,
+        portfolioJsonBytesLength: artifacts.portfolioJsonBytes.byteLength,
+      });
     } catch (error) {
+      debugPortfolioSyncLog('error', {
+        message: (error as Error)?.message,
+      });
       this.setLastResult({
         errorMessage: (error as Error)?.message,
         status: 'error',
