@@ -200,30 +200,34 @@ describe('LocalSecretEnvelopeService platform composition', () => {
     expect(secureStorageProbeCount).toBe(1);
   });
 
-  it('caches unavailable credential migration config for the current service session', async () => {
+  it('does not cache an unavailable credential migration config and re-probes on the next call', async () => {
     let indexedDbCryptoKeyProbeCount = 0;
-    let secureStorageProbeCount = 0;
-    const service = buildService({
-      indexedDbCryptoKeyAvailable: false,
-      onIndexedDbCryptoKeyProbe: () => {
+    let indexedDbCryptoKeyAvailable = false;
+    const service = new LocalSecretEnvelopeService({
+      buildIndexedDbCryptoKeyLayerAdapter: () =>
+        buildMockLayerAdapter('indexeddb-cryptokey'),
+      isIndexedDbCryptoKeyLayerAvailable: async () => {
         indexedDbCryptoKeyProbeCount += 1;
+        return indexedDbCryptoKeyAvailable;
       },
-      onSecureStorageProbe: () => {
-        secureStorageProbeCount += 1;
-      },
-      platform: 'desktop',
-      secureStorageAvailable: false,
+      platform: 'web',
     });
 
+    // A transient unavailable probe (e.g. keychain busy at cold start) must NOT
+    // be frozen for the whole session: caching it would block unwrapping every
+    // LSE-wrapped credential/verifyString until restart.
     await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
       undefined,
     );
-    await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
-      undefined,
-    );
-
     expect(indexedDbCryptoKeyProbeCount).toBe(1);
-    expect(secureStorageProbeCount).toBe(1);
+
+    // The next call re-probes and recovers once the capability is available.
+    indexedDbCryptoKeyAvailable = true;
+    const config = await service.buildCredentialMigrationConfig();
+    expect(indexedDbCryptoKeyProbeCount).toBe(2);
+    expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
+      'indexeddb-cryptokey',
+    ]);
   });
 
   it('deduplicates concurrent credential migration config probes', async () => {
@@ -258,7 +262,7 @@ describe('LocalSecretEnvelopeService platform composition', () => {
 
   it('rebuilds credential migration config after clearing the capability cache', async () => {
     let indexedDbCryptoKeyProbeCount = 0;
-    let indexedDbCryptoKeyAvailable = false;
+    const indexedDbCryptoKeyAvailable = true;
     const service = new LocalSecretEnvelopeService({
       buildIndexedDbCryptoKeyLayerAdapter: () =>
         buildMockLayerAdapter('indexeddb-cryptokey'),
@@ -269,14 +273,14 @@ describe('LocalSecretEnvelopeService platform composition', () => {
       platform: 'web',
     });
 
-    await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
-      undefined,
-    );
-    indexedDbCryptoKeyAvailable = true;
-    await expect(service.buildCredentialMigrationConfig()).resolves.toBe(
-      undefined,
-    );
+    // A resolved (defined) config is cached for the session and not re-probed.
+    const firstConfig = await service.buildCredentialMigrationConfig();
+    const cachedConfig = await service.buildCredentialMigrationConfig();
+    expect(firstConfig).toBe(cachedConfig);
+    expect(indexedDbCryptoKeyProbeCount).toBe(1);
 
+    // clearCapabilityCache forces a fresh probe even for an already-cached
+    // config (used by the read path to retry a degraded/stale capability set).
     service.clearCapabilityCache();
     const config = await service.buildCredentialMigrationConfig();
 

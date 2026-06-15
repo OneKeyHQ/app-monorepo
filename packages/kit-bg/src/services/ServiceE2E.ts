@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import localDb from '../dbs/local/localDb';
@@ -532,9 +533,9 @@ class ServiceE2E extends ServiceBase {
   ): Promise<ILocalSecretEnvelopeRestoreSelfTestResult> {
     checkDevOnlyPassword(params);
     let credentialEnvelope: ILocalSecretEnvelopeV1 | undefined;
-    const runId = `${Date.now().toString(36)}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const runId = `${Date.now().toString(36)}-${generateUUID({
+      removeDashes: true,
+    }).slice(0, 6)}`;
     const credentialId = buildLocalSecretEnvelopeRestoreCredentialId({
       runId,
     });
@@ -746,9 +747,9 @@ class ServiceE2E extends ServiceBase {
     let verifyStringEnvelope: ILocalSecretEnvelopeV1 | undefined;
     const credentialEnvelopes: ILocalSecretEnvelopeV1[] = [];
     const credentialIdsToCleanup: string[] = [];
-    const runId = `${Date.now().toString(36)}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const runId = `${Date.now().toString(36)}-${generateUUID({
+      removeDashes: true,
+    }).slice(0, 6)}`;
 
     try {
       const config =
@@ -941,9 +942,9 @@ class ServiceE2E extends ServiceBase {
     checkDevOnlyPassword(params);
     let verifyStringEnvelope: ILocalSecretEnvelopeV1 | undefined;
     const credentialEnvelopes: ILocalSecretEnvelopeV1[] = [];
-    const runId = `${Date.now().toString(36)}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const runId = `${Date.now().toString(36)}-${generateUUID({
+      removeDashes: true,
+    }).slice(0, 6)}`;
 
     try {
       await this.resetLocalSecretEnvelopeE2ESelfTestState(params);

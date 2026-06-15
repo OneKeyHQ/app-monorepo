@@ -221,7 +221,16 @@ export class LocalSecretEnvelopeService {
     const cacheGeneration = this.credentialMigrationConfigCacheGeneration;
     const promise = this.buildCredentialMigrationConfigUncached()
       .then((config) => {
-        if (this.credentialMigrationConfigCacheGeneration === cacheGeneration) {
+        // Only cache a successfully-resolved config. A `undefined` result means
+        // no layer was available right now (e.g. keychain busy / not yet first
+        // unlocked at cold start). Permanently caching that would freeze a
+        // transient capability-probe failure for the whole session and block
+        // unwrapping every LSE-wrapped credential/verifyString until restart.
+        // Leaving it uncached lets the next read re-probe.
+        if (
+          config &&
+          this.credentialMigrationConfigCacheGeneration === cacheGeneration
+        ) {
           this.credentialMigrationConfigCache = { value: config };
         }
         return config;

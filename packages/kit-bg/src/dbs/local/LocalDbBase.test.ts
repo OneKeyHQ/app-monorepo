@@ -20,7 +20,10 @@ import {
   DEFAULT_VERIFY_STRING,
   WALLET_TYPE_IMPORTED,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { EDBAccountType } from './consts';
 import { LocalDbBase } from './LocalDbBase';
@@ -1108,6 +1111,71 @@ describe('LocalDbBase local secret envelope credentials', () => {
     ).rejects.toThrow(
       'Local secret envelope layer decrypt failed: kind=indexeddb-cryptokey, index=0',
     );
+  });
+
+  it('recovers from a transient LSE capability-probe failure by re-probing once', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    const originalVerifyString = await encryptVerifyString({ password });
+    db.context.verifyString = originalVerifyString;
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const configSpy = jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+
+    // First probe transiently yields no config (e.g. keychain busy at cold
+    // start); the single re-probe succeeds, so unwrapping must recover instead
+    // of being frozen for the whole session.
+    configSpy.mockReset();
+    configSpy.mockResolvedValueOnce(undefined).mockResolvedValue({
+      layerAdapters: [adapter],
+      strength: 'profile-bound',
+    });
+
+    await expect(
+      db.getContextVerifyStringInner({ context: db.context }),
+    ).resolves.toBe(originalVerifyString);
+    expect(configSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+    await expect(
+      db.verifyPassword({ password, skipLazyUpgrade: true }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('throws a retryable LocalSecretEnvelopeUnavailable (not WrongPassword) when the LSE layer stays unavailable', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.verifyString = await encryptVerifyString({ password });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const configSpy = jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+
+    // Capability stays unavailable even after the re-probe: the correct password
+    // must surface a retryable error, never a misleading WrongPassword/false.
+    configSpy.mockReset();
+    configSpy.mockResolvedValue(undefined);
+
+    await expect(
+      db.verifyPassword({ password, skipLazyUpgrade: true }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
   });
 
   it('migrates LSE credentials in checkpointed batches after KDF migration is complete', async () => {

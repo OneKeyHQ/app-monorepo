@@ -71,6 +71,7 @@ import {
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  LocalSecretEnvelopeUnavailable,
   NotImplemented,
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
@@ -570,6 +571,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
     const kdfParams = getLocalPasswordKdfParams();
+    // Keep LSE unwrap OUTSIDE the try below: a thrown
+    // LocalSecretEnvelopeUnavailable (secureStorage/keychain transiently
+    // unavailable while the password may still be correct) must propagate as a
+    // retryable error instead of being masked as `false` (i.e. WrongPassword).
+    // Only the actual password comparison below should map failure to `false`.
     const verifyString = await this.getContextVerifyStringInner({
       context,
     });
@@ -704,6 +710,59 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return buildLocalSecretEnvelopeLayerAdapterResolver(
       config?.layerAdapters ?? [],
     );
+  }
+
+  // Resolve a layer-adapter resolver that is guaranteed to cover EVERY layer
+  // kind the given envelope requires to be unwrapped. An envelope intrinsically
+  // declares its required layer kinds (wrappingLayers), so a transient
+  // capability-probe failure (e.g. keychain busy / not yet first-unlocked at
+  // cold start) that yields a degraded/empty config must NOT be treated as a
+  // permanent downgrade: re-probe once with a fresh capability detection before
+  // giving up, and surface a retryable LocalSecretEnvelopeUnavailable error
+  // rather than letting a single bad probe lock the whole session.
+  async resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+    envelope,
+    resolveLayerAdapter,
+  }: {
+    envelope: string;
+    resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
+  }): Promise<ILocalSecretEnvelopeLayerAdapterResolver> {
+    if (resolveLayerAdapter) {
+      return resolveLayerAdapter;
+    }
+
+    const requiredLayerKinds = parseLocalSecretEnvelopeV1(
+      envelope,
+    ).wrappingLayers.map((layer) => layer.kind);
+
+    const tryBuildResolver = async (): Promise<
+      ILocalSecretEnvelopeLayerAdapterResolver | undefined
+    > => {
+      const config =
+        await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      const layerAdapters = config?.layerAdapters ?? [];
+      const availableKinds = new Set(
+        layerAdapters.map((adapter) => adapter.kind),
+      );
+      if (!requiredLayerKinds.every((kind) => availableKinds.has(kind))) {
+        return undefined;
+      }
+      return buildLocalSecretEnvelopeLayerAdapterResolver(layerAdapters);
+    };
+
+    let resolver = await tryBuildResolver();
+    if (!resolver) {
+      localSecretEnvelopeService.clearCapabilityCache();
+      resolver = await tryBuildResolver();
+    }
+    if (!resolver) {
+      throw new LocalSecretEnvelopeUnavailable({
+        message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+          envelope,
+        }),
+      });
+    }
+    return resolver;
   }
 
   async lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock(): Promise<void> {
@@ -1950,15 +2009,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     const layerAdapterResolver =
-      resolveLayerAdapter ??
-      (await this.buildLocalSecretEnvelopeCredentialLayerAdapterResolver());
-    if (!layerAdapterResolver) {
-      throw new OneKeyLocalError(
-        buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-          envelope: context.verifyString,
-        }),
-      );
-    }
+      await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+        envelope: context.verifyString,
+        resolveLayerAdapter,
+      });
 
     return unwrapLocalSecretEnvelopeV1({
       envelope: context.verifyString,
@@ -1981,15 +2035,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     const layerAdapterResolver =
-      resolveLayerAdapter ??
-      (await this.buildLocalSecretEnvelopeCredentialLayerAdapterResolver());
-    if (!layerAdapterResolver) {
-      throw new OneKeyLocalError(
-        buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-          envelope: credential.credential,
-        }),
-      );
-    }
+      await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+        envelope: credential.credential,
+        resolveLayerAdapter,
+      });
 
     return {
       ...credential,

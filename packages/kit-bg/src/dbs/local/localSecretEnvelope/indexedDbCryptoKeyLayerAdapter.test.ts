@@ -23,8 +23,10 @@ function buildDeterministicRandomBytes(): (length: number) => Uint8Array {
   };
 }
 
+let testDbNameSeq = 0;
+
 function buildAdapter({
-  dbName = `test-lse-cryptokey-${Math.random()}`,
+  dbName = `test-lse-cryptokey-${(testDbNameSeq += 1)}`,
   indexedDBInstance = new IDBFactory(),
 }: {
   dbName?: string;
