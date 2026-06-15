@@ -15,10 +15,6 @@ import type {
 } from './types';
 import type { Harden, LockdownOptions } from 'ses';
 
-export const SES_HARDEN_LEVEL_STORAGE_KEY = 'ONEKEY_SES_HARDEN_LEVEL';
-export const SES_HARDEN_LEVEL_QUERY_KEY = 'onekeySesHardenLevel';
-export const SES_HARDEN_LEVEL_QUERY_KEY_SHORT = 'sesHardenLevel';
-export const SES_HARDEN_LEVEL_ENV_KEY = 'ONEKEY_SES_HARDEN_LEVEL';
 export const SES_HARDEN_PATCH_WARNING_LIMIT = 20;
 
 const SES_HARDEN_LEVELS = new Set<ISesHardenLevel>(['L0', 'L1', 'L2']);
@@ -52,58 +48,10 @@ export function normalizeSesHardenLevel(
     : undefined;
 }
 
-function getLevelFromUrl(): ISesHardenLevel | undefined {
-  const { location } = getSesGlobal();
-  const search = location?.search;
-  if (!search) {
-    return undefined;
-  }
-
-  try {
-    const params = new URLSearchParams(search);
-    return (
-      normalizeSesHardenLevel(params.get(SES_HARDEN_LEVEL_QUERY_KEY)) ??
-      normalizeSesHardenLevel(params.get(SES_HARDEN_LEVEL_QUERY_KEY_SHORT))
-    );
-  } catch {
-    return undefined;
-  }
-}
-
-function getLevelFromStorage(): ISesHardenLevel | undefined {
-  const { localStorage } = getSesGlobal();
-  try {
-    return normalizeSesHardenLevel(
-      localStorage?.getItem(SES_HARDEN_LEVEL_STORAGE_KEY),
-    );
-  } catch {
-    return undefined;
-  }
-}
-
-function getLevelFromProcessEnv(): ISesHardenLevel | undefined {
-  if (typeof process === 'undefined') {
-    return undefined;
-  }
-
-  return normalizeSesHardenLevel(
-    process.env?.[SES_HARDEN_LEVEL_ENV_KEY] ??
-      process.env?.ONEKEY_APP_SES_HARDEN_LEVEL,
-  );
-}
-
 export function getSesHardenLevelFromRuntime(
   runtime?: ISesHardenRuntime,
 ): ISesHardenLevel {
-  const globalLevel = getSesGlobal().__ONEKEY_SES_HARDEN_LEVEL__;
-
-  return (
-    getLevelFromUrl() ??
-    normalizeSesHardenLevel(globalLevel) ??
-    getLevelFromStorage() ??
-    getLevelFromProcessEnv() ??
-    getConfiguredSesHardenLevel(runtime)
-  );
+  return getConfiguredSesHardenLevel(runtime);
 }
 
 function setSesHardenRuntimeState(state: ISesHardenRuntimeState): void {
@@ -313,42 +261,6 @@ export function getSesHardenPatchWarnings(): readonly ISesHardenPatchWarning[] {
   return [...(getSesGlobal().__ONEKEY_SES_HARDEN_PATCH_WARNINGS__ ?? [])];
 }
 
-export function installSesHardenRuntimeSwitch(): void {
-  const g = getSesGlobal();
-  if (typeof g.__ONEKEY_SET_SES_HARDEN_LEVEL__ === 'function') {
-    return;
-  }
-
-  try {
-    Object.defineProperty(g, '__ONEKEY_SET_SES_HARDEN_LEVEL__', {
-      configurable: true,
-      enumerable: false,
-      writable: true,
-      value: (level?: ISesHardenLevel | null) => {
-        const normalized = normalizeSesHardenLevel(level);
-        if (normalized) {
-          try {
-            g.localStorage?.setItem(SES_HARDEN_LEVEL_STORAGE_KEY, normalized);
-          } catch {
-            g.__ONEKEY_SES_HARDEN_LEVEL__ = normalized;
-          }
-        } else {
-          try {
-            g.localStorage?.removeItem(SES_HARDEN_LEVEL_STORAGE_KEY);
-          } catch {
-            g.__ONEKEY_SES_HARDEN_LEVEL__ = getConfiguredSesHardenLevel();
-          }
-        }
-
-        g.location?.reload();
-      },
-    });
-  } catch {
-    // Runtime switching is a convenience helper; lockdown behavior must not
-    // depend on whether this global can be installed.
-  }
-}
-
 function defaultLoadSes(): void {
   // Loading SES installs globalThis.lockdown synchronously. Keep it out of the
   // module top level so L0 remains a true no-lockdown path.
@@ -386,12 +298,7 @@ export function maybeLockdownOneKeyRuntime(options: {
   level?: ISesHardenLevel;
   loadSes?: () => void;
   lockdown?: (lockdownOptions?: LockdownOptions) => void;
-  installSwitch?: boolean;
 }): ISesHardenRuntimeState {
-  if (options.installSwitch !== false) {
-    installSesHardenRuntimeSwitch();
-  }
-
   const level = options.level ?? getSesHardenLevelFromRuntime(options.runtime);
   const lockdownOptions = getSesLockdownOptions(level);
 

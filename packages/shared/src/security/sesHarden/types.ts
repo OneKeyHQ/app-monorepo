@@ -39,15 +39,11 @@ export type ISesHardenPatchWarning = {
 };
 
 export type ISesHardenGlobal = {
-  __ONEKEY_SES_HARDEN_LEVEL__?: ISesHardenLevel;
   __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
   __ONEKEY_SES_HARDEN_PATCH_WARNINGS__?: ISesHardenPatchWarning[];
   __ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__?: number;
   __ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__?: boolean;
-  __ONEKEY_SET_SES_HARDEN_LEVEL__?: (level?: ISesHardenLevel | null) => void;
   harden?: Harden;
   lockdown?: (options?: LockdownOptions) => void;
   addEventListener?: typeof globalThis.addEventListener;
-  location?: Location;
-  localStorage?: Storage;
 };

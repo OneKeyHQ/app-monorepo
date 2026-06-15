@@ -1,4 +1,4 @@
-// cspell:ignore lockdown evalTaming tamper
+// cspell:ignore lockdown evalTaming tamper IndexedDB XHR randomBytes isNormalized oneKey
 import { useCallback, useMemo, useState } from 'react';
 
 import {
@@ -14,52 +14,26 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  SES_HARDEN_LEVEL_STORAGE_KEY,
-  SES_HARDEN_PATCH_WARNING_LIMIT,
-  getSesHardenLevelFromRuntime,
-  getSesHardenPatchWarnings,
-  isSesHardenPatchWarningMonitorEnabled,
-} from '@onekeyhq/shared/src/security/sesHarden';
+import { getSesHardenLevelFromRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 import type {
   ISesHardenLevel,
-  ISesHardenPatchWarning,
+  ISesHardenRuntime,
   ISesHardenRuntimeState,
 } from '@onekeyhq/shared/src/security/sesHarden';
+import {
+  SES_HARDEN_RUNTIME_CHECK_MESSAGE_TYPE,
+  SES_RUNTIME_CHECK_COVERAGE,
+  buildSesRuntimeCheckReport,
+} from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
+import type {
+  ISesCheckDimension,
+  ISesCheckStatus,
+  ISesHardenRuntimeCheckResponse,
+  ISesRuntimeCheckReport,
+} from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
 
 type ISesHardenDevGlobal = typeof globalThis & {
   __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
-  __ONEKEY_SES_HARDEN_PATCH_WARNINGS__?: ISesHardenPatchWarning[];
-  __ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__?: number;
-  __ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__?: boolean;
-  __ONEKEY_SET_SES_HARDEN_LEVEL__?: (level?: ISesHardenLevel | null) => void;
-  harden?: (value: unknown) => unknown;
-  location?: Location;
-  localStorage?: Storage;
-  navigator?: Navigator;
-};
-
-type ISesCheckStatus = 'pass' | 'fail' | 'info';
-type ISesCheckDimension =
-  | 'runtime-state'
-  | 'functionality'
-  | 'tamper-resistance';
-
-type ISesRuntimeCheckItem = {
-  name: string;
-  dimension: ISesCheckDimension;
-  status: ISesCheckStatus;
-  purpose: string;
-  detail: string;
-};
-
-type ISesRuntimeCheckCoverageItem = {
-  name: string;
-  dimension: ISesCheckDimension;
-  title: string;
-  functionality: string;
-  hardening: string;
 };
 
 type ISesLevelMatrixRow = {
@@ -75,202 +49,89 @@ type ISesLevelMatrixCell = {
   detail: string;
 };
 
-type ISesCheckDimensionSummary = Record<
-  ISesCheckDimension,
-  {
-    total: number;
-    passed: number;
-    failed: number;
-  }
->;
-
-type ISesRuntimeCheckReport = {
-  createdAt: string;
-  level: ISesHardenLevel;
-  runtime: {
-    href?: string;
-    userAgent?: string;
-  };
-  state?: ISesHardenRuntimeState;
-  summary: {
-    total: number;
-    passed: number;
-    failed: number;
-    byDimension: ISesCheckDimensionSummary;
-  };
-  patchWarnings: {
-    enabled: boolean;
-    installed: boolean;
-    limit: number;
-    uniqueCount: number;
-    totalRecorded: number;
-    items: readonly ISesHardenPatchWarning[];
-  };
-  coverage: readonly ISesRuntimeCheckCoverageItem[];
-  checks: ISesRuntimeCheckItem[];
+type IExtensionRuntimeCheckTarget = {
+  runtime: ISesHardenRuntime;
+  required: boolean;
+  unavailableMessage: string;
 };
 
-const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[] = [
-  {
-    name: 'Runtime state',
-    dimension: 'runtime-state',
-    title: 'Runtime state / 当前 SES 状态',
-    functionality: '读取当前页面里的 SES 安装状态、运行端、等级和实际选项。',
-    hardening:
-      '确认当前 runtime 到底是 L0 未启用，还是 L1/L2 已执行 lockdown，避免误判测试环境。',
-  },
-  {
-    name: 'lockdownApplied',
-    dimension: 'runtime-state',
-    title: 'lockdownApplied / lockdown 是否执行',
-    functionality:
-      '根据当前 L0/L1/L2 等级，检查 runtime 是否应该已经执行 lockdown。',
-    hardening:
-      'L1/L2 通过代表 SES lockdown 已进入当前 JS realm；L0 通过代表当前保持原生 JS 行为。',
-  },
-  {
-    name: 'Object.prototype frozen',
-    dimension: 'tamper-resistance',
-    title: 'Object.prototype frozen / Object 原型冻结',
-    functionality: '检查 Object.prototype 是否已经被冻结。',
-    hardening:
-      '这是核心硬化项之一。冻结后第三方代码不能再篡改 Object.prototype 来污染所有普通对象。',
-  },
-  {
-    name: 'Array.prototype frozen',
-    dimension: 'tamper-resistance',
-    title: 'Array.prototype frozen / Array 原型冻结',
-    functionality: '检查 Array.prototype 是否已经被冻结。',
-    hardening:
-      '这是核心硬化项之一。冻结后第三方代码不能再篡改数组方法影响全局数组行为。',
-  },
-  {
-    name: 'global harden',
-    dimension: 'runtime-state',
-    title: 'global harden / SES harden 函数',
-    functionality: '检查 lockdown 后 globalThis.harden 是否可用。',
-    hardening:
-      'harden 是 SES 提供的对象图冻结能力，用来冻结我们显式传给不可信代码的 API facade。',
-  },
-  {
-    name: 'Patch warning monitor',
-    dimension: 'runtime-state',
-    title: 'Patch warning monitor / patch 失败提醒',
-    functionality:
-      '检查 dev mode 下 L1/L2 是否安装了 post-lockdown patch warning monitor，并统计去重后的最近记录。',
-    hardening:
-      '当 harden 后代码继续尝试改写被冻结对象并抛出只读/不可扩展错误时，monitor 会按 fingerprint 去重记录提醒，方便判断是启动顺序问题还是异常篡改。',
-  },
-  {
-    name: 'harden deep freeze',
-    dimension: 'tamper-resistance',
-    title: 'harden deep freeze / 对象图深冻结',
-    functionality:
-      '创建嵌套对象后调用 harden，检查根对象和内部对象是否都被冻结。',
-    hardening:
-      '确认 harden 不只是浅冻结，而是能递归冻结对象图，防止 facade 内部对象被改写。',
-  },
-  {
-    name: 'Function global escape',
-    dimension: 'tamper-resistance',
-    title: 'Function global escape / 动态函数逃逸',
-    functionality:
-      "执行 Function('return this')()，检查动态函数是否还能拿到 globalThis。",
-    hardening:
-      'L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸。',
-  },
-  {
-    name: 'JSON roundtrip',
-    dimension: 'functionality',
-    title: 'JSON roundtrip / JSON 序列化',
-    functionality: '检查 JSON.stringify 和 JSON.parse 是否仍能正常工作。',
-    hardening:
-      '这是兼容性检查，不是新增硬化项。用于确认 lockdown 没有破坏基础序列化能力。',
-  },
-  {
-    name: 'Promise microtask',
-    dimension: 'functionality',
-    title: 'Promise microtask / Promise 微任务',
-    functionality: '检查 Promise.resolve 和微任务调度是否仍能正常工作。',
-    hardening:
-      '这是兼容性检查，不是新增硬化项。用于确认异步任务调度没有被 harden 影响。',
-  },
-  {
-    name: 'Intl.NumberFormat',
-    dimension: 'functionality',
-    title: 'Intl.NumberFormat / 金额与本地化格式化',
-    functionality: '检查 Intl.NumberFormat 金额格式化是否仍能正常工作。',
-    hardening:
-      '这是兼容性检查。当前 localeTaming 保持 unsafe，目的是避免金额和本地化显示被改坏。',
-  },
-  {
-    name: 'RegExp',
-    dimension: 'functionality',
-    title: 'RegExp / 正则表达式',
-    functionality: '检查基础正则匹配是否仍能正常工作。',
-    hardening:
-      '这是兼容性检查。当前 regExpTaming 保持 unsafe，目的是避免改动正则行为影响业务逻辑。',
-  },
-  {
-    name: 'Error stack',
-    dimension: 'functionality',
-    title: 'Error stack / 错误堆栈',
-    functionality: '检查 Error.stack 是否仍然存在且可读。',
-    hardening:
-      '这是诊断能力检查。当前 errorTaming 使用 unsafe-debug，保留原始 stack，方便 Sentry 排查问题。',
-  },
-  {
-    name: 'Tamper Object.prototype',
-    dimension: 'tamper-resistance',
-    title: 'Tamper Object.prototype / 尝试污染 Object 原型',
-    functionality: '主动尝试给 Object.prototype 写入新属性。',
-    hardening:
-      'L1/L2 应阻止写入和 defineProperty，避免原型污染扩散到所有普通对象。',
-  },
-  {
-    name: 'Tamper Array.prototype.push',
-    dimension: 'tamper-resistance',
-    title: 'Tamper Array.prototype.push / 尝试替换数组方法',
-    functionality: '主动尝试替换 Array.prototype.push。',
-    hardening: 'L1/L2 应阻止替换数组内建方法，避免第三方代码改写全局数组行为。',
-  },
-  {
-    name: 'Tamper JSON.stringify',
-    dimension: 'tamper-resistance',
-    title: 'Tamper JSON.stringify / 尝试替换 JSON 序列化',
-    functionality: '主动尝试替换 JSON.stringify。',
-    hardening: 'L1/L2 应阻止改写 JSON.stringify，避免序列化结果被全局劫持。',
-  },
-  {
-    name: 'Tamper Promise.resolve',
-    dimension: 'tamper-resistance',
-    title: 'Tamper Promise.resolve / 尝试替换 Promise.resolve',
-    functionality: '主动尝试替换 Promise.resolve。',
-    hardening: 'L1/L2 应阻止改写 Promise.resolve，避免异步控制流被全局劫持。',
-  },
-  {
-    name: 'Tamper RegExp.prototype.test',
-    dimension: 'tamper-resistance',
-    title: 'Tamper RegExp.prototype.test / 尝试替换正则方法',
-    functionality: '主动尝试替换 RegExp.prototype.test。',
-    hardening: 'L1/L2 应阻止改写正则匹配方法，避免校验逻辑被全局篡改。',
-  },
-  {
-    name: 'Tamper Error.prototype.stack',
-    dimension: 'tamper-resistance',
-    title: 'Tamper Error.prototype.stack / 尝试注入错误堆栈 getter',
-    functionality: '主动尝试在 Error.prototype 上定义 stack getter。',
-    hardening:
-      'L1/L2 应阻止在 Error.prototype 上注入 stack getter，避免诊断信息被全局劫持。',
-  },
-  {
-    name: 'Tamper hardened object',
-    dimension: 'tamper-resistance',
-    title: 'Tamper hardened object / 尝试修改 harden 后对象',
-    functionality: '主动尝试修改 harden 后对象的根属性和嵌套属性。',
-    hardening:
-      'harden 后对象图应不可改写，适合保护暴露给不可信代码的 API facade。',
-  },
+type IExtensionRuntimeCheckResult = {
+  runtime: ISesHardenRuntime;
+  status: ISesCheckStatus;
+  report?: ISesRuntimeCheckReport;
+  error?: string;
+};
+
+type IAggregatedSesRuntimeCheckReport = ISesRuntimeCheckReport & {
+  extensionRuntimeReports?: readonly IExtensionRuntimeCheckResult[];
+};
+
+type ISesDimensionSummary =
+  ISesRuntimeCheckReport['summary']['byDimension'][ISesCheckDimension];
+
+type IRuntimeSummaryForCopy = {
+  runtime?: ISesHardenRuntime;
+  status: ISesCheckStatus;
+  level?: ISesHardenLevel;
+  lockdownApplied?: boolean;
+  state?: ISesHardenRuntimeState;
+  error?: string;
+  summary?: {
+    total: number;
+    passed: number;
+    failed: number;
+    dimensions: Record<
+      ISesCheckDimension,
+      {
+        label: string;
+        total: number;
+        passed: number;
+        failed: number;
+        skipped: number;
+        actionableTotal: number;
+      }
+    >;
+  };
+};
+
+type IChromeRuntimeForSesCheck = {
+  lastError?: {
+    message?: string;
+  };
+  sendMessage?: (
+    message: {
+      type: typeof SES_HARDEN_RUNTIME_CHECK_MESSAGE_TYPE;
+      targetRuntime: ISesHardenRuntime;
+    },
+    callback: (response?: ISesHardenRuntimeCheckResponse) => void,
+  ) => void;
+};
+
+const EXTENSION_RUNTIME_CHECK_TARGETS: readonly IExtensionRuntimeCheckTarget[] =
+  [
+    {
+      runtime: 'ext-background',
+      required: true,
+      unavailableMessage: 'background runtime should be reachable.',
+    },
+    {
+      runtime: 'ext-offscreen',
+      required: false,
+      unavailableMessage:
+        'offscreen runtime is checked only when the offscreen document is alive.',
+    },
+    {
+      runtime: 'ext-passkey',
+      required: false,
+      unavailableMessage:
+        'passkey runtime is checked only when the passkey page is open.',
+    },
+  ];
+
+const SES_CHECK_DIMENSIONS = [
+  'runtime-state',
+  'functionality',
+  'tamper-resistance',
 ] as const;
 
 const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
@@ -631,7 +492,7 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
       '推荐用途说明每个 level 在 rollout 中承担的角色，不是 SES 选项。',
     l0: {
       emoji: '➖',
-      detail: 'L0 是默认值、紧急回滚和对照组。',
+      detail: 'L0 用于紧急回滚和对照组，不再作为当前默认值。',
     },
     l1: {
       emoji: '✅',
@@ -639,7 +500,8 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     },
     l2: {
       emoji: '✅',
-      detail: 'L2 是第二阶段收紧，需在 L1 全量回归稳定后推进。',
+      detail:
+        'L2 是当前默认值，在 L1 基础上额外启用 safe-eval，限制动态函数逃逸。',
     },
   },
 ] as const;
@@ -658,6 +520,65 @@ function getDimensionLabel(dimension: ISesCheckDimension): string {
   if (dimension === 'runtime-state') return '状态确认';
   if (dimension === 'functionality') return '正常工作';
   return '防篡改';
+}
+
+function getDimensionSummaryStats(
+  dimension: ISesCheckDimension,
+  dimensionSummary: ISesDimensionSummary,
+) {
+  const skipped =
+    dimensionSummary.total - dimensionSummary.passed - dimensionSummary.failed;
+  const actionableTotal = dimensionSummary.passed + dimensionSummary.failed;
+
+  return {
+    label: getDimensionLabel(dimension),
+    total: dimensionSummary.total,
+    passed: dimensionSummary.passed,
+    failed: dimensionSummary.failed,
+    skipped,
+    actionableTotal,
+  };
+}
+
+function getDimensionSummaryText(
+  dimension: ISesCheckDimension,
+  dimensionSummary: ISesDimensionSummary,
+): string {
+  const stats = getDimensionSummaryStats(dimension, dimensionSummary);
+  return `${stats.label}: ${stats.passed}/${stats.actionableTotal}${
+    stats.skipped > 0 ? ` 跳过 ${stats.skipped}` : ''
+  }`;
+}
+
+function getDimensionSummaryBadgeType(
+  dimensionSummary: ISesDimensionSummary,
+): IBadgeType {
+  return dimensionSummary.failed > 0 ? 'critical' : 'success';
+}
+
+function DimensionSummaryBadges({
+  runtimeReport,
+}: {
+  runtimeReport: ISesRuntimeCheckReport;
+}) {
+  return (
+    <XStack gap="$2" flexWrap="wrap">
+      {SES_CHECK_DIMENSIONS.map((dimension) => {
+        const dimensionSummary = runtimeReport.summary.byDimension[dimension];
+        return (
+          <Badge
+            key={dimension}
+            badgeType={getDimensionSummaryBadgeType(dimensionSummary)}
+            badgeSize="sm"
+          >
+            <Badge.Text>
+              {getDimensionSummaryText(dimension, dimensionSummary)}
+            </Badge.Text>
+          </Badge>
+        );
+      })}
+    </XStack>
+  );
 }
 
 function LabeledLine({ label, value }: { label: string; value: string }) {
@@ -706,614 +627,209 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function arePropertyDescriptorsEquivalent(
-  left?: PropertyDescriptor,
-  right?: PropertyDescriptor,
-): boolean {
-  if (!left && !right) return true;
-  if (!left || !right) return false;
+function getGlobalRecord(): Record<string, unknown> {
+  return globalThis as unknown as Record<string, unknown>;
+}
 
-  const leftGet = Reflect.get(left, 'get') as unknown;
-  const rightGet = Reflect.get(right, 'get') as unknown;
-  const leftSet = Reflect.get(left, 'set') as unknown;
-  const rightSet = Reflect.get(right, 'set') as unknown;
-  const accessorsEquivalent =
-    Object.is(leftGet, rightGet) && Object.is(leftSet, rightSet);
+function isExtensionRuntime(runtime?: string): boolean {
+  return runtime?.startsWith('ext-') === true;
+}
+
+function getChromeRuntimeForSesCheck(): IChromeRuntimeForSesCheck | undefined {
+  const chromeApi = getGlobalRecord().chrome as
+    | {
+        runtime?: IChromeRuntimeForSesCheck;
+      }
+    | undefined;
+
+  return chromeApi?.runtime;
+}
+
+function hasReportFailures(report?: IAggregatedSesRuntimeCheckReport): boolean {
+  if (!report) return false;
+  if (report.checks.some((check) => check.status === 'fail')) return true;
 
   return (
-    left.configurable === right.configurable &&
-    left.enumerable === right.enumerable &&
-    left.writable === right.writable &&
-    Object.is(left.value, right.value) &&
-    accessorsEquivalent
+    report.extensionRuntimeReports?.some(
+      (runtimeReport) =>
+        runtimeReport.status === 'fail' ||
+        runtimeReport.report?.checks.some((check) => check.status === 'fail'),
+    ) ?? false
   );
 }
 
-function restorePropertyDescriptor(
-  target: object,
-  propertyKey: PropertyKey,
-  originalDescriptor?: PropertyDescriptor,
-) {
-  if (originalDescriptor) {
-    Reflect.defineProperty(target, propertyKey, originalDescriptor);
-  } else {
-    Reflect.deleteProperty(target, propertyKey);
-  }
+function getRuntimeResultStatus(
+  report: ISesRuntimeCheckReport,
+): ISesCheckStatus {
+  return report.summary.failed > 0 ? 'fail' : 'pass';
 }
 
-function buildCheck(
-  name: string,
-  dimension: ISesCheckDimension,
-  purpose: string,
-  passed: boolean,
-  detail: string,
-): ISesRuntimeCheckItem {
-  return {
-    name,
+function buildRuntimeSummaryForCopy(
+  runtimeReport: ISesRuntimeCheckReport,
+  status: ISesCheckStatus,
+): IRuntimeSummaryForCopy {
+  const dimensionEntries = SES_CHECK_DIMENSIONS.map((dimension) => [
     dimension,
-    status: passed ? 'pass' : 'fail',
-    purpose,
-    detail,
+    getDimensionSummaryStats(
+      dimension,
+      runtimeReport.summary.byDimension[dimension],
+    ),
+  ]);
+
+  return {
+    runtime: runtimeReport.state?.runtime,
+    status,
+    level: runtimeReport.level,
+    lockdownApplied: runtimeReport.state?.lockdownApplied,
+    state: runtimeReport.state,
+    summary: {
+      total: runtimeReport.summary.total,
+      passed: runtimeReport.summary.passed,
+      failed: runtimeReport.summary.failed,
+      dimensions: Object.fromEntries(dimensionEntries) as Record<
+        ISesCheckDimension,
+        ReturnType<typeof getDimensionSummaryStats>
+      >,
+    },
   };
 }
 
-function runPropertyTamperCheck({
-  name,
-  purpose,
-  target,
-  propertyKey,
-  replacement,
-  defineDescriptor,
-}: {
-  name: string;
-  purpose: string;
-  target: object;
-  propertyKey: PropertyKey;
-  replacement: unknown;
-  defineDescriptor?: PropertyDescriptor;
-}): ISesRuntimeCheckItem {
-  const originalDescriptor = Object.getOwnPropertyDescriptor(
-    target,
-    propertyKey,
-  );
-  let assignmentResult: boolean | 'threw' = false;
-  let assignmentError: string | undefined;
-  let assignmentMutated = false;
-  let definePropertyResult: boolean | 'threw' = false;
-  let definePropertyError: string | undefined;
-  let definePropertyMutated = false;
+function buildCopyableReport(
+  report: IAggregatedSesRuntimeCheckReport,
+): IAggregatedSesRuntimeCheckReport & {
+  runtimeSummaries: readonly IRuntimeSummaryForCopy[];
+} {
+  const extensionRuntimeSummaries =
+    report.extensionRuntimeReports?.map((runtimeReport) =>
+      runtimeReport.report
+        ? buildRuntimeSummaryForCopy(runtimeReport.report, runtimeReport.status)
+        : {
+            runtime: runtimeReport.runtime,
+            status: runtimeReport.status,
+            error: runtimeReport.error,
+          },
+    ) ?? [];
 
-  try {
-    assignmentResult = Reflect.set(target, propertyKey, replacement);
-    assignmentMutated = !arePropertyDescriptorsEquivalent(
-      originalDescriptor,
-      Object.getOwnPropertyDescriptor(target, propertyKey),
-    );
-  } catch (error) {
-    assignmentResult = 'threw';
-    assignmentError = getErrorMessage(error);
-  } finally {
-    restorePropertyDescriptor(target, propertyKey, originalDescriptor);
-  }
-
-  try {
-    definePropertyResult = Reflect.defineProperty(
-      target,
-      propertyKey,
-      defineDescriptor ?? {
-        value: replacement,
-        configurable: true,
-        writable: true,
-      },
-    );
-    definePropertyMutated = !arePropertyDescriptorsEquivalent(
-      originalDescriptor,
-      Object.getOwnPropertyDescriptor(target, propertyKey),
-    );
-  } catch (error) {
-    definePropertyResult = 'threw';
-    definePropertyError = getErrorMessage(error);
-  } finally {
-    restorePropertyDescriptor(target, propertyKey, originalDescriptor);
-  }
-
-  const finalRestored = arePropertyDescriptorsEquivalent(
-    originalDescriptor,
-    Object.getOwnPropertyDescriptor(target, propertyKey),
-  );
-  const passed = !assignmentMutated && !definePropertyMutated && finalRestored;
-
-  return buildCheck(
-    name,
-    'tamper-resistance',
-    purpose,
-    passed,
-    JSON.stringify({
-      assignmentResult,
-      assignmentError,
-      assignmentMutated,
-      definePropertyResult,
-      definePropertyError,
-      definePropertyMutated,
-      finalRestored,
-    }),
-  );
+  return {
+    ...report,
+    runtimeSummaries: [
+      buildRuntimeSummaryForCopy(report, getRuntimeResultStatus(report)),
+      ...extensionRuntimeSummaries,
+    ],
+  };
 }
 
-function runHardenedObjectTamperCheck(
-  g: ISesHardenDevGlobal,
-): ISesRuntimeCheckItem {
-  const purpose =
-    '验证 harden 后对象图不能被改写，包括根属性、嵌套属性和新增属性。';
+async function requestExtensionRuntimeCheckReport(
+  target: IExtensionRuntimeCheckTarget,
+): Promise<IExtensionRuntimeCheckResult> {
+  const chromeRuntime = getChromeRuntimeForSesCheck();
 
-  if (typeof g.harden !== 'function') {
-    return buildCheck(
-      'Tamper hardened object',
-      'tamper-resistance',
-      purpose,
-      false,
-      'globalThis.harden is not available',
-    );
+  if (!chromeRuntime?.sendMessage) {
+    return {
+      runtime: target.runtime,
+      status: target.required ? 'fail' : 'info',
+      error: `chrome.runtime.sendMessage is unavailable. ${target.unavailableMessage}`,
+    };
   }
 
-  const value = {
-    enabled: true,
-    nested: {
-      ok: true,
-    },
-  };
-  const hardenedValue = g.harden(value) as typeof value & {
-    extra?: boolean;
-  };
+  return new Promise((resolve) => {
+    let settled = false;
+    const timeoutRef: {
+      current?: ReturnType<typeof setTimeout>;
+    } = {};
+    const finish = (result: IExtensionRuntimeCheckResult) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      resolve(result);
+    };
 
-  let rootSetResult: boolean | 'threw' = false;
-  let rootSetError: string | undefined;
-  let nestedSetResult: boolean | 'threw' = false;
-  let nestedSetError: string | undefined;
-  let defineExtraResult: boolean | 'threw' = false;
-  let defineExtraError: string | undefined;
+    timeoutRef.current = setTimeout(() => {
+      finish({
+        runtime: target.runtime,
+        status: target.required ? 'fail' : 'info',
+        error: `runtime check timed out. ${target.unavailableMessage}`,
+      });
+    }, 10_000);
 
-  try {
-    rootSetResult = Reflect.set(hardenedValue, 'enabled', false);
-  } catch (error) {
-    rootSetResult = 'threw';
-    rootSetError = getErrorMessage(error);
-  }
+    try {
+      chromeRuntime.sendMessage?.(
+        {
+          type: SES_HARDEN_RUNTIME_CHECK_MESSAGE_TYPE,
+          targetRuntime: target.runtime,
+        },
+        (response) => {
+          const lastErrorMessage = chromeRuntime.lastError?.message;
+          if (lastErrorMessage) {
+            finish({
+              runtime: target.runtime,
+              status: target.required ? 'fail' : 'info',
+              error: `${lastErrorMessage}. ${target.unavailableMessage}`,
+            });
+            return;
+          }
 
-  try {
-    nestedSetResult = Reflect.set(hardenedValue.nested, 'ok', false);
-  } catch (error) {
-    nestedSetResult = 'threw';
-    nestedSetError = getErrorMessage(error);
-  }
+          if (!response) {
+            finish({
+              runtime: target.runtime,
+              status: target.required ? 'fail' : 'info',
+              error: `empty response. ${target.unavailableMessage}`,
+            });
+            return;
+          }
 
-  try {
-    defineExtraResult = Reflect.defineProperty(hardenedValue, 'extra', {
-      value: true,
-      configurable: true,
-      writable: true,
-    });
-  } catch (error) {
-    defineExtraResult = 'threw';
-    defineExtraError = getErrorMessage(error);
-  }
+          if (!response.ok) {
+            finish({
+              runtime: target.runtime,
+              status: 'fail',
+              error: response.error,
+            });
+            return;
+          }
 
-  const rootMutated = hardenedValue.enabled !== true;
-  const nestedMutated = hardenedValue.nested.ok !== true;
-  const extraAdded = Object.prototype.hasOwnProperty.call(
-    hardenedValue,
-    'extra',
-  );
-  const passed = !rootMutated && !nestedMutated && !extraAdded;
-
-  return buildCheck(
-    'Tamper hardened object',
-    'tamper-resistance',
-    purpose,
-    passed,
-    JSON.stringify({
-      rootSetResult,
-      rootSetError,
-      rootMutated,
-      nestedSetResult,
-      nestedSetError,
-      nestedMutated,
-      defineExtraResult,
-      defineExtraError,
-      extraAdded,
-    }),
-  );
-}
-
-function buildDimensionSummary(
-  checks: ISesRuntimeCheckItem[],
-): ISesCheckDimensionSummary {
-  const summary: ISesCheckDimensionSummary = {
-    'runtime-state': {
-      total: 0,
-      passed: 0,
-      failed: 0,
-    },
-    functionality: {
-      total: 0,
-      passed: 0,
-      failed: 0,
-    },
-    'tamper-resistance': {
-      total: 0,
-      passed: 0,
-      failed: 0,
-    },
-  };
-
-  checks.forEach((check) => {
-    summary[check.dimension].total += 1;
-    if (check.status === 'pass') {
-      summary[check.dimension].passed += 1;
-    } else if (check.status === 'fail') {
-      summary[check.dimension].failed += 1;
+          const runtimeReport = response.report;
+          finish({
+            runtime: target.runtime,
+            status: getRuntimeResultStatus(runtimeReport),
+            report: runtimeReport,
+          });
+        },
+      );
+    } catch (error) {
+      finish({
+        runtime: target.runtime,
+        status: target.required ? 'fail' : 'info',
+        error: `${getErrorMessage(error)}. ${target.unavailableMessage}`,
+      });
     }
   });
-
-  return summary;
 }
 
-function runFunctionGlobalEscapeCheck(
-  level: ISesHardenLevel,
-): ISesRuntimeCheckItem {
-  try {
-    const getGlobal = Reflect.construct(Function, [
-      'return this',
-    ]) as () => unknown;
-    const result = getGlobal();
-    const reachesGlobal = result === globalThis;
-    const expected = level === 'L2' ? !reachesGlobal : reachesGlobal;
-
-    return buildCheck(
-      'Function global escape',
-      'tamper-resistance',
-      '验证 L2 safe-eval 后动态函数不能逃逸拿到 globalThis。',
-      expected,
-      `reachesGlobal=${String(reachesGlobal)}, expected ${
-        level === 'L2' ? 'blocked' : 'native'
-      }`,
-    );
-  } catch (error) {
-    return buildCheck(
-      'Function global escape',
-      'tamper-resistance',
-      '验证 L2 safe-eval 后动态函数不能逃逸拿到 globalThis。',
-      level === 'L2',
-      `threw=${getErrorMessage(error)}`,
-    );
-  }
-}
-
-async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckReport> {
-  const g = getSesGlobal();
-  const level = getSesHardenLevelFromRuntime();
-  const state = g.__ONEKEY_SES_HARDEN_STATE__;
-  const checks: ISesRuntimeCheckItem[] = [];
-  const shouldBeLockedDown = level !== 'L0';
-  const patchWarnings = getSesHardenPatchWarnings();
-  const patchWarningMonitorEnabled = isSesHardenPatchWarningMonitorEnabled();
-  const patchWarningMonitorInstalled =
-    g.__ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__ === true;
-  const shouldInstallPatchWarningMonitor =
-    shouldBeLockedDown && patchWarningMonitorEnabled;
-  const totalPatchWarningsRecorded =
-    g.__ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__ ?? patchWarnings.length;
-
-  checks.push(
-    buildCheck(
-      'Runtime state',
-      'runtime-state',
-      '确认当前运行端实际启用的 SES harden 等级和状态。',
-      !!state,
-      state ? JSON.stringify(state) : 'missing __ONEKEY_SES_HARDEN_STATE__',
-    ),
-  );
-
-  checks.push(
-    buildCheck(
-      'lockdownApplied',
-      'runtime-state',
-      '确认 L1/L2 已执行 lockdown，L0 没有执行 lockdown。',
-      shouldBeLockedDown
-        ? state?.lockdownApplied === true
-        : state?.lockdownApplied !== true,
-      `actual=${String(state?.lockdownApplied)}, level=${level}`,
-    ),
-  );
-
-  checks.push(
-    buildCheck(
-      'Object.prototype frozen',
-      'tamper-resistance',
-      '确认 Object.prototype 已被冻结，作为防原型污染的基础状态。',
-      shouldBeLockedDown
-        ? Object.isFrozen(Object.prototype)
-        : !Object.isFrozen(Object.prototype),
-      `Object.isFrozen(Object.prototype)=${String(
-        Object.isFrozen(Object.prototype),
-      )}`,
-    ),
-  );
-
-  checks.push(
-    buildCheck(
-      'Array.prototype frozen',
-      'tamper-resistance',
-      '确认 Array.prototype 已被冻结，作为防全局数组行为篡改的基础状态。',
-      shouldBeLockedDown
-        ? Object.isFrozen(Array.prototype)
-        : !Object.isFrozen(Array.prototype),
-      `Object.isFrozen(Array.prototype)=${String(
-        Object.isFrozen(Array.prototype),
-      )}`,
-    ),
-  );
-
-  const hasHarden = typeof g.harden === 'function';
-  checks.push(
-    buildCheck(
-      'global harden',
-      'runtime-state',
-      '确认 lockdown 后 SES 提供的 harden 函数是否存在。',
-      shouldBeLockedDown ? hasHarden : !hasHarden,
-      `typeof harden=${typeof g.harden}`,
-    ),
-  );
-
-  checks.push(
-    buildCheck(
-      'Patch warning monitor',
-      'runtime-state',
-      '确认 dev mode 下 L1/L2 已安装 harden 后 patch 失败提醒，L0 和生产环境不安装。',
-      shouldInstallPatchWarningMonitor
-        ? patchWarningMonitorInstalled
-        : !patchWarningMonitorInstalled,
-      JSON.stringify({
-        enabled: patchWarningMonitorEnabled,
-        installed: patchWarningMonitorInstalled,
-        uniqueWarningCount: patchWarnings.length,
-        limit: SES_HARDEN_PATCH_WARNING_LIMIT,
-        totalRecorded: totalPatchWarningsRecorded,
-      }),
-    ),
-  );
-
-  if (hasHarden) {
-    const value = { nested: { ok: true } };
-    const hardenedValue = g.harden?.(value);
-    checks.push(
-      buildCheck(
-        'harden deep freeze',
-        'tamper-resistance',
-        '确认 harden 会递归冻结对象图。',
-        Object.isFrozen(hardenedValue) && Object.isFrozen(value.nested),
-        `rootFrozen=${String(
-          Object.isFrozen(hardenedValue),
-        )}, nestedFrozen=${String(Object.isFrozen(value.nested))}`,
-      ),
-    );
+async function collectExtensionRuntimeReports(
+  currentRuntime?: ISesHardenRuntime,
+): Promise<readonly IExtensionRuntimeCheckResult[] | undefined> {
+  if (!isExtensionRuntime(currentRuntime)) {
+    return undefined;
   }
 
-  checks.push(runFunctionGlobalEscapeCheck(level));
-
-  try {
-    const parsed = JSON.parse(JSON.stringify({ ok: true })) as { ok: boolean };
-    checks.push(
-      buildCheck(
-        'JSON roundtrip',
-        'functionality',
-        '确认 harden 后 JSON.stringify 和 JSON.parse 仍然可用。',
-        parsed.ok === true,
-        'ok=true',
-      ),
-    );
-  } catch (error) {
-    checks.push(
-      buildCheck(
-        'JSON roundtrip',
-        'functionality',
-        '确认 harden 后 JSON.stringify 和 JSON.parse 仍然可用。',
-        false,
-        getErrorMessage(error),
-      ),
-    );
-  }
-
-  try {
-    const promiseValue = await Promise.resolve(42);
-    checks.push(
-      buildCheck(
-        'Promise microtask',
-        'functionality',
-        '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
-        promiseValue === 42,
-        `value=${promiseValue}`,
-      ),
-    );
-  } catch (error) {
-    checks.push(
-      buildCheck(
-        'Promise microtask',
-        'functionality',
-        '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
-        false,
-        getErrorMessage(error),
-      ),
-    );
-  }
-
-  try {
-    const formatted = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(1234.5);
-    checks.push(
-      buildCheck(
-        'Intl.NumberFormat',
-        'functionality',
-        '确认 harden 后金额和本地化格式化仍然可用。',
-        formatted.includes('1,234.50'),
-        formatted,
-      ),
-    );
-  } catch (error) {
-    checks.push(
-      buildCheck(
-        'Intl.NumberFormat',
-        'functionality',
-        '确认 harden 后金额和本地化格式化仍然可用。',
-        false,
-        getErrorMessage(error),
-      ),
-    );
-  }
-
-  try {
-    const matched = /^onekey-\d+$/.test('onekey-2026');
-    checks.push(
-      buildCheck(
-        'RegExp',
-        'functionality',
-        '确认 harden 后正则表达式匹配仍然可用。',
-        matched,
-        `matched=${String(matched)}`,
-      ),
-    );
-  } catch (error) {
-    checks.push(
-      buildCheck(
-        'RegExp',
-        'functionality',
-        '确认 harden 后正则表达式匹配仍然可用。',
-        false,
-        getErrorMessage(error),
-      ),
-    );
-  }
-
-  const error = new OneKeyLocalError('ses harden stack check');
-  const { stack } = error;
-  checks.push(
-    buildCheck(
-      'Error stack',
-      'functionality',
-      '确认 harden 后错误堆栈仍然可用于 Sentry 和问题排查。',
-      typeof stack === 'string' && stack.length > 0,
-      `stackLength=${String(stack?.length ?? 0)}`,
-    ),
+  return Promise.all(
+    EXTENSION_RUNTIME_CHECK_TARGETS.filter(
+      (target) => target.runtime !== currentRuntime,
+    ).map((target) => requestExtensionRuntimeCheckReport(target)),
   );
-
-  const tamperedFunction = () => 'tampered';
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper Object.prototype',
-      purpose:
-        '验证 Object.prototype 不能被新增属性，防止全局普通对象被原型污染。',
-      target: Object.prototype,
-      propertyKey: '__onekeySesTamperProbe__',
-      replacement: true,
-    }),
-  );
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper Array.prototype.push',
-      purpose: '验证 Array.prototype.push 不能被替换，防止全局数组行为被篡改。',
-      target: Array.prototype,
-      propertyKey: 'push',
-      replacement: tamperedFunction,
-    }),
-  );
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper JSON.stringify',
-      purpose: '验证 JSON.stringify 不能被替换，防止全局序列化行为被劫持。',
-      target: JSON,
-      propertyKey: 'stringify',
-      replacement: tamperedFunction,
-    }),
-  );
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper Promise.resolve',
-      purpose: '验证 Promise.resolve 不能被替换，防止异步控制流被全局劫持。',
-      target: Promise,
-      propertyKey: 'resolve',
-      replacement: tamperedFunction,
-    }),
-  );
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper RegExp.prototype.test',
-      purpose:
-        '验证 RegExp.prototype.test 不能被替换，防止正则校验逻辑被全局篡改。',
-      target: RegExp.prototype,
-      propertyKey: 'test',
-      replacement: tamperedFunction,
-    }),
-  );
-  checks.push(
-    runPropertyTamperCheck({
-      name: 'Tamper Error.prototype.stack',
-      purpose:
-        '验证 Error.prototype 不能被注入 stack getter，防止错误诊断信息被全局劫持。',
-      target: Error.prototype,
-      propertyKey: 'stack',
-      replacement: 'tampered stack',
-      defineDescriptor: {
-        configurable: true,
-        get: () => 'tampered stack',
-      },
-    }),
-  );
-  checks.push(runHardenedObjectTamperCheck(g));
-
-  const failed = checks.filter((check) => check.status === 'fail').length;
-  const byDimension = buildDimensionSummary(checks);
-
-  return {
-    createdAt: new Date().toISOString(),
-    level,
-    runtime: {
-      href: g.location?.href,
-      userAgent: g.navigator?.userAgent,
-    },
-    state,
-    summary: {
-      total: checks.length,
-      passed: checks.length - failed,
-      failed,
-      byDimension,
-    },
-    patchWarnings: {
-      enabled: patchWarningMonitorEnabled,
-      installed: patchWarningMonitorInstalled,
-      limit: SES_HARDEN_PATCH_WARNING_LIMIT,
-      uniqueCount: patchWarnings.length,
-      totalRecorded: totalPatchWarningsRecorded,
-      items: patchWarnings,
-    },
-    coverage: SES_RUNTIME_CHECK_COVERAGE,
-    checks,
-  };
 }
 
 export default function DevSesHardenRuntimeCheck() {
   const { copyText } = useClipboard();
-  const [report, setReport] = useState<ISesRuntimeCheckReport>();
+  const [report, setReport] = useState<IAggregatedSesRuntimeCheckReport>();
   const [isRunning, setIsRunning] = useState(false);
 
-  const hasFailures = useMemo(
-    () => report?.checks.some((check) => check.status === 'fail') ?? false,
-    [report],
-  );
+  const hasFailures = useMemo(() => hasReportFailures(report), [report]);
 
   const reportText = useMemo(
-    () => (report ? JSON.stringify(report, null, 2) : ''),
+    () => (report ? JSON.stringify(buildCopyableReport(report), null, 2) : ''),
     [report],
   );
   const checksWithCoverage = useMemo(
@@ -1328,9 +844,19 @@ export default function DevSesHardenRuntimeCheck() {
   const runChecks = useCallback(async () => {
     setIsRunning(true);
     try {
-      const nextReport = await buildSesRuntimeCheckReport();
+      const currentReport = await buildSesRuntimeCheckReport();
+      const extensionRuntimeReports = await collectExtensionRuntimeReports(
+        currentReport.state?.runtime,
+      );
+      const nextReport: IAggregatedSesRuntimeCheckReport =
+        extensionRuntimeReports?.length
+          ? {
+              ...currentReport,
+              extensionRuntimeReports,
+            }
+          : currentReport;
       setReport(nextReport);
-      if (nextReport.checks.some((check) => check.status === 'fail')) {
+      if (hasReportFailures(nextReport)) {
         Toast.error({ title: 'SES harden check failed' });
       } else {
         Toast.success({ title: 'SES harden check passed' });
@@ -1354,26 +880,6 @@ export default function DevSesHardenRuntimeCheck() {
     Toast.success({ title: 'Copied' });
   }, [copyText, reportText]);
 
-  const setLevelAndReload = useCallback((level: ISesHardenLevel | null) => {
-    const g = getSesGlobal();
-    if (typeof g.__ONEKEY_SET_SES_HARDEN_LEVEL__ === 'function') {
-      g.__ONEKEY_SET_SES_HARDEN_LEVEL__(level);
-      return;
-    }
-
-    try {
-      if (level) {
-        g.localStorage?.setItem(SES_HARDEN_LEVEL_STORAGE_KEY, level);
-      } else {
-        g.localStorage?.removeItem(SES_HARDEN_LEVEL_STORAGE_KEY);
-      }
-    } catch {
-      // Best-effort fallback for dev-only runtime switching.
-    }
-
-    g.location?.reload();
-  }, []);
-
   return (
     <Page scrollEnabled>
       <Page.Header title="SES Harden Runtime Check" />
@@ -1393,9 +899,11 @@ export default function DevSesHardenRuntimeCheck() {
           <YStack gap="$3">
             <SizableText size="$headingLg">L0 / L1 / L2 区别</SizableText>
             <SizableText color="$textSubdued">
-              lockdown 在当前 JS realm 内不可逆。页面里的 Set L0/L1/L2
-              会写入本地配置并 reload，下一次启动时按新等级初始化。当前实现里 L2
-              相比 L1 只额外把 evalTaming 从 unsafe-eval 收紧到 safe-eval。
+              lockdown 在当前 JS realm 内不可逆。当前等级只由
+              packages/shared/src/security/sesHarden/config.ts 的同步常量控制；
+              修改 L0/L1/L2 后需要重新构建或 reload
+              让入口按新常量初始化。当前实现里 L2 相比 L1 只额外把 evalTaming 从
+              unsafe-eval 收紧到 safe-eval。
             </SizableText>
             <SizableText color="$textSubdued">
               图例：✅ 启用或收紧；❌ 未启用或未收紧；➖
@@ -1523,44 +1031,16 @@ export default function DevSesHardenRuntimeCheck() {
             </Button>
           </XStack>
 
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              testID="ses-harden-set-l0"
-              variant="secondary"
-              onPress={() => setLevelAndReload('L0')}
-            >
-              Set L0 & Reload
-            </Button>
-            <Button
-              testID="ses-harden-set-l1"
-              variant="secondary"
-              onPress={() => setLevelAndReload('L1')}
-            >
-              Set L1 & Reload
-            </Button>
-            <Button
-              testID="ses-harden-set-l2"
-              variant="secondary"
-              onPress={() => setLevelAndReload('L2')}
-            >
-              Set L2 & Reload
-            </Button>
-            <Button
-              testID="ses-harden-clear-level"
-              variant="secondary"
-              onPress={() => setLevelAndReload(null)}
-            >
-              Clear & Reload
-            </Button>
-          </XStack>
-
           <YStack gap="$3">
             <SizableText size="$headingLg">测试项目与结果</SizableText>
             <SizableText color="$textSubdued">
               每张卡片同时展示测试说明和运行结果。核心硬化验证是 Object/Array
               原型冻结、harden 深冻结，以及 L2 的动态函数逃逸限制。Tamper
               测试会主动尝试 set 和 defineProperty，确认 harden
-              后不能篡改原型、内建函数和 hardened object。
+              后不能篡改原型、内建函数和 hardened object。同时会检查
+              IndexedDB、fetch、timer、crypto、desktop/ext bridge 等启动期关键
+              patch 是否仍然安装且可用。在 extension UI 中还会请求
+              background、offscreen、passkey runtime 各自执行同一套检查。
             </SizableText>
 
             {report ? (
@@ -1575,33 +1055,97 @@ export default function DevSesHardenRuntimeCheck() {
               </XStack>
             ) : null}
 
-            {report ? (
-              <XStack gap="$2" flexWrap="wrap">
-                {(
-                  [
-                    'runtime-state',
-                    'functionality',
-                    'tamper-resistance',
-                  ] as const
-                ).map((dimension) => {
-                  const dimensionSummary =
-                    report.summary.byDimension[dimension];
-                  return (
-                    <Badge
-                      key={dimension}
-                      badgeType={
-                        dimensionSummary.failed > 0 ? 'critical' : 'success'
+            {report ? <DimensionSummaryBadges runtimeReport={report} /> : null}
+
+            {report?.extensionRuntimeReports?.length ? (
+              <YStack
+                gap="$2"
+                p="$3"
+                borderWidth="$px"
+                borderColor="$borderSubdued"
+                borderRadius="$2"
+              >
+                <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                  <Badge
+                    badgeType={
+                      report.extensionRuntimeReports.some(
+                        (item) => item.status === 'fail',
+                      )
+                        ? 'critical'
+                        : 'success'
+                    }
+                    badgeSize="sm"
+                  >
+                    <Badge.Text>
+                      {
+                        report.extensionRuntimeReports.filter(
+                          (item) => item.status === 'pass',
+                        ).length
                       }
-                      badgeSize="sm"
-                    >
-                      <Badge.Text>
-                        {getDimensionLabel(dimension)}:{' '}
-                        {dimensionSummary.passed}/{dimensionSummary.total}
-                      </Badge.Text>
-                    </Badge>
-                  );
-                })}
-              </XStack>
+                      /{report.extensionRuntimeReports.length}
+                    </Badge.Text>
+                  </Badge>
+                  <SizableText size="$bodyLgMedium">
+                    Extension 多 Runtime 结果
+                  </SizableText>
+                </XStack>
+                <LabeledLine
+                  label="功能："
+                  value="从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。"
+                />
+                <LabeledLine
+                  label="硬化点："
+                  value="验证每个扩展 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
+                />
+                <LabeledLine
+                  label="目的："
+                  value="避免只验证 UI runtime，却漏掉 background/offscreen/passkey 这些独立 JS heap 的 harden 和关键 patch 顺序。"
+                />
+                {report.extensionRuntimeReports.map((runtimeReport) => (
+                  <YStack
+                    key={runtimeReport.runtime}
+                    gap="$1"
+                    p="$2"
+                    borderWidth="$px"
+                    borderColor="$borderSubdued"
+                    borderRadius="$1"
+                  >
+                    <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                      <Badge
+                        badgeType={getCheckBadgeType(runtimeReport.status)}
+                        badgeSize="sm"
+                      >
+                        <Badge.Text>{runtimeReport.status}</Badge.Text>
+                      </Badge>
+                      <SizableText size="$bodyMdMedium">
+                        {runtimeReport.runtime}
+                      </SizableText>
+                    </XStack>
+                    {runtimeReport.report ? (
+                      <>
+                        <DimensionSummaryBadges
+                          runtimeReport={runtimeReport.report}
+                        />
+                        <LabeledLine
+                          label="结果："
+                          value={`level=${runtimeReport.report.level}, lockdownApplied=${String(
+                            runtimeReport.report.state?.lockdownApplied,
+                          )}`}
+                        />
+                        <LabeledLine
+                          label="状态："
+                          value={JSON.stringify(runtimeReport.report.state)}
+                        />
+                      </>
+                    ) : (
+                      <LabeledLine
+                        label="结果："
+                        value={runtimeReport.error ?? 'not available'}
+                      />
+                    )}
+                  </YStack>
+                ))}
+              </YStack>
             ) : null}
 
             {report ? (

@@ -1,4 +1,4 @@
-// cspell:ignore lockdown
+// cspell:ignore lockdown Agentation
 import { execFileSync } from 'node:child_process';
 
 import {
@@ -12,6 +12,8 @@ import {
   normalizeSesHardenLevel,
   resetSesHardenRuntimeStateForTest,
 } from '.';
+
+import { buildSesRuntimeCheckReport } from './runtimeCheck';
 
 import type { ISesHardenGlobal } from './types';
 
@@ -67,7 +69,6 @@ test('keeps L0 as no-lockdown', () => {
     level: 'L0',
     loadSes: jest.fn(),
     lockdown: jest.fn(),
-    installSwitch: false,
   });
 
   expect(state).toEqual({
@@ -88,6 +89,58 @@ test('uses synchronous const config as the default level', () => {
   );
 });
 
+test('ignores legacy runtime level override channels', () => {
+  const g = globalThis as unknown as Record<string, unknown>;
+  const originalGlobalLevel = g.__ONEKEY_SES_HARDEN_LEVEL__;
+  const originalLocation = g.location;
+  const originalLocalStorage = g.localStorage;
+  const originalSesEnv = process.env.ONEKEY_SES_HARDEN_LEVEL;
+  const originalAppSesEnv = process.env.ONEKEY_APP_SES_HARDEN_LEVEL;
+  const overrideLevel = ONEKEY_SES_HARDEN_DEFAULT_LEVEL === 'L2' ? 'L1' : 'L2';
+
+  g.__ONEKEY_SES_HARDEN_LEVEL__ = overrideLevel;
+  g.location = {
+    search: `?onekeySesHardenLevel=${overrideLevel}`,
+  };
+  g.localStorage = {
+    getItem: () => overrideLevel,
+  };
+  process.env.ONEKEY_SES_HARDEN_LEVEL = overrideLevel;
+  process.env.ONEKEY_APP_SES_HARDEN_LEVEL = overrideLevel;
+
+  try {
+    expect(getSesHardenLevelFromRuntime()).toBe(
+      ONEKEY_SES_HARDEN_DEFAULT_LEVEL,
+    );
+  } finally {
+    if (originalGlobalLevel === undefined) {
+      Reflect.deleteProperty(g, '__ONEKEY_SES_HARDEN_LEVEL__');
+    } else {
+      g.__ONEKEY_SES_HARDEN_LEVEL__ = originalGlobalLevel;
+    }
+    if (originalLocation === undefined) {
+      Reflect.deleteProperty(g, 'location');
+    } else {
+      g.location = originalLocation;
+    }
+    if (originalLocalStorage === undefined) {
+      Reflect.deleteProperty(g, 'localStorage');
+    } else {
+      g.localStorage = originalLocalStorage;
+    }
+    if (originalSesEnv === undefined) {
+      Reflect.deleteProperty(process.env, 'ONEKEY_SES_HARDEN_LEVEL');
+    } else {
+      process.env.ONEKEY_SES_HARDEN_LEVEL = originalSesEnv;
+    }
+    if (originalAppSesEnv === undefined) {
+      Reflect.deleteProperty(process.env, 'ONEKEY_APP_SES_HARDEN_LEVEL');
+    } else {
+      process.env.ONEKEY_APP_SES_HARDEN_LEVEL = originalAppSesEnv;
+    }
+  }
+});
+
 test('uses unsafe eval in L1 while applying loose lockdown options', () => {
   const lockdown = jest.fn();
 
@@ -95,7 +148,6 @@ test('uses unsafe eval in L1 while applying loose lockdown options', () => {
     runtime: 'desktop-renderer',
     level: 'L1',
     lockdown,
-    installSwitch: false,
   });
 
   expect(lockdown).toHaveBeenCalledWith({
@@ -138,7 +190,6 @@ test('does not load SES when L0 is selected', () => {
     runtime: 'ext-ui',
     level: 'L0',
     loadSes,
-    installSwitch: false,
   });
 
   expect(loadSes).not.toHaveBeenCalled();
@@ -161,7 +212,6 @@ test('records post-lockdown patch warning errors', () => {
       runtime: 'web',
       level: 'L1',
       lockdown: jest.fn(),
-      installSwitch: false,
     });
 
     const listener = listeners.get('error');
@@ -233,7 +283,6 @@ test('does not install post-lockdown patch warning monitor in production', () =>
       runtime: 'web',
       level: 'L1',
       lockdown: jest.fn(),
-      installSwitch: false,
     });
 
     expect(g.addEventListener).not.toHaveBeenCalled();
@@ -252,6 +301,195 @@ test('does not install post-lockdown patch warning monitor in production', () =>
     } else {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  }
+});
+
+test('accepts legacy timer interceptor wrappers without marker', async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalSetInterval = globalThis.setInterval;
+
+  const legacySetTimeout = function legacyOneKeyTimerInterceptor(
+    fn: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    if (Reflect.get(globalThis, '$$onekeyDisabledSetTimeout')) {
+      return undefined;
+    }
+    return originalSetTimeout(() => fn(...args), timeout);
+  };
+  const legacySetInterval = function legacyOneKeyTimerInterceptor(
+    fn: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    if (Reflect.get(globalThis, '$$onekeyDisabledSetInterval')) {
+      return undefined;
+    }
+    return originalSetInterval(() => fn(...args), timeout);
+  };
+
+  globalThis.setTimeout = legacySetTimeout as typeof globalThis.setTimeout;
+  globalThis.setInterval = legacySetInterval as typeof globalThis.setInterval;
+
+  try {
+    const report = await buildSesRuntimeCheckReport();
+    const timerCheck = report.checks.find(
+      (check) => check.name === 'timer interceptor',
+    );
+    const detail = JSON.parse(timerCheck?.detail ?? '{}') as {
+      setTimeout?: {
+        behavior: {
+          disabledFlagBlocksCallbacks: boolean;
+        };
+        marker: unknown;
+        sourceLooksOneKeyIntercepted: boolean;
+        installed: boolean;
+      };
+      setInterval?: {
+        behavior: {
+          disabledFlagBlocksCallbacks: boolean;
+        };
+        marker: unknown;
+        sourceLooksOneKeyIntercepted: boolean;
+        installed: boolean;
+      };
+    };
+
+    expect(timerCheck?.status).toBe('pass');
+    expect(detail.setTimeout).toMatchObject({
+      marker: null,
+      sourceLooksOneKeyIntercepted: true,
+      installed: true,
+      behavior: {
+        disabledFlagBlocksCallbacks: true,
+      },
+    });
+    expect(detail.setInterval).toMatchObject({
+      marker: null,
+      sourceLooksOneKeyIntercepted: true,
+      installed: true,
+      behavior: {
+        disabledFlagBlocksCallbacks: true,
+      },
+    });
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.setInterval = originalSetInterval;
+  }
+});
+
+test('accepts agentation timer wrappers when OneKey wrapper remains in the chain', async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalSetInterval = globalThis.setInterval;
+
+  const oneKeySetTimeout = function oneKeyTimerInterceptor(
+    fn: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    return originalSetTimeout(() => {
+      if (Reflect.get(globalThis, '$$onekeyDisabledSetTimeout')) {
+        return;
+      }
+      fn(...args);
+    }, timeout);
+  };
+  const oneKeySetInterval = function oneKeyTimerInterceptor(
+    fn: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    return originalSetInterval(() => {
+      if (Reflect.get(globalThis, '$$onekeyDisabledSetInterval')) {
+        return;
+      }
+      fn(...args);
+    }, timeout);
+  };
+
+  const _s = {
+    frozen: false,
+    frozenTimeoutQueue: [] as Array<() => void>,
+    origSetInterval: oneKeySetInterval,
+    origSetTimeout: oneKeySetTimeout,
+  };
+
+  const agentationSetTimeout = function agentationSetTimeout(
+    handler: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    return _s.origSetTimeout(
+      (...a: unknown[]) => {
+        if (_s.frozen) {
+          _s.frozenTimeoutQueue.push(() => handler(...a));
+        } else {
+          handler(...a);
+        }
+      },
+      timeout,
+      ...args,
+    );
+  };
+  const agentationSetInterval = function agentationSetInterval(
+    handler: (...args: unknown[]) => unknown,
+    timeout?: number,
+    ...args: unknown[]
+  ) {
+    return _s.origSetInterval(
+      (...a: unknown[]) => {
+        if (!_s.frozen) handler(...a);
+      },
+      timeout,
+      ...args,
+    );
+  };
+
+  globalThis.setTimeout = agentationSetTimeout as typeof globalThis.setTimeout;
+  globalThis.setInterval =
+    agentationSetInterval as typeof globalThis.setInterval;
+
+  try {
+    const report = await buildSesRuntimeCheckReport();
+    const timerCheck = report.checks.find(
+      (check) => check.name === 'timer interceptor',
+    );
+    const detail = JSON.parse(timerCheck?.detail ?? '{}') as {
+      setTimeout?: {
+        behavior: {
+          disabledFlagBlocksCallbacks: boolean;
+          enabledCallbackRan: boolean;
+        };
+        sourceLooksAgentationWrapped: boolean;
+      };
+      setInterval?: {
+        behavior: {
+          disabledFlagBlocksCallbacks: boolean;
+          enabledCallbackRan: boolean;
+        };
+        sourceLooksAgentationWrapped: boolean;
+      };
+    };
+
+    expect(timerCheck?.status).toBe('pass');
+    expect(detail.setTimeout).toMatchObject({
+      behavior: {
+        disabledFlagBlocksCallbacks: true,
+        enabledCallbackRan: true,
+      },
+      sourceLooksAgentationWrapped: true,
+    });
+    expect(detail.setInterval).toMatchObject({
+      behavior: {
+        disabledFlagBlocksCallbacks: true,
+        enabledCallbackRan: true,
+      },
+      sourceLooksAgentationWrapped: true,
+    });
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.setInterval = originalSetInterval;
   }
 });
 
