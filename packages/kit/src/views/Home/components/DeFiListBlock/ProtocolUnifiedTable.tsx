@@ -323,17 +323,17 @@ const ProtocolUnifiedTable = memo(
                     numberOfLines={1}
                     fontVariant={TABULAR_NUMS}
                   />
+                  <ProtocolPositionActionButton
+                    accountId={accountId}
+                    indexedAccountId={indexedAccountId}
+                    protocol={protocol}
+                    position={actionPosition}
+                    supportedActions={supportedActions}
+                    containerProps={{ mt: '$2' }}
+                    onSuccess={onActionSuccess}
+                  />
                 </Stack>
               </XStack>
-              <ProtocolPositionActionButton
-                accountId={accountId}
-                indexedAccountId={indexedAccountId}
-                protocol={protocol}
-                position={actionPosition}
-                supportedActions={supportedActions}
-                containerProps={{ alignSelf: 'flex-end', px: '$2' }}
-                onSuccess={onActionSuccess}
-              />
             </YStack>
           );
         })}

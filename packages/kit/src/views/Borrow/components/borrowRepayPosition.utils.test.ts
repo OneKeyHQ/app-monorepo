@@ -4,6 +4,7 @@ import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
   getBorrowRepayProgressStep,
+  getEffectiveBorrowRepayNeedsSetupLut,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
@@ -75,5 +76,30 @@ describe('borrowRepayPosition utils', () => {
         setupReadyProgressKey: 'different-key',
       }),
     ).toBeUndefined();
+  });
+
+  it('treats setup as complete only for the same repay input key', () => {
+    const progressKey = buildBorrowRepayPositionKey({
+      amount: '1',
+      collateralReserveAddress: 'collateral-reserve',
+      repayAll: false,
+      slippageBps: 50,
+      hasDebtPosition: true,
+    });
+
+    expect(
+      getEffectiveBorrowRepayNeedsSetupLut({
+        progressKey,
+        needsSetupLut: true,
+        setupReadyProgressKey: progressKey,
+      }),
+    ).toBe(false);
+    expect(
+      getEffectiveBorrowRepayNeedsSetupLut({
+        progressKey,
+        needsSetupLut: true,
+        setupReadyProgressKey: 'different-key',
+      }),
+    ).toBe(true);
   });
 });

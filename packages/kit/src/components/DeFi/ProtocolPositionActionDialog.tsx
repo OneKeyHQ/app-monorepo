@@ -46,11 +46,13 @@ function getActionLabel({
   if (action === EDeFiPositionAction.Withdraw) {
     return intl.formatMessage({ id: ETranslations.global_withdraw });
   }
-  if (
-    action === EDeFiPositionAction.Claim ||
-    action === EDeFiPositionAction.ClaimWithdrawal
-  ) {
-    return intl.formatMessage({ id: ETranslations.earn_claim });
+  if (action === EDeFiPositionAction.Claim) {
+    return intl.formatMessage({ id: ETranslations.earn_claim_rewards__action });
+  }
+  if (action === EDeFiPositionAction.ClaimWithdrawal) {
+    return intl.formatMessage({
+      id: ETranslations.earn_claim_redemption__action,
+    });
   }
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     return intl.formatMessage({
@@ -253,6 +255,11 @@ function buildDeFiActionExtraParams({
   const extraParams: IDeFiActionExtraParams = {
     ...selectedAsset.extraParams,
   };
+  // The DeFi build API now resolves Polygon withdrawals by groupId.
+  // oxlint-disable-next-line @cspell/spellchecker
+  delete extraParams['unbondNonces'];
+  // oxlint-disable-next-line @cspell/spellchecker
+  delete extraParams['unbond_nonces'];
 
   if (action.action === EDeFiPositionAction.RemoveLiquidity) {
     const amount0Min = getPositiveAmount(extraParams.amount0Min);
@@ -505,15 +512,20 @@ function ProtocolPositionActionDialogContent({
     });
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = async ({
+    close,
+  }: {
+    close: (extra?: { flag?: string }) => Promise<void> | void;
+  }) => {
     if (selectedAssets.length === 0) {
       throw new OneKeyLocalError('DeFi action asset is missing');
     }
 
-    await submitProtocolPositionAction({
+    await close({ flag: 'confirm' });
+    void submitProtocolPositionAction({
       action,
       selectedAssets,
-    });
+    }).catch(() => undefined);
   };
 
   return (

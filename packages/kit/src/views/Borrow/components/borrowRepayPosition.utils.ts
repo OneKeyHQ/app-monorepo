@@ -76,6 +76,20 @@ export function getBorrowRepayProgressStep({
   return undefined;
 }
 
+export function getEffectiveBorrowRepayNeedsSetupLut({
+  progressKey,
+  needsSetupLut,
+  setupReadyProgressKey,
+}: {
+  progressKey: string;
+  needsSetupLut?: boolean;
+  setupReadyProgressKey?: string;
+}) {
+  return Boolean(
+    needsSetupLut && (!progressKey || setupReadyProgressKey !== progressKey),
+  );
+}
+
 export function isCollateralRepayEnabled({
   collateralAssetCount,
   collateralLoading,

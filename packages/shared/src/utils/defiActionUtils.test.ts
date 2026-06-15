@@ -189,7 +189,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('resolves Polygon claimWithdrawal with pool and unbond nonce metadata', () => {
+  it('resolves Polygon claimWithdrawal with pool and group metadata', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
@@ -226,8 +226,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
-    // oxlint-disable-next-line @cspell/spellchecker
-    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
+    expect(actions[0].assets[0].extraParams?.groupId).toBe('Cooldown #5');
   });
 
   it('resolves Polygon withdraw only from Debank staked groupId assets', () => {
@@ -437,12 +436,16 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
+    // oxlint-disable-next-line @cspell/spellchecker
+    const claimableWithdrawalGroupId = `${validatorShareAddress}#new_version_unbonded_10`;
+
     expect(actions).toHaveLength(1);
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe(
       validatorShareAddress,
     );
-    // oxlint-disable-next-line @cspell/spellchecker
-    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['10']);
+    expect(actions[0].assets[0].extraParams?.groupId).toBe(
+      claimableWithdrawalGroupId,
+    );
   });
 
   it('matches the remote Everstake claimWithdrawal category typo defensively', () => {
@@ -484,7 +487,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].symbol).toBe('ETH');
   });
 
-  it('passes only one Polygon unbond nonce per claimWithdrawal transaction', () => {
+  it('does not pass Polygon unbond nonces for claimWithdrawal', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
@@ -525,7 +528,8 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
 
     expect(actions).toHaveLength(1);
     // oxlint-disable-next-line @cspell/spellchecker
-    expect(actions[0].assets[0].extraParams?.unbondNonces).toEqual(['5']);
+    expect(actions[0].assets[0].extraParams?.['unbondNonces']).toBeUndefined();
+    expect(actions[0].assets[0].extraParams?.groupId).toBe('polygon-cooldowns');
   });
 
   it('resolves Ethena claimWithdrawal when pool metadata is available', () => {

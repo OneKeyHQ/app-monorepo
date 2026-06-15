@@ -201,180 +201,20 @@ function pickStringFromSources({
   return undefined;
 }
 
-function normalizeStringArray(value: unknown) {
-  if (Array.isArray(value)) {
-    const values = value
-      .map((item) => {
-        if (typeof item === 'string' && item.trim()) return item.trim();
-        if (typeof item === 'number' && Number.isFinite(item)) {
-          return String(item);
-        }
-        return undefined;
-      })
-      .filter((item): item is string => Boolean(item));
-    return values.length > 0 ? values : undefined;
-  }
-
-  if (typeof value === 'string' && value.trim()) {
-    return [value.trim()];
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return [String(value)];
-  }
-
-  return undefined;
-}
-
-function pickStringArrayFromRecord(
-  record: IDeFiUnknownRecord | undefined,
-  keys: string[],
-) {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = normalizeStringArray(record[key]);
-    if (value?.length) return value;
-  }
-  return undefined;
-}
-
-function pickStringArrayFromSources({
-  sources,
-  directKeys,
-  nestedKeys,
-}: {
-  sources: unknown[];
-  directKeys: string[];
-  nestedKeys?: { containerKey: string; keys: string[] }[];
-}) {
-  for (const source of sources) {
-    const record = asRecord(source);
-    const directValue = pickStringArrayFromRecord(record, directKeys);
-    if (directValue?.length) return directValue;
-
-    for (const nestedKey of nestedKeys ?? []) {
-      const nestedRecord = asRecord(record?.[nestedKey.containerKey]);
-      const nestedValue = pickStringArrayFromRecord(
-        nestedRecord,
-        nestedKey.keys,
-      );
-      if (nestedValue?.length) return nestedValue;
-    }
-  }
-  return undefined;
-}
-
-function normalizeQueueNonce(value?: string) {
-  const trimmed = value?.trim();
-  if (!trimmed) return undefined;
-  if (/^\d+$/.test(trimmed)) return trimmed;
-  return undefined;
-}
-
-function getPolygonQueueNonceFromGroupId(groupId?: string) {
-  // The provider marks both pending and claimable Polygon withdrawals with this
-  // suffix, so readiness is still verified by the transaction build request.
-  // oxlint-disable-next-line @cspell/spellchecker
-  const match = groupId?.trim().match(/#new_version_unbonded_(\d+)$/i);
-  return normalizeQueueNonce(match?.[1]);
-}
-
 function isPolygonStakedPosition(position?: IDeFiPosition) {
   return position?.groupId?.trim().toLowerCase().endsWith('#staked') ?? false;
+}
+
+function isPolygonClaimableWithdrawalPosition(position?: IDeFiPosition) {
+  // The groupId itself is enough for the build API to identify claimable
+  // withdrawals. Do not parse or submit nonce arrays on the client.
+  // oxlint-disable-next-line @cspell/spellchecker
+  return /#new_version_unbonded_\d+$/i.test(position?.groupId?.trim() ?? '');
 }
 
 function getPoolAddressFromGroupId(groupId?: string) {
   const [poolAddress] = groupId?.trim().split('#') ?? [];
   return normalizeEvmAddress(poolAddress);
-}
-
-function parseCooldownQueueNonce(value?: string) {
-  const match = value?.match(/cooldown[^\d]*(\d+)/i);
-  return normalizeQueueNonce(match?.[1]);
-}
-
-function getPolygonQueueNonces({
-  position,
-  asset,
-  extraParams,
-}: {
-  position: IDeFiPosition | undefined;
-  asset: IDeFiAsset;
-  extraParams?: IDeFiActionExtraParams;
-}) {
-  const explicitNonces = pickStringArrayFromSources({
-    sources: [extraParams, asset, position],
-    directKeys: ['unbondNonces', 'unbond_nonces'],
-    nestedKeys: [
-      {
-        containerKey: 'extraParams',
-        keys: ['unbondNonces', 'unbond_nonces'],
-      },
-      {
-        containerKey: 'meta',
-        keys: ['unbondNonces', 'unbond_nonces'],
-      },
-    ],
-  })?.map(normalizeQueueNonce);
-  const normalizedExplicitNonces = explicitNonces?.filter(
-    (item): item is string => Boolean(item),
-  );
-  if (normalizedExplicitNonces?.length) {
-    return normalizedExplicitNonces;
-  }
-
-  const explicitNonce = normalizeQueueNonce(
-    pickStringFromSources({
-      sources: [extraParams, asset, position],
-      directKeys: [
-        'unbondNonce',
-        'unbond_nonce',
-        'unbondNonceId',
-        'unbond_nonce_id',
-      ],
-      nestedKeys: [
-        {
-          containerKey: 'extraParams',
-          keys: [
-            'unbondNonce',
-            'unbond_nonce',
-            'unbondNonceId',
-            'unbond_nonce_id',
-          ],
-        },
-        {
-          containerKey: 'meta',
-          keys: [
-            'unbondNonce',
-            'unbond_nonce',
-            'unbondNonceId',
-            'unbond_nonce_id',
-          ],
-        },
-      ],
-    }),
-  );
-  if (explicitNonce) return [explicitNonce];
-
-  const groupIdNonce = getPolygonQueueNonceFromGroupId(position?.groupId);
-  if (groupIdNonce) return [groupIdNonce];
-
-  const assetRecord = asRecord(asset);
-  const assetMeta = asRecord(assetRecord?.meta);
-  const textSources = [
-    position?.name,
-    position?.groupId,
-    pickStringFromRecord(assetRecord, ['name', 'displayName', 'label']),
-    pickStringFromRecord(assetMeta, ['name', 'displayName', 'label']),
-    asset.symbol,
-  ];
-
-  for (const text of textSources) {
-    const nonce = parseCooldownQueueNonce(text);
-    if (nonce) return [nonce];
-  }
-
-  return undefined;
 }
 
 function isPolygonCooldownAsset({
@@ -384,15 +224,7 @@ function isPolygonCooldownAsset({
   sourcePosition: IDeFiPosition | undefined;
   asset: IDeFiAsset;
 }) {
-  if (
-    getPolygonQueueNonces({
-      position: sourcePosition,
-      asset,
-      extraParams: mergeExtraParams(sourcePosition?.extraParams, {
-        ...asset.extraParams,
-      }),
-    })?.length
-  ) {
+  if (isPolygonClaimableWithdrawalPosition(sourcePosition)) {
     return true;
   }
 
@@ -412,6 +244,19 @@ function mergeExtraParams(
   }, {});
 
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function omitClientOnlyExtraParams(params?: IDeFiActionExtraParams) {
+  if (!params) return undefined;
+
+  const result: IDeFiActionExtraParams = { ...params };
+  // Polygon claimWithdrawal is identified by groupId on the service side.
+  // oxlint-disable-next-line @cspell/spellchecker
+  delete result['unbondNonces'];
+  // oxlint-disable-next-line @cspell/spellchecker
+  delete result['unbond_nonces'];
+
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function getPoolAddress({
@@ -743,6 +588,7 @@ function buildResolvedAsset({
   if (groupId) {
     extraParams = mergeExtraParams(extraParams, { groupId });
   }
+  extraParams = omitClientOnlyExtraParams(extraParams);
   const poolAddress = getPoolAddress({
     protocolId,
     position: sourcePosition,
@@ -782,23 +628,6 @@ function buildResolvedAsset({
 
   if (isPoolAddressRequired({ protocolId, action }) && !poolAddress) {
     return undefined;
-  }
-
-  if (
-    isNormalizedProtocolId(protocolId, 'polygon_staking') &&
-    action === EDeFiPositionAction.ClaimWithdrawal
-  ) {
-    const queueNonces = getPolygonQueueNonces({
-      position: sourcePosition,
-      asset,
-      extraParams,
-    });
-    const queueNonce = queueNonces?.[0];
-    if (!queueNonce) {
-      return undefined;
-    }
-    // oxlint-disable-next-line @cspell/spellchecker
-    extraParams = mergeExtraParams(extraParams, { unbondNonces: [queueNonce] });
   }
 
   return {

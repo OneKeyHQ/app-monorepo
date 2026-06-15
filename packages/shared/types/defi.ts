@@ -39,8 +39,6 @@ export type IDeFiActionExtraParams = {
   poolAddress?: string;
   groupId?: string;
   rewards?: { tokenAddress: string; amount: string; proofs: string[] }[];
-  // oxlint-disable-next-line @cspell/spellchecker
-  unbondNonces?: string[];
   tokenId?: string;
   amount0Min?: string;
   amount1Min?: string;

@@ -360,7 +360,15 @@ const ProtocolPositionActionButton = memo(
     }
 
     return (
-      <XStack gap="$1.5" alignItems="center" flexShrink={0} {...containerProps}>
+      <XStack
+        gap="$1.5"
+        alignItems="center"
+        justifyContent="flex-end"
+        flexShrink={1}
+        flexWrap="wrap"
+        minWidth={0}
+        {...containerProps}
+      >
         {visibleActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
           return (

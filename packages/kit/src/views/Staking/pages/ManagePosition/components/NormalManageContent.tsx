@@ -371,6 +371,10 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const [
+    repayWithCollateralSetupReadyProgressKey,
+    setRepayWithCollateralSetupReadyProgressKey,
+  ] = useState('');
   const shouldDisablePrimaryTab = depositDisabled;
 
   // Pendle: slippage state + countdown
@@ -762,6 +766,12 @@ export function NormalManageContent({
           onQuoteReset={handleWithdrawQuoteReset}
           refreshKey={withdrawRefreshKey}
           onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
+          repayWithCollateralSetupReadyProgressKey={
+            repayWithCollateralSetupReadyProgressKey
+          }
+          onRepayWithCollateralSetupReadyProgressKeyChange={
+            setRepayWithCollateralSetupReadyProgressKey
+          }
         />
       ) : null}
     </>
