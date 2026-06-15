@@ -90,7 +90,7 @@ export function SetupCardGlow({
   color,
   size = 466,
   top = -233,
-  opacity = 0.2,
+  opacity = 0.15,
 }: ISetupCardGlowProps) {
   const glowId = `setup-card-glow-${color.replace('#', '')}-${size}`;
   return (
@@ -212,7 +212,7 @@ function SetupCardDeviceFrame() {
       }}
       $platform-native={{
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
+        borderColor: '$neutral5',
       }}
       overflow="hidden"
     >
@@ -359,7 +359,7 @@ export function SetupCard({
         $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
         $platform-native={{
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: '$neutral3',
+          borderColor: '$neutral5',
         }}
         pointerEvents="none"
         style={surfaceStyle}

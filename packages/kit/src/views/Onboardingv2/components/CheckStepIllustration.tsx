@@ -277,65 +277,64 @@ export interface ICheckStepIllustrationProps {
 
 // Memoized: it's a primitive-prop leaf, so a page re-render that changes only
 // the other step's state skips rebuilding this one's (static) SVG glyph tree.
-export const CheckStepIllustration = memo(function CheckStepIllustration({
-  kind,
-  tone,
-  beaming,
-}: ICheckStepIllustrationProps) {
-  const fill = TONE_FILLS[tone];
-  return (
-    <YStack
-      w={BOX}
-      h={BOX}
-      borderRadius={BOX_RADIUS}
-      borderCurve="continuous"
-      overflow="hidden"
-      bg="$gray3"
-      $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
-      $platform-native={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
-      }}
-    >
-      <LinearGradient
-        colors={BG_SHEEN}
-        start={GRADIENT_TOP}
-        end={GRADIENT_BOTTOM}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Border — the static inner ring (Figma layer of the same name). */}
+export const CheckStepIllustration = memo(
+  ({ kind, tone, beaming }: ICheckStepIllustrationProps) => {
+    const fill = TONE_FILLS[tone];
+    return (
       <YStack
-        position="absolute"
-        left={RING_INSET}
-        top={RING_INSET}
-        w={RING}
-        h={RING}
-        borderRadius={RING_RADIUS}
+        w={BOX}
+        h={BOX}
+        borderRadius={BOX_RADIUS}
         borderCurve="continuous"
-        borderWidth={RING_STROKE}
-        borderColor="$blackA5"
-      />
-      {beaming ? <BorderBeam /> : null}
-      {/* zIndex lifts the glyph above the absolute layers — on web, positioned
+        overflow="hidden"
+        bg="$gray3"
+        $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
+        $platform-native={{
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: '$neutral5',
+        }}
+      >
+        <LinearGradient
+          colors={BG_SHEEN}
+          start={GRADIENT_TOP}
+          end={GRADIENT_BOTTOM}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Border — the static inner ring (Figma layer of the same name). */}
+        <YStack
+          position="absolute"
+          left={RING_INSET}
+          top={RING_INSET}
+          w={RING}
+          h={RING}
+          borderRadius={RING_RADIUS}
+          borderCurve="continuous"
+          borderWidth={RING_STROKE}
+          borderColor="$blackA5"
+        />
+        {beaming ? <BorderBeam /> : null}
+        {/* zIndex lifts the glyph above the absolute layers — on web, positioned
           elements otherwise paint over in-flow content regardless of order.
           Keyed on tone so a state change cross-fades old/new tints in place. */}
-      <YStack
-        position="absolute"
-        top={0}
-        left={0}
-        right={0}
-        bottom={0}
-        zIndex={1}
-        pointerEvents="none"
-      >
-        <Animated.View key={tone} entering={TONE_ENTER} exiting={TONE_EXIT}>
-          {kind === 'genuine' ? (
-            <GenuineGlyph fill={fill} />
-          ) : (
-            <FirmwareGlyph fill={fill} />
-          )}
-        </Animated.View>
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          zIndex={1}
+          pointerEvents="none"
+        >
+          <Animated.View key={tone} entering={TONE_ENTER} exiting={TONE_EXIT}>
+            {kind === 'genuine' ? (
+              <GenuineGlyph fill={fill} />
+            ) : (
+              <FirmwareGlyph fill={fill} />
+            )}
+          </Animated.View>
+        </YStack>
       </YStack>
-    </YStack>
-  );
-});
+    );
+  },
+);
+CheckStepIllustration.displayName = 'CheckStepIllustration';

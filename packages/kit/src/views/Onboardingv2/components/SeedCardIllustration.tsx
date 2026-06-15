@@ -31,8 +31,9 @@ import { BG_SHEEN, SETUP_CARD_SHADOW } from './SetupCard';
 // 24886:7911), drawn fully in code. Anatomy, straight off the Figma layers:
 //   - Container: 90×90, radius 18, $gray3 base washed by a white sheen along
 //     the top-left → bottom-right diagonal (the design's #3F3F3F→#282828
-//     fill). Web carries the shared SetupCard shadow recipe; native swaps it
-//     for a hairline border.
+//     fill). Web carries the shared SetupCard shadow recipe; native draws a
+//     soft drop shadow on an outer shell (overflow:hidden would clip a shadow
+//     on the clipping view itself) plus the hairline border.
 //   - Engraving: one black-50% vector. The centre monogram's two paths are
 //     verbatim from Figma; the ring of micro-text around the edge is the
 //     design's 91 outlined glyphs (~88 KB of paths) re-set as live text
@@ -260,58 +261,78 @@ function useLightSweep() {
 }
 
 // Memoized: a no-prop leaf, so parent re-renders never rebuild the SVG tree.
-export const SeedCardIllustration = memo(function SeedCardIllustration() {
+export const SeedCardIllustration = memo(() => {
   const { windowStyle, contentStyle, reduceMotion } = useLightSweep();
   return (
+    // Outer shell = the opaque $gray3 surface + its shadow. A native view can't
+    // cast its own shadow while clipping its content: iOS masks the shadow under
+    // overflow:hidden and Android elevation needs a layer that isn't clipped. So
+    // the drop shadow lives here (web: the layered SetupCard recipe; native: a
+    // single soft black shadow) over the rounded surface it shadows from; the
+    // inner shell just clips the artwork to the same rounded box.
     <YStack
       w={BOX}
       h={BOX}
       borderRadius={BOX_RADIUS}
       borderCurve="continuous"
-      overflow="hidden"
       bg="$gray3"
       pointerEvents="none"
       $platform-web={{ boxShadow: SETUP_CARD_SHADOW }}
-      $platform-native={{
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
+      $platform-ios={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
       }}
+      $platform-android={{ elevation: 6 }}
     >
-      <LinearGradient
-        colors={BG_SHEEN}
-        start={SHEEN_FROM}
-        end={SHEEN_TO}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* Every layer is absolute so web stacking follows source order —
-          positioned siblings would otherwise paint over in-flow content. */}
-      <YStack position="absolute" top={0} left={0}>
-        <Engraving tint={ENGRAVING_TINT} idSuffix="base" />
-      </YStack>
-      {reduceMotion ? null : (
-        <AnimatedYStack
-          position="absolute"
-          left={WINDOW_LEFT}
-          top={WINDOW_TOP}
-          w={WINDOW_WIDTH}
-          h={WINDOW_LENGTH}
-          overflow="hidden"
-          style={windowStyle}
-        >
-          {/* Counter-transformed so the engraving stays put in card space;
-              offset back to the card origin (window frame → card frame). */}
+      <YStack
+        flex={1}
+        borderRadius={BOX_RADIUS}
+        borderCurve="continuous"
+        overflow="hidden"
+        $platform-native={{
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: '$neutral5',
+        }}
+      >
+        <LinearGradient
+          colors={BG_SHEEN}
+          start={SHEEN_FROM}
+          end={SHEEN_TO}
+          style={StyleSheet.absoluteFill}
+        />
+        {/* Every layer is absolute so web stacking follows source order —
+            positioned siblings would otherwise paint over in-flow content. */}
+        <YStack position="absolute" top={0} left={0}>
+          <Engraving tint={ENGRAVING_TINT} idSuffix="base" />
+        </YStack>
+        {reduceMotion ? null : (
           <AnimatedYStack
             position="absolute"
-            left={-WINDOW_LEFT}
-            top={-WINDOW_TOP}
-            w={BOX}
-            h={BOX}
-            style={contentStyle}
+            left={WINDOW_LEFT}
+            top={WINDOW_TOP}
+            w={WINDOW_WIDTH}
+            h={WINDOW_LENGTH}
+            overflow="hidden"
+            style={windowStyle}
           >
-            <Engraving tint="#FFFFFF" idSuffix="glow" />
+            {/* Counter-transformed so the engraving stays put in card space;
+                offset back to the card origin (window frame → card frame). */}
+            <AnimatedYStack
+              position="absolute"
+              left={-WINDOW_LEFT}
+              top={-WINDOW_TOP}
+              w={BOX}
+              h={BOX}
+              style={contentStyle}
+            >
+              <Engraving tint="#FFFFFF" idSuffix="glow" />
+            </AnimatedYStack>
           </AnimatedYStack>
-        </AnimatedYStack>
-      )}
+        )}
+      </YStack>
     </YStack>
   );
 });
+SeedCardIllustration.displayName = 'SeedCardIllustration';

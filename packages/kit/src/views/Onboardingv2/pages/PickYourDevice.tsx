@@ -224,9 +224,8 @@ export default function PickYourDevice() {
               </YStack>
               <YStack gap="$3" $gtMd={{ gap: '$5', alignItems: 'center' }}>
                 <SizableText
-                  textAlign="center"
                   size="$headingXl"
-                  $gtMd={{ size: '$heading2xl' }}
+                  $gtMd={{ size: '$heading2xl', textAlign: 'center' }}
                 >
                   {name}
                 </SizableText>

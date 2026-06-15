@@ -674,6 +674,34 @@ function CheckAndUpdatePage({
     }, 150);
   }, [checkFirmwareUpdate]);
 
+  // Primary CTA at the foot of the flow. The two states are mutually exclusive
+  // (all-idle → verify the device; ready → continue to setup), so the single
+  // bottom slot renders whichever is active.
+  let bottomCta: {
+    key: string;
+    testID: string;
+    onPress: () => void;
+    label: string;
+  } | null = null;
+  if (!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle)) {
+    bottomCta = {
+      key: 'verify',
+      testID: OnboardingTestIDs.checkAndUpdateVerifyBtn,
+      onPress: handleVerifyHardware,
+      label: intl.formatMessage(
+        { id: ETranslations.check_my_deviceLabel },
+        { deviceLabel: deviceModelName },
+      ),
+    };
+  } else if (isReady) {
+    bottomCta = {
+      key: 'continue',
+      testID: OnboardingTestIDs.checkAndUpdateContinueToSetupBtn,
+      onPress: toDeviceSetup,
+      label: intl.formatMessage({ id: ETranslations.global_continue }),
+    };
+  }
+
   return (
     <OnboardingPage
       testID={OnboardingTestIDs.checkAndUpdatePage}
@@ -683,7 +711,7 @@ function CheckAndUpdatePage({
       scrollable
       alignTop
       narrow
-      contentContainerProps={{ gap: '$10' }}
+      contentContainerProps={{ gap: '$10', pt: '$5' }}
       foregroundLayer={celebrate ? <Confetti /> : null}
     >
       {steps.map((step, index) => {
@@ -745,7 +773,7 @@ function CheckAndUpdatePage({
                   }}
                   $platform-native={{
                     borderWidth: StyleSheet.hairlineWidth,
-                    borderColor: '$neutral2',
+                    borderColor: '$neutral5',
                   }}
                   zIndex={0}
                 />
@@ -773,7 +801,7 @@ function CheckAndUpdatePage({
                 ))}
               </YStack>
             ) : null}
-            <XStack alignItems="center" gap="$5">
+            <XStack gap="$5">
               {/* No corner state badge — the glyph tint + border beam already
                   carry the state. */}
               <CheckStepIllustration
@@ -785,7 +813,7 @@ function CheckAndUpdatePage({
                 tone={illustrationTone}
                 beaming={step.state === ECheckAndUpdateStepState.InProgress}
               />
-              <YStack gap="$1" flex={1}>
+              <YStack gap="$1" flex={1} alignSelf="center">
                 <SizableText size="$headingSm">{displayTitle}</SizableText>
                 {displayDescription ? (
                   <SizableText color="$textSubdued">
@@ -795,24 +823,6 @@ function CheckAndUpdatePage({
               </YStack>
             </XStack>
             <HeightTransition initialHeight={0}>
-              {/* continue to device setup */}
-              {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
-              step.state === ECheckAndUpdateStepState.Success ? (
-                <YStack pt="$8">
-                  <Button
-                    testID={OnboardingTestIDs.checkAndUpdateContinueToSetupBtn}
-                    variant="primary"
-                    $platform-native={{
-                      size: 'large',
-                    }}
-                    onPress={toDeviceSetup}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_continue,
-                    })}
-                  </Button>
-                </YStack>
-              ) : null}
               {/* update */}
               {step.id === ECheckAndUpdateStepId.FirmwareCheck &&
               step.state === ECheckAndUpdateStepState.Warning ? (
@@ -907,26 +917,32 @@ function CheckAndUpdatePage({
           </YStack>
         );
       })}
+      {/* The page never scrolls, so on mobile the CTA pins to the bottom of the
+          viewport (mt:auto in the flex column) with the shared onboarding bottom
+          gap ($5, matching BackupWalletReminder / CreateNewWallet); wider
+          layouts keep it inline under the steps. Keyed so a verify→continue
+          switch cross-fades. */}
       <AnimatePresence initial={false}>
-        {!steps.some((step) => step.state !== ECheckAndUpdateStepState.Idle) ? (
+        {bottomCta ? (
           <Button
-            testID={OnboardingTestIDs.checkAndUpdateVerifyBtn}
+            key={bottomCta.key}
+            testID={bottomCta.testID}
             animation="quick"
             animateOnly={ANIMATE_ONLY_OPACITY_TRANSFORM}
             variant="primary"
             size="large"
-            onPress={handleVerifyHardware}
+            onPress={bottomCta.onPress}
+            $md={{ mt: 'auto', mb: '$5' }}
+            enterStyle={{
+              opacity: 0,
+              scale: 0.97,
+            }}
             exitStyle={{
               opacity: 0,
               scale: 0.97,
             }}
           >
-            {intl.formatMessage(
-              {
-                id: ETranslations.check_my_deviceLabel,
-              },
-              { deviceLabel: deviceModelName },
-            )}
+            {bottomCta.label}
           </Button>
         ) : null}
       </AnimatePresence>
