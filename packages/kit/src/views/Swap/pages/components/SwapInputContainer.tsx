@@ -20,6 +20,7 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -32,6 +33,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -45,6 +47,7 @@ import {
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { useSwapColdStartDisplayTokens } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
 
@@ -121,6 +124,7 @@ interface ISwapInputContainerProps {
   amountValue: string;
   onSelectToken: (type: ESwapDirectionType) => void;
   balance: string;
+  balanceLoading?: boolean;
   address?: string;
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
@@ -139,6 +143,7 @@ const SwapInputContainer = ({
   onBalanceMaxPress,
   onSelectPercentageStage,
   balance,
+  balanceLoading,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
     token,
@@ -165,7 +170,52 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [initialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
+  const {
+    displayFromToken,
+    displayToToken,
+    isInitialFromTokenSelectionPending,
+    isInitialToTokenSelectionPending,
+  } = useSwapColdStartDisplayTokens({
+    fromToken,
+    initialSelectedTokensSynced,
+    toToken,
+  });
+  const tokenSelectorDisplayToken =
+    (token?.symbol ? token : undefined) ??
+    (direction === ESwapDirectionType.FROM ? displayFromToken : displayToToken);
+  const isInitialTokenSelectionPending =
+    direction === ESwapDirectionType.FROM
+      ? isInitialFromTokenSelectionPending
+      : isInitialToTokenSelectionPending;
   const [, setInAppNotification] = useInAppNotificationAtom();
+  const tokenSelectorMinWidth = platformEnv.isNative ? 112 : 132;
+  const showTokenSelectorSkeleton =
+    !tokenSelectorDisplayToken?.symbol &&
+    (selectTokenLoading || isInitialTokenSelectionPending);
+  const displayBalance = useMemo(() => {
+    if (balance) {
+      return balance;
+    }
+    if (
+      !token?.balanceParsed ||
+      !token.accountAddress ||
+      !address ||
+      !equalsIgnoreCase(token.accountAddress, address)
+    ) {
+      return '';
+    }
+    const cachedBalanceBN = new BigNumber(token.balanceParsed);
+    return cachedBalanceBN.isNaN() ? '' : cachedBalanceBN.toFixed();
+  }, [address, balance, token?.accountAddress, token?.balanceParsed]);
+  const showBalanceSkeleton = useMemo(
+    () =>
+      Boolean(
+        token && address && !displayBalance && (balanceLoading || !balance),
+      ),
+    [address, balance, balanceLoading, displayBalance, token],
+  );
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -286,6 +336,8 @@ const SwapInputContainer = ({
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SwapAccountAddressContainer
           type={direction}
+          displayToken={tokenSelectorDisplayToken}
+          networkLoading={showTokenSelectorSkeleton}
           onClickNetwork={onSelectToken}
         />
         <SwapInputActions
@@ -305,7 +357,8 @@ const SwapInputContainer = ({
           fromInputHasError.accountError || fromInputHasError.hasBalanceError
         }
         balanceProps={{
-          value: balance,
+          value: displayBalance,
+          loading: showBalanceSkeleton,
           onPress:
             direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
@@ -352,9 +405,11 @@ const SwapInputContainer = ({
             direction === ESwapDirectionType.FROM
               ? SwapTestIDs.fromTokenSelector
               : SwapTestIDs.toTokenSelector,
-          loading: selectTokenLoading,
-          selectedTokenImageUri: token?.logoURI,
-          selectedTokenSymbol: token?.symbol,
+          minWidth: tokenSelectorMinWidth,
+          justifyContent: 'flex-end',
+          loading: showTokenSelectorSkeleton,
+          selectedTokenImageUri: tokenSelectorDisplayToken?.logoURI,
+          selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
           onPress: () => {
             onSelectToken(direction);
           },

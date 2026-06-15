@@ -28,6 +28,7 @@ import { MarketTestIDs } from '../testIDs';
 import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
+import { isMarketStockCategory } from './utils';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
 import type { ILiquidityFilter, IMarketCategoryItem } from './types';
@@ -88,10 +89,17 @@ const useMarketHomeLayoutProps = () => {
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
-      return apiSpotCategories.map((c) => ({
-        id: c.type,
-        name: c.name,
-      }));
+      return apiSpotCategories.map((c) => {
+        const category = {
+          id: c.type,
+          name: c.name,
+        };
+
+        return {
+          ...category,
+          isStockCategory: isMarketStockCategory(category),
+        };
+      });
     }
 
     // Fallback before API responds

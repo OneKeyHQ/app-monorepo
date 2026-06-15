@@ -20,6 +20,7 @@ import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
 import {
   EDecodedTxDirection,
   EDecodedTxStatus,
+  type IDecodedTx,
   type IDecodedTxActionAssetTransfer,
   type IDecodedTxTransferInfo,
 } from '@onekeyhq/shared/types/tx';
@@ -46,6 +47,114 @@ type ITransferBlock = {
   transfersInfo: IDecodedTxTransferInfo[];
   direction: EDecodedTxDirection;
 };
+
+type IPrivateSendCreateTokenAccountFee = {
+  amount?: string;
+  symbol?: string;
+};
+
+function isSendLikeHistoryTxType(type?: EOnChainHistoryTxType) {
+  return (
+    type === EOnChainHistoryTxType.Send ||
+    type === EOnChainHistoryTxType.PrivateSend
+  );
+}
+
+function getPrivateSendCreateTokenAccountFee(decodedTx: IDecodedTx) {
+  const createTokenAccountFee = (
+    decodedTx.extraInfo as
+      | { createTokenAccountFee?: IPrivateSendCreateTokenAccountFee }
+      | null
+      | undefined
+  )?.createTokenAccountFee;
+  const feeAmountBN = new BigNumber(createTokenAccountFee?.amount ?? '');
+  if (
+    feeAmountBN.isNaN() ||
+    !feeAmountBN.isFinite() ||
+    !feeAmountBN.isGreaterThan(0)
+  ) {
+    return undefined;
+  }
+  return createTokenAccountFee;
+}
+
+function getPositiveNumberValue(value?: string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
+}
+
+function getPrivateSendNativePriceFromFee(decodedTx: IDecodedTx) {
+  const totalFeeInNativeBN = getPositiveNumberValue(decodedTx.totalFeeInNative);
+  const totalFeeFiatValueBN = getPositiveNumberValue(
+    decodedTx.totalFeeFiatValue,
+  );
+  if (!totalFeeInNativeBN || !totalFeeFiatValueBN) {
+    return undefined;
+  }
+
+  return totalFeeFiatValueBN.div(totalFeeInNativeBN).toFixed();
+}
+
+function hasPrivateSendCreateTokenAccountFeeTransfer({
+  transfers,
+  createTokenAccountFee,
+}: {
+  transfers: IDecodedTxTransferInfo[];
+  createTokenAccountFee: IPrivateSendCreateTokenAccountFee;
+}) {
+  return transfers.some((transfer) => {
+    const amountBN = new BigNumber(transfer.amount ?? '');
+    const feeAmountBN = new BigNumber(createTokenAccountFee.amount ?? '');
+    return (
+      transfer.isNative &&
+      !amountBN.isNaN() &&
+      !feeAmountBN.isNaN() &&
+      amountBN.isEqualTo(feeAmountBN)
+    );
+  });
+}
+
+function buildPrivateSendDisplaySends({
+  decodedTx,
+  sends,
+  networkLogoURI,
+}: {
+  decodedTx: IDecodedTx;
+  sends: IDecodedTxTransferInfo[];
+  networkLogoURI?: string;
+}) {
+  const createTokenAccountFee = getPrivateSendCreateTokenAccountFee(decodedTx);
+  if (!createTokenAccountFee) {
+    return sends;
+  }
+  if (
+    hasPrivateSendCreateTokenAccountFeeTransfer({
+      transfers: sends,
+      createTokenAccountFee,
+    })
+  ) {
+    return sends;
+  }
+  const nativePrice = getPrivateSendNativePriceFromFee(decodedTx);
+  return [
+    ...sends,
+    {
+      from: decodedTx.signer || decodedTx.owner,
+      to: '',
+      tokenIdOnNetwork: '',
+      icon: networkLogoURI ?? '',
+      name: createTokenAccountFee.symbol ?? '',
+      symbol: createTokenAccountFee.symbol ?? '',
+      amount: createTokenAccountFee.amount ?? '',
+      isNFT: false,
+      isNative: true,
+      networkId: decodedTx.networkId,
+      price: nativePrice,
+    },
+  ];
+}
 
 function getTxActionTransferInfo(
   props: ITxActionProps & { isUTXO?: boolean; intl: IntlShape },
@@ -109,7 +218,7 @@ function getTxActionTransferInfo(
       transferTarget = to || from;
     }
   } else if (isUTXO) {
-    if (type === EOnChainHistoryTxType.Send) {
+    if (isSendLikeHistoryTxType(type)) {
       const filteredReceives = receives.filter((receive) => !receive.isOwn);
       transferTarget =
         filteredReceives.length > 1
@@ -377,6 +486,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     componentProps,
     showIcon,
     replaceType,
+    displayStatus,
     hideValue,
     compact,
   } = props;
@@ -409,8 +519,16 @@ function TxActionTransferListView(props: ITxActionProps) {
     intl,
     isUTXO,
   });
+  const privateSendDisplaySends = isPrivateSend
+    ? buildPrivateSendDisplaySends({
+        decodedTx,
+        sends,
+        networkLogoURI,
+      })
+    : sends;
+  const isSendLikeHistory = isSendLikeHistoryTxType(type);
   const descriptionTarget = isPrivateSend
-    ? (payload?.privateSend?.originalRecipient ?? transferTarget)
+    ? (payload?.privateSend?.originalRecipient ?? '')
     : transferTarget;
   const description = {
     prefix: '',
@@ -435,7 +553,17 @@ function TxActionTransferListView(props: ITxActionProps) {
   if (tableLayout) {
     const currencySymbol = settings.currencyInfo.symbol;
 
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
+      change = buildExpandedTransferView({
+        sends: groupTransfersByToken(privateSendDisplaySends),
+        hideValue,
+        currencySymbol,
+      });
+      avatar.fallbackIcon = 'ArrowTopOutline';
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
       change = buildExpandedTransferView({
         sends: groupTransfersByToken(sends),
         hideValue,
@@ -452,7 +580,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.fallbackIcon = 'ArrowBottomOutline';
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const tokens = uniq(map(sends, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
@@ -500,21 +628,29 @@ function TxActionTransferListView(props: ITxActionProps) {
     }
 
     // swap / staking icon overrides
-    if (isPrivateSend) {
-      avatar.fallbackIcon = 'ArrowTopOutline';
-      title = intl.formatMessage({
-        id: ETranslations.private_send_private_send,
-      });
-    } else if (actions[0]?.assetTransfer?.isInternalSwap) {
+    if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalSwap) {
       avatar.fallbackIcon = 'SwitchHorOutline';
-    } else if (actions[0]?.assetTransfer?.isInternalStaking) {
+    } else if (!isPrivateSend && actions[0]?.assetTransfer?.isInternalStaking) {
       avatar.fallbackIcon = 'CoinsOutline';
     }
 
     changeDescription = null;
   } else {
     const isStackedLayout = !tableLayout;
-    if (!isEmpty(sends) && isEmpty(receives)) {
+    if (isPrivateSend) {
+      const changeInfo = buildTransferChangeInfo({
+        changePrefix: '-',
+        transfers: privateSendDisplaySends,
+        intl,
+      });
+      change = changeInfo.change;
+      changeSymbol = changeInfo.changeSymbol;
+      changeDescription = changeInfo.changeDescription;
+      avatar.src = sendNFTIcon || sendTokenIcon;
+      title = intl.formatMessage({
+        id: ETranslations.private_send_private_send,
+      });
+    } else if (!isEmpty(sends) && isEmpty(receives)) {
       const changeInfo = buildTransferChangeInfo({
         changePrefix: '-',
         transfers: sends,
@@ -537,7 +673,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       avatar.src = receiveNFTIcon || receiveTokenIcon;
       title = intl.formatMessage({ id: ETranslations.global_receive });
     } else if (vaultSettings?.isUtxo) {
-      if (type === EOnChainHistoryTxType.Send) {
+      if (isSendLikeHistory) {
         const changeInfo = buildTransferChangeInfo({
           changePrefix: '-',
           transfers: sends,
@@ -684,11 +820,16 @@ function TxActionTransferListView(props: ITxActionProps) {
       timestamp={decodedTx.updatedAt ?? decodedTx.createdAt}
       showIcon={showIcon}
       replaceType={replaceType}
-      status={decodedTx.status}
+      status={displayStatus ?? decodedTx.status}
       networkId={networkId}
       networkLogoURI={networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}
-      kytRiskLevel={decodedTx.kytRiskLevel}
+      kytRiskLevel={
+        // Hide the KYT risk badge for watch-only accounts.
+        accountUtils.isWatchingAccount({ accountId: decodedTx.accountId })
+          ? undefined
+          : decodedTx.kytRiskLevel
+      }
       compact={compact}
       {...componentProps}
     />

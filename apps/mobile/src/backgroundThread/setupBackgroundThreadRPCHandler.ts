@@ -1,4 +1,7 @@
-import { getSharedRPC } from '@onekeyfe/react-native-background-thread';
+import {
+  getSharedRPC,
+  getSharedStore,
+} from '@onekeyfe/react-native-background-thread';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -10,6 +13,7 @@ import {
 
 import {
   BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY,
+  BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY,
   BACKGROUND_THREAD_REQUEST_KEY_PREFIX,
   type IBackgroundThreadAppEventRequest,
   type IBackgroundThreadBridgeCallRequest,
@@ -39,6 +43,7 @@ import {
 } from './rpcProtocol';
 import {
   BACKGROUND_THREAD_READY_KEY,
+  BACKGROUND_THREAD_READY_WAKE_KEY,
   buildBackgroundThreadFailedPayload,
   serializeBackgroundThreadRuntimePayload,
 } from './runtimeReady';
@@ -128,8 +133,8 @@ const bridgeStateMap: Partial<
   Record<IBackgroundThreadBridgeChannel, IBackgroundThreadBridgeStatePayload>
 > = {};
 let handleWebEmbedBridgeResponse: (
-  sharedRPC: ReturnType<typeof getSharedRPC>,
   key: string,
+  value: string | number | boolean,
 ) => void = () => {};
 
 function buildErrorPayload(error: unknown) {
@@ -204,11 +209,16 @@ function emitBackgroundRuntimeSignal(
   }
 
   const sharedRPC = getSharedRPC();
-  if (!sharedRPC) {
+  const sharedStore = getSharedStore();
+  if (!sharedRPC || !sharedStore) {
     return false;
   }
 
-  sharedRPC.write(BACKGROUND_THREAD_READY_KEY, payload);
+  // Latch readiness in SharedStore (survives any number of main-side reads and
+  // persists across restart until the native invalidate path clears it), then
+  // fire a content-less wake ping so main re-reads it and flushes its queue.
+  sharedStore.set(BACKGROUND_THREAD_READY_KEY, payload);
+  sharedRPC.write(BACKGROUND_THREAD_READY_WAKE_KEY, '1');
   if (!allowRepeat) {
     readySignalEmitted = true;
   }
@@ -373,16 +383,14 @@ function handleBridgeConnectRequest(
   return true;
 }
 
-async function handleRequest(callId: string) {
+async function handleRequest(callId: string, value: string | number | boolean) {
   const sharedRPC = getSharedRPC();
   if (!sharedRPC) {
     return;
   }
 
   const responseKey = buildBackgroundThreadResponseKey(callId);
-  const request = parseBackgroundThreadRequest(
-    sharedRPC.read(`${BACKGROUND_THREAD_REQUEST_KEY_PREFIX}${callId}`),
-  );
+  const request = parseBackgroundThreadRequest(value);
 
   if (!request) {
     sharedRPC.write(
@@ -513,14 +521,15 @@ async function handleRequest(callId: string) {
   }
 }
 
-function applyMainCapabilitiesFromSharedRPC(
-  sharedRPC: ReturnType<typeof getSharedRPC>,
-) {
-  if (!sharedRPC) {
+function applyMainCapabilities() {
+  const sharedStore = getSharedStore();
+  if (!sharedStore) {
     return;
   }
   try {
-    const raw = sharedRPC.read(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
+    // Capabilities are latched in SharedStore (non-deleting `get`), woken via
+    // BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY. Re-reading is idempotent.
+    const raw = sharedStore.get(BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY);
     const payload = parseBackgroundThreadMainCapabilitiesPayload(raw);
     // Reflect main's currently advertised capability (bidirectional). Don't
     // latch — an OTA rollback can drop batch support and we must follow it
@@ -542,15 +551,19 @@ function installBackgroundRequestHandler() {
 
   if (!handlerInstalled) {
     handlerInstalled = true;
-    sharedRPC.onWrite((callId) => {
+    // Value-inline messaging: the native notify callback delivers `(callId,
+    // value)` directly, as typed by `ISharedRPC` in the paired native (3.0.45).
+    sharedRPC.onWrite((callId, value) => {
       // Handle webembed bridge responses from main thread
       if (callId.startsWith(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX)) {
-        handleWebEmbedBridgeResponse(sharedRPC, callId);
+        handleWebEmbedBridgeResponse(callId, value);
         return;
       }
 
-      if (callId === BACKGROUND_THREAD_MAIN_CAPABILITIES_KEY) {
-        applyMainCapabilitiesFromSharedRPC(sharedRPC);
+      // Main published new capabilities (+ "main is up") to SharedStore and
+      // woke us; re-read the latched value.
+      if (callId === BACKGROUND_THREAD_MAIN_CAPABILITIES_WAKE_KEY) {
+        applyMainCapabilities();
         return;
       }
 
@@ -562,14 +575,19 @@ function installBackgroundRequestHandler() {
         return;
       }
 
-      void handleRequest(requestCallId);
+      void handleRequest(requestCallId, value);
     });
+
+    // Restart freshness (§4.6): tell native which SharedStore key this (bg)
+    // runtime owns, so the native invalidate("background") path clears it on
+    // teardown and a restarted main never reads a prior-life bg-ready.
+    sharedRPC.registerReadinessKey(BACKGROUND_THREAD_READY_KEY);
 
     // Catch the case where the main runtime advertised its capabilities
     // before this handler was installed (handler retry path on bg startup,
     // or main thread came up first). The onWrite hook covers future
-    // writes; this synchronous read covers the already-published value.
-    applyMainCapabilitiesFromSharedRPC(sharedRPC);
+    // wake pings; this synchronous read covers the already-latched value.
+    applyMainCapabilities();
   }
 
   return true;
@@ -637,12 +655,9 @@ const pendingWebEmbedBridgeCalls = new Map<
 >();
 
 handleWebEmbedBridgeResponse = (
-  sharedRPC: ReturnType<typeof getSharedRPC>,
   key: string,
+  value: string | number | boolean,
 ) => {
-  if (!sharedRPC) {
-    return;
-  }
   const callId = key.slice(WEBEMBED_BRIDGE_RESPONSE_KEY_PREFIX.length);
   const pending = pendingWebEmbedBridgeCalls.get(callId);
   if (!pending) {
@@ -652,8 +667,7 @@ handleWebEmbedBridgeResponse = (
   clearTimeout(pending.timer);
 
   try {
-    const raw = sharedRPC.read(key);
-    const response = typeof raw === 'string' ? JSON.parse(raw) : undefined;
+    const response = typeof value === 'string' ? JSON.parse(value) : undefined;
     if (response?.ok) {
       pending.resolve(response.result);
     } else {

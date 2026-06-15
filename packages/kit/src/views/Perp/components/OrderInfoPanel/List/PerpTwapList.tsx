@@ -5,15 +5,21 @@ import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
+  Divider,
   type IDebugRenderTrackerProps,
   Icon,
   Illustration,
+  Popover,
   SizableText,
   Toast,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
@@ -24,6 +30,7 @@ import {
 import {
   usePerpsActiveAccountAtom,
   useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -40,14 +47,18 @@ import type {
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpTwapHistoryViewAllUrl } from '../../../hooks/usePerpOrderInfoPanel';
 import { PerpTestIDs } from '../../../testIDs';
 import { buildHelpUrl, openGuideUrl } from '../../Guide/perpGuideData';
 import { OrderInfoSubTabs } from '../Components/OrderInfoSubTabs';
 import {
   calcCellAlign,
   getColumnStyle,
-  getPerpFillDirectionType,
-  getTwapAssetDisplayName,
+  getFillDirectionDisplayInfo,
+  getOrderAssetDisplayName,
+  getOrderSizeDisplayName,
+  getTwapHistoryEventTimeMs,
+  normalizeEpochMs,
 } from '../utils';
 
 import {
@@ -56,7 +67,7 @@ import {
   type IRenderMode,
 } from './CommonTableListView';
 
-const TWAP_PAGE_SIZE = 40;
+const TWAP_PAGE_SIZE = 20;
 const TWAP_TABLE_ROW_MIN_HEIGHT = 48;
 
 type ITwapPanelTab = 'active' | 'history' | 'fills';
@@ -107,17 +118,8 @@ function formatTwapDateTime(timestamp: number) {
   return {
     date,
     time,
-    inline: `${formatTime(timeDate, {
-      formatTemplate: 'M/d/yyyy',
-    })} - ${time}`,
+    inline: `${date} ${time}`,
   };
-}
-
-function normalizeEpochMs(timestamp: number | undefined) {
-  if (!timestamp) {
-    return undefined;
-  }
-  return timestamp > 1_000_000_000_000 ? timestamp : timestamp * 1000;
 }
 
 function formatElapsedDuration(ms: number) {
@@ -150,6 +152,22 @@ function formatTotalDuration(minutes: number, intl: IntlShape) {
     return hourText;
   }
   return `${hourText} ${remainingMinutes} ${minuteUnit}`;
+}
+
+function getTwapHistoryStatusText(
+  status: ITwapHistoryRecord['status']['status'],
+  intl: IntlShape,
+) {
+  const statusTextMap: Record<
+    ITwapHistoryRecord['status']['status'],
+    ETranslations
+  > = {
+    activated: ETranslations.perp_twap_status_activated__title,
+    error: ETranslations.perp_twap_status_error__title,
+    finished: ETranslations.perp_twap_status_finished__title,
+    terminated: ETranslations.perp_twap_status_terminated__title,
+  };
+  return intl.formatMessage({ id: statusTextMap[status] });
 }
 
 function getTableRowBgColor({
@@ -187,12 +205,14 @@ function getTwapBaseInfo({
   now,
   endTime,
   spotDisplayMap,
+  spotPairDisplayNameMap,
   intl,
 }: {
   state: ITwapState;
   now: number;
   endTime?: number;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
   intl: IntlShape;
 }) {
   const executedSize = new BigNumber(state.executedSz);
@@ -205,7 +225,12 @@ function getTwapBaseInfo({
   const avgPriceValue = avgPrice?.isFinite()
     ? avgPrice.toFixed(getValidPriceDecimals(avgPrice.toFixed()))
     : undefined;
-  const assetSymbol = getTwapAssetDisplayName(state.coin, spotDisplayMap);
+  const assetSymbol = getOrderAssetDisplayName(
+    state.coin,
+    spotDisplayMap,
+    spotPairDisplayNameMap,
+  );
+  const sizeSymbol = getOrderSizeDisplayName(state.coin, spotDisplayMap);
   const sizeFormatted = numberFormat(totalSize.toFixed(), balanceFormatter);
   const executedSizeFormatted = numberFormat(
     executedSize.toFixed(),
@@ -221,8 +246,8 @@ function getTwapBaseInfo({
     assetSymbol,
     sizeFormatted,
     executedSizeFormatted,
-    sizeWithSymbol: `${sizeFormatted} ${assetSymbol}`,
-    executedSizeWithSymbol: `${executedSizeFormatted} ${assetSymbol}`,
+    sizeWithSymbol: `${sizeFormatted} ${sizeSymbol}`,
+    executedSizeWithSymbol: `${executedSizeFormatted} ${sizeSymbol}`,
     avgPriceFormatted: avgPriceValue
       ? formatLocalizedNumberString(avgPriceValue)
       : '--',
@@ -233,7 +258,38 @@ function getTwapBaseInfo({
     reduceOnlyText: state.reduceOnly
       ? intl.formatMessage({ id: ETranslations.perp_yes__title })
       : intl.formatMessage({ id: ETranslations.perp_no__title }),
+    randomizeText: state.randomize
+      ? intl.formatMessage({ id: ETranslations.perp_yes__title })
+      : intl.formatMessage({ id: ETranslations.perp_no__title }),
   };
+}
+
+function MobileTwapHistoryInfoRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <XStack width="100%" alignItems="center" justifyContent="space-between">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {label}
+      </SizableText>
+      <SizableText
+        size="$bodySm"
+        color={valueColor}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        textAlign="right"
+        maxWidth="60%"
+      >
+        {value}
+      </SizableText>
+    </XStack>
+  );
 }
 
 function getFillKey(record: ITwapSliceFill) {
@@ -255,25 +311,7 @@ function sortTwapSliceFills(fills: ITwapSliceFill[]) {
 }
 
 function getFillDirectionInfo(fill: IFill, intl: IntlShape) {
-  let color = fill.side === 'B' ? '$green11' : '$red11';
-  const directionType = getPerpFillDirectionType(fill.dir);
-  let text = fill.dir;
-
-  if (directionType === 'openLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_long });
-  } else if (directionType === 'openShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_short });
-  } else if (directionType === 'closeLong') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_long });
-  } else if (directionType === 'closeShort') {
-    text = intl.formatMessage({ id: ETranslations.perp_order_close_short });
-  }
-
-  if (fill.side === 'A') {
-    color = '$red11';
-  }
-
-  return { text, color };
+  return getFillDirectionDisplayInfo({ fill, intl });
 }
 
 function TwapEmptyState({
@@ -284,9 +322,67 @@ function TwapEmptyState({
   description?: string;
 }) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const isMobile = !gtMd;
   const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/13988742'));
+    openGuideUrl(buildHelpUrl('articles/15442238'));
   }, []);
+
+  if (isMobile) {
+    return (
+      <YStack flex={1} alignItems="center" p="$6">
+        <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({ id: titleId })}
+        </SizableText>
+        {description ? (
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            textAlign="center"
+            mt="$2"
+          >
+            {description}
+          </SizableText>
+        ) : null}
+        <SizableText
+          testID={PerpTestIDs.TwapEmptyGuideButton}
+          size="$bodySm"
+          color="$textSubdued"
+          textAlign="center"
+          textDecorationLine="underline"
+          mt="$2"
+          onPress={handleGuidePress}
+        >
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </YStack>
+    );
+  }
+
+  const guideButton = (
+    <Button
+      testID={PerpTestIDs.TwapEmptyGuideButton}
+      width={180}
+      borderRadius="$full"
+      size="small"
+      h={28}
+      px="$3"
+      variant="secondary"
+      onPress={handleGuidePress}
+      childrenAsText={false}
+    >
+      <XStack gap="$1.5" alignItems="center">
+        <Icon name="BookOpenOutline" size="$4" />
+        <SizableText size="$bodySmMedium">
+          {intl.formatMessage({
+            id: ETranslations.perp_twap_trading_guide__action,
+          })}
+        </SizableText>
+      </XStack>
+    </Button>
+  );
 
   return (
     <YStack
@@ -297,41 +393,39 @@ function TwapEmptyState({
       px="$5"
       py="$6"
     >
-      <YStack width="100%" maxWidth={420} gap="$3" alignItems="center">
-        <Illustration name="Orders" size={100} mb={-24} />
-        <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+      <YStack
+        width="100%"
+        maxWidth={isMobile ? 320 : 420}
+        gap="$2"
+        alignItems="center"
+      >
+        <YStack
+          h={isMobile ? 72 : 88}
+          alignItems="center"
+          overflow="visible"
+          mb={isMobile ? -4 : -8}
+        >
+          <Illustration name="Orders" size={isMobile ? 100 : 124} />
+        </YStack>
+        <SizableText
+          size={isMobile ? '$bodyXs' : '$bodySm'}
+          color="$textSubdued"
+          textAlign="center"
+          maxWidth={isMobile ? 280 : 360}
+        >
           {intl.formatMessage({ id: titleId })}
         </SizableText>
         {description ? (
           <SizableText
-            size="$bodySm"
+            size={isMobile ? '$bodyXs' : '$bodySm'}
             color="$textSubdued"
             textAlign="center"
-            maxWidth={360}
+            maxWidth={isMobile ? 280 : 360}
           >
             {description}
           </SizableText>
         ) : null}
-        <Button
-          testID={PerpTestIDs.TwapEmptyGuideButton}
-          width={180}
-          borderRadius="$full"
-          size="small"
-          h={28}
-          px="$3"
-          variant="secondary"
-          onPress={handleGuidePress}
-          childrenAsText={false}
-        >
-          <XStack gap="$1.5" alignItems="center">
-            <Icon name="BookOpenOutline" size="$4" />
-            <SizableText size="$bodySmMedium">
-              {intl.formatMessage({
-                id: ETranslations.perp_twap_trading_guide__action,
-              })}
-            </SizableText>
-          </XStack>
-        </Button>
+        {guideButton}
       </YStack>
     </YStack>
   );
@@ -348,6 +442,7 @@ function TwapActiveRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
 }: {
   order: IPerpsActiveTwapOrder;
   now: number;
@@ -359,13 +454,21 @@ function TwapActiveRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
 }) {
   const intl = useIntl();
   const { state } = order;
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, spotDisplayMap, intl }),
-    [intl, now, spotDisplayMap, state],
+    () =>
+      getTwapBaseInfo({
+        state,
+        now,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+        intl,
+      }),
+    [intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
   );
   const creationTime = useMemo(
     () => formatTwapDateTime(state.timestamp),
@@ -440,10 +543,17 @@ function TwapActiveRow({
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
-          <YStack
+          <XStack
             {...getColumnStyle(columnConfigs[6])}
+            justifyContent={calcCellAlign(columnConfigs[6].align)}
+            alignItems="center"
+          >
+            <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
+          </XStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[7])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[6].align)}
+            alignItems={calcCellAlign(columnConfigs[7].align)}
           >
             <SizableText size="$bodySm">{creationTime.inline}</SizableText>
           </YStack>
@@ -451,8 +561,8 @@ function TwapActiveRow({
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          {...getColumnStyle(columnConfigs[8])}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
           cursor="pointer"
         >
@@ -483,6 +593,8 @@ function TwapHistoryRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
+  isMobile,
 }: {
   record: ITwapHistoryRecord;
   now: number;
@@ -493,37 +605,51 @@ function TwapHistoryRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
+  isMobile?: boolean;
 }) {
   const intl = useIntl();
   const { state } = record;
-  const endTime =
-    record.status.status === 'activated'
-      ? undefined
-      : normalizeEpochMs(record.time);
+  const isActivated = record.status.status === 'activated';
+  const endTime = isActivated ? undefined : normalizeEpochMs(record.time);
   const sideInfo = useMemo(() => getTwapSideInfo(state, intl), [intl, state]);
   const baseInfo = useMemo(
-    () => getTwapBaseInfo({ state, now, endTime, spotDisplayMap, intl }),
-    [endTime, intl, now, spotDisplayMap, state],
+    () =>
+      getTwapBaseInfo({
+        state,
+        now,
+        endTime,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+        intl,
+      }),
+    [endTime, intl, now, spotDisplayMap, spotPairDisplayNameMap, state],
   );
-  const creationTime = useMemo(
-    () => formatTwapDateTime(state.timestamp),
-    [state.timestamp],
+  const historyTime = useMemo(
+    () => formatTwapDateTime(getTwapHistoryEventTimeMs(record)),
+    [record],
+  );
+  const historyDisplayInfo = useMemo(
+    () => ({
+      executedSize: isActivated ? '--' : baseInfo.executedSizeWithSymbol,
+      averagePrice: isActivated ? '--' : baseInfo.avgPriceFormatted,
+      totalRuntime: formatTotalDuration(state.minutes, intl),
+    }),
+    [
+      baseInfo.avgPriceFormatted,
+      baseInfo.executedSizeWithSymbol,
+      intl,
+      isActivated,
+      state.minutes,
+    ],
   );
   const statusText = useMemo(() => {
     const statusDescription =
       record.status.status === 'error' ? record.status.description : undefined;
-    const statusTextMap: Record<
-      ITwapHistoryRecord['status']['status'],
-      ETranslations
-    > = {
-      activated: ETranslations.perp_twap_status_activated__title,
-      error: ETranslations.perp_twap_status_error__title,
-      finished: ETranslations.perp_twap_status_finished__title,
-      terminated: ETranslations.perp_twap_status_terminated__title,
-    };
-    const translatedStatus = intl.formatMessage({
-      id: statusTextMap[record.status.status],
-    });
+    const translatedStatus = getTwapHistoryStatusText(
+      record.status.status,
+      intl,
+    );
     if (statusDescription) {
       return `${translatedStatus}: ${statusDescription}`;
     }
@@ -532,6 +658,120 @@ function TwapHistoryRow({
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
   const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+  if (isMobile) {
+    let statusColor = '$textSubdued';
+    if (record.status.status === 'error') {
+      statusColor = '$red11';
+    } else if (record.status.status === 'finished') {
+      statusColor = '$green11';
+    }
+
+    return (
+      <ListItem
+        mx="$5"
+        my="$2"
+        p="$0"
+        backgroundColor="$bgSubdued"
+        flexDirection="column"
+        alignItems="flex-start"
+        borderRadius="$3"
+      >
+        <XStack
+          px="$3"
+          pt="$3"
+          pb="$1"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+          gap="$3"
+        >
+          <YStack flex={1} gap="$1">
+            <XStack gap="$2" alignItems="center" flexWrap="wrap">
+              <SizableText size="$bodyMdMedium" numberOfLines={1}>
+                {baseInfo.assetSymbol}
+              </SizableText>
+              <SizableText
+                size="$bodySm"
+                color={sideInfo.color}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {sideInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {historyTime.inline}
+            </SizableText>
+          </YStack>
+          <YStack
+            alignItems="flex-end"
+            justifyContent="center"
+            gap="$1"
+            minWidth={72}
+            maxWidth="42%"
+          >
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+              {intl.formatMessage({ id: ETranslations.global_status })}
+            </SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color={statusColor}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              textAlign="right"
+            >
+              {statusText}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <YStack
+          px="$3"
+          pt="$2.5"
+          pb="$3"
+          width="100%"
+          gap="$2"
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+        >
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.defi_total_size,
+            })}
+            value={baseInfo.sizeWithSymbol}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_executed_size__title,
+            })}
+            value={historyDisplayInfo.executedSize}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_average_price__title,
+            })}
+            value={historyDisplayInfo.averagePrice}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_running_time__title,
+            })}
+            value={historyDisplayInfo.totalRuntime}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({ id: ETranslations.perps_reduce_only })}
+            value={baseInfo.reduceOnlyText}
+          />
+          <MobileTwapHistoryInfoRow
+            label={intl.formatMessage({
+              id: ETranslations.perp_twap_random__title,
+            })}
+            value={baseInfo.randomizeText}
+          />
+        </YStack>
+      </ListItem>
+    );
+  }
 
   return (
     <XStack
@@ -553,13 +793,23 @@ function TwapHistoryRow({
             justifyContent="center"
             alignItems={calcCellAlign(columnConfigs[0].align)}
           >
+            <SizableText size="$bodySm">{historyTime.date}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {historyTime.time}
+            </SizableText>
+          </YStack>
+          <YStack
+            {...getColumnStyle(columnConfigs[1])}
+            justifyContent="center"
+            alignItems={calcCellAlign(columnConfigs[1].align)}
+          >
             <SizableText size="$bodySmMedium" color={sideInfo.color}>
               {baseInfo.assetSymbol}
             </SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[1])}
-            justifyContent={calcCellAlign(columnConfigs[1].align)}
+            {...getColumnStyle(columnConfigs[2])}
+            justifyContent={calcCellAlign(columnConfigs[2].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm" color={sideInfo.color}>
@@ -567,50 +817,55 @@ function TwapHistoryRow({
             </SizableText>
           </XStack>
           <XStack
-            {...getColumnStyle(columnConfigs[2])}
-            justifyContent={calcCellAlign(columnConfigs[2].align)}
-            alignItems="center"
-          >
-            <SizableText size="$bodySm" color={sideInfo.color}>
-              {baseInfo.executedSizeWithSymbol}
-            </SizableText>
-          </XStack>
-          <XStack
             {...getColumnStyle(columnConfigs[3])}
             justifyContent={calcCellAlign(columnConfigs[3].align)}
             alignItems="center"
           >
+            <SizableText
+              size="$bodySm"
+              color={isActivated ? undefined : sideInfo.color}
+            >
+              {historyDisplayInfo.executedSize}
+            </SizableText>
+          </XStack>
+          <XStack
+            {...getColumnStyle(columnConfigs[4])}
+            justifyContent={calcCellAlign(columnConfigs[4].align)}
+            alignItems="center"
+          >
             <SizableText size="$bodySm">
-              {baseInfo.avgPriceFormatted}
+              {historyDisplayInfo.averagePrice}
             </SizableText>
           </XStack>
           <YStack
-            {...getColumnStyle(columnConfigs[4])}
+            {...getColumnStyle(columnConfigs[5])}
             justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[4].align)}
+            alignItems={calcCellAlign(columnConfigs[5].align)}
           >
-            <SizableText size="$bodySm">{baseInfo.runningTimeText}</SizableText>
+            <SizableText size="$bodySm">
+              {historyDisplayInfo.totalRuntime}
+            </SizableText>
           </YStack>
           <XStack
-            {...getColumnStyle(columnConfigs[5])}
-            justifyContent={calcCellAlign(columnConfigs[5].align)}
+            {...getColumnStyle(columnConfigs[6])}
+            justifyContent={calcCellAlign(columnConfigs[6].align)}
             alignItems="center"
           >
             <SizableText size="$bodySm">{baseInfo.reduceOnlyText}</SizableText>
           </XStack>
-          <YStack
-            {...getColumnStyle(columnConfigs[6])}
-            justifyContent="center"
-            alignItems={calcCellAlign(columnConfigs[6].align)}
+          <XStack
+            {...getColumnStyle(columnConfigs[7])}
+            justifyContent={calcCellAlign(columnConfigs[7].align)}
+            alignItems="center"
           >
-            <SizableText size="$bodySm">{creationTime.inline}</SizableText>
-          </YStack>
+            <SizableText size="$bodySm">{baseInfo.randomizeText}</SizableText>
+          </XStack>
         </>
       ) : null}
       {shouldRenderRight ? (
         <XStack
-          {...getColumnStyle(columnConfigs[7])}
-          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          {...getColumnStyle(columnConfigs[8])}
+          justifyContent={calcCellAlign(columnConfigs[8].align)}
           alignItems="center"
         >
           <SizableText
@@ -636,6 +891,9 @@ function TwapFillRow({
   isHovered,
   onHoverChange,
   spotDisplayMap,
+  spotPairDisplayNameMap,
+  builderFeeRate,
+  isMobile,
 }: {
   record: ITwapSliceFill;
   cellMinWidth: number;
@@ -645,13 +903,21 @@ function TwapFillRow({
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   spotDisplayMap: Record<string, string>;
+  spotPairDisplayNameMap: Record<string, string>;
+  builderFeeRate?: number;
+  isMobile?: boolean;
 }) {
   const intl = useIntl();
   const { fill } = record;
   const dateInfo = useMemo(() => formatTwapDateTime(fill.time), [fill.time]);
   const assetSymbol = useMemo(
-    () => getTwapAssetDisplayName(fill.coin, spotDisplayMap),
-    [fill.coin, spotDisplayMap],
+    () =>
+      getOrderAssetDisplayName(
+        fill.coin,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+      ),
+    [fill.coin, spotDisplayMap, spotPairDisplayNameMap],
   );
   const directionInfo = useMemo(
     () => getFillDirectionInfo(fill, intl),
@@ -660,6 +926,11 @@ function TwapFillRow({
   const fillInfo = useMemo(() => {
     const priceBN = new BigNumber(fill.px);
     const sizeBN = new BigNumber(fill.sz);
+    const closePnlBN = new BigNumber(fill.closedPnl).minus(
+      new BigNumber(fill.fee),
+    );
+    const closePnlColor = closePnlBN.lt(0) ? '$red11' : '$green11';
+    const closePnlPlusOrMinus = closePnlBN.lt(0) ? '-' : '';
     const priceFormatted = priceBN.isFinite()
       ? priceBN.toFixed(getValidPriceDecimals(fill.px))
       : fill.px;
@@ -671,10 +942,147 @@ function TwapFillRow({
         valueFormatter,
       ),
       feeFormatted: numberFormat(fill.fee, valueFormatter),
+      closePnlFormatted: numberFormat(closePnlBN.abs().toFixed(), {
+        formatter: 'value',
+        formatterOptions: {
+          currency: '$',
+        },
+      }),
+      closePnlColor,
+      closePnlPlusOrMinus,
     };
-  }, [fill.fee, fill.px, fill.sz]);
+  }, [fill.closedPnl, fill.fee, fill.px, fill.sz]);
+  const feeTooltipContent = useMemo(() => {
+    const feeRatePercentage =
+      builderFeeRate !== undefined
+        ? `${(builderFeeRate / 1000).toFixed(2)}%`
+        : '-';
+    return (
+      <YStack gap="$3">
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm">
+            {intl.formatMessage({ id: ETranslations.perps_fee_title })}
+            {feeRatePercentage}
+          </SizableText>
+          <SizableText size="$bodySm">
+            {intl.formatMessage({ id: ETranslations.perps_fee_total })}
+            {fillInfo.feeFormatted}
+          </SizableText>
+        </YStack>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({ id: ETranslations.perps_fee_desc })}
+        </SizableText>
+      </YStack>
+    );
+  }, [builderFeeRate, fillInfo.feeFormatted, intl]);
   const bgColor = getTableRowBgColor({ isHovered, index });
   const shouldRenderLeft = renderMode === 'full' || renderMode === 'left';
+  const shouldRenderRight = renderMode === 'full' || renderMode === 'right';
+
+  if (isMobile) {
+    return (
+      <ListItem
+        mx="$5"
+        my="$2"
+        p="$0"
+        backgroundColor="$bgSubdued"
+        flexDirection="column"
+        alignItems="flex-start"
+        borderRadius="$3"
+      >
+        <XStack
+          px="$3"
+          pt="$3"
+          justifyContent="space-between"
+          alignItems="center"
+          width="100%"
+        >
+          <YStack gap="$1">
+            <XStack gap="$2" alignItems="center">
+              <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
+              <SizableText size="$bodySm" color={directionInfo.color}>
+                {directionInfo.text}
+              </SizableText>
+            </XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {dateInfo.date} {dateInfo.time}
+            </SizableText>
+          </YStack>
+          <YStack gap="$1" alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_close_pnl,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm" color={fillInfo.closePnlColor}>
+              {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
+            </SizableText>
+          </YStack>
+        </XStack>
+        <Divider width="100%" borderColor="$borderSubdued" />
+        <XStack
+          px="$3"
+          pt="$1"
+          pb="$3"
+          width="100%"
+          alignItems="flex-start"
+          justifyContent="space-around"
+        >
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.priceFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.sizeFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_trade_value,
+              })}
+            </SizableText>
+            <SizableText size="$bodySm">{fillInfo.valueFormatted}</SizableText>
+          </YStack>
+          <YStack gap="$1" flex={1} alignItems="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+            </SizableText>
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_trades_history_fee,
+              })}
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashThickness={0.3}
+                >
+                  {fillInfo.feeFormatted}
+                </DashText>
+              }
+              renderContent={() => (
+                <YStack px="$5" pb="$4">
+                  {feeTooltipContent}
+                </YStack>
+              )}
+            />
+          </YStack>
+        </XStack>
+      </ListItem>
+    );
+  }
 
   return (
     <XStack
@@ -743,24 +1151,57 @@ function TwapFillRow({
             justifyContent={calcCellAlign(columnConfigs[6].align)}
             alignItems="center"
           >
-            <SizableText size="$bodySm" color="$textSubdued">
-              {fillInfo.feeFormatted}
-            </SizableText>
-          </XStack>
-          <XStack
-            {...getColumnStyle(columnConfigs[7])}
-            justifyContent={calcCellAlign(columnConfigs[7].align)}
-            alignItems="center"
-          >
-            <SizableText size="$bodySm">#{record.twapId}</SizableText>
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <DashText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  dashThickness={0.3}
+                >
+                  {fillInfo.feeFormatted}
+                </DashText>
+              }
+              renderContent={feeTooltipContent}
+            />
           </XStack>
         </>
+      ) : null}
+      {shouldRenderRight ? (
+        <XStack
+          {...getColumnStyle(columnConfigs[7])}
+          justifyContent={calcCellAlign(columnConfigs[7].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={fillInfo.closePnlColor}
+          >
+            {`${fillInfo.closePnlPlusOrMinus}${fillInfo.closePnlFormatted}`}
+          </SizableText>
+        </XStack>
       ) : null}
     </XStack>
   );
 }
 
-function PerpTwapList() {
+interface IPerpTwapListProps {
+  isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
+  initialTab?: ITwapPanelTab;
+  enabledTabs?: ITwapPanelTab[];
+}
+
+function PerpTwapList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+  initialTab = 'active',
+  enabledTabs,
+}: IPerpTwapListProps) {
   const actions = useHyperliquidActions();
   const intl = useIntl();
   const [
@@ -772,13 +1213,39 @@ function PerpTwapList() {
     usePerpsTwapSliceFillsAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
-  const [activeTab, setActiveTab] = useState<ITwapPanelTab>('active');
+  const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
+  const [activeTab, setActiveTab] = useState<ITwapPanelTab>(initialTab);
   const [currentListPage, setCurrentListPage] = useState(1);
   const [now, setNow] = useState(Date.now());
+  const [builderFeeRate, setBuilderFeeRate] = useState<number | undefined>();
+  const { onViewAllUrl } = usePerpTwapHistoryViewAllUrl();
+  const enabledTabsSet = useMemo(
+    () => new Set(enabledTabs ?? TWAP_ORDERS_SUB_TABS.map((tab) => tab.key)),
+    [enabledTabs],
+  );
+
+  useEffect(() => {
+    void backgroundApiProxy.simpleDb.perp
+      .getExpectMaxBuilderFee()
+      .then((fee) => {
+        setBuilderFeeRate(fee);
+      });
+  }, []);
 
   useEffect(() => {
     void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress]);
+
+  useEffect(() => {
+    if (!enabledTabsSet.has(activeTab)) {
+      const firstEnabledTab = TWAP_ORDERS_SUB_TABS.find((tab) =>
+        enabledTabsSet.has(tab.key),
+      );
+      if (firstEnabledTab) {
+        setActiveTab(firstEnabledTab.key);
+      }
+    }
+  }, [activeTab, enabledTabsSet]);
 
   useEffect(() => {
     setCurrentListPage(1);
@@ -811,7 +1278,7 @@ function PerpTwapList() {
     ) {
       return [];
     }
-    return rawHistory.filter((record) => record.status.status !== 'activated');
+    return rawHistory;
   }, [currentAccountAddress, historyAccountAddress, rawHistory]);
 
   const sliceFills = useMemo(() => {
@@ -826,7 +1293,7 @@ function PerpTwapList() {
     return sortTwapSliceFills(Array.from(byKey.values()));
   }, [currentAccountAddress, fillsAccountAddress, rawSliceFills]);
 
-  const twapColumns: IColumnConfig[] = useMemo(
+  const twapBaseColumns: IColumnConfig[] = useMemo(
     () => [
       {
         key: 'coin',
@@ -883,29 +1350,136 @@ function PerpTwapList() {
         align: 'left',
       },
       {
-        key: 'creationTime',
+        key: 'randomize',
         title: intl.formatMessage({
-          id: ETranslations.perp_creation_time__title,
+          id: ETranslations.perp_twap_random__title,
         }),
-        minWidth: 150,
+        minWidth: 100,
         flex: 1,
         align: 'left',
       },
+    ],
+    [intl],
+  );
+
+  const creationTimeColumn: IColumnConfig = useMemo(
+    () => ({
+      key: 'creationTime',
+      title: intl.formatMessage({
+        id: ETranslations.perp_creation_time__title,
+      }),
+      minWidth: 150,
+      flex: 1,
+      align: 'left',
+    }),
+    [intl],
+  );
+
+  const historyTimeColumn: IColumnConfig = useMemo(
+    () => ({
+      key: 'time',
+      title: intl.formatMessage({ id: ETranslations.global_time }),
+      minWidth: 130,
+      flex: 1,
+      align: 'left',
+    }),
+    [intl],
+  );
+
+  const activeColumns: IColumnConfig[] = useMemo(
+    () => [
+      ...twapBaseColumns,
+      creationTimeColumn,
       {
-        key: activeTab === 'active' ? 'terminate' : 'status',
-        title:
-          activeTab === 'active'
-            ? intl.formatMessage({
-                id: ETranslations.perp_twap_terminate__action,
-              })
-            : intl.formatMessage({ id: ETranslations.global_status }),
-        minWidth: activeTab === 'active' ? 100 : 130,
+        key: 'terminate',
+        title: intl.formatMessage({
+          id: ETranslations.perp_twap_terminate__action,
+        }),
+        minWidth: 100,
         flex: 1,
         align: 'right',
         fixed: true,
       },
     ],
-    [activeTab, intl],
+    [creationTimeColumn, intl, twapBaseColumns],
+  );
+
+  const historyColumns: IColumnConfig[] = useMemo(
+    () => [
+      historyTimeColumn,
+      {
+        key: 'coin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'sz',
+        title: intl.formatMessage({
+          id: ETranslations.defi_total_size,
+        }),
+        minWidth: 110,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'executedSz',
+        title: intl.formatMessage({
+          id: ETranslations.perp_executed_size__title,
+        }),
+        minWidth: 130,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'avgPx',
+        title: intl.formatMessage({
+          id: ETranslations.perp_average_price__title,
+        }),
+        minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'totalRuntime',
+        title: intl.formatMessage({
+          id: ETranslations.perp_twap_running_time__title,
+        }),
+        minWidth: 140,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'reduceOnly',
+        title: intl.formatMessage({
+          id: ETranslations.perps_reduce_only,
+        }),
+        minWidth: 120,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'randomize',
+        title: intl.formatMessage({
+          id: ETranslations.perp_twap_randomize__title,
+        }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
+      {
+        key: 'status',
+        title: intl.formatMessage({ id: ETranslations.global_status }),
+        minWidth: 130,
+        flex: 1,
+        align: 'right',
+        fixed: true,
+      },
+    ],
+    [historyTimeColumn, intl],
   );
 
   const fillColumns: IColumnConfig[] = useMemo(
@@ -962,17 +1536,20 @@ function PerpTwapList() {
       },
       {
         key: 'fee',
-        title: intl.formatMessage({ id: ETranslations.perp_fee__title }),
+        title: intl.formatMessage({
+          id: ETranslations.perp_trades_history_fee,
+        }),
         minWidth: 110,
         flex: 1,
         align: 'left',
       },
       {
-        key: 'twapId',
-        title: intl.formatMessage({ id: ETranslations.perp_twap_id__title }),
+        key: 'closePnl',
+        title: intl.formatMessage({ id: ETranslations.perp_trades_close_pnl }),
         minWidth: 100,
         flex: 1,
-        align: 'left',
+        align: 'right',
+        fixed: true,
       },
     ],
     [intl],
@@ -980,11 +1557,19 @@ function PerpTwapList() {
 
   const activeMinWidth = useMemo(
     () =>
-      twapColumns.reduce(
+      activeColumns.reduce(
         (sum, col) => sum + (col.width || col.minWidth || 0),
         0,
       ),
-    [twapColumns],
+    [activeColumns],
+  );
+  const historyMinWidth = useMemo(
+    () =>
+      historyColumns.reduce(
+        (sum, col) => sum + (col.width || col.minWidth || 0),
+        0,
+      ),
+    [historyColumns],
   );
   const fillMinWidth = useMemo(
     () =>
@@ -1055,16 +1640,24 @@ function PerpTwapList() {
         order={item}
         now={now}
         cellMinWidth={activeMinWidth}
-        columnConfigs={twapColumns}
+        columnConfigs={activeColumns}
         onTerminate={() => void handleTerminate(item)}
         index={index}
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
       />
     ),
-    [activeMinWidth, handleTerminate, now, spotDisplayMap, twapColumns],
+    [
+      activeColumns,
+      activeMinWidth,
+      handleTerminate,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const renderHistoryRow = useCallback(
@@ -1078,16 +1671,25 @@ function PerpTwapList() {
       <TwapHistoryRow
         record={item}
         now={now}
-        cellMinWidth={activeMinWidth}
-        columnConfigs={twapColumns}
+        cellMinWidth={historyMinWidth}
+        columnConfigs={historyColumns}
         index={index}
         renderMode={renderMode}
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
+        isMobile={isMobile}
       />
     ),
-    [activeMinWidth, now, spotDisplayMap, twapColumns],
+    [
+      historyColumns,
+      historyMinWidth,
+      isMobile,
+      now,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const renderFillRow = useCallback(
@@ -1107,20 +1709,36 @@ function PerpTwapList() {
         isHovered={isHovered}
         onHoverChange={onHoverChange}
         spotDisplayMap={spotDisplayMap}
+        spotPairDisplayNameMap={spotPairDisplayNameMap}
+        builderFeeRate={builderFeeRate}
+        isMobile={isMobile}
       />
     ),
-    [fillColumns, fillMinWidth, spotDisplayMap],
+    [
+      builderFeeRate,
+      fillColumns,
+      fillMinWidth,
+      isMobile,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ],
   );
 
   const emptyState = TWAP_EMPTY_STATE_MAP[activeTab];
   const twapOrderSubTabs = useMemo(
     () =>
-      TWAP_ORDERS_SUB_TABS.map((tab) => ({
-        key: tab.key,
-        label: intl.formatMessage({ id: tab.labelId }),
-      })),
-    [intl],
+      TWAP_ORDERS_SUB_TABS.filter((tab) => enabledTabsSet.has(tab.key)).map(
+        (tab) => ({
+          key: tab.key,
+          label: intl.formatMessage({ id: tab.labelId }),
+        }),
+      ),
+    [enabledTabsSet, intl],
   );
+  const historyViewAll = historyRows.length > 0 ? onViewAllUrl : undefined;
+  const fillsViewAll =
+    sliceFills.length > TWAP_PAGE_SIZE ? onViewAllUrl : undefined;
+
   const listEmptyComponent = useMemo(
     () => (
       <TwapEmptyState
@@ -1133,24 +1751,26 @@ function PerpTwapList() {
 
   return (
     <YStack flex={1}>
-      <OrderInfoSubTabs
-        tabs={twapOrderSubTabs}
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        variant="underline"
-      />
+      {twapOrderSubTabs.length > 1 ? (
+        <OrderInfoSubTabs
+          tabs={twapOrderSubTabs}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          variant="pill"
+        />
+      ) : null}
       {activeTab === 'active' ? (
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
-          enablePagination
-          pageSize={TWAP_PAGE_SIZE}
-          currentListPage={currentListPage}
-          setCurrentListPage={setCurrentListPage}
-          columns={twapColumns}
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
+          enablePagination={false}
+          columns={activeColumns}
           minTableWidth={activeMinWidth}
           data={twapOrders}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderActiveRow}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
@@ -1163,15 +1783,19 @@ function PerpTwapList() {
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
           setCurrentListPage={setCurrentListPage}
-          columns={twapColumns}
-          minTableWidth={activeMinWidth}
+          columns={historyColumns}
+          minTableWidth={historyMinWidth}
           data={historyRows}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderHistoryRow}
+          onViewAll={historyViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_history__title,
@@ -1183,7 +1807,8 @@ function PerpTwapList() {
         <CommonTableListView
           onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList
+          useTabsList={useTabsList}
+          disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
           currentListPage={currentListPage}
@@ -1191,7 +1816,10 @@ function PerpTwapList() {
           columns={fillColumns}
           minTableWidth={fillMinWidth}
           data={sliceFills}
+          isMobile={isMobile}
+          paginationToBottom={isMobile}
           renderRow={renderFillRow}
+          onViewAll={fillsViewAll}
           ListEmptyComponent={listEmptyComponent}
           emptyMessage={intl.formatMessage({
             id: ETranslations.perp_no_twap_fill_history__title,

@@ -35,6 +35,7 @@ import {
   type IPerpsMarketDataFreshness,
   shouldBlockPerpsTradingForMarketData,
 } from '../utils/perpsMarketDataFreshness';
+import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidation';
 
 import { useOrderPrice } from './useOrderPrice';
 import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
@@ -177,7 +178,9 @@ function useOrderConfirmWithMarketDataFreshness({
         if (!referencePrice.isFinite() || referencePrice.lte(0)) {
           Toast.error({
             title: 'Order Failed',
-            message: 'Scale price range is required',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_required__msg,
+            }),
           });
           return;
         }
@@ -188,7 +191,9 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: 'Scale lower and upper prices must be different',
+            message: intl.formatMessage({
+              id: ETranslations.perp_scale_price_range_same__msg,
+            }),
           });
           return;
         }
@@ -201,7 +206,15 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: `Scale orders must be ${SCALE_ORDER_MIN_COUNT}-${SCALE_ORDER_MAX_COUNT} orders`,
+            message: intl.formatMessage(
+              {
+                id: ETranslations.perp_scale_order_count_range__msg,
+              },
+              {
+                min: SCALE_ORDER_MIN_COUNT,
+                max: SCALE_ORDER_MAX_COUNT,
+              },
+            ),
           });
           return;
         }
@@ -236,7 +249,11 @@ function useOrderConfirmWithMarketDataFreshness({
         if (!scaleValidation.isValid) {
           Toast.error({
             title: 'Order Failed',
-            message: scaleValidation.errors[0] ?? 'Invalid scale order',
+            message: getScaleOrderValidationErrorMessage({
+              intl,
+              validation: scaleValidation,
+              fallback: 'Invalid scale order',
+            }),
           });
           return;
         }
@@ -261,10 +278,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: scaleSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only scale requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only scale size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_scale_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({
@@ -345,7 +364,9 @@ function useOrderConfirmWithMarketDataFreshness({
         ) {
           Toast.error({
             title: 'Order Failed',
-            message: 'TWAP order size is too small for this duration',
+            message: intl.formatMessage({
+              id: ETranslations.perp_twap_small_slice__msg,
+            }),
           });
           return;
         }
@@ -370,10 +391,12 @@ function useOrderConfirmWithMarketDataFreshness({
             side,
             size: twapSize,
             positionSize: position?.szi,
-            missingPositionMessage:
-              'Reduce-only TWAP requires an opposite open position',
-            exceedsPositionMessage:
-              'Reduce-only TWAP size exceeds the current position',
+            missingPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_opposite_position_required__msg,
+            }),
+            exceedsPositionMessage: intl.formatMessage({
+              id: ETranslations.perp_twap_reduce_only_size_exceeds_position__msg,
+            }),
           });
           if (reduceOnlyError) {
             Toast.error({

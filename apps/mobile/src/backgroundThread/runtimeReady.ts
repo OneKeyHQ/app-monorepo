@@ -20,8 +20,17 @@ export type IBackgroundThreadRuntimePayload =
   | IBackgroundThreadFailedPayload;
 
 export const BACKGROUND_THREAD_READY_PROTOCOL_VERSION = '1';
+// SharedStore key holding the latched bg-runtime ready/failed payload. Read
+// synchronously by main via `sharedStore.get` (non-deleting, so readiness
+// survives any number of reads — unlike the old read-and-delete slot).
 export const BACKGROUND_THREAD_READY_KEY =
   '@onekey/mobile/background-thread/runtime-ready';
+// SharedRPC content-less wake ping fired right after the bg runtime updates
+// its latched readiness in SharedStore. SharedStore has no notify, so this
+// ping is what edge-wakes main to re-read `BACKGROUND_THREAD_READY_KEY` and
+// flush its queued cross-runtime calls. The ping's value is irrelevant.
+export const BACKGROUND_THREAD_READY_WAKE_KEY =
+  '@onekey/mobile/background-thread/runtime-ready-wake';
 
 const BACKGROUND_THREAD_BOOT_ID = `${Date.now()}-${Math.random()
   .toString(36)

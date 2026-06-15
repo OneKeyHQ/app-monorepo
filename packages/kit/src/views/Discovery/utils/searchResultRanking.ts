@@ -248,7 +248,11 @@ function getExactUrlVisitKey(url?: string) {
 }
 
 function isSyntheticExactUrlDapp(dapp: IDApp) {
-  return Boolean(dapp.isExactUrl && dapp.dappId.startsWith('exact-url:'));
+  return Boolean(
+    dapp.isExactUrl &&
+    typeof dapp.dappId === 'string' &&
+    dapp.dappId.startsWith('exact-url:'),
+  );
 }
 
 function isBareHostnameSearchKeyword(keyword: string) {

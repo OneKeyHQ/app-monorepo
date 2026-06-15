@@ -42,6 +42,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
     componentProps,
     showIcon,
     replaceType,
+    displayStatus,
     compact,
   } = props;
   const { txFee, txFeeFiatValue, txFeeSymbol, hideFeeInfo } =
@@ -75,7 +76,7 @@ function TxActionFunctionCallListView(props: ITxActionProps) {
       feeSymbol={txFeeSymbol}
       hideFeeInfo={hideFeeInfo}
       replaceType={replaceType}
-      status={decodedTx.status}
+      status={displayStatus ?? decodedTx.status}
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}

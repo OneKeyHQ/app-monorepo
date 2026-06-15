@@ -19,10 +19,12 @@ import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2'
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIndicatorsDialogData,
+  ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
 } from '../types';
 
 const DEFAULT_HYPERLIQUID_PRICE_SCALE = 100;
+const TRADINGVIEW_PRICE_UPDATE = 'tradingview_priceUpdate';
 
 interface IUseTradingViewMessageHandlerParams {
   tokenAddress?: string;
@@ -33,6 +35,7 @@ interface IUseTradingViewMessageHandlerParams {
   tokenSymbol?: string;
   marksTimeRange?: React.MutableRefObject<IMarksTimeRange | null>;
   currentKLineResolution?: React.MutableRefObject<string>;
+  onCurrentKLineResolutionChange?: (resolution: string) => void;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   forceEmptyKLineData?: boolean;
@@ -40,6 +43,7 @@ interface IUseTradingViewMessageHandlerParams {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -231,6 +235,20 @@ function getIndicatorsDialogOpenState(
   return undefined;
 }
 
+function normalizeTradingViewMessagePayload({
+  data,
+  scope,
+}: ICustomReceiveHandlerData): ICustomReceiveHandlerData['data'] {
+  if (data.scope || !scope) {
+    return data;
+  }
+
+  return {
+    ...data,
+    scope,
+  };
+}
+
 export function useTradingViewMessageHandler({
   tokenAddress = '',
   networkId = '',
@@ -240,6 +258,7 @@ export function useTradingViewMessageHandler({
   tokenSymbol,
   marksTimeRange,
   currentKLineResolution,
+  onCurrentKLineResolutionChange,
   onTouchScroll,
   onIndicatorsDialogOpenChange,
   forceEmptyKLineData,
@@ -247,17 +266,11 @@ export function useTradingViewMessageHandler({
   kLineDataFallback,
   primaryKLineDataUnavailable,
   onPrimaryKLineDataUnavailable,
+  onPriceUpdate,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
-    async ({ data }: ICustomReceiveHandlerData) => {
-      // Debug: Log all incoming messages
-      // console.log('🔍 TradingView message received:', {
-      //   scope: data.scope,
-      //   method: data.method,
-      //   origin: data.origin,
-      //   dataKeys: data.data ? Object.keys(data.data) : 'no data',
-      // });
-
+    async (payload: ICustomReceiveHandlerData) => {
+      const data = normalizeTradingViewMessagePayload(payload);
       // Create context for message handlers
       const context: IMessageHandlerContext = {
         tokenAddress,
@@ -268,6 +281,7 @@ export function useTradingViewMessageHandler({
         tokenSymbol,
         marksTimeRange,
         currentKLineResolution,
+        onCurrentKLineResolutionChange,
         forceEmptyKLineData,
         emptyKLineDataOnError,
         kLineDataFallback,
@@ -296,8 +310,6 @@ export function useTradingViewMessageHandler({
         data.scope === '$private' &&
         data.method?.startsWith('tradingview_analytics_')
       ) {
-        console.log('🔍 TradingView analytics message received:', data);
-
         await handleAnalyticsEvent(data.method, { data, context });
       }
 
@@ -309,6 +321,18 @@ export function useTradingViewMessageHandler({
           request: data.data as { symbol?: string; requestId?: string },
           webRef,
         });
+      }
+
+      if (
+        data.scope === '$private' &&
+        data.method === TRADINGVIEW_PRICE_UPDATE
+      ) {
+        const priceUpdateData = data.data as
+          | ITradingViewPriceUpdateData
+          | undefined;
+        if (priceUpdateData) {
+          onPriceUpdate?.(priceUpdateData);
+        }
       }
 
       if (data.scope === '$private' && data.method === 'tradingview_getMarks') {
@@ -367,6 +391,7 @@ export function useTradingViewMessageHandler({
       tokenSymbol,
       marksTimeRange,
       currentKLineResolution,
+      onCurrentKLineResolutionChange,
       onTouchScroll,
       onIndicatorsDialogOpenChange,
       forceEmptyKLineData,
@@ -374,6 +399,7 @@ export function useTradingViewMessageHandler({
       kLineDataFallback,
       primaryKLineDataUnavailable,
       onPrimaryKLineDataUnavailable,
+      onPriceUpdate,
     ],
   );
 

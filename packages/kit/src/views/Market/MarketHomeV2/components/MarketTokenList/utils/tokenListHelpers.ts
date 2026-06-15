@@ -27,6 +27,44 @@ export const SORT_MAP: Record<string, keyof IMarketToken> = {
   v24hUSD: 'turnover',
 };
 
+export function normalizeStockMetadataValue(
+  value?: string | number | null,
+): string | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  const stringValue = typeof value === 'string' ? value.trim() : String(value);
+  if (!stringValue) {
+    return undefined;
+  }
+
+  const numericValue = new BigNumber(stringValue);
+  if (!numericValue.isFinite()) {
+    return undefined;
+  }
+
+  return stringValue;
+}
+
+export function getStockMarketCapValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.marketCap);
+}
+
+export function getStockVolume24hValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.assetAnalysis?.volume24h);
+}
+
+export function getStockPeRatioValue(
+  record: Pick<IMarketToken, 'stock'>,
+): string | undefined {
+  return normalizeStockMetadataValue(record.stock?.tradingActivity?.peRatio);
+}
+
 export function shouldShowStockSubtitleForTokens(
   items: Array<Pick<IMarketToken, 'stock'>>,
 ) {
@@ -35,7 +73,13 @@ export function shouldShowStockSubtitleForTokens(
   }
 
   const stockCount = items.filter((item) => !!item.stock).length;
-  return stockCount > items.length / 10;
+  return stockCount >= items.length / 2;
+}
+
+export function shouldUseStockMetadataColumnsForTokens(
+  items: Array<Pick<IMarketToken, 'stock'>>,
+) {
+  return items.length > 0 && items.every((item) => !!item.stock);
 }
 
 const ONE_HOUR = 60 * 60 * 1000;
@@ -136,9 +180,10 @@ export function transformApiItemToToken(
       | undefined,
   );
   const turnover = safeNumber(
-    getMetricValueByTimeRange(item, timeRange, 'volume', '') as
-      | string
-      | undefined,
+    getStockVolume24hValue(item) ??
+      (getMetricValueByTimeRange(item, timeRange, 'volume', '') as
+        | string
+        | undefined),
   );
   const buyCount = safeNumber(
     getMetricValueByTimeRange(item, timeRange, 'buy', 'Count') as
@@ -158,7 +203,7 @@ export function transformApiItemToToken(
     address: item.address,
     price: safeNumber(item.price),
     change24h: priceChange,
-    marketCap: safeNumber(item.marketCap),
+    marketCap: safeNumber(getStockMarketCapValue(item) ?? item.marketCap),
     liquidity: safeNumber(item.liquidity),
     transactions,
     uniqueTraders,

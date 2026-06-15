@@ -18,17 +18,6 @@
     />
     <title>OneKey</title>
     <meta name="theme-color" content="#ffffff" />
-      <% if ( isDev ) { %>
-        <script
-        <% if ( platform === 'ext'  ) { %>
-          src="http://localhost:3180/react-render-tracker@0.7.3/dist/react-render-tracker.js"
-        <% } else { %>
-          src="/react-render-tracker@0.7.3/dist/react-render-tracker.js"
-        <% } %>
-          data-config="inpage:false"
-        /></script>
-        <meta name="rempl:server" content="localhost:8177" />
-    <% } %>
     <style>
       /* add global styles to packages/shared/src/web/index.css */
     </style>

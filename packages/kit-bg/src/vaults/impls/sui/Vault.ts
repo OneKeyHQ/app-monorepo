@@ -425,6 +425,7 @@ export default class Vault extends VaultBase {
       }
 
       const txid = await this.backgroundApi.serviceSend.broadcastTransaction({
+        ...params,
         accountId: this.accountId,
         networkId: this.networkId,
         signedTx: params.signedTx,

@@ -8,7 +8,10 @@ import {
   usePerpsTradesHistoryDataAtom,
   usePerpsTradesHistoryRefreshHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_HISTORY_FILLS_URL } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_HISTORY_FILLS_URL,
+  PERPS_TWAP_HISTORY_URL,
+} from '@onekeyhq/shared/src/consts/perp';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid';
@@ -103,16 +106,22 @@ export function usePerpTradesHistory() {
   };
 }
 
-export function usePerpTradesHistoryViewAllUrl() {
+function usePerpViewAllUrl(baseUrl: string) {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const onViewAllUrl = useCallback(() => {
     if (currentAccount?.accountAddress) {
-      openUrlInApp(
-        `${PERPS_HISTORY_FILLS_URL}${currentAccount?.accountAddress}`,
-      );
+      openUrlInApp(`${baseUrl}${currentAccount.accountAddress}`);
     }
-  }, [currentAccount?.accountAddress]);
+  }, [baseUrl, currentAccount?.accountAddress]);
   return {
     onViewAllUrl,
   };
+}
+
+export function usePerpTradesHistoryViewAllUrl() {
+  return usePerpViewAllUrl(PERPS_HISTORY_FILLS_URL);
+}
+
+export function usePerpTwapHistoryViewAllUrl() {
+  return usePerpViewAllUrl(PERPS_TWAP_HISTORY_URL);
 }

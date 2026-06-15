@@ -32,6 +32,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -62,6 +63,7 @@ import { getKeylessOnboardingPin } from '../../../components/KeylessWallet/useKe
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useUserWalletProfile } from '../../../hooks/useUserWalletProfile';
 import { useKeylessWebFlowAutoConnectDapp } from '../../../hooks/useWebDapp/useKeylessWebFlow';
+import { ensureLedgerCoreAppsReady } from '../../../provider/Container/ThirdPartyHardwareUiStateContainer/LedgerInstallCoreAppsDialog';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 import {
@@ -461,6 +463,22 @@ function FinalizeWalletSetupPage({
           // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
           // OneKey-side `addWalletStarted` + success/failure tracking here.
           const ledgerDevice = deviceData.device as SearchDevice;
+
+          const ledgerConnectId = ledgerDevice?.connectId ?? '';
+          const ensureResult = await ensureLedgerCoreAppsReady({
+            connectId: ledgerConnectId,
+          });
+          if (!ensureResult.ok) {
+            throw (
+              ensureResult.error ??
+              new OneKeyLocalError({
+                message: intl.formatMessage({
+                  id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                }),
+              })
+            );
+          }
+
           // Resolve the per-session transport from the tabValue passed by the
           // Ledger entry points. Mirrors the OneKey pattern in useDeviceConnect
           // (`forceTransportType || hardwareTransportType`) so the analytics
@@ -587,6 +605,7 @@ function FinalizeWalletSetupPage({
     hardwareTransportType,
     isSoftwareWalletOnlyUser,
     ledgerTabValue,
+    intl,
   ]);
 
   useEffect(() => {

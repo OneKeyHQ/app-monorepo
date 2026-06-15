@@ -11,16 +11,21 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { buildSwapAllNetworkTokenListCacheKey } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
+import {
+  buildSwapAllNetworkTokenListCacheKey,
+  isTokenSelectorDappTokenFilterSupportedNetworkBase,
+} from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -67,6 +72,8 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   type ISwapQuoteEventErrorState,
+  SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS,
+  buildSwapProPositionsOwnerKey,
   contextAtomMethod,
   limitOrderMarketPriceAtom,
   rateDifferenceAtom,
@@ -84,6 +91,7 @@ import {
   swapNetworksIncludeAllNetworkAtom,
   swapProDirectionAtom,
   swapProInputAmountAtom,
+  swapProPositionsCacheAtom,
   swapProSelectTokenAtom,
   swapProSellToTokenAtom,
   swapProSupportNetworksTokenListAtom,
@@ -503,7 +511,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         toToken,
       });
       if (needChangeToToken !== null && !disableCheckToToken) {
-        set(swapSelectToTokenAtom(), undefined);
         set(swapSelectFromTokenAtom(), token);
         set(swapSelectToTokenAtom(), needChangeToToken);
       } else {
@@ -1399,13 +1406,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       .fetchMarketTokenDetailByTokenAddress(
         token.contractAddress,
         token.networkId,
+        {
+          autoHandleError: false,
+        },
       )
-      .then((tokenDetail) =>
-        isUSMarketStatusStockTokenSource(
-          tokenDetail?.data?.token?.stock?.source,
-        ),
-      )
-      .catch(() => {
+      .then((tokenDetail) => {
+        if (tokenDetail?.code !== 0 || !tokenDetail?.data?.token) {
+          throw new OneKeyLocalError(
+            `Market token detail is not available: ${
+              tokenDetail?.code ?? 'empty'
+            }`,
+          );
+        }
+        return isUSMarketStatusStockTokenSource(
+          tokenDetail.data.token.stock?.source,
+        );
+      })
+      .catch((error) => {
+        defaultLogger.swap.stockTokenCheck.stockTokenCheckUnavailable({
+          cacheKey,
+          networkId: token.networkId,
+          tokenSymbol: token.symbol,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
         this.stockTokenCheckCache.delete(cacheKey);
         return false;
       });
@@ -1686,6 +1709,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       // check from address
       if (
         fromToken &&
+        swapFromAddressInfo.isAddressInfoReady &&
         !swapFromAddressInfo.address &&
         (accountUtils.isHdWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
@@ -1708,6 +1732,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       // check to address
       if (
         toToken &&
+        swapToAddressInfo.isAddressInfoReady &&
         !swapToAddressInfo.address &&
         (accountUtils.isHdWallet({
           walletId: swapToAddressInfo.accountInfo?.wallet?.id,
@@ -2246,7 +2271,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ? swapSupportNetworks
           : swapSupportNetworks.filter((item) => item.supportLimit);
       const tokenListSupportNetworks = lpToken
-        ? currentTypeSupportNetworks.filter((item) => item.backendIndex)
+        ? currentTypeSupportNetworks.filter(
+            isTokenSelectorDappTokenFilterSupportedNetworkBase,
+          )
         : currentTypeSupportNetworks;
       const { accountIdKey, swapSupportAccounts } =
         await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
@@ -2345,6 +2372,38 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       otherWalletTypeAccountId?: string,
     ) => {
       set(swapProSupportNetworksTokenListLoadingAtom(), true);
+      const positionNetworkIdsKey = supportNetworks
+        .map((item) => item.networkId)
+        .filter(Boolean)
+        .toSorted()
+        .join(',');
+      const positionOwnerKey = buildSwapProPositionsOwnerKey({
+        accountId: indexedAccountId ?? otherWalletTypeAccountId,
+        networkIdsKey: positionNetworkIdsKey,
+      });
+      const updatePositionsCache = (tokens: ISwapToken[]) => {
+        if (!positionOwnerKey || !positionNetworkIdsKey) {
+          return;
+        }
+        set(swapProPositionsCacheAtom(), (prev) => {
+          const updatedAt = Date.now();
+          const byOwner = {
+            ...prev.byOwner,
+            [positionOwnerKey]: {
+              ownerKey: positionOwnerKey,
+              networkIdsKey: positionNetworkIdsKey,
+              tokens,
+              updatedAt,
+            },
+          };
+          const entries = Object.entries(byOwner)
+            .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
+            .slice(0, SWAP_PRO_POSITIONS_CACHE_MAX_OWNERS);
+          return {
+            byOwner: Object.fromEntries(entries),
+          };
+        });
+      };
       const { swapSupportAccounts: swapProSupportAccounts } =
         await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
           indexedAccountId,
@@ -2393,8 +2452,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             );
           });
         set(swapProSupportNetworksTokenListAtom(), sortedResult);
+        updatePositionsCache(sortedResult);
       } else {
         set(swapProSupportNetworksTokenListAtom(), []);
+        updatePositionsCache([]);
       }
       set(swapProSupportNetworksTokenListLoadingAtom(), false);
     },
@@ -2747,6 +2808,7 @@ export const useSwapActions = () => {
   const quoteSpeedAction = actions.quoteSpeedAction.use();
   const cleanSpeedQuote = actions.cleanSpeedQuote.use();
   const setSwapProSelectToken = actions.setSwapProSelectToken.use();
+  const resetSwapTokenData = actions.resetSwapTokenData.use();
   const {
     cleanQuoteInterval,
     closeQuoteEvent,
@@ -2779,5 +2841,6 @@ export const useSwapActions = () => {
     cancelSpeedQuote,
     cleanSpeedQuote,
     setSwapProSelectToken,
+    resetSwapTokenData,
   });
 };

@@ -4,30 +4,17 @@
 /* oxlint-disable import-js/order */
 import '@onekeyhq/shared/src/performance/init';
 
-try {
-  const {
-    coldStartCacheStorage,
-  } = require('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-  const {
-    EAppSyncStorageKeys,
-  } = require('@onekeyhq/shared/src/storage/syncStorageKeys');
-  const {
-    parseColdStartSnapshotRaw,
-  } = require('@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils');
-  const ctxRaw = coldStartCacheStorage.getString(
-    EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-  );
-  const ctxSnapshot = parseColdStartSnapshotRaw(ctxRaw);
-  if (ctxSnapshot) {
-    globalThis.__ONEKEY_CTX_ATOM_SNAPSHOT__ = ctxSnapshot;
-  }
-} catch {
-  /* desktop cold-start cache is best-effort */
-}
-
 if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
 }
+
+import '@onekeyhq/shared/src/polyfills';
+
+// Cold-start hydration: fires IndexedDB read promise + populates globalThis
+// vars before React mounts. Must run after polyfills, before any jotai
+// atoms are referenced. See packages/kit/src/components/GlobalJotaiReady
+// which awaits the cold-start gate on web/desktop.
+import '@onekeyhq/kit-bg/src/hydration/hydrate';
 
 import { registerRootComponent } from 'expo';
 

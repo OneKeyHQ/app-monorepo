@@ -3,12 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   type IDebugRenderTrackerProps,
-  Icon,
   SizableText,
   Toast,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -65,40 +62,27 @@ type IOpenOrdersDisplayRow =
 function MobileTwapEmptyState() {
   const intl = useIntl();
   const handleGuidePress = useCallback(() => {
-    openGuideUrl(buildHelpUrl('articles/13988742'));
+    openGuideUrl(buildHelpUrl('articles/15442238'));
   }, []);
 
   return (
-    <YStack
-      flex={1}
-      alignItems="center"
-      justifyContent="center"
-      p="$6"
-      gap="$3"
-    >
-      <SizableText size="$bodyMdMedium" color="$text" textAlign="center">
+    <YStack flex={1} alignItems="center" p="$6">
+      <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
         {intl.formatMessage({ id: ETranslations.perp_no_active_twap__title })}
       </SizableText>
-      <Button
+      <SizableText
         testID={PerpTestIDs.TwapEmptyGuideButton}
-        width={180}
-        borderRadius="$full"
-        size="small"
-        h={28}
-        px="$3"
-        variant="secondary"
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        textDecorationLine="underline"
+        mt="$2"
         onPress={handleGuidePress}
-        childrenAsText={false}
       >
-        <XStack gap="$1.5" alignItems="center">
-          <Icon name="BookOpenOutline" size="$4" />
-          <SizableText size="$bodySmMedium">
-            {intl.formatMessage({
-              id: ETranslations.perp_twap_trading_guide__action,
-            })}
-          </SizableText>
-        </XStack>
-      </Button>
+        {intl.formatMessage({
+          id: ETranslations.perp_twap_trading_guide__action,
+        })}
+      </SizableText>
     </YStack>
   );
 }
@@ -516,6 +500,10 @@ function PerpOpenOrdersList({
       />
     );
   };
+  const mobileHeaderTotalOrderCount =
+    activeOpenOrdersSubTab === 'twap'
+      ? scopedTwapOrders.length
+      : openOrders.length;
   const mobileListHeader = isMobile ? (
     <YStack>
       <OrderInfoSubTabs
@@ -523,8 +511,10 @@ function PerpOpenOrdersList({
         activeTab={activeOpenOrdersSubTab}
         onChange={setActiveOpenOrdersSubTab}
       />
+      {/* Keep the filter checkbox visible after "hide other pairs" filters
+          the current sub-tab to an empty list. */}
       <MobileOpenOrdersListHeader
-        totalOrderCount={filteredOrders.length + filteredTwapOrders.length}
+        totalOrderCount={mobileHeaderTotalOrderCount}
         cancelableOrderCount={
           canMutateScopedOrders && activeOpenOrdersSubTab === 'basic'
             ? filteredOrders.length
@@ -535,9 +525,7 @@ function PerpOpenOrdersList({
     </YStack>
   ) : null;
   const listEmptyComponent =
-    isMobile && activeOpenOrdersSubTab === 'twap' ? (
-      <MobileTwapEmptyState />
-    ) : undefined;
+    activeOpenOrdersSubTab === 'twap' ? <MobileTwapEmptyState /> : undefined;
 
   return (
     <CommonTableListView

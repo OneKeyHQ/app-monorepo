@@ -1,4 +1,5 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   getPerpsOrderPanelEnableTradingModeByAccount,
@@ -23,6 +24,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     ).toEqual({
       canAutoEnableInOrderPanel: true,
       requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: false,
     });
   });
 
@@ -35,10 +37,11 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     ).toEqual({
       canAutoEnableInOrderPanel: false,
       requiresEnableTradingDialogInOrderPanel: true,
+      requiresExplicitEnableTrading: true,
     });
   });
 
-  it('keeps cached external accounts on the explicit fallback path', () => {
+  it('routes cached external accounts through explicit enable-trading confirmation', () => {
     expect(
       getPerpsOrderPanelEnableTradingModeByAccount({
         accountId: 'external--60--injected--wallet',
@@ -47,6 +50,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     ).toEqual({
       canAutoEnableInOrderPanel: false,
       requiresEnableTradingDialogInOrderPanel: false,
+      requiresExplicitEnableTrading: true,
     });
   });
 });
@@ -75,12 +79,13 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: false,
           requiresEnableTradingDialogInOrderPanel: true,
+          requiresExplicitEnableTrading: true,
         },
       }),
     ).toBe(true);
   });
 
-  it('keeps non-auto-enable accounts on the fallback CTA path', () => {
+  it('shows trading buttons for explicit-enable non-software accounts', () => {
     expect(
       shouldShowPerpsOrderPanelTradingButtons({
         canShowCachedTradingButtons: false,
@@ -103,9 +108,10 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: false,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: true,
         },
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('keeps the fallback button for unsupported or address-creation states', () => {
@@ -124,6 +130,7 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: true,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: false,
         },
       }),
     ).toBe(false);
@@ -143,6 +150,7 @@ describe('shouldShowPerpsOrderPanelTradingButtons', () => {
         enableTradingMode: {
           canAutoEnableInOrderPanel: true,
           requiresEnableTradingDialogInOrderPanel: false,
+          requiresExplicitEnableTrading: false,
         },
       }),
     ).toBe(false);
@@ -245,6 +253,81 @@ describe('getPerpsOrderPanelEnableTradingSteps', () => {
     expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(2);
   });
 
+  it('skips abstraction step when live abstraction mode is already ready', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: false,
+        },
+      },
+      {
+        abstractionMode: {
+          accountAddress: '0xabc',
+          mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+          source: 'live',
+        },
+      },
+    );
+
+    expect(steps).toEqual([
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(1);
+  });
+
+  it('keeps abstraction step when only cached abstraction mode is available', () => {
+    const steps = getPerpsOrderPanelEnableTradingSteps(
+      {
+        accountAddress: '0xabc',
+        accountNotSupport: false,
+        canCreateAddress: false,
+        canTrade: false,
+        details: {
+          activatedOk: true,
+          agentOk: false,
+          builderFeeOk: true,
+          referralCodeOk: true,
+          internalRebateBoundOk: true,
+          abstractionOk: false,
+        },
+      },
+      {
+        abstractionMode: {
+          accountAddress: '0xabc',
+          mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+          source: 'cache',
+        },
+      },
+    );
+
+    expect(steps).toEqual([
+      {
+        key: 'agent',
+        labelId: ETranslations.global_sign,
+        requiresSignature: true,
+      },
+      {
+        key: 'abstraction',
+        labelId: ETranslations.perp_trade_button_enable_trading,
+        requiresSignature: true,
+      },
+    ]);
+    expect(getPerpsOrderPanelEnableTradingSignatureCount(steps)).toBe(2);
+  });
+
   it('does not count deposit fallback as a hardware signature', () => {
     const steps = getPerpsOrderPanelEnableTradingSteps({
       accountAddress: '0xabc',
@@ -337,14 +420,14 @@ describe('getPerpsOrderPanelPostEnableTradingResult', () => {
 });
 
 describe('shouldBlockPerpsOrderPanelPreEnableTradingForMargin', () => {
-  it('blocks enable side effects for known insufficient margin orders', () => {
+  it('keeps enable trading first when the current margin snapshot is insufficient', () => {
     expect(
       shouldBlockPerpsOrderPanelPreEnableTradingForMargin({
         shouldEnableTradingBeforeOrder: true,
         isNoEnoughMargin: true,
         isDepositRequired: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('keeps deposit fallback reachable when the account is not activated', () => {
@@ -479,6 +562,20 @@ describe('shouldDisablePerpsOrderPanelTradingButton', () => {
         isServerActionDisabled: false,
       }),
     ).toBe(true);
+  });
+
+  it('keeps insufficient-margin buttons pressable so the press can show a toast', () => {
+    expect(
+      shouldDisablePerpsOrderPanelTradingButton({
+        isTradingStatusDisabled: false,
+        shouldEnableTradingBeforeOrder: false,
+        isNoEnoughMargin: true,
+        isAccountLoading: false,
+        isSubmitting: false,
+        hasBboPriceError: false,
+        isServerActionDisabled: false,
+      }),
+    ).toBe(false);
   });
 });
 

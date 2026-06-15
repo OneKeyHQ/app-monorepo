@@ -111,12 +111,28 @@ class ServiceApp extends ServiceBase {
       defaultLogger.setting.page.clearDataStep('jotaiMMKV-clearAll');
     }
 
-    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache)
+    // Clean cold-start cache MMKV (contextAtom snapshot + SWR cache).
+    // On native this is a synchronous MMKV wipe; on web/desktop the facade's
+    // clearAll() schedules an async IDB clear, so we additionally await the
+    // dedicated helper to ensure the IDB store is fully wiped before reload.
     try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { coldStartCacheStorage } =
-        require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
-      coldStartCacheStorage.clearAll();
+      if (platformEnv.isWeb || platformEnv.isDesktop) {
+        // On web/desktop, coldStartCacheStorage.clearAll() only fires a
+        // fire-and-forget resetColdStartCache(); calling it alongside the
+        // awaitable helper spawns two concurrent resets that share a single
+        // isClearing latch, so the first one's finally releases the lock while
+        // the second is still mid-wipe — letting external writes resurrect
+        // data before db.clear lands. Use only the awaitable path here.
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { awaitColdStartCacheCleared } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        await awaitColdStartCacheCleared();
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { coldStartCacheStorage } =
+          require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+        coldStartCacheStorage.clearAll();
+      }
     } catch {
       console.error('coldStartCacheStorage.clearAll() error');
     }

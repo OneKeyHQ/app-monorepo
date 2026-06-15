@@ -42,6 +42,7 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     shouldResumeStalledDownload: jest.fn(),
     updateLastDialogShownAt: jest.fn(),
     setCurrentUpdateAttemptId: jest.fn(),
+    pruneStaleArtifacts: jest.fn().mockResolvedValue(undefined),
   };
   const dev = {
     getSkipBundleGPGVerification: jest.fn(),
@@ -285,16 +286,20 @@ import { act, renderHook } from '@testing-library/react';
 
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
   computeDownloadRetryDelayMs,
   extractUpdateErrorCode,
+  getUpdateReminderActionLabelId,
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  isToolboxUpdateIndicatorRedundant,
   isUnrecoverableDownloadError,
   runDownloadWithRetry,
   sanitizeUpdateErrorMessage,
@@ -2345,7 +2350,13 @@ describe('useAppUpdateInfo useEffect', () => {
       );
     });
 
-    test('ready + silent strategy → shows silent update dialog', async () => {
+    test('ready + silent strategy → no dialog (applied on restart via pending task)', async () => {
+      // OK-55397: silent updates no longer pop a "ready" dialog. Once the
+      // silent download reaches `ready`, ServiceAppUpdate.readyToInstall has
+      // already queued a pending install task (silent is allowed past the
+      // strategy gate), which is applied on the next restart; the header /
+      // reminder update button offers an immediate restart-install. So the
+      // first-launch dispatch must NOT surface any dialog or navigation here.
       setAtom({
         status: EAppUpdateStatus.ready,
         updateStrategy: EUpdateStrategy.silent,
@@ -2357,19 +2368,13 @@ describe('useAppUpdateInfo useEffect', () => {
       const hooks = requireFreshHooks();
       renderHook(() => hooks.useAppUpdateInfo(false, true));
 
-      // showSilentUpdateDialog wraps three awaits inside a setTimeout
-      // (getUpdateInfo → whenAppUnlocked → showSilentUpdateDialogUI).
-      // jest.runAllTimers() is synchronous, so awaits inside the timer
-      // callback resolve outside the act() scope and React emits
-      // "act(async () => ...) without await". runAllTimersAsync awaits
-      // each scheduled microtask between fires, keeping every state
-      // update inside the act boundary.
       await act(async () => {
         await jest.runAllTimersAsync();
       });
 
-      // showSilentUpdateDialog uses setTimeout → Dialog.show
-      expect(mockDialogShow).toHaveBeenCalled();
+      expect(mockDialogShow).not.toHaveBeenCalled();
+      expect(nav.pushModal).not.toHaveBeenCalled();
+      expect(nav.pushFullModal).not.toHaveBeenCalled();
     });
 
     test('ready + manual strategy → shows regular update dialog', async () => {
@@ -2801,5 +2806,213 @@ describe('onUpdateAction', () => {
       'AppUpdateModal',
       expect.objectContaining({ screen: 'DownloadVerify' }),
     );
+  });
+});
+
+// =========================================================================
+// D2. onUpdateActionDirect routing (toolbox reminder + top-right Update button)
+// Never opens the changelog: hot update restarts, major update jumps to the
+// download/verify modal (App Store builds open the store).
+// =========================================================================
+describe('onUpdateActionDirect', () => {
+  function requireFreshHooks(): typeof import('./useAppUpdate') {
+    let hooks: typeof import('./useAppUpdate') = undefined as any;
+    jest.isolateModules(() => {
+      jest.mock('react', () => (globalThis as any).__sharedReact);
+      hooks = require('./useAppUpdate');
+    });
+    return hooks;
+  }
+
+  test('jsBundle + ready → installs bundle (restart), no navigation / no store', async () => {
+    // latestVersion === platformEnv.version ('1.0.0') + higher jsBundleVersion
+    // → getUpdateFileType resolves to jsBundle.
+    setAtom({
+      status: EAppUpdateStatus.ready,
+      latestVersion: '1.0.0',
+      jsBundleVersion: '5',
+      downloadedEvent: { downloadUrl: 'https://x/bundle' },
+    });
+    svc.getUpdateInfo.mockResolvedValue(mockAtomHolder.value);
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    await act(async () => {
+      result.current.onUpdateActionDirect();
+      await Promise.resolve();
+    });
+
+    expect(bundleUpd.installBundle).toHaveBeenCalledWith(
+      mockAtomHolder.value.downloadedEvent,
+    );
+    expect(nav.pushModal).not.toHaveBeenCalled();
+    expect(mockOpenUrlExternal).not.toHaveBeenCalled();
+  });
+
+  test('appShell + notify + downloadUrl → navigates to DownloadVerify (no changelog)', () => {
+    setAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      downloadUrl: 'https://x/app',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'DownloadVerify' }),
+    );
+    expect(nav.pushModal).not.toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'UpdatePreview' }),
+    );
+  });
+
+  test('appShell + storeUrl → opens store, no navigation', () => {
+    setAtom({
+      status: EAppUpdateStatus.notify,
+      latestVersion: '2.0.0',
+      storeUrl: 'https://apps.apple.com/onekey',
+      downloadUrl: 'https://x/app',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(mockOpenUrlExternal).toHaveBeenCalledWith(
+      'https://apps.apple.com/onekey',
+    );
+    expect(nav.pushModal).not.toHaveBeenCalled();
+  });
+
+  test('status=updateIncomplete → shows incomplete dialog', () => {
+    setAtom({
+      status: EAppUpdateStatus.updateIncomplete,
+      latestVersion: '2.0.0',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(mockDialogShow).toHaveBeenCalled();
+  });
+
+  test('status=manualInstall → navigates to ManualInstall', () => {
+    setAtom({
+      status: EAppUpdateStatus.manualInstall,
+      latestVersion: '2.0.0',
+    });
+
+    const hooks = requireFreshHooks();
+    const { result } = renderHook(() => hooks.useAppUpdateInfo(false, false));
+
+    act(() => {
+      result.current.onUpdateActionDirect();
+    });
+
+    expect(nav.pushModal).toHaveBeenCalledWith(
+      'AppUpdateModal',
+      expect.objectContaining({ screen: 'ManualInstall' }),
+    );
+  });
+});
+
+// =========================================================================
+// D3. getUpdateReminderActionLabelId — toolbox reminder CTA label
+// A downloaded hot update (jsBundle @ ready) restarts on click → "Update now";
+// every other state opens a flow → generic "View".
+// =========================================================================
+describe('getUpdateReminderActionLabelId', () => {
+  test('jsBundle + ready → "Update now"', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.jsBundle,
+        updateStatus: EAppUpdateStatus.ready,
+      }),
+    ).toBe(ETranslations.update_update_now);
+  });
+
+  test('jsBundle + notify → "View" (not yet downloaded)', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.jsBundle,
+        updateStatus: EAppUpdateStatus.notify,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+
+  test('appShell + ready → "View" (opens install flow, not a restart)', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.appShell,
+        updateStatus: EAppUpdateStatus.ready,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+
+  test('appShell + notify → "View"', () => {
+    expect(
+      getUpdateReminderActionLabelId({
+        fileType: EUpdateFileType.appShell,
+        updateStatus: EAppUpdateStatus.notify,
+      }),
+    ).toBe(ETranslations.global_view);
+  });
+});
+
+// =========================================================================
+// D4. isToolboxUpdateIndicatorRedundant — desktop hot-update has a dedicated
+// header button, so the toolbox indicators (Action Center reminder AND the
+// more-actions dot) are duplicates and must be hidden.
+// =========================================================================
+describe('isToolboxUpdateIndicatorRedundant', () => {
+  test('desktop + jsBundle → redundant (dot + reminder hidden)', () => {
+    expect(
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: true,
+        fileType: EUpdateFileType.jsBundle,
+      }),
+    ).toBe(true);
+  });
+
+  test('desktop + appShell → not redundant (reminder shows download progress)', () => {
+    expect(
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: true,
+        fileType: EUpdateFileType.appShell,
+      }),
+    ).toBe(false);
+  });
+
+  test('non-desktop + jsBundle → not redundant (no header button on mobile)', () => {
+    expect(
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: false,
+        fileType: EUpdateFileType.jsBundle,
+      }),
+    ).toBe(false);
+  });
+
+  test('non-desktop + appShell → not redundant', () => {
+    expect(
+      isToolboxUpdateIndicatorRedundant({
+        isDesktop: false,
+        fileType: EUpdateFileType.appShell,
+      }),
+    ).toBe(false);
   });
 });

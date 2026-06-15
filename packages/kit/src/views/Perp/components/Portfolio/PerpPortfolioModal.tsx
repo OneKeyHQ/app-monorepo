@@ -29,9 +29,7 @@ export function showPerpPortfolioDialog(
       // In-tab dialogs render through the IN_PAGE_TAB_CONTAINER portal at the
       // TabNavigator root, so they do NOT inherit the page/header providers.
       // Web-dapp /perps opens this from the header pill (no perps page tree), so
-      // the accountSelector context must be mirrored here too — PerpPortfolioContent
-      // reads useActiveAccount via usePerpsAccountScopedActivePositions. Mirror the
-      // native page nesting (PerpsAccountSelectorProviderMirror > PerpsProviderMirror).
+      // mirror the native page nesting for dialog flows started from this content.
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
           <PerpPortfolioContent isMobile={false} />

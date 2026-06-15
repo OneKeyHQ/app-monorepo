@@ -26,31 +26,15 @@ import {
   ETabDeveloperRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import appStorage from '@onekeyhq/shared/src/storage/appStorage';
-import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useV4MigrationActions } from '../../Onboarding/pages/V4Migration/hooks/useV4MigrationActions';
 import { DeveloperTestIDs } from '../testIDs';
-
-const useStorage = platformEnv.isNative
-  ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
-      const [data, setData] = useState(
-        initialValue || appStorage.syncStorage.getBoolean(key),
-      );
-      const setNewData = (value: boolean) => {
-        appStorage.syncStorage.set(key, value);
-        setData(value);
-      };
-      return [data, setNewData];
-    }
-  : useCookie;
 
 function PartContainer({
   title,
@@ -187,9 +171,6 @@ const TabDeveloper = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<ITabDeveloperParamList>>();
 
-  // @ts-expect-error
-  const [rrtStatus, changeRRTStatus] = useStorage(EAppSyncStorageKeys.rrt);
-
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -251,45 +232,6 @@ const TabDeveloper = () => {
             </PartContainer>
 
             <PartContainer title="Debug Tools">
-              <Button
-                onPress={() => {
-                  if (platformEnv.isNative) {
-                    (changeRRTStatus as (value: boolean) => void)(!rrtStatus);
-                    alert('Please manually restart the app.');
-                  } else {
-                    const status = rrtStatus === '1' ? '0' : '1';
-                    (changeRRTStatus as (value: string) => void)(status);
-                    if (platformEnv.isRuntimeBrowser) {
-                      if (status === '0') {
-                        localStorage.removeItem(
-                          '$$OnekeyReactRenderTrackerEnabled',
-                        );
-                      } else {
-                        localStorage.setItem(
-                          '$$OnekeyReactRenderTrackerEnabled',
-                          'true',
-                        );
-                      }
-                    }
-                    globalThis.location.reload();
-                  }
-                }}
-              >
-                {platformEnv.isNative ? (
-                  <>
-                    {rrtStatus
-                      ? 'Disabled react-render-tracker'
-                      : 'Enabled react-render-tracker'}
-                  </>
-                ) : (
-                  <>
-                    {rrtStatus === '1'
-                      ? 'Disabled react-render-tracker'
-                      : 'Enabled react-render-tracker'}
-                  </>
-                )}
-              </Button>
-
               {platformEnv.isSupportDesktopBle ? (
                 <Button
                   onPress={async () => {

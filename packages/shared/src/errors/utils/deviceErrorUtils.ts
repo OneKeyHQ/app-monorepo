@@ -10,7 +10,11 @@ import {
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
-import { convertThirdPartyDeviceError } from './thirdPartyDeviceErrorUtils';
+import {
+  convertThirdPartyDeviceError,
+  isThirdPartyInstallAppUserCancelCode,
+  normalizeThirdPartyDeviceErrorCode,
+} from './thirdPartyDeviceErrorUtils';
 
 import type { IDeviceResponseResult } from '../../../types/device';
 import type {
@@ -60,8 +64,16 @@ export function convertDeviceError(
   payloadOrigin: IOneKeyHardwareErrorPayload,
   options?: { silentMode?: boolean },
 ): IOneKeyError {
+  const { _tag, ...payloadOriginWithoutTag } =
+    payloadOrigin as IOneKeyHardwareErrorPayload & {
+      _tag?: string;
+    };
   const payload = {
-    ...payloadOrigin,
+    ...payloadOriginWithoutTag,
+    code: normalizeThirdPartyDeviceErrorCode({
+      code: payloadOrigin.code,
+      _tag,
+    }),
     message: getDeviceErrorPayloadMessage(payloadOrigin),
   };
   const { code, message, params } = payload;
@@ -251,7 +263,7 @@ export function convertDeviceError(
     case 'ERR_BAD_REQUEST':
       return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
-      if (isHwkErrorCode(code)) {
+      if (isHwkErrorCode(code) || isThirdPartyInstallAppUserCancelCode(code)) {
         return convertThirdPartyDeviceError({
           code: Number(code),
           error: payload.error ?? message ?? '',

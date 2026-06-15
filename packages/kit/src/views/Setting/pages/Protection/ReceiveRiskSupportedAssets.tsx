@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
+  Divider,
   Empty,
+  IconButton,
   Page,
   ScrollView,
-  SectionList,
+  SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,6 +31,7 @@ import type { IKytSupportedAsset } from '@onekeyhq/shared/types/kyt';
 type ISupportedToken = {
   symbol: string;
   name: string;
+  tokenAddress: string;
   tokenImageUri: string;
 };
 
@@ -54,13 +62,93 @@ function groupByNetwork(
     sections[idx].tokens.push({
       symbol: item.tokenSymbol,
       name: item.tokenName,
+      tokenAddress: item.tokenAddress,
       tokenImageUri: item.tokenLogoURI,
     });
   }
   return sections;
 }
 
-const ReceiveRiskSupportedAssetsPage = () => {
+function NetworkAssetSection({
+  section,
+}: {
+  section: ISupportedNetworkSection;
+}) {
+  const intl = useIntl();
+
+  return (
+    <YStack
+      mx="$5"
+      bg="$bgSubdued"
+      borderRadius="$3"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$neutral3"
+      overflow="hidden"
+    >
+      <XStack px="$4" py="$2.5" alignItems="center" gap="$3">
+        <Stack w="$6" h="$6" alignItems="center" justifyContent="center">
+          <NetworkAvatar networkId={section.networkId} size="$6" />
+        </Stack>
+        <SizableText flex={1} size="$bodyLgMedium" numberOfLines={1}>
+          {section.networkName}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued" flexShrink={0}>
+          {intl.formatMessage(
+            { id: ETranslations.count_assets },
+            { count: section.tokens.length },
+          )}
+        </SizableText>
+      </XStack>
+      <YStack bg="$bgApp">
+        {section.tokens.map((token, index) => (
+          <YStack
+            key={`${section.networkId}-${token.tokenAddress || token.symbol}`}
+          >
+            <ListItem
+              mx="$0"
+              px="$4"
+              py="$1.5"
+              borderRadius={0}
+              title={token.symbol}
+              subtitle={token.name}
+              renderAvatar={
+                <Token
+                  size="md"
+                  tokenImageUri={token.tokenImageUri}
+                  bg="$transparent"
+                />
+              }
+            />
+            {index < section.tokens.length - 1 ? (
+              <Divider ml="$16" borderColor="$neutral3" />
+            ) : null}
+          </YStack>
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
+type IReceiveRiskSupportedAssetsContentProps = {
+  maxHeight?: number;
+  minHeight?: number;
+  contentContainerProps?: IYStackProps;
+};
+
+function openReceiveRiskMonitoringHelpLink(intl: ReturnType<typeof useIntl>) {
+  openUrlInApp(
+    RECEIVE_RISK_MONITORING_HELP_LINK,
+    intl.formatMessage({
+      id: ETranslations.prime_feature_receive_risk_monitoring__title,
+    }),
+  );
+}
+
+export function ReceiveRiskSupportedAssetsContent({
+  maxHeight,
+  minHeight,
+  contentContainerProps,
+}: IReceiveRiskSupportedAssetsContentProps) {
   const intl = useIntl();
   const [sections, setSections] = useState<ISupportedNetworkSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,34 +172,25 @@ const ReceiveRiskSupportedAssetsPage = () => {
     void fetchSupportedAssets();
   }, [fetchSupportedAssets]);
 
-  const headerRight = useCallback(
-    () => (
-      <HeaderIconButton
-        icon="QuestionmarkOutline"
-        onPress={() => {
-          openUrlInApp(
-            RECEIVE_RISK_MONITORING_HELP_LINK,
-            intl.formatMessage({
-              id: ETranslations.prime_feature_receive_risk_monitoring__title,
-            }),
-          );
-        }}
-      />
-    ),
-    [intl],
-  );
-
   const renderBody = useCallback(() => {
     if (isLoading) {
       return (
-        <Stack flex={1} alignItems="center" justifyContent="center">
+        <Stack
+          {...(maxHeight ? { minHeight: minHeight ?? maxHeight } : { flex: 1 })}
+          alignItems="center"
+          justifyContent="center"
+        >
           <Spinner size="large" />
         </Stack>
       );
     }
     if (isError) {
       return (
-        <Stack flex={1} alignItems="center" justifyContent="center">
+        <Stack
+          {...(maxHeight ? { minHeight: minHeight ?? maxHeight } : { flex: 1 })}
+          alignItems="center"
+          justifyContent="center"
+        >
           <Empty
             icon="BrokenLinkOutline"
             title={intl.formatMessage({
@@ -136,27 +215,76 @@ const ReceiveRiskSupportedAssetsPage = () => {
       );
     }
     return (
-      <ScrollView>
-        <YStack pb="$10">
+      <ScrollView
+        maxHeight={maxHeight}
+        nestedScrollEnabled={Boolean(maxHeight)}
+      >
+        <YStack py="$4" pb="$10" gap="$3" {...contentContainerProps}>
           {sections.map((section) => (
-            <YStack key={section.networkId}>
-              <SectionList.SectionHeader title={section.networkName} />
-              {section.tokens.map((token) => (
-                <ListItem
-                  key={`${section.networkId}-${token.symbol}`}
-                  title={token.symbol}
-                  subtitle={token.name}
-                  renderAvatar={
-                    <Token size="md" tokenImageUri={token.tokenImageUri} />
-                  }
-                />
-              ))}
-            </YStack>
+            <NetworkAssetSection key={section.networkId} section={section} />
           ))}
         </YStack>
       </ScrollView>
     );
-  }, [fetchSupportedAssets, intl, isError, isLoading, sections]);
+  }, [
+    fetchSupportedAssets,
+    intl,
+    isError,
+    isLoading,
+    maxHeight,
+    minHeight,
+    contentContainerProps,
+    sections,
+  ]);
+
+  return renderBody();
+}
+
+export function ReceiveRiskSupportedAssetsDialogContent(
+  props: IReceiveRiskSupportedAssetsContentProps,
+) {
+  const intl = useIntl();
+  const handleOpenHelp = useCallback(() => {
+    openReceiveRiskMonitoringHelpLink(intl);
+  }, [intl]);
+
+  return (
+    <>
+      <Dialog.Header>
+        <XStack alignItems="center" gap="$2">
+          <Dialog.Title flex={1} numberOfLines={1}>
+            {intl.formatMessage({
+              id: ETranslations.kyt_supported_assets__title,
+            })}
+          </Dialog.Title>
+          <IconButton
+            icon="QuestionmarkOutline"
+            iconProps={{ color: '$iconSubdued' }}
+            size="small"
+            testID="receive-risk-supported-assets-help"
+            variant="tertiary"
+            onPress={handleOpenHelp}
+          />
+        </XStack>
+      </Dialog.Header>
+      <ReceiveRiskSupportedAssetsContent {...props} />
+    </>
+  );
+}
+
+const ReceiveRiskSupportedAssetsPage = () => {
+  const intl = useIntl();
+  const headerRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="QuestionmarkOutline"
+        onPress={() => {
+          openReceiveRiskMonitoringHelpLink(intl);
+        }}
+      />
+    ),
+    [intl],
+  );
 
   return (
     <Page>
@@ -166,7 +294,9 @@ const ReceiveRiskSupportedAssetsPage = () => {
         })}
         headerRight={headerRight}
       />
-      <Page.Body>{renderBody()}</Page.Body>
+      <Page.Body>
+        <ReceiveRiskSupportedAssetsContent />
+      </Page.Body>
     </Page>
   );
 };

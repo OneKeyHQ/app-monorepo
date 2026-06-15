@@ -45,6 +45,7 @@ import {
 } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
+import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import {
@@ -53,6 +54,7 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const IOS_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
@@ -286,17 +288,24 @@ function MobilePerpMarket() {
     coin: activeTradeInstrument.coin,
     displayName: marketDetailDisplayName,
   });
+  const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
 
   const onPressTokenSelector = useCallback(() => {
+    void preloadPerpsMobileTokenSelectorPage();
+    void prewarmTokenSelectorImages();
     defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      source: 'mobileMarketHeader',
       currentToken: activeTradeInstrument.coin,
       tradeMode: mode === 'spot' ? 'spot' : 'perp',
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [activeTradeInstrument.coin, mode, navigation]);
+  }, [
+    activeTradeInstrument.coin,
+    mode,
+    navigation,
+    prewarmTokenSelectorImages,
+  ]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
 

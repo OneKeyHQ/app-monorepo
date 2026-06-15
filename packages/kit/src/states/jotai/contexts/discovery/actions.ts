@@ -63,6 +63,7 @@ import {
   displayHomePageAtom,
   lastClosedTabAtom,
   phishingLruCacheAtom,
+  webTabMountOrderAtom,
   webTabsAtom,
   webTabsMapAtom,
 } from './atoms';
@@ -391,6 +392,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       });
       set(activeTabIdAtom(), nextActiveTabId);
 
+      // Record recency so the WebView keep-alive LRU evicts the least-recently
+      // active tab first (see aliveWebViewIdsAtom / computeAliveWebViewIds).
+      if (nextActiveTabId) {
+        const mountOrder = get(webTabMountOrderAtom());
+        if (mountOrder[0] !== nextActiveTabId) {
+          set(webTabMountOrderAtom(), [
+            nextActiveTabId,
+            ...mountOrder.filter((id) => id !== nextActiveTabId),
+          ]);
+        }
+      }
+
       if (currentTabId !== nextActiveTabId && nextActiveTabId) {
         this.resumeDappInteraction.call(set, nextActiveTabId);
       }
@@ -585,6 +598,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
+      const mountOrder = get(webTabMountOrderAtom());
+      if (mountOrder.includes(tabId)) {
+        set(
+          webTabMountOrderAtom(),
+          mountOrder.filter((id) => id !== tabId),
+        );
+      }
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
@@ -813,16 +833,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         isRemove?: boolean; // remove payload.data
         options?: { isInitFromStorage?: boolean };
         skipSaveLocalSyncItem?: boolean;
-        useServerDataTime?: boolean;
       },
     ) => {
-      const {
-        data,
-        isRemove,
-        options,
-        skipSaveLocalSyncItem,
-        useServerDataTime,
-      } = payload;
+      const { data, isRemove, options, skipSaveLocalSyncItem } = payload;
       const isReady = get(browserDataReadyAtom());
       // web always ready
       const isBrowserDataReady =
@@ -840,7 +853,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         bookmarks: data,
         isRemove,
         skipSaveLocalSyncItem,
-        useServerDataTime,
       });
     },
   );
@@ -859,7 +871,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const updatedBookmarks = [newBookmark];
       this.buildBookmarkData.call(set, {
         data: updatedBookmarks,
-        useServerDataTime: true,
       });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
@@ -880,7 +891,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.buildBookmarkData.call(set, {
       data: [removedBookmark],
       isRemove: true,
-      useServerDataTime: true,
     });
     this.syncBookmark.call(set, { url, isBookmark: false });
 

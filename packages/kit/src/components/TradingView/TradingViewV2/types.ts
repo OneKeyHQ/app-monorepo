@@ -20,21 +20,33 @@ export interface ITradingViewIndicatorsDialogData {
   timestamp?: number;
 }
 
+export interface ITradingViewPriceUpdateData {
+  symbol?: string;
+  tokenAddress?: string;
+  networkId?: string;
+  price?: string | number;
+  timestamp?: number;
+  interval?: string;
+  source?: 'history' | 'realtime';
+}
+
 // Union type to support different data structures
 type ITradingViewData =
   | ITradingViewHistoryData
   | ITradingViewLayoutData
   | ITradingViewTouchScrollData
-  | ITradingViewIndicatorsDialogData;
+  | ITradingViewIndicatorsDialogData
+  | ITradingViewPriceUpdateData;
 
 interface ITradingViewMessage {
-  scope: string;
+  scope?: string;
   method: string;
   origin: string;
   data: ITradingViewData;
 }
 
 export interface ICustomReceiveHandlerData {
+  scope?: string;
   data: ITradingViewMessage;
 }
 

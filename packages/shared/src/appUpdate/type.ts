@@ -169,6 +169,9 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   summary?: string;
   // the last time the update dialog was shown (for rate limiting)
   lastUpdateDialogShownAt?: number;
+  // the last time the stale-artifacts cleanup sweep ran (epoch ms); used to
+  // rate-limit pruneStaleArtifacts to at most once per 24h across launches
+  lastPruneStaleArtifactsAt?: number;
   // true when the pending update target is a rollback (target bundle < current bundle)
   isRollbackTarget?: boolean;
   freezeUntil?: number;

@@ -256,11 +256,15 @@ function SendConfirmContainer() {
     }
   };
 
+  const pageTitleTranslationId = transferPayload?.isPrivateSend
+    ? ETranslations.private_send_private_send
+    : ETranslations.transaction__transaction_confirm;
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.transaction__transaction_confirm,
+          id: pageTitleTranslationId,
         })}
       />
       {renderSendConfirmView()}

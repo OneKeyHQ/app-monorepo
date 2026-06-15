@@ -31,6 +31,7 @@ export interface IMarketCategoryItem {
   icon?: string;
   iconName?: IIconProps['name'];
   iconOnly?: boolean;
+  isStockCategory?: boolean;
 }
 
 // Map UI time range values to API timeFrame values

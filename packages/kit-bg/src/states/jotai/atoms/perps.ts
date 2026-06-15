@@ -353,7 +353,7 @@ export const {
     if (isUnified) {
       // Unified/portfolio: all values from spotState
       // Per HL docs: "Individual perp dex user states are not meaningful"
-      if (!activeSpotData?.spotTotalUsd) {
+      if (activeSpotData?.spotTotalUsd === undefined) {
         // Spot data not yet loaded: return undefined for skeleton screen
         return {
           accountValue: undefined,
@@ -379,7 +379,7 @@ export const {
     return {
       accountValue: spotValue.plus(perpsValue).toFixed(),
       withdrawable: activeSummary?.withdrawable,
-      isLoading: !activeSpotData?.spotTotalUsd,
+      isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
   },
 });
@@ -687,6 +687,68 @@ export const {
   name: EAtomNames.perpsActiveAssetCtxAtom,
   initialValue: undefined,
 });
+
+export const {
+  target: perpsActiveAssetCtxDisplayAtom,
+  use: usePerpsActiveAssetCtxDisplayAtom,
+} = globalAtom<IPerpsActiveAssetCtxAtom>({
+  name: EAtomNames.perpsActiveAssetCtxDisplayAtom,
+  initialValue: undefined,
+});
+
+export const {
+  target: perpsActiveAssetCtxReadyAtom,
+  use: usePerpsActiveAssetCtxReadyAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => Boolean(get(perpsActiveAssetCtxAtom.atom())),
+});
+
+export const {
+  target: perpsActiveAssetCtxMidPriceAtom,
+  use: usePerpsActiveAssetCtxMidPriceAtom,
+} = globalAtomComputedR<string | undefined>({
+  read: (get) => get(perpsActiveAssetCtxAtom.atom())?.ctx?.midPrice,
+});
+
+export type IPerpsActiveAssetCtxMidPriceSource =
+  | 'live'
+  | 'display'
+  | 'disabled';
+
+export const perpsActiveAssetCtxMidPriceBySourceAtomCache = new Map<
+  IPerpsActiveAssetCtxMidPriceSource,
+  ReturnType<typeof globalAtomComputedR<string | undefined>>
+>();
+
+function getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+) {
+  let entry = perpsActiveAssetCtxMidPriceBySourceAtomCache.get(source);
+  if (!entry) {
+    entry = globalAtomComputedR<string | undefined>({
+      read: (get) => {
+        if (source === 'disabled') {
+          return undefined;
+        }
+        const assetCtx =
+          source === 'display'
+            ? get(perpsActiveAssetCtxDisplayAtom.atom())
+            : get(perpsActiveAssetCtxAtom.atom());
+        return assetCtx?.ctx?.midPrice;
+      },
+    });
+    perpsActiveAssetCtxMidPriceBySourceAtomCache.set(source, entry);
+  }
+  return entry;
+}
+
+export function usePerpsActiveAssetCtxMidPriceBySource(
+  source: IPerpsActiveAssetCtxMidPriceSource,
+): string | undefined {
+  const { use } = getOrCreatePerpsActiveAssetCtxMidPriceBySourceAtom(source);
+  const [midPrice] = use();
+  return midPrice;
+}
 
 export type IPerpsActiveAssetDataAtom = IPerpsActiveAssetData | undefined;
 export const {

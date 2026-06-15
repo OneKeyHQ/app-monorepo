@@ -19,7 +19,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { convertTokenFiatToCurrency } from '@onekeyhq/kit/src/utils/fiatConvert';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -809,6 +813,8 @@ function BulkSendAmountsInputContent({
   hasDuplicateSenders: _hasDuplicateSendersProp,
 }: IBulkSendAmountsInputRouteParams) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const hasCustomAmounts = useMemo(
     () =>
       (receivers?.some((r) => r.amount !== undefined && r.amount !== '') ||
@@ -910,19 +916,37 @@ function BulkSendAmountsInputContent({
     [EAmountInputMode.Custom]: { ...defaultModeData },
   });
 
-  const matchedTokenDetails = useMemo(
-    () =>
-      isBulkSendTokenDetailsMatched(
+  // fetchTokensDetails responses (and the route-param initial details) are
+  // normalized to USD basis for caching (tagged currency:'usd'), while this
+  // page does fiat math with tokenDetails.price and renders the results under
+  // settings.currencyInfo.symbol. Convert once here, before the value enters
+  // the context, so every consumer (TableLayout / AmountInput / AmountPreview
+  // and the max-mode totals) sees display-currency values.
+  const matchedTokenDetails = useMemo(() => {
+    if (
+      !isBulkSendTokenDetailsMatched(
         {
           networkId,
           tokenInfo,
         },
         tokenDetails,
-      )
-        ? tokenDetails
-        : undefined,
-    [networkId, tokenInfo, tokenDetails],
-  );
+      ) ||
+      !tokenDetails
+    ) {
+      return undefined;
+    }
+    return convertTokenFiatToCurrency({
+      tokenFiat: tokenDetails,
+      targetCurrency: settings.currencyInfo.id,
+      currencyMap,
+    });
+  }, [
+    networkId,
+    tokenInfo,
+    tokenDetails,
+    settings.currencyInfo.id,
+    currencyMap,
+  ]);
 
   useEffect(() => {
     setTokenDetails(sanitizedInitialTokenDetails);

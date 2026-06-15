@@ -198,18 +198,20 @@ function generateNonce(): string {
  * @param signingPrivateKey - Signing private key (raw hex format)
  * @param signingPublicKey - Signing public key (hex)
  * @param dataHash - SHA256 hash of request data (REQUIRED for security)
+ * @param timestamp - Corrected server-aligned timestamp
  * @returns Base64 encoded signature Header value
  */
 function buildKeylessSignatureHeader({
   signingPrivateKey,
   signingPublicKey,
   dataHash,
+  timestamp,
 }: {
   signingPrivateKey: string;
   signingPublicKey: string;
   dataHash: string;
+  timestamp: number;
 }): string {
-  const timestamp = Date.now();
   const nonce = generateNonce();
 
   const signMessage: IKeylessCloudSyncSignMessage = {
