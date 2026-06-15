@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getSesHardenLevelFromRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 import type {
   ISesHardenLevel,
@@ -31,6 +32,7 @@ import type {
   ISesHardenRuntimeCheckResponse,
   ISesRuntimeCheckReport,
 } from '@onekeyhq/shared/src/security/sesHarden/runtimeCheck';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 type ISesHardenDevGlobal = typeof globalThis & {
   __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
@@ -880,6 +882,25 @@ export default function DevSesHardenRuntimeCheck() {
     Toast.success({ title: 'Copied' });
   }, [copyText, reportText]);
 
+  const openPassKeyRuntime = useCallback(async () => {
+    try {
+      // Open the passkey page (ui-passkey.html) in idle mode so its SES
+      // runtime-check message handler stays registered and the window keeps
+      // responding to the ext-passkey runtime check, instead of "The message
+      // port closed before a response was received".
+      await extUtils.openPassKeyWindowForDevCheck();
+      Toast.success({
+        title: 'PassKey runtime opened',
+        message: 'Keep the window open, then click Run Checks again.',
+      });
+    } catch (error) {
+      Toast.error({
+        title: 'Open PassKey runtime failed',
+        message: getErrorMessage(error),
+      });
+    }
+  }, []);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="SES Harden Runtime Check" />
@@ -1029,6 +1050,17 @@ export default function DevSesHardenRuntimeCheck() {
             >
               Copy Test Result
             </Button>
+            {platformEnv.isExtension ? (
+              <Button
+                testID="ses-harden-open-passkey-runtime"
+                variant="secondary"
+                onPress={() => {
+                  void openPassKeyRuntime();
+                }}
+              >
+                Open PassKey runtime
+              </Button>
+            ) : null}
           </XStack>
 
           <YStack gap="$3">
