@@ -45,8 +45,38 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
 
   let sendAmount = new BigNumber(value);
 
+  // Price the relay fee on the COMPUTE mass, never on the (possibly larger)
+  // KIP-0009 storage mass. `tx.mass` carries max(storageMass, computeMass);
+  // when a small change output makes storage mass dominate, feeding that value
+  // back as the fee multiplier spirals the fee upward and shrinks the change
+  // further, until the tx becomes non-standard ("transaction storage mass ...
+  // is larger than max allowed"). Storage mass is a relay standard-tx
+  // constraint, not a fee basis. Measure compute mass on a throwaway probe (it
+  // is independent of the fee/change value) and cap the fee basis to it.
+  let feeBasisMass = new BigNumber(mass).isFinite()
+    ? new BigNumber(mass).toNumber()
+    : 0;
+  try {
+    let probe = new Transaction()
+      .from(inputs.map((input) => new UnspentOutput(input)))
+      .setVersion(0)
+      .fee(0);
+    if (!tx.dropChangeToFee) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+      probe = probe.change(changeAddress ?? from?.toString());
+    }
+    if (to) {
+      probe = probe.to(to, new BigNumber(value).toFixed());
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
+    const computeMass = probe.calcComputeMass();
+    feeBasisMass = Math.min(feeBasisMass || computeMass, computeMass);
+  } catch {
+    // fall back to tx.mass if compute mass cannot be measured
+  }
+
   const fee = new BigNumber(tx.feeInfo?.price ?? DEFAULT_FEE_RATE)
-    .multipliedBy(mass)
+    .multipliedBy(feeBasisMass)
     .toFixed();
   if (tx.hasMaxSend) {
     sendAmount = sendAmount.minus(fee);
