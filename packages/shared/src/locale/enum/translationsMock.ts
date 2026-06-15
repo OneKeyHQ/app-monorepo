@@ -7,7 +7,4 @@ export enum ETranslationsMock {
   // ----------------------------------------------
   unavailable_networks_for_selected_account = 'Unavailable networks for selected account',
   testnet = 'Testnet',
-  // Shown when a Trezor BLE connect fails with a stale OS bond (BleBondInvalid /
-  // insufficient authentication). The user must remove the OS bond manually.
-  trezor_ble_bond_invalid__msg = 'This Bluetooth pairing is no longer valid. Forget this device in your system Bluetooth settings, then reconnect.',
 }

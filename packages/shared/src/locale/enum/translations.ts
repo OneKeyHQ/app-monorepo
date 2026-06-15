@@ -5000,6 +5000,7 @@ export enum ETranslations {
   trezor_ble_binding_guide_unlock__desc = 'trezor_ble_binding_guide_unlock__desc',
   trezor_ble_binding_scan_timeout__msg = 'trezor_ble_binding_scan_timeout__msg',
   trezor_ble_binding_searching__desc = 'trezor_ble_binding_searching__desc',
+  trezor_ble_bond_invalid__msg = 'trezor_ble_bond_invalid__msg',
   trezor_connect_failed_before_wallet_creation__msg = 'trezor_connect_failed_before_wallet_creation__msg',
   trezor_device_id_required_before_wallet_creation__msg = 'trezor_device_id_required_before_wallet_creation__msg',
   trezor_get_passphrase_state_failed__msg = 'trezor_get_passphrase_state_failed__msg',

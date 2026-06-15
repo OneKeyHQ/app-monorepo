@@ -6,7 +6,7 @@ import {
   HARDWARE_ERROR_DIALOG_TYPES,
   appEventBus,
 } from '../../eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '../../locale';
+import { ETranslations } from '../../locale';
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
 import { normalizeErrorProps } from '../utils/errorUtils';
 
@@ -317,7 +317,7 @@ export class ThirdPartyBleBondInvalid extends ThirdPartyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
-        defaultKey: ETranslationsMock.trezor_ble_bond_invalid__msg,
+        defaultKey: ETranslations.trezor_ble_bond_invalid__msg,
         defaultAutoToast: true,
       }),
     );
