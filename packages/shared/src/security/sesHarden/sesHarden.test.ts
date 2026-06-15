@@ -183,6 +183,60 @@ test('only changes eval taming in L2', () => {
   expect(l2Options?.evalTaming).toBe('safe-eval');
 });
 
+test('forces no-eval for every extension runtime regardless of level', () => {
+  const extRuntimes = [
+    'ext-ui',
+    'ext-background',
+    'ext-offscreen',
+    'ext-passkey',
+  ] as const;
+
+  for (const runtime of extRuntimes) {
+    // The extension CSP (script-src 'self' 'wasm-unsafe-eval') forbids host
+    // eval, so both unsafe-eval (L1) and safe-eval (L2) must collapse to
+    // no-eval to avoid a CSP EvalError at lockdown() time.
+    expect(getSesLockdownOptions('L1', runtime)?.evalTaming).toBe('no-eval');
+    expect(getSesLockdownOptions('L2', runtime)?.evalTaming).toBe('no-eval');
+    // Non-eval taming dimensions stay aligned with the loose defaults.
+    expect(getSesLockdownOptions('L2', runtime)).toEqual({
+      ...getSesLockdownOptions('L2'),
+      evalTaming: 'no-eval',
+    });
+    // L0 stays a true no-lockdown path even for extension runtimes.
+    expect(getSesLockdownOptions('L0', runtime)).toBeUndefined();
+  }
+});
+
+test('does not change eval taming for web or desktop runtimes', () => {
+  expect(getSesLockdownOptions('L1', 'web')?.evalTaming).toBe('unsafe-eval');
+  expect(getSesLockdownOptions('L2', 'web')?.evalTaming).toBe('safe-eval');
+  expect(getSesLockdownOptions('L1', 'desktop-renderer')?.evalTaming).toBe(
+    'unsafe-eval',
+  );
+  expect(getSesLockdownOptions('L2', 'desktop-renderer')?.evalTaming).toBe(
+    'safe-eval',
+  );
+});
+
+test('threads runtime into lockdown options so ext locks down with no-eval', () => {
+  const lockdown = jest.fn();
+
+  const state = maybeLockdownOneKeyRuntime({
+    runtime: 'ext-background',
+    level: 'L2',
+    lockdown,
+  });
+
+  expect(lockdown).toHaveBeenCalledWith(
+    expect.objectContaining({ evalTaming: 'no-eval' }),
+  );
+  expect(state).toMatchObject({
+    runtime: 'ext-background',
+    lockdownApplied: true,
+    evalTaming: 'no-eval',
+  });
+});
+
 test('does not load SES when L0 is selected', () => {
   const loadSes = jest.fn();
 
@@ -270,7 +324,7 @@ test('records post-lockdown patch warning errors', () => {
   }
 });
 
-test('does not install post-lockdown patch warning monitor in production', () => {
+test('installs post-lockdown patch warning monitor in production', () => {
   const g = globalThis as unknown as ISesHardenGlobal;
   const originalAddEventListener = g.addEventListener;
   const originalNodeEnv = process.env.NODE_ENV;
@@ -285,11 +339,10 @@ test('does not install post-lockdown patch warning monitor in production', () =>
       lockdown: jest.fn(),
     });
 
-    expect(g.addEventListener).not.toHaveBeenCalled();
-    expect(
-      g.__ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__,
-    ).toBeUndefined();
-    expect(getSesHardenPatchWarnings()).toEqual([]);
+    // The monitor is install-once + only-on-violation, so it is safe to keep
+    // enabled in production to retain diagnostics there.
+    expect(g.addEventListener).toHaveBeenCalled();
+    expect(g.__ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__).toBe(true);
   } finally {
     if (originalAddEventListener) {
       g.addEventListener = originalAddEventListener;
@@ -301,6 +354,67 @@ test('does not install post-lockdown patch warning monitor in production', () =>
     } else {
       process.env.NODE_ENV = originalNodeEnv;
     }
+  }
+});
+
+test('emits each post-lockdown patch warning fingerprint only once', () => {
+  const g = globalThis as unknown as ISesHardenGlobal;
+  const originalAddEventListener = g.addEventListener;
+  const listeners = new Map<string, EventListenerOrEventListenerObject>();
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+  g.addEventListener = jest.fn((type, listener) => {
+    listeners.set(type, listener);
+  }) as typeof globalThis.addEventListener;
+
+  try {
+    maybeLockdownOneKeyRuntime({
+      runtime: 'web',
+      level: 'L1',
+      lockdown: jest.fn(),
+    });
+
+    const listener = listeners.get('error');
+    expect(listener).toBeDefined();
+
+    const event = {
+      error: new TypeError(
+        "Cannot assign to read only property 'push' of object '[object Array]'",
+      ),
+      filename: 'app.js',
+      lineno: 10,
+      colno: 20,
+    } as unknown as Event;
+
+    const dispatch = () => {
+      if (typeof listener === 'function') {
+        listener(event);
+      } else {
+        listener?.handleEvent(event);
+      }
+    };
+
+    dispatch();
+    dispatch();
+    dispatch();
+
+    // Recorded count keeps incrementing (dedup updates lastSeenAt/count)...
+    expect(getSesHardenPatchWarnings()).toEqual([
+      expect.objectContaining({ count: 3 }),
+    ]);
+    // ...but the console is only warned once per unique fingerprint per session.
+    const patchWarnCalls = warnSpy.mock.calls.filter(
+      ([message]) =>
+        message === '[OneKey SES Harden] Post-lockdown patch attempt detected',
+    );
+    expect(patchWarnCalls).toHaveLength(1);
+  } finally {
+    if (originalAddEventListener) {
+      g.addEventListener = originalAddEventListener;
+    } else {
+      delete g.addEventListener;
+    }
+    warnSpy.mockRestore();
   }
 });
 
