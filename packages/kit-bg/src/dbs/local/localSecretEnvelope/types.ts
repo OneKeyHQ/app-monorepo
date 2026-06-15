@@ -32,6 +32,7 @@ export type ILocalSecretEnvelopeStrength =
 export type ILocalSecretEnvelopeV1 = {
   version: 1;
   dataType: ILocalSecretEnvelopeDataType;
+  innerPrefix?: ILocalSecretEnvelopeInnerPrefix;
   recordId: string;
   wrappingLayers: ILocalSecretEnvelopeLayer[];
   strength: ILocalSecretEnvelopeStrength;
@@ -42,6 +43,7 @@ export type ILocalSecretEnvelopeV1 = {
 export type ILocalSecretEnvelopeProtectedHeaderV1 = {
   version: 1;
   dataType: ILocalSecretEnvelopeDataType;
+  innerPrefix?: ILocalSecretEnvelopeInnerPrefix;
   recordId: string;
   wrappingLayers: ILocalSecretEnvelopeLayer[];
 };
@@ -80,6 +82,9 @@ export type ILocalSecretEnvelopeLayerAdapter = {
     params: ILocalSecretEnvelopeLayerPrepareParams,
   ) => Promise<ILocalSecretEnvelopeLayer>;
   encrypt: (params: ILocalSecretEnvelopeLayerEncryptParams) => Promise<string>;
+  encryptWithExistingKey?: (
+    params: ILocalSecretEnvelopeLayerEncryptParams,
+  ) => Promise<string>;
   decrypt: (params: ILocalSecretEnvelopeLayerDecryptParams) => Promise<string>;
   deleteLayerKey?: (
     params: ILocalSecretEnvelopeLayerDeleteKeyParams,

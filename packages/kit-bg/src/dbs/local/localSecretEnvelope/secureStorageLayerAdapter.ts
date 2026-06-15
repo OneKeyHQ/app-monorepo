@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
@@ -12,8 +13,9 @@ import type {
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
 
-const DEFAULT_SECURE_STORAGE_LSE_KEY_REF_PREFIX =
+export const DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF =
   'onekey:lse:secure-storage:v1';
+const DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}:probe`;
 const DEFAULT_SECURE_STORAGE_LSE_PROBE_TIMEOUT_MS = 5000;
 const SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS = 30_000;
 const SECURE_STORAGE_LSE_PROBE_RECORD_ID = 'secure-storage-probe';
@@ -31,7 +33,7 @@ type ISecureStorageLocalSecretEnvelopeStorage = Pick<
 
 type IBuildSecureStorageLocalSecretEnvelopeLayerAdapterParams = {
   capabilities?: ILocalSecretEnvelopeLayerCapabilities;
-  keyRefPrefix?: string;
+  keyRef?: string;
   randomBytes?: (length: number) => Uint8Array;
   secureStorage?: ISecureStorageLocalSecretEnvelopeStorage;
 };
@@ -46,6 +48,68 @@ const secureStorageProbeCache = new WeakMap<
   ISecureStorageLocalSecretEnvelopeStorage,
   Map<string, ISecureStorageProbeCacheEntry>
 >();
+const secureStorageKeyCreationLocks = new WeakMap<
+  ISecureStorageLocalSecretEnvelopeStorage,
+  Map<string, Promise<string>>
+>();
+
+function getSecureStorageKeyCreationLocks(
+  secureStorage: ISecureStorageLocalSecretEnvelopeStorage,
+): Map<string, Promise<string>> {
+  let locks = secureStorageKeyCreationLocks.get(secureStorage);
+  if (!locks) {
+    locks = new Map();
+    secureStorageKeyCreationLocks.set(secureStorage, locks);
+  }
+  return locks;
+}
+
+async function getOrCreateSecureStorageKeyHex({
+  createKeyHex,
+  keyRef,
+  secureStorage,
+}: {
+  createKeyHex: () => string;
+  keyRef: string;
+  secureStorage: ISecureStorageLocalSecretEnvelopeStorage;
+}): Promise<string> {
+  const existingKeyHex = await secureStorage.getSecureItem(keyRef);
+  if (existingKeyHex) {
+    return existingKeyHex;
+  }
+
+  const locks = getSecureStorageKeyCreationLocks(secureStorage);
+  const inFlight = locks.get(keyRef);
+  if (inFlight) {
+    return inFlight;
+  }
+
+  const promise = (async () => {
+    const existingKeyHexAfterLock = await secureStorage.getSecureItem(keyRef);
+    if (existingKeyHexAfterLock) {
+      return existingKeyHexAfterLock;
+    }
+
+    const keyHex = createKeyHex();
+    await secureStorage.setSecureItem(keyRef, keyHex);
+    const persistedKeyHex = await secureStorage.getSecureItem(keyRef);
+    if (!persistedKeyHex) {
+      throw new OneKeyLocalError(
+        'Local secret envelope secureStorage key persist failed',
+      );
+    }
+    return persistedKeyHex;
+  })();
+
+  locks.set(keyRef, promise);
+  try {
+    return await promise;
+  } finally {
+    if (locks.get(keyRef) === promise) {
+      locks.delete(keyRef);
+    }
+  }
+}
 
 async function isSecureStorageSupportedWithoutInteraction(
   secureStorage: ISecureStorageLocalSecretEnvelopeStorage,
@@ -62,19 +126,25 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
     extractable: 'unknown',
     keyAccess: 'raw-key-readable',
   },
-  keyRefPrefix = DEFAULT_SECURE_STORAGE_LSE_KEY_REF_PREFIX,
+  keyRef = DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   randomBytes,
   secureStorage = secureStorageInstance,
 }: IBuildSecureStorageLocalSecretEnvelopeLayerAdapterParams = {}): ILocalSecretEnvelopeLayerAdapter {
   return buildLocalSecretEnvelopeAesGcmLayerAdapter({
     capabilities,
-    keyRefPrefix,
+    keyRef,
     kind: 'secure-storage',
     randomBytes,
     keyStorage: {
-      getItem: (keyRef) => secureStorage.getSecureItem(keyRef),
-      removeItem: (keyRef) => secureStorage.removeSecureItem(keyRef),
-      setItem: (keyRef, keyHex) => secureStorage.setSecureItem(keyRef, keyHex),
+      getOrCreateItem: (storageKeyRef, createKeyHex) =>
+        getOrCreateSecureStorageKeyHex({
+          createKeyHex,
+          keyRef: storageKeyRef,
+          secureStorage,
+        }),
+      getItem: (storageKeyRef) => secureStorage.getSecureItem(storageKeyRef),
+      setItem: (storageKeyRef, keyHex) =>
+        secureStorage.setSecureItem(storageKeyRef, keyHex),
       supportStorage: () =>
         isSecureStorageSupportedWithoutInteraction(secureStorage),
     },
@@ -157,22 +227,22 @@ function resolveWithTimeout({
 }
 
 async function probeSecureStorageLocalSecretEnvelopeLayer({
-  keyRefPrefix = `${DEFAULT_SECURE_STORAGE_LSE_KEY_REF_PREFIX}:probe`,
+  keyRef: probeKeyRef = DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF,
   randomBytes,
   secureStorage = secureStorageInstance,
   state,
 }: {
-  keyRefPrefix?: string;
+  keyRef?: string;
   randomBytes?: (length: number) => Uint8Array;
   secureStorage?: ISecureStorageLocalSecretEnvelopeStorage;
   state: {
     keyRef?: string;
   };
 }): Promise<boolean> {
-  let keyRef: string | undefined;
+  let layerKeyRef: string | undefined;
   try {
     const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
-      keyRefPrefix,
+      keyRef: probeKeyRef,
       randomBytes,
       secureStorage,
     });
@@ -182,8 +252,8 @@ async function probeSecureStorageLocalSecretEnvelopeLayer({
       layerIndex: 0,
       recordId: SECURE_STORAGE_LSE_PROBE_RECORD_ID,
     });
-    keyRef = layer.keyRef;
-    state.keyRef = keyRef;
+    layerKeyRef = layer.keyRef;
+    state.keyRef = layerKeyRef;
     const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
       dataType,
       recordId: SECURE_STORAGE_LSE_PROBE_RECORD_ID,
@@ -214,27 +284,27 @@ async function probeSecureStorageLocalSecretEnvelopeLayer({
   } catch {
     return false;
   } finally {
-    cleanupSecureStorageProbeKey({ keyRef, secureStorage });
+    cleanupSecureStorageProbeKey({ keyRef: layerKeyRef, secureStorage });
   }
 }
 
 export async function isSecureStorageLocalSecretEnvelopeLayerAvailable({
   failureCacheTtlMs = SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS,
-  keyRefPrefix = `${DEFAULT_SECURE_STORAGE_LSE_KEY_REF_PREFIX}:probe`,
+  keyRef = DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF,
   now = () => Date.now(),
   probeTimeoutMs = DEFAULT_SECURE_STORAGE_LSE_PROBE_TIMEOUT_MS,
   randomBytes,
   secureStorage = secureStorageInstance,
 }: {
   failureCacheTtlMs?: number;
-  keyRefPrefix?: string;
+  keyRef?: string;
   now?: () => number;
   probeTimeoutMs?: number;
   randomBytes?: (length: number) => Uint8Array;
   secureStorage?: ISecureStorageLocalSecretEnvelopeStorage;
 } = {}): Promise<boolean> {
   const entry = getSecureStorageProbeCacheEntry({
-    cacheKey: keyRefPrefix,
+    cacheKey: keyRef,
     secureStorage,
   });
   const nowMs = now();
@@ -253,7 +323,7 @@ export async function isSecureStorageLocalSecretEnvelopeLayerAvailable({
         secureStorage,
       }),
     promise: probeSecureStorageLocalSecretEnvelopeLayer({
-      keyRefPrefix,
+      keyRef,
       randomBytes,
       secureStorage,
       state,

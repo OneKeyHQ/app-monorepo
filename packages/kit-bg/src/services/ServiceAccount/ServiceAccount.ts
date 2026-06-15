@@ -152,6 +152,10 @@ import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
+  normalizePortableCredential,
+  shouldUnwrapCredentialForPortableExport,
+} from '../../dbs/local/localSecretEnvelope';
+import {
   EIndexedDBBucketNames,
   type IDBAccount,
   type IDBAddress,
@@ -867,14 +871,35 @@ class ServiceAccount extends ServiceBase {
   async dumpCredentials() {
     const { credentials } = await this.getAllCredentials();
     const entries = await Promise.all(
-      credentials.map(async ({ id }) => {
+      credentials.map(async ({ credential: rawCredential, id }) => {
+        const rawPortableCredential = normalizePortableCredential({
+          credential: rawCredential,
+        });
+        if (rawPortableCredential) {
+          return [id, rawPortableCredential] as const;
+        }
+
+        if (!shouldUnwrapCredentialForPortableExport(rawCredential)) {
+          return undefined;
+        }
+
         const credential = await localDb.getCredentialInner({
           credentialId: id,
         });
-        return [id, credential.credential] as const;
+        const portableCredential = normalizePortableCredential({
+          credential: credential.credential,
+        });
+        if (!portableCredential) {
+          return undefined;
+        }
+        return [id, portableCredential] as const;
       }),
     );
-    return Object.fromEntries(entries);
+    return Object.fromEntries(
+      entries.filter((entry): entry is readonly [string, string] =>
+        Boolean(entry),
+      ),
+    );
   }
 
   @backgroundMethod()

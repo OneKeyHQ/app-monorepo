@@ -378,6 +378,24 @@ export function buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter({
       );
       return bufferUtils.bytesToBase64(new Uint8Array(encrypted));
     },
+    encryptWithExistingKey: async ({ aad, layer, plaintext }) => {
+      const cryptoInstance = getCryptoGlobal(cryptoGlobal);
+      const key = await getExistingCryptoKey({
+        dbName,
+        indexedDBInstance,
+        keyRef: layer.keyRef,
+      });
+      const encrypted = await cryptoInstance.subtle.encrypt(
+        {
+          additionalData: toWebCryptoBytes(bufferUtils.utf8ToBytes(aad)),
+          iv: readAesGcmLayerIv(layer),
+          name: 'AES-GCM',
+        },
+        key,
+        toWebCryptoBytes(bufferUtils.utf8ToBytes(plaintext)),
+      );
+      return bufferUtils.bytesToBase64(new Uint8Array(encrypted));
+    },
     decrypt: async ({ aad, ciphertext, layer }) => {
       const cryptoInstance = getCryptoGlobal(cryptoGlobal);
       const key = await getExistingCryptoKey({

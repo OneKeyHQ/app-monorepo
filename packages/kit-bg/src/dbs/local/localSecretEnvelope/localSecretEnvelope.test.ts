@@ -4,6 +4,7 @@ import {
   buildLocalSecretEnvelopeProtectedHeaderV1,
   classifyLocalSecretEnvelopeMigrationCandidate,
   parseLocalSecretEnvelopeV1,
+  rewrapLocalSecretEnvelopeV1,
   serializeLocalSecretEnvelopeV1,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
@@ -20,6 +21,7 @@ import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import {
+  type ILocalSecretEnvelopeInnerPrefix,
   type ILocalSecretEnvelopeLayer,
   type ILocalSecretEnvelopeLayerAdapter,
   type ILocalSecretEnvelopeLayerKind,
@@ -54,15 +56,21 @@ const wrappingLayers: ILocalSecretEnvelopeLayer[] = [
   },
 ];
 
-function buildEnvelope(): ILocalSecretEnvelopeV1 {
+function buildEnvelope({
+  innerPrefix,
+}: {
+  innerPrefix?: ILocalSecretEnvelopeInnerPrefix;
+} = {}): ILocalSecretEnvelopeV1 {
   const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
     dataType: 'credential',
+    innerPrefix,
     recordId: 'hd-1',
     wrappingLayers,
   });
   return {
     version: 1,
     dataType: 'credential',
+    ...(innerPrefix ? { innerPrefix } : undefined),
     recordId: 'hd-1',
     wrappingLayers,
     strength: 'device-bound',
@@ -170,6 +178,16 @@ function buildMockLayerAdapter({
         plaintext,
       });
     },
+    encryptWithExistingKey: async ({ aad, layer, layerIndex, plaintext }) => {
+      calls.push(`encrypt-existing:${kind}:${layerIndex}`);
+      return encodeMockLayerPayload({
+        aad,
+        kind: layer.kind,
+        keyRef: layer.keyRef,
+        layerIndex,
+        plaintext,
+      });
+    },
     decrypt: async ({ aad, ciphertext, layer, layerIndex }) => {
       calls.push(`decrypt:${kind}:${layerIndex}`);
       const payload = decodeMockLayerPayload(ciphertext);
@@ -203,6 +221,23 @@ describe('localSecretEnvelope parser', () => {
     ).toBe(
       '{"dataType":"credential","protectedHeader":"{\\"dataType\\":\\"credential\\",\\"recordId\\":\\"hd-1\\",\\"version\\":1,\\"wrappingLayers\\":[{\\"alg\\":\\"AES-256-GCM\\",\\"capabilities\\":{\\"extractable\\":false,\\"keyAccess\\":\\"opaque-decrypt\\",\\"sync\\":\\"unknown\\"},\\"iv\\":\\"cryptokey-iv\\",\\"keyRef\\":\\"indexeddb:device-key:v1\\",\\"kind\\":\\"indexeddb-cryptokey\\"},{\\"alg\\":\\"AES-256-GCM\\",\\"capabilities\\":{\\"extractable\\":\\"unknown\\",\\"keyAccess\\":\\"raw-key-readable\\",\\"requireAuth\\":true,\\"sync\\":\\"cloud-sync\\"},\\"iv\\":\\"keychain-iv\\",\\"keyRef\\":\\"keychain:lse:v1\\",\\"kind\\":\\"keychain\\"}]}","recordId":"hd-1"}',
     );
+  });
+
+  it('roundtrips an envelope with an exposed inner prefix', () => {
+    const envelope = buildEnvelope({
+      innerPrefix: LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential,
+    });
+    const serialized = serializeLocalSecretEnvelopeV1(envelope);
+    const parsed = parseLocalSecretEnvelopeV1(serialized);
+
+    expect(serialized.startsWith('|LSE1|RP|')).toBe(true);
+    expect(parsed).toEqual(envelope);
+    expect(parsed.innerPrefix).toBe(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential,
+    );
+    expect(() =>
+      parseLocalSecretEnvelopeV1(serialized.replace('|LSE1|RP|', '|LSE1|PK|')),
+    ).toThrow('Invalid local secret envelope exposed inner prefix');
   });
 
   it('rejects a protected header that does not match the stored fields', () => {
@@ -403,6 +438,10 @@ describe('localSecretEnvelope wrapping pipeline', () => {
     });
     const parsed = parseLocalSecretEnvelopeV1(envelope);
 
+    expect(envelope.startsWith('|LSE1|RP|')).toBe(true);
+    expect(parsed.innerPrefix).toBe(
+      LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential,
+    );
     expect(parsed.ciphertext).not.toBe(plaintext);
     expect(parsed.wrappingLayers.map((layer) => layer.kind)).toEqual([
       'indexeddb-cryptokey',
@@ -451,6 +490,7 @@ describe('localSecretEnvelope wrapping pipeline', () => {
     }));
     const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
       dataType: parsed.dataType,
+      innerPrefix: parsed.innerPrefix,
       recordId: parsed.recordId,
       wrappingLayers: tamperedWrappingLayers,
     });
@@ -468,6 +508,60 @@ describe('localSecretEnvelope wrapping pipeline', () => {
       'Local secret envelope layer decrypt failed: kind=indexeddb-cryptokey, index=0',
     );
     await expect(unwrapPromise).rejects.not.toThrow('indexeddb:device-key:v1');
+  });
+
+  it('rewraps with existing layer keys and fresh IVs', async () => {
+    const calls: string[] = [];
+    const adapters = [
+      buildMockLayerAdapter({
+        calls,
+        kind: 'indexeddb-cryptokey',
+        keyRef: 'indexeddb:device-key:v1',
+      }),
+      buildMockLayerAdapter({
+        calls,
+        kind: 'keychain',
+        keyRef: 'keychain:lse:v1',
+      }),
+    ];
+    const envelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: adapters,
+      plaintext: '|RP|old-current-kdf-payload',
+      recordId: 'hd-1',
+      strength: 'device-bound',
+    });
+    const original = parseLocalSecretEnvelopeV1(envelope);
+    const adaptersByKind = new Map(
+      adapters.map((adapter) => [adapter.kind, adapter]),
+    );
+    calls.length = 0;
+
+    const rewrapped = await rewrapLocalSecretEnvelopeV1({
+      envelope,
+      plaintext: '|RP|new-current-kdf-payload',
+      randomBytes: (length) => new Uint8Array(length).fill(7),
+      resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
+    });
+    const parsed = parseLocalSecretEnvelopeV1(rewrapped);
+
+    expect(parsed.wrappingLayers.map((layer) => layer.keyRef)).toEqual(
+      original.wrappingLayers.map((layer) => layer.keyRef),
+    );
+    expect(parsed.wrappingLayers.map((layer) => layer.iv)).toEqual([
+      '070707070707070707070707',
+      '070707070707070707070707',
+    ]);
+    expect(calls).toEqual([
+      'encrypt-existing:indexeddb-cryptokey:0',
+      'encrypt-existing:keychain:1',
+    ]);
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: rewrapped,
+        resolveLayerAdapter: (layer) => adaptersByKind.get(layer.kind),
+      }),
+    ).resolves.toBe('|RP|new-current-kdf-payload');
   });
 
   it('fails fast when a persisted layer has no available adapter', async () => {

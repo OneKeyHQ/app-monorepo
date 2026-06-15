@@ -6,7 +6,7 @@ import {
 } from '@onekeyhq/kit-bg/src/dbs/local/localSecretEnvelope/secureStorageLayerAdapter';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
-const TEST_KEY_REF_PREFIX = 'onekey:lse:e2e:secure-storage:v1';
+const TEST_KEY_REF = 'onekey:lse:e2e:secure-storage:v1';
 const TEST_RECORD_ID = 'lse-native-harness-record';
 const TEST_AAD = 'lse-native-harness-aad';
 const TEST_PLAINTEXT = 'native-lse-secret';
@@ -35,7 +35,7 @@ describe('Local Secret Envelope native secure-storage layer', () => {
     expect(await isSecureStorageLocalSecretEnvelopeLayerAvailable()).toBe(true);
 
     const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
-      keyRefPrefix: TEST_KEY_REF_PREFIX,
+      keyRef: TEST_KEY_REF,
     });
     const prepareParams = {
       dataType: 'credential' as const,
@@ -70,7 +70,7 @@ describe('Local Secret Envelope native secure-storage layer', () => {
 
   test('fails to unwrap after the native secure-storage key is deleted', async () => {
     const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
-      keyRefPrefix: TEST_KEY_REF_PREFIX,
+      keyRef: TEST_KEY_REF,
     });
     const prepareParams = {
       dataType: 'credential' as const,

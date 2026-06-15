@@ -54,7 +54,7 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
     const { keyStorage, records } = buildMemoryKeyStorage();
     const adapter = buildLocalSecretEnvelopeAesGcmLayerAdapter({
       capabilities,
-      keyRefPrefix: 'test:lse:secure-storage',
+      keyRef: 'test:lse:secure-storage:global-key',
       keyStorage,
       kind: 'secure-storage',
       randomBytes: buildDeterministicRandomBytes(),
@@ -77,8 +77,8 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
       capabilities,
       kind: 'secure-storage',
     });
-    expect(parsed.wrappingLayers[0].keyRef).toMatch(
-      /^test:lse:secure-storage:/,
+    expect(parsed.wrappingLayers[0].keyRef).toBe(
+      'test:lse:secure-storage:global-key',
     );
 
     const inner = await unwrapLocalSecretEnvelopeV1({
@@ -94,7 +94,7 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
     const { keyStorage, records } = buildMemoryKeyStorage();
     const adapter = buildLocalSecretEnvelopeAesGcmLayerAdapter({
       capabilities,
-      keyRefPrefix: 'test:lse:secure-storage',
+      keyRef: 'test:lse:secure-storage:missing-key',
       keyStorage,
       kind: 'secure-storage',
       randomBytes: buildDeterministicRandomBytes(),
@@ -118,7 +118,7 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
       'Local secret envelope layer decrypt failed: kind=secure-storage, index=0',
     );
     await expect(unwrapPromise).rejects.not.toThrow(
-      /^test:lse:secure-storage:/,
+      /test:lse:secure-storage:missing-key/,
     );
   });
 
@@ -126,7 +126,7 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
     const { keyStorage } = buildMemoryKeyStorage({ supported: false });
     const adapter = buildLocalSecretEnvelopeAesGcmLayerAdapter({
       capabilities,
-      keyRefPrefix: 'test:lse:secure-storage',
+      keyRef: 'test:lse:secure-storage:unsupported',
       keyStorage,
       kind: 'secure-storage',
       randomBytes: buildDeterministicRandomBytes(),

@@ -173,14 +173,22 @@ describe('normalizePrimeTransferCredential', () => {
     expect(normalizePrimeTransferCredential(undefined)).toBe(undefined);
   });
 
-  it('rejects raw LSE credentials before transfer decrypt/export', () => {
-    expect(() =>
+  it('filters non-portable credentials before transfer decrypt/export', () => {
+    expect(
       normalizePrimeTransferCredential('|LSE1|{"keyRef":"indexeddb:key"}'),
-    ).toThrow('Cannot transfer raw local secret envelope credential');
-    expect(() =>
+    ).toBeUndefined();
+    expect(
       normalizePrimeTransferCredential({
         credential: '|LSE1|{"keyRef":"keychain:key"}',
       }),
-    ).toThrow('Cannot transfer raw local secret envelope credential');
+    ).toBeUndefined();
+    expect(
+      normalizePrimeTransferCredential(
+        '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+      ),
+    ).toBeUndefined();
+    expect(
+      normalizePrimeTransferCredential('|UNKNOWN|payload'),
+    ).toBeUndefined();
   });
 });

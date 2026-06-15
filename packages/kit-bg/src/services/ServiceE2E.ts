@@ -33,9 +33,11 @@ import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import {
   buildLocalSecretEnvelopeLayerAdapterResolver,
+  buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
   isLocalSecretEnvelopeString,
   parseLocalSecretEnvelopeV1,
+  unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from '../dbs/local/localSecretEnvelope';
 import { EIndexedDBBucketNames } from '../dbs/local/types';
@@ -146,8 +148,63 @@ async function removeLocalSecretEnvelopeLayerKey({
       keyRef,
     });
   }
-  if (kind === 'secure-storage') {
-    await secureStorageInstance.removeSecureItem(keyRef);
+}
+
+async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
+  index,
+  runId,
+}: {
+  index: number;
+  runId: string;
+}): Promise<boolean> {
+  const keyRef = `onekey:lse:e2e:secure-storage:${runId}:${index}`;
+  const recordId = `lse-e2e-secure-storage-${runId}-${index}`;
+  const plaintext = '|PK|lse-e2e-secure-storage-portable-payload';
+  const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+    keyRef,
+    secureStorage: secureStorageInstance,
+  });
+  let envelope: ILocalSecretEnvelopeV1 | undefined;
+
+  try {
+    const wrapped = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext,
+      recordId,
+      strength: 'secure-storage-bound',
+    });
+    envelope = parseLocalSecretEnvelopeV1(wrapped);
+    const restored = await unwrapLocalSecretEnvelopeV1({
+      envelope: wrapped,
+      expectedDataType: 'credential',
+      expectedRecordId: recordId,
+      resolveLayerAdapter: () => adapter,
+    });
+    if (restored !== plaintext) {
+      return false;
+    }
+
+    await secureStorageInstance.removeSecureItem(
+      envelope.wrappingLayers[0].keyRef,
+    );
+    try {
+      await unwrapLocalSecretEnvelopeV1({
+        envelope: wrapped,
+        expectedDataType: 'credential',
+        expectedRecordId: recordId,
+        resolveLayerAdapter: () => adapter,
+      });
+      return false;
+    } catch {
+      return true;
+    }
+  } finally {
+    if (envelope) {
+      await secureStorageInstance
+        .removeSecureItem(envelope.wrappingLayers[0].keyRef)
+        .catch(() => undefined);
+    }
   }
 }
 
@@ -809,11 +866,18 @@ class ServiceE2E extends ServiceBase {
             `E2E debug credential layer is missing: ${layerKind}`,
           );
         }
-        await removeLocalSecretEnvelopeLayerKey(layer);
         const deletionBlocksUnwrap =
-          await this.checkLocalSecretEnvelopeCredentialReadBlocked({
-            credentialId,
-          });
+          layerKind === 'secure-storage'
+            ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
+                index,
+                runId,
+              })
+            : await (async () => {
+                await removeLocalSecretEnvelopeLayerKey(layer);
+                return this.checkLocalSecretEnvelopeCredentialReadBlocked({
+                  credentialId,
+                });
+              })();
         layerDeletionBlocksUnwrap[layerKind] = deletionBlocksUnwrap;
         assertLocalSecretEnvelopeE2E(
           deletionBlocksUnwrap,
@@ -877,6 +941,9 @@ class ServiceE2E extends ServiceBase {
     checkDevOnlyPassword(params);
     let verifyStringEnvelope: ILocalSecretEnvelopeV1 | undefined;
     const credentialEnvelopes: ILocalSecretEnvelopeV1[] = [];
+    const runId = `${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
 
     try {
       await this.resetLocalSecretEnvelopeE2ESelfTestState(params);
@@ -987,11 +1054,18 @@ class ServiceE2E extends ServiceBase {
             `E2E credential layer is missing: ${layerKind}`,
           );
         }
-        await removeLocalSecretEnvelopeLayerKey(layer);
         const deletionBlocksUnwrap =
-          await this.checkLocalSecretEnvelopeCredentialReadBlocked({
-            credentialId,
-          });
+          layerKind === 'secure-storage'
+            ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
+                index,
+                runId,
+              })
+            : await (async () => {
+                await removeLocalSecretEnvelopeLayerKey(layer);
+                return this.checkLocalSecretEnvelopeCredentialReadBlocked({
+                  credentialId,
+                });
+              })();
         layerDeletionBlocksUnwrap[layerKind] = deletionBlocksUnwrap;
         assertLocalSecretEnvelopeE2E(
           deletionBlocksUnwrap,

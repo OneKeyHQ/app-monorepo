@@ -3,7 +3,7 @@ import {
   decryptRevealableSeed,
 } from '@onekeyhq/core/src/secret';
 
-import { assertPortableCredential } from '../../dbs/local/localSecretEnvelope';
+import { normalizePortableCredential } from '../../dbs/local/localSecretEnvelope';
 import {
   EAppCryptoSharedEncryptScene,
   encryptImportedCredentialWithFormat,
@@ -19,14 +19,16 @@ export async function buildLegacyCredentialsForCloudBackup({
 }) {
   const entries = await Promise.all(
     Object.entries(credentials).map(async ([id, credential]) => {
-      assertPortableCredential({
+      const portableCredential = normalizePortableCredential({
         credential,
-        errorMessage: 'Cannot back up raw local secret envelope credential',
       });
+      if (!portableCredential) {
+        return undefined;
+      }
 
       try {
         const rs = await decryptRevealableSeed({
-          rs: credential,
+          rs: portableCredential,
           password,
         });
         return [
@@ -47,7 +49,7 @@ export async function buildLegacyCredentialsForCloudBackup({
 
       try {
         const importedCredential = await decryptImportedCredential({
-          credential,
+          credential: portableCredential,
           password,
         });
         return [
@@ -63,9 +65,13 @@ export async function buildLegacyCredentialsForCloudBackup({
           }),
         ] as const;
       } catch {
-        return [id, credential] as const;
+        return [id, portableCredential] as const;
       }
     }),
   );
-  return Object.fromEntries(entries);
+  return Object.fromEntries(
+    entries.filter((entry): entry is readonly [string, string] =>
+      Boolean(entry),
+    ),
+  );
 }

@@ -13,18 +13,20 @@ import type {
 
 const AES_GCM_KEY_BYTES = 32;
 const AES_GCM_NONCE_BYTES = 12;
-const KEY_REF_RANDOM_BYTES = 16;
 
 export type ILocalSecretEnvelopeAesGcmKeyStorage = {
+  getOrCreateItem?: (
+    keyRef: string,
+    createKeyHex: () => string,
+  ) => Promise<string>;
   getItem: (keyRef: string) => Promise<string | null>;
-  removeItem?: (keyRef: string) => Promise<void>;
   setItem: (keyRef: string, keyHex: string) => Promise<void>;
   supportStorage?: () => Promise<boolean>;
 };
 
 export type IBuildLocalSecretEnvelopeAesGcmLayerAdapterParams = {
   capabilities: ILocalSecretEnvelopeLayerCapabilities;
-  keyRefPrefix: string;
+  keyRef: string;
   keyStorage: ILocalSecretEnvelopeAesGcmKeyStorage;
   kind: ILocalSecretEnvelopeLayerKind;
   randomBytes?: (length: number) => Uint8Array;
@@ -83,6 +85,14 @@ async function getOrCreateAesGcmKey({
   keyStorage: ILocalSecretEnvelopeAesGcmKeyStorage;
   randomBytes: (length: number) => Uint8Array;
 }): Promise<Buffer> {
+  if (keyStorage.getOrCreateItem) {
+    return readAesGcmKey(
+      await keyStorage.getOrCreateItem(keyRef, () =>
+        bufferUtils.bytesToHex(randomBytes(AES_GCM_KEY_BYTES)),
+      ),
+    );
+  }
+
   const existingKeyHex = await keyStorage.getItem(keyRef);
   if (existingKeyHex) {
     return readAesGcmKey(existingKeyHex);
@@ -135,7 +145,7 @@ async function ensureStorageSupported({
 
 export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
   capabilities,
-  keyRefPrefix,
+  keyRef,
   keyStorage,
   kind,
   randomBytes = defaultRandomBytes,
@@ -144,13 +154,14 @@ export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
     kind,
     prepareLayer: async () => {
       await ensureStorageSupported({ keyStorage, kind });
-      const keyRefRandom = bufferUtils.bytesToHex(
-        randomBytes(KEY_REF_RANDOM_BYTES),
+      invariant(
+        Boolean(keyRef),
+        'Local secret envelope wrapping keyRef is unavailable',
       );
       const iv = bufferUtils.bytesToHex(randomBytes(AES_GCM_NONCE_BYTES));
       return {
         kind,
-        keyRef: `${keyRefPrefix}:${keyRefRandom}`,
+        keyRef,
         alg: 'AES-256-GCM',
         iv,
         capabilities,
@@ -162,6 +173,21 @@ export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
         keyRef: layer.keyRef,
         keyStorage,
         randomBytes,
+      });
+      const encrypted = await aesGcmEncrypt({
+        aad: bufferUtils.utf8ToBytes(aad),
+        data: bufferUtils.utf8ToBytes(plaintext),
+        key,
+        nonce: bufferUtils.toBuffer(iv, 'hex'),
+      });
+      return bufferUtils.bytesToBase64(encrypted);
+    },
+    encryptWithExistingKey: async ({ aad, layer, plaintext }) => {
+      const iv = readAesGcmLayerIv(layer);
+      const key = await getExistingAesGcmKey({
+        kind,
+        keyRef: layer.keyRef,
+        keyStorage,
       });
       const encrypted = await aesGcmEncrypt({
         aad: bufferUtils.utf8ToBytes(aad),
@@ -187,12 +213,6 @@ export function buildLocalSecretEnvelopeAesGcmLayerAdapter({
       return bufferUtils.bytesToUtf8(decrypted, { checkIsValidUtf8: true });
     },
   };
-
-  if (keyStorage.removeItem) {
-    adapter.deleteLayerKey = async ({ layer }) => {
-      await keyStorage.removeItem?.(layer.keyRef);
-    };
-  }
 
   return adapter;
 }

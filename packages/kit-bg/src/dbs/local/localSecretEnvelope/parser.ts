@@ -4,10 +4,14 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   LOCAL_SECRET_ENVELOPE_PREFIX,
   LOCAL_SECRET_ENVELOPE_VERSION,
+  getLocalSecretEnvelopeInnerPrefix,
+  getLocalSecretEnvelopeInnerPrefixByLabel,
+  getLocalSecretEnvelopeInnerPrefixLabel,
 } from './consts';
 
 import type {
   ILocalSecretEnvelopeDataType,
+  ILocalSecretEnvelopeInnerPrefix,
   ILocalSecretEnvelopeLayer,
   ILocalSecretEnvelopeLayerCapabilities,
   ILocalSecretEnvelopeLayerKind,
@@ -73,6 +77,14 @@ function parseDataType(value: string): ILocalSecretEnvelopeDataType {
     'Invalid local secret envelope dataType',
   );
   return value;
+}
+
+function parseInnerPrefix(value: string): ILocalSecretEnvelopeInnerPrefix {
+  const innerPrefix = getLocalSecretEnvelopeInnerPrefix(value);
+  if (!innerPrefix) {
+    throw new OneKeyLocalError('Invalid local secret envelope inner prefix');
+  }
+  return innerPrefix;
 }
 
 function parseLayerKind(value: string): ILocalSecretEnvelopeLayerKind {
@@ -178,16 +190,19 @@ export function stripLocalSecretPrefix(text: string): string {
 
 export function buildLocalSecretEnvelopeProtectedHeaderV1({
   dataType,
+  innerPrefix,
   recordId,
   wrappingLayers,
 }: {
   dataType: ILocalSecretEnvelopeDataType;
+  innerPrefix?: ILocalSecretEnvelopeInnerPrefix;
   recordId: string;
   wrappingLayers: ILocalSecretEnvelopeLayer[];
 }): string {
   const header: ILocalSecretEnvelopeProtectedHeaderV1 = {
     version: LOCAL_SECRET_ENVELOPE_VERSION,
     dataType,
+    ...(innerPrefix ? { innerPrefix } : undefined),
     recordId,
     wrappingLayers,
   };
@@ -212,6 +227,7 @@ export function buildLocalSecretEnvelopeAadV1({
 
 export function assertLocalSecretEnvelopeV1(
   value: unknown,
+  exposedInnerPrefix?: ILocalSecretEnvelopeInnerPrefix,
 ): asserts value is ILocalSecretEnvelopeV1 {
   invariant(isJsonRecord(value), 'Invalid local secret envelope');
   invariant(
@@ -220,6 +236,14 @@ export function assertLocalSecretEnvelopeV1(
   );
 
   const dataType = parseDataType(readString(value, 'dataType'));
+  const innerPrefixValue = readOptionalString(value, 'innerPrefix');
+  const innerPrefix = innerPrefixValue
+    ? parseInnerPrefix(innerPrefixValue)
+    : undefined;
+  invariant(
+    !exposedInnerPrefix || innerPrefix === exposedInnerPrefix,
+    'Invalid local secret envelope exposed inner prefix',
+  );
   const recordId = readString(value, 'recordId');
   const wrappingLayers = parseWrappingLayers(value.wrappingLayers);
   const strength = parseStrength(readString(value, 'strength'));
@@ -232,6 +256,7 @@ export function assertLocalSecretEnvelopeV1(
 
   const expectedProtectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
     dataType,
+    innerPrefix,
     recordId,
     wrappingLayers,
   });
@@ -243,6 +268,7 @@ export function assertLocalSecretEnvelopeV1(
   Object.assign(value, {
     version: LOCAL_SECRET_ENVELOPE_VERSION,
     dataType,
+    ...(innerPrefix ? { innerPrefix } : undefined),
     recordId,
     wrappingLayers,
     strength,
@@ -255,9 +281,39 @@ export function serializeLocalSecretEnvelopeV1(
   envelope: ILocalSecretEnvelopeV1,
 ): string {
   assertLocalSecretEnvelopeV1(envelope);
-  return `${LOCAL_SECRET_ENVELOPE_PREFIX}${stringUtils.stableStringify(
+  const innerPrefixLabel = getLocalSecretEnvelopeInnerPrefixLabel(
+    envelope.innerPrefix,
+  );
+  const exposedPrefix = innerPrefixLabel ? `${innerPrefixLabel}|` : '';
+  return `${LOCAL_SECRET_ENVELOPE_PREFIX}${exposedPrefix}${stringUtils.stableStringify(
     envelope,
   )}`;
+}
+
+function readLocalSecretEnvelopePayload(value: string): {
+  exposedInnerPrefix?: ILocalSecretEnvelopeInnerPrefix;
+  payload: string;
+} {
+  const text = value.slice(LOCAL_SECRET_ENVELOPE_PREFIX.length);
+  if (text.startsWith('{')) {
+    return { payload: text };
+  }
+
+  const separatorIndex = text.indexOf('|');
+  if (separatorIndex <= 0) {
+    return { payload: text };
+  }
+
+  const exposedInnerPrefix = getLocalSecretEnvelopeInnerPrefixByLabel(
+    text.slice(0, separatorIndex),
+  );
+  if (!exposedInnerPrefix) {
+    return { payload: text };
+  }
+  return {
+    exposedInnerPrefix,
+    payload: text.slice(separatorIndex + 1),
+  };
 }
 
 export function parseLocalSecretEnvelopeV1(
@@ -267,13 +323,13 @@ export function parseLocalSecretEnvelopeV1(
     isLocalSecretEnvelopeString(value),
     'Invalid local secret envelope prefix',
   );
-  const payload = value.slice(LOCAL_SECRET_ENVELOPE_PREFIX.length);
+  const { exposedInnerPrefix, payload } = readLocalSecretEnvelopePayload(value);
   let parsed: unknown;
   try {
     parsed = JSON.parse(payload) as unknown;
   } catch {
     throw new OneKeyLocalError('Invalid local secret envelope JSON');
   }
-  assertLocalSecretEnvelopeV1(parsed);
+  assertLocalSecretEnvelopeV1(parsed, exposedInnerPrefix);
   return parsed;
 }

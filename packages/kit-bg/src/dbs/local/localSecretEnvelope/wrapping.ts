@@ -1,6 +1,10 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { LOCAL_SECRET_ENVELOPE_VERSION } from './consts';
+import {
+  LOCAL_SECRET_ENVELOPE_VERSION,
+  getLocalSecretEnvelopeInnerPrefix,
+} from './consts';
 import {
   buildLocalSecretEnvelopeAadV1,
   buildLocalSecretEnvelopeProtectedHeaderV1,
@@ -16,10 +20,24 @@ import type {
   ILocalSecretEnvelopeStrength,
 } from './types';
 
+const AES_GCM_NONCE_BYTES = 12;
+
 function invariant(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new OneKeyLocalError(message);
   }
+}
+
+function defaultRandomBytes(length: number): Uint8Array {
+  const bytes = new Uint8Array(length);
+  const cryptoGlobal = globalThis.crypto;
+  const getRandomValues = cryptoGlobal?.getRandomValues?.bind(cryptoGlobal);
+  invariant(
+    typeof getRandomValues === 'function',
+    'Local secret envelope secure random is unavailable',
+  );
+  getRandomValues(bytes);
+  return bytes;
 }
 
 function buildLayerErrorMessage({
@@ -88,8 +106,10 @@ export async function wrapLocalSecretEnvelopeV1({
     layerAdapters,
     recordId,
   });
+  const innerPrefix = getLocalSecretEnvelopeInnerPrefix(plaintext);
   const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
     dataType,
+    innerPrefix,
     recordId,
     wrappingLayers,
   });
@@ -114,6 +134,7 @@ export async function wrapLocalSecretEnvelopeV1({
   return serializeLocalSecretEnvelopeV1({
     version: LOCAL_SECRET_ENVELOPE_VERSION,
     dataType,
+    ...(innerPrefix ? { innerPrefix } : undefined),
     recordId,
     wrappingLayers,
     strength,
@@ -184,4 +205,115 @@ export async function unwrapLocalSecretEnvelopeV1({
     }
   }
   return plaintext;
+}
+
+export async function rewrapLocalSecretEnvelopeV1({
+  envelope,
+  expectedDataType,
+  expectedRecordId,
+  plaintext,
+  randomBytes = defaultRandomBytes,
+  resolveLayerAdapter,
+}: {
+  envelope: string;
+  expectedDataType?: ILocalSecretEnvelopeDataType;
+  expectedRecordId?: string;
+  plaintext: string;
+  randomBytes?: (length: number) => Uint8Array;
+  resolveLayerAdapter: ILocalSecretEnvelopeLayerAdapterResolver;
+}): Promise<string> {
+  const parsed = parseLocalSecretEnvelopeV1(envelope);
+  invariant(
+    !expectedDataType || parsed.dataType === expectedDataType,
+    'Local secret envelope dataType mismatch',
+  );
+  invariant(
+    !expectedRecordId || parsed.recordId === expectedRecordId,
+    'Local secret envelope recordId mismatch',
+  );
+
+  const wrappingLayers = parsed.wrappingLayers.map((layer, layerIndex) => {
+    invariant(
+      layer.alg === 'AES-256-GCM',
+      buildLayerErrorMessage({
+        layer,
+        layerIndex,
+        message: 'Local secret envelope layer cannot be rewrapped',
+      }),
+    );
+    return {
+      ...layer,
+      iv: bufferUtils.bytesToHex(randomBytes(AES_GCM_NONCE_BYTES)),
+    };
+  });
+  const innerPrefix =
+    parsed.innerPrefix ?? getLocalSecretEnvelopeInnerPrefix(plaintext);
+  const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
+    dataType: parsed.dataType,
+    innerPrefix,
+    recordId: parsed.recordId,
+    wrappingLayers,
+  });
+  const aad = buildLocalSecretEnvelopeAadV1({
+    dataType: parsed.dataType,
+    recordId: parsed.recordId,
+    protectedHeader,
+  });
+
+  let ciphertext = plaintext;
+  for (
+    let layerIndex = 0;
+    layerIndex < wrappingLayers.length;
+    layerIndex += 1
+  ) {
+    const layer = wrappingLayers[layerIndex];
+    const adapter = resolveLayerAdapter(layer);
+    invariant(
+      adapter?.kind === layer.kind,
+      buildLayerErrorMessage({
+        layer,
+        layerIndex,
+        message: 'Local secret envelope layer adapter is unavailable',
+      }),
+    );
+    const encryptWithExistingKey = adapter.encryptWithExistingKey;
+    invariant(
+      typeof encryptWithExistingKey === 'function',
+      buildLayerErrorMessage({
+        layer,
+        layerIndex,
+        message:
+          'Local secret envelope layer existing-key encrypt is unavailable',
+      }),
+    );
+    try {
+      ciphertext = await encryptWithExistingKey({
+        aad,
+        dataType: parsed.dataType,
+        layer,
+        layerIndex,
+        plaintext: ciphertext,
+        recordId: parsed.recordId,
+      });
+    } catch {
+      throw new OneKeyLocalError(
+        buildLayerErrorMessage({
+          layer,
+          layerIndex,
+          message: 'Local secret envelope layer rewrap failed',
+        }),
+      );
+    }
+  }
+
+  return serializeLocalSecretEnvelopeV1({
+    version: LOCAL_SECRET_ENVELOPE_VERSION,
+    dataType: parsed.dataType,
+    ...(innerPrefix ? { innerPrefix } : undefined),
+    recordId: parsed.recordId,
+    wrappingLayers,
+    strength: parsed.strength,
+    protectedHeader,
+    ciphertext,
+  });
 }

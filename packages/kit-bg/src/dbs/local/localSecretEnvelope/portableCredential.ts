@@ -1,6 +1,12 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { isLocalSecretEnvelopeString } from './parser';
+import { LOCAL_SECRET_ENVELOPE_INNER_PREFIX } from './consts';
+import {
+  isLocalSecretEnvelopeString,
+  parseLocalSecretEnvelopeV1,
+} from './parser';
+
+import type { ILocalSecretEnvelopeInnerPrefix } from './types';
 
 export type IPortableCredentialInput =
   | { credential?: string }
@@ -10,31 +16,65 @@ export type IPortableCredentialInput =
 
 export function assertPortableCredential({
   credential,
-  errorMessage = 'Cannot export raw local secret envelope credential',
+  errorMessage = 'This credential type cannot be exported',
 }: {
   credential: string;
   errorMessage?: string;
 }): void {
-  if (isLocalSecretEnvelopeString(credential)) {
+  if (
+    isLocalSecretEnvelopeString(credential) ||
+    (!credential.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential) &&
+      !credential.startsWith(
+        LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential,
+      ))
+  ) {
     throw new OneKeyLocalError(errorMessage);
+  }
+}
+
+export function isPortableCredential(credential: string): boolean {
+  return (
+    !isLocalSecretEnvelopeString(credential) &&
+    isPortableInnerPrefix(credential)
+  );
+}
+
+export function isPortableInnerPrefix(
+  value: string | ILocalSecretEnvelopeInnerPrefix | undefined,
+): boolean {
+  return Boolean(
+    value === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential ||
+    value === LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential ||
+    value?.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential) ||
+    value?.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential),
+  );
+}
+
+export function shouldUnwrapCredentialForPortableExport(
+  credential: string,
+): boolean {
+  if (!isLocalSecretEnvelopeString(credential)) {
+    return false;
+  }
+  try {
+    const parsed = parseLocalSecretEnvelopeV1(credential);
+    return parsed.innerPrefix
+      ? isPortableInnerPrefix(parsed.innerPrefix)
+      : true;
+  } catch {
+    return false;
   }
 }
 
 export function normalizePortableCredential({
   credential,
-  errorMessage,
 }: {
   credential: IPortableCredentialInput;
-  errorMessage?: string;
 }): string | undefined {
   const credentialValue =
     typeof credential === 'string' ? credential : credential?.credential;
   if (typeof credentialValue !== 'string') {
     return undefined;
   }
-  assertPortableCredential({
-    credential: credentialValue,
-    errorMessage,
-  });
-  return credentialValue;
+  return isPortableCredential(credentialValue) ? credentialValue : undefined;
 }

@@ -86,6 +86,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { shouldUnwrapCredentialForPortableExport } from '../../dbs/local/localSecretEnvelope';
 import { checkIsOneKeyDomain } from '../../endpoints';
 import {
   devSettingsPersistAtom,
@@ -1368,6 +1369,69 @@ class ServicePrimeTransfer extends ServiceBase {
     await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
   }
 
+  private async buildScopedTransferCredentials({
+    privateBackupData,
+  }: {
+    privateBackupData: IPrimeTransferPrivateData;
+  }) {
+    const credentialIds = new Set<string>();
+
+    Object.keys(privateBackupData.wallets).forEach((id) => {
+      credentialIds.add(id);
+    });
+    Object.keys(privateBackupData.importedAccounts).forEach((id) => {
+      credentialIds.add(id);
+    });
+
+    await Promise.all(
+      Object.values(privateBackupData.importedAccounts).map(async (account) => {
+        if (account.impl !== IMPL_TON) {
+          return;
+        }
+        const credentialId = accountUtils.buildTonMnemonicCredentialId({
+          accountId: account.id,
+        });
+        const credential = await localDb.getCredentialSafe(credentialId);
+        if (credential) {
+          credentialIds.add(credentialId);
+        }
+      }),
+    );
+
+    const entries = await Promise.all(
+      Array.from(credentialIds).map(async (credentialId) => {
+        const rawCredential = await localDb.getCredentialRaw(credentialId);
+        const rawPortableCredential =
+          normalizePrimeTransferCredential(rawCredential);
+        if (rawPortableCredential) {
+          return [credentialId, rawPortableCredential] as const;
+        }
+
+        if (
+          !shouldUnwrapCredentialForPortableExport(rawCredential.credential)
+        ) {
+          return undefined;
+        }
+
+        const portableCredential = normalizePrimeTransferCredential(
+          await localDb.getCredentialInner({
+            credentialId,
+          }),
+        );
+        if (!portableCredential) {
+          return undefined;
+        }
+        return [credentialId, portableCredential] as const;
+      }),
+    );
+
+    return Object.fromEntries(
+      entries.filter((entry): entry is readonly [string, string] =>
+        Boolean(entry),
+      ),
+    );
+  }
+
   @backgroundMethod()
   async buildTransferData({
     isForCloudBackup,
@@ -1411,25 +1475,8 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
-    const credentials = walletIds?.length
-      ? Object.fromEntries(
-          (
-            await Promise.all(
-              filteredWallets.map(async (wallet) => [
-                wallet.id,
-                normalizePrimeTransferCredential(
-                  await localDb.getCredentialInner({
-                    credentialId: wallet.id,
-                  }),
-                ),
-              ]),
-            )
-          ).filter((entry): entry is [string, string] => Boolean(entry[1])),
-        )
-      : await serviceAccount.dumpCredentials();
-
     const privateBackupData: IPrimeTransferPrivateData = {
-      credentials,
+      credentials: {},
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
@@ -1663,6 +1710,10 @@ class ServicePrimeTransfer extends ServiceBase {
         }
       }
     }
+
+    privateBackupData.credentials = walletIds?.length
+      ? await this.buildScopedTransferCredentials({ privateBackupData })
+      : await serviceAccount.dumpCredentials();
 
     // fill publicData summary by aggregating from privateBackupData
     try {

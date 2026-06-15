@@ -403,9 +403,11 @@ function decodeMockLocalSecretEnvelopeLayerPayload(value: string): {
 
 function buildMockLocalSecretEnvelopeLayerAdapter({
   deleteLayerKey,
+  failDecrypt,
   failEncrypt,
 }: {
   deleteLayerKey?: ILocalSecretEnvelopeLayerAdapter['deleteLayerKey'];
+  failDecrypt?: boolean;
   failEncrypt?: boolean;
 } = {}): ILocalSecretEnvelopeLayerAdapter {
   const kind = 'indexeddb-cryptokey';
@@ -434,7 +436,21 @@ function buildMockLocalSecretEnvelopeLayerAdapter({
         plaintext,
       });
     },
+    encryptWithExistingKey: async ({ aad, layer, plaintext }) => {
+      if (failEncrypt) {
+        throw new OneKeyLocalError('Mock LSE encrypt failed');
+      }
+      return encodeMockLocalSecretEnvelopeLayerPayload({
+        aad,
+        kind: layer.kind,
+        keyRef: layer.keyRef,
+        plaintext,
+      });
+    },
     decrypt: async ({ aad, ciphertext, layer }) => {
+      if (failDecrypt) {
+        throw new OneKeyLocalError('Mock LSE decrypt failed');
+      }
       const payload = decodeMockLocalSecretEnvelopeLayerPayload(ciphertext);
       if (
         payload.aad !== aad ||
@@ -1055,6 +1071,43 @@ describe('LocalDbBase local secret envelope credentials', () => {
     await expect(
       db.verifyPassword({ password, skipLazyUpgrade: true }),
     ).resolves.toBeUndefined();
+  });
+
+  it('does not report WrongPassword when the LSE verifyString layer cannot decrypt', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.verifyString = await encryptVerifyString({ password });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+    const configSpy = jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue({
+        layerAdapters: [adapter],
+        strength: 'profile-bound',
+      });
+
+    await db.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock();
+
+    expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+    configSpy.mockResolvedValue({
+      layerAdapters: [
+        buildMockLocalSecretEnvelopeLayerAdapter({ failDecrypt: true }),
+      ],
+      strength: 'profile-bound',
+    });
+
+    await expect(
+      db.verifyPassword({ password, skipLazyUpgrade: true }),
+    ).rejects.toThrow(
+      'Local secret envelope layer decrypt failed: kind=indexeddb-cryptokey, index=0',
+    );
+    await expect(
+      db.getContext({ verifyPassword: password, skipLazyUpgrade: true }),
+    ).rejects.toThrow(
+      'Local secret envelope layer decrypt failed: kind=indexeddb-cryptokey, index=0',
+    );
   });
 
   it('migrates LSE credentials in checkpointed batches after KDF migration is complete', async () => {
@@ -1709,11 +1762,23 @@ describe('LocalDbBase.updatePassword', () => {
       layerAdapters: [adapter],
       strength: 'profile-bound',
     });
+    const originalCredentialEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
 
     await db.updatePassword({ oldPassword, newPassword });
 
     expect(isLocalSecretEnvelopeString(db.credentials[0].credential)).toBe(
       true,
+    );
+    const nextCredentialEnvelope = parseLocalSecretEnvelopeV1(
+      db.credentials[0].credential,
+    );
+    expect(nextCredentialEnvelope.wrappingLayers[0].keyRef).toBe(
+      originalCredentialEnvelope.wrappingLayers[0].keyRef,
+    );
+    expect(nextCredentialEnvelope.wrappingLayers[0].iv).not.toBe(
+      originalCredentialEnvelope.wrappingLayers[0].iv,
     );
     expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
     const verifyString = await db.getContextVerifyStringInner({
@@ -1753,10 +1818,22 @@ describe('LocalDbBase.updatePassword', () => {
       layerAdapters: [adapter],
       strength: 'profile-bound',
     });
+    const originalVerifyStringEnvelope = parseLocalSecretEnvelopeV1(
+      db.context.verifyString,
+    );
 
     await db.updatePassword({ oldPassword, newPassword });
 
     expect(isLocalSecretEnvelopeString(db.context.verifyString)).toBe(true);
+    const nextVerifyStringEnvelope = parseLocalSecretEnvelopeV1(
+      db.context.verifyString,
+    );
+    expect(nextVerifyStringEnvelope.wrappingLayers[0].keyRef).toBe(
+      originalVerifyStringEnvelope.wrappingLayers[0].keyRef,
+    );
+    expect(nextVerifyStringEnvelope.wrappingLayers[0].iv).not.toBe(
+      originalVerifyStringEnvelope.wrappingLayers[0].iv,
+    );
     const verifyString = await db.getContextVerifyStringInner({
       context: db.context,
     });
@@ -1767,7 +1844,7 @@ describe('LocalDbBase.updatePassword', () => {
     expect(verifyStringResult.plaintext).toBe(DEFAULT_VERIFY_STRING);
   });
 
-  it('best-effort deletes old LSE layer keys after password update succeeds', async () => {
+  it('does not delete reused LSE layer keys after password update succeeds', async () => {
     const db = new TestLocalDb();
     const oldPassword = await encodePasswordAsync({ password: 'old-password' });
     const newPassword = await encodePasswordAsync({ password: 'new-password' });
@@ -1809,13 +1886,10 @@ describe('LocalDbBase.updatePassword', () => {
 
     await db.updatePassword({ oldPassword, newPassword });
 
-    expect(deleteLayerKey).toHaveBeenCalledTimes(2);
-    expect(
-      deleteLayerKey.mock.calls.map((call) => call[0].recordId).toSorted(),
-    ).toEqual([DB_MAIN_CONTEXT_ID, 'hd-1'].toSorted());
+    expect(deleteLayerKey).not.toHaveBeenCalled();
   });
 
-  it('best-effort deletes newly wrapped LSE layer keys if password update aborts', async () => {
+  it('does not delete reused LSE layer keys if password update aborts', async () => {
     const db = new TestLocalDb();
     const oldPassword = await encodePasswordAsync({ password: 'old-password' });
     const newPassword = await encodePasswordAsync({ password: 'new-password' });
@@ -1863,10 +1937,7 @@ describe('LocalDbBase.updatePassword', () => {
       db.updatePassword({ oldPassword, newPassword }),
     ).rejects.toThrow('Mock password update abort');
 
-    expect(deleteLayerKey).toHaveBeenCalledTimes(2);
-    expect(
-      deleteLayerKey.mock.calls.map((call) => call[0].recordId).toSorted(),
-    ).toEqual([DB_MAIN_CONTEXT_ID, 'hd-1'].toSorted());
+    expect(deleteLayerKey).not.toHaveBeenCalled();
   });
 
   it('aborts if credentials change after password update precomputation', async () => {

@@ -141,6 +141,7 @@ import {
   isLocalSecretEnvelopeString,
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
+  rewrapLocalSecretEnvelopeV1,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
@@ -568,11 +569,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (context.verifyString === DEFAULT_VERIFY_STRING) {
       return false;
     }
+    const kdfParams = getLocalPasswordKdfParams();
+    const verifyString = await this.getContextVerifyStringInner({
+      context,
+    });
     try {
-      const kdfParams = getLocalPasswordKdfParams();
-      const verifyString = await this.getContextVerifyStringInner({
-        context,
-      });
       const decrypted = await decryptVerifyString({
         password,
         verifyString,
@@ -1574,19 +1575,27 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }),
         );
       }
-      nextCredential = await wrapLocalSecretEnvelopeV1({
-        dataType: 'credential',
-        layerAdapters: localSecretEnvelopeConfig.layerAdapters,
+      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
+        localSecretEnvelopeConfig.layerAdapters,
+      );
+      if (!resolveLayerAdapter) {
+        throw new OneKeyLocalError(
+          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: originalCredential,
+          }),
+        );
+      }
+      nextCredential = await rewrapLocalSecretEnvelopeV1({
+        envelope: originalCredential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
         plaintext: nextCredential,
-        recordId: credential.id,
-        strength: localSecretEnvelopeConfig.strength,
+        resolveLayerAdapter,
       });
     }
 
     return {
       id: credential.id,
-      localSecretEnvelopeLayerAdapters:
-        localSecretEnvelopeConfig?.layerAdapters,
       originalCredential,
       nextCredential,
     };
@@ -1696,6 +1705,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     try {
+      if (isLocalSecretEnvelopeString(originalVerifyString)) {
+        const resolveLayerAdapter =
+          buildLocalSecretEnvelopeLayerAdapterResolver(config.layerAdapters);
+        if (!resolveLayerAdapter) {
+          throw new OneKeyLocalError(
+            buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+              envelope: originalVerifyString,
+            }),
+          );
+        }
+        return await rewrapLocalSecretEnvelopeV1({
+          envelope: originalVerifyString,
+          expectedDataType: 'verify-string',
+          expectedRecordId: DB_MAIN_CONTEXT_ID,
+          plaintext: verifyString,
+          resolveLayerAdapter,
+        });
+      }
+
       const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
         dataType: 'verify-string',
         layerAdapters: config.layerAdapters,

@@ -86,6 +86,5 @@ export function normalizePrimeTransferCredential(
 ) {
   return normalizePortableCredential({
     credential,
-    errorMessage: 'Cannot transfer raw local secret envelope credential',
   });
 }

@@ -68,7 +68,7 @@ describe('filterWillRemoveBackupList', () => {
 });
 
 describe('ServiceCloudBackup portable credentials', () => {
-  it('rejects raw LSE credentials before building portable backup payloads', async () => {
+  it('filters non-portable credentials before building portable backup payloads', async () => {
     await expect(
       buildLegacyCredentialsForCloudBackup({
         credentials: {
@@ -76,7 +76,16 @@ describe('ServiceCloudBackup portable credentials', () => {
         },
         password: 'test-password',
       }),
-    ).rejects.toThrow('Cannot back up raw local secret envelope credential');
+    ).resolves.toEqual({});
+    await expect(
+      buildLegacyCredentialsForCloudBackup({
+        credentials: {
+          'hyperliquid-agent--0x1--main':
+            '|HLP|{"privateKey":"plain","userAddress":"0x1"}',
+        },
+        password: 'test-password',
+      }),
+    ).resolves.toEqual({});
   });
 
   it('builds legacy backup credentials from portable local credentials', async () => {

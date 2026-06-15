@@ -207,18 +207,21 @@ unwrap 时必须重新计算 AAD 和 protected header，不能信任 DB 中声�
 - `extractable` 必须为 `false`。
 - `usages` 只允许 `['encrypt', 'decrypt']`。
 - 存在独立 key store，不与业务 credential records 混放。
-- key id 固定为当前 profile 的 active wrapping key，例如 `profile-wrap-key-v1`。
-- 支持 key rotation，但 rotation 必须以批量 rewrap 形式完成。
+- 每条 envelope 使用独立随机 `keyRef` 指向对应 wrapping key，降低单个 key 泄漏或清理错误的影响面。
+- 如需 key rotation，必须以批量 rewrap 形式完成；修改 passcode 的 rewrap 默认复用原 `keyRef`，只刷新 IV。
 
 ### Keychain / Keystore Key
 
 - 通过现有跨平台 keychain / secureStorage 模块管理，优先使用统一 shared `secureStorage` facade。
-- key id 使用稳定 service/account 名称，例如 `onekey.local-secret-envelope.v1`。
+- keychain / secureStorage 只保存一个 LSE 专用全局高熵 wrapping key，不按 credential / verifyString 数量增长；这与 CLI bot wallet vault 的“keychain master key + 外部密文 DB”模式一致。
+- key id 使用稳定 service/account 名称，例如 `onekey:lse:secure-storage:v1`。
+- envelope 中的 secureStorage layer `keyRef` 固定指向该全局 key；每条记录的隔离性由独立 IV、AAD、ciphertext，以及 desktop 上额外的 per-credential IndexedDB CryptoKey layer 共同提供。
 - 可以使用平台默认 Keychain / secureStorage 配置；如果统一 facade 能明确提供 sync capability，则在 layer capability 中记录实际 `local-only` / `cloud-sync`，否则记录 `sync: 'unknown'`，不能把 unknown 或 cloud-sync key 伪装成 device-only。
 - 不能复用云备份业务用途的 keychain 条目；LSE 使用独立 service/account 名称。
 - 优先使用 require-auth 等现有模块可表达的安全选项；如果现有模块缺少 sync / require-auth / key-access 能力标记，应扩展该模块的参数。
 - 优先不可导出；如果平台实现只能返回 key bytes，必须在能力标记中体现实际强度。
-- 删除 keychain key 后，本地 DB 中对应钱包不可恢复，只能通过助记词或私钥重新导入。
+- 单条 credential migration / CAS cleanup 不得删除该全局 key；secureStorage layer 不暴露 per-record key cleanup，只允许在明确的重置 / 销毁钱包场景删除全局 key。
+- 删除 keychain 全局 key 后，本地 DB 中所有依赖 secureStorage layer 的 LSE 记录不可恢复，只能通过助记词、私钥、云备份或迁移传输重新恢复。
 
 ## Credential 前缀与升级顺序
 
@@ -410,7 +413,7 @@ LSE 只改变本机 DB 的持久化形态，不改变 Cloud Backup / Prime Trans
 1. unwrap local secret envelope 得到 inner credential。
 2. old passcode 解密得到 secret plaintext。
 3. new passcode 重新生成 inner credential。
-4. 重新生成 local secret envelope 后写回 DB。
+4. 已 wrapped 的记录复用原 LSE layer keyRef，刷新每层 AES-GCM IV，重新加密 inner credential 后写回 DB。
 5. `verifyString` 同步执行同样流程。
 
 ### Lazy migration
@@ -641,8 +644,8 @@ LSE 引入后必须明确区分三种数据形态：
 改动范围：
 
 - 新增 `SecureStorageLocalSecretLayer`，底层只复用现有统一 `secureStorage` facade。
-- 在 keychain / secureStorage 中保存高熵 AES wrapping key 或使用现有模块可提供的等价加解密能力。
-- LocalSecretEnvelope 专用 key id 使用稳定命名，例如 `onekey.local-secret-envelope.v1`。
+- 在 keychain / secureStorage 中保存单个 LSE 专用全局高熵 AES wrapping key，或使用现有模块可提供的等价加解密能力。
+- LocalSecretEnvelope 专用 key id 使用稳定命名，例如 `onekey:lse:secure-storage:v1`。
 - 如果现有 facade 不能表达 sync / require-auth / key-access capability，本阶段保守记录 `unknown`；后续需要精确表达时，应扩展现有 facade 参数并向现有 native / desktop 实现透传，不新增另一套 OS bridge。
 
 依赖：
@@ -652,8 +655,9 @@ LSE 引入后必须明确区分三种数据形态：
 
 单步验证：
 
-- mock secureStorage 可验证 set / get / remove key 的行为。
-- 删除 keychain / secureStorage item 后，已有 envelope 无法 unwrap。
+- mock secureStorage 可验证多条 envelope 复用同一个稳定 keyRef，keychain / secureStorage 条目不会按 credential 数量增长。
+- per-record cleanup 不会删除或尝试删除全局 secureStorage key。
+- 使用隔离 test keyRef 删除 keychain / secureStorage item 后，已有 envelope 无法 unwrap；Dev Settings 非破坏性自测不得删除真实全局 LSE key。
 - 如果统一 `secureStorage` facade 能提供 sync capability，macOS desktop 路径必须记录真实 keychain sync 状态；当前 facade 不能区分时，envelope layer 必须保守标记 `sync: 'unknown'`。
 - native 路径必须使用已有 secureStorage facade；代码中不得新增独立 Swift / Objective-C / Java / Kotlin keychain bridge。
 
@@ -752,8 +756,8 @@ LSE 引入后必须明确区分三种数据形态：
 改动范围：
 
 - `buildCredentialPasswordUpdate()` 先 unwrap raw credential 得到 inner credential，再用 old passcode 解出 secret plaintext。
-- 使用 new passcode 生成新的 KDF v2 inner credential 后重新 wrap。
-- `verifyString` 同步执行 unwrap -> old passcode decrypt -> new passcode encrypt -> wrap。
+- 使用 new passcode 生成新的 KDF v2 inner credential 后，复用原 LSE layer keyRef、刷新 IV 重新 wrap。
+- `verifyString` 同步执行 unwrap -> old passcode decrypt -> new passcode encrypt -> 复用 keyRef 并 rewrap。
 - password update 的 CAS 比较必须比较 raw original envelope，而不是 unwrap 后的 inner credential。
 - `verifyString` 也必须保存 `originalVerifyStringRaw`，事务内 compare-and-swap；如果 raw 值已变化则 abort。
 - password change candidate 必须复用统一 `classifyLocalPasswordCredential(raw)`，不能只按 id 前缀判断。
@@ -841,7 +845,7 @@ LSE 引入后必须明确区分三种数据形态：
 - 非 local password credential，例如不属于 `hd*` / `imported*` 的记录，不被误迁移。
 - 中断后再次执行 migration 只处理剩余 legacy records。
 - 单条 wrap 失败后仍可通过 legacy inner credential 签名 / 导出；重启后必须在用户成功解锁且 preflight 通过后才重试。
-- 删除 keychain key 或 IndexedDB CryptoKey 后，已迁移 records 无法 unwrap。
+- 删除 IndexedDB CryptoKey 后，对应已迁移 records 无法 unwrap；使用隔离 test keyRef 删除 keychain / secureStorage key 后，对应 test envelope 无法 unwrap。真实 LSE 全局 keychain key 不参与 per-record 删除测试。
 
 ### 13. 平台与恢复验证
 
@@ -859,7 +863,7 @@ LSE 引入后必须明确区分三种数据形态：
 单步验证：
 
 - Desktop dev E2E 提供 `yarn test:e2e:desktop:lse`：启动 Electron 后调用 dev-only self-test，验证 `Context.verifyString` 和测试 HD credential 都写成 `|LSE1|`，且 wrapping layers 同时包含 `indexeddb-cryptokey` 与 `secure-storage`。
-- `yarn test:e2e:desktop:lse` 会分别删除测试 credential 的 IndexedDB CryptoKey 和 secureStorage key，并确认同一 DB record 无法 unwrap；自检结束后必须清理测试 DB records 和本机 layer keys。
+- `yarn test:e2e:desktop:lse` 会删除测试 credential 的 IndexedDB CryptoKey，并使用隔离 test keyRef 验证 secureStorage key 删除会阻断 unwrap；自检结束后必须清理测试 DB records 和 per-credential IndexedDB CryptoKey，不得删除真实 LSE 全局 secureStorage key。
 - Web dev E2E 提供 `yarn test:e2e:web:lse`：启动 web dev server 后调用同一 dev-only self-test，验证 web 平台只写入 `indexeddb-cryptokey` 单层 `|LSE1|`，`strength` 为 `profile-bound`。
 - `yarn test:e2e:web:lse` 会删除测试 credential 的 IndexedDB CryptoKey，并确认 DB record 无法 unwrap；web 路径不得出现 `secure-storage` / keychain layer。
 - Extension dev E2E 提供 `yarn test:e2e:ext:lse`：构建并加载 MV3 unpacked extension，在 extension background service worker 调用同一 dev-only self-test，验证 extension 平台只写入 `indexeddb-cryptokey` 单层 `|LSE1|`，`strength` 为 `profile-bound`。
@@ -869,8 +873,8 @@ LSE 引入后必须明确区分三种数据形态：
 - Dev Settings 面板提供 `Run Local Secret Envelope Self-Test` 调试按钮，调用非破坏性的 `runLocalSecretEnvelopeDebugSelfTest()`。该入口只创建临时 LSE records / keys，验证完成后清理临时数据，不得复用会清空 wallets/accounts/password 的隔离 E2E self-test。
 - Dev Settings 面板提供 `Run LSE Restore Self-Test` 调试按钮，调用非破坏性的 `runLocalSecretEnvelopeRestoreSelfTest()`。该入口创建一条临时 imported `|PK|` credential，写成本机 `|LSE1|` 后验证 `localDb.getCredentialInner()` 能读回 portable inner credential，并验证 Cloud Backup / Prime Transfer 导出 guard 接受 inner `|PK|`、拒绝 raw `|LSE1|`。
 - `Run LSE Restore Self-Test` 只覆盖服务层恢复落库和 portable export 边界，不覆盖 Cloud Backup 文件选择、网络 / Google Drive、Prime Transfer socket / 房间配对、恢复 UI 确认页等完整产品流程。
-- Electron 删除或缺失 keychain / secureStorage key 后，DB 中 envelope 无法 unwrap，错误提示指向本机安全密钥缺失。
-- Native 删除 secureStorage key 后，DB 中 envelope 无法 unwrap。
+- Electron 缺失 keychain / secureStorage 全局 key 后，DB 中 envelope 无法 unwrap，错误提示指向本机安全密钥缺失；删除该全局 key 只允许出现在明确 reset / destroy 或隔离 test keyRef 场景。
+- Native 缺失 secureStorage key 后，DB 中 envelope 无法 unwrap；删除真实全局 key 只允许出现在明确 reset / destroy 场景。
 - Extension 删除 IndexedDB CryptoKey 后，credential records 无法 unwrap。
 - Web / extension 的 `strength` 不会显示为 `device-bound`。
 - 单元测试覆盖 Cloud Backup 导出保护：raw `|LSE1|` 会被拒绝，portable `|RP|` / `|PK|` 会重新编码成旧版备份格式并保持可解。

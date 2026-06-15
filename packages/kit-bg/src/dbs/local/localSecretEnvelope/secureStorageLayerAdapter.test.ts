@@ -1,6 +1,15 @@
+import {
+  parseLocalSecretEnvelopeV1,
+  unwrapLocalSecretEnvelopeV1,
+  wrapLocalSecretEnvelopeV1,
+} from '.';
+
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
-import { isSecureStorageLocalSecretEnvelopeLayerAvailable } from './secureStorageLayerAdapter';
+import {
+  buildSecureStorageLocalSecretEnvelopeLayerAdapter,
+  isSecureStorageLocalSecretEnvelopeLayerAvailable,
+} from './secureStorageLayerAdapter';
 
 type ISecureStorageForTest = Pick<
   ISecureStorage,
@@ -98,20 +107,86 @@ function buildMemorySecureStorage({
   };
 }
 
+describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
+  it('uses one stable secureStorage key for multiple envelopes', async () => {
+    const { records, secureStorage } = buildMemorySecureStorage();
+    const keyRef = 'test:lse:secure-storage:global-key';
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      keyRef,
+      randomBytes: buildDeterministicRandomBytes(),
+      secureStorage,
+    });
+
+    const firstEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|RP|current-kdf-payload-1',
+      recordId: 'hd-1',
+      strength: 'secure-storage-bound',
+    });
+    const secondEnvelope = await wrapLocalSecretEnvelopeV1({
+      dataType: 'credential',
+      layerAdapters: [adapter],
+      plaintext: '|PK|current-kdf-payload-2',
+      recordId: 'imported--evm--address',
+      strength: 'secure-storage-bound',
+    });
+
+    const firstParsed = parseLocalSecretEnvelopeV1(firstEnvelope);
+    const secondParsed = parseLocalSecretEnvelopeV1(secondEnvelope);
+
+    expect(firstParsed.wrappingLayers[0].keyRef).toBe(keyRef);
+    expect(secondParsed.wrappingLayers[0].keyRef).toBe(keyRef);
+    expect(records.size).toBe(1);
+    expect(records.get(keyRef)?.length).toBe(64);
+
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: firstEnvelope,
+        expectedDataType: 'credential',
+        expectedRecordId: 'hd-1',
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).resolves.toBe('|RP|current-kdf-payload-1');
+    await expect(
+      unwrapLocalSecretEnvelopeV1({
+        envelope: secondEnvelope,
+        expectedDataType: 'credential',
+        expectedRecordId: 'imported--evm--address',
+        resolveLayerAdapter: () => adapter,
+      }),
+    ).resolves.toBe('|PK|current-kdf-payload-2');
+  });
+
+  it('does not expose per-record key cleanup for the stable global key', async () => {
+    const { records, secureStorage } = buildMemorySecureStorage();
+    const keyRef = 'test:lse:secure-storage:global-cleanup';
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      keyRef,
+      secureStorage,
+    });
+
+    records.set(keyRef, '11'.repeat(32));
+
+    expect(adapter.deleteLayerKey).toBeUndefined();
+    expect(records.has(keyRef)).toBe(true);
+  });
+});
+
 describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
   it('returns available only after a real secureStorage layer round trip', async () => {
     const { calls, records, secureStorage } = buildMemorySecureStorage();
 
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
-        keyRefPrefix: 'test:lse:secure-storage:probe',
+        keyRef: 'test:lse:secure-storage:probe',
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
     ).resolves.toBe(true);
 
     expect(calls.set).toBe(1);
-    expect(calls.get).toBe(2);
+    expect(calls.get).toBe(4);
     expect(calls.remove).toBe(1);
     expect(records.size).toBe(0);
   });
@@ -119,7 +194,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
   it('caches a successful probe for the current session', async () => {
     const { calls, secureStorage } = buildMemorySecureStorage();
     const params = {
-      keyRefPrefix: 'test:lse:secure-storage:probe:success-cache',
+      keyRef: 'test:lse:secure-storage:probe:success-cache',
       randomBytes: buildDeterministicRandomBytes(),
       secureStorage,
     };
@@ -132,7 +207,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     ).resolves.toBe(true);
 
     expect(calls.set).toBe(1);
-    expect(calls.get).toBe(2);
+    expect(calls.get).toBe(4);
     expect(calls.remove).toBe(1);
   });
 
@@ -142,7 +217,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
       setDelay: setGate.promise,
     });
     const params = {
-      keyRefPrefix: 'test:lse:secure-storage:probe:in-flight',
+      keyRef: 'test:lse:secure-storage:probe:in-flight',
       probeTimeoutMs: 1000,
       randomBytes: buildDeterministicRandomBytes(),
       secureStorage,
@@ -153,7 +228,6 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
       isSecureStorageLocalSecretEnvelopeLayerAvailable(params);
 
     await flushPromises();
-    expect(calls.set).toBe(1);
 
     setGate.resolve(undefined);
 
@@ -162,7 +236,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
       true,
     ]);
     expect(calls.set).toBe(1);
-    expect(calls.get).toBe(2);
+    expect(calls.get).toBe(4);
     expect(calls.remove).toBe(1);
   });
 
@@ -174,7 +248,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
     });
     const params = {
       failureCacheTtlMs: 1000,
-      keyRefPrefix: 'test:lse:secure-storage:probe:timeout',
+      keyRef: 'test:lse:secure-storage:probe:timeout',
       now: () => nowState.value,
       probeTimeoutMs: 1,
       randomBytes: buildDeterministicRandomBytes(),
@@ -200,7 +274,7 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
 
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
-        keyRefPrefix: 'test:lse:secure-storage:probe',
+        keyRef: 'test:lse:secure-storage:probe',
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
@@ -219,14 +293,14 @@ describe('isSecureStorageLocalSecretEnvelopeLayerAvailable', () => {
 
     await expect(
       isSecureStorageLocalSecretEnvelopeLayerAvailable({
-        keyRefPrefix: 'test:lse:secure-storage:probe',
+        keyRef: 'test:lse:secure-storage:probe',
         randomBytes: buildDeterministicRandomBytes(),
         secureStorage,
       }),
     ).resolves.toBe(false);
 
     expect(calls.set).toBe(1);
-    expect(calls.get).toBe(2);
+    expect(calls.get).toBe(3);
     expect(calls.remove).toBe(1);
     expect(records.size).toBe(0);
   });
