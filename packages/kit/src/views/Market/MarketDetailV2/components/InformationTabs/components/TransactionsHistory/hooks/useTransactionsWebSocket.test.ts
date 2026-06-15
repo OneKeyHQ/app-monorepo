@@ -201,6 +201,8 @@ describe('useTransactionsWebSocket', () => {
       expect(globalMockBag.__txWsSvc?.clearDataCount).toHaveBeenCalledWith({
         address: '0xabc',
         type: 'tokenTxs',
+        networkId: 'evm--1',
+        currency: 'usd',
       });
       expect(onNewTransaction).toHaveBeenCalledWith({
         pairAddress: 'pool-1',

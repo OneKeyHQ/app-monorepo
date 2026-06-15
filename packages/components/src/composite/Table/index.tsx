@@ -95,6 +95,13 @@ function TableRow<T>({
   const themeName = useThemeName();
   const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
+  const mergedRowProps = useMemo(
+    () => ({
+      ...rowProps,
+      ...onRowEvents?.rowProps,
+    }),
+    [onRowEvents?.rowProps, rowProps],
+  );
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
   const pressTimeRef = useRef(0);
@@ -187,7 +194,7 @@ function TableRow<T>({
         })}
       {...nativeScaleAnimationProps}
       {...(!useNativePressable ? (itemPressStyle as IXStackProps) : undefined)}
-      {...(rowProps as IXStackProps)}
+      {...(mergedRowProps as IXStackProps)}
       {...(nativePressed || (isDragging && isDarkMode)
         ? { bg: '$bgActive' }
         : undefined)}
