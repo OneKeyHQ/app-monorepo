@@ -10,6 +10,8 @@ export * from './types';
 export * from './projection';
 export * from './apply';
 export * from './buildFrames';
+export * from './homeProjection';
+export * from './seamGate';
 export * from './coldStart';
 export * from './useTokenFiat';
 export * from './useTokenListSlcProducer';

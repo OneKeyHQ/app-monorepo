@@ -61,6 +61,7 @@ import {
   useTokenListSlcColdStartHydrate,
   useTokenListSlcProducer,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
+import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -878,7 +879,29 @@ function TokenListBlock({
   // the SAME apply contract the producer uses; also schedules the one-time
   // version-flag purge of the OLD persisted cold-start key on HomePageReady.
   useTokenListSlcColdStartHydrate(slcOwnerKey, slcCurrencyId);
-  useTokenListSlcProducer(slcOwnerKey, slcCurrencyId);
+  // Resolve the parsed customTokens for the SLC producer's hideZero
+  // `nonZeroIds` authority (spec §8#2, PR-S Step 3). Mirrors the
+  // `useTokenManagement` call inside TokenListViewCmp (deferred on all-networks
+  // until the list state initializes) so the producer feeds the SAME custom
+  // tokens the in-view hideZero predicate uses.
+  const deferSlcTokenManagement = !!network?.isAllNetworks;
+  const { customTokens: slcCustomTokens } = useTokenManagement({
+    accountId: account?.id ?? '',
+    networkId: network?.id ?? '',
+    indexedAccountId: indexedAccount?.id,
+    enabled: !deferSlcTokenManagement || tokenListState.initialized,
+  });
+  const slcNonZeroInputs = useMemo(
+    () => ({
+      // Home keeps default zero-balance tokens (TokenListView defaults
+      // keepDefaultZeroBalanceTokens=true on the home path).
+      keepDefault: true,
+      homeDefaultTokenMap,
+      customTokens: slcCustomTokens,
+    }),
+    [homeDefaultTokenMap, slcCustomTokens],
+  );
+  useTokenListSlcProducer(slcOwnerKey, slcCurrencyId, slcNonZeroInputs);
 
   const updateAllNetworkData = useThrottledCallback(() => {
     refreshTokenList({

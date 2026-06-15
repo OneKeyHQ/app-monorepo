@@ -37,7 +37,12 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  ICustomTokenItem,
+  IHomeDefaultToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import {
   aggregateTokensMapAtom,
@@ -105,9 +110,23 @@ function readPrev(
  * Returns nothing — it wires the SLC apply path off the settled atoms and, on
  * each structural change, persists the slim cold-start bundle (spec §7 落盘).
  */
+/**
+ * hideZero "keep default zero-balance" inputs (spec §8#2, PR-S Step 3). The
+ * home producer threads these so the structure frame's `nonZeroIds` is the
+ * AUTHORITATIVE hideZero membership (full 3-branch computeNonZeroIds), not
+ * balance-only. They are read inside the throttled flush via refs so a change
+ * to them does not rebuild the throttled callback.
+ */
+export interface ITokenListSlcProducerNonZeroInputs {
+  keepDefault?: boolean;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  customTokens?: ICustomTokenItem[];
+}
+
 export function useTokenListSlcProducer(
   ownerKey: string,
   currencyId: string,
+  nonZeroInputs?: ITokenListSlcProducerNonZeroInputs,
 ): void {
   const { store } = useTokenListContextData();
 
@@ -142,6 +161,13 @@ export function useTokenListSlcProducer(
   // cold-start bundle stores this currency for the T0 gate (spec §7, §3#3).
   const currencyIdRef = useRef<string>(currencyId);
   currencyIdRef.current = currencyId;
+
+  // hideZero default-keep inputs, read inside the throttled flush via a ref so
+  // they don't rebuild the throttled callback (spec §8#2, PR-S Step 3).
+  const nonZeroInputsRef = useRef<ITokenListSlcProducerNonZeroInputs>(
+    nonZeroInputs ?? {},
+  );
+  nonZeroInputsRef.current = nonZeroInputs ?? {};
 
   // The actual derive+apply, run on the trailing edge of the throttle window so
   // a price-tick storm coalesces into one structure derivation per ~500ms while
@@ -186,6 +212,9 @@ export function useTokenListSlcProducer(
           smallBalanceFiatValue,
           ownerKey,
           storeData,
+          keepDefault: nonZeroInputsRef.current.keepDefault,
+          homeDefaultTokenMap: nonZeroInputsRef.current.homeDefaultTokenMap,
+          customTokens: nonZeroInputsRef.current.customTokens,
         },
         prev,
       );

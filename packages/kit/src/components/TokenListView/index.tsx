@@ -56,10 +56,20 @@ import {
   useSearchTokenStateAtom,
   useSmallBalanceTokenListAtom,
   useTokenListAtom,
+  useTokenListContextData,
   useTokenListMapAtom,
   useTokenListSortAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
+import {
+  aggCell,
+  cell,
+  hasActiveScopedOverride,
+  isAgg,
+  meta as metaCell,
+  projectHomeDisplayIds,
+  resolveUseCellSeam,
+} from '../../states/jotai/contexts/tokenList/slc';
 import { useTokenManagement } from '../../views/AssetList/hooks/useTokenManagement';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
@@ -205,6 +215,7 @@ function TokenListViewCmp(props: IProps) {
     exchangeFilter,
     testID,
     tokenItemTestIDPrefix,
+    scopedActiveAccountTokenListMap,
   } = props;
 
   const intl = useIntl();
@@ -241,8 +252,14 @@ function TokenListViewCmp(props: IProps) {
   const activeAccountTokenListState =
     props.scopedActiveAccountTokenListState ??
     activeAccountTokenListStateAtomValue;
-  const activeAccountTokenListMap =
-    props.scopedActiveAccountTokenListMap ?? tokenListMap;
+  // An empty scoped map (`{}`, the default home state) is NOT an override —
+  // fall back to the whole `tokenListMap` so the legacy / scoped path reads
+  // real fiat. Only a POPULATED scoped LP map overrides (LP-dapp mode).
+  const activeAccountTokenListMap = hasActiveScopedOverride(
+    scopedActiveAccountTokenListMap,
+  )
+    ? (scopedActiveAccountTokenListMap ?? tokenListMap)
+    : tokenListMap;
   const visibleTokenListMap = showActiveAccountTokenList
     ? activeAccountTokenListMap
     : tokenListMap;
@@ -530,8 +547,20 @@ function TokenListViewCmp(props: IProps) {
 
   const [{ sortType, sortDirection }] = useTokenListSortAtom();
 
-  const { networksMap } = useTokenListViewContext();
+  const { networksMap, useCellSeam } = useTokenListViewContext();
   const [localAggregateTokensListMap] = useAggregateTokensListMapAtom();
+  // HOME projection path marker — read the SAME context flag the leaves read so
+  // home/leaf agree (spec §5, PR-S). The wrapper computes
+  // `useCellSeam = enableCellSeam && !isTokenSelector &&
+  // !showActiveAccountTokenList && !scopedActiveAccountTokenListMap`; the inner
+  // cmp reads it here rather than recomputing divergently.
+  const isHomeProjectionPath = !!useCellSeam;
+  // The per-store cell registry handle — used for NON-REACTIVE per-id cell/meta
+  // reads inside the displayIds projection (store.get, NOT useAtomValue) so a
+  // price tick that only writes a cell does not re-run the projection memo
+  // (spec §11.4 risk #9). `store` is always defined when a list store is
+  // mounted (home always has one).
+  const { store: tokenListStore } = useTokenListContextData();
 
   const filteredTokens = useMemo(() => {
     const useNetworkSearch = !!isTokenSelector && !!searchAll;
@@ -609,22 +638,101 @@ function TokenListViewCmp(props: IProps) {
     return filteredTokens;
   }, [filteredTokens, overFlowState.isOverflow, overFlowState.isSliced, limit]);
 
-  // SLC render binding (spec §5, item 2): the container subscribes to
-  // `listStructureAtom` and derives `displayIds`. Phase-1 KEEPS the existing
-  // `filteredTokens` sort/filter over the whole map (do NOT delete it — that is
-  // Phase-2, spec §1/§6#4/§8#5); `displayIds` is therefore the current filtered
-  // order `.map($key)`. The `listStructureAtom` subscription stands up the seam
-  // (structural changes flow through it for Phase-2's `project(orderedIds,...)`)
-  // without yet driving ordering — Phase-1 ordering still comes from
-  // `limitedTokens`. Rows still receive the full `token` object so
-  // `TokenListItem` reads its static meta fields directly (Phase-1).
+  // SLC render binding (spec §5, §11.3, PR-S): the container subscribes to
+  // `listStructureAtom`. On the HOME path it derives the displayed order from a
+  // PURE projection over `orderedIds ∪ smallBalanceIds` reading per-id cell/meta
+  // values (NOT the whole map), keyed on `listStructure.generation` + sort /
+  // search / hideZero. Because `generation` bumps ONLY on a structure frame, a
+  // pure price tick does not recompute this memo and the container does not
+  // re-render the list — only the changed leaf cell re-renders (spec §11.3).
+  //
+  // The per-id reads are NON-REACTIVE `store.get(...)` snapshots (NOT
+  // `useAtomValue`) so a cell write alone never re-runs the projection (risk
+  // #9). Non-home paths (TokenSelector / scoped / active-account) keep the
+  // legacy `limitedTokens` → `tokenByKey` path, completely unchanged.
   const [listStructure] = useListStructureAtom();
+
+  // HOME pure projection over the structure ids. The cell/meta reads are
+  // captured at structure-frame time via `store.get`, so the deps are the
+  // structure generation + sort/search/hideZero only — NOT the live fiat map.
+  const homeProjectedIds = useMemo(() => {
+    if (!isHomeProjectionPath || !tokenListStore) {
+      return undefined;
+    }
+    // Cold-start / owner-switch guard (risk #10): if no structure frame has
+    // landed for the current owner yet (generation < 0) or the producer has
+    // not emitted any ids, fall back to the legacy path so cached tokens still
+    // render instead of an empty flash.
+    if (
+      listStructure.generation < 0 ||
+      (listStructure.orderedIds.length === 0 &&
+        listStructure.smallBalanceIds.length === 0)
+    ) {
+      return undefined;
+    }
+    const s = tokenListStore;
+    const getMeta = (key: string) => s.get(metaCell(s, key));
+    const getFiat = (key: string) => {
+      const metaValue = s.get(metaCell(s, key));
+      return isAgg(key, metaValue)
+        ? s.get(aggCell(s, key))
+        : s.get(cell(s, key));
+    };
+    return projectHomeDisplayIds({
+      orderedIds: listStructure.orderedIds,
+      smallBalanceIds: listStructure.smallBalanceIds,
+      nonZeroIds: listStructure.nonZeroIds,
+      searchKey,
+      searchKeyLengthThreshold,
+      sortType,
+      sortDirection,
+      hideZero: !!hideZeroBalanceTokens,
+      hideDeFiMarked: !!hideDeFiMarkedTokens,
+      getFiat,
+      getMeta,
+      aggregateTokenListMap: allAggregateTokenMap,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isHomeProjectionPath,
+    tokenListStore,
+    listStructure.generation,
+    searchKey,
+    searchKeyLengthThreshold,
+    sortType,
+    sortDirection,
+    hideZeroBalanceTokens,
+    hideDeFiMarkedTokens,
+    allAggregateTokenMap,
+  ]);
+
+  // The home projection drives the order; apply the same overflow slice the
+  // legacy path applies (risk #7: slice the projected ids, not filteredTokens).
+  const homeDisplayIdsLimited = useMemo(() => {
+    if (!homeProjectedIds) {
+      return undefined;
+    }
+    if (overFlowState.isOverflow && overFlowState.isSliced && limit) {
+      return homeProjectedIds.slice(0, limit);
+    }
+    return homeProjectedIds;
+  }, [
+    homeProjectedIds,
+    overFlowState.isOverflow,
+    overFlowState.isSliced,
+    limit,
+  ]);
+
+  // `displayIds`: home → projected (sliced) ids; non-home → legacy filtered
+  // order `.map($key)`.
   const displayIds = useMemo(
-    () => limitedTokens.map((item) => item.$key),
-    [limitedTokens],
+    () => homeDisplayIdsLimited ?? limitedTokens.map((item) => item.$key),
+    [homeDisplayIdsLimited, limitedTokens],
   );
+
   // Lookup so the list can render from `displayIds` while the row still gets the
   // full token object for its static meta. `$key` is the canonical unique id.
+  // Non-home path: built from `limitedTokens`.
   const tokenByKey = useMemo(() => {
     const map = new Map<string, IAccountToken>();
     for (const item of limitedTokens) {
@@ -632,21 +740,59 @@ function TokenListViewCmp(props: IProps) {
     }
     return map;
   }, [limitedTokens]);
-  // The list data is the structure-driven id projection. In Phase-1 it equals
-  // `limitedTokens` order; the `listStructure.generation` read keeps the
-  // container subscribed to structural changes for Phase-2.
+
+  // HOME row reconstruction (risk #8): rebuild the row object from the meta
+  // cell + `$key` so rows are STABLE across price ticks (the meta cell carries
+  // every static field TokenListItem reads + accountId/order for onPressToken,
+  // since the producer stores the full IToken sans `$key`). Recomputed only
+  // when the projected ids or the structure generation change.
   const listData = useMemo(() => {
-    void listStructure.generation;
+    if (homeDisplayIdsLimited && tokenListStore) {
+      void listStructure.generation;
+      const s = tokenListStore;
+      return homeDisplayIdsLimited
+        .map((key) => {
+          const m = s.get(metaCell(s, key));
+          if (!m) {
+            // Fall back to the legacy token object if the meta cell is not yet
+            // populated for this id (defensive; should not happen post-frame).
+            return tokenByKey.get(key);
+          }
+          return { $key: key, ...m } as IAccountToken;
+        })
+        .filter((t): t is IAccountToken => !!t);
+    }
     return displayIds
       .map((key) => tokenByKey.get(key))
       .filter((t): t is IAccountToken => !!t);
-  }, [displayIds, tokenByKey, listStructure.generation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    homeDisplayIdsLimited,
+    tokenListStore,
+    displayIds,
+    tokenByKey,
+    listStructure.generation,
+  ]);
 
   const { result: extensionActiveTabDAppInfo } = useActiveTabDAppInfo();
   const addPaddingOnListFooter = useMemo(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
+
+  // `.length` consumers branch (spec PR-S Step 4). A single derived count for
+  // the post-filter "has tokens / footer" checks, and a PRE-slice count for the
+  // overflow effect (risk #7). On home both come from the projection; non-home
+  // keeps `filteredTokens.length`. The `filteredTokens.length===0` skeleton
+  // guard is intentionally left on `filteredTokens` because it lives inside an
+  // `isTokenSelector && searchAll` block that the home path never enters.
+  const displayCount = isHomeProjectionPath
+    ? displayIds.length
+    : filteredTokens.length;
+  const displayCountForOverflow =
+    isHomeProjectionPath && homeProjectedIds
+      ? homeProjectedIds.length
+      : filteredTokens.length;
 
   const [, setIsInRequest] = useState(false);
   useEffect(() => {
@@ -824,10 +970,10 @@ function TokenListViewCmp(props: IProps) {
     if (limit) {
       setOverFlowState((prev) => ({
         ...prev,
-        isOverflow: filteredTokens.length > limit,
+        isOverflow: displayCountForOverflow > limit,
       }));
     }
-  }, [filteredTokens.length, limit]);
+  }, [displayCountForOverflow, limit]);
 
   const renderPlainModeFooter = useCallback(() => {
     if (overFlowState.isOverflow && overFlowState.isSliced) {
@@ -854,7 +1000,7 @@ function TokenListViewCmp(props: IProps) {
             tableLayout={tableLayout}
             hideZeroBalanceTokens={hideZeroBalanceTokens}
             hideDeFiMarkedTokens={hideDeFiMarkedTokens}
-            hasTokens={filteredTokens.length > 0}
+            hasTokens={displayCount > 0}
             manageTokenEnabled={manageTokenEnabled}
             plainMode={plainMode}
           />
@@ -889,7 +1035,7 @@ function TokenListViewCmp(props: IProps) {
     withFooter,
     tableLayout,
     hideZeroBalanceTokens,
-    filteredTokens.length,
+    displayCount,
     manageTokenEnabled,
     plainMode,
     tokenSelectorSearchKey,
@@ -1015,7 +1161,7 @@ function TokenListViewCmp(props: IProps) {
             <TokenListFooter
               tableLayout={tableLayout}
               hideZeroBalanceTokens={hideZeroBalanceTokens}
-              hasTokens={filteredTokens.length > 0}
+              hasTokens={displayCount > 0}
               manageTokenEnabled={manageTokenEnabled}
               plainMode={plainMode}
             />
@@ -1036,8 +1182,13 @@ function TokenListViewCmp(props: IProps) {
 
 const TokenListView = memo((props: IProps) => {
   const [tokenListMap] = useTokenListMapAtom();
-  const activeAccountTokenListMap =
-    props.scopedActiveAccountTokenListMap ?? tokenListMap;
+  // An empty scoped map (`{}`, the default home state) is NOT an override; only
+  // a POPULATED scoped LP map (LP-dapp mode) overrides the whole `tokenListMap`.
+  const activeAccountTokenListMap = hasActiveScopedOverride(
+    props.scopedActiveAccountTokenListMap,
+  )
+    ? (props.scopedActiveAccountTokenListMap ?? tokenListMap)
+    : tokenListMap;
   const visibleTokenListMap = props.showActiveAccountTokenList
     ? activeAccountTokenListMap
     : tokenListMap;
@@ -1072,13 +1223,16 @@ const TokenListView = memo((props: IProps) => {
   // SLC cell seam (spec §5): only the home path may bind leaves to per-key
   // cells. Requires the producer (gated by `enableCellSeam`, set by
   // TokenListBlock) AND that this list renders the global map — not the
-  // TokenSelector path and not a scoped/active-account override map (those have
-  // no producer feeding their cells).
-  const useCellSeam =
-    !!props.enableCellSeam &&
-    !props.isTokenSelector &&
-    !props.showActiveAccountTokenList &&
-    !props.scopedActiveAccountTokenListMap;
+  // TokenSelector path and not an ACTIVE scoped/active-account override map
+  // (those have no producer feeding their cells). The scoped LP map is held in
+  // `useState({})`, so it is `{}` (NOT undefined) on the normal home mount — an
+  // empty scoped map MUST count as "no override" or the seam is dead on home.
+  const useCellSeam = resolveUseCellSeam({
+    enableCellSeam: props.enableCellSeam,
+    isTokenSelector: props.isTokenSelector,
+    showActiveAccountTokenList: props.showActiveAccountTokenList,
+    scopedActiveAccountTokenListMap: props.scopedActiveAccountTokenListMap,
+  });
 
   const contextValue = useMemo(() => {
     return {

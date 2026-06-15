@@ -21,14 +21,23 @@
  *     `listStructureAtom` low-frequency, the premise of "only the changed leaf
  *     re-renders" (spec §4.1, §5).
  */
+import BigNumber from 'bignumber.js';
+
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountToken,
+  ICustomTokenItem,
+  IHomeDefaultToken,
   IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { isAgg, metaEqual, shallowEqualArrayOf } from './pure';
+import {
+  computeNonZeroIds,
+  isAgg,
+  metaEqual,
+  shallowEqualArrayOf,
+} from './pure';
 
 import type {
   IAggKey,
@@ -61,6 +70,16 @@ export interface IBuildFramesInput {
   ownerKey: string;
   /** identity check payload (NOT a string id) — see resolveCurrentStore. */
   storeData: IJotaiContextStoreData;
+  /**
+   * hideZero "keep default zero-balance" inputs (spec §8#2, PR-S Step 3).
+   * Threaded from the home producer so `nonZeroIds` is AUTHORITATIVE for the
+   * HOME hideZero render path — not balance-only. When omitted (older callers /
+   * tests), `computeNonZeroIds` falls back to the balance>0 branch only, which
+   * matches the prior balance-only nonZeroIds behavior.
+   */
+  keepDefault?: boolean;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  customTokens?: ICustomTokenItem[];
 }
 
 /**
@@ -144,6 +163,9 @@ export function buildFrames(
     smallBalanceFiatValue,
     ownerKey,
     storeData,
+    keepDefault = false,
+    homeDefaultTokenMap,
+    customTokens,
   } = input;
 
   // --- ids -----------------------------------------------------------------
@@ -175,17 +197,40 @@ export function buildFrames(
     changedAggFiat[aggKey] = { ...byNet };
   }
 
-  // --- nonZeroIds (Phase-1 dead-weight, see spec §8#2) ---------------------
-  // Computed off balance only here; the keepDefault/custom branches are the
-  // view's responsibility in Phase-1 and the result has no consumer yet. We
-  // still emit it so the structure atom carries it for Phase-2 wiring.
-  const nonZeroIds: ITokenKey[] = [...orderedIds, ...smallBalanceIds].filter(
-    (key) => {
-      const fiat = isAgg(key, metaPatch[key]) ? undefined : tokenListMap[key];
-      const bal = Number(fiat?.balance ?? 0);
-      return Number.isFinite(bal) && bal > 0;
+  // --- nonZeroIds (HOME hideZero authority, spec §8#2, PR-S Step 3) --------
+  // Computed via the shared pure `computeNonZeroIds` so the structure atom's
+  // `nonZeroIds` mirrors the full 3-branch in-view hideZero predicate:
+  //   1. balance > 0, OR
+  //   2. keepDefault AND homeDefaultTokenMap hit AND (isNative || isAggregate),
+  //      OR
+  //   3. keepDefault AND customTokens hit ($key OR address+networkId).
+  // Aggregate ids resolve their balance from the per-network fiat sum (via the
+  // nested aggregateTokensMap) since they don't live in `tokenListMap`. This
+  // makes `nonZeroChanged` a CORRECT structure-frame trigger for the HOME
+  // hideZero list (a balance crossing 0 flips membership -> structure frame).
+  const nonZeroIds: ITokenKey[] = computeNonZeroIds({
+    ids: [...orderedIds, ...smallBalanceIds],
+    getFiat: (key) => {
+      if (isAgg(key, metaPatch[key])) {
+        const byNet = aggregateTokensMap[key];
+        if (!byNet) {
+          return undefined;
+        }
+        // Sum the per-network balances so an aggregate token with any positive
+        // sub-balance counts as non-zero (mirrors the in-view aggregate read).
+        let bal = new BigNumber(0);
+        for (const f of Object.values(byNet)) {
+          bal = bal.plus(f?.balance ?? 0);
+        }
+        return { balance: bal.toFixed() } as ITokenFiat;
+      }
+      return tokenListMap[key];
     },
-  );
+    getMeta: (key) => metaPatch[key],
+    keepDefault,
+    homeDefaultTokenMap,
+    customTokens,
+  });
 
   // --- valuation: normal token fiat ---------------------------------------
   // Full current fiat for every NON-aggregate id; aggregate ids flow through
