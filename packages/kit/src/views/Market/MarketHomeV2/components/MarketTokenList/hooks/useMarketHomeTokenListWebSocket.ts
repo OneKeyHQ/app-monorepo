@@ -309,6 +309,7 @@ export function useMarketHomeTokenListWebSocket({
   >(new Map());
   const onSubscriptionCountChangeRef = useRef(onSubscriptionCountChange);
   onSubscriptionCountChangeRef.current = onSubscriptionCountChange;
+  const isMountedRef = useRef(true);
   const isSyncingSubscriptionsRef = useRef(false);
   const syncRequestIdRef = useRef(0);
 
@@ -321,7 +322,18 @@ export function useMarketHomeTokenListWebSocket({
   >({});
 
   const emitSubscriptionCountChange = useCallback(() => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     onSubscriptionCountChangeRef.current?.(ownedSubscriptionsRef.current.size);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      onSubscriptionCountChangeRef.current = undefined;
+    };
   }, []);
 
   useEffect(() => {
