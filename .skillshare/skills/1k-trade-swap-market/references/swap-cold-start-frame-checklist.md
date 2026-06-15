@@ -1,9 +1,9 @@
 # Swap Cold-Start Frame Checklist
 
-Use this checklist for Swap, Bridge, Limit, token selector, default-token,
-Wallet handoff, skeleton, blank-screen, or icon-flicker regressions. The goal is
-to validate visible first-frame behavior and state transitions, not only the
-final settled screen.
+Use this checklist for Swap, the merged `Swap & Bridge` entry, internal Bridge
+semantics, Limit, token selector, default-token, Wallet handoff, skeleton,
+blank-screen, or icon-flicker regressions. The goal is to validate visible
+first-frame behavior and state transitions, not only the final settled screen.
 
 ## Invocation Examples
 
@@ -49,7 +49,8 @@ Record both the first visible frame and the settled frame.
 
 Track these fields per frame:
 
-- active tab: Swap, Bridge, or Limit
+- visible tab: Swap & Bridge or Limit
+- internal/effective semantic type: Swap, Bridge, or Limit
 - From and To token symbols
 - From and To network labels and icons
 - Select Token count
@@ -66,23 +67,23 @@ was inspected.
 
 | ID | Path | Expected result |
 | --- | --- | --- |
-| SWAP-AN-001 | Cold start -> Home switch to All Networks -> enter Swap | First visible Swap frame initializes ordinary Swap ETH -> USDC; it must not first expose Select Token, Bridge, or a concrete-network stale pair. Network icon and token icon do not flicker. |
+| SWAP-AN-001 | Cold start -> Home switch to All Networks -> enter Swap | First visible Swap frame initializes ordinary Swap ETH -> USDC; it must not first expose Select Token, a stale Bridge semantic/default pair, or a concrete-network stale pair. Network icon and token icon do not flicker. |
 | SWAP-AN-PERSISTED-001 | Home is already on All Networks -> kill/restart app -> enter Swap | First visible Swap frame initializes ordinary Swap ETH -> USDC from the pre-read Home snapshot; it must not wait for a later account-sync pass or show Select Token first. |
 | SWAP-SINGLE-001 | Select ETH network -> first entry to Swap | Expected ETH pair is brought in, for example ETH -> USDC, and the first frames are stable. |
 | SWAP-BTC-ETH-001 | Cold start on BTC -> switch Home network to ETH -> first entry to Swap | ETH default token is brought in; the form does not stay at Select Token. |
 | SWAP-PRESERVE-001 | After ETH default pair is initialized -> switch Home to Solana or another network -> re-enter Swap | Existing Swap tokens are preserved; Home network sync does not clear them. |
 | SWAP-PRESERVE-BTC-001 | After Swap is initialized with a BTC-involved pair -> switch Home to ETH/Solana/another single network -> re-enter Swap | Existing Swap tokens are preserved even if the Home account derive type changes; Home network sync does not rewrite the pair. |
 | SWAP-PRESERVE-RACE-001 | Cold start -> enter Swap and see default tokens -> immediately return Home, switch networks, and re-enter Swap before another restart | Root/provider listeners must wait for latest Home storage before marking selected tokens initially synced, then preserve the initialized Swap pair after that first sync completes. |
-| BRIDGE-BTC-001 | Cold start on BTC -> enter Swap area | BTC entry lands in Bridge when the entry is bridge-only; it does not remain on ordinary Swap by accident. |
+| BRIDGE-BTC-001 | Cold start on BTC -> enter Swap area | BTC entry lands on the visible `Swap & Bridge` tab with internal/effective Bridge semantics and cross-chain defaults; it does not initialize an ordinary same-network Swap pair by accident. |
 | HOME-BTC-001 | Wallet Home under All Networks -> click the BTC row swap button | Stay on Swap tab, but From and To both display Select Token because BTC is unsupported for ordinary Swap. |
 | LIMIT-TRON-001 | Home select Tron -> Trade Limit -> choose a token from the Limit network selector | Stay on Limit tab; unsupported tokens show Select Token; no forced Swap tab and no infinite skeleton. |
 | LIMIT-STABLE-001 | Enter Limit on a supported network | Supported default tokens render normally, and later unrelated network switches do not clear initialized Limit state. |
 | SWAP-FAST-TAP-001 | Cold start -> immediately tap Trade/Swap | No long blank white screen; a meaningful cached UI or bounded skeleton is visible quickly. |
 | SWAP-PERPS-CACHE-001 | Cold start with both Perps and Swap cold-start snapshots present -> enter Perps first -> enter Swap | Perps settles to a usable trading view, then Swap opens to a meaningful cached/default UI without a white screen or duplicate root-provider crash. |
-| SWAP-IOS-KILL-BTC-001 | iOS cold start -> Home switch to Tron -> enter Swap and wait for Tron tokens -> Home switch to Bitcoin -> kill app without entering Swap -> cold start -> wait 5s -> enter Swap | Swap must discard the stale Tron selected-token cache and initialize the Bitcoin Bridge pair; the first visible Swap frame must not show the old Tron pair. |
-| SWAP-ALLNETWORK-BTC-BRIDGE-001 | Select BTC network -> enter Swap and initialize the BTC Bridge pair -> switch Home to All Networks -> cold start -> enter Swap | All Networks must discard the stale BTC Bridge selected-token cache and initialize the ordinary Swap ETH -> USDC pair; the first visible Swap frame must not stay on Bridge or BTC. |
+| SWAP-IOS-KILL-BTC-001 | iOS cold start -> Home switch to Tron -> enter Swap and wait for Tron tokens -> Home switch to Bitcoin -> kill app without entering Swap -> cold start -> wait 5s -> enter Swap | Swap must discard the stale Tron selected-token cache and initialize the Bitcoin Bridge pair under the visible `Swap & Bridge` tab; the first visible Swap frame must not show the old Tron pair. |
+| SWAP-ALLNETWORK-BTC-BRIDGE-001 | Select BTC network -> enter Swap and initialize the BTC Bridge pair -> switch Home to All Networks -> cold start -> enter Swap | All Networks must discard the stale BTC Bridge selected-token cache and initialize the ordinary Swap ETH -> USDC pair; the first visible Swap frame must not keep stale Bridge semantics/defaults or BTC token. |
 | TOKEN-SWITCH-001 | Switch From/To tokens repeatedly on single-network and All Networks contexts | Token and network icons do not flicker or fall back to Select Token during valid switches. |
-| TAB-STABILITY-001 | Move among Swap, Bridge, and Limit, then change Home network and return | Unsupported token handling never causes an unintended tab switch; initialized selections are not reset by unrelated sync. |
+| TAB-STABILITY-001 | Move between visible `Swap & Bridge` and Limit while switching ordinary same-network and cross-chain token pairs, then change Home network and return | Unsupported token handling never causes an unintended visible tab switch or semantic type drift; initialized selections are not reset by unrelated sync. |
 | RUNTIME-RELOAD-001 | Start desktop and iOS -> verify ports/targets -> trigger Reload -> verify targets and capture the first post-reload frame | Desktop and iOS are genuinely running from the current checkout; reload does not leave Metro/CDP disconnected, red screen, white screen, or a stale Select Token first frame. |
 
 ## Required Assertions
@@ -93,7 +94,8 @@ For every run, report:
 2. Runtime proof, such as active port, inspector target, simulator, or browser
    target.
 3. Case IDs covered.
-4. First-frame state and settled state for each case.
+4. First-frame visible tab, internal/effective semantic type, selected tokens,
+   and settled state for each case.
 5. Whether skeleton, blank screen, icon flicker, token clearing, or tab switching
    occurred.
 6. Any unsupported-token behavior and whether it showed Select Token without
@@ -105,10 +107,11 @@ For every run, report:
    appeared while moving Perps -> Swap.
 9. For `SWAP-IOS-KILL-BTC-001`, the pre-kill Swap pair, the Home network at
    kill time, the post-restart first-frame pair, and whether the stale
-   selected-token cache was cleared before Bitcoin Bridge defaults rendered.
+   selected-token cache was cleared before Bitcoin Bridge defaults rendered
+   under `Swap & Bridge`.
 10. For `SWAP-ALLNETWORK-BTC-BRIDGE-001`, the pre-restart BTC Bridge pair, the
    Home network at restart time, the first All Networks Swap pair, and whether
-   the stale Bridge tab or BTC token appeared.
+   stale Bridge semantics/defaults or BTC token appeared.
 11. For `RUNTIME-RELOAD-001`, the exact listener ports, Electron CDP target,
    Metro status, React Native inspector target, simulator name, and first
    post-reload screenshot result.
@@ -123,7 +126,8 @@ For every run, report:
 
 If a case fails, identify the state owner before changing code:
 
-- route params or entry source for tab selection
+- route params or entry source for visible tab selection vs internal semantic
+  type
 - Swap atoms for selected tokens and token loading
 - Home/account selector sync for account or network propagation
 - imported token payload for Wallet, Market, Earn, Buy, or token-list handoffs
