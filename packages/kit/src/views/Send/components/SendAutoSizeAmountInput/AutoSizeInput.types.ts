@@ -13,6 +13,7 @@ export type IAutoSizeInputProps = {
   maxFontSize: number;
   minFontSize: number;
   availableInlineWidth: number;
+  inlineTextAlignMode?: 'auto' | 'center';
   currencyLabel?: string;
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;

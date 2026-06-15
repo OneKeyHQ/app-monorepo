@@ -277,6 +277,7 @@ function PerpAccountPanel() {
                   actionType: 'deposit',
                 },
                 dialogInTab,
+                intl,
               )
             }
             alignItems="center"
@@ -305,6 +306,7 @@ function PerpAccountPanel() {
                   actionType: 'withdraw',
                 },
                 dialogInTab,
+                intl,
               )
             }
           />

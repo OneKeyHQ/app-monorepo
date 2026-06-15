@@ -6,10 +6,25 @@ export enum EModalPerpRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
   MobileSetTpsl = 'MobileSetTpsl',
   MobileDepositWithdrawModal = 'MobileDepositWithdrawModal',
+  MobileDepositSelectToken = 'MobileDepositSelectToken',
   PerpsInviteeRewardModal = 'PerpsInviteeRewardModal',
   MobilePortfolioPage = 'MobilePortfolioPage',
   PerpGuidePage = 'PerpGuidePage',
 }
+
+export type IPerpsDepositTokenRouteItem = {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+};
 
 export type IModalPerpParamList = {
   [EModalPerpRoutes.PerpTradersHistoryList]: undefined;
@@ -18,6 +33,10 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {
     actionType?: 'deposit' | 'withdraw';
+  };
+  [EModalPerpRoutes.MobileDepositSelectToken]: {
+    depositTokensWithPrice: IPerpsDepositTokenRouteItem[];
+    symbol: string;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]: undefined;
