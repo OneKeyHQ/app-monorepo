@@ -3,6 +3,11 @@ import BigNumber from 'bignumber.js';
 import appCrypto from '../appCrypto';
 
 import bufferUtils from './bufferUtils';
+import {
+  type IPortfolioTokenIconName,
+  normalizePortfolioTokenContractAddress,
+  resolvePortfolioTokenIconName,
+} from './portfolioTokenIcon';
 import { stableStringify } from './stringUtils';
 
 import type { ICurrencyItem } from '../../types/currency';
@@ -16,12 +21,14 @@ export type IPortfolioDisplayCurrency = {
 export type IPortfolioPayloadToken = {
   symbol: string;
   name: string;
-  icon: string;
+  contractAddress: string;
+  iconName: IPortfolioTokenIconName | null;
+  isAllNetworks: boolean;
+  isNative: boolean;
   balance: string;
   fiatValue: string | null;
   price: number | null;
   change24h: number | null;
-  aggregated: boolean;
   networkId: string;
 };
 
@@ -113,15 +120,6 @@ function convertPriceStrictToDisplayCurrency({
     : new BigNumber(converted.value).toNumber();
 }
 
-function getPortfolioIconKey(token: IAccountToken): string {
-  return (
-    token.coingeckoId ||
-    token.commonSymbol?.toLowerCase() ||
-    token.symbol?.toLowerCase() ||
-    'generic'
-  );
-}
-
 function getTokenFiat({
   aggregateTokenMap,
   token,
@@ -151,6 +149,17 @@ export function buildPortfolioPayload({
   let totalFiat = new BigNumber(0);
 
   const payloadTokens = topTokens.map((token) => {
+    const isAllNetworks = Boolean(token.isAggregateToken);
+    const isNative = isAllNetworks ? false : Boolean(token.isNative);
+    const networkId = isAllNetworks ? '' : (token.networkId ?? '');
+    const symbol = token.commonSymbol || token.symbol;
+    const contractAddress =
+      isAllNetworks || isNative
+        ? ''
+        : normalizePortfolioTokenContractAddress({
+            contractAddress: token.address ?? '',
+            networkId,
+          });
     const fiat = getTokenFiat({ aggregateTokenMap, token, tokenMap });
     const sourceCurrency = fiat?.currency;
     const convertedFiat = convertFiatStrictToDisplayCurrency({
@@ -168,20 +177,28 @@ export function buildPortfolioPayload({
     }
 
     return {
-      aggregated: Boolean(token.isAggregateToken),
       balance: fiat?.balanceParsed ?? '0',
       change24h: fiat?.price24h ?? null,
+      contractAddress,
       fiatValue,
-      icon: getPortfolioIconKey(token),
+      iconName: resolvePortfolioTokenIconName({
+        contractAddress,
+        isAllNetworks,
+        isNative,
+        networkId,
+        symbol,
+      }),
+      isAllNetworks,
+      isNative,
       name: token.name,
-      networkId: token.isAggregateToken ? '' : (token.networkId ?? ''),
+      networkId,
       price: convertPriceStrictToDisplayCurrency({
         currencyMap,
         sourceCurrency,
         targetCurrency: displayCurrency.id,
         value: fiat?.price,
       }),
-      symbol: token.commonSymbol || token.symbol,
+      symbol,
     };
   });
 

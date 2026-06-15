@@ -25,6 +25,23 @@ export type IPortfolioSyncArtifacts = {
   portfolioJsonText: string;
 };
 
+export const PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS = 20_000;
+
+export function getPortfolioSyncCooldownRemainingMs({
+  cooldownMs = PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
+  lastTransferAt,
+  now,
+}: {
+  cooldownMs?: number;
+  lastTransferAt?: number;
+  now: number;
+}): number {
+  if (!lastTransferAt) {
+    return 0;
+  }
+  return Math.max(lastTransferAt + cooldownMs - now, 0);
+}
+
 export function isPortfolioSyncDevEnabled({
   devSettings,
   runtimeDevEnabled,

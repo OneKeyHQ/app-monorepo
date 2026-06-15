@@ -8,7 +8,11 @@ import type {
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { buildPortfolioSyncArtifacts } from './servicePortfolioSyncUtils';
+import {
+  PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
+  buildPortfolioSyncArtifacts,
+  getPortfolioSyncCooldownRemainingMs,
+} from './servicePortfolioSyncUtils';
 
 const currencyMap: Record<string, ICurrencyItem> = {
   cny: {
@@ -51,6 +55,29 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
 }
 
 describe('servicePortfolioSyncUtils', () => {
+  test('calculates the 20s hardware transfer cooldown window', () => {
+    expect(
+      getPortfolioSyncCooldownRemainingMs({
+        lastTransferAt: undefined,
+        now: 1000,
+      }),
+    ).toBe(0);
+
+    expect(
+      getPortfolioSyncCooldownRemainingMs({
+        lastTransferAt: 1000,
+        now: 6000,
+      }),
+    ).toBe(PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS - 5000);
+
+    expect(
+      getPortfolioSyncCooldownRemainingMs({
+        lastTransferAt: 1000,
+        now: PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS + 1000,
+      }),
+    ).toBe(0);
+  });
+
   test('builds portfolio.json bytes and mock archive bytes from a settled token list', () => {
     const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
       {
@@ -90,7 +117,14 @@ describe('servicePortfolioSyncUtils', () => {
       account: { addressMasked: string; label: string };
       currency: string;
       totalFiat: string;
-      tokens: { fiatValue: string; icon: string; price: number }[];
+      tokens: {
+        contractAddress: string;
+        fiatValue: string;
+        iconName: string | null;
+        isAllNetworks: boolean;
+        isNative: boolean;
+        price: number;
+      }[];
     };
 
     expect(portfolio).toMatchObject({
@@ -102,12 +136,16 @@ describe('servicePortfolioSyncUtils', () => {
       totalFiat: '700',
       tokens: [
         {
+          contractAddress: '',
           fiatValue: '700',
-          icon: 'ethereum',
+          iconName: 'ETH',
+          isAllNetworks: false,
+          isNative: true,
           price: 700,
         },
       ],
     });
+    expect(portfolio.tokens[0]).not.toHaveProperty('icon');
     expect(artifacts.contentHash).toMatch(/^[\da-f]{64}$/);
     expect(artifacts.contentHash).not.toContain('cny');
 

@@ -79,18 +79,87 @@ describe('buildPortfolioPayload', () => {
       'HIGH',
     ]);
     expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '',
       fiatValue: '7',
-      icon: 'low-value',
+      iconName: null,
+      isAllNetworks: false,
+      isNative: true,
       price: 7,
     });
     expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '',
       fiatValue: '700',
-      icon: 'high-value',
+      iconName: null,
+      isAllNetworks: false,
+      isNative: true,
       price: 700,
     });
+    expect(payload.tokens[0]).not.toHaveProperty('icon');
     expect(payload.totalFiat).toBe('707');
     expect(payload.currency).toBe('cny');
     expect(payload.currencySymbol).toBe('¥');
+  });
+
+  test('only marks iconName for allowlisted native and contract tokens', () => {
+    const ethNative = buildToken({
+      $key: 'eth',
+      address: '0xeeee',
+      isNative: true,
+      name: 'Ethereum',
+      networkId: 'evm--1',
+      symbol: 'ETH',
+    });
+    const fakeUsdt = buildToken({
+      $key: 'fake-usdt',
+      address: '0x0000000000000000000000000000000000000001',
+      isNative: false,
+      name: 'Tether USD',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+    const realUsdt = buildToken({
+      $key: 'real-usdt',
+      address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      isNative: false,
+      name: 'Tether USD',
+      networkId: 'evm--1',
+      symbol: 'USDT',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        eth: buildFiat({ fiatValue: '100', price: 100 }),
+        'fake-usdt': buildFiat({ fiatValue: '99', price: 1 }),
+        'real-usdt': buildFiat({ fiatValue: '98', price: 1 }),
+      },
+      tokens: [ethNative, fakeUsdt, realUsdt],
+    });
+
+    expect(payload.tokens.map((token) => token.iconName)).toEqual([
+      'ETH',
+      null,
+      'USDT',
+    ]);
+    expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '',
+      isNative: true,
+    });
+    expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '0x0000000000000000000000000000000000000001',
+      isNative: false,
+    });
+    expect(payload.tokens[2]).toMatchObject({
+      contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      isNative: false,
+    });
   });
 
   test('keeps an aggregate token grouped and reads fiat basis from aggregateTokenMap', () => {
@@ -125,9 +194,12 @@ describe('buildPortfolioPayload', () => {
 
     expect(payload.tokens).toHaveLength(1);
     expect(payload.tokens[0]).toMatchObject({
-      aggregated: true,
       balance: '2',
+      contractAddress: '',
       fiatValue: '1400',
+      iconName: 'ETH',
+      isAllNetworks: true,
+      isNative: false,
       networkId: '',
       price: 700,
     });

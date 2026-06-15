@@ -20,6 +20,7 @@ import ServiceBase from '../ServiceBase';
 
 import {
   buildPortfolioSyncArtifacts,
+  getPortfolioSyncCooldownRemainingMs,
   isPortfolioSyncDevEnabled,
 } from './servicePortfolioSyncUtils';
 
@@ -30,6 +31,7 @@ import type {
 
 export type IPortfolioSyncStatus =
   | 'built'
+  | 'cooldown'
   | 'disabled'
   | 'duplicate'
   | 'empty'
@@ -39,6 +41,7 @@ export type IPortfolioSyncStatus =
 
 export type IPortfolioSyncLastResult = {
   contentHash?: string;
+  cooldownRemainingMs?: number;
   deviceConnectId?: string;
   errorMessage?: string;
   mockArchiveBytesLength?: number;
@@ -101,9 +104,21 @@ class ServicePortfolioSync extends ServiceBase {
 
   private lastContentHash: string | undefined;
 
+  private lastHardwareTransferAtByConnectId = new Map<string, number>();
+
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
 
   private lastResult: IPortfolioSyncLastResult | undefined;
+
+  private pendingCooldownPayloadByConnectId = new Map<
+    string,
+    IPortfolioSyncSettledPayload
+  >();
+
+  private pendingCooldownTimerByConnectId = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   private syncDebounced = debounce(
     (eventPayload: IPortfolioSyncSettledPayload) => {
@@ -143,6 +158,50 @@ class ServicePortfolioSync extends ServiceBase {
 
   private setLastResult(result: IPortfolioSyncLastResult) {
     this.lastResult = result;
+  }
+
+  private scheduleSyncAfterCooldown({
+    deviceConnectId,
+    eventPayload,
+    remainingMs,
+  }: {
+    deviceConnectId: string;
+    eventPayload: IPortfolioSyncSettledPayload;
+    remainingMs: number;
+  }) {
+    this.pendingCooldownPayloadByConnectId.set(deviceConnectId, eventPayload);
+
+    const existingTimer =
+      this.pendingCooldownTimerByConnectId.get(deviceConnectId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(() => {
+      this.pendingCooldownTimerByConnectId.delete(deviceConnectId);
+      const pendingPayload =
+        this.pendingCooldownPayloadByConnectId.get(deviceConnectId);
+      this.pendingCooldownPayloadByConnectId.delete(deviceConnectId);
+      if (pendingPayload) {
+        void this.syncSettledPortfolio(pendingPayload);
+      }
+    }, remainingMs);
+
+    this.pendingCooldownTimerByConnectId.set(deviceConnectId, timer);
+  }
+
+  private getHardwareCooldownRemainingMs({
+    deviceConnectId,
+    now,
+  }: {
+    deviceConnectId: string;
+    now: number;
+  }) {
+    return getPortfolioSyncCooldownRemainingMs({
+      lastTransferAt:
+        this.lastHardwareTransferAtByConnectId.get(deviceConnectId),
+      now,
+    });
   }
 
   private async shouldRunDevFlow(): Promise<boolean> {
@@ -215,7 +274,8 @@ class ServicePortfolioSync extends ServiceBase {
     // TODO: POST `portfolioJsonBytes` as portfolio.json to the Pro 2
     // portfolio-pack API once the server endpoint is finalized. The server,
     // not the App, must validate, normalize, pack the archive/PP payload, and
-    // sign it for production.
+    // recompute iconName from its token icon allowlist before signing it for
+    // production.
     return {
       bytesLength: portfolioJsonBytes.byteLength,
       contentHash,
@@ -238,6 +298,39 @@ class ServicePortfolioSync extends ServiceBase {
         debugPortfolioSyncLog('skip-empty');
         this.setLastResult({ status: 'empty', updatedAt });
         return;
+      }
+
+      const isHardwareWallet = accountUtils.isHwWallet({
+        walletId: eventPayload.walletId,
+      });
+      const deviceConnectId = eventPayload.deviceConnectId;
+
+      if (isHardwareWallet && deviceConnectId) {
+        const cooldownRemainingMs = this.getHardwareCooldownRemainingMs({
+          deviceConnectId,
+          now: updatedAt,
+        });
+        if (cooldownRemainingMs > 0) {
+          this.scheduleSyncAfterCooldown({
+            deviceConnectId,
+            eventPayload,
+            remainingMs: cooldownRemainingMs,
+          });
+          debugPortfolioSyncLog('skip-cooldown', {
+            cooldownRemainingMs,
+            deviceConnectId,
+            totalTokenCount: eventPayload.tokens.length,
+          });
+          this.setLastResult({
+            cooldownRemainingMs,
+            deviceConnectId,
+            status: 'cooldown',
+            totalTokenCount: eventPayload.tokens.length,
+            updatedAt,
+            walletId: eventPayload.walletId,
+          });
+          return;
+        }
       }
 
       const { currencyMap, displayCurrency } =
@@ -273,11 +366,6 @@ class ServicePortfolioSync extends ServiceBase {
 
       this.lastContentHash = artifacts.contentHash;
       this.lastArtifacts = artifacts;
-
-      const isHardwareWallet = accountUtils.isHwWallet({
-        walletId: eventPayload.walletId,
-      });
-      const deviceConnectId = eventPayload.deviceConnectId;
 
       if (isHardwareWallet && deviceConnectId) {
         const hardwareBusy =
@@ -325,6 +413,7 @@ class ServicePortfolioSync extends ServiceBase {
           bytesLength: mockUpload.bytesLength,
           contentHash: mockUpload.contentHash,
         });
+        this.lastHardwareTransferAtByConnectId.set(deviceConnectId, Date.now());
         return;
       }
 
