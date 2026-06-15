@@ -7,6 +7,7 @@ import {
   CONFIRMATION_COUNT,
   DEFAULT_FEE_RATE,
   DUST_AMOUNT,
+  KRC20_REVEAL_FEE_RATE_BUFFER,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
   MAX_UTXO_SIZE,
@@ -728,9 +729,18 @@ export default class Vault extends VaultBase {
     // wait unit commit tx is confirmed
     await this._waitForCommitTxConfirmation(txid);
 
+    // Re-price the reveal at the CURRENT network fee rate. The reveal is only
+    // broadcast after the commit confirms (seconds–minutes later); under KRC20
+    // load the node's minimum relay fee rate can rise during that wait, so
+    // reusing the commit-time rate underpays the reveal and the node rejects it
+    // as non-standard ("... under the required amount ..."). The reveal MUST land
+    // or the commit's KAS stays locked in the P2SH output.
+    const revealFeeInfo = await this._getKRC20RevealFeeInfo({ commitTx });
+
     const revealTx = await this._createKRC20RevealTransaction({
       submittedTxId: txid,
       commitTx,
+      feeInfo: revealFeeInfo,
     });
 
     await this.backgroundApi.serviceSend.signAndSendTransaction({
@@ -850,12 +860,58 @@ export default class Vault extends VaultBase {
     return encodedTx;
   }
 
+  async _getKRC20RevealFeeInfo({
+    commitTx,
+  }: {
+    commitTx: IEncodedTxKaspa;
+  }): Promise<IEncodedTxKaspa['feeInfo']> {
+    const commitRate = new BigNumber(
+      commitTx.feeInfo?.price ?? DEFAULT_FEE_RATE,
+    );
+
+    let freshRate = new BigNumber(0);
+    try {
+      const network = await this.getNetwork();
+      const accountAddress = await this.getAccountAddress();
+      const feeResp = await this.backgroundApi.serviceGas.estimateFee({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        accountAddress,
+        encodedTx: commitTx,
+      });
+      // Kaspa returns legacy gas buckets (slow/normal/fast). Use the fastest one
+      // to maximize the chance the reveal lands. gasPrice is in native units per
+      // gram (KAS/gram); convert to sompi/gram the same way updateUnsignedTx does.
+      const gasList = feeResp.gas ?? [];
+      const fastestGasPrice = gasList[gasList.length - 1]?.gasPrice;
+      if (fastestGasPrice) {
+        freshRate = new BigNumber(fastestGasPrice).shiftedBy(
+          network.feeMeta.decimals,
+        );
+      }
+    } catch {
+      // best-effort: if re-estimation fails, fall back to the commit-time rate
+    }
+
+    const price = BigNumber.max(freshRate, commitRate)
+      .multipliedBy(KRC20_REVEAL_FEE_RATE_BUFFER)
+      .integerValue(BigNumber.ROUND_CEIL)
+      .toFixed();
+
+    return {
+      price,
+      limit: commitTx.feeInfo?.limit ?? '0',
+    };
+  }
+
   async _createKRC20RevealTransaction({
     submittedTxId,
     commitTx,
+    feeInfo,
   }: {
     submittedTxId: string;
     commitTx: IEncodedTxKaspa;
+    feeInfo?: IEncodedTxKaspa['feeInfo'];
   }) {
     if (!commitTx.commitAddress || !commitTx.commitScriptPubKey) {
       throw new OneKeyLocalError(
@@ -884,7 +940,7 @@ export default class Vault extends VaultBase {
       changeAddress: await this.getAccountAddress(),
     };
 
-    revealTx.feeInfo = commitTx.feeInfo;
+    revealTx.feeInfo = feeInfo ?? commitTx.feeInfo;
     revealTx.mass = commitTx.mass;
     revealTx.commitScriptHex = commitTx.commitScriptHex;
 
