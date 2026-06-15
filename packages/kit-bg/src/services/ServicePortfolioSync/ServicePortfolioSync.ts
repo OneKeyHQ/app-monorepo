@@ -86,6 +86,15 @@ function debugPortfolioSyncLog(label: string, value?: unknown) {
   console.log(`${LOG_PREFIX} ${label}${valueText}`);
 }
 
+function debugPortfolioSyncRawLog(label: string, value: string) {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`${LOG_PREFIX} ${label} ${value}`);
+}
+
 @backgroundClass()
 class ServicePortfolioSync extends ServiceBase {
   private initialized = false;
@@ -239,6 +248,10 @@ class ServicePortfolioSync extends ServiceBase {
         eventPayload,
         timestamp: updatedAt,
       });
+      debugPortfolioSyncRawLog(
+        'portfolio-json-built',
+        artifacts.portfolioJsonText,
+      );
 
       const isDuplicate = artifacts.contentHash === this.lastContentHash;
       if (isDuplicate) {
