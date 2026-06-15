@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -70,6 +70,7 @@ import {
   type IRenderedTokenListCacheEntry,
   getColdStartTokenListDisplayMaps,
   isRenderedTokenListCacheEntryReady,
+  isRenderedTokenListCacheEntrySame,
 } from './coldStartDisplayUtils';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
@@ -227,6 +228,11 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [renderedTokenListCache, setRenderedTokenListCache] =
     useRenderedTokenListCacheAtom();
+  // Keep cache reads out of the token-list memo dependency graph. The cache
+  // write effect depends on `tokens`, so making `tokens` react to cache writes
+  // can recreate a useMemo -> useEffect -> setState loop.
+  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
+  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListStateAtomValue] =
     useActiveAccountTokenListStateAtom();
   const activeAccountTokenList =
@@ -277,13 +283,15 @@ function TokenListViewCmp(props: IProps) {
       ? `${ownerCacheAccountId}__${networkId}`
       : '';
 
-  const ownerCachedTokenListEntry = useMemo(() => {
+  const getOwnerCachedTokenListEntry = useCallback(() => {
     return ownerCacheKey
-      ? ((renderedTokenListCache.byOwner?.[ownerCacheKey] as
+      ? ((renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey] as
           | IRenderedTokenListCacheEntry
           | undefined) ?? undefined)
       : undefined;
-  }, [ownerCacheKey, renderedTokenListCache]);
+  }, [ownerCacheKey]);
+
+  const ownerCachedTokenListEntry = getOwnerCachedTokenListEntry();
 
   const shouldUseColdStartCachedMaps =
     !showActiveAccountTokenList &&
@@ -294,14 +302,14 @@ function TokenListViewCmp(props: IProps) {
     () =>
       getColdStartTokenListDisplayMaps({
         shouldUseCachedMaps: shouldUseColdStartCachedMaps,
-        cachedEntry: ownerCachedTokenListEntry,
+        cachedEntry: getOwnerCachedTokenListEntry(),
         currentTokenListMap: baseVisibleTokenListMap,
         currentAggregateTokenMap: aggregateTokenMap,
       }),
     [
       aggregateTokenMap,
       baseVisibleTokenListMap,
-      ownerCachedTokenListEntry,
+      getOwnerCachedTokenListEntry,
       shouldUseColdStartCachedMaps,
     ],
   );
@@ -314,8 +322,9 @@ function TokenListViewCmp(props: IProps) {
       // Require a paired `tokenListMap` — otherwise we'd render tokens
       // against the previous owner's map (no balance/price). Legacy cache
       // entries from an earlier build don't carry it; treat them as misses.
-      if (isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)) {
-        return ownerCachedTokenListEntry.tokens;
+      const cachedEntry = getOwnerCachedTokenListEntry();
+      if (isRenderedTokenListCacheEntryReady(cachedEntry)) {
+        return cachedEntry.tokens;
       }
       return [];
     }
@@ -411,15 +420,16 @@ function TokenListViewCmp(props: IProps) {
       resultTokens.length === 0 &&
       !tokenListState.initialized
     ) {
-      if (isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)) {
-        return ownerCachedTokenListEntry.tokens;
+      const cachedEntry = getOwnerCachedTokenListEntry();
+      if (isRenderedTokenListCacheEntryReady(cachedEntry)) {
+        return cachedEntry.tokens;
       }
     }
 
     return resultTokens;
   }, [
     ownerMismatch,
-    ownerCachedTokenListEntry,
+    getOwnerCachedTokenListEntry,
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
@@ -498,11 +508,7 @@ function TokenListViewCmp(props: IProps) {
           }
         }
 
-        // MRU re-insertion: delete first so the spread below puts the
-        // current owner at the end of the key order. Combined with the
-        // size cap below, this keeps the most recently used entries.
-        delete nextByOwner[ownerCacheKey];
-        nextByOwner[ownerCacheKey] = {
+        const nextEntry: IRenderedTokenListCacheEntry = {
           tokens,
           tokenListMap,
           // Persist the raw aggregate-token map alongside `tokenListMap`
@@ -513,6 +519,24 @@ function TokenListViewCmp(props: IProps) {
           accountId,
           networkId,
         };
+        const currentKeys = Object.keys(nextByOwner);
+        const isCurrentOwnerMostRecent =
+          currentKeys[currentKeys.length - 1] === ownerCacheKey;
+        if (
+          isCurrentOwnerMostRecent &&
+          isRenderedTokenListCacheEntrySame(
+            nextByOwner[ownerCacheKey],
+            nextEntry,
+          )
+        ) {
+          return prev;
+        }
+
+        // MRU re-insertion: delete first so the spread below puts the
+        // current owner at the end of the key order. Combined with the
+        // size cap below, this keeps the most recently used entries.
+        delete nextByOwner[ownerCacheKey];
+        nextByOwner[ownerCacheKey] = nextEntry;
 
         const keys = Object.keys(nextByOwner);
         if (keys.length > RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS) {
@@ -688,7 +712,7 @@ function TokenListViewCmp(props: IProps) {
     // that would render tokens against the previous owner's map.
     if (
       !showActiveAccountTokenList &&
-      isRenderedTokenListCacheEntryReady(ownerCachedTokenListEntry)
+      isRenderedTokenListCacheEntryReady(getOwnerCachedTokenListEntry())
     ) {
       return false;
     }
@@ -706,7 +730,7 @@ function TokenListViewCmp(props: IProps) {
     );
   }, [
     ownerMismatch,
-    ownerCachedTokenListEntry,
+    getOwnerCachedTokenListEntry,
     isTokenSelector,
     searchAll,
     tokenSelectorSearchKey,

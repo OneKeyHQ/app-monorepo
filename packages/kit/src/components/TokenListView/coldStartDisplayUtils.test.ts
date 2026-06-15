@@ -1,7 +1,10 @@
 import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { getColdStartTokenListDisplayMaps } from './coldStartDisplayUtils';
+import {
+  getColdStartTokenListDisplayMaps,
+  isRenderedTokenListCacheEntrySame,
+} from './coldStartDisplayUtils';
 
 function makeToken($key: string, symbol: string): IAccountToken {
   return {
@@ -95,5 +98,64 @@ describe('getColdStartTokenListDisplayMaps', () => {
     expect(displayMaps.tokenListMap).toBe(liveTokenMap);
     expect(displayMaps.aggregateTokenMap).toBe(liveAggregateMap);
     expect(displayMaps.contextTokenListMap).toBe(liveTokenMap);
+  });
+});
+
+describe('isRenderedTokenListCacheEntrySame', () => {
+  it('treats a new token array with the same keys and map references as unchanged', () => {
+    const tokenMap = {
+      'btc--0_native': makeFiat('8'),
+    };
+    const aggregateTokensMap = {
+      aggregate_ETH_: {
+        'evm--1': makeFiat('11'),
+      },
+    };
+    const btc = makeToken('btc--0_native', 'BTC');
+    const eth = makeToken('aggregate_ETH_', 'ETH');
+
+    expect(
+      isRenderedTokenListCacheEntrySame(
+        {
+          tokens: [btc, eth],
+          tokenListMap: tokenMap,
+          aggregateTokensMap,
+          accountId: 'hd-1--0000/0',
+          networkId: 'onekeyall--0',
+        },
+        {
+          tokens: [{ ...btc }, { ...eth }],
+          tokenListMap: tokenMap,
+          aggregateTokensMap,
+          accountId: 'hd-1--0000/0',
+          networkId: 'onekeyall--0',
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it('detects token order changes as cache changes', () => {
+    const tokenMap = {
+      'btc--0_native': makeFiat('8'),
+    };
+    const btc = makeToken('btc--0_native', 'BTC');
+    const eth = makeToken('aggregate_ETH_', 'ETH');
+
+    expect(
+      isRenderedTokenListCacheEntrySame(
+        {
+          tokens: [btc, eth],
+          tokenListMap: tokenMap,
+          accountId: 'hd-1--0000/0',
+          networkId: 'onekeyall--0',
+        },
+        {
+          tokens: [eth, btc],
+          tokenListMap: tokenMap,
+          accountId: 'hd-1--0000/0',
+          networkId: 'onekeyall--0',
+        },
+      ),
+    ).toBe(false);
   });
 });

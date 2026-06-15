@@ -17,6 +17,26 @@ export function isRenderedTokenListCacheEntryReady(
   return Boolean(cachedEntry?.tokens.length && cachedEntry.tokenListMap);
 }
 
+export function isRenderedTokenListCacheEntrySame(
+  currentEntry: IRenderedTokenListCacheEntry | undefined,
+  nextEntry: IRenderedTokenListCacheEntry,
+) {
+  if (
+    !currentEntry ||
+    currentEntry.accountId !== nextEntry.accountId ||
+    currentEntry.networkId !== nextEntry.networkId ||
+    currentEntry.tokenListMap !== nextEntry.tokenListMap ||
+    currentEntry.aggregateTokensMap !== nextEntry.aggregateTokensMap ||
+    currentEntry.tokens.length !== nextEntry.tokens.length
+  ) {
+    return false;
+  }
+
+  return currentEntry.tokens.every(
+    (token, index) => token.$key === nextEntry.tokens[index]?.$key,
+  );
+}
+
 export function getColdStartTokenListDisplayMaps({
   shouldUseCachedMaps,
   cachedEntry,
