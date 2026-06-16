@@ -317,6 +317,57 @@ describe('applyStructureSnapshot', () => {
     expect(projection.cells.has('aggregate_eth')).toBe(false);
   });
 
+  it('keeps an aggregate row meta in orderedIds while pruning a stale non-live meta (regression: home aggregate row vanish)', () => {
+    const { store, ctx, projection, deps } = setup();
+    // Frame 1: a normal token + an aggregate row, plus a non-agg token that
+    // will go stale on the next frame. The aggregate row appears in orderedIds
+    // (TokenListBlock appends aggregate rows into the ordered list) and its meta
+    // is written via metaPatch.
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({
+        orderedIds: ['normal', 'aggregate_eth', 'stale'],
+        aggMembership: { aggregate_eth: ['net1', 'net2'] },
+        metaPatch: {
+          normal: makeToken({ symbol: 'NRM' }),
+          aggregate_eth: makeToken({ isAggregateToken: true }),
+          stale: makeToken({ symbol: 'STALE' }),
+        },
+        generation: 0,
+      }),
+      deps,
+    );
+    // All three metas were registered by step 5.
+    expect(projection.metas.has('aggregate_eth')).toBe(true);
+    expect(projection.metas.has('normal')).toBe(true);
+    expect(projection.metas.has('stale')).toBe(true);
+
+    // Frame 2: `stale` drops out of the live id set, but the aggregate row
+    // stays in orderedIds. The aggregate meta MUST survive (home cell path
+    // rebuilds the row from its meta cell), while `stale` MUST be pruned.
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({
+        orderedIds: ['normal', 'aggregate_eth'],
+        aggMembership: { aggregate_eth: ['net1', 'net2'] },
+        metaPatch: {},
+        generation: 1,
+      }),
+      deps,
+    );
+    // Aggregate row meta SURVIVES (its key is a live ordered id).
+    expect(projection.metas.has('aggregate_eth')).toBe(true);
+    expect(store.get(meta(ctx, 'aggregate_eth'))?.isAggregateToken).toBe(true);
+    // Live normal meta survives too.
+    expect(projection.metas.has('normal')).toBe(true);
+    // Stale (no longer live) meta is pruned.
+    expect(projection.metas.has('stale')).toBe(false);
+    // Aggregate keys still never enter the normal fiat-cell registry.
+    expect(projection.cells.has('aggregate_eth')).toBe(false);
+  });
+
   it('prunes a whole aggregate group that left membership', () => {
     const { ctx, projection, deps } = setup();
     applyStructureSnapshot(

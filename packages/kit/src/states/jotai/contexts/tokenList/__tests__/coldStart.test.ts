@@ -198,12 +198,14 @@ describe('fanOutSlimToApply', () => {
     // normal-token meta cells painted (name/icon at T0).
     expect(store.get(meta(ctx, 'a'))?.symbol).toBe('A');
     expect(store.get(meta(ctx, 'b'))?.symbol).toBe('B');
-    // Aggregate-token meta is NOT retained in P.metas (apply prunes non-normal
-    // keys from the meta registry — agg identity falls back to the `aggregate_`
-    // prefix, so the agg row still resolves its fiat through aggCell). This
-    // mirrors the existing apply contract; the slim bundle carries compactMeta
-    // for it but apply does not keep it in P.metas.
-    expect(projection.metas.has('aggregate_agg1')).toBe(false);
+    // Aggregate-token meta IS retained in P.metas: the agg row is a live
+    // ordered id, so apply prunes metas by the full live-key set (incl.
+    // aggregate). The home cell path rebuilds each row from its meta cell, so
+    // dropping the agg meta would make the agg row silently vanish. (The agg
+    // row still resolves its fiat through aggCell; the meta carries its static
+    // display fields.)
+    expect(projection.metas.has('aggregate_agg1')).toBe(true);
+    expect(store.get(meta(ctx, 'aggregate_agg1'))?.isAggregateToken).toBe(true);
 
     // aggregate per-network sub-cells painted.
     expect(store.get(subcell(ctx, 'aggregate_agg1', 'net1'))?.fiatValue).toBe(

@@ -164,7 +164,8 @@ export function buildApplyDeps(params: {
  *   3. owner switch -> clearAll + reset generation;
  *   4. generation guard (drop stale structure frames);
  *   5. metaPatch via metaEqual (write only when changed);
- *   6. prune normal cells/metas not in {orderedIds ∪ smallBalanceIds} & !isAgg;
+ *   6. prune fiat cells (normalKeys = {orderedIds ∪ smallBalanceIds} & !isAgg)
+ *      and metas (liveKeys = {orderedIds ∪ smallBalanceIds}, incl. aggregate);
  *   7. prune aggregate by aggMembership (whole-group + per-network);
  *   8. ensure agg sub-cells + aggCell lazily (DO NOT rebuild aggCell);
  *   9. orderedIds ref-stable via shallowEqual;
@@ -204,9 +205,24 @@ export function applyStructureSnapshot(
     }
   }
 
-  // 6. prune normal cells/metas not in {orderedIds ∪ smallBalanceIds} & !isAgg
+  // 6. prune cells/metas.
+  //   - cells: only NON-aggregate fiat cells live in P.cells (aggregate rows use
+  //     aggSubCells/aggCell), so prune P.cells by `normalKeys` = the live
+  //     ordered/smallBalance keys with the `& !isAgg` carve-out — unchanged.
+  //   - metas: aggregate ROW keys ARE present in orderedIds (TokenListBlock
+  //     appends aggregate rows into the ordered list) and their meta IS written
+  //     in step 5's metaPatch; the home cell path rebuilds each row from its
+  //     meta cell, so an aggregate row whose meta is pruned silently vanishes.
+  //     Prune metas by the FULL live-key set (`liveKeys`, incl. aggregate) so an
+  //     aggregate row's meta survives as long as its key is a live ordered/
+  //     smallBalance id. (Aggregate sub-cell membership is pruned independently
+  //     in step 7 by aggMembership.)
+  const liveKeys = new Set<ITokenKey>([
+    ...snapshot.orderedIds,
+    ...snapshot.smallBalanceIds,
+  ]);
   const normalKeys = new Set<ITokenKey>();
-  for (const k of [...snapshot.orderedIds, ...snapshot.smallBalanceIds]) {
+  for (const k of liveKeys) {
     if (!deps.isAgg(k, deps.get(deps.meta(store, k)))) {
       normalKeys.add(k);
     }
@@ -217,7 +233,7 @@ export function applyStructureSnapshot(
     }
   }
   for (const k of P.metas.keys()) {
-    if (!normalKeys.has(k)) {
+    if (!liveKeys.has(k)) {
       P.metas.delete(k);
     }
   }
