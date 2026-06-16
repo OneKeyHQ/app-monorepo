@@ -276,4 +276,146 @@ describe('callTrezorWithBleFallback', () => {
     expect(fn).toHaveBeenCalledTimes(1);
     expect(requestBleConnectId).not.toHaveBeenCalled();
   });
+
+  it('re-binds and retries when an already-bound BLE connectId also fails', async () => {
+    const boundDbDevice = {
+      ...dbDevice,
+      bleConnectId: 'STALE_BLE_CONNECT_ID',
+    } as IDBDevice;
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: { code: HardwareErrorCode.DeviceNotFound, error: 'not found' },
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        payload: { code: HardwareErrorCode.DeviceNotFound, error: 'not found' },
+      })
+      .mockResolvedValueOnce({ success: true, payload: { address: '0x5678' } });
+    const requestBleConnectId = jest.fn(async () => 'NEW_BLE_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(boundDbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toEqual({ success: true, payload: { address: '0x5678' } });
+    expect(fn).toHaveBeenCalledTimes(3);
+    expect(fn).toHaveBeenNthCalledWith(1, 'USB_CONNECT_ID');
+    expect(fn).toHaveBeenNthCalledWith(2, 'STALE_BLE_CONNECT_ID');
+    expect(fn).toHaveBeenNthCalledWith(3, 'NEW_BLE_CONNECT_ID');
+    expect(requestBleConnectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-binds on a stale bond (BleBondInvalid) without reusing the stored handle', async () => {
+    const boundDbDevice = {
+      ...dbDevice,
+      bleConnectId: 'STALE_BLE_CONNECT_ID',
+    } as IDBDevice;
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.BleBondInvalid,
+          error: 'bond invalid',
+        },
+      })
+      .mockResolvedValueOnce({ success: true, payload: { address: '0x5678' } });
+    const requestBleConnectId = jest.fn(async () => 'NEW_BLE_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(boundDbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toEqual({ success: true, payload: { address: '0x5678' } });
+    // The stale stored handle must NOT be reused for a bond/pairing failure.
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenNthCalledWith(1, 'USB_CONNECT_ID');
+    expect(fn).toHaveBeenNthCalledWith(2, 'NEW_BLE_CONNECT_ID');
+    expect(requestBleConnectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-binds on a stale THP credential (ThpPairingFailed)', async () => {
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.ThpPairingFailed,
+          error: 'pairing failed',
+        },
+      })
+      .mockResolvedValueOnce({ success: true, payload: { address: '0x5678' } });
+    const requestBleConnectId = jest.fn(async () => 'NEW_BLE_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(dbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toEqual({ success: true, payload: { address: '0x5678' } });
+    expect(fn).toHaveBeenNthCalledWith(2, 'NEW_BLE_CONNECT_ID');
+    expect(requestBleConnectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the bond failure when re-binding produces no new connectId', async () => {
+    const boundDbDevice = {
+      ...dbDevice,
+      bleConnectId: 'STALE_BLE_CONNECT_ID',
+    } as IDBDevice;
+    const bondFailure = {
+      success: false as const,
+      payload: {
+        code: HardwareErrorCode.BleBondInvalid,
+        error: 'bond invalid',
+      },
+    };
+    const fn = jest.fn(async () => bondFailure);
+    // OS bond still present → user can't complete re-binding → null.
+    const requestBleConnectId = jest.fn(async () => null);
+
+    const result = await callTrezorWithBleFallback(boundDbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toBe(bondFailure);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(requestBleConnectId).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the retry failure when a re-bound connectId still fails', async () => {
+    const boundDbDevice = {
+      ...dbDevice,
+      bleConnectId: 'STALE_BLE_CONNECT_ID',
+    } as IDBDevice;
+    const retryFailure = {
+      success: false as const,
+      payload: {
+        code: HardwareErrorCode.BleBondInvalid,
+        error: 'still bad after re-bind',
+      },
+    };
+    const fn = jest
+      .fn()
+      .mockResolvedValueOnce({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.BleBondInvalid,
+          error: 'bond invalid',
+        },
+      })
+      // Re-bound to a fresh connectId, but the OS bond is still bad → retry
+      // fails again. Must surface that failure once, with no further loop.
+      .mockResolvedValueOnce(retryFailure);
+    const requestBleConnectId = jest.fn(async () => 'NEW_BLE_CONNECT_ID');
+
+    const result = await callTrezorWithBleFallback(boundDbDevice, fn, {
+      requestBleConnectId,
+    });
+
+    expect(result).toBe(retryFailure);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenNthCalledWith(2, 'NEW_BLE_CONNECT_ID');
+    expect(requestBleConnectId).toHaveBeenCalledTimes(1);
+  });
 });

@@ -36,6 +36,19 @@ function isTrezorTransportDownFailure(
   );
 }
 
+// A stored BLE bond / THP credential that no longer works: the device was
+// wiped/re-flashed or unpaired elsewhere. The stored connectId can't be reused;
+// recovery is a fresh binding/pairing, not the persisted value.
+function isTrezorBleBindingStaleFailure(
+  payload?: ITrezorTransportFailurePayload,
+): boolean {
+  const code = payload?.code;
+  return (
+    code === HardwareErrorCode.BleBondInvalid ||
+    code === HardwareErrorCode.ThpPairingFailed
+  );
+}
+
 export function isTrezorBleSupportedDevice(dbDevice: IDBDevice): boolean {
   return thirdPartyDeviceUtils.isTrezorBleSupportedDevice(dbDevice);
 }
@@ -77,10 +90,22 @@ export async function getTrezorAdapterFromBackgroundApi(
  * keyrings (btc / sol / tron) reuse one place. Extend here if more vendors need
  * the same.
  *
- * Until a device is bound over BLE (`dbDevice.bleConnectId` is empty) this is a
- * no-op pass-through — safe to wire everywhere. Binding (how `bleConnectId` gets
- * onto the record) is a separate flow:
- * `ServiceThirdPartyHardware.bindTrezorBleConnectId` + the pairing UI.
+ * Recovery ladder when the primary call fails:
+ *  1. Bound-BLE fallback — primary transport down + a bound `bleConnectId` that
+ *     is presumed still valid.
+ *  2. Re-bind + retry — when the bound BLE handle also fails, or the failure is
+ *     a stale bond / THP credential (`BleBondInvalid` / `ThpPairingFailed`):
+ *     request a fresh binding (re-scan / re-pair), which overwrites the stale
+ *     connectId, then retry the current call. Without this, an already-bound
+ *     device whose BLE state went bad (wiped → new peripheral id, dropped bond)
+ *     would loop on reconnect failures with no way back into binding.
+ *     `BleBondInvalid` that can't be recovered (OS bond still present) ends up
+ *     back as an error → the user is prompted to unpair in system settings.
+ *
+ * Until a device is bound over BLE (`dbDevice.bleConnectId` is empty) step 1 is
+ * a no-op pass-through. Binding (how `bleConnectId` gets onto the record) is a
+ * separate flow: `ServiceThirdPartyHardware.bindTrezorBleConnectId` + the
+ * pairing UI.
  */
 export async function callTrezorWithBleFallback<T>(
   dbDevice: IDBDevice,
@@ -88,42 +113,50 @@ export async function callTrezorWithBleFallback<T>(
   options?: ICallTrezorWithBleFallbackOptions,
 ): Promise<Response<T>> {
   const primaryConnectId = dbDevice.usbConnectId || dbDevice.connectId;
-  const result = await fn(primaryConnectId);
+  let result = await fn(primaryConnectId);
   if (result.success) return result;
 
-  const failurePayload = result.payload as
-    | ITrezorTransportFailurePayload
-    | undefined;
-  const code = failurePayload?.code;
-  const isTransportDown = isTrezorTransportDownFailure(failurePayload);
   const canUseBleBinding =
     thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platformEnv);
+  if (!canUseBleBinding || !isTrezorBleSupportedDevice(dbDevice)) {
+    return result;
+  }
+
   const bleConnectId = dbDevice.bleConnectId;
+  const featuresDeviceId = dbDevice.deviceId;
+
+  // 1) Bound-BLE fallback. Only for transport-down — a stale bond/pairing means
+  // the stored handle itself is broken, so skip straight to re-binding.
   if (
-    isTransportDown &&
-    canUseBleBinding &&
+    isTrezorTransportDownFailure(result.payload as ITrezorTransportFailurePayload) &&
     bleConnectId &&
     bleConnectId !== primaryConnectId
   ) {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Trezor] primary connectId failed (code=${String(
-        code,
+        (result.payload as ITrezorTransportFailurePayload)?.code,
       )}); falling back to bound BLE ${bleConnectId}`,
     );
-    return fn(bleConnectId);
+    const bleResult = await fn(bleConnectId);
+    if (bleResult.success) return bleResult;
+    // Bound BLE also failed — don't return; fall through to re-binding so a
+    // fresh connectId can replace the broken one.
+    result = bleResult;
   }
-  const featuresDeviceId = dbDevice.deviceId;
+
+  // 2) Re-bind + retry. Covers a no-longer-resolving bound BLE handle AND stale
+  // bond / THP credentials — both need a fresh binding, not the stored value.
+  const finalPayload = result.payload as ITrezorTransportFailurePayload;
   if (
-    isTransportDown &&
     options?.requestBleConnectId &&
     featuresDeviceId &&
-    canUseBleBinding &&
-    isTrezorBleSupportedDevice(dbDevice)
+    (isTrezorTransportDownFailure(finalPayload) ||
+      isTrezorBleBindingStaleFailure(finalPayload))
   ) {
     defaultLogger.hardware.sdkLog.log(
-      `[3rdPartyHW][Trezor] primary connectId failed (code=${String(
-        code,
-      )}); requesting BLE binding for device_id=${featuresDeviceId}`,
+      `[3rdPartyHW][Trezor] connectId failed (code=${String(
+        finalPayload?.code,
+      )}); requesting BLE (re)binding for device_id=${featuresDeviceId}`,
     );
     const boundBleConnectId = await options.requestBleConnectId({
       dbDevice,
@@ -132,7 +165,7 @@ export async function callTrezorWithBleFallback<T>(
     });
     if (boundBleConnectId && boundBleConnectId !== primaryConnectId) {
       defaultLogger.hardware.sdkLog.log(
-        `[3rdPartyHW][Trezor] retrying with newly bound BLE ${boundBleConnectId}`,
+        `[3rdPartyHW][Trezor] retrying with (re)bound BLE ${boundBleConnectId}`,
       );
       return fn(boundBleConnectId);
     }
