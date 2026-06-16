@@ -118,7 +118,7 @@ export async function callTrezorWithBleFallback<T>(
 
   const canUseBleBinding =
     thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platformEnv);
-  if (!canUseBleBinding || !isTrezorBleSupportedDevice(dbDevice)) {
+  if (!canUseBleBinding) {
     return result;
   }
 
@@ -126,9 +126,12 @@ export async function callTrezorWithBleFallback<T>(
   const featuresDeviceId = dbDevice.deviceId;
 
   // 1) Bound-BLE fallback. Only for transport-down — a stale bond/pairing means
-  // the stored handle itself is broken, so skip straight to re-binding.
+  // the stored handle itself is broken, so skip straight to re-binding. No model
+  // check here: an already-bound device is by definition BLE-capable.
   if (
-    isTrezorTransportDownFailure(result.payload as ITrezorTransportFailurePayload) &&
+    isTrezorTransportDownFailure(
+      result.payload as ITrezorTransportFailurePayload,
+    ) &&
     bleConnectId &&
     bleConnectId !== primaryConnectId
   ) {
@@ -150,6 +153,7 @@ export async function callTrezorWithBleFallback<T>(
   if (
     options?.requestBleConnectId &&
     featuresDeviceId &&
+    isTrezorBleSupportedDevice(dbDevice) &&
     (isTrezorTransportDownFailure(finalPayload) ||
       isTrezorBleBindingStaleFailure(finalPayload))
   ) {
