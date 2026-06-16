@@ -1,5 +1,3 @@
-import { UI_REQUEST } from '@onekeyfe/hwk-adapter-core/ui-events';
-
 import {
   backgroundClass,
   backgroundMethod,
@@ -216,18 +214,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       });
     }
 
-    // A picked candidate that ISN'T this device would ask to pair (its static
-    // key doesn't match the shared credential). Cancel the probe on a pairing
-    // request instead of popping the pairing dialog — treat as "not this one".
-    const onPairing = (event: { payload?: { connectId?: string } }) => {
-      if (
-        !event?.payload?.connectId ||
-        event.payload.connectId === bleConnectId
-      ) {
-        adapter.hw.cancel(bleConnectId);
-      }
-    };
-    adapter.hw.on(UI_REQUEST.REQUEST_TREZOR_THP_PAIRING, onPairing);
+    // A picked candidate that ISN'T this device asks to pair (its static key
+    // doesn't match the shared credential). Suppress the THP pairing dialog and
+    // cancel silently during the probe — treat the pairing request as "not this
+    // one". Handled inside the adapter so it overrides its own pairing UI
+    // (a second listener can't stop the adapter's own handler from firing).
+    adapter.beginBindingProbe?.(bleConnectId);
 
     try {
       const result = await adapter.connectDevice(bleConnectId);
@@ -270,7 +262,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
       // Connect/probe failed (e.g. pairing cancelled) — not this device.
       return null;
     } finally {
-      adapter.hw.off(UI_REQUEST.REQUEST_TREZOR_THP_PAIRING, onPairing);
+      adapter.endBindingProbe?.();
       await adapter.disconnect(bleConnectId).catch(() => undefined);
     }
   }

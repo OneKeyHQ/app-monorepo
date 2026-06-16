@@ -127,6 +127,19 @@ export class TrezorAdapter
 
   private readonly _featuresDeviceIdByConnectId = new Map<string, string>();
 
+  // While a USB→BLE binding probe is connecting to a candidate, a non-matching
+  // device asks to pair. That's the "not this one" signal — cancel it silently
+  // instead of popping the THP pairing dialog. Set by beginBindingProbe().
+  private _bindingProbeConnectId?: string;
+
+  beginBindingProbe(connectId: string): void {
+    this._bindingProbeConnectId = connectId;
+  }
+
+  endBindingProbe(): void {
+    this._bindingProbeConnectId = undefined;
+  }
+
   constructor(hw: IHardwareWallet, disposeSdkEvents?: () => void) {
     super();
     this.hw = this._createProcessingAwareHw(hw);
@@ -203,6 +216,16 @@ export class TrezorAdapter
         selectedMethod?: number;
         nfcData?: string;
       };
+      // During a binding probe, a candidate asking to pair means "not this
+      // device" — cancel silently rather than surfacing the pairing dialog.
+      if (
+        this._bindingProbeConnectId &&
+        (!payload.connectId ||
+          payload.connectId === this._bindingProbeConnectId)
+      ) {
+        void this.hw.cancel(this._bindingProbeConnectId);
+        return;
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_TREZOR_THP_PAIRING method=${
           payload.selectedMethod ?? '-'

@@ -1,6 +1,6 @@
 import ServiceThirdPartyHardware from '.';
 
-import { HardwareErrorCode, UI_REQUEST } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
@@ -71,8 +71,8 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       usbConnectId: 'USB_CONNECT_ID',
       deviceId: 'FEATURES_DEVICE_ID',
     } as IDBDevice;
-    const on = jest.fn();
-    const off = jest.fn();
+    const beginBindingProbe = jest.fn();
+    const endBindingProbe = jest.fn();
     const connectDevice = jest.fn().mockResolvedValue({
       success: true,
       payload: {
@@ -82,11 +82,9 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     const disconnect = jest.fn().mockResolvedValue(undefined);
     const { getDeviceByQuery, updateDeviceConnectId } = getLocalDbMock();
     const adapter = {
-      hw: {
-        on,
-        off,
-        cancel: jest.fn(),
-      },
+      hw: { cancel: jest.fn() },
+      beginBindingProbe,
+      endBindingProbe,
       connectDevice,
       disconnect,
     } as unknown as IThirdPartyHardwareAdapter;
@@ -109,10 +107,10 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       }),
     ).resolves.toBe('BLE_CONNECT_ID');
 
-    expect(on).toHaveBeenCalledWith(
-      UI_REQUEST.REQUEST_TREZOR_THP_PAIRING,
-      expect.any(Function),
-    );
+    // Binding probe suppresses the THP pairing dialog for the probed candidate,
+    // then clears it when done.
+    expect(beginBindingProbe).toHaveBeenCalledWith('BLE_CONNECT_ID');
+    expect(endBindingProbe).toHaveBeenCalled();
     expect(getDeviceByQuery).toHaveBeenCalledWith({
       connectId: 'USB_CONNECT_ID',
       featuresDeviceId: 'FEATURES_DEVICE_ID',
