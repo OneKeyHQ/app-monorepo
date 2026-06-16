@@ -1518,7 +1518,7 @@ function DepositWithdrawContent({
     const displayDepositToken = resolvedCurrentPerpsDepositSelectedToken;
     const hasSourceBalance = displayDepositToken?.balanceParsed !== undefined;
     const sourceBalanceFormatted = hasSourceBalance
-      ? numberFormat(displayDepositToken.balanceParsed, {
+      ? numberFormat(displayDepositToken?.balanceParsed ?? '0', {
           formatter: 'balance',
         })
       : '--';

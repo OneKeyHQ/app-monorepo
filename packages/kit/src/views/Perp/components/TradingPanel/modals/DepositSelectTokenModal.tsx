@@ -40,6 +40,7 @@ function DepositSelectTokenModal() {
               route.params.depositTokensWithPrice as IPerpsDepositToken[]
             }
             onClose={handleClose}
+            hasLoaded
           />
         </YStack>
       </Page.Body>
