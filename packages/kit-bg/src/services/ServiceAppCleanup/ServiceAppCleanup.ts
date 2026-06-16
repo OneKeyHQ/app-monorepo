@@ -122,6 +122,27 @@ class ServiceAppCleanup extends ServiceBase {
   // getAllAccounts, so it does not depend on which account was just removed (the
   // AccountRemove event carries no payload). Over-/under-matching is benign: every
   // touched entity is a pure cache the normal refresh repopulates.
+  //
+  // Capping strategy (why some maps get an extra size cap and others don't) —
+  // growth is bounded on two independent axes:
+  //   • Horizontal (number of account/owner keys): the orphan sweep below drops
+  //     keys for deleted accounts. Every per-account entity (tokenList, DeFi
+  //     overview, aggregateToken, history, accountValue) relies on this ALONE —
+  //     each per-account payload is naturally small (bounded by what one account
+  //     holds) and a removed account's keys are reclaimed wholesale, so no
+  //     per-array cap is warranted.
+  //   • Vertical (entries inside a single key): only two maps add a size cap on
+  //     top of the sweep, because the sweep cannot bound them:
+  //       - localTokens.data — GLOBAL token metadata keyed by
+  //         networkId_tokenAddress and shared across accounts, so it has no owner
+  //         to orphan-filter → capped to the most-recent 5000 entries.
+  //       - localNFTs.list — per-account, but one NFT-whale account alone can
+  //         hold thousands of entries that each embed a full-resolution image URL
+  //         + attributes → capped to 500 per account.
+  //     The other per-account lists are deliberately NOT vertically capped.
+  //   localHistory.confirmedTxs keeps its pre-existing 50-per-account cap;
+  //   pendingTxs is intentionally left uncapped (ServiceFreshAddress reads it to
+  //   avoid BTC address reuse — see removeOrphanData).
   @backgroundMethod()
   async cleanupOrphanedAssetCaches() {
     try {
