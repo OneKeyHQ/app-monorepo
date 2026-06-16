@@ -2015,7 +2015,6 @@ function TokenListBlock({
         accountAddress: account?.address,
         accountId: account?.id,
         accountName,
-        aggregateTokenListMap,
         aggregateTokenMap: flattenAggregateTokenMap,
         deviceConnectId:
           device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,

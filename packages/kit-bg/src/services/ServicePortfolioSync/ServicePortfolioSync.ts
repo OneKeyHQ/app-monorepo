@@ -104,6 +104,8 @@ class ServicePortfolioSync extends ServiceBase {
 
   private lastContentHash: string | undefined;
 
+  private inFlightContentHash: string | undefined;
+
   private lastHardwareTransferAtByConnectId = new Map<string, number>();
 
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
@@ -158,6 +160,16 @@ class ServicePortfolioSync extends ServiceBase {
 
   private setLastResult(result: IPortfolioSyncLastResult) {
     this.lastResult = result;
+  }
+
+  private commitProcessedArtifacts(artifacts: IPortfolioSyncArtifacts) {
+    // Mark this snapshot as processed only after it has actually been
+    // submitted/uploaded. Committing earlier means a hardware-busy skip (or a
+    // future failed server submit) would permanently dedupe — and thereby
+    // silently drop — the same unchanged snapshot until the portfolio changes.
+    this.lastContentHash = artifacts.contentHash;
+    this.lastArtifacts = artifacts;
+    this.inFlightContentHash = undefined;
   }
 
   private scheduleSyncAfterCooldown({
@@ -342,11 +354,17 @@ class ServicePortfolioSync extends ServiceBase {
         timestamp: updatedAt,
       });
       debugPortfolioSyncRawLog(
-        'portfolio-json-built',
+        'server-submit-portfolio-json',
         artifacts.portfolioJsonText,
       );
+      debugPortfolioSyncRawLog(
+        'mock-sdk-portfolio-json',
+        artifacts.mockPortfolioJsonText,
+      );
 
-      const isDuplicate = artifacts.contentHash === this.lastContentHash;
+      const isDuplicate =
+        artifacts.contentHash === this.lastContentHash ||
+        artifacts.contentHash === this.inFlightContentHash;
       if (isDuplicate) {
         debugPortfolioSyncLog('skip-duplicate', {
           contentHash: artifacts.contentHash,
@@ -364,15 +382,15 @@ class ServicePortfolioSync extends ServiceBase {
         return;
       }
 
-      this.lastContentHash = artifacts.contentHash;
-      this.lastArtifacts = artifacts;
-
       if (isHardwareWallet && deviceConnectId) {
         const hardwareBusy =
           await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
             connectId: deviceConnectId,
           });
         if (hardwareBusy) {
+          // Do not commit dedup state here: this snapshot was never uploaded,
+          // so an identical settled event must be allowed to retry once the
+          // hardware channel frees up.
           debugPortfolioSyncLog('skip-hardware-busy', {
             contentHash: artifacts.contentHash,
           });
@@ -388,6 +406,11 @@ class ServicePortfolioSync extends ServiceBase {
         }
       }
 
+      // Reserve this content hash while the (async) submit/upload is in flight
+      // so a concurrent invocation treats it as a duplicate instead of
+      // uploading the same snapshot twice. Cleared on success (via
+      // commitProcessedArtifacts) or on failure (catch), so retries stay open.
+      this.inFlightContentHash = artifacts.contentHash;
       const serverSubmit = await this.submitPortfolioJsonToServer({
         artifacts,
       });
@@ -413,10 +436,12 @@ class ServicePortfolioSync extends ServiceBase {
           bytesLength: mockUpload.bytesLength,
           contentHash: mockUpload.contentHash,
         });
+        this.commitProcessedArtifacts(artifacts);
         this.lastHardwareTransferAtByConnectId.set(deviceConnectId, Date.now());
         return;
       }
 
+      this.commitProcessedArtifacts(artifacts);
       this.setLastResult(
         this.buildResultBase({
           artifacts,
@@ -431,6 +456,8 @@ class ServicePortfolioSync extends ServiceBase {
         portfolioJsonBytesLength: artifacts.portfolioJsonBytes.byteLength,
       });
     } catch (error) {
+      // Release the in-flight reservation so the same snapshot can be retried.
+      this.inFlightContentHash = undefined;
       debugPortfolioSyncLog('error', {
         message: (error as Error)?.message,
       });
