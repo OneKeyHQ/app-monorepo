@@ -205,13 +205,13 @@ export function MarketDetailPools({
       },
     );
 
-  const existingNetworkMap = useMemo(() => {
-    const map = new Map<string, IServerNetwork>();
-    for (const network of existingNetworks) {
-      map.set(network.id, network);
-    }
-    return map;
-  }, [existingNetworks]);
+  const existingNetworkMap = useMemo(
+    () =>
+      new Map<string, IServerNetwork>(
+        existingNetworks.map((network) => [network.id, network]),
+      ),
+    [existingNetworks],
+  );
 
   // Drop pools whose network has been delisted. Previously a single stale
   // networkId broke the entire selector row: getNetwork throws for unknown
