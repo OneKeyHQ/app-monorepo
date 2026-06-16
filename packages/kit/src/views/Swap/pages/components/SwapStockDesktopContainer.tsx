@@ -195,43 +195,36 @@ function StockMarketDataGrid() {
         value: formatCurrencyStatValue(
           assetAnalysis?.volume24h ?? tokenDetail?.volume24h,
         ),
-        tooltip: 'Total trading value over the past 24 hours.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_volume_shares,
         }),
         value: formatMarketCapValue(assetAnalysis?.volumeShares),
-        tooltip: 'Total underlying shares traded over the past 24 hours.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
         value: formatPercentValue(assetAnalysis?.turnoverRate),
-        tooltip:
-          'Share turnover over the past 24 hours, calculated from trading volume and shares outstanding.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
-        tooltip: 'Average daily trading value over the past year.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_high,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
-        tooltip: 'Highest traded price over the past 52 weeks.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_low,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
-        tooltip: 'Lowest traded price over the past 52 weeks.',
       },
     ],
     [assetAnalysis, intl, tokenDetail?.volume24h],
@@ -250,7 +243,6 @@ function StockMarketDataGrid() {
                 key={item.label}
                 label={item.label}
                 value={item.value}
-                tooltip={item.tooltip}
               />
             ))}
           </XStack>
@@ -573,6 +565,8 @@ function StockPayTokenPopoverContent({
         }}
         disabledOnSwitchToTrade
         disableNativeToken={disableNativeToken}
+        disableInternalTokenDetailFetch
+        sortTokensByValue={false}
       />
     </AccountSelectorProviderMirror>
   );

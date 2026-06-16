@@ -1,10 +1,13 @@
 import { useEffect, useMemo } from 'react';
 import type { MutableRefObject } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
+import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -35,6 +38,81 @@ const defaultSpeedSwapConfig: ISpeedSwapConfig = {
 };
 
 const EMPTY_DEFAULT_TOKENS: IToken[] = [];
+const USD_CURRENCY_SYMBOL = '$';
+
+type IStockPayToken = IToken & {
+  balance?: string;
+  networkImageSrc?: string;
+  valueProps?: { value: string; currency: string };
+};
+
+const EMPTY_STOCK_PAY_TOKENS: IStockPayToken[] = [];
+
+function getNetworkLogoURI(networkId?: string) {
+  if (!networkId) {
+    return undefined;
+  }
+  return Object.values(presetNetworksMap).find(
+    (network) => network.id === networkId,
+  )?.logoURI;
+}
+
+function getTokenValueBN(token: Partial<ISwapToken>) {
+  const fiatValueBN = new BigNumber(token.fiatValue ?? '');
+  if (fiatValueBN.isFinite()) {
+    return fiatValueBN;
+  }
+  const balanceBN = new BigNumber(token.balanceParsed ?? 0);
+  const priceBN = new BigNumber(token.price ?? 0);
+  const valueBN = balanceBN.multipliedBy(priceBN);
+  return valueBN.isFinite() ? valueBN : new BigNumber(0);
+}
+
+function buildStockPayToken({
+  token,
+  detail,
+}: {
+  token: IToken;
+  detail?: ISwapToken;
+}): IStockPayToken {
+  const balanceParsed = detail?.balanceParsed ?? token.balanceParsed ?? '0';
+  const price = detail?.price ?? token.price;
+  const fiatValue = detail?.fiatValue ?? token.fiatValue;
+  const tokenWithValue = {
+    ...token,
+    ...detail,
+    balanceParsed,
+    price,
+    fiatValue,
+    speedSwapDefaultAmount:
+      token.speedSwapDefaultAmount ?? detail?.speedSwapDefaultAmount ?? [],
+  };
+  const valueBN = getTokenValueBN(tokenWithValue);
+  return {
+    ...tokenWithValue,
+    balance: balanceParsed,
+    networkImageSrc:
+      detail?.networkLogoURI ?? getNetworkLogoURI(token.networkId),
+    valueProps: valueBN.isFinite()
+      ? {
+          value: valueBN.toFixed(2),
+          currency: USD_CURRENCY_SYMBOL,
+        }
+      : undefined,
+  };
+}
+
+function sortStockPayTokens(tokens: IStockPayToken[]) {
+  return tokens
+    .map((token, index) => ({ token, index }))
+    .toSorted((a, b) => {
+      const valueCompare = getTokenValueBN(b.token).comparedTo(
+        getTokenValueBN(a.token),
+      );
+      return valueCompare || a.index - b.index;
+    })
+    .map((item) => item.token);
+}
 
 export function useSwapStockPayTokens({
   currentStockToken,
@@ -95,7 +173,7 @@ export function useSwapStockPayTokens({
     manualStockPayTokenKeyRef.current = '';
   }, [manualStockPayTokenKeyRef, stockNetworkId]);
 
-  const payTokens = useMemo(() => {
+  const rawPayTokens = useMemo(() => {
     if (!defaultTokens?.length) {
       return [];
     }
@@ -111,46 +189,45 @@ export function useSwapStockPayTokens({
     );
   }, [currentStockToken, currentStockTokenKey, defaultTokens]);
 
-  const selectablePayTokens = useMemo(
-    () =>
-      disableNativePayToken
-        ? payTokens.filter((token) => !token.isNative)
-        : payTokens,
-    [disableNativePayToken, payTokens],
-  );
-  const selectablePayTokenKeys = useMemo(
-    () => selectablePayTokens.map(getTokenIdentityKey).join('|'),
-    [selectablePayTokens],
+  const rawPayTokenKeys = useMemo(
+    () => rawPayTokens.map(getTokenIdentityKey).join('|'),
+    [rawPayTokens],
   );
   const hasActiveAccount = Boolean(
     activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
   );
-  const shouldLoadPayTokenBalances = Boolean(
-    speedConfigReady && selectablePayTokens.length > 0,
+  const shouldLoadPayTokenDetails = Boolean(
+    speedConfigReady && rawPayTokens.length > 0,
   );
-  const payTokenBalanceScope = `${
-    shouldLoadPayTokenBalances ? '1' : '0'
-  }:${selectablePayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
+  const payTokenDetailsScope = `${
+    shouldLoadPayTokenDetails ? '1' : '0'
+  }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
-  const { result: payTokenBalanceState, isLoading: payTokenBalanceLoading } =
+  const { result: payTokenDetailsState, isLoading: payTokenDetailsLoading } =
     usePromiseResult(
       async () => {
-        if (!shouldLoadPayTokenBalances) {
+        if (!shouldLoadPayTokenDetails) {
           return {
-            scope: payTokenBalanceScope,
+            scope: payTokenDetailsScope,
+            tokens: [] as IStockPayToken[],
             balances: {} as Record<string, string | undefined>,
           };
         }
         if (!hasActiveAccount) {
+          const tokens = sortStockPayTokens(
+            rawPayTokens.map((token) => buildStockPayToken({ token })),
+          );
           return {
-            scope: payTokenBalanceScope,
-            balances: selectablePayTokens.reduce<
-              Record<string, string | undefined>
-            >((acc, token) => {
-              acc[getTokenIdentityKey(token)] = token.balanceParsed ?? '0';
-              return acc;
-            }, {}),
+            scope: payTokenDetailsScope,
+            tokens,
+            balances: tokens.reduce<Record<string, string | undefined>>(
+              (acc, token) => {
+                acc[getTokenIdentityKey(token)] = token.balanceParsed ?? '0';
+                return acc;
+              },
+              {},
+            ),
           };
         }
 
@@ -189,13 +266,12 @@ export function useSwapStockPayTokens({
           return request;
         };
 
-        const balanceEntries = await Promise.all(
-          selectablePayTokens.map(async (token) => {
-            const fallbackBalance = token.balanceParsed ?? '0';
+        const tokens = await Promise.all(
+          rawPayTokens.map(async (token) => {
             try {
               const networkAccount = await getNetworkAccount(token.networkId);
               if (!networkAccount?.id || !networkAccount?.address) {
-                return [getTokenIdentityKey(token), fallbackBalance] as const;
+                return buildStockPayToken({ token });
               }
               const details =
                 await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
@@ -205,47 +281,62 @@ export function useSwapStockPayTokens({
                   accountAddress: networkAccount.address,
                   currency: 'usd',
                 });
-              return [
-                getTokenIdentityKey(token),
-                details?.[0]?.balanceParsed ?? fallbackBalance,
-              ] as const;
+              return buildStockPayToken({ token, detail: details?.[0] });
             } catch {
-              return [getTokenIdentityKey(token), fallbackBalance] as const;
+              return buildStockPayToken({ token });
             }
           }),
         );
+        const sortedTokens = sortStockPayTokens(tokens);
         return {
-          scope: payTokenBalanceScope,
-          balances: Object.fromEntries(balanceEntries),
+          scope: payTokenDetailsScope,
+          tokens: sortedTokens,
+          balances: Object.fromEntries(
+            sortedTokens.map((token) => [
+              getTokenIdentityKey(token),
+              token.balanceParsed ?? '0',
+            ]),
+          ),
         };
       },
       [
         activeAccount?.account?.id,
         activeAccount?.indexedAccount?.id,
         hasActiveAccount,
-        payTokenBalanceScope,
-        selectablePayTokens,
-        shouldLoadPayTokenBalances,
+        payTokenDetailsScope,
+        rawPayTokens,
+        shouldLoadPayTokenDetails,
       ],
       {
         initResult: {
           scope: '',
+          tokens: [] as IStockPayToken[],
           balances: {} as Record<string, string | undefined>,
         },
-        watchLoading: shouldLoadPayTokenBalances,
+        watchLoading: shouldLoadPayTokenDetails,
       },
     );
-  const payTokenBalanceReady =
-    payTokenBalanceState.scope === payTokenBalanceScope;
-  const payTokenBalances = payTokenBalanceReady
-    ? payTokenBalanceState.balances
+  const payTokenDetailsReady =
+    payTokenDetailsState.scope === payTokenDetailsScope;
+  const payTokens = payTokenDetailsReady
+    ? payTokenDetailsState.tokens
+    : EMPTY_STOCK_PAY_TOKENS;
+  const selectablePayTokens = useMemo(
+    () =>
+      disableNativePayToken
+        ? payTokens.filter((token) => !token.isNative)
+        : payTokens,
+    [disableNativePayToken, payTokens],
+  );
+  const payTokenBalances = payTokenDetailsReady
+    ? payTokenDetailsState.balances
     : undefined;
 
   useEffect(() => {
     if (
       !speedConfigReady ||
       selectablePayTokens.length === 0 ||
-      !payTokenBalanceReady
+      !payTokenDetailsReady
     ) {
       return;
     }
@@ -274,7 +365,7 @@ export function useSwapStockPayTokens({
   }, [
     manualStockPayTokenKeyRef,
     payToken,
-    payTokenBalanceReady,
+    payTokenDetailsReady,
     payTokenBalances,
     selectablePayTokens,
     selectPayToken,
@@ -288,8 +379,8 @@ export function useSwapStockPayTokens({
     if (
       payTokenOptionsLoading ||
       !speedConfigReady ||
-      (shouldLoadPayTokenBalances &&
-        (!payTokenBalanceReady || payTokenBalanceLoading))
+      (shouldLoadPayTokenDetails &&
+        (!payTokenDetailsReady || payTokenDetailsLoading))
     ) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
@@ -299,17 +390,21 @@ export function useSwapStockPayTokens({
     return ESwapStockChannelAsyncStatus.Ready;
   }, [
     payTokenOptionsLoading,
-    payTokenBalanceLoading,
-    payTokenBalanceReady,
+    payTokenDetailsLoading,
+    payTokenDetailsReady,
     selectablePayTokens.length,
-    shouldLoadPayTokenBalances,
+    shouldLoadPayTokenDetails,
     speedConfigReady,
     stockNetworkId,
   ]);
+  const stockPayTokenOptionsLoading =
+    payTokenOptionsLoading ||
+    (shouldLoadPayTokenDetails &&
+      (!payTokenDetailsReady || payTokenDetailsLoading));
 
   return {
     payTokenStatus,
-    payTokenOptionsLoading: !!payTokenOptionsLoading,
+    payTokenOptionsLoading: !!stockPayTokenOptionsLoading,
     payTokens,
     selectablePayTokens,
     speedConfigReady,
