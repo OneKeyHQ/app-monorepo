@@ -89,6 +89,13 @@ export interface IIngestRoundParams {
   tokenListMap: Record<ITokenKey, ITokenFiat>;
   /** nested aggregate map `aggKey -> networkId -> ITokenFiat`. */
   aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`) — the SAME
+   * value the home producer feeds `refreshAggregateTokensListMap`. Carried onto
+   * the structure frame so the home cell-path leaves source it from
+   * `listStructureAtom` (full-delete PR-7). Optional for older call sites.
+   */
+  ownedAggregateTokenListMap?: Record<IAggKey, { tokens: IAccountToken[] }>;
   smallBalanceFiatValue: string;
   /** identity-check payload routed through to the frames (see resolveCurrentStore). */
   storeData: IJotaiContextStoreData;
@@ -168,6 +175,7 @@ class ServiceTokenViewModel extends ServiceBase {
         aggMembership: {},
         ownerKey: '',
         generation: -1,
+        ownedAggregateTokenListMap: {},
       },
       lastScalar: '0',
       lastMetaByKey: {},
@@ -192,6 +200,7 @@ class ServiceTokenViewModel extends ServiceBase {
       smallBalanceTokens,
       tokenListMap,
       aggregateTokensMap,
+      ownedAggregateTokenListMap,
       smallBalanceFiatValue,
       storeData,
       keepDefault,
@@ -215,6 +224,7 @@ class ServiceTokenViewModel extends ServiceBase {
       smallBalanceTokens,
       tokenListMap,
       aggregateTokensMap,
+      ownedAggregateTokenListMap,
       smallBalanceFiatValue,
       ownerKey,
       storeData,
@@ -248,6 +258,7 @@ class ServiceTokenViewModel extends ServiceBase {
         aggMembership: structure.aggMembership,
         ownerKey: structure.ownerKey,
         generation: structure.generation,
+        ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
       };
       vm.lastScalar = structure.smallBalanceFiatValue;
       vm.lastMetaByKey = this.metaByKeyFromTokens([

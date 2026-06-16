@@ -440,6 +440,7 @@ describe('projectHomeDisplayIds — price tick does not change listStructure dep
         aggMembership: {},
         ownerKey: '',
         generation: -1,
+        ownedAggregateTokenListMap: {},
       },
       smallBalanceFiatValue: '0',
       metaByKey: {},
@@ -498,6 +499,8 @@ describe('projectHomeDisplayIds — price tick does not change listStructure dep
           aggMembership: round1.structure?.aggMembership ?? {},
           ownerKey,
           generation: generationBefore,
+          ownedAggregateTokenListMap:
+            round1.structure?.ownedAggregateTokenListMap ?? {},
         },
         smallBalanceFiatValue: '0',
         metaByKey: { a: makeToken('a'), b: makeToken('b') },

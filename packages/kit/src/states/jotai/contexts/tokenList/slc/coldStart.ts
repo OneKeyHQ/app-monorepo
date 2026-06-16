@@ -174,6 +174,7 @@ export function readSlcColdStartProjection(
       ownerKey: structureValue.ownerKey,
       generation: structureValue.generation,
       smallBalanceFiatValue: structureValue.smallBalanceFiatValue,
+      ownedAggregateTokenListMap: structureValue.ownedAggregateTokenListMap,
     },
     fiatByKey,
     aggFiatByKey,
@@ -300,6 +301,10 @@ export function fanOutSlimToApply(params: {
     // Restore the REAL persisted small-balance fiat scalar (PR-0 enabler) instead
     // of hardcoding '0'; older bundles without the field fall back to '0'.
     smallBalanceFiatValue: bundle.smallBalanceFiatValue ?? '0',
+    // Restore the persisted owned aggregate sub-token list-map so cold aggregate
+    // badges/sub-token lists paint at T0 (full-delete PR-7); older bundles
+    // without the field fall back to `{}` and fill on the first real frame.
+    ownedAggregateTokenListMap: bundle.ownedAggregateTokenListMap ?? {},
     storeData,
     ownerKey: bundle.ownerKey,
     generation: bundle.gen,

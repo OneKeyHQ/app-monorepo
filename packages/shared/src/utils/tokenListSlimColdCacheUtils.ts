@@ -15,7 +15,7 @@
  */
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '../consts/jotaiConsts';
 
-import type { IToken, ITokenFiat } from '../../types/token';
+import type { IAccountToken, IToken, ITokenFiat } from '../../types/token';
 
 /** `$key` alias — a token's stable list key. */
 export type ITokenKey = string;
@@ -53,6 +53,12 @@ export interface ISlimSnapshotStructure {
    * bundles (written before PR-0) still parse; absent -> restored as '0'.
    */
   smallBalanceFiatValue?: string;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`). Optional
+   * so OLDER bundles (pre-PR-7) still parse; absent -> restored as `{}` (cold
+   * aggregate badges fill on the first real structure frame).
+   */
+  ownedAggregateTokenListMap?: Record<IAggKey, { tokens: IAccountToken[] }>;
 }
 
 /**
@@ -80,6 +86,12 @@ export interface ITokenListSlimColdCache {
    * absent -> restored as '0' (PR-0 enabler).
    */
   smallBalanceFiatValue?: string;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`) persisted
+   * so a cold start paints aggregate badges/sub-token lists at T0 (full-delete
+   * PR-7). Optional so older bundles parse; absent -> restored as `{}`.
+   */
+  ownedAggregateTokenListMap?: Record<IAggKey, { tokens: IAccountToken[] }>;
 }
 
 /**
@@ -205,6 +217,7 @@ export function buildSlimSnapshot(
     ownerKey: structure.ownerKey,
     currency,
     smallBalanceFiatValue: structure.smallBalanceFiatValue ?? '0',
+    ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap ?? {},
   };
 }
 

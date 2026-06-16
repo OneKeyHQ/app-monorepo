@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -42,22 +42,14 @@ import type {
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
-  RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS,
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
-  useAggregateTokensListMapAtom,
-  useAggregateTokensMapAtom,
   useAllTokenListAtom,
-  useFlattenAggregateTokensMapAtom,
   useListStructureAtom,
-  useRenderedTokenListCacheAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
-  useSmallBalanceTokenListAtom,
-  useTokenListAtom,
   useTokenListContextData,
-  useTokenListMapAtom,
   useTokenListSortAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
@@ -85,7 +77,6 @@ import {
   TokenListViewContext,
   useTokenListViewContext,
 } from './TokenListViewContext';
-import { getTokenListOwnerCacheAccountId } from './utils';
 
 import type {
   IScopedActiveTokenList,
@@ -173,6 +164,28 @@ type IProps = {
   // matching the pre-PR-3 instant render. The active-account branch is
   // unaffected (it uses `activeAccountTokenListState`).
   tokenSelectorInitialized?: boolean;
+  // Generalized "host-provided maps" seam (tokenList SLC full-delete plan,
+  // PR-7). Any NON-cell caller (AssetList modal, active-account, LP-scoped)
+  // fills these from its OWN source instead of the home target atoms, so the
+  // wrapper + inner cmp no longer read `tokenListAtom` / `tokenListMapAtom` /
+  // `smallBalanceTokenListAtom` / `flattenAggregateTokensMapAtom` /
+  // `aggregateTokensListMapAtom` to serve those paths. AssetList passes its
+  // route-param `tokens` / `tokenMap` / `aggregateTokensListMap` / flattened-agg.
+  // On the HOME cell path these are unused (cells + `listStructureAtom` serve).
+  // The `tokenSelector*` props remain the selector-path source; these host props
+  // cover the other non-cell callers.
+  hostTokenList?: {
+    tokens: IAccountToken[];
+    smallBalanceTokens: IAccountToken[];
+  };
+  hostTokenListMap?: Record<string, ITokenFiat>;
+  hostAggregateTokenFiatMap?: Record<string, ITokenFiat>;
+  hostAggregateTokenListMap?: Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >;
   onRefresh?: () => void;
   listViewStyleProps?: Pick<
     ComponentProps<typeof ListView>,
@@ -249,7 +262,6 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
-    mergeDeriveAddressData,
     searchKeyLengthThreshold,
     plainMode,
     limit,
@@ -262,6 +274,11 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorTokenListMap,
     tokenSelectorAggregateTokenListMap,
     tokenSelectorInitialized,
+    hostTokenList,
+    hostTokenListMap: hostTokenListMapProp,
+    hostAggregateTokenFiatMap,
+    scopedActiveAccountTokenList,
+    scopedActiveAccountTokenListState,
   } = props;
 
   const intl = useIntl();
@@ -275,37 +292,41 @@ function TokenListViewCmp(props: IProps) {
   });
 
   const [activeAccountTokenListAtomValue] = useActiveAccountTokenListAtom();
-  const [tokenList] = useTokenListAtom();
   const [allTokenList] = useAllTokenListAtom();
-  const [tokenListMap] = useTokenListMapAtom();
-  const [aggregateTokenMap] = useFlattenAggregateTokensMapAtom();
-  // Raw nested aggregate-token map — persisted alongside `tokenListMap` so
-  // a paint-time hydrate can restore aggregate-token balance/value together
-  // with the regular token map.
-  const [rawAggregateTokensMap] = useAggregateTokensMapAtom();
-  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
-  const [renderedTokenListCache, setRenderedTokenListCache] =
-    useRenderedTokenListCacheAtom();
-  // Use ref to avoid useMemo→useEffect→setState cycle
-  const renderedTokenListCacheRef = useRef(renderedTokenListCache);
-  renderedTokenListCacheRef.current = renderedTokenListCache;
   const [activeAccountTokenListStateAtomValue] =
     useActiveAccountTokenListStateAtom();
+  // PR-7: the inner cmp no longer reads `tokenListAtom` / `tokenListMapAtom` /
+  // `flattenAggregateTokensMapAtom` / `aggregateTokensMapAtom` /
+  // `smallBalanceTokenListAtom`. On the HOME cell path the order/membership/rows
+  // come from `homeProjectedIds` / `listData` (cells + `listStructureAtom`) and
+  // the `tokens` memo early-returns `[]` (see below), so these values are unused.
+  // On the NON-home paths they are sourced from generalized HOST props the caller
+  // fills from its own non-target source (AssetList route params; selector
+  // self-fetch). The active-account scoped branch keeps its scoped map.
+  const tokenList = useMemo(
+    () => hostTokenList ?? { tokens: [] as IAccountToken[] },
+    [hostTokenList],
+  );
+  const smallBalanceTokenList = useMemo(
+    () => ({
+      smallBalanceTokens: hostTokenList?.smallBalanceTokens ?? [],
+    }),
+    [hostTokenList],
+  );
+  const hostTokenListMap = useMemo(
+    () => hostTokenListMapProp ?? EMPTY_FIAT_MAP,
+    [hostTokenListMapProp],
+  );
+  const aggregateTokenMap = useMemo(
+    () => hostAggregateTokenFiatMap ?? EMPTY_FIAT_MAP,
+    [hostAggregateTokenFiatMap],
+  );
   const activeAccountTokenList =
-    props.scopedActiveAccountTokenList ?? activeAccountTokenListAtomValue;
+    scopedActiveAccountTokenList ?? activeAccountTokenListAtomValue;
   const activeAccountTokenListState =
-    props.scopedActiveAccountTokenListState ??
-    activeAccountTokenListStateAtomValue;
-  // An empty scoped map (`{}`, the default home state) is NOT an override —
-  // fall back to the whole `tokenListMap` so the legacy / scoped path reads
-  // real fiat. Only a POPULATED scoped LP map overrides (LP-dapp mode).
-  const activeAccountTokenListMap = hasActiveScopedOverride(
-    scopedActiveAccountTokenListMap,
-  )
-    ? (scopedActiveAccountTokenListMap ?? tokenListMap)
-    : tokenListMap;
+    scopedActiveAccountTokenListState ?? activeAccountTokenListStateAtomValue;
   // Selector fiat map (tokenList SLC full-delete plan, PR-3): on the selector
   // path the displayed list + fiat map are self-fetched by TokenSelector and
   // threaded as props, so the selector no longer reads the home `tokenListMap`
@@ -315,10 +336,20 @@ function TokenListViewCmp(props: IProps) {
     () => tokenSelectorTokenListMap ?? EMPTY_FIAT_MAP,
     [tokenSelectorTokenListMap],
   );
+  // An empty scoped map (`{}`, the default home state) is NOT an override — fall
+  // back to the host map (or selector fiat) so the legacy / scoped path reads
+  // real fiat. Only a POPULATED scoped LP map overrides (LP-dapp mode). PR-7: the
+  // old `?? tokenListMap` ATOM fallback is replaced by the host/selector props;
+  // on the home cell path this whole value is unused (cells serve the leaves).
+  const activeAccountTokenListMap = hasActiveScopedOverride(
+    scopedActiveAccountTokenListMap,
+  )
+    ? (scopedActiveAccountTokenListMap ?? hostTokenListMap)
+    : hostTokenListMap;
   // Priority: active-account scoped map (LP-dapp / cross-account, used by both
-  // home AND selector) wins; then the selector's self-fetched map; then the
-  // home `tokenListMap` atom.
-  let visibleTokenListMap = tokenListMap;
+  // home AND selector) wins; then the selector's self-fetched map; then the host
+  // map (AssetList route params; empty on home where cells serve).
+  let visibleTokenListMap = hostTokenListMap;
   if (showActiveAccountTokenList) {
     visibleTokenListMap = activeAccountTokenListMap;
   } else if (isTokenSelector) {
@@ -347,11 +378,11 @@ function TokenListViewCmp(props: IProps) {
 
   // The token list atoms are scoped to a singleton store, so they survive the
   // PortfolioContainer remount that fires on every account/network switch and
-  // briefly carry the previous owner's data. When the loaded data does not
-  // belong to the current accountId/networkId, prefer the per-owner rendered
-  // cache for the current owner if it exists (instant swap, no skeleton);
-  // otherwise return an empty list so the skeleton (gated below) covers the
-  // gap until `initTokenListData` completes.
+  // briefly carry the previous owner's data. The non-home skeleton/empty paths
+  // (AssetList / active-account) rely on `tokenListState.initialized` from their
+  // own `refresh*`, NOT on this flag; on home the cells + `listStructure`
+  // generation govern (see `homeProjectedIds`). Kept for the non-home skeleton
+  // gate below.
   const ownerMismatch =
     !!accountId &&
     !!networkId &&
@@ -360,30 +391,15 @@ function TokenListViewCmp(props: IProps) {
     (allTokenList.accountId !== accountId ||
       allTokenList.networkId !== networkId);
 
-  // Owner-aware cache key: in merge mode, keyed by indexedAccountId so the
-  // logical owner survives derive-type switches that change accountId.
-  // Read in TokenListBlock's pre-paint hydrate uses the same rule.
-  const ownerCacheAccountId = getTokenListOwnerCacheAccountId({
-    accountId,
-    indexedAccountId,
-    mergeDeriveAddressData,
-  });
-  const ownerCacheKey =
-    ownerCacheAccountId && networkId
-      ? `${ownerCacheAccountId}__${networkId}`
-      : '';
-
   const tokens = useMemo(() => {
-    if (ownerMismatch && !showActiveAccountTokenList) {
-      const cached =
-        ownerCacheKey &&
-        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
-      // Require a paired `tokenListMap` — otherwise we'd render tokens
-      // against the previous owner's map (no balance/price). Legacy cache
-      // entries from an earlier build don't carry it; treat them as misses.
-      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
-        return cached.tokens;
-      }
+    // PR-7: on the HOME cell path order/membership/rows come from
+    // `homeProjectedIds` / `listData` (cells + `listStructureAtom`), so the
+    // legacy `tokens` value is consumed by neither the list nor `filteredTokens`
+    // (which early-returns on home). Return `[]` so the home data path executes
+    // ZERO legacy whole-map reads — the inner cmp no longer subscribes to
+    // `tokenListMap`/`flattenAgg`/`tokenList`, so a price tick re-renders only
+    // the changed leaf cell (PR-S invariant holds at the container level).
+    if (isHomeProjectionPath) {
       return [];
     }
 
@@ -472,35 +488,9 @@ function TokenListViewCmp(props: IProps) {
       });
     }
 
-    // Cold-start fallback: when atoms haven't loaded yet for the current
-    // owner, reuse the per-owner cache so the user sees their last known list
-    // immediately. Read from ref to avoid useMemo→useEffect→setState cycle.
-    // PR-3: on the selector path the displayed list is the self-fetched
-    // `tokenSelectorTokenList` (props), NOT the home atoms, so `initialized`
-    // here means "selector self-fetch resolved". The home mirror keeps
-    // `tokenListState.initialized === true`, so gate on `tokenSelectorInitialized`
-    // for the selector branch to keep the cache fallback firing pre-fetch.
-    const notYetInitialized =
-      isTokenSelector && !showActiveAccountTokenList
-        ? !tokenSelectorInitialized
-        : !tokenListState.initialized;
-    if (
-      !showActiveAccountTokenList &&
-      resultTokens.length === 0 &&
-      notYetInitialized
-    ) {
-      const cached =
-        ownerCacheKey &&
-        renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
-      if (cached && cached.tokens.length > 0 && cached.tokenListMap) {
-        return cached.tokens;
-      }
-    }
-
     return resultTokens;
   }, [
-    ownerMismatch,
-    ownerCacheKey,
+    isHomeProjectionPath,
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
@@ -510,121 +500,21 @@ function TokenListViewCmp(props: IProps) {
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
     tokenSelectorTokenList,
-    tokenSelectorInitialized,
     visibleTokenListMap,
     aggregateTokenMap,
     keepDefaultZeroBalanceTokens,
     homeDefaultTokenMap,
     customTokens,
     exchangeFilter,
-    tokenListState.initialized,
   ]);
 
-  // Persist the rendered token list (and its balance/price map) per owner.
-  // Skip when the loaded atoms are still showing a previous owner's data
-  // (ownerMismatch) — otherwise we'd overwrite the target owner's cache with
-  // stale tokens.
-  useEffect(() => {
-    if (
-      !showActiveAccountTokenList &&
-      !ownerMismatch &&
-      ownerCacheKey &&
-      tokens.length > 0 &&
-      tokenListState.initialized &&
-      !tokenListState.isRefreshing &&
-      accountId &&
-      networkId
-    ) {
-      setRenderedTokenListCache((prev) => {
-        // `prev` may be in the legacy single-entry shape persisted by an
-        // earlier build (`{ tokens, initialized, accountId, networkId }`).
-        // Tolerate it defensively and lift it into `byOwner` so the user's
-        // cold-start cache survives the upgrade. Without this migration,
-        // first launch on the new build silently discards the old entry.
-        const legacy = prev as unknown as {
-          byOwner?: Record<
-            string,
-            {
-              tokens: IAccountToken[];
-              tokenListMap?: Record<string, ITokenFiat>;
-              aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
-              accountId: string;
-              networkId: string;
-            }
-          >;
-          tokens?: IAccountToken[];
-          initialized?: boolean;
-          accountId?: string;
-          networkId?: string;
-        };
-        // Object spread tolerates `undefined` (treats it as no-op) — no
-        // explicit `?? {}` needed.
-        const nextByOwner: NonNullable<typeof legacy.byOwner> = {
-          ...legacy.byOwner,
-        };
-        if (
-          !legacy.byOwner &&
-          legacy.initialized &&
-          legacy.tokens?.length &&
-          legacy.accountId &&
-          legacy.networkId
-        ) {
-          const legacyKey = `${legacy.accountId}__${legacy.networkId}`;
-          if (!nextByOwner[legacyKey]) {
-            // No `tokenListMap` in legacy entries; downstream guards skip
-            // such entries until a fresh write replaces them.
-            nextByOwner[legacyKey] = {
-              tokens: legacy.tokens,
-              accountId: legacy.accountId,
-              networkId: legacy.networkId,
-            };
-          }
-        }
-
-        // MRU re-insertion: delete first so the spread below puts the
-        // current owner at the end of the key order. Combined with the
-        // size cap below, this keeps the most recently used entries.
-        delete nextByOwner[ownerCacheKey];
-        nextByOwner[ownerCacheKey] = {
-          tokens,
-          tokenListMap,
-          // Persist the raw aggregate-token map alongside `tokenListMap`
-          // so the read-side hydrate can refresh `aggregateTokensMapAtom`
-          // atomically — without it, cached tokens render with the
-          // previous owner's aggregate balance/value briefly.
-          aggregateTokensMap: rawAggregateTokensMap,
-          accountId,
-          networkId,
-        };
-
-        const keys = Object.keys(nextByOwner);
-        if (keys.length > RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS) {
-          // `Object.keys` preserves insertion order for string keys that
-          // aren't integer indices. `accountId__networkId` always contains
-          // non-digit chars (the `__` separator and id prefixes like
-          // `hd-`), so dropping from the front evicts the oldest entries.
-          const dropCount = keys.length - RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS;
-          for (let i = 0; i < dropCount; i += 1) {
-            delete nextByOwner[keys[i]];
-          }
-        }
-
-        return { byOwner: nextByOwner };
-      });
-    }
-  }, [
-    ownerMismatch,
-    ownerCacheKey,
-    showActiveAccountTokenList,
-    tokens,
-    tokenListMap,
-    rawAggregateTokensMap,
-    tokenListState.initialized,
-    tokenListState.isRefreshing,
-    setRenderedTokenListCache,
-    accountId,
-    networkId,
-  ]);
+  // PR-7: the legacy per-owner `renderedTokenListCache` PERSIST write was
+  // REMOVED. The slim cold cache (`persistSlimColdCache`, written by the SLC
+  // producer off the cell projection) is now the single cold-paint authority,
+  // and the BG per-owner VM covers switch-hydrate; the old whole-map write here
+  // duplicated that and reintroduced a `tokenListMap`/`rawAggregateTokensMap`
+  // whole-map dependency every structure frame. Dropping it frees the last
+  // `renderedTokenListCacheAtom` reader in this file (D4 single-cold-authority).
 
   const [searchTokenState] = useSearchTokenStateAtom();
 
@@ -917,25 +807,16 @@ function TokenListViewCmp(props: IProps) {
       return true;
     }
 
-    // Per-owner cache hit → instant display, never skeleton. This covers
-    // both cold-start (atom hydrating from disk) and in-session switches
-    // back to a previously-rendered network/account. Require a paired
-    // `tokenListMap` so we don't suppress the skeleton over a legacy entry
-    // that would render tokens against the previous owner's map.
-    const cached =
-      ownerCacheKey &&
-      renderedTokenListCacheRef.current.byOwner?.[ownerCacheKey];
-    if (
-      !showActiveAccountTokenList &&
-      cached &&
-      cached.tokens.length > 0 &&
-      cached.tokenListMap
-    ) {
-      return false;
-    }
-    // Loaded atoms belong to a previous owner and we have no cache for the
-    // current owner — show skeleton until `initTokenListData` refreshes the
-    // atoms. Without this `tokenListState.initialized` is still true from
+    // PR-7: the legacy per-owner `renderedTokenListCache` instant-display
+    // short-circuit was REMOVED. On home, cold-start instant paint is the slim
+    // cold cache fan-out and in-session switch instant paint is the BG per-owner
+    // VM pull — both paint the cells before this gate matters; the skeleton is
+    // governed by the `ownerMismatch` clause below (home switch) and the final
+    // `tokenListState` clause (cold). Non-home (AssetList) relies on its own
+    // `tokenListState.initialized` from `refresh*`, unchanged.
+    //
+    // Loaded atoms belong to a previous owner — show skeleton until the fresh
+    // data lands. Without this `tokenListState.initialized` is still true from
     // the prior network so the existing checks below would not fire.
     if (ownerMismatch && !showActiveAccountTokenList) {
       return true;
@@ -961,7 +842,6 @@ function TokenListViewCmp(props: IProps) {
     );
   }, [
     ownerMismatch,
-    ownerCacheKey,
     isTokenSelector,
     tokenSelectorInitialized,
     searchAll,
@@ -1285,87 +1165,94 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
-  const [tokenListMap] = useTokenListMapAtom();
-  // INTERIM (tokenList SLC full-delete plan, PR-6): mirror the still-living
-  // `flattenAggregateTokensMapAtom` into `context.aggregateTokenFiatMap` so the
-  // per-key leaves resolve aggregate fiat on the NON-cell paths from context
-  // instead of reading the atom directly. On the AssetList isolated store this
-  // is THIS store's scoped value (fed by its own refreshAggregateTokensMap) —
-  // byte-identical to what the 5 leaves used to read, just relocated to a single
-  // wrapper read. On the HOME cell path the leaves take `aggCell` so this is
-  // unused; on the selector path it is replaced by the selector's OWN flattened
-  // aggregate fiat map (`tokenSelectorAggregateTokenFiatMap` prop) — see the
-  // `aggregateTokenFiatMap` memo below. PR-7 moves AssetList onto the cell seam
-  // and drops this atom read.
-  const [flattenAggregateTokensMapFromAtom] =
-    useFlattenAggregateTokensMapAtom();
-  // INTERIM (tokenList SLC full-delete plan, PR-1): mirror the still-living
-  // `aggregateTokensListMapAtom` into the context so the per-key leaves
-  // (TokenIconView / TokenNameView / TokenActionsView) resolve their owned
-  // aggregate sub-token list from `ownedAggregateTokenListMap` instead of
-  // importing the atom directly. PR-3/PR-7 swap the source to the SLC producer
-  // payload and drop this atom read.
-  const [aggregateTokensListMapValueFromAtom] = useAggregateTokensListMapAtom();
-  // PR-3: the SELECTOR no longer depends on the home
-  // `aggregateTokensListMapAtom` — it uses its self-fetched map threaded as a
-  // prop. The home / non-selector path keeps the atom read (PR-7 removes it).
-  // Memoized so the empty-default `{}` keeps a stable reference and does not
-  // re-run the `contextValue` memo every render.
+  // PR-7: SLC cell seam (spec §5). Hoisted ABOVE the context-fill memos so they
+  // can branch on the home path. Only the home path may bind leaves to per-key
+  // cells — requires the producer (gated by `enableCellSeam`, set by
+  // TokenListBlock) AND that this list renders the global map (not selector / not
+  // an ACTIVE scoped override). The scoped LP map is `{}` on the normal home
+  // mount, so an empty scoped map MUST count as "no override" or the seam dies.
+  const useCellSeam = resolveUseCellSeam({
+    enableCellSeam: props.enableCellSeam,
+    isTokenSelector: props.isTokenSelector,
+    showActiveAccountTokenList: props.showActiveAccountTokenList,
+    scopedActiveAccountTokenListMap: props.scopedActiveAccountTokenListMap,
+  });
+
+  // PR-7: the wrapper no longer reads `tokenListMapAtom` /
+  // `flattenAggregateTokensMapAtom` / `aggregateTokensListMapAtom`. The home
+  // `ownedAggregateTokenListMap` is sourced from the PRODUCER PAYLOAD via
+  // `listStructureAtom` (structure-tier — bumps only on structure frames, NOT on
+  // price ticks, so the PR-S price-tick-leaf-only invariant holds). The other two
+  // context maps are UNUSED on home (leaves take cells) and sourced from
+  // generalized HOST props / selector props on the non-cell paths.
+  const [listStructure] = useListStructureAtom();
+
+  // Per-`$key` owned aggregate sub-token METADATA list the cell-path + non-cell
+  // leaves read from context. Home → producer payload (`listStructureAtom`);
+  // selector → its self-fetched prop; other non-home (AssetList) → host prop.
   const ownedAggregateTokenListMap = useMemo(() => {
     if (props.isTokenSelector) {
       return props.tokenSelectorAggregateTokenListMap ?? EMPTY_AGGREGATE_MAP;
     }
-    return aggregateTokensListMapValueFromAtom;
+    if (useCellSeam) {
+      return listStructure.ownedAggregateTokenListMap;
+    }
+    return props.hostAggregateTokenListMap ?? EMPTY_AGGREGATE_MAP;
   }, [
     props.isTokenSelector,
     props.tokenSelectorAggregateTokenListMap,
-    aggregateTokensListMapValueFromAtom,
+    props.hostAggregateTokenListMap,
+    useCellSeam,
+    listStructure.ownedAggregateTokenListMap,
   ]);
-  // An empty scoped map (`{}`, the default home state) is NOT an override; only
-  // a POPULATED scoped LP map (LP-dapp mode) overrides the whole `tokenListMap`.
-  // PR-3: on the selector path the leaves resolve per-row fiat from the
-  // selector's self-fetched map (threaded as a prop) instead of the home
-  // `tokenListMap` atom. The active-account scoped branch (used by both home
-  // and selector) still wins. The home / non-selector path keeps the atom.
+
+  // Whole `$key -> ITokenFiat` map the NON-cell leaves resolve per-row fiat from.
+  // Home → undefined (cells serve; never read). Active-account scoped override
+  // (LP-dapp) wins; selector → its self-fetched per-row map; other non-home
+  // (AssetList) → host map.
   const visibleTokenListMap = useMemo(() => {
-    if (hasActiveScopedOverride(props.scopedActiveAccountTokenListMap)) {
-      if (props.showActiveAccountTokenList) {
-        return props.scopedActiveAccountTokenListMap ?? tokenListMap;
-      }
+    if (useCellSeam) {
+      return undefined;
+    }
+    if (
+      hasActiveScopedOverride(props.scopedActiveAccountTokenListMap) &&
+      props.showActiveAccountTokenList
+    ) {
+      return props.scopedActiveAccountTokenListMap;
     }
     if (props.showActiveAccountTokenList) {
-      return tokenListMap;
+      return props.hostTokenListMap ?? EMPTY_FIAT_MAP;
     }
     if (props.isTokenSelector) {
       return props.tokenSelectorTokenListMap ?? EMPTY_FIAT_MAP;
     }
-    return tokenListMap;
+    return props.hostTokenListMap ?? EMPTY_FIAT_MAP;
   }, [
+    useCellSeam,
     props.scopedActiveAccountTokenListMap,
     props.showActiveAccountTokenList,
     props.isTokenSelector,
     props.tokenSelectorTokenListMap,
-    tokenListMap,
+    props.hostTokenListMap,
   ]);
-  // PR-6: aggregate fiat the NON-cell leaves resolve from context.
-  //  - AssetList / active-account / LP-scoped (non-selector): this store's
-  //    scoped flatten map (interim atom mirror; PR-7 retires).
-  //  - selector: the selector's OWN flattened aggregate fiat map (threaded as a
-  //    prop from TokenSelector's self-fetch). The per-row
-  //    `tokenSelectorTokenListMap` (selectorFiatMap) does NOT carry aggregate
-  //    `$key` fiat, so without this the all-networks selector rows lose
-  //    balance/value/price. The home flatten atom would be the WRONG owner for a
-  //    cross-account selector, so it stays unused here.
-  //  - home cell path: unused (leaves take `aggCell` via `useTokenFiat`).
+  // Aggregate fiat the NON-cell leaves resolve from context.
+  //  - home cell path: undefined (leaves take `aggCell` via `useTokenFiat`).
+  //  - selector: the selector's OWN flattened aggregate fiat map (the per-row
+  //    `tokenSelectorTokenListMap` does NOT carry aggregate `$key` fiat).
+  //  - other non-home (AssetList): the host-provided flattened aggregate map.
   const aggregateTokenFiatMap = useMemo(() => {
+    if (useCellSeam) {
+      return undefined;
+    }
     if (props.isTokenSelector) {
       return props.tokenSelectorAggregateTokenFiatMap ?? EMPTY_FIAT_MAP;
     }
-    return flattenAggregateTokensMapFromAtom;
+    return props.hostAggregateTokenFiatMap ?? EMPTY_FIAT_MAP;
   }, [
+    useCellSeam,
     props.isTokenSelector,
     props.tokenSelectorAggregateTokenFiatMap,
-    flattenAggregateTokensMapFromAtom,
+    props.hostAggregateTokenFiatMap,
   ]);
 
   const needNetworksMap =
@@ -1395,20 +1282,6 @@ const TokenListView = memo((props: IProps) => {
     }
     return map;
   }, [needNetworksMap, allNetworksResp]);
-
-  // SLC cell seam (spec §5): only the home path may bind leaves to per-key
-  // cells. Requires the producer (gated by `enableCellSeam`, set by
-  // TokenListBlock) AND that this list renders the global map — not the
-  // TokenSelector path and not an ACTIVE scoped/active-account override map
-  // (those have no producer feeding their cells). The scoped LP map is held in
-  // `useState({})`, so it is `{}` (NOT undefined) on the normal home mount — an
-  // empty scoped map MUST count as "no override" or the seam is dead on home.
-  const useCellSeam = resolveUseCellSeam({
-    enableCellSeam: props.enableCellSeam,
-    isTokenSelector: props.isTokenSelector,
-    showActiveAccountTokenList: props.showActiveAccountTokenList,
-    scopedActiveAccountTokenListMap: props.scopedActiveAccountTokenListMap,
-  });
 
   const contextValue = useMemo(() => {
     return {

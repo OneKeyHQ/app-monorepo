@@ -67,6 +67,14 @@ export interface IBuildFramesInput {
   tokenListMap: Record<ITokenKey, ITokenFiat>;
   /** nested aggregate map `aggKey -> networkId -> ITokenFiat`. */
   aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`). The SAME
+   * value the home producer fed to `refreshAggregateTokensListMap`. Carried onto
+   * the emitted structure frame (full-delete PR-7) so the home cell-path leaves
+   * source it from `listStructureAtom`. Metadata only — never summed. Optional
+   * for older callers / tests (defaults to `{}`).
+   */
+  ownedAggregateTokenListMap?: Record<IAggKey, { tokens: IAccountToken[] }>;
   smallBalanceFiatValue: string;
   ownerKey: string;
   /** identity check payload (NOT a string id) — see resolveCurrentStore. */
@@ -100,6 +108,7 @@ export interface IBuildFramesPrev {
     | 'aggMembership'
     | 'ownerKey'
     | 'generation'
+    | 'ownedAggregateTokenListMap'
   >;
   smallBalanceFiatValue: string;
   /** previously-applied meta by `$key`, for meta-change detection. */
@@ -110,6 +119,41 @@ export interface IBuildFramesResult {
   /** `undefined` when nothing structural changed (pure price tick). */
   structure?: IStructureSnapshot;
   valuation: IValuationFrame;
+}
+
+/**
+ * Shallow equality of an aggKey -> `{ tokens }` list-map. Compares the set of
+ * agg keys and, per key, the `$key` sequence of the nested `tokens` array. This
+ * catches a sub-token swap that does NOT change `aggMembership` (e.g. the same
+ * networks but a different sub-token set) so the structure frame still re-emits
+ * and the cell-path leaves see the new sub-token list (full-delete PR-7).
+ */
+function aggregateListMapEqual(
+  a: Record<IAggKey, { tokens: IAccountToken[] }>,
+  b: Record<IAggKey, { tokens: IAccountToken[] }>,
+): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+  for (const k of aKeys) {
+    const bv = b[k];
+    if (!bv) {
+      return false;
+    }
+    const aTokens = a[k].tokens;
+    const bTokens = bv.tokens;
+    if (aTokens.length !== bTokens.length) {
+      return false;
+    }
+    for (let i = 0; i < aTokens.length; i += 1) {
+      if (aTokens[i].$key !== bTokens[i].$key) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /** Shallow equality of an aggKey -> networkId[] membership map. */
@@ -162,6 +206,7 @@ export function buildFrames(
     smallBalanceTokens,
     tokenListMap,
     aggregateTokensMap,
+    ownedAggregateTokenListMap = {},
     smallBalanceFiatValue,
     ownerKey,
     storeData,
@@ -297,6 +342,14 @@ export function buildFrames(
     aggMembership,
     prev.structure.aggMembership,
   );
+  // The owned aggregate `{ tokens }` list-map moves in lockstep with
+  // `aggMembership` in the common case, but a sub-token swap that keeps the same
+  // member networks would NOT flip `membershipChanged`. Guard it independently so
+  // the cell-path leaves always see the current sub-token list (full-delete PR-7).
+  const aggregateListMapChanged = !aggregateListMapEqual(
+    ownedAggregateTokenListMap,
+    prev.structure.ownedAggregateTokenListMap,
+  );
   const scalarChanged = smallBalanceFiatValue !== prev.smallBalanceFiatValue;
   const metaChanged = allTokens.some(
     (t) => !metaEqual(prev.metaByKey[t.$key], metaPatch[t.$key]),
@@ -309,6 +362,7 @@ export function buildFrames(
     nonZeroChanged ||
     fundedChanged ||
     membershipChanged ||
+    aggregateListMapChanged ||
     scalarChanged ||
     metaChanged;
 
@@ -325,6 +379,7 @@ export function buildFrames(
     metaPatch,
     aggMembership,
     smallBalanceFiatValue,
+    ownedAggregateTokenListMap,
     storeData,
     ownerKey,
     generation: nextGeneration(prev.structure.generation, ownerChanged),

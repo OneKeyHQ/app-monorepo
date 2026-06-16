@@ -307,6 +307,7 @@ describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () =
       metaPatch: {},
       aggMembership: {},
       smallBalanceFiatValue: '0',
+      ownedAggregateTokenListMap: {},
       storeData: STORE_DATA,
       ownerKey: OWNER_KEY,
       generation: 0,

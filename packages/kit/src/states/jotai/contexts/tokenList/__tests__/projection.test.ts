@@ -89,6 +89,7 @@ describe('aggCell (derived)', () => {
       ownerKey: 'o',
       generation: 0,
       smallBalanceFiatValue: '0',
+      ownedAggregateTokenListMap: {},
     });
     s.set(
       subcell(store, 'agg', 'net1'),

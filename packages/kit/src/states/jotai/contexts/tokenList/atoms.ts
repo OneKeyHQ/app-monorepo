@@ -135,6 +135,7 @@ export const { atom: listStructureAtom, use: useListStructureAtom } =
     ownerKey: '',
     generation: -1,
     smallBalanceFiatValue: '0',
+    ownedAggregateTokenListMap: {},
   });
 
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =

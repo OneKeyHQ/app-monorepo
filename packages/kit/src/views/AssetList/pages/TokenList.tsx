@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { debounce, isString } from 'lodash';
@@ -23,6 +23,7 @@ import type {
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
+import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -69,6 +70,21 @@ function TokenList() {
     searchKeyLengthThreshold,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
+
+  // full-delete PR-7: feed the TokenListView wrapper its display maps from the
+  // route params (which AssetList already has) through the generalized HOST
+  // props, so the wrapper + inner cmp no longer read the isolated-store target
+  // atoms (`tokenListMapAtom` / `flattenAggregateTokensMapAtom` /
+  // `aggregateTokensListMapAtom`) to serve this modal. The `refresh*` writers in
+  // the effect below stay until PR-8 (they keep AssetList behavior unchanged).
+  const hostTokenList = useMemo(
+    () => ({ tokens, smallBalanceTokens: [] as IAccountToken[] }),
+    [tokens],
+  );
+  const hostAggregateTokenFiatMap = useMemo(
+    () => flattenAggregateTokensMap(aggregateTokensMap ?? {}),
+    [aggregateTokensMap],
+  );
 
   const {
     refreshTokenList,
@@ -209,6 +225,10 @@ function TokenList() {
           allAggregateTokenMap={allAggregateTokenMap}
           showNetworkIcon={isAllNetworks}
           searchKeyLengthThreshold={searchKeyLengthThreshold}
+          hostTokenList={hostTokenList}
+          hostTokenListMap={tokenMap}
+          hostAggregateTokenListMap={aggregateTokensListMap}
+          hostAggregateTokenFiatMap={hostAggregateTokenFiatMap}
         />
       </Page.Body>
     </Page>

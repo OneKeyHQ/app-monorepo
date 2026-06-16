@@ -7,7 +7,11 @@
  * fed to apply in node tests (spec §11.5).
  */
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 /** `$key` alias for readability — a token's stable list key. */
 export type ITokenKey = string;
@@ -39,6 +43,15 @@ export interface IListStructure {
   generation: number;
   /** §6: structure carries the small-balance fiat scalar (PR-0 enabler). */
   smallBalanceFiatValue: string;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`). Threaded
+   * as structure-tier data (full-delete PR-7): it changes only with structure
+   * (membership / sub-token swap), never on a price tick. The home cell-path
+   * leaves (TokenIconView / TokenNameView / TokenActionsView / TokenListFooter)
+   * read it from `listStructureAtom` instead of the legacy
+   * `aggregateTokensListMapAtom`. It is metadata, not summed — no BigNumber work.
+   */
+  ownedAggregateTokenListMap: Record<IAggKey, { tokens: IAccountToken[] }>;
 }
 /** aggregate-token list-map key (e.g. `aggregate_...`). */
 export type IAggKey = string;
@@ -64,6 +77,13 @@ export interface IStructureSnapshot {
   aggMembership: Record<IAggKey, INetworkId[]>;
   /** §6: structure must co-produce the small-balance fiat scalar. */
   smallBalanceFiatValue: string;
+  /**
+   * Per-`$key` OWNED aggregate sub-token METADATA list (`{ tokens }`). Carried
+   * on the structure frame (full-delete PR-7) so the home cell-path leaves
+   * source it from `listStructureAtom` rather than `aggregateTokensListMapAtom`.
+   * Metadata only — never summed.
+   */
+  ownedAggregateTokenListMap: Record<IAggKey, { tokens: IAccountToken[] }>;
   /** identity check (NOT a string id) — see resolveCurrentStore. */
   storeData: IJotaiContextStoreData;
   ownerKey: string;

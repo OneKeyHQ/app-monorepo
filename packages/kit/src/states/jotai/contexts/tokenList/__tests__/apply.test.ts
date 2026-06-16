@@ -119,6 +119,7 @@ function makeStructure(
     metaPatch: {},
     aggMembership: {},
     smallBalanceFiatValue: '0',
+    ownedAggregateTokenListMap: {},
     storeData: STORE_DATA,
     ownerKey: 'acc1__net1',
     generation: 0,
@@ -188,6 +189,31 @@ describe('applyStructureSnapshot', () => {
     expect(s.fundedIds).toEqual(['a']);
     // nonZeroIds is untouched/independent
     expect(s.nonZeroIds).toEqual(['a', 'b']);
+  });
+
+  it('writes ownedAggregateTokenListMap to listStructureAtom (PR-7)', () => {
+    const { store, ctx, projection, deps } = setup();
+    const ownedAggregateTokenListMap = {
+      aggregate_eth: {
+        tokens: [{ $key: 'sub-a', ...makeToken({ symbol: 'A' }) }],
+      },
+    };
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({
+        orderedIds: ['aggregate_eth'],
+        metaPatch: {
+          aggregate_eth: makeToken({ isAggregateToken: true }),
+        },
+        ownedAggregateTokenListMap,
+      }),
+      deps,
+    );
+    const s = store.get(listStructureAtom());
+    expect(s.ownedAggregateTokenListMap.aggregate_eth.tokens[0].$key).toBe(
+      'sub-a',
+    );
   });
 
   it('keeps orderedIds reference-stable on identical structure', () => {

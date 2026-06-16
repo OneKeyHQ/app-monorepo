@@ -71,6 +71,7 @@ function emptyPrev(): IBuildFramesPrev {
       aggMembership: {},
       ownerKey: '',
       generation: -1,
+      ownedAggregateTokenListMap: {},
     },
     smallBalanceFiatValue: '0',
     metaByKey: {},
@@ -114,6 +115,7 @@ function prevFromResult(
       aggMembership: result.structure.aggMembership,
       ownerKey: result.structure.ownerKey,
       generation: result.structure.generation,
+      ownedAggregateTokenListMap: result.structure.ownedAggregateTokenListMap,
     },
     smallBalanceFiatValue: result.structure.smallBalanceFiatValue,
     metaByKey: metaByKeyFromTokens([
@@ -510,6 +512,90 @@ describe('buildFrames', () => {
       expect(r2.valuation.changedAggFiat.aggregate_eth['evm--1'].price).toBe(
         12,
       );
+    });
+  });
+
+  // full-delete PR-7: the owned aggregate sub-token METADATA list-map travels on
+  // the structure frame so the home cell-path leaves source it from
+  // `listStructureAtom` instead of `aggregateTokensListMapAtom`.
+  describe('ownedAggregateTokenListMap structure seam (PR-7)', () => {
+    it('emits ownedAggregateTokenListMap on the first structure frame', () => {
+      const input = makeInput({
+        orderedTokens: [makeToken('aggregate_eth', { isAggregateToken: true })],
+        aggregateTokensMap: {
+          aggregate_eth: { 'evm--1': makeFiat({ balance: '1' }) },
+        },
+        ownedAggregateTokenListMap: {
+          aggregate_eth: { tokens: [makeToken('sub-a'), makeToken('sub-b')] },
+        },
+      });
+      const r = buildFrames(input, emptyPrev());
+      expect(r.structure).toBeDefined();
+      expect(
+        r.structure?.ownedAggregateTokenListMap.aggregate_eth.tokens.map(
+          (t) => t.$key,
+        ),
+      ).toEqual(['sub-a', 'sub-b']);
+    });
+
+    it('does NOT emit a structure frame on a pure price tick (list-map unchanged)', () => {
+      const aggToken = makeToken('aggregate_eth', { isAggregateToken: true });
+      const ownedListMap = {
+        aggregate_eth: { tokens: [makeToken('sub-a')] },
+      };
+      const input1 = makeInput({
+        orderedTokens: [aggToken],
+        aggregateTokensMap: {
+          aggregate_eth: { 'evm--1': makeFiat({ balance: '1', price: 10 }) },
+        },
+        ownedAggregateTokenListMap: ownedListMap,
+      });
+      const r1 = buildFrames(input1, emptyPrev());
+      const prev = prevFromResult(input1, r1);
+
+      // Same ids/membership/metas/scalar AND same owned list-map — only the
+      // aggregate per-network fiat moves. No structure frame.
+      const input2 = makeInput({
+        orderedTokens: [aggToken],
+        aggregateTokensMap: {
+          aggregate_eth: { 'evm--1': makeFiat({ balance: '1', price: 99 }) },
+        },
+        ownedAggregateTokenListMap: ownedListMap,
+      });
+      const r2 = buildFrames(input2, prev);
+      expect(r2.structure).toBeUndefined();
+    });
+
+    it('re-emits a structure frame on a sub-token-list change (membership unchanged)', () => {
+      const aggToken = makeToken('aggregate_eth', { isAggregateToken: true });
+      const aggregateTokensMap = {
+        aggregate_eth: { 'evm--1': makeFiat({ balance: '1' }) },
+      };
+      const input1 = makeInput({
+        orderedTokens: [aggToken],
+        aggregateTokensMap,
+        ownedAggregateTokenListMap: {
+          aggregate_eth: { tokens: [makeToken('sub-a')] },
+        },
+      });
+      const r1 = buildFrames(input1, emptyPrev());
+      const prev = prevFromResult(input1, r1);
+
+      // SAME aggMembership (still only evm--1) but the sub-token list SWAPS.
+      const input2 = makeInput({
+        orderedTokens: [aggToken],
+        aggregateTokensMap,
+        ownedAggregateTokenListMap: {
+          aggregate_eth: { tokens: [makeToken('sub-b')] },
+        },
+      });
+      const r2 = buildFrames(input2, prev);
+      expect(r2.structure).toBeDefined();
+      expect(
+        r2.structure?.ownedAggregateTokenListMap.aggregate_eth.tokens.map(
+          (t) => t.$key,
+        ),
+      ).toEqual(['sub-b']);
     });
   });
 });

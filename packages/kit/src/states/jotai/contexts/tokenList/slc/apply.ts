@@ -248,6 +248,11 @@ export function applyStructureSnapshot(
     ownerKey: snapshot.ownerKey,
     generation: snapshot.generation,
     smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+    // full-delete PR-7: the per-`$key` owned aggregate sub-token METADATA list
+    // is structure-tier (changes only on a structure frame) so the home
+    // cell-path leaves read it off `listStructureAtom`. Default `{}` so a
+    // snapshot without the field (legacy/test) leaves a well-formed map.
+    ownedAggregateTokenListMap: snapshot.ownedAggregateTokenListMap ?? {},
   });
   P.curGeneration = snapshot.generation;
 }

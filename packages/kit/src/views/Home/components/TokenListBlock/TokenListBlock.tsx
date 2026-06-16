@@ -50,17 +50,23 @@ import {
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
   useAllTokenListAtom,
-  useRenderedTokenListCacheAtom,
+  useListStructureAtom,
   useTokenListActions,
-  useTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListContextData } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/atoms';
 import {
   useTokenListSlcColdStartHydrate,
   useTokenListSlcProducer,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
+import {
+  aggCell,
+  cell,
+  meta,
+  subcell,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc/projection';
+import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc/tapTimeHomeMap';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
@@ -73,6 +79,7 @@ import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
@@ -412,15 +419,22 @@ function TokenListBlock({
     updateSearchKey,
   } = useTokenListActions().current;
 
-  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
-  const [tokenListMapAtom] = useTokenListMapAtom();
   const [allTokenListAtomValue] = useAllTokenListAtom();
-  const [renderedTokenListCache] = useRenderedTokenListCacheAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
+
+  // full-delete PR-7: the home tokenList SLC store + structure. The tap-time
+  // TokenDetails `tokenMap` / `aggregateTokens` route params are rebuilt from
+  // the live per-store cells over this structure (replacing the deleted
+  // `tokenListMapAtom` / `aggregateTokensListMapAtom` reads). TokenListBlock
+  // mounts the SLC producer (`useTokenListSlcProducer` below), so it runs under
+  // the home tokenList provider and these resolve to the home store.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const tokenListStore = useTokenListContextData().store!;
+  const [listStructure] = useListStructureAtom();
 
   const handleLpTokenFilterChange = useCallback(
     (value: boolean) => {
@@ -671,6 +685,8 @@ function TokenListBlock({
               ...r.smallBalanceTokens.map,
             },
             aggregateTokensMap: {},
+            // Single-network rounds have no aggregate tokens — empty list-map.
+            ownedAggregateTokenListMap: {},
             smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
             storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
             keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
@@ -2134,6 +2150,10 @@ function TokenListBlock({
           smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
           tokenListMap: mergeTokenListMap,
           aggregateTokensMap: aggregateTokenMap,
+          // SAME merged value fed to `refreshAggregateTokensListMap` above —
+          // carried onto the structure frame so the home cell-path leaves source
+          // the owned aggregate sub-token list from `listStructureAtom`.
+          ownedAggregateTokenListMap: aggregateTokenListMap,
           smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
           storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
           keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
@@ -2188,105 +2208,15 @@ function TokenListBlock({
     updateTokenListState,
   ]);
 
-  // Eagerly restore the singleton token-list atoms from the per-owner cache
-  // when the user switches to a network/account they've previously rendered.
-  // Runs synchronously before paint so `tokenListMapAtom` is in sync with
-  // the new `tokens` for the same render — without this, the balance and
-  // price components would briefly render against the previous owner's map.
-  // The async `initTokenListData` below still fetches the latest local cache
-  // and overwrites these atoms with fresh data once it returns.
-  useLayoutEffect(() => {
-    const currentAccountId = getTokenListOwnerCacheAccountId({
-      accountId: account?.id,
-      indexedAccountId: indexedAccount?.id,
-      mergeDeriveAddressData: !!mergeDeriveAddressData,
-    });
-    const currentNetworkId = network?.id;
-    if (!currentAccountId || !currentNetworkId) return;
-    // Every `refreshAllTokenList` writer in this file (the `run` polling
-    // fn, `initTokenListData`, `updateAllNetworksTokenList`) stamps
-    // `account?.id` into `allTokenList.accountId`. In merge mode
-    // `currentAccountId` is `indexedAccountId`, which never equals
-    // `account?.id`, so a guard keyed on `currentAccountId` would fail
-    // after every normal write and re-fire the hydrate on every poll —
-    // repeatedly resetting the small-balance/risky atoms below. Compare
-    // and stamp on the writer axis (`account?.id`) to converge.
-    const writerAccountId = account?.id;
-    if (
-      !!writerAccountId &&
-      allTokenListAtomValue.accountId === writerAccountId &&
-      allTokenListAtomValue.networkId === currentNetworkId
-    ) {
-      return;
-    }
-    const ownerKey = `${currentAccountId}__${currentNetworkId}`;
-    const cached = (
-      renderedTokenListCache as { byOwner?: Record<string, unknown> }
-    ).byOwner?.[ownerKey] as
-      | {
-          tokens: IAccountToken[];
-          tokenListMap?: Record<string, ITokenFiat>;
-          aggregateTokensMap?: Record<string, Record<string, ITokenFiat>>;
-          accountId: string;
-          networkId: string;
-        }
-      | undefined;
-    // Legacy entries persisted by an earlier build only carried `tokens`.
-    // Hydrating the map atom from `undefined` would set it to undefined and
-    // crash readers (e.g. `flattenAggregateTokensMap` doing Object.entries
-    // on it) — treat them as invalid and let the async fetch refill normally.
-    if (!cached || cached.tokens.length === 0 || !cached.tokenListMap) return;
-    const cacheKeys = `${currentAccountId}_${currentNetworkId}_cache`;
-    refreshTokenList({ tokens: cached.tokens, keys: cacheKeys });
-    refreshTokenListMap({ tokens: cached.tokenListMap });
-    refreshAllTokenList({
-      keys: cacheKeys,
-      tokens: cached.tokens,
-      // Stamp `account?.id` to match the other writers; the cache lookup
-      // above is owner-aware (indexedAccountId in merge mode) but
-      // `allTokenList.accountId` is always written as `account?.id`, so
-      // the guard above can detect "already loaded" on later renders.
-      accountId: writerAccountId ?? currentAccountId,
-      networkId: currentNetworkId,
-    });
-    refreshAllTokenListMap({ tokens: cached.tokenListMap });
-    // Restore the aggregate-token source map so cached aggregate tokens
-    // render against their own balances/prices instead of the previous
-    // owner's map. Legacy entries persisted without it must CLEAR the atom
-    // rather than leave it alone: aggregate keys are owner-independent
-    // (commonSymbol-based), so the previous owner's balances would otherwise
-    // resolve under the fresh owner stamp written above until the async
-    // fetch refills the map.
-    refreshAggregateTokensMap({ tokens: cached.aggregateTokensMap ?? {} });
-    // The cache only stores the high-value `tokens` and `tokenListMap`.
-    // Reset small-balance and risky atoms here so the footer counts/value
-    // and risky list don't briefly mirror the previous owner until the
-    // async fetch (initTokenListData) repopulates them.
-    refreshSmallBalanceTokenList({ smallBalanceTokens: [], keys: cacheKeys });
-    refreshSmallBalanceTokenListMap({ tokens: {} });
-    refreshSmallBalanceTokensFiatValue({ value: '0' });
-    refreshRiskyTokenList({ riskyTokens: [], keys: cacheKeys });
-    refreshRiskyTokenListMap({ tokens: {} });
-  }, [
-    account?.id,
-    indexedAccount?.id,
-    mergeDeriveAddressData,
-    network?.id,
-    allTokenListAtomValue.accountId,
-    allTokenListAtomValue.networkId,
-    renderedTokenListCache,
-    refreshTokenList,
-    refreshTokenListMap,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
-    refreshAggregateTokensMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
-    handleClearAllNetworkData,
-  ]);
+  // full-delete PR-7: the legacy per-owner `renderedTokenListCache` pre-paint
+  // hydrator was REMOVED here. Both jobs it did on home are now covered without
+  // a whole-map read: (1) cold paint is the slim cold cache fan-out
+  // (`useTokenListSlcColdStartHydrate`), and (2) switch-hydrate (byOwner instant
+  // swap) is the BG producer's SUBSCRIBE-THEN-PULL (`useTokenListSlcProducer` →
+  // `getTokenListFrames`) backed by the per-owner VM cache in the BG heap. This
+  // effect only ever wrote the legacy home atoms (now cell-fed) from the cache,
+  // so dropping it frees the last `renderedTokenListCacheAtom` reader in this
+  // file. Its `refresh*` writers stay until PR-8.
 
   useEffect(() => {
     // Flips to true on cleanup (next owner change or unmount). Any write
@@ -2640,8 +2570,59 @@ function TokenListBlock({
   }, [isHeaderRefreshing, runLpTokenList, showLpTokensOnly]);
 
   const handleOnPressToken = useCallback(
-    (token: IAccountToken) => {
+    async (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
+
+      // full-delete PR-7: the TokenDetails route params (`tokenMap` /
+      // `aggregateTokens`) were the LAST readers of `tokenListMapAtom` /
+      // `aggregateTokensListMapAtom` in this file. Both are now sourced from the
+      // live HOME SLC store at tap time (cells + `listStructureAtom`), which is
+      // the BG-fed merged home data spanning ALL networks. A non-reactive
+      // tap-time read is correct (route params are a plain serializable
+      // snapshot; the tap is not perf-critical).
+
+      // BLOCKER 1 — aggregate sub-token list. The home persists the aggregate
+      // list-map keyed by the REAL home owner (`network.id` / `account.id`), NOT
+      // the tapped token's mock `aggregate--0` networkId. Source it from the
+      // producer-wired `ownedAggregateTokenListMap` on `listStructureAtom` (it IS
+      // the home owner full map); fall back to the local store under the HOME
+      // owner key when the structure has not been hydrated yet.
+      let aggregateTokens =
+        listStructure.ownedAggregateTokenListMap[token.$key]?.tokens;
+      if (!aggregateTokens) {
+        const homeAggregateListMap =
+          await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+            accountId: account?.id ?? '',
+            networkId: network.id,
+          });
+        aggregateTokens = homeAggregateListMap[token.$key]?.tokens ?? [];
+      }
+
+      // BLOCKER 2 — full merged home `tokenMap`. The old value was the whole
+      // `tokenListMapAtom` (all networks). A network-scoped read drops the
+      // other-network aggregate sub-tokens (they would sort as 0 and get no
+      // balance seed). Rebuild the full map from the live cells over the home
+      // structure ids (same cell-reconstruction pattern as TokenListFooter,
+      // PR-4): normal ids -> cell, aggregate ids -> aggCell (the flattened row)
+      // plus each owned sub-token's per-network subcell keyed by the sub-token
+      // `$key` (the key TokenDetails rebuilds for its sort + seed).
+      const tokenMap = buildTapTimeHomeTokenMap(
+        {
+          orderedIds: listStructure.orderedIds,
+          smallBalanceIds: listStructure.smallBalanceIds,
+          aggMembership: listStructure.aggMembership,
+          ownedAggregateTokenListMap: listStructure.ownedAggregateTokenListMap,
+        },
+        {
+          readMeta: (key) => tokenListStore.get(meta(tokenListStore, key)),
+          readCell: (key) => tokenListStore.get(cell(tokenListStore, key)),
+          readAggCell: (aggKey) =>
+            tokenListStore.get(aggCell(tokenListStore, aggKey)),
+          readSubCell: (aggKey, networkId) =>
+            tokenListStore.get(subcell(tokenListStore, aggKey, networkId)),
+          isAgg,
+        },
+      );
 
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
@@ -2653,21 +2634,24 @@ function TokenListBlock({
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
           tokenInfo: token,
-          aggregateTokens: aggregateTokenListMapAtom[token.$key]?.tokens ?? [],
-          tokenMap: tokenListMapAtom,
+          aggregateTokens,
+          tokenMap,
         },
       });
     },
     [
       account?.address,
       account?.id,
-      aggregateTokenListMapAtom,
       deriveInfo,
       deriveType,
       indexedAccount?.id,
+      listStructure.aggMembership,
+      listStructure.orderedIds,
+      listStructure.ownedAggregateTokenListMap,
+      listStructure.smallBalanceIds,
       navigation,
       network,
-      tokenListMapAtom,
+      tokenListStore,
       wallet,
     ],
   );
@@ -2815,7 +2799,8 @@ function TokenListBlock({
       // that cannot be refreshed imperatively here; let it refresh on return.
       if (networkUtils.isAllNetwork({ networkId })) return;
 
-      const seq = (explicitRefreshSeqRef.current += 1);
+      explicitRefreshSeqRef.current += 1;
+      const seq = explicitRefreshSeqRef.current;
       const isLatest = () => explicitRefreshSeqRef.current === seq;
 
       let emittedRefreshing = false;

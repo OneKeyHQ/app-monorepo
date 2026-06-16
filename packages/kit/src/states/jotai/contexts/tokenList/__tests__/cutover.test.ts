@@ -126,6 +126,7 @@ function makeStructure(
     metaPatch: {},
     aggMembership: {},
     smallBalanceFiatValue: '0',
+    ownedAggregateTokenListMap: {},
     storeData: STORE_DATA,
     ownerKey: 'acc1__net1',
     generation: 0,
