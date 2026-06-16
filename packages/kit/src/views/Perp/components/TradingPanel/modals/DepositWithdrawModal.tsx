@@ -121,6 +121,11 @@ const CUSTOM_AMOUNT_KEYPAD_ROWS = [
   ['.', '0', 'backspace'],
 ] as const;
 
+const PERPS_KEYPAD_KEY_INTERACTIVE_STYLE = {
+  opacity: 1,
+  bg: '$bgStrong',
+} as const;
+
 // Perps is USD-denominated; always show dollar sign regardless of system fiat setting
 const PERPS_CURRENCY_SYMBOL = '$';
 
@@ -276,7 +281,6 @@ export function DepositTokenSelectionContent({
     <YStack flex={1} minHeight={0}>
       <YStack pb="$3">
         <SearchBar
-          autoFocus
           value={searchValue}
           onChangeText={setSearchValue}
           placeholder={intl.formatMessage({
@@ -364,7 +368,7 @@ function PerpsNativeAmountKeypad({
   onCtaPress: () => void;
 }) {
   return (
-    <YStack mt="$2" gap="$2">
+    <YStack mt="$2" gap="$2" pb={platformEnv.isNativeAndroid ? '$3' : '$0'}>
       {CUSTOM_AMOUNT_KEYPAD_ROWS.map((row) => (
         <XStack key={row.join('-')} gap="$2">
           {row.map((item) => (
@@ -375,8 +379,8 @@ function PerpsNativeAmountKeypad({
               alignItems="center"
               justifyContent="center"
               borderRadius="$2.5"
-              pressStyle={{ opacity: 1, bg: '$bgStrong' }}
-              hoverStyle={{ opacity: 1, bg: '$bgStrong' }}
+              pressStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
+              hoverStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
               onPress={() => onKeyPress(item)}
               onLongPress={
                 item === 'backspace' ? onBackspaceLongPress : undefined
