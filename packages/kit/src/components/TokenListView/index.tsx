@@ -720,6 +720,16 @@ function TokenListViewCmp(props: IProps) {
   }, [
     isHomeProjectionPath,
     tokenListStore,
+    // `ownerKey` is REQUIRED alongside `generation`: the BG resets the structure
+    // generation to 0 for every owner (each owner VM starts at -1), so an
+    // account switch keeps `generation` at 0→0 and this memo would otherwise
+    // return the PREVIOUS owner's projected ids. The rows then render the old
+    // account's `$key`s while the cells were rebuilt for the new owner's keys —
+    // address-embedded keys (SOL/BNB/TRX/JupSOL) miss their new cell and show
+    // "-" (BTC's address-free `btc--0_native` key coincidentally still matched).
+    // Only bit native (singleton store survives the switch); web/desktop
+    // recreate the store, masking it.
+    listStructure.ownerKey,
     listStructure.generation,
     searchKey,
     searchKeyLengthThreshold,
@@ -795,6 +805,9 @@ function TokenListViewCmp(props: IProps) {
     tokenListStore,
     displayIds,
     tokenByKey,
+    // see homeProjectedIds — owner switch keeps generation at 0, so key on
+    // ownerKey too or listData maps stale (previous-owner) ids to meta cells.
+    listStructure.ownerKey,
     listStructure.generation,
   ]);
 
