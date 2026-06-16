@@ -66,11 +66,19 @@ const SwapHistoryListModal = ({
   const [historyType, setHistoryType] = useState<EProtocolOfExchange>(
     type ?? EProtocolOfExchange.SWAP,
   );
+  const isStockHistory = historyType === EProtocolOfExchange.STOCK;
+  const marketListProtocol = isStockHistory
+    ? EProtocolOfExchange.STOCK
+    : EProtocolOfExchange.SWAP;
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const marketPendingKey = useMemo(
-    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
-    [swapHistoryPendingList],
+    () =>
+      getSwapMarketPendingHistoryKey(
+        swapHistoryPendingList,
+        marketListProtocol,
+      ),
+    [marketListProtocol, swapHistoryPendingList],
   );
 
   useEffect(() => {
@@ -88,10 +96,15 @@ const SwapHistoryListModal = ({
   );
   const swapMarketTxHistoryList = useMemo(
     () =>
-      (swapTxHistoryList ?? []).filter(
-        (item) => !isPrivateSendSwapHistoryItem(item),
-      ),
-    [swapTxHistoryList],
+      (swapTxHistoryList ?? [])
+        .filter((item) => !isPrivateSendSwapHistoryItem(item))
+        .filter((item) =>
+          isStockHistory
+            ? item.protocol === EProtocolOfExchange.STOCK
+            : item.protocol !== EProtocolOfExchange.STOCK &&
+              item.protocol !== EProtocolOfExchange.LIMIT,
+        ),
+    [isStockHistory, swapTxHistoryList],
   );
 
   // Default fee percentage for savings calculation (0.3%)
@@ -99,7 +112,12 @@ const SwapHistoryListModal = ({
 
   // Calculate cumulative savings from all completed successful orders
   const cumulativeSavings = useMemo(() => {
-    if (!swapMarketTxHistoryList.length) return '$0';
+    if (
+      historyType !== EProtocolOfExchange.SWAP ||
+      !swapMarketTxHistoryList.length
+    ) {
+      return '$0';
+    }
 
     let total = new BigNumber(0);
 
@@ -130,10 +148,22 @@ const SwapHistoryListModal = ({
       formatter: 'value',
       formatterOptions: { currency: '$' },
     });
-  }, [swapMarketTxHistoryList]);
+  }, [historyType, swapMarketTxHistoryList]);
 
   const marketPendingHistoryCount = useMemo(
-    () => getSwapMarketPendingHistoryCount(swapHistoryPendingList),
+    () =>
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
+    [swapHistoryPendingList],
+  );
+  const stockPendingHistoryCount = useMemo(
+    () =>
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.STOCK,
+      ),
     [swapHistoryPendingList],
   );
 
@@ -148,19 +178,41 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    marketPendingHistoryCount + limitPendingHistoryCount > 0;
+    marketPendingHistoryCount +
+      stockPendingHistoryCount +
+      limitPendingHistoryCount >
+    0;
 
-  const historyTypeTitle = useMemo(
-    () =>
-      historyType === EProtocolOfExchange.LIMIT
-        ? intl.formatMessage({
-            id: ETranslations.swap_page_limit_dialog_title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_market,
-          }),
-    [historyType, intl],
-  );
+  const historyTypeTitle = useMemo(() => {
+    if (historyType === EProtocolOfExchange.LIMIT) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_limit_dialog_title,
+      });
+    }
+    if (historyType === EProtocolOfExchange.STOCK) {
+      return intl.formatMessage({
+        id: ETranslations.perps_token_selector_stocks,
+      });
+    }
+    return intl.formatMessage({
+      id: ETranslations.perp_trade_market,
+    });
+  }, [historyType, intl]);
+
+  const cleanExcludeProtocols = useMemo(() => {
+    if (isStockHistory) {
+      return [
+        EProtocolOfExchange.SWAP,
+        EProtocolOfExchange.LIMIT,
+        EProtocolOfExchange.PRIVATE_SEND,
+      ];
+    }
+    return [
+      EProtocolOfExchange.STOCK,
+      EProtocolOfExchange.LIMIT,
+      EProtocolOfExchange.PRIVATE_SEND,
+    ];
+  }, [isStockHistory]);
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
     if (count <= 0) {
@@ -194,6 +246,10 @@ const SwapHistoryListModal = ({
     setHistoryType(EProtocolOfExchange.LIMIT);
   }, []);
 
+  const handleSelectStockHistoryType = useCallback(() => {
+    setHistoryType(EProtocolOfExchange.STOCK);
+  }, []);
+
   const renderSwapHistoryTypeLabel = useCallback(
     () => (
       <XStack alignItems="center" gap="$2" flex={1}>
@@ -222,6 +278,20 @@ const SwapHistoryListModal = ({
     [intl, limitPendingHistoryCount, renderHistoryTypeBadge],
   );
 
+  const renderStockHistoryTypeLabel = useCallback(
+    () => (
+      <XStack alignItems="center" gap="$2" flex={1}>
+        <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
+          {intl.formatMessage({
+            id: ETranslations.perps_token_selector_stocks,
+          })}
+        </SizableText>
+        {renderHistoryTypeBadge(stockPendingHistoryCount)}
+      </XStack>
+    ),
+    [intl, renderHistoryTypeBadge, stockPendingHistoryCount],
+  );
+
   const historyTypeItems = useMemo(
     () => [
       {
@@ -237,6 +307,17 @@ const SwapHistoryListModal = ({
       },
       {
         label: intl.formatMessage({
+          id: ETranslations.perps_token_selector_stocks,
+        }),
+        renderLabel: renderStockHistoryTypeLabel,
+        extra:
+          historyType === EProtocolOfExchange.STOCK ? (
+            <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
+          ) : undefined,
+        onPress: handleSelectStockHistoryType,
+      },
+      {
+        label: intl.formatMessage({
           id: ETranslations.swap_page_limit_dialog_title,
         }),
         renderLabel: renderLimitHistoryTypeLabel,
@@ -249,10 +330,12 @@ const SwapHistoryListModal = ({
     ],
     [
       handleSelectLimitHistoryType,
+      handleSelectStockHistoryType,
       handleSelectSwapHistoryType,
       historyType,
       intl,
       renderLimitHistoryTypeLabel,
+      renderStockHistoryTypeLabel,
       renderSwapHistoryTypeLabel,
     ],
   );
@@ -294,7 +377,7 @@ const SwapHistoryListModal = ({
       }),
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
-          excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND],
+          excludeProtocols: cleanExcludeProtocols,
         });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -311,7 +394,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapMarketTxHistoryList.length]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList.length]);
 
   const onDeletePendingHistory = useCallback(() => {
     // dialog
@@ -332,7 +415,7 @@ const SwapHistoryListModal = ({
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
           [ESwapTxHistoryStatus.PENDING],
-          { excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND] },
+          { excludeProtocols: cleanExcludeProtocols },
         );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
@@ -343,7 +426,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapMarketTxHistoryList]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList]);
 
   const savingsPopoverContent = useMemo(
     () => (
@@ -526,7 +609,7 @@ const SwapHistoryListModal = ({
     if (
       cumulativeSavings === '$0' ||
       gtMd ||
-      historyType === EProtocolOfExchange.LIMIT
+      historyType !== EProtocolOfExchange.SWAP
     ) {
       return null;
     }
@@ -601,7 +684,7 @@ const SwapHistoryListModal = ({
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList />
+          <SwapMarketHistoryList protocol={marketListProtocol} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />

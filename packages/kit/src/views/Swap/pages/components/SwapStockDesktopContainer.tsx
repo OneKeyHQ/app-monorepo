@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Alert,
+  Button,
   DashText,
   Divider,
   Icon,
@@ -14,6 +15,7 @@ import {
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   Stack,
@@ -46,6 +48,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { MarketTokenSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelector';
@@ -61,14 +64,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EPerpPageEnterSource,
-  setPerpPageEnterSource,
-} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -149,9 +148,11 @@ function normalizeStockChartData(points?: { t: number; c: number }[]) {
 function StockMarketDataItem({
   label,
   value,
+  tooltip,
 }: {
   label: string;
   value: string;
+  tooltip?: string;
 }) {
   return (
     <YStack
@@ -174,6 +175,14 @@ function StockMarketDataItem({
         >
           {label}
         </SizableText>
+        {tooltip ? (
+          <Popover.Tooltip
+            iconSize="$4"
+            title={label}
+            tooltip={tooltip}
+            placement="top"
+          />
+        ) : null}
       </XStack>
       <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
         {value}
@@ -195,36 +204,43 @@ function StockMarketDataGrid() {
         value: formatCurrencyStatValue(
           assetAnalysis?.volume24h ?? tokenDetail?.volume24h,
         ),
+        tooltip: 'Total trading value over the past 24 hours.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_volume_shares,
         }),
         value: formatMarketCapValue(assetAnalysis?.volumeShares),
+        tooltip: 'Total underlying shares traded over the past 24 hours.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_turnover_rate,
         }),
         value: formatPercentValue(assetAnalysis?.turnoverRate),
+        tooltip:
+          'Share turnover over the past 24 hours, calculated from trading volume and shares outstanding.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
+        tooltip: 'Average daily trading value over the past year.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_high,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
+        tooltip: 'Highest traded price over the past 52 weeks.',
       },
       {
         label: intl.formatMessage({
           id: ETranslations.dexmarket_stock_52_week_low,
         }),
         value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
+        tooltip: 'Lowest traded price over the past 52 weeks.',
       },
     ],
     [assetAnalysis, intl, tokenDetail?.volume24h],
@@ -243,6 +259,7 @@ function StockMarketDataGrid() {
                 key={item.label}
                 label={item.label}
                 value={item.value}
+                tooltip={item.tooltip}
               />
             ))}
           </XStack>
@@ -409,36 +426,75 @@ function StockTradeStatusAlert({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
+  const { perpsInfo } = useTokenDetail();
+  const { perpDisabled } = usePerpTabConfig();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketList,
+  );
+  const perpsTicker = perpsInfo?.hlTicker;
   const onOpenPerps = useCallback(() => {
-    if (perpDisabled) {
+    if (perpDisabled || !perpsTicker) {
       return;
     }
-    setPerpPageEnterSource(EPerpPageEnterSource.MarketList);
-    navigation.switchTab(
-      perpTabShowWeb ? ETabRoutes.WebviewPerpTrade : ETabRoutes.Perp,
-    );
-  }, [navigation, perpDisabled, perpTabShowWeb]);
+    navigateToPerps(perpsTicker);
+  }, [navigateToPerps, perpDisabled, perpsTicker]);
 
   if (stockChannel.channelStage === ESwapStockChannelStage.MarketClosed) {
+    const reason = stockChannel.stockMarketStatus?.reason;
     return (
       <Alert
         testID={SwapTestIDs.stockTradeStatusAlert}
         type="warning"
         icon="InfoCircleOutline"
-        title="Market Closed"
-        description="You can still trade in Perps"
+        title={intl.formatMessage({
+          id: ETranslations.dexmarket_stock_status_closed_error,
+        })}
+        description={
+          reason ??
+          intl.formatMessage({
+            id: ETranslations.dexmarket_stock_status_tooltip,
+          })
+        }
         action={
-          perpDisabled
-            ? undefined
-            : {
+          perpsTicker && !perpDisabled
+            ? {
                 primary: intl.formatMessage({
                   id: ETranslations.global_perp,
                 }),
                 primaryVariant: 'secondary',
                 onPrimaryPress: onOpenPerps,
               }
+            : undefined
+        }
+      />
+    );
+  }
+
+  if (stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable) {
+    return (
+      <Alert
+        testID={SwapTestIDs.stockTradeStatusAlert}
+        type="warning"
+        icon="InfoCircleOutline"
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        })}
+        description={
+          stockChannel.stockMarketStatus?.reason ??
+          intl.formatMessage({
+            id: ETranslations.dexmarket_stock_status_tooltip,
+          })
+        }
+        action={
+          perpsTicker && !perpDisabled
+            ? {
+                primary: intl.formatMessage({
+                  id: ETranslations.global_perp,
+                }),
+                primaryVariant: 'secondary',
+                onPrimaryPress: onOpenPerps,
+              }
+            : undefined
         }
       />
     );
@@ -458,6 +514,69 @@ function StockTradeStatusAlert({
   }
 
   return null;
+}
+
+function StockActionGate({
+  stockChannel,
+  onPreSwap,
+  onToAnotherAddressModal,
+  onSelectPercentageStage,
+}: {
+  stockChannel: IUseSwapStockChannelReturn;
+  onPreSwap: () => void;
+  onToAnotherAddressModal: () => void;
+  onSelectPercentageStage: (stage: number) => void;
+}) {
+  const intl = useIntl();
+  const disabledLabel = useMemo(() => {
+    switch (stockChannel.channelStage) {
+      case ESwapStockChannelStage.InitializingStock:
+      case ESwapStockChannelStage.CheckingMarketStatus:
+      case ESwapStockChannelStage.InitializingPayToken:
+        return intl.formatMessage({
+          id: ETranslations.swap_page_button_fetching_quotes,
+        });
+      case ESwapStockChannelStage.MissingStock:
+        return intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        });
+      case ESwapStockChannelStage.MissingPayToken:
+      case ESwapStockChannelStage.MarketUnavailable:
+        return intl.formatMessage({
+          id: ETranslations.swap_page_alert_no_provider_supports_trade,
+        });
+      case ESwapStockChannelStage.MarketClosed:
+        return intl.formatMessage({
+          id: ETranslations.dexmarket_stock_status_closed_error,
+        });
+      default:
+        return intl.formatMessage({
+          id: ETranslations.swap_page_button_enter_amount,
+        });
+    }
+  }, [intl, stockChannel.channelStage]);
+
+  if (stockChannel.readyForQuote) {
+    return (
+      <SwapActionsState
+        onPreSwap={onPreSwap}
+        onOpenRecipientAddress={onToAnotherAddressModal}
+        onSelectPercentageStage={onSelectPercentageStage}
+      />
+    );
+  }
+
+  return (
+    <Button
+      testID={SwapTestIDs.swapButton}
+      size="large"
+      variant="primary"
+      disabled
+      borderRadius="$full"
+    >
+      {disabledLabel}
+    </Button>
+  );
 }
 
 function getNetworkLogoURI(networkId?: string) {
@@ -874,17 +993,20 @@ function StockTradeTicket({
         quoteEventFetching={quoteEventFetching}
         stockChannel={stockChannel}
       />
-      <SwapActionsState
+      <StockActionGate
+        stockChannel={stockChannel}
         onPreSwap={onPreSwap}
-        onOpenRecipientAddress={onToAnotherAddressModal}
+        onToAnotherAddressModal={onToAnotherAddressModal}
         onSelectPercentageStage={onSelectPercentageStage}
       />
       <StockTradeStatusAlert stockChannel={stockChannel} />
-      <SwapQuoteResult
-        refreshAction={refreshAction}
-        onOpenProviderList={onOpenProviderList}
-        quoteResult={quoteResult}
-      />
+      {stockChannel.readyForQuote ? (
+        <SwapQuoteResult
+          refreshAction={refreshAction}
+          onOpenProviderList={onOpenProviderList}
+          quoteResult={quoteResult}
+        />
+      ) : null}
       {alerts.states.length > 0 &&
       !quoteLoading &&
       !quoteEventFetching &&

@@ -32,7 +32,10 @@ import type {
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { getSwapMarketPendingHistoryKey } from '../../utils/swapMarketHistory';
@@ -47,12 +50,14 @@ interface ISwapMarketHistoryListProps {
   showType?: 'swap' | 'bridge';
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
+  protocol?: EProtocolOfExchange;
 }
 
 const SwapMarketHistoryList = ({
   showType,
   filterToken,
   isPushModal,
+  protocol,
 }: ISwapMarketHistoryListProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -61,8 +66,8 @@ const SwapMarketHistoryList = ({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const marketPendingKey = useMemo(
-    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
-    [swapHistoryPendingList],
+    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList, protocol),
+    [protocol, swapHistoryPendingList],
   );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
@@ -78,6 +83,17 @@ const SwapMarketHistoryList = ({
     let filterData = (swapTxHistoryList ?? []).filter(
       (item) => !isPrivateSendSwapHistoryItem(item),
     );
+    if (protocol === EProtocolOfExchange.STOCK) {
+      filterData = filterData.filter(
+        (item) => item.protocol === EProtocolOfExchange.STOCK,
+      );
+    } else {
+      filterData = filterData.filter(
+        (item) =>
+          item.protocol !== EProtocolOfExchange.STOCK &&
+          item.protocol !== EProtocolOfExchange.LIMIT,
+      );
+    }
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>
@@ -157,7 +173,7 @@ const SwapMarketHistoryList = ({
       ];
     }
     return result;
-  }, [filterToken, intl, showType, swapTxHistoryList]);
+  }, [filterToken, intl, protocol, showType, swapTxHistoryList]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (

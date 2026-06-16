@@ -524,10 +524,14 @@ const SwapHeaderRightActionContainer = ({
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
           !isPrivateSendSwapHistoryItem(i) &&
+          (swapTypeSwitch === ESwapTabSwitchType.STOCK
+            ? i.protocol === EProtocolOfExchange.STOCK
+            : i.protocol !== EProtocolOfExchange.STOCK &&
+              i.protocol !== EProtocolOfExchange.LIMIT) &&
           (i.status === ESwapTxHistoryStatus.PENDING ||
             i.status === ESwapTxHistoryStatus.CANCELING),
       ),
-    [swapHistoryPendingList],
+    [swapHistoryPendingList, swapTypeSwitch],
   );
   const limitOpenStatusList = useMemo(
     () =>
@@ -551,6 +555,18 @@ const SwapHeaderRightActionContainer = ({
     ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
       swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
       showSwapProSlippageSetting);
+  const historyProtocolType = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return EProtocolOfExchange.STOCK;
+    }
+    if (
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
+      (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)
+    ) {
+      return EProtocolOfExchange.SWAP;
+    }
+    return EProtocolOfExchange.LIMIT;
+  }, [swapProTradeType, swapTypeSwitch]);
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
@@ -576,16 +592,11 @@ const SwapHeaderRightActionContainer = ({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type:
-          swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-          (platformEnv.isNative &&
-            swapProTradeType === ESwapProTradeType.MARKET)
-            ? EProtocolOfExchange.SWAP
-            : EProtocolOfExchange.LIMIT,
+        type: historyProtocolType,
         storeName: swapStoreName,
       },
     });
-  }, [navigation, swapProTradeType, swapStoreName, swapTypeSwitch]);
+  }, [historyProtocolType, navigation, swapStoreName]);
 
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
