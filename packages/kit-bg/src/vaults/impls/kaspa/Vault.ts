@@ -412,6 +412,31 @@ export default class Vault extends VaultBase {
       });
     }
 
+    // When dropChangeToFee folds a sub-dust change into the fee, the tx carries
+    // no change output, so the real on-chain fee is the full input/output
+    // surplus (sum(inputs) - sum(outputs)). The compute-mass relay fee that
+    // feeInfo.limit × price reflects would under-report it by up to DUST_AMOUNT,
+    // showing a misleadingly small fee on the confirmation screen.
+    let totalFeeInNative: string;
+    if (encodedTx.dropChangeToFee) {
+      const sumInputs = encodedTx.inputs.reduce(
+        (acc, input) => acc.plus(input.satoshis),
+        new BigNumber(0),
+      );
+      const sumOutputs = encodedTx.outputs.reduce(
+        (acc, output) => acc.plus(output.value),
+        new BigNumber(0),
+      );
+      totalFeeInNative = sumInputs
+        .minus(sumOutputs)
+        .shiftedBy(-network.decimals)
+        .toFixed();
+    } else {
+      totalFeeInNative = new BigNumber(encodedTx.feeInfo?.limit ?? '0')
+        .multipliedBy(feeInfo?.price ?? '0.00000001')
+        .toFixed();
+    }
+
     return {
       txid: '',
       owner: account.address,
@@ -423,9 +448,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       extraInfo: null,
       encodedTx,
-      totalFeeInNative: new BigNumber(encodedTx.feeInfo?.limit ?? '0')
-        .multipliedBy(feeInfo?.price ?? '0.00000001')
-        .toFixed(),
+      totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
     };
