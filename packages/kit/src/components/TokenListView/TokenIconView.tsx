@@ -4,7 +4,7 @@ import { useMedia } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/slc';
+import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/cells';
 import { Token } from '../Token';
 
 import { useTokenListViewContext } from './TokenListViewContext';

@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — projection (state shell) tests (spec §3, §3.1). Node + a real
+ * TokenList cells — projection (state shell) tests (spec §3, §3.1). Node + a real
  * jotai `createStore()`, no React. They assert the lazy cell builders are
  * memoized per `$key`, the derived aggregate cell sums its sub-cells off the
  * structure membership, clearAll resets the registry, and ensureStoreProjection
@@ -18,9 +18,9 @@ import {
   getStoreProjection,
   meta,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 
-import type { cell as cellType } from '../slc/projection';
+import type { cell as cellType } from '../cells/projection';
 
 type ICtxStore = Parameters<typeof cellType>[0];
 

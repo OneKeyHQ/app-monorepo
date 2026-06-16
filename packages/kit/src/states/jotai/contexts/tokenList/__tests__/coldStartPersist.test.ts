@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — COLD START *persist* timing tests (regression for the
+ * TokenList cells — COLD START *persist* timing tests (regression for the
  * "cold start list empty for a long time" bug).
  *
  * ROOT CAUSE this guards against: the receive shell used to call
@@ -28,11 +28,11 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IStructureSnapshot,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { ITokenListSlimColdCache } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -42,11 +42,11 @@ import {
   applyValuationFrame,
   buildApplyDeps,
   shallowEqualArray,
-} from '../slc/apply';
+} from '../cells/apply';
 import {
   PERSIST_DEBOUNCE_MS,
   schedulePersistSlimColdCache,
-} from '../slc/coldStart';
+} from '../cells/coldStart';
 import {
   aggCell,
   cell,
@@ -54,10 +54,10 @@ import {
   ensureStoreProjection,
   meta,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 
-import type { IApplyDeps } from '../slc/apply';
-import type { IStoreProjection } from '../slc/projection';
+import type { IApplyDeps } from '../cells/apply';
+import type { IStoreProjection } from '../cells/projection';
 
 // Capture the slim bundle the debounced persist writes, without touching real
 // MMKV / IDB. Spread the REAL module (it also exports globalAtom etc. that the

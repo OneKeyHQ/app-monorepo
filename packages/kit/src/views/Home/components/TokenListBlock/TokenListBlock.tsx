@@ -56,16 +56,16 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useTokenListContextData } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/atoms';
 import {
-  useTokenListSlcColdStartHydrate,
-  useTokenListSlcProducer,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
+  useTokenListCellsColdStartHydrate,
+  useTokenListCellsProducer,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import {
   aggCell,
   cell,
   meta,
   subcell,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc/projection';
-import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc/tapTimeHomeMap';
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/projection';
+import { buildTapTimeHomeTokenMap } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells/tapTimeHomeMap';
 import { useTokenManagement } from '@onekeyhq/kit/src/views/AssetList/hooks/useTokenManagement';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
@@ -78,7 +78,7 @@ import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import {
@@ -143,11 +143,11 @@ import { RichBlock } from '../RichBlock/RichBlock';
 const networkIdsMap = getNetworkIdsMap();
 
 /**
- * TokenList SLC Phase-2 BG — DARK / flag-OFF dual-write gate (design §5 step 2,
+ * TokenList cells Phase-2 BG — DARK / flag-OFF dual-write gate (design §5 step 2,
  * D5). When ON, the home refresh flow ALSO hands each settled fetch round to the
  * BG `serviceTokenViewModel.ingestRound(...)` (which builds + pushes the BG
  * frames). When OFF (the PR-1 default), `ingestRound` is NEVER called and there
- * is zero behavior change — the UI stays driven by `useTokenListSlcProducer` +
+ * is zero behavior change — the UI stays driven by `useTokenListCellsProducer` +
  * the legacy atoms. Cut-over (UI consuming the BG frames, H4 death) is PR-2.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
@@ -223,12 +223,12 @@ function TokenListBlock({
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
-  // TokenList SLC Phase-2 BG dual-write inputs (DARK / flag-OFF — design §5
+  // TokenList cells Phase-2 BG dual-write inputs (DARK / flag-OFF — design §5
   // step 2). The owner key + hideZero inputs are computed later in the body
-  // (`slcOwnerKey` / `slcNonZeroInputs`); the refresh callbacks above read them
+  // (`cellsOwnerKey` / `cellsNonZeroInputs`); the refresh callbacks above read them
   // off this ref so the dead-when-OFF `ingestRound` call adds no render deps and
   // never reaches uninitialized consts.
-  const slcIngestInputsRef = useRef<{
+  const cellsIngestInputsRef = useRef<{
     ownerKey: string;
     nonZeroInputs: {
       keepDefault?: boolean;
@@ -410,11 +410,11 @@ function TokenListBlock({
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
 
-  // full-delete PR-7: the home tokenList SLC store + structure. The tap-time
+  // full-delete PR-7: the home tokenList cells store + structure. The tap-time
   // TokenDetails `tokenMap` / `aggregateTokens` route params are rebuilt from
   // the live per-store cells over this structure (replacing the deleted
   // `tokenListMapAtom` / `aggregateTokensListMapAtom` reads). TokenListBlock
-  // mounts the SLC producer (`useTokenListSlcProducer` below), so it runs under
+  // mounts the cells producer (`useTokenListCellsProducer` below), so it runs under
   // the home tokenList provider and these resolve to the home store.
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const tokenListStore = useTokenListContextData().store!;
@@ -624,17 +624,17 @@ function TokenListBlock({
           }
         }
 
-        // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
+        // TokenList cells Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
         // 2). Hand the SAME settled slices this single-network round just wrote
         // to the atoms over to the BG view-model so it can build + push the BG
         // frames in parallel. No-op when the flag is OFF (the PR-1 default), so
         // there is zero behavior change. The single-network path has no
         // aggregate tokens, so the nested aggregate map is empty. Owner key +
-        // hideZero inputs are read off a ref (assigned next to the SLC consts)
+        // hideZero inputs are read off a ref (assigned next to the cells consts)
         // so this dead-when-OFF call needs no extra render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
           void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-            ownerKey: slcIngestInputsRef.current.ownerKey,
+            ownerKey: cellsIngestInputsRef.current.ownerKey,
             orderedTokens: r.tokens.data,
             smallBalanceTokens: r.smallBalanceTokens.data,
             tokenListMap: {
@@ -646,10 +646,11 @@ function TokenListBlock({
             ownedAggregateTokenListMap: {},
             smallBalanceFiatValue: r.smallBalanceTokens.fiatValue ?? '0',
             storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-            keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
+            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
             homeDefaultTokenMap:
-              slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-            customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+            customTokens:
+              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
             // Risky slice (design §R0 #5) — already settled in scope on `r`.
             // Carried so the BG VM can build the dedicated risky frame + merged
             // raw list. Risk tokens are NOT in the home structure/valuation
@@ -859,14 +860,14 @@ function TokenListBlock({
   const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
   activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
 
-  // TokenList SLC producer (spec §4.1, §6). Observes the settled atoms the
+  // TokenList cells producer (spec §4.1, §6). Observes the settled atoms the
   // refresh* writers above land into and projects each fetch round into the
   // structure atom + per-key cells (structure only on structural change, pure
   // price ticks emit valuation only). The existing refresh* writers are
   // unchanged — risky/allTokenList stay whole-object. The owner key matches the
   // per-owner cache axis (indexedAccountId in merge mode) so it survives
   // derive-type switches the same way the cache does.
-  const slcOwnerKey = useMemo(() => {
+  const cellsOwnerKey = useMemo(() => {
     const ownerAccountId = getTokenListOwnerCacheAccountId({
       accountId: account?.id,
       indexedAccountId: indexedAccount?.id,
@@ -879,42 +880,42 @@ function TokenListBlock({
   // Current settings currency id — the slim cold-start bundle stores fiat in
   // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
   const [{ currencyInfo }] = useSettingsPersistAtom();
-  const slcCurrencyId = currencyInfo?.id ?? '';
+  const cellsCurrencyId = currencyInfo?.id ?? '';
   // T0 cold-start fan-out hydrate (spec §7). Runs eagerly, once per owner,
   // before the async fetch — paints rows + price + name/icon at cold start via
   // the SAME apply contract the producer uses; also schedules the one-time
   // version-flag purge of the OLD persisted cold-start key on HomePageReady.
-  useTokenListSlcColdStartHydrate(slcOwnerKey, slcCurrencyId);
-  // Resolve the parsed customTokens for the SLC producer's hideZero
+  useTokenListCellsColdStartHydrate(cellsOwnerKey, cellsCurrencyId);
+  // Resolve the parsed customTokens for the cells producer's hideZero
   // `nonZeroIds` authority (spec §8#2, PR-S Step 3). Mirrors the
   // `useTokenManagement` call inside TokenListViewCmp (deferred on all-networks
   // until the list state initializes) so the producer feeds the SAME custom
   // tokens the in-view hideZero predicate uses.
-  const deferSlcTokenManagement = !!network?.isAllNetworks;
-  const { customTokens: slcCustomTokens } = useTokenManagement({
+  const deferCellsTokenManagement = !!network?.isAllNetworks;
+  const { customTokens: cellsCustomTokens } = useTokenManagement({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     indexedAccountId: indexedAccount?.id,
-    enabled: !deferSlcTokenManagement || tokenListState.initialized,
+    enabled: !deferCellsTokenManagement || tokenListState.initialized,
   });
-  const slcNonZeroInputs = useMemo(
+  const cellsNonZeroInputs = useMemo(
     () => ({
       // Home keeps default zero-balance tokens (TokenListView defaults
       // keepDefaultZeroBalanceTokens=true on the home path).
       keepDefault: true,
       homeDefaultTokenMap,
-      customTokens: slcCustomTokens,
+      customTokens: cellsCustomTokens,
     }),
-    [homeDefaultTokenMap, slcCustomTokens],
+    [homeDefaultTokenMap, cellsCustomTokens],
   );
-  useTokenListSlcProducer(slcOwnerKey, slcCurrencyId, slcNonZeroInputs);
+  useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId, cellsNonZeroInputs);
 
   // Keep the BG dual-write inputs ref current so the refresh callbacks can hand
   // the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
   // (DARK / flag-OFF — design §5 step 2).
-  slcIngestInputsRef.current = {
-    ownerKey: slcOwnerKey,
-    nonZeroInputs: slcNonZeroInputs,
+  cellsIngestInputsRef.current = {
+    ownerKey: cellsOwnerKey,
+    nonZeroInputs: cellsNonZeroInputs,
   };
 
   const updateAllNetworkData = useThrottledCallback(() => {
@@ -1154,7 +1155,7 @@ function TokenListBlock({
           ...riskyTokenListRef.current.map,
         };
 
-        // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). The
+        // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). The
         // per-round all-network ingestRound was REMOVED here: this round's
         // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
         // so feeding it would make the BG structure frame reflect a partial
@@ -1373,7 +1374,7 @@ function TokenListBlock({
       // Refresh the shared cached aggregate raw data (consumed by the
       // single-network aggregate-build path / `updateAllNetworkData`). The
       // legacy `allTokenList*` cache-hydrate that also lived here was deleted in
-      // the tokenList SLC §R2+R3 cutover — the SLC slim cold cache + ingestRound
+      // the tokenList cells §R2+R3 cutover — the cells slim cold cache + ingestRound
       // are now the single cache/paint authority — so the per-network token list
       // assembly that fed those writers is gone too.
       aggregateTokenRawData.current =
@@ -1745,7 +1746,7 @@ function TokenListBlock({
         });
       }
 
-      // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
+      // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
       // view-model the COHERENT FULL merged snapshot this effect just produced —
       // post merge/dedup ($key uniqBy) / sortTokensByFiatValue / zero-balance
       // re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
@@ -1757,7 +1758,7 @@ function TokenListBlock({
       // duplicated merge logic in the VM yet (design §3 defers that).
       if (ENABLE_BG_TOKEN_VIEW_MODEL) {
         void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-          ownerKey: slcIngestInputsRef.current.ownerKey,
+          ownerKey: cellsIngestInputsRef.current.ownerKey,
           orderedTokens: tokenList.tokens,
           smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
           tokenListMap: mergeTokenListMap,
@@ -1768,10 +1769,10 @@ function TokenListBlock({
           ownedAggregateTokenListMap: aggregateTokenListMap,
           smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
           storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-          keepDefault: slcIngestInputsRef.current.nonZeroInputs.keepDefault,
+          keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
           homeDefaultTokenMap:
-            slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-          customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+            cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+          customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
           // Risky slice (design §R0 #5) — the coherent FULL risky set this
           // effect just produced (post merge/dedup/sort). Carried so the BG VM
           // can build the dedicated risky frame + merged raw list.
@@ -1804,8 +1805,8 @@ function TokenListBlock({
   // full-delete PR-7: the legacy per-owner `renderedTokenListCache` pre-paint
   // hydrator was REMOVED here. Both jobs it did on home are now covered without
   // a whole-map read: (1) cold paint is the slim cold cache fan-out
-  // (`useTokenListSlcColdStartHydrate`), and (2) switch-hydrate (byOwner instant
-  // swap) is the BG producer's SUBSCRIBE-THEN-PULL (`useTokenListSlcProducer` →
+  // (`useTokenListCellsColdStartHydrate`), and (2) switch-hydrate (byOwner instant
+  // swap) is the BG producer's SUBSCRIBE-THEN-PULL (`useTokenListCellsProducer` →
   // `getTokenListFrames`) backed by the per-owner VM cache in the BG heap. This
   // effect only ever wrote the legacy home atoms (now cell-fed) from the cache,
   // so dropping it frees the last `renderedTokenListCacheAtom` reader in this
@@ -2098,7 +2099,7 @@ function TokenListBlock({
       // full-delete PR-7: the TokenDetails route params (`tokenMap` /
       // `aggregateTokens`) were the LAST readers of `tokenListMapAtom` /
       // `aggregateTokensListMapAtom` in this file. Both are now sourced from the
-      // live HOME SLC store at tap time (cells + `listStructureAtom`), which is
+      // live HOME cells store at tap time (cells + `listStructureAtom`), which is
       // the BG-fed merged home data spanning ALL networks. A non-reactive
       // tap-time read is correct (route params are a plain serializable
       // snapshot; the tap is not perf-critical).
@@ -2581,8 +2582,8 @@ function TokenListBlock({
         inTabList
         hideValue
         withSwapAction
-        // SLC render binding (spec §5): TokenListBlock mounts the SLC producer
-        // (`useTokenListSlcProducer`), so its global home list may bind leaves
+        // cells render binding (spec §5): TokenListBlock mounts the cells producer
+        // (`useTokenListCellsProducer`), so its global home list may bind leaves
         // to per-key cells. The flag is further gated inside TokenListView so
         // the scoped LP-token override path keeps reading the whole map.
         enableCellSeam

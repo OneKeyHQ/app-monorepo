@@ -1,4 +1,4 @@
-import type { IListStructure } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type { IListStructure } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
@@ -15,8 +15,8 @@ export {
   ProviderJotaiContextTokenList,
   contextAtomMethod,
   withTokenListProvider,
-  // Exposes the per-store handle for the SLC cell seam (slc/projection.ts,
-  // slc/useTokenFiat.ts). Other consumers should keep using the typed
+  // Exposes the per-store handle for the cell seam (cells/projection.ts,
+  // cells/useTokenFiat.ts). Other consumers should keep using the typed
   // `use*Atom` hooks.
   useTokenListContextData,
 };
@@ -47,15 +47,15 @@ export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
 
 /**
- * TokenList SLC — structure atom (spec §3, Phase-1 Slice 1).
+ * TokenList cells — structure atom (spec §3, Phase-1 Slice 1).
  *
  * Lives in the existing per-store contextAtom store. Holds ONLY the ids +
  * aggregate membership + owner/generation; per-key fiat/meta VALUES live in
- * the cells registered in `storeProjection` (slc/projection.ts). Price ticks
+ * the cells registered in `storeProjection` (cells/projection.ts). Price ticks
  * write cells and do NOT touch this atom — that low frequency is the premise
  * of "only the changed leaf re-renders" (spec §4.1, §5).
  *
- * Written exclusively via `applyStructureSnapshot` (slc/projection.ts); never
+ * Written exclusively via `applyStructureSnapshot` (cells/projection.ts); never
  * set directly by components (spec §4.1).
  */
 export const { atom: listStructureAtom, use: useListStructureAtom } =
@@ -72,9 +72,9 @@ export const { atom: listStructureAtom, use: useListStructureAtom } =
   });
 
 /**
- * TokenList SLC — risky frame projection atom (design 2026-06-16 §R0).
+ * TokenList cells — risky frame projection atom (design 2026-06-16 §R0).
  *
- * The UI receive shell (`useTokenListSlcProducer`) lands the BG risky frame
+ * The UI receive shell (`useTokenListCellsProducer`) lands the BG risky frame
  * (PUSH + PULL) here, version-guarded + identity-checked, as a FULL idempotent
  * snapshot. `TokenListFooter` reads it (R1 migrated the footer off the deleted
  * legacy risky whole-map atoms onto this single frame). The
@@ -162,14 +162,14 @@ export const RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS = 50;
  * map (no balance, no price) until the async `getAccountLocalTokens` fetch
  * returns.
  *
- * ROLE (post TokenList SLC §7 migration): this atom is now IN-MEMORY ONLY (no
+ * ROLE (post TokenList cells §7 migration): this atom is now IN-MEMORY ONLY (no
  * `coldStartCache`). It serves ONLY the in-session network/account SWITCH
  * eager-hydrate (`TokenListBlock` looks the entry up by current
  * `${accountId}__${networkId}` and hydrates the singleton store leaves/cells
  * before `initTokenListData`'s async fetch runs; `TokenListView`'s effect
  * MRU-writes
  * it). The COLD-START persisted role (role-1) is replaced by the slim bundle
- * (slc/coldStart.ts, key `ctx:tokenListSlimColdCache`). Dropping
+ * (cells/coldStart.ts, key `ctx:tokenListSlimColdCache`). Dropping
  * `coldStartCache` here is what stops the OLD `ctx:renderedTokenListCacheAtom`
  * key from re-entering `coldStartValuesMap` on the new build — the root cause
  * of the double-authority revival (memory

@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import { useTokenFiat } from '../../states/jotai/contexts/tokenList/slc';
+import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells';
 import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';

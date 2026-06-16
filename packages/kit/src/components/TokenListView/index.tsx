@@ -60,7 +60,7 @@ import {
   meta as metaCell,
   projectHomeDisplayIds,
   resolveUseCellSeam,
-} from '../../states/jotai/contexts/tokenList/slc';
+} from '../../states/jotai/contexts/tokenList/cells';
 import { useTokenManagement } from '../../views/AssetList/hooks/useTokenManagement';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
@@ -127,7 +127,7 @@ type IProps = {
   scopedActiveAccountTokenList?: IScopedActiveTokenList;
   scopedActiveAccountTokenListState?: IScopedActiveTokenListState;
   scopedActiveAccountTokenListMap?: Record<string, ITokenFiat>;
-  // TokenSelector self-fetched data threaded as props (tokenList SLC
+  // TokenSelector self-fetched data threaded as props (tokenList cells
   // full-delete plan, PR-3). Consumed ONLY on the `isTokenSelector` branch so
   // the selector no longer reads `tokenListAtom`/`tokenListMapAtom`/
   // `smallBalanceTokenListAtom`/`aggregateTokensListMapAtom` for its display
@@ -164,7 +164,7 @@ type IProps = {
   // matching the pre-PR-3 instant render. The active-account branch is
   // unaffected (it uses `activeAccountTokenListState`).
   tokenSelectorInitialized?: boolean;
-  // Generalized "host-provided maps" seam (tokenList SLC full-delete plan,
+  // Generalized "host-provided maps" seam (tokenList cells full-delete plan,
   // PR-7). Any NON-cell caller (AssetList modal, active-account, LP-scoped)
   // fills these from its OWN source instead of the home target atoms, so the
   // wrapper + inner cmp no longer read `tokenListAtom` / `tokenListMapAtom` /
@@ -216,8 +216,8 @@ type IProps = {
   // AssetList, TokenSelector, …) produce unique testIDs instead of every
   // scene reusing the shared component's default `home-token-item-*` prefix.
   tokenItemTestIDPrefix?: string;
-  // TokenList SLC render binding (spec §5). Opt-in flag set ONLY by the home
-  // `TokenListBlock`, where `useTokenListSlcProducer` is mounted and feeds the
+  // TokenList cells render binding (spec §5). Opt-in flag set ONLY by the home
+  // `TokenListBlock`, where `useTokenListCellsProducer` is mounted and feeds the
   // per-key cells off the global `tokenListAtom`/`tokenListMapAtom`. When true
   // AND the list is rendering the global (non-selector, non-scoped) map, the
   // per-key leaves subscribe to their cell via `useTokenFiat($key)`. Other
@@ -335,7 +335,7 @@ function TokenListViewCmp(props: IProps) {
     scopedActiveAccountTokenList ?? activeAccountTokenListAtomValue;
   const activeAccountTokenListState =
     scopedActiveAccountTokenListState ?? activeAccountTokenListStateAtomValue;
-  // Selector fiat map (tokenList SLC full-delete plan, PR-3): on the selector
+  // Selector fiat map (tokenList cells full-delete plan, PR-3): on the selector
   // path the displayed list + fiat map are self-fetched by TokenSelector and
   // threaded as props, so the selector no longer reads the home `tokenListMap`
   // atom. The active-account scoped branch (LP-dapp / cross-account view) keeps
@@ -533,7 +533,7 @@ function TokenListViewCmp(props: IProps) {
   ]);
 
   // PR-7: the legacy per-owner `renderedTokenListCache` PERSIST write was
-  // REMOVED. The slim cold cache (`persistSlimColdCache`, written by the SLC
+  // REMOVED. The slim cold cache (`persistSlimColdCache`, written by the cells
   // producer off the cell projection) is now the single cold-paint authority,
   // and the BG per-owner VM covers switch-hydrate; the old whole-map write here
   // duplicated that and reintroduced a `tokenListMap`/`rawAggregateTokensMap`
@@ -641,7 +641,7 @@ function TokenListViewCmp(props: IProps) {
     return filteredTokens;
   }, [filteredTokens, overFlowState.isOverflow, overFlowState.isSliced, limit]);
 
-  // SLC render binding (spec §5, §11.3, PR-S): the container subscribes to
+  // cells render binding (spec §5, §11.3, PR-S): the container subscribes to
   // `listStructureAtom`. On the HOME path it derives the displayed order from a
   // PURE projection over `orderedIds ∪ smallBalanceIds` reading per-id cell/meta
   // values (NOT the whole map), keyed on `listStructure.generation` + sort /
@@ -815,7 +815,7 @@ function TokenListViewCmp(props: IProps) {
   // Skeleton decision extracted to a pure, unit-tested predicate
   // (computeShowTokenListSkeleton). The cold-start fix lives in its final
   // clause: the home first-load skeleton (`!initialized && isRefreshing`) now
-  // also requires `displayCount === 0`, so the SLC cold paint's rows render
+  // also requires `displayCount === 0`, so the cells cold paint's rows render
   // immediately instead of being hidden by the plainMode `if (showSkeleton)`
   // early-return until the network round lands. PR-7/PR-3 branch rationale is
   // documented inline in that function.
@@ -1172,7 +1172,7 @@ function TokenListViewCmp(props: IProps) {
 }
 
 const TokenListView = memo((props: IProps) => {
-  // PR-7: SLC cell seam (spec §5). Hoisted ABOVE the context-fill memos so they
+  // PR-7: cell seam (spec §5). Hoisted ABOVE the context-fill memos so they
   // can branch on the home path. Only the home path may bind leaves to per-key
   // cells — requires the producer (gated by `enableCellSeam`, set by
   // TokenListBlock) AND that this list renders the global map (not selector / not

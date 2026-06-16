@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — reactive per-network sub-token fiat map for the aggregate
+ * TokenList cells — reactive per-network sub-token fiat map for the aggregate
  * badge / icon / auto-select check (design 2026-06-16 §R2+R3, red-team C-F2 /
  * completeness-#3, BLOCKING).
  *
@@ -23,7 +23,7 @@ import { useMemo } from 'react';
 
 import { atom, useAtomValue } from 'jotai';
 
-import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../atoms';

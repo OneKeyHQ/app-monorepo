@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — APPLY CONTRACT integration tests (spec §11.2). These are the
+ * TokenList cells — APPLY CONTRACT integration tests (spec §11.2). These are the
  * MERGE GATE for Slice 1. Run with node + a real jotai `createStore()` (no
  * React). They assert:
  *  - fire-count = number of cells that actually changed per fiatEqual
@@ -21,11 +21,11 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IStructureSnapshot,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
@@ -34,7 +34,7 @@ import {
   applyValuationFrame,
   buildApplyDeps,
   shallowEqualArray,
-} from '../slc/apply';
+} from '../cells/apply';
 import {
   aggCell,
   cell,
@@ -42,10 +42,10 @@ import {
   ensureStoreProjection,
   meta,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 
-import type { IApplyDeps } from '../slc/apply';
-import type { IStoreProjection } from '../slc/projection';
+import type { IApplyDeps } from '../cells/apply';
+import type { IStoreProjection } from '../cells/projection';
 
 type IStore = ReturnType<typeof createStore>;
 

@@ -1,7 +1,7 @@
 /**
- * TokenList SLC (Structured List Cells) — Phase-1 Slice 1 foundation.
+ * TokenList cells — per-token, per-field granular state cells fed by BG frames (Phase-1 Slice 1 foundation).
  *
- * Barrel for the SLC plumbing: the pure functions, wire types, the per-store
+ * Barrel for the cells plumbing: the pure functions, wire types, the per-store
  * projection + lazy cell builders, the apply contract, the buildFrames pure
  * mapping, the stable `useTokenFiat` seam, and the producer hook.
  */
@@ -13,8 +13,8 @@ export {
   shallowEqualArrayOf,
   sortKeyFor,
   sumAggregateEntry,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
-export type { IComputeNonZeroIdsParams } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+export type { IComputeNonZeroIdsParams } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 export type {
   IAggKey,
   IListStructure,
@@ -22,22 +22,22 @@ export type {
   IStructureSnapshot,
   ITokenKey,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 export * from './projection';
 export * from './apply';
 export {
   buildFrames,
   metaByKeyFromTokens,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 export type {
   IBuildFramesInput,
   IBuildFramesPrev,
   IBuildFramesResult,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 export * from './homeProjection';
 export * from './seamGate';
 export * from './coldStart';
 export * from './useTokenFiat';
-export * from './useTokenListSlcProducer';
+export * from './useTokenListCellsProducer';
 export * from './useHomeTokenListSnapshot';
 export * from './useAggregateSubTokenFiatMap';

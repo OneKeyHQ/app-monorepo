@@ -86,7 +86,7 @@ export type IAggregateTokenSelectorParams = {
   aggregateToken: IAccountToken;
   // The owned sub-tokens for this `aggregateToken.$key`, passed by TokenSelector
   // when navigating in so AggregateTokenSelector no longer reads
-  // `aggregateTokensListMapAtom` (tokenList SLC full-delete plan, PR-3).
+  // `aggregateTokensListMapAtom` (tokenList cells full-delete plan, PR-3).
   // Optional to preserve type-compat for existing callers and as a defensive
   // fallback for any future direct entry.
   aggregateSubTokenList?: IAccountToken[];

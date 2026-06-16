@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — Phase-2 per-storeName MOUNTED-STORE REGISTRY (design §5 PR-2).
+ * TokenList cells — Phase-2 per-storeName MOUNTED-STORE REGISTRY (design §5 PR-2).
  *
  * WHY (load-bearing fact): `withTokenListProvider` with no `store` prop does
  * `createStore()` (createJotaiContext.tsx) → an ANONYMOUS store NOT registered

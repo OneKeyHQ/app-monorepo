@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — Phase-2 RECEIVE SHELL (design §5 PR-2, cutover; spec §9).
+ * TokenList cells — Phase-2 RECEIVE SHELL (design §5 PR-2, cutover; spec §9).
  *
  * H4 IS DEAD HERE. This hook NO LONGER observes the 5 settled atoms
  * (tokenListAtom / smallBalanceTokenListAtom / tokenListMapAtom /
@@ -11,7 +11,7 @@
  *       `getTokenListFrames` and applies them — SUBSCRIBE-THEN-PULL, the safe
  *       variant of the "PULL-then-unsub" hard ordering invariant: a frame source
  *       is ALWAYS live so the list never blanks (the cold-start T0 hydrate, run
- *       earlier in the same component via `useTokenListSlcColdStartHydrate`, has
+ *       earlier in the same component via `useTokenListCellsColdStartHydrate`, has
  *       already painted the projection cells before this effect runs, and they
  *       hold until the first PULL/push supersedes them at a higher generation),
  *   (c) funnels both push + pull through the UNCHANGED apply contract
@@ -40,11 +40,11 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IStructureSnapshot,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -98,7 +98,7 @@ import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
  * authority (it receives these via `ingestRound`), so the receive shell does not
  * read them — they are passed to the seam, not here.
  */
-export interface ITokenListSlcProducerNonZeroInputs {
+export interface ITokenListCellsProducerNonZeroInputs {
   keepDefault?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   customTokens?: ICustomTokenItem[];
@@ -114,10 +114,10 @@ export interface ITokenListSlcProducerNonZeroInputs {
  * the store's cold-start scope stamp (`resolveStoreData`), which is present for
  * the home/urlAccount NAMED stores; an anonymous mount must pass it explicitly.
  */
-export function useTokenListSlcProducer(
+export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
-  _nonZeroInputs?: ITokenListSlcProducerNonZeroInputs,
+  _nonZeroInputs?: ITokenListCellsProducerNonZeroInputs,
   storeName?: string,
 ): void {
   const { store } = useTokenListContextData();
@@ -312,12 +312,12 @@ export function useTokenListSlcProducer(
     // S3. SUBSCRIBE FIRST. From this instant any push lands in the handlers (or
     // is version-dropped). This guarantees no push emitted during the S4 PULL is
     // lost — the H4 s.sub lines are DELETED, not toggled.
-    appEventBus.on(EAppEventBusNames.TokenListSlcStructureFrame, onStructure);
-    appEventBus.on(EAppEventBusNames.TokenListSlcValuationFrame, onValuation);
+    appEventBus.on(EAppEventBusNames.TokenListStructureFrame, onStructure);
+    appEventBus.on(EAppEventBusNames.TokenListValuationFrame, onValuation);
     // Risky frame (design §R0 #6): the 3rd subscribe-then-pull, INSIDE this same
     // effect body + sharing the same `cancelled` flag (below) so the owner-switch
     // teardown discards an in-flight risky PULL alongside the other two.
-    appEventBus.on(EAppEventBusNames.TokenListSlcRiskyFrame, onRisky);
+    appEventBus.on(EAppEventBusNames.TokenListRiskyFrame, onRisky);
 
     // S4. PULL the authoritative full frames and apply through the SAME
     // version-guarded path. A push racing this in-flight pull is not lost
@@ -344,15 +344,9 @@ export function useTokenListSlcProducer(
 
     return () => {
       cancelled = true;
-      appEventBus.off(
-        EAppEventBusNames.TokenListSlcStructureFrame,
-        onStructure,
-      );
-      appEventBus.off(
-        EAppEventBusNames.TokenListSlcValuationFrame,
-        onValuation,
-      );
-      appEventBus.off(EAppEventBusNames.TokenListSlcRiskyFrame, onRisky);
+      appEventBus.off(EAppEventBusNames.TokenListStructureFrame, onStructure);
+      appEventBus.off(EAppEventBusNames.TokenListValuationFrame, onValuation);
+      appEventBus.off(EAppEventBusNames.TokenListRiskyFrame, onRisky);
       // Drop any pending debounced persist so a late write cannot land on a
       // torn-down/owner-switched projection.
       cancelPendingSlimColdCache(s);

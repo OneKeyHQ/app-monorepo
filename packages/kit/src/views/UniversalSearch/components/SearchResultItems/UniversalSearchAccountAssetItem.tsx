@@ -9,7 +9,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -44,7 +44,7 @@ export function UniversalSearchAccountAssetItem({
   // `handlePress` and seeded into the TokenDetails route. Replaces the deleted
   // `homeTokenFiatMap`. This is a home store mirror (UniversalSearch wrapper).
   const { map: homeTokenFiatMap } = useHomeTokenListSnapshot();
-  // PR-3 (tokenList SLC full-delete): no longer reads `aggregateTokensListMapAtom`.
+  // PR-3 (tokenList cells full-delete): no longer reads `aggregateTokensListMapAtom`.
   // `TokenName` defaults `aggregateTokenList` to `[]` when the prop is omitted and
   // derives the aggregate badge from `allAggregateTokenMap` (passed in via the
   // `allAggregateTokenMap` prop, fetched by UniversalSearch), so badge behavior is

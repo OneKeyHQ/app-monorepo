@@ -1,9 +1,9 @@
 /**
- * TokenList SLC — COLD START pure functions (spec §7, §11.1).
+ * TokenList cells — COLD START pure functions (spec §7, §11.1).
  *
  * Every function here is pure (explicit inputs, no React / native / jotai /
  * global access) so it is node-jest testable (spec §11, §11.5). They build /
- * gate / purge the slim cold-start bundle that the SLC writes to a NEW,
+ * gate / purge the slim cold-start bundle that the cells writes to a NEW,
  * physically-distinct cache key (`ctx:tokenListSlimColdCache`) — never the old
  * `ctx:renderedTokenListCacheAtom` (spec §7, §2).
  *
@@ -38,7 +38,7 @@ export interface ICompactFiat {
 
 /**
  * The runtime structure shape `buildSlimSnapshot` consumes. Mirrors
- * `IListStructure` (kit/.../slc/types) but is duplicated here as a plain shape
+ * `IListStructure` (kit/.../cells/types) but is duplicated here as a plain shape
  * so the shared package stays free of any kit import (import hierarchy:
  * shared MUST NOT import from kit).
  */

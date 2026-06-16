@@ -1,8 +1,8 @@
 /**
- * TokenList SLC — cell-seam GATE (spec §5, PR-S blocker #1).
+ * TokenList cells — cell-seam GATE (spec §5, PR-S blocker #1).
  *
  * `resolveUseCellSeam` is the single pure predicate that decides whether a
- * `<TokenListView>` mount binds its leaves to the per-key SLC cells (the HOME
+ * `<TokenListView>` mount binds its leaves to the per-key cells (the HOME
  * projection path) or keeps reading the legacy whole `tokenListMap`.
  *
  * INTENT (spec §5): use cells UNLESS a scoped LP-override map is ACTIVE. The

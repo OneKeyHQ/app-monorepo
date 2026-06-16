@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — HOME projection PURE PARITY tests (spec §1, §11.3, §11.5).
+ * TokenList cells — HOME projection PURE PARITY tests (spec §1, §11.3, §11.5).
  *
  * MERGE GATE for PR-S. Run in node with no React / jotai / native:
  * `projectHomeDisplayIds` is pure data in / pure data out.
@@ -22,13 +22,13 @@ import { createStore } from 'jotai';
 
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { buildFrames } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
-import type { IBuildFramesPrev } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+import { buildFrames } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
+import type { IBuildFramesPrev } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import {
   getFilteredTokenBySearchKey,
   sortTokensByFiatValue,
@@ -48,8 +48,8 @@ import {
   applyValuationFrame,
   buildApplyDeps,
   shallowEqualArray,
-} from '../slc/apply';
-import { projectHomeDisplayIds } from '../slc/homeProjection';
+} from '../cells/apply';
+import { projectHomeDisplayIds } from '../cells/homeProjection';
 import {
   aggCell,
   cell,
@@ -57,9 +57,9 @@ import {
   ensureStoreProjection,
   meta as metaCell,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 
-import type { IApplyDeps } from '../slc/apply';
+import type { IApplyDeps } from '../cells/apply';
 
 function makeFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {
   return {
@@ -380,7 +380,7 @@ describe('projectHomeDisplayIds — hideDeFiMarked (blocker #2)', () => {
  * the changed leaf cell re-renders.
  *
  * Unlike the old version (which hand-built two literal dep tuples), this drives
- * the REAL SLC store: it applies a structure frame, captures the listStructure
+ * the REAL cells store: it applies a structure frame, captures the listStructure
  * value, applies a valuation-only frame produced by `buildFrames`, and asserts
  * the listStructure generation AND the orderedIds array IDENTITY are unchanged
  * — i.e. the memo deps the container reads off `listStructureAtom` cannot move

@@ -6,7 +6,7 @@ import {
   metaEqual,
   sortKeyFor,
   sumAggregateEntry,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 function makeFiat(overrides: Partial<ITokenFiat> = {}): ITokenFiat {

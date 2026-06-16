@@ -46,7 +46,7 @@ import {
   ProviderJotaiContextHistoryList,
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
-import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/slc';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';

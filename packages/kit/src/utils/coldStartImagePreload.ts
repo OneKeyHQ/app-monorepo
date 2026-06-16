@@ -148,7 +148,7 @@ function collectWalletTokenImageUris({
   uris: Set<string>;
   snapshot: IColdStartSnapshot;
 }) {
-  // TokenList SLC §7: the cold-start persisted token-list role moved from the
+  // TokenList cells §7: the cold-start persisted token-list role moved from the
   // OLD `renderedTokenListCacheAtom` (byOwner[].tokens) to the slim bundle
   // (`tokenListSlimColdCache`, single-owner). Prewarm logos from the slim
   // bundle's `compactMeta` values instead of the retired byOwner shape.

@@ -1,7 +1,7 @@
 /*
 yarn test packages/kit-bg/src/services/ServiceUniversalSearch.aggregateSelfDerive.test.ts
 
-Regression guard for PR-3 D2=B1 (tokenList SLC full-delete):
+Regression guard for PR-3 D2=B1 (tokenList cells full-delete):
 UniversalSearch.tsx no longer threads the home `aggregateTokensListMapAtom`
 into the BG search params (`aggregateTokenListCacheMap` is now `undefined`).
 The BG `universalSearchOfAccountAssets` MUST self-derive the scoped owned

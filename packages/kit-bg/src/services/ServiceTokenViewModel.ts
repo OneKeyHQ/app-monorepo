@@ -1,10 +1,10 @@
 /**
- * TokenList SLC — Phase-2 BG ServiceTokenViewModel (design §3, §4, D2=A).
+ * TokenList cells — Phase-2 BG ServiceTokenViewModel (design §3, §4, D2=A).
  *
  * Owns the FRAME PRODUCTION in the BG heap. For each fetch round the home
  * refresh flow hands it the already-settled slices via `ingestRound`; the
  * service builds the two wire frames with the pure `buildFrames` (reused from
- * the relocated slcPure trio — kit-bg internal, no React/native/jotai), keeps
+ * the relocated cellsPure trio — kit-bg internal, no React/native/jotai), keeps
  * the per-owner `prev` refs + monotonic version counters, and PUSHES the frames
  * over the two new appEventBus events. `getTokenListFrames` is the authoritative
  * PULL backstop the UI shell uses on mount / owner switch / generation gap.
@@ -18,7 +18,7 @@
  * PR-1 STATUS (design §5 step 2): DARK / flag-OFF. The home refresh flow
  * dual-writes into this service only when its module flag is ON (default OFF),
  * and the UI is NOT driven by these frames yet (the existing
- * `useTokenListSlcProducer` + legacy atoms still own the UI). Cut-over is PR-2.
+ * `useTokenListCellsProducer` + legacy atoms still own the UI). Cut-over is PR-2.
  */
 import {
   backgroundClass,
@@ -37,7 +37,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { buildFrames } from '../states/jotai/contexts/tokenList/slcPure/buildFrames';
+import { buildFrames } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 
 import ServiceBase from './ServiceBase';
 
@@ -45,14 +45,14 @@ import type { IJotaiContextStoreData } from '../states/jotai/atoms';
 import type {
   IBuildFramesInput,
   IBuildFramesPrev,
-} from '../states/jotai/contexts/tokenList/slcPure/buildFrames';
+} from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import type {
   IAggKey,
   INetworkId,
   IStructureSnapshot,
   ITokenKey,
   IValuationFrame,
-} from '../states/jotai/contexts/tokenList/slcPure/types';
+} from '../states/jotai/contexts/tokenList/cellsPure/types';
 
 /**
  * One owner's BG view-model state. Mirrors the UI producer's `prev` refs
@@ -158,7 +158,7 @@ export interface IIngestRoundParams {
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   customTokens?: ICustomTokenItem[];
   /**
-   * Risky token list for this owner (design §R0 #1). NOT part of the home SLC
+   * Risky token list for this owner (design §R0 #1). NOT part of the home cells
    * structure/valuation frames (those are risk-blind); carried so the VM can
    * build the dedicated risky frame + the merged raw list. Optional for older
    * call sites (defaults to empty).
@@ -380,14 +380,14 @@ class ServiceTokenViewModel extends ServiceBase {
       vm.structureVersion = structure.generation;
       vm.lastStructureSnapshot = structure;
 
-      appEventBus.emit(EAppEventBusNames.TokenListSlcStructureFrame, {
+      appEventBus.emit(EAppEventBusNames.TokenListStructureFrame, {
         ownerKey,
         structureVersion: vm.structureVersion,
         structure,
       });
     }
 
-    appEventBus.emit(EAppEventBusNames.TokenListSlcValuationFrame, {
+    appEventBus.emit(EAppEventBusNames.TokenListValuationFrame, {
       ownerKey,
       valuationVersion: vm.valuationVersion,
       valuation,
@@ -420,7 +420,7 @@ class ServiceTokenViewModel extends ServiceBase {
     if (this.riskyChanged(vm.lastRisky, riskyTokens, riskyMap)) {
       vm.riskyVersion += 1;
       vm.lastRisky = { riskyTokens, riskyMap };
-      appEventBus.emit(EAppEventBusNames.TokenListSlcRiskyFrame, {
+      appEventBus.emit(EAppEventBusNames.TokenListRiskyFrame, {
         ownerKey,
         riskyVersion: vm.riskyVersion,
         riskyTokens,

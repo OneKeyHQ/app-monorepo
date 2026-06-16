@@ -47,7 +47,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/slc';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
@@ -560,7 +560,7 @@ export function UniversalSearch({
         tokenListCacheMap: shouldUseTokensCacheData
           ? allTokenListMap
           : undefined,
-        // PR-3 D2=B1 (tokenList SLC full-delete): the UI no longer threads the
+        // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
         // home `aggregateTokensListMapAtom`. The BG
         // `universalSearchOfAccountAssets` SELF-DERIVES the scoped owned
         // sub-token list map for the searched owner (via

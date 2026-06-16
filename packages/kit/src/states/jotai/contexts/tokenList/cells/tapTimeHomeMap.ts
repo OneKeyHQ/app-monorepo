@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — tap-time home `tokenMap` reconstruction (full-delete PR-7).
+ * TokenList cells — tap-time home `tokenMap` reconstruction (full-delete PR-7).
  *
  * The Home `handleOnPressToken` used to feed the TokenDetails route a `tokenMap`
  * sourced from the now-deleted `tokenListMapAtom` (the FULL merged home
@@ -8,7 +8,7 @@
  * instant balances (`batchUpdateTokenDetails`). A network-scoped read MISSES the
  * other-network aggregate sub-tokens, so they sort as 0 and get no seed.
  *
- * This module rebuilds the SAME full merged map from the live per-store SLC
+ * This module rebuilds the SAME full merged map from the live per-store cells
  * cells over the structure ids at tap time (same cell-reconstruction pattern as
  * `TokenListFooter` in PR-4):
  *   - every normal id (orderedIds ∪ smallBalanceIds) -> its `cell` fiat, keyed
@@ -23,7 +23,7 @@
  * Pure: no jotai/React/native module globals. The cell reads are injected as
  * callbacks so this is a clean testable seam.
  */
-import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type {
   IAccountToken,
   IToken,

@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — Phase-1 wire-payload types (spec §4.0).
+ * TokenList cells — Phase-1 wire-payload types (spec §4.0).
  *
  * These are the authoritative shapes the producer emits and the apply layer
  * consumes. They are pure data (no React / store handles other than the

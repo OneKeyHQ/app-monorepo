@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — APPLY CONTRACT (spec §4, §11.2).
+ * TokenList cells — APPLY CONTRACT (spec §4, §11.2).
  *
  * The single write path for the structure atom + the per-key cells. The
  * producer (TokenListBlock, Phase-1) derives a structure frame + a valuation
@@ -22,7 +22,7 @@ import type {
   IStructureSnapshot,
   ITokenKey,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type {
   IAccountToken,
   IToken,
@@ -115,7 +115,7 @@ export interface IApplyDeps {
 }
 
 /**
- * Bind the live deps from the SLC modules (spec §11.5). The producer captures
+ * Bind the live deps from the cells modules (spec §11.5). The producer captures
  * `store` (the contextAtom store) up front, then calls this once per apply to
  * get a deps bag whose `get/set` are bound to that store. Tests construct their
  * own deps bag against a node `createStore()` instead.

@@ -1,9 +1,9 @@
 /**
- * TokenList SLC — Phase-1 Slice 1 PURE FUNCTIONS (spec §11.1).
+ * TokenList cells — Phase-1 Slice 1 PURE FUNCTIONS (spec §11.1).
  *
  * Every function here is a pure, side-effect-free unit: inputs are explicit,
  * there is no React / native / jotai / global access. This is what makes the
- * SLC diff/sum/predicate logic node-jest testable (spec §11, §11.5).
+ * cells diff/sum/predicate logic node-jest testable (spec §11, §11.5).
  */
 import BigNumber from 'bignumber.js';
 

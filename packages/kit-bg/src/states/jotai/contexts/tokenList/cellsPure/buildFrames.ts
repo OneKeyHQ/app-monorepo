@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — buildFrames PURE MAPPING (spec §4.1, §11.5).
+ * TokenList cells — buildFrames PURE MAPPING (spec §4.1, §11.5).
  *
  * Derives the two wire frames from ONE fetch round's already-settled data:
  *   - a STRUCTURE frame (orderedIds / smallBalanceIds / nonZeroIds /

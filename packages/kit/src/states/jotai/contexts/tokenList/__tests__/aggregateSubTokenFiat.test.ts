@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — UI guard tests for the aggregate sub-token fiat seam
+ * TokenList cells — UI guard tests for the aggregate sub-token fiat seam
  * (design 2026-06-16 §R2+R3, red-team C-F2 / completeness-#9, BLOCKING).
  *
  * These cover the three migration risks that the deleted `allTokenListMapAtom`
@@ -25,10 +25,10 @@ import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenU
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
-import { aggCell, ensureStoreProjection, subcell } from '../slc/projection';
-import { buildAggregateSubTokenFiatAtom } from '../slc/useAggregateSubTokenFiatMap';
+import { aggCell, ensureStoreProjection, subcell } from '../cells/projection';
+import { buildAggregateSubTokenFiatAtom } from '../cells/useAggregateSubTokenFiatMap';
 
-import type { cell as cellType } from '../slc/projection';
+import type { cell as cellType } from '../cells/projection';
 
 type ICtxStore = Parameters<typeof cellType>[0];
 

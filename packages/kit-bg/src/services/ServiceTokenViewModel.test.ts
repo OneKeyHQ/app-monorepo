@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — Phase-2 BG ServiceTokenViewModel tests (design §5 step 2).
+ * TokenList cells — Phase-2 BG ServiceTokenViewModel tests (design §5 step 2).
  *
  * BG node tests, no React/jotai/native. They assert the service:
  *   - builds + PUSHES a structure frame on the first ingest and on a structural
@@ -21,7 +21,7 @@ import type { IJotaiContextStoreData } from '../states/jotai/atoms/jotaiContextS
 import type {
   IStructureSnapshot,
   IValuationFrame,
-} from '../states/jotai/contexts/tokenList/slcPure/types';
+} from '../states/jotai/contexts/tokenList/cellsPure/types';
 
 interface IStructureFramePayload {
   ownerKey: string;
@@ -56,9 +56,9 @@ jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => ({
 const mockEmit = jest.fn<void, [string, unknown]>();
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
-    TokenListSlcStructureFrame: 'TokenListSlcStructureFrame',
-    TokenListSlcValuationFrame: 'TokenListSlcValuationFrame',
-    TokenListSlcRiskyFrame: 'TokenListSlcRiskyFrame',
+    TokenListStructureFrame: 'TokenListStructureFrame',
+    TokenListValuationFrame: 'TokenListValuationFrame',
+    TokenListRiskyFrame: 'TokenListRiskyFrame',
   },
   appEventBus: {
     emit: (name: string, payload: unknown): void => {
@@ -137,17 +137,17 @@ function makeRound(
 
 function structureEmits(): IStructureFramePayload[] {
   return mockEmit.mock.calls
-    .filter((c) => c[0] === 'TokenListSlcStructureFrame')
+    .filter((c) => c[0] === 'TokenListStructureFrame')
     .map((c) => c[1] as IStructureFramePayload);
 }
 function valuationEmits(): IValuationFramePayload[] {
   return mockEmit.mock.calls
-    .filter((c) => c[0] === 'TokenListSlcValuationFrame')
+    .filter((c) => c[0] === 'TokenListValuationFrame')
     .map((c) => c[1] as IValuationFramePayload);
 }
 function riskyEmits(): IRiskyFramePayload[] {
   return mockEmit.mock.calls
-    .filter((c) => c[0] === 'TokenListSlcRiskyFrame')
+    .filter((c) => c[0] === 'TokenListRiskyFrame')
     .map((c) => c[1] as IRiskyFramePayload);
 }
 
@@ -188,8 +188,8 @@ describe('ServiceTokenViewModel', () => {
     // names were used.
     expect(mockEmit.mock.calls.map((c) => c[0])).toEqual(
       expect.arrayContaining([
-        'TokenListSlcStructureFrame',
-        'TokenListSlcValuationFrame',
+        'TokenListStructureFrame',
+        'TokenListValuationFrame',
       ]),
     );
     const structPayload = structureEmits()[0];
@@ -577,7 +577,7 @@ describe('ServiceTokenViewModel', () => {
       ]);
       expect(payload.riskyMap.risk1.fiatValue).toBe('5');
       expect(mockEmit.mock.calls.map((c) => c[0])).toEqual(
-        expect.arrayContaining(['TokenListSlcRiskyFrame']),
+        expect.arrayContaining(['TokenListRiskyFrame']),
       );
     });
 

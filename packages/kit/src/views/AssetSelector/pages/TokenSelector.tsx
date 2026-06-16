@@ -258,7 +258,7 @@ function TokenSelector() {
   }>({ tokens: [], searchKey: '' });
   const latestSearchKeywordsRef = useRef('');
 
-  // PR-3 (tokenList SLC full-delete): the selector self-fetches its displayed
+  // PR-3 (tokenList cells full-delete): the selector self-fetches its displayed
   // list + fiat map + owned-aggregate map and threads them as props into
   // TokenListView, so the selector no longer reads the home
   // `tokenListAtom`/`tokenListMapAtom`/`smallBalanceTokenListAtom`/

@@ -1,7 +1,7 @@
 /**
- * TokenList SLC — Phase-2 CUTOVER merge-gate tests (design §5 PR-2).
+ * TokenList cells — Phase-2 CUTOVER merge-gate tests (design §5 PR-2).
  *
- * These are the cutover invariants the receive shell (`useTokenListSlcProducer`)
+ * These are the cutover invariants the receive shell (`useTokenListCellsProducer`)
  * relies on. RTL is not feasible here (the shell is a thin React hook over
  * appEventBus + a @backgroundMethod PULL), so we assert the LOAD-BEARING logic
  * at the projection/apply + registry + version-guard level with a real jotai
@@ -33,11 +33,11 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IStructureSnapshot,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { listStructureAtom } from '../atoms';
@@ -46,7 +46,7 @@ import {
   applyValuationFrame,
   buildApplyDeps,
   shallowEqualArray,
-} from '../slc/apply';
+} from '../cells/apply';
 import {
   aggCell,
   cell,
@@ -54,17 +54,17 @@ import {
   ensureStoreProjection,
   meta,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 import {
   deregisterMountedStore,
   getMountedStores,
   isPrimaryColdStartWriter,
   registerMountedStore,
-} from '../slc/registry';
+} from '../cells/registry';
 
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
-import type { IApplyDeps } from '../slc/apply';
-import type { IStoreProjection } from '../slc/projection';
+import type { IApplyDeps } from '../cells/apply';
+import type { IStoreProjection } from '../cells/projection';
 
 type IStore = ReturnType<typeof createStore>;
 
@@ -148,7 +148,7 @@ function makeValuation(
 
 /**
  * A faithful replica of the receive shell's version-guarded apply pair. Mirrors
- * `useTokenListSlcProducer` `applyStructure` / `applyValuation` exactly (the
+ * `useTokenListCellsProducer` `applyStructure` / `applyValuation` exactly (the
  * version refs + drop-when-<=-last logic), bound to a node store + projection so
  * the cutover invariants are testable with no React.
  */
@@ -226,7 +226,7 @@ function setup(): {
   return { store, ctx, projection, deps, shell };
 }
 
-describe('SLC cutover — version guard (stale pull/push dropped)', () => {
+describe('cells cutover — version guard (stale pull/push dropped)', () => {
   it('drops a structure pull/push whose version <= last applied (race)', () => {
     const { store, shell } = setup();
     // push at gen 5 lands first
@@ -295,7 +295,7 @@ describe('SLC cutover — version guard (stale pull/push dropped)', () => {
   });
 });
 
-describe('SLC cutover — subscribe-then-pull ordering (no blank window)', () => {
+describe('cells cutover — subscribe-then-pull ordering (no blank window)', () => {
   it('a push racing an in-flight pull is not lost: higher version wins, lower dropped', () => {
     const { store, shell } = setup();
     // Subscription is live: a higher-version PUSH (gen 7) lands while a pull
@@ -339,7 +339,7 @@ describe('SLC cutover — subscribe-then-pull ordering (no blank window)', () =>
   });
 });
 
-describe('SLC cutover — single-token price tick isolation (spec §11.3)', () => {
+describe('cells cutover — single-token price tick isolation (spec §11.3)', () => {
   it('a price tick on one token notifies only that leaf cell; structure + siblings fire 0', () => {
     const { store, ctx, shell } = setup();
     const asCtx = ctx as unknown as Parameters<typeof cell>[0];
@@ -396,7 +396,7 @@ describe('SLC cutover — single-token price tick isolation (spec §11.3)', () =
   });
 });
 
-describe('SLC cutover — owner switch clears + re-applies', () => {
+describe('cells cutover — owner switch clears + re-applies', () => {
   it('owner switch clears the old cells; the new owner first frame applies after version reset', () => {
     const { store, ctx, shell } = setup();
     const asCtx = ctx as unknown as Parameters<typeof cell>[0];
@@ -452,7 +452,7 @@ describe('SLC cutover — owner switch clears + re-applies', () => {
   });
 });
 
-describe('SLC cutover — registry (single-slim-writer + fan-out)', () => {
+describe('cells cutover — registry (single-slim-writer + fan-out)', () => {
   const NAME = EJotaiContextStoreNames.homeTokenList;
   const storeA = createStore() as unknown as IJotaiContextStore;
   const storeB = createStore() as unknown as IJotaiContextStore;

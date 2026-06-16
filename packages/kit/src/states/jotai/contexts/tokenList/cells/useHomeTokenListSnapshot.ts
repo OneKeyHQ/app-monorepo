@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — home raw-list + full-fiat-map snapshot hook (design
+ * TokenList cells — home raw-list + full-fiat-map snapshot hook (design
  * 2026-06-16 §R2+R3).
  *
  * Replaces the deleted `allTokenListAtom` / `allTokenListMapAtom` reads for the

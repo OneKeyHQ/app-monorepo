@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — `useTokenFiat($key)` stable seam (spec §3.1, §5).
+ * TokenList cells — `useTokenFiat($key)` stable seam (spec §3.1, §5).
  *
  * The single, stable hook leaves read per-key fiat through. Phase-1/2 the
  * signature does not change; the底座 (who writes the cell) can be swapped under
@@ -13,7 +13,7 @@
  */
 import { useAtomValue } from 'jotai';
 
-import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { useTokenListContextData } from '../atoms';

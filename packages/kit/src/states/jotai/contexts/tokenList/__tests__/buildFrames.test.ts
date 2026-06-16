@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — buildFrames PURE MAPPING tests (spec §4.1, §11.5). These are
+ * TokenList cells — buildFrames PURE MAPPING tests (spec §4.1, §11.5). These are
  * a MERGE GATE for the producer-wiring slice. They run in node with no React /
  * jotai / native: buildFrames is pure data in / pure data out.
  *
@@ -20,11 +20,11 @@ import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/a
 import {
   buildFrames,
   metaByKeyFromTokens,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import type {
   IBuildFramesInput,
   IBuildFramesPrev,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/buildFrames';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/buildFrames';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
   IAccountToken,

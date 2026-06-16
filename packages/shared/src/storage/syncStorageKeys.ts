@@ -17,7 +17,7 @@ export enum EAppSyncStorageKeys {
   last_valid_local_time = 'last_valid_local_time',
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
   onekey_swr_cache = 'onekey_swr_cache',
-  // TokenList SLC one-time cold-start cleanup version flag (spec §7). A
+  // TokenList cells one-time cold-start cleanup version flag (spec §7). A
   // monotonically-increasing integer compared against
   // TOKEN_COLD_START_CLEANUP_VERSION so the OLD `::ctx:renderedTokenListCacheAtom`
   // disk fields are purged once per version (and re-purged after a

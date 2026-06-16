@@ -519,12 +519,12 @@ function ensureColdStartAppStateListener() {
 }
 
 // ============================================================
-// TokenList SLC — slim cold-start snapshot slot (spec §7).
+// TokenList cells — slim cold-start snapshot slot (spec §7).
 //
-// The SLC owns its slim bundle slot inside the SAME physical
+// The cells owns its slim bundle slot inside the SAME physical
 // `onekey_jotai_context_atoms_snapshot` blob the generic flusher uses, BUT it
 // is intentionally kept OFF `coldStartValuesMap` / `coldStartDirtyKeys` so the
-// generic flusher never re-derives or revives it. The SLC drives both write
+// generic flusher never re-derives or revives it. The cells drives both write
 // (debounced RMW) and T0 read explicitly so it controls the fan-out-via-apply
 // hydrate (spec §7 design decision).
 // ============================================================
@@ -539,7 +539,7 @@ function getColdStartCacheStorage() {
 /**
  * Synchronously read a single scoped key out of the shared cold-start snapshot
  * blob (spec §7 T0 read). Returns undefined when absent / unparseable. Used by
- * the SLC slim hydrate on web/desktop (native reads the already-parsed
+ * the cells slim hydrate on web/desktop (native reads the already-parsed
  * `__ONEKEY_CTX_ATOM_SNAPSHOT__` directly).
  */
 export function readColdStartSnapshotKey({
@@ -567,13 +567,13 @@ export function readColdStartSnapshotKey({
 
 // Pending slim writes (scopedKey -> value), flushed on a ~2s debounce or on the
 // cold-start flush trigger (app background). Kept separate from
-// coldStartValuesMap/coldStartDirtyKeys so this slot stays SLC-owned.
-const slcSlimPendingWrites = new Map<string, unknown>();
-let slcSlimSaveTimer: ReturnType<typeof setTimeout> | undefined;
-let slcSlimFlushTriggerRegistered = false;
+// coldStartValuesMap/coldStartDirtyKeys so this slot stays cells-owned.
+const cellsSlimPendingWrites = new Map<string, unknown>();
+let cellsSlimSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let cellsSlimFlushTriggerRegistered = false;
 
-function flushSlcSlimColdStartWrites() {
-  if (slcSlimPendingWrites.size === 0) return;
+function flushCellsSlimColdStartWrites() {
+  if (cellsSlimPendingWrites.size === 0) return;
   try {
     const storage = getColdStartCacheStorage();
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -585,7 +585,7 @@ function flushSlcSlimColdStartWrites() {
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
     const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
-    for (const [scopedKey, value] of slcSlimPendingWrites) {
+    for (const [scopedKey, value] of cellsSlimPendingWrites) {
       snapshot[scopedKey] = value;
     }
     const prepared = prepareColdStartSnapshotForWrite(snapshot);
@@ -593,25 +593,25 @@ function flushSlcSlimColdStartWrites() {
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
       prepared.serialized,
     );
-    slcSlimPendingWrites.clear();
+    cellsSlimPendingWrites.clear();
   } catch {
     /* best-effort */
   }
 }
 
-function ensureSlcSlimFlushTrigger() {
-  if (slcSlimFlushTriggerRegistered) return;
-  slcSlimFlushTriggerRegistered = true;
+function ensureCellsSlimFlushTrigger() {
+  if (cellsSlimFlushTriggerRegistered) return;
+  cellsSlimFlushTriggerRegistered = true;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { registerColdStartFlushTrigger } =
       require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
     registerColdStartFlushTrigger(() => {
-      if (slcSlimSaveTimer) {
-        clearTimeout(slcSlimSaveTimer);
-        slcSlimSaveTimer = undefined;
+      if (cellsSlimSaveTimer) {
+        clearTimeout(cellsSlimSaveTimer);
+        cellsSlimSaveTimer = undefined;
       }
-      flushSlcSlimColdStartWrites();
+      flushCellsSlimColdStartWrites();
     });
   } catch {
     /* coldStartFlushTrigger may be unavailable in some test harnesses */
@@ -619,7 +619,7 @@ function ensureSlcSlimFlushTrigger() {
 }
 
 /**
- * Debounced write of a single SLC-owned scoped key into the shared cold-start
+ * Debounced write of a single cells-owned scoped key into the shared cold-start
  * snapshot blob (spec §7 落盘). ~2s debounce to avoid main-thread RMW storms; an
  * app-background flush trigger forces the final value out. Does NOT touch
  * coldStartValuesMap/coldStartDirtyKeys.
@@ -631,14 +631,14 @@ export function writeColdStartSnapshotKey({
   scopedKey: string;
   value: unknown;
 }): void {
-  ensureSlcSlimFlushTrigger();
-  slcSlimPendingWrites.set(scopedKey, value);
-  if (slcSlimSaveTimer) {
-    clearTimeout(slcSlimSaveTimer);
+  ensureCellsSlimFlushTrigger();
+  cellsSlimPendingWrites.set(scopedKey, value);
+  if (cellsSlimSaveTimer) {
+    clearTimeout(cellsSlimSaveTimer);
   }
-  slcSlimSaveTimer = setTimeout(() => {
-    slcSlimSaveTimer = undefined;
-    flushSlcSlimColdStartWrites();
+  cellsSlimSaveTimer = setTimeout(() => {
+    cellsSlimSaveTimer = undefined;
+    flushCellsSlimColdStartWrites();
   }, 2000);
 }
 

@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — HOME render-order PURE PROJECTION (spec §1, §8#5, §11.3).
+ * TokenList cells — HOME render-order PURE PROJECTION (spec §1, §8#5, §11.3).
  *
  * `projectHomeDisplayIds` derives the HOME token-list display order from a
  * projection over `orderedIds ∪ smallBalanceIds`, reading per-id fiat/meta
@@ -21,7 +21,7 @@
  */
 import BigNumber from 'bignumber.js';
 
-import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+import type { ITokenKey } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';

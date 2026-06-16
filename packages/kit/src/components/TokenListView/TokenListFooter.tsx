@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import { isAgg } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -45,7 +45,7 @@ import {
   cell,
   meta,
   subcell,
-} from '../../states/jotai/contexts/tokenList/slc/projection';
+} from '../../states/jotai/contexts/tokenList/cells/projection';
 import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
@@ -86,7 +86,7 @@ function TokenListFooter(props: IProps) {
   const { allAggregateTokenMap, ownedAggregateTokenListMap } =
     useTokenListViewContext();
 
-  // SLC home pipeline: the footer runs under the HOME tokenList provider whose
+  // cells home pipeline: the footer runs under the HOME tokenList provider whose
   // per-store cells are live + BG-fed after the Phase-2 cutover. The small-
   // balance rows/total/modal params are rebuilt from `listStructure` + the
   // per-key cells instead of the legacy whole-map atoms (full-delete PR-4).
@@ -181,7 +181,7 @@ function TokenListFooter(props: IProps) {
   const filteredRiskyTokens = useMemo(() => {
     if (hideZeroBalanceTokens) {
       return riskyTokens.filter((token) => {
-        // Risky tokens are NOT in the home SLC structure/cells (the producer
+        // Risky tokens are NOT in the home cells structure/cells (the producer
         // never pushes them), so the flatten-aggregate balance fallback is dead
         // for risky ids — resolve balance from riskyTokenListMap only.
         const tokenBalance = new BigNumber(

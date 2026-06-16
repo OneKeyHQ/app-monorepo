@@ -1,18 +1,18 @@
 /**
- * TokenList SLC — COLD START runtime wiring (spec §7).
+ * TokenList cells — COLD START runtime wiring (spec §7).
  *
  * Closes the two §7 gaps that the pure functions (shared
  * tokenListSlimColdCacheUtils) and the apply contract left open:
  *
- *   1. WRITE (落盘): `readSlcColdStartProjection` walks the live projection
+ *   1. WRITE (落盘): `readCellsColdStartProjection` walks the live projection
  *      cells/metas/aggSubCells + `listStructureAtom` into the slim-bundle build
  *      params; `persistSlimColdCache` builds the slim bundle (shared
- *      `buildSlimSnapshot`) and writes it to the SLC-owned scoped key inside the
+ *      `buildSlimSnapshot`) and writes it to the cells-owned scoped key inside the
  *      shared cold-start snapshot blob (kit-bg `writeColdStartSnapshotKey`),
  *      never via `coldStartValuesMap` (so it can't be revived/clobbered by the
  *      generic flusher).
  *
- *   2. T0 READ + FAN-OUT (水合): `hydrateSlcFromColdStart` reads the slim bundle
+ *   2. T0 READ + FAN-OUT (水合): `hydrateCellsFromColdStart` reads the slim bundle
  *      (native: the already-parsed `__ONEKEY_CTX_ATOM_SNAPSHOT__`; web/desktop:
  *      the in-memory cold-start map via the kit-bg sync reader), gates it with
  *      shared `shouldUseSlim(currency)`, then FANS OUT through the SAME apply
@@ -34,14 +34,14 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IAggKey,
   INetworkId,
   IStructureSnapshot,
   ITokenKey,
   IValuationFrame,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import {
   purgeOldColdStartRuntimeKeys,
   readColdStartSnapshotKey,
@@ -110,7 +110,7 @@ type IGlobalColdStartSnapshot = typeof globalThis & {
 };
 
 /**
- * The SLC-owned scoped key inside the shared snapshot blob:
+ * The cells-owned scoped key inside the shared snapshot blob:
  * `${store:<id>}::ctx:tokenListSlimColdCache`. Mirrors how the generic
  * cold-start writer scopes keys (kit-bg buildColdStartScopedKey).
  */
@@ -139,7 +139,7 @@ function getColdStartScopeKey(store: IJotaiContextStore): string | undefined {
  * `store.get` so the bundle reflects exactly what is painted now. Currency is
  * the caller's responsibility (passed through `persistSlimColdCache`).
  */
-export function readSlcColdStartProjection(
+export function readCellsColdStartProjection(
   store: IJotaiContextStore,
   projection: IStoreProjection,
 ): Omit<IBuildSlimSnapshotParams, 'currency'> {
@@ -190,7 +190,7 @@ export function readSlcColdStartProjection(
 
 /**
  * Build the slim bundle from the live projection + currency and persist it to
- * the SLC-owned scoped key (spec §7 落盘). Debounced RMW via kit-bg
+ * the cells-owned scoped key (spec §7 落盘). Debounced RMW via kit-bg
  * `writeColdStartSnapshotKey`. No-op when the store carries no cold-start scope
  * (a bare node store / unmounted) or the currency is empty.
  */
@@ -207,7 +207,7 @@ export function persistSlimColdCache(params: {
   if (!scopeKey) {
     return;
   }
-  const buildParams = readSlcColdStartProjection(store, projection);
+  const buildParams = readCellsColdStartProjection(store, projection);
   const slim = buildSlimSnapshot({ ...buildParams, currency });
   writeColdStartSnapshotKey({
     scopedKey: buildSlimScopedKey(scopeKey),
@@ -459,7 +459,7 @@ export function fanOutSlimToApply(params: {
  * MISS — no paint, skeleton until fetch, spec §3#3, §11.4), then fans it out
  * through `fanOutSlimToApply`. Returns true when it painted, false on a miss.
  */
-export function hydrateSlcFromColdStart(params: {
+export function hydrateCellsFromColdStart(params: {
   store: IJotaiContextStore;
   projection: IStoreProjection;
   deps: IApplyDeps;
@@ -537,7 +537,7 @@ export function purgeOldColdStartIfNeeded(): void {
   }
 }
 
-let slcColdStartCleanupScheduled = false;
+let cellsColdStartCleanupScheduled = false;
 
 /**
  * Schedule the version-flag purge to run on HomePageReady (the same trigger the
@@ -546,16 +546,16 @@ let slcColdStartCleanupScheduled = false;
  * key. Idempotent across mounts.
  */
 function scheduleColdStartCleanupOnce(): void {
-  if (slcColdStartCleanupScheduled) {
+  if (cellsColdStartCleanupScheduled) {
     return;
   }
-  slcColdStartCleanupScheduled = true;
+  cellsColdStartCleanupScheduled = true;
   try {
     appEventBus.once(EAppEventBusNames.HomePageReady, () => {
       purgeOldColdStartIfNeeded();
     });
   } catch {
-    slcColdStartCleanupScheduled = false;
+    cellsColdStartCleanupScheduled = false;
   }
 }
 
@@ -565,7 +565,7 @@ function scheduleColdStartCleanupOnce(): void {
  * Cold-start hydrate hook (spec §7 T0). Call once from the home `TokenListBlock`
  * (the producer's mount owner), BEFORE the async fetch runs. It:
  *   - builds the SAME apply deps bag the producer uses (bound to this store);
- *   - runs `hydrateSlcFromColdStart` exactly once per (store, ownerKey) via a
+ *   - runs `hydrateCellsFromColdStart` exactly once per (store, ownerKey) via a
  *     ref-guard, eagerly in a `useLayoutEffect` so the cells are painted at T0
  *     (the producer's own mount-prime flush + the real fetch then keep them
  *     fresh; a higher-generation real frame supersedes the hydrated one);
@@ -573,7 +573,7 @@ function scheduleColdStartCleanupOnce(): void {
  *
  * Thin shell: all logic lives in the pure / apply layers (spec §11.5).
  */
-export function useTokenListSlcColdStartHydrate(
+export function useTokenListCellsColdStartHydrate(
   ownerKey: string,
   currencyId: string,
 ): void {
@@ -612,7 +612,7 @@ export function useTokenListSlcColdStartHydrate(
     }
     hydratedKeyRef.current = guardKey;
     const projection = ensureStoreProjection(store);
-    hydrateSlcFromColdStart({
+    hydrateCellsFromColdStart({
       store,
       projection,
       deps,

@@ -49,7 +49,7 @@ import {
 import {
   useAggregateSubTokenFiat,
   useHomeTokenListSnapshot,
-} from '../../../states/jotai/contexts/tokenList/slc';
+} from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
@@ -304,7 +304,7 @@ function AggregateTokenSelector() {
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
 
-  // PR-3 (tokenList SLC full-delete): the owned sub-tokens are passed in as a
+  // PR-3 (tokenList cells full-delete): the owned sub-tokens are passed in as a
   // route param by TokenSelector (the only navigator into this screen) instead
   // of reading `aggregateTokensListMapAtom`. Falls back to `[]` for any future
   // direct entry / restore where the param is absent — matching the old

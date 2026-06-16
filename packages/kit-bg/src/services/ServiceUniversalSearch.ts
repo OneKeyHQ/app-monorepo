@@ -330,7 +330,7 @@ class ServiceUniversalSearch extends ServiceBase {
     tokenListCacheMap?: Record<string, ITokenFiat>;
     aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }) {
-    // PR-3 D2=B1 (tokenList SLC full-delete): the UI no longer threads the
+    // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
     // home `aggregateTokensListMapAtom` into the search params. When the caller
     // omits `aggregateTokenListCacheMap` the BG self-derives the scoped owned
     // sub-token list map for the searched owner so aggregate sub-token

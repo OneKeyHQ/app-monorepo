@@ -219,7 +219,7 @@ export function TokenName({
   allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
   // Resolved owned aggregate sub-token list for this `$key`, passed by
   // TokenListView-side callers instead of reading
-  // `aggregateTokensListMapAtom` here (tokenList SLC full-delete plan, PR-1).
+  // `aggregateTokensListMapAtom` here (tokenList cells full-delete plan, PR-1).
   // `TokenName` is a SHARED component not always mounted under the tokenList
   // store, so callers outside that context simply omit this (-> [] fallback,
   // matching the previous empty-atom behavior).

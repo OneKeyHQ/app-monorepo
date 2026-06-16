@@ -1,8 +1,8 @@
 /**
- * TokenList SLC — cell-seam GATE tests (PR-S blocker #1 regression).
+ * TokenList cells — cell-seam GATE tests (PR-S blocker #1 regression).
  *
  * `resolveUseCellSeam` decides whether a `<TokenListView>` mount binds its
- * leaves to the per-key SLC cells (HOME projection path). The home mount passes
+ * leaves to the per-key cells (HOME projection path). The home mount passes
  * `scopedActiveAccountTokenListMap={}` (from `useState({})`), which is NOT
  * `undefined`. The OLD truthiness gate (`!props.scopedActiveAccountTokenListMap`)
  * was always `false` for `{}` → the seam was DEAD on home.
@@ -15,7 +15,7 @@
  */
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { hasActiveScopedOverride, resolveUseCellSeam } from '../slc/seamGate';
+import { hasActiveScopedOverride, resolveUseCellSeam } from '../cells/seamGate';
 
 function makeFiat(): ITokenFiat {
   return { balance: '1', balanceParsed: '1', fiatValue: '1', price: 1 };

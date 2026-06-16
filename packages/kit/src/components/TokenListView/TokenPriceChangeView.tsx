@@ -8,7 +8,7 @@ import {
   isValidNumberValue,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import { useTokenFiat } from '../../states/jotai/contexts/tokenList/slc';
+import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 

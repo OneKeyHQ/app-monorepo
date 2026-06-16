@@ -36,7 +36,7 @@ appEventBus.on(EAppEventBusNames.WalletRemove, () => fundedOwners.clear());
 appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 
 // Three sources:
-//   1. Held tokens (TokenList SLC structure `fundedIds`, the STRICT
+//   1. Held tokens (TokenList cells structure `fundedIds`, the STRICT
 //      positive-balance / risk-filtered set) — a "funded" override, latched
 //      per owner for the session. Fiat worth is a partial sum: tokens without
 //      price data contribute nothing (custom networks hardcode fiatValue '0',
@@ -91,7 +91,7 @@ export function useHomeBalanceState(): IHomeBalanceState {
   ]);
 
   // Any held token (balance > 0) counts as funded, regardless of valuation.
-  // Reads the TokenList SLC structure's `fundedIds` — the STRICT positive-
+  // Reads the TokenList cells structure's `fundedIds` — the STRICT positive-
   // balance set (balance > 0 only, risk tokens excluded, aggregate-aware, with
   // NO keepDefault entries). This replaces the previous multi-atom live scan
   // (tokenList + smallBalanceTokenList + their maps + flatten-aggregate map).
@@ -100,7 +100,7 @@ export function useHomeBalanceState(): IHomeBalanceState {
   // retains zero-balance default/custom tokens, so a fresh default-token
   // account would falsely read as funded and hide the Add-money state.
   //
-  // Owner guard: the SLC structure lives in a singleton store and briefly
+  // Owner guard: the cells structure lives in a singleton store and briefly
   // carries the previous owner's data after an account switch. The structure's
   // `ownerKey` is keyed by the per-owner cache account id — the concrete
   // `account.id` normally, but the `indexedAccount.id` under

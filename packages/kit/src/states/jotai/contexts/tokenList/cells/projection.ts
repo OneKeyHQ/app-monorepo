@@ -1,5 +1,5 @@
 /**
- * TokenList SLC — Phase-1 STATE SHELL (spec §3, §3.1).
+ * TokenList cells — Phase-1 STATE SHELL (spec §3, §3.1).
  *
  * The per-store projection registry + lazy cell builders. This is the "底座"
  * that the stable `useTokenFiat($key)` seam reads from. Producer/leaf wiring is
@@ -14,12 +14,12 @@
 import { atom } from 'jotai';
 
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { sumAggregateEntry } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
+import { sumAggregateEntry } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type {
   IAggKey,
   INetworkId,
   ITokenKey,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { jotaiContextStore } from '../../../utils/jotaiContextStore';

@@ -1,12 +1,12 @@
 /**
- * TokenList SLC — COLD START fan-out hydrate integration tests (spec §7,
+ * TokenList cells — COLD START fan-out hydrate integration tests (spec §7,
  * §11.2, §11.4). MERGE GATE for the §7 cold-start wiring. Run with node + a
  * real jotai `createStore()` (no React, no native). They assert:
  *  - a slim bundle fans out through the SAME apply contract: cells / metas /
  *    aggregate sub-cells + listStructureAtom are populated at T0;
  *  - the currency gate (shared shouldUseSlim) is a HARD merge gate: a matched
  *    currency paints, a mismatched currency MISSES (no paint) — exercised
- *    end-to-end through `hydrateSlcFromColdStart` reading the native snapshot.
+ *    end-to-end through `hydrateCellsFromColdStart` reading the native snapshot.
  */
 import { createStore } from 'jotai';
 
@@ -16,8 +16,8 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/pure';
-import type { IStructureSnapshot } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
+import type { IStructureSnapshot } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { buildSlimSnapshot } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
 import type { ISlimSnapshotStructure } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
@@ -28,8 +28,11 @@ import {
   applyStructureSnapshot,
   buildApplyDeps,
   shallowEqualArray,
-} from '../slc/apply';
-import { fanOutSlimToApply, hydrateSlcFromColdStart } from '../slc/coldStart';
+} from '../cells/apply';
+import {
+  fanOutSlimToApply,
+  hydrateCellsFromColdStart,
+} from '../cells/coldStart';
 import {
   aggCell,
   cell,
@@ -37,10 +40,10 @@ import {
   ensureStoreProjection,
   meta,
   subcell,
-} from '../slc/projection';
+} from '../cells/projection';
 
-import type { IApplyDeps } from '../slc/apply';
-import type { IStoreProjection } from '../slc/projection';
+import type { IApplyDeps } from '../cells/apply';
+import type { IStoreProjection } from '../cells/projection';
 
 type IStore = ReturnType<typeof createStore>;
 
@@ -320,7 +323,7 @@ describe('fanOutSlimToApply — cold paint is provisional (B1 regression)', () =
   });
 });
 
-describe('hydrateSlcFromColdStart — currency gate (merge gate, spec §11.4)', () => {
+describe('hydrateCellsFromColdStart — currency gate (merge gate, spec §11.4)', () => {
   const globalRef = globalThis as typeof globalThis & {
     __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
   };
@@ -335,7 +338,7 @@ describe('hydrateSlcFromColdStart — currency gate (merge gate, spec §11.4)', 
       [SLIM_SCOPED_KEY]: buildSlimFixture('usd'),
     };
 
-    const painted = hydrateSlcFromColdStart({
+    const painted = hydrateCellsFromColdStart({
       store: ctx,
       projection,
       deps,
@@ -357,7 +360,7 @@ describe('hydrateSlcFromColdStart — currency gate (merge gate, spec §11.4)', 
       [SLIM_SCOPED_KEY]: buildSlimFixture('eur'),
     };
 
-    const painted = hydrateSlcFromColdStart({
+    const painted = hydrateCellsFromColdStart({
       store: ctx,
       projection,
       deps,
@@ -372,7 +375,7 @@ describe('hydrateSlcFromColdStart — currency gate (merge gate, spec §11.4)', 
 
   it('MISSES when no slim bundle is present', () => {
     const { ctx, projection, deps } = setup();
-    const painted = hydrateSlcFromColdStart({
+    const painted = hydrateCellsFromColdStart({
       store: ctx,
       projection,
       deps,

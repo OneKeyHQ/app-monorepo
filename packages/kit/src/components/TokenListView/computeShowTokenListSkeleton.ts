@@ -3,11 +3,11 @@
  *
  * Extracted 1:1 from the `showSkeleton` useMemo in index.tsx so the branch
  * logic can be unit-tested without RTL (the component is a thin React shell
- * over this predicate, mirroring the SLC test philosophy elsewhere).
+ * over this predicate, mirroring the cells test philosophy elsewhere).
  *
  * THE LOAD-BEARING RULE (cold-start fix): the home first-load skeleton clause
  * `!initialized && isRefreshing` must ALSO require `displayCount === 0`. The
- * SLC cold-start hydrate paints rows into `listStructure` at T0, but the home
+ * cells cold-start hydrate paints rows into `listStructure` at T0, but the home
  * spot list is `plainMode` and renders `if (showSkeleton) return <ListLoading/>`
  * UNCONDITIONALLY — so without the `displayCount === 0` guard the skeleton hides
  * the cold-painted rows until the network round flips `initialized=true`,
@@ -63,7 +63,7 @@ export function computeShowTokenListSkeleton(
   // PR-7: loaded atoms belong to a PREVIOUS owner — show skeleton until the
   // fresh data lands. Without this `tokenListInitialized` is still true from the
   // prior network so the final clause would not fire. (On home, cold-start
-  // instant paint is the SLC slim fan-out and in-session switch is the BG
+  // instant paint is the cells slim fan-out and in-session switch is the BG
   // per-owner VM pull; both paint cells before this gate matters.)
   if (p.ownerMismatch && !p.showActiveAccountTokenList) {
     return true;

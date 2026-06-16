@@ -15,7 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/slc';
+import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/cells';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
