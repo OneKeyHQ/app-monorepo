@@ -377,11 +377,18 @@ function TokenListViewCmp(props: IProps) {
 
   const tokenManagementEnabled =
     !deferTokenManagement || tokenListState.initialized;
+  // On the HOME projection path the only consumer of `customTokens` is the
+  // legacy `tokens` memo, which early-returns `[]` before reading it (line ~426),
+  // so the fetch here is pure waste — the home hideZero authority is the cells
+  // producer fed by `TokenListBlock`'s own `useTokenManagement`. Disable this
+  // inner call on home to avoid duplicating that heavy fetch tree every
+  // structure frame; the non-home hosts (selector / active-account / AssetList)
+  // still consume `customTokens` and keep fetching.
   const { customTokens } = useTokenManagement({
     accountId,
     networkId,
     indexedAccountId,
-    enabled: tokenManagementEnabled,
+    enabled: tokenManagementEnabled && !isHomeProjectionPath,
   });
 
   // The token list atoms are scoped to a singleton store, so they survive the

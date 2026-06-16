@@ -56,6 +56,48 @@ const EMPTY_SNAPSHOT: IHomeTokenListSnapshot = {
 };
 
 /**
+ * Module-level inflight/result cache so the N home consumers that all call this
+ * hook (Send/Receive/Buy/ViewInExplorer/More/TxHistory/...) collapse onto ONE
+ * pair of PULLs per `(ownerKey, generation)` instead of each firing its own.
+ * Keyed by `ownerKey@generation`; a new key supersedes (and evicts) every older
+ * one, so the map holds a single entry and never grows. A rejected pull is
+ * dropped so the next consumer retries instead of inheriting a pinned failure.
+ */
+const snapshotInflight = new Map<string, Promise<IHomeTokenListSnapshot>>();
+
+function fetchHomeTokenListSnapshot(
+  ownerKey: string,
+  generation: number,
+): Promise<IHomeTokenListSnapshot> {
+  const cacheKey = `${ownerKey}@${generation}`;
+  let pending = snapshotInflight.get(cacheKey);
+  if (!pending) {
+    pending = Promise.all([
+      backgroundApiProxy.serviceTokenViewModel.getRawTokenList({ ownerKey }),
+      backgroundApiProxy.serviceTokenViewModel.getAllTokenListMap({ ownerKey }),
+    ])
+      .then(([raw, map]) => ({
+        tokens: raw.tokens,
+        keys: raw.keys,
+        map,
+        accountId: raw.accountId,
+        networkId: raw.networkId,
+      }))
+      .catch((e) => {
+        snapshotInflight.delete(cacheKey);
+        throw e;
+      });
+    // Single-entry cache: evict any stale `(ownerKey, generation)` so a switch
+    // never leaves an old snapshot pinned.
+    for (const key of snapshotInflight.keys()) {
+      snapshotInflight.delete(key);
+    }
+    snapshotInflight.set(cacheKey, pending);
+  }
+  return pending;
+}
+
+/**
  * Reactive snapshot of the merged home raw list + full fiat map, PULLed from the
  * BG ViewModel and refreshed on every home structure frame. `num` selects the
  * account-selector slot (defaults to the home slot 0).
@@ -77,25 +119,14 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
 
   const { result } = usePromiseResult(
     async (): Promise<IHomeTokenListSnapshot> => {
-      // Reference the trigger so the dep is "used" (the value itself is not
-      // needed in the body — the re-pull on its change is the whole point).
-      void structureGeneration;
       if (!ownerKey) {
         return EMPTY_SNAPSHOT;
       }
-      const [raw, map] = await Promise.all([
-        backgroundApiProxy.serviceTokenViewModel.getRawTokenList({ ownerKey }),
-        backgroundApiProxy.serviceTokenViewModel.getAllTokenListMap({
-          ownerKey,
-        }),
-      ]);
-      return {
-        tokens: raw.tokens,
-        keys: raw.keys,
-        map,
-        accountId: raw.accountId,
-        networkId: raw.networkId,
-      };
+      // Shared inflight/result cache (above) collapses the N home consumers'
+      // identical PULLs for this `(ownerKey, generation)` into one round-trip
+      // pair; `structureGeneration` is the cache axis (it bumps only on a
+      // structure frame, never on a price tick).
+      return fetchHomeTokenListSnapshot(ownerKey, structureGeneration);
     },
     [ownerKey, structureGeneration],
     {
