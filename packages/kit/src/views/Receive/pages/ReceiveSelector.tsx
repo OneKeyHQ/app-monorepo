@@ -391,15 +391,19 @@ function ReceiveSelectorContent() {
   return (
     <Page
       testID={ReceiveTestIDs.ReceiveSelectorPage}
-      scrollEnabled
-      scrollProps={{
-        keyboardShouldPersistTaps: 'handled',
-      }}
+      scrollEnabled={!!showSwapEntry}
+      scrollProps={
+        showSwapEntry
+          ? {
+              keyboardShouldPersistTaps: 'handled',
+            }
+          : undefined
+      }
     >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body pb="$5">
+      <Page.Body pb={showSwapEntry ? '$5' : undefined}>
         <YStack gap="$5" px="$5" pt="$px">
           {showBuyAction ? (
             <WalletActionBuy

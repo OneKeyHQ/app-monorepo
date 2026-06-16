@@ -12,6 +12,8 @@ export enum EModalPerpRoutes {
   PerpGuidePage = 'PerpGuidePage',
 }
 
+// Keep this route payload shape duplicated in shared because shared cannot
+// import the kit-bg perps token type without breaking package boundaries.
 export type IPerpsDepositTokenRouteItem = {
   networkId: string;
   contractAddress: string;
