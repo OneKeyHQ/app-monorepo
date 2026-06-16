@@ -39,5 +39,6 @@ export * from './seamGate';
 export * from './coldStart';
 export * from './useTokenFiat';
 export * from './useTokenListCellsProducer';
+export * from './useHomeTokenListOwnerKey';
 export * from './useHomeTokenListSnapshot';
 export * from './useAggregateSubTokenFiatMap';

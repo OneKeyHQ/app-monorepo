@@ -27,7 +27,6 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { EmptyAccount } from '@onekeyhq/kit/src/components/Empty';
 import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import { perfTokenListView } from '@onekeyhq/kit/src/components/TokenListView/perfTokenListView';
-import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import {
   type IScopedActiveTokenList,
@@ -56,6 +55,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useTokenListContextData } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/atoms';
 import {
+  useHomeTokenListOwnerKey,
   useTokenListCellsColdStartHydrate,
   useTokenListCellsProducer,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
@@ -143,12 +143,13 @@ import { RichBlock } from '../RichBlock/RichBlock';
 const networkIdsMap = getNetworkIdsMap();
 
 /**
- * TokenList cells Phase-2 BG — DARK / flag-OFF dual-write gate (design §5 step 2,
- * D5). When ON, the home refresh flow ALSO hands each settled fetch round to the
- * BG `serviceTokenViewModel.ingestRound(...)` (which builds + pushes the BG
- * frames). When OFF (the PR-1 default), `ingestRound` is NEVER called and there
- * is zero behavior change — the UI stays driven by `useTokenListCellsProducer` +
- * the legacy atoms. Cut-over (UI consuming the BG frames, H4 death) is PR-2.
+ * TokenList cells Phase-2 BG — `ingestRound` kill-switch (design §5 step 2, D5).
+ * The BG ViewModel cut-over is COMPLETE: the home refresh flow hands each settled
+ * fetch round to `serviceTokenViewModel.ingestRound(...)` (which builds + pushes
+ * the BG frames), and the UI consumes those frames unconditionally via
+ * `useTokenListCellsProducer` + `useHomeTokenListSnapshot`. This flag is now the
+ * ALWAYS-ON default and stays only as a kill-switch around the `ingestRound`
+ * call — flip it to `false` to stop feeding the BG VM in an emergency.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
 
@@ -223,11 +224,11 @@ function TokenListBlock({
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
-  // TokenList cells Phase-2 BG dual-write inputs (DARK / flag-OFF — design §5
-  // step 2). The owner key + hideZero inputs are computed later in the body
-  // (`cellsOwnerKey` / `cellsNonZeroInputs`); the refresh callbacks above read them
-  // off this ref so the dead-when-OFF `ingestRound` call adds no render deps and
-  // never reaches uninitialized consts.
+  // TokenList cells Phase-2 BG `ingestRound` inputs (design §5 step 2). The owner
+  // key + hideZero inputs are computed later in the body (`cellsOwnerKey` /
+  // `cellsNonZeroInputs`); the refresh callbacks above read them off this ref so
+  // the `ingestRound` call adds no render deps and never reaches uninitialized
+  // consts.
   const cellsIngestInputsRef = useRef<{
     ownerKey: string;
     nonZeroInputs: {
@@ -624,14 +625,14 @@ function TokenListBlock({
           }
         }
 
-        // TokenList cells Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
-        // 2). Hand the SAME settled slices this single-network round just wrote
-        // to the atoms over to the BG view-model so it can build + push the BG
-        // frames in parallel. No-op when the flag is OFF (the PR-1 default), so
-        // there is zero behavior change. The single-network path has no
-        // aggregate tokens, so the nested aggregate map is empty. Owner key +
-        // hideZero inputs are read off a ref (assigned next to the cells consts)
-        // so this dead-when-OFF call needs no extra render deps.
+        // TokenList cells Phase-2 BG `ingestRound` (design §5 step 2). Hand the
+        // SAME settled slices this single-network round just wrote to the atoms
+        // over to the BG view-model so it can build + push the BG frames the UI
+        // now consumes. Guarded by the always-on `ENABLE_BG_TOKEN_VIEW_MODEL`
+        // kill-switch. The single-network path has no aggregate tokens, so the
+        // nested aggregate map is empty. Owner key + hideZero inputs are read off
+        // a ref (assigned next to the cells consts) so this call needs no extra
+        // render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
           void backgroundApiProxy.serviceTokenViewModel.ingestRound({
             ownerKey: cellsIngestInputsRef.current.ownerKey,
@@ -867,16 +868,11 @@ function TokenListBlock({
   // unchanged — risky/allTokenList stay whole-object. The owner key matches the
   // per-owner cache axis (indexedAccountId in merge mode) so it survives
   // derive-type switches the same way the cache does.
-  const cellsOwnerKey = useMemo(() => {
-    const ownerAccountId = getTokenListOwnerCacheAccountId({
-      accountId: account?.id,
-      indexedAccountId: indexedAccount?.id,
-      mergeDeriveAddressData: !!mergeDeriveAddressData,
-    });
-    return ownerAccountId && network?.id
-      ? `${ownerAccountId}__${network.id}`
-      : '';
-  }, [account?.id, indexedAccount?.id, mergeDeriveAddressData, network?.id]);
+  // Single source of truth for the BG per-owner key — the SAME hook the snapshot
+  // READ side (`useHomeTokenListSnapshot`) consumes, so the `ingestRound` WRITE
+  // key and the `getRawTokenList` / `getAllTokenListMap` PULL key can never
+  // drift (incl. the merge-derive `indexedAccountId` axis).
+  const cellsOwnerKey = useHomeTokenListOwnerKey();
   // Current settings currency id — the slim cold-start bundle stores fiat in
   // this currency and the T0 hydrate gates re-use against it (spec §7, §3#3).
   const [{ currencyInfo }] = useSettingsPersistAtom();
@@ -908,11 +904,11 @@ function TokenListBlock({
     }),
     [homeDefaultTokenMap, cellsCustomTokens],
   );
-  useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId, cellsNonZeroInputs);
+  useTokenListCellsProducer(cellsOwnerKey, cellsCurrencyId);
 
-  // Keep the BG dual-write inputs ref current so the refresh callbacks can hand
-  // the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
-  // (DARK / flag-OFF — design §5 step 2).
+  // Keep the BG `ingestRound` inputs ref current so the refresh callbacks can
+  // hand the right owner + hideZero inputs to `serviceTokenViewModel.ingestRound`
+  // (design §5 step 2).
   cellsIngestInputsRef.current = {
     ownerKey: cellsOwnerKey,
     nonZeroInputs: cellsNonZeroInputs,
@@ -1752,10 +1748,9 @@ function TokenListBlock({
       // re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
       // incremental round. `ingestRound` REPLACES the owner's slices each call,
       // so `vm.lastStructure` compares full-vs-full and the structure frame
-      // reflects the whole current list. The legacy refresh* writes above remain
-      // the single source of merge truth during the transition window (PR-3
-      // removes the atom writers); the VM is fed the already-merged result, no
-      // duplicated merge logic in the VM yet (design §3 defers that).
+      // reflects the whole current list. This effect's local merge above is the
+      // single source of merge truth; the VM is fed the already-merged result,
+      // with no duplicated merge logic in the VM yet (design §3 defers that).
       if (ENABLE_BG_TOKEN_VIEW_MODEL) {
         void backgroundApiProxy.serviceTokenViewModel.ingestRound({
           ownerKey: cellsIngestInputsRef.current.ownerKey,
@@ -1778,8 +1773,7 @@ function TokenListBlock({
           // can build the dedicated risky frame + merged raw list.
           riskyTokens: riskyTokenList.riskyTokens,
           riskyMap: riskyTokenListMap,
-          // SETTLED owner identity for the `getRawTokenList` switch skeleton —
-          // mirrors the legacy `allTokenListAtom` write just below.
+          // SETTLED owner identity for the `getRawTokenList` switch skeleton.
           accountId: account?.id,
           networkId: network?.id,
           rawKeys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
@@ -1802,15 +1796,12 @@ function TokenListBlock({
     updateTokenListState,
   ]);
 
-  // full-delete PR-7: the legacy per-owner `renderedTokenListCache` pre-paint
-  // hydrator was REMOVED here. Both jobs it did on home are now covered without
-  // a whole-map read: (1) cold paint is the slim cold cache fan-out
+  // The legacy per-owner `renderedTokenListCache` pre-paint hydrator was REMOVED
+  // here. Both jobs it did on home are now covered without a whole-map read:
+  // (1) cold paint is the slim cold cache fan-out
   // (`useTokenListCellsColdStartHydrate`), and (2) switch-hydrate (byOwner instant
   // swap) is the BG producer's SUBSCRIBE-THEN-PULL (`useTokenListCellsProducer` →
-  // `getTokenListFrames`) backed by the per-owner VM cache in the BG heap. This
-  // effect only ever wrote the legacy home atoms (now cell-fed) from the cache,
-  // so dropping it frees the last `renderedTokenListCacheAtom` reader in this
-  // file. Its `refresh*` writers stay until PR-8.
+  // `getTokenListFrames`) backed by the per-owner VM cache in the BG heap.
 
   useEffect(() => {
     // Flips to true on cleanup (next owner change or unmount). Any write

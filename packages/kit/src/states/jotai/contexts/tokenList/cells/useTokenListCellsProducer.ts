@@ -49,12 +49,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type {
-  IAccountToken,
-  ICustomTokenItem,
-  IHomeDefaultToken,
-  ITokenFiat,
-} from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   listStructureAtom,
@@ -93,22 +88,10 @@ import type { IApplyDeps } from './apply';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 
 /**
- * hideZero "keep default zero-balance" inputs (spec §8#2). Kept on the signature
- * for call-site compatibility; in Phase-2 the BG VM owns the `nonZeroIds`
- * authority (it receives these via `ingestRound`), so the receive shell does not
- * read them — they are passed to the seam, not here.
- */
-export interface ITokenListCellsProducerNonZeroInputs {
-  keepDefault?: boolean;
-  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
-  customTokens?: ICustomTokenItem[];
-}
-
-/**
  * Receive shell. Call once from the home `TokenListBlock`, passing the current
- * `${accountId}__${networkId}` owner key and the settings currency id. The
- * `nonZeroInputs` arg is retained for call-site compatibility (the seam feeds
- * them to the BG VM); it is unused by this shell.
+ * `${accountId}__${networkId}` owner key and the settings currency id. The BG VM
+ * owns the `nonZeroIds` authority (fed via `ingestRound` from the seam), so this
+ * shell takes no hideZero inputs.
  *
  * `storeName` is the registry/cold-start key. When omitted it is resolved from
  * the store's cold-start scope stamp (`resolveStoreData`), which is present for
@@ -117,7 +100,6 @@ export interface ITokenListCellsProducerNonZeroInputs {
 export function useTokenListCellsProducer(
   ownerKey: string,
   currencyId: string,
-  _nonZeroInputs?: ITokenListCellsProducerNonZeroInputs,
   storeName?: string,
 ): void {
   const { store } = useTokenListContextData();

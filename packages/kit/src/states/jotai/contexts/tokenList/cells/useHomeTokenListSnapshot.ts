@@ -34,9 +34,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { buildOverviewOwnerKey } from '../../accountOverview/atoms';
-import { useActiveAccount } from '../../accountSelector';
 import { useListStructureAtom } from '../atoms';
+
+import { useHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 export interface IHomeTokenListSnapshot {
   tokens: IAccountToken[];
@@ -61,14 +61,15 @@ const EMPTY_SNAPSHOT: IHomeTokenListSnapshot = {
  * account-selector slot (defaults to the home slot 0).
  */
 export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num });
   // Reactive trigger: bumps only on a structure frame (not price ticks), so the
   // snapshot re-pulls when the home list membership/structure changes.
   const [listStructure] = useListStructureAtom();
 
-  const ownerKey = buildOverviewOwnerKey(account?.id, network?.id);
+  // Single source of truth for the BG per-owner key — IDENTICAL to the key the
+  // `ingestRound` WRITE side (TokenListBlock) uses, including the merge-derive
+  // `indexedAccountId` axis. Computing it anywhere else risks a write/read drift
+  // that silently misses the BG entry and returns EMPTY.
+  const ownerKey = useHomeTokenListOwnerKey(num);
 
   // Reactive trigger consumed as a dep below: bumps only on a structure frame
   // (not price ticks), so the snapshot re-pulls when the home list changes.
