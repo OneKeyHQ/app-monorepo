@@ -78,7 +78,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
-import { isSwapMarketHistoryItem } from '../../utils/swapMarketHistory';
+import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -584,15 +584,29 @@ const SwapHeaderRightActionContainer = ({
     pageType === EPageType.modal
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap;
+  const historyProtocolType = useMemo(() => {
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return EProtocolOfExchange.STOCK;
+    }
+    if (
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
+      (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)
+    ) {
+      return EProtocolOfExchange.SWAP;
+    }
+    return EProtocolOfExchange.LIMIT;
+  }, [swapProTradeType, swapTypeSwitch]);
   const swapPendingStatusList = useMemo(
     () =>
-      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
+      filterSwapMarketHistoryItems({
+        items: filterSwapHistoryPendingList(swapHistoryPendingList),
+        protocol: historyProtocolType,
+      }).filter(
         (i) =>
-          isSwapMarketHistoryItem(i) &&
-          (i.status === ESwapTxHistoryStatus.PENDING ||
-            i.status === ESwapTxHistoryStatus.CANCELING),
+          i.status === ESwapTxHistoryStatus.PENDING ||
+          i.status === ESwapTxHistoryStatus.CANCELING,
       ),
-    [swapHistoryPendingList],
+    [historyProtocolType, swapHistoryPendingList],
   );
   const limitOpenStatusList = useMemo(
     () =>
@@ -616,15 +630,6 @@ const SwapHeaderRightActionContainer = ({
     ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
       swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
       showSwapProSlippageSetting);
-  const historyProtocolType = useMemo(() => {
-    if (
-      swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
-      (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)
-    ) {
-      return EProtocolOfExchange.SWAP;
-    }
-    return EProtocolOfExchange.LIMIT;
-  }, [swapProTradeType, swapTypeSwitch]);
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;

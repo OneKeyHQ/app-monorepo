@@ -1,4 +1,7 @@
-import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
@@ -7,15 +10,18 @@ export class TradeCategorySwitchScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public tradeCategorySwitch({
-    fromTradeCategory,
-    toTradeCategory,
+    fromCategory,
+    toCategory,
+    enterFrom,
   }: {
-    fromTradeCategory: ESwapTabSwitchType;
-    toTradeCategory: ESwapTabSwitchType;
+    fromCategory: ESwapTabSwitchType;
+    toCategory: ESwapTabSwitchType;
+    enterFrom?: ESwapSource;
   }) {
     return {
-      fromTradeCategory,
-      toTradeCategory,
+      fromCategory,
+      toCategory,
+      enterFrom,
     };
   }
 }

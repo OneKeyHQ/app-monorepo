@@ -1252,7 +1252,7 @@ function SwapStockDesktopContent({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type: EProtocolOfExchange.SWAP,
+        type: EProtocolOfExchange.STOCK,
         storeName,
       },
     });

@@ -23,7 +23,25 @@ function matchSwapMarketHistoryProtocol({
   if (protocol === EProtocolOfExchange.LIMIT) {
     return false;
   }
-  return isSwapMarketHistoryItem(item);
+  if (!isSwapMarketHistoryItem(item)) {
+    return false;
+  }
+  if (protocol === EProtocolOfExchange.STOCK) {
+    return item.protocol === EProtocolOfExchange.STOCK;
+  }
+  return item.protocol !== EProtocolOfExchange.STOCK;
+}
+
+export function filterSwapMarketHistoryItems({
+  items,
+  protocol,
+}: {
+  items: ISwapTxHistory[];
+  protocol?: EProtocolOfExchange;
+}) {
+  return items.filter((item) =>
+    matchSwapMarketHistoryProtocol({ item, protocol }),
+  );
 }
 
 function getSwapMarketPendingHistoryList(

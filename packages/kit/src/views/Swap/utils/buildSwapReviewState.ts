@@ -316,7 +316,10 @@ export function buildSwapReviewState({
     });
   }
 
-  const isStockReview = quoteResult?.protocol === EProtocolOfExchange.STOCK;
+  const shouldHideSlippage =
+    quoteResult?.protocol === EProtocolOfExchange.LIMIT ||
+    quoteResult?.protocol === EProtocolOfExchange.STOCK ||
+    quoteResult?.unSupportSlippage;
   const hasNetworkFeeStep = steps.some(
     (step) => step.type !== ESwapStepType.SIGN_MESSAGE,
   );
@@ -332,17 +335,14 @@ export function buildSwapReviewState({
     supportPreBuild,
     needFetchGas,
     minToAmount: quoteResult?.minToAmount,
-    slippage:
-      quoteResult?.protocol === EProtocolOfExchange.LIMIT ||
-      (quoteResult?.unSupportSlippage && !isStockReview)
-        ? undefined
-        : slippage,
+    slippage: shouldHideSlippage ? undefined : slippage,
     rateDifference:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT
         ? undefined
         : reviewRateDifference,
     unSupportSlippage: Boolean(
-      quoteResult?.unSupportSlippage && !isStockReview,
+      quoteResult?.unSupportSlippage ||
+      quoteResult?.protocol === EProtocolOfExchange.STOCK,
     ),
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,

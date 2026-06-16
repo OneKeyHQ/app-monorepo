@@ -1208,6 +1208,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
               hideRightActions
+              enterFrom={swapInitParams?.swapSource}
             />
           }
         />
@@ -1262,6 +1263,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
                 defaultSwapType={swapInitParams?.swapTabSwitchType}
                 showSwapPro={platformEnv.isNative}
                 hideRightActions
+                enterFrom={swapInitParams?.swapSource}
               />
             ) : undefined
           }
@@ -1317,6 +1319,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     marketPresetTokenContext,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
+    swapInitParams?.swapSource,
     gtLg,
   ]);
 
@@ -1377,6 +1380,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               defaultSwapType={swapInitParams?.swapTabSwitchType}
               showSwapPro={platformEnv.isNative}
               hideRightActions={showDesktopProviderPanel}
+              enterFrom={swapInitParams?.swapSource}
               marketPresetSettings={
                 focusSwapPro ? swapProMarketPresetSettings : undefined
               }

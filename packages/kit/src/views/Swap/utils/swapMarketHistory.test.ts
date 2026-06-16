@@ -7,7 +7,10 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { isSwapMarketHistoryItem } from './swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  isSwapMarketHistoryItem,
+} from './swapMarketHistory';
 
 const token: ISwapToken = {
   networkId: 'evm--1',
@@ -65,5 +68,24 @@ describe('swapMarketHistory', () => {
     expect(
       isSwapMarketHistoryItem(createHistoryItem(EProtocolOfExchange.LIMIT)),
     ).toBe(false);
+  });
+
+  it('filters stock and swap market history by protocol', () => {
+    const stockHistory = createHistoryItem(EProtocolOfExchange.STOCK);
+    const swapHistory = createHistoryItem(EProtocolOfExchange.SWAP);
+    const histories = [stockHistory, swapHistory];
+
+    expect(
+      filterSwapMarketHistoryItems({
+        items: histories,
+        protocol: EProtocolOfExchange.STOCK,
+      }),
+    ).toEqual([stockHistory]);
+    expect(
+      filterSwapMarketHistoryItems({
+        items: histories,
+        protocol: EProtocolOfExchange.SWAP,
+      }),
+    ).toEqual([swapHistory]);
   });
 });

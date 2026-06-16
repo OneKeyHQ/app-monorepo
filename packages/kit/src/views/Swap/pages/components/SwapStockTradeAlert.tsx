@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Alert, YStack } from '@onekeyhq/components';
@@ -14,7 +13,6 @@ import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/ho
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
@@ -28,6 +26,7 @@ import {
 } from '../../hooks/useSwapStockChannel';
 import { SwapTestIDs } from '../../testIDs';
 import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalytics';
+import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
 
@@ -75,60 +74,22 @@ function useStockQuoteAlert({
   });
 
   return useMemo<ISwapAlertState | undefined>(() => {
-    const fromAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
-    const fromTokenSymbol =
-      quoteResult?.fromTokenInfo?.symbol ?? stockChannel.fromToken?.symbol;
-
-    if (
-      quoteResult?.limit &&
-      !fromAmountBN.isNaN() &&
-      fromAmountBN.gt(0) &&
-      fromTokenSymbol
-    ) {
-      if (quoteResult.limit.min) {
-        const minBN = new BigNumber(quoteResult.limit.min);
-        if (!minBN.isNaN() && fromAmountBN.lt(minBN)) {
-          return {
-            message: intl.formatMessage(
-              { id: ETranslations.provider_min_amount_required },
-              {
-                amount: numberFormat(quoteResult.limit.min, {
-                  formatter: 'balance',
-                }),
-                token: fromTokenSymbol,
-              },
-            ),
-            alertLevel: ESwapAlertLevel.WARNING,
-          };
-        }
-      }
-
-      if (quoteResult.limit.max) {
-        const maxBN = new BigNumber(quoteResult.limit.max);
-        if (!maxBN.isNaN() && fromAmountBN.gt(maxBN)) {
-          return {
-            message: intl.formatMessage(
-              { id: ETranslations.provider_max_amount_required },
-              {
-                amount: numberFormat(quoteResult.limit.max, {
-                  formatter: 'balance',
-                }),
-                token: fromTokenSymbol,
-              },
-            ),
-            alertLevel: ESwapAlertLevel.WARNING,
-          };
-        }
-      }
-    }
-
-    if (quoteResult?.errorMessage) {
+    const tradeControl = getStockQuoteTradeControl({
+      quoteResult,
+      fromTokenAmount: fromTokenAmount.value,
+      fromTokenSymbol: stockChannel.fromToken?.symbol,
+      intl,
+    });
+    if (tradeControl) {
       return {
-        message: quoteResult.errorMessage,
-        alertLevel: getStockErrorAlertLevel({
-          message: quoteResult.errorMessage,
-          notAvailableInRegionMessage,
-        }),
+        message: tradeControl.message,
+        alertLevel:
+          tradeControl.reason === 'error'
+            ? getStockErrorAlertLevel({
+                message: tradeControl.message,
+                notAvailableInRegionMessage,
+              })
+            : ESwapAlertLevel.WARNING,
       };
     }
 
@@ -222,10 +183,11 @@ function BasicSwapStockTradeAlert({
       ...getStockTradeAlertAnalyticsPayload({
         alertType: 'marketClosed',
         alertLevel: ESwapAlertLevel.WARNING,
+        tradeDisabled: true,
         tradeSide: stockChannel.tradeSide,
         stockToken: stockChannel.currentStockToken,
       }),
-      action: 'perp',
+      action: 'perps',
     });
     navigateToPerps(perpsTicker);
   }, [
@@ -242,6 +204,11 @@ function BasicSwapStockTradeAlert({
     !quoteEventFetching &&
     alerts.quoteId === (quoteResult?.quoteId ?? '');
   const stockPrimaryAlert = stockQuoteAlert ?? stockEventAlert;
+  const stockTradeDisabled =
+    isStockMarketClosed ||
+    stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable ||
+    stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken ||
+    Boolean(stockQuoteAlert || stockEventAlert);
 
   const swapAlerts = useMemo(() => {
     if (!shouldShowSwapAlerts) {
@@ -317,6 +284,7 @@ function BasicSwapStockTradeAlert({
       getStockTradeAlertAnalyticsPayload({
         alertType: stockAlertForLog.alertType,
         alertLevel: stockAlertForLog.alertLevel,
+        tradeDisabled: stockTradeDisabled,
         tradeSide: stockChannel.tradeSide,
         stockToken: stockChannel.currentStockToken,
       }),
@@ -325,6 +293,7 @@ function BasicSwapStockTradeAlert({
     stockAlertForLog,
     stockChannel.currentStockToken,
     stockChannel.tradeSide,
+    stockTradeDisabled,
   ]);
 
   if (isStockMarketClosed) {

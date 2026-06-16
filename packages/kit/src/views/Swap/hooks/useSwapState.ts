@@ -64,6 +64,7 @@ import {
   isSwapZeroProviderQuoteCompleted,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -377,6 +378,19 @@ export function useSwapActionState() {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
+        infoRes.disable = true;
+      }
+      const stockTradeControl =
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK
+          ? getStockQuoteTradeControl({
+              quoteResult: quoteCurrentSelect,
+              fromTokenAmount: fromTokenAmount.value,
+              fromTokenSymbol: fromToken?.symbol,
+              intl,
+            })
+          : undefined;
+      if (stockTradeControl) {
+        infoRes.label = stockTradeControl.message;
         infoRes.disable = true;
       }
       if (

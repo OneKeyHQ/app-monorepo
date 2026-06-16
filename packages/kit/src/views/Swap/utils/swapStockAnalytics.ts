@@ -75,19 +75,23 @@ export function getStockTradeAnalyticsPayload({
 export function getStockTradeAlertAnalyticsPayload({
   alertType,
   alertLevel,
+  tradeDisabled,
   tradeSide,
   stockToken,
 }: {
   alertType: string;
   alertLevel?: string;
+  tradeDisabled?: boolean;
   tradeSide?: string;
   stockToken?: IStockAnalyticsToken;
 }) {
   return {
     alertType,
     alertLevel,
+    tradeDisabled,
     tradeSide,
     stockTokenSymbol: stockToken?.symbol,
     stockTokenAddress: stockToken?.contractAddress,
+    network: stockToken?.networkId,
   };
 }

@@ -26,7 +26,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   EProtocolOfExchange,
@@ -37,8 +36,8 @@ import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import {
+  filterSwapMarketHistoryItems,
   getSwapMarketPendingHistoryKey,
-  isSwapMarketHistoryItem,
 } from '../../utils/swapMarketHistory';
 
 interface ISectionData {
@@ -81,10 +80,10 @@ const SwapMarketHistoryList = ({
     { watchLoading: true },
   );
   const sectionData = useMemo(() => {
-    let filterData = (swapTxHistoryList ?? []).filter(
-      (item) => !isPrivateSendSwapHistoryItem(item),
-    );
-    filterData = filterData.filter(isSwapMarketHistoryItem);
+    let filterData = filterSwapMarketHistoryItems({
+      items: swapTxHistoryList ?? [],
+      protocol,
+    });
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>
@@ -164,7 +163,7 @@ const SwapMarketHistoryList = ({
       ];
     }
     return result;
-  }, [filterToken, intl, showType, swapTxHistoryList]);
+  }, [filterToken, intl, protocol, showType, swapTxHistoryList]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (

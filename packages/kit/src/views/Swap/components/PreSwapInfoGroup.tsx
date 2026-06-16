@@ -19,7 +19,6 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapNetworkFeeLevel,
-  ESwapTabSwitchType,
   type ISwapPreSwapData,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -90,20 +89,16 @@ const PreSwapInfoGroup = ({
     return selectItems;
   }, [customNetworkFeeOptionLabel, intl]);
   const slippage = useMemo(() => {
-    const shouldShowSlippage =
-      preSwapData?.swapType === ESwapTabSwitchType.STOCK ||
-      !preSwapData?.unSupportSlippage;
-    if (shouldShowSlippage && preSwapData?.slippage !== undefined) {
+    if (
+      !preSwapData?.unSupportSlippage &&
+      preSwapData?.slippage !== undefined
+    ) {
       return new BigNumber(preSwapData?.slippage ?? 0)
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toNumber();
     }
     return undefined;
-  }, [
-    preSwapData?.slippage,
-    preSwapData?.swapType,
-    preSwapData?.unSupportSlippage,
-  ]);
+  }, [preSwapData?.slippage, preSwapData?.unSupportSlippage]);
 
   const activeNetworkFeeSelectValue =
     networkFeeSelectValue ??

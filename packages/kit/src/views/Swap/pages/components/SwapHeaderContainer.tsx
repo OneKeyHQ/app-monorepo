@@ -32,6 +32,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
+  type ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -112,6 +113,7 @@ interface ISwapHeaderContainerProps {
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  enterFrom?: ESwapSource;
 }
 
 const SwapHeaderContainer = ({
@@ -120,6 +122,7 @@ const SwapHeaderContainer = ({
   showSwapPro,
   hideRightActions,
   marketPresetSettings,
+  enterFrom,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
@@ -205,8 +208,9 @@ const SwapHeaderContainer = ({
       if (swapTypeSwitch === newType) return;
 
       defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
-        fromTradeCategory: swapTypeSwitch,
-        toTradeCategory: newType,
+        fromCategory: swapTypeSwitch,
+        toCategory: newType,
+        enterFrom,
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
@@ -238,6 +242,7 @@ const SwapHeaderContainer = ({
       networkId,
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
+      enterFrom,
     ],
   );
 

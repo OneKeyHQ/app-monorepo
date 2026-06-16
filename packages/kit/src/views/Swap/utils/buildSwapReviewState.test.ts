@@ -397,7 +397,7 @@ describe('buildSwapReviewState', () => {
     expect(result.preSwapData.shouldFallback).toBe(true);
   });
 
-  it('keeps slippage visible for stock quotes', () => {
+  it('hides slippage for stock quotes', () => {
     const result = buildSwapReviewState({
       accountId: 'hd-1--m/44/60/0/0/0',
       networkId: fromToken.networkId,
@@ -417,7 +417,7 @@ describe('buildSwapReviewState', () => {
       texts,
     });
 
-    expect(result.preSwapData.slippage).toBe(2);
-    expect(result.preSwapData.unSupportSlippage).toBe(false);
+    expect(result.preSwapData.slippage).toBeUndefined();
+    expect(result.preSwapData.unSupportSlippage).toBe(true);
   });
 });

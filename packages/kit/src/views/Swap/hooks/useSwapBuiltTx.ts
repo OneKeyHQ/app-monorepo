@@ -1961,7 +1961,10 @@ export function useSwapBuildTx() {
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage: slippageItem.value,
+            slippagePercentage:
+              data.protocol === EProtocolOfExchange.STOCK
+                ? 0
+                : slippageItem.value,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
             provider: data?.info.provider,
