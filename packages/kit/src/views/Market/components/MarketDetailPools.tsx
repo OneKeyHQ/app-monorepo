@@ -256,7 +256,28 @@ export function MarketDetailPools({
     }
     return symbols;
   }, [validPools, existingNetworkMap, tickers?.length]);
-  const [index, selectIndex] = useState(0);
+  // Identify the selected tab by a stable key (pool localId, or the CEX
+  // sentinel) instead of a positional index. validPools changes asynchronously:
+  // it holds every pool while existingNetworks is loading, then drops delisted
+  // pools once it resolves. A raw index could fall out of range (silently
+  // switching to CEX) or point at a pool that shifted into that slot. Deriving
+  // the index from the selected key keeps the selection pinned to the same tab,
+  // and falls back to the first tab when the selected pool was delisted.
+  const tabKeys = useMemo(() => {
+    const keys = validPools.map((i) => i.localId);
+    if (tickers?.length) {
+      keys.push(CEX);
+    }
+    return keys;
+  }, [validPools, tickers?.length]);
+
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
+
+  const index = useMemo(() => {
+    const found = selectedKey ? tabKeys.indexOf(selectedKey) : -1;
+    return found >= 0 ? found : 0;
+  }, [selectedKey, tabKeys]);
+
   const isCEXSelected = !validPools[index];
 
   const listData = useMemo(
@@ -288,9 +309,12 @@ export function MarketDetailPools({
         volumeUsdH24: Number(i.attributes.volumeUsd.h24),
         reserveInUsd: Number(i.attributes.reserveInUsd),
       }));
-  const handleChange = useCallback((selectedIndex: number) => {
-    selectIndex(selectedIndex);
-  }, []);
+  const handleChange = useCallback(
+    (selectedIndex: number) => {
+      setSelectedKey(tabKeys[selectedIndex]);
+    },
+    [tabKeys],
+  );
 
   type IDataSource = typeof formatListData;
   type IDataSourceItem = IDataSource[0];
