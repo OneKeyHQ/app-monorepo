@@ -4,6 +4,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -250,6 +254,12 @@ class ServiceThirdPartyHardware extends ServiceBase {
       await localDb.updateDeviceConnectId({
         dbDeviceId: device.id,
         bleConnectId,
+      });
+      // The DB write emits nothing on its own; notify the device-details UI so
+      // the "bind Bluetooth" row reflects the new bleConnectId immediately
+      // (otherwise it stays visible until the modal is reopened).
+      appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+        deviceId: device.id,
       });
       defaultLogger.hardware.sdkLog.log(
         `[TrezorBLEBind] candidate matched bleConnectId=${bleConnectId} deviceId=${featuresDeviceId}`,

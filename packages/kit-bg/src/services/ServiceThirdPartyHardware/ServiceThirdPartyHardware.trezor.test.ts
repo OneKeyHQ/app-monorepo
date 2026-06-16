@@ -2,6 +2,10 @@ import ServiceThirdPartyHardware from '.';
 
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -89,6 +93,9 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
       disconnect,
     } as unknown as IThirdPartyHardwareAdapter;
     getDeviceByQuery.mockResolvedValue(dbDevice);
+    const emitSpy = jest
+      .spyOn(appEventBus, 'emit')
+      .mockReturnValue(true as never);
 
     const service = new ServiceThirdPartyHardware({
       backgroundApi: {} as IBackgroundApi,
@@ -111,6 +118,12 @@ describe('ServiceThirdPartyHardware Trezor BLE binding', () => {
     // then clears it when done.
     expect(beginBindingProbe).toHaveBeenCalledWith('BLE_CONNECT_ID');
     expect(endBindingProbe).toHaveBeenCalled();
+    // Notifies the device-details UI so the bind row updates without a reopen.
+    expect(emitSpy).toHaveBeenCalledWith(
+      EAppEventBusNames.HardwareFeaturesUpdate,
+      { deviceId: 'db-device-1' },
+    );
+    emitSpy.mockRestore();
     expect(getDeviceByQuery).toHaveBeenCalledWith({
       connectId: 'USB_CONNECT_ID',
       featuresDeviceId: 'FEATURES_DEVICE_ID',
