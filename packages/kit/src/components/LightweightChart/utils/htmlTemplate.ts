@@ -195,6 +195,12 @@ function getChartInitScript(): string {
         svg.setAttribute('width', String(width));
         svg.setAttribute('height', String(height));
         svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        Array.prototype.forEach.call(container.children, function(child) {
+          if (!child.classList.contains('ok-lightweight-dotted-area-overlay')) {
+            child.style.position = 'relative';
+            child.style.zIndex = '2';
+          }
+        });
         var defs = document.createElementNS(svgNS, 'defs');
         var pattern = document.createElementNS(svgNS, 'pattern');
         pattern.setAttribute('id', patternId);

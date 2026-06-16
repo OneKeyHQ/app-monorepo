@@ -80,6 +80,14 @@ function renderDottedAreaOverlay({
   svg.style.pointerEvents = 'none';
   svg.style.zIndex = '1';
 
+  Array.from(container.children).forEach((child) => {
+    if (!child.classList.contains(DOTTED_AREA_OVERLAY_CLASS)) {
+      const element = child as HTMLElement;
+      element.style.position = 'relative';
+      element.style.zIndex = '2';
+    }
+  });
+
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   const pattern = document.createElementNS(
     'http://www.w3.org/2000/svg',
