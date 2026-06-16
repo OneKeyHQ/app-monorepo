@@ -13,9 +13,11 @@ import {
   Dialog,
   Empty,
   Icon,
+  Image,
+  ListView,
+  NavBackButton,
   Page,
   Popover,
-  ScrollView,
   SearchBar,
   SizableText,
   Skeleton,
@@ -98,6 +100,7 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
 const PERP_DESKTOP_DEPOSIT_WITHDRAW_DIALOG_HEIGHT = 560;
 const PERP_DESKTOP_DEPOSIT_AMOUNT_INPUT_BLOCK_HEIGHT = 220;
 const PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT = 430;
+const LIFI_FALLBACK_LOGO = require('@onekeyhq/kit/assets/perps/lifi-logo.png');
 
 interface IDepositWithdrawParams {
   actionType: IPerpsDepositWithdrawActionType;
@@ -173,11 +176,15 @@ export function DepositTokenSelectionContent({
   depositTokensWithPrice,
   onClose,
   listHeight,
+  isLoading,
+  hasLoaded,
 }: {
   depositTokensWithPrice: IPerpsDepositToken[];
   symbol: string;
   onClose?: () => void;
   listHeight?: number;
+  isLoading?: boolean;
+  hasLoaded?: boolean;
 }) {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
@@ -195,6 +202,8 @@ export function DepositTokenSelectionContent({
       );
     });
   }, [depositTokensWithPrice, searchValue]);
+  const shouldShowLoadingSkeleton =
+    (!hasLoaded || !!isLoading) && filteredTokens.length === 0;
   const renderTokenItem = useCallback(
     (item: IPerpsDepositToken) => {
       const balanceFormatted = numberFormat(item.balanceParsed ?? '0', {
@@ -209,12 +218,14 @@ export function DepositTokenSelectionContent({
       return (
         <XStack
           key={`${item.networkId}-${item.contractAddress || item.symbol}`}
-          alignSelf="stretch"
           mx="$-2"
+          px="$2"
           borderRadius="$4"
           cursor="pointer"
+          userSelect="none"
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
+          testID="perp-deposit-token-item"
           onPress={() => {
             setPerpsDepositTokensAtom((prev) => ({
               ...prev,
@@ -228,26 +239,28 @@ export function DepositTokenSelectionContent({
             justifyContent="space-between"
             alignItems="center"
             gap="$3"
-            py="$1.5"
-            px="$4"
+            py="$2.5"
           >
-            <XStack gap="$3" alignItems="center" flex={1}>
+            <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
               <Token
                 tokenImageUri={item.logoURI}
                 networkImageUri={item.networkLogoURI}
-                showNetworkIcon
                 size="md"
               />
               <YStack flex={1} minWidth={0}>
                 <SizableText size="$bodyLgMedium" numberOfLines={1}>
                   {item.symbol}
                 </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
                   {item.name || networkName}
                 </SizableText>
               </YStack>
             </XStack>
-            <YStack alignItems="flex-end" pl="$4">
+            <YStack alignItems="flex-end" pl="$3" flexShrink={0}>
               <SizableText size="$bodyLgMedium">{balanceFormatted}</SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {fiatValueFormatted}
@@ -279,38 +292,55 @@ export function DepositTokenSelectionContent({
         flex={listHeight ? undefined : 1}
         height={listHeight}
         minHeight={0}
+        mx="$-2"
       >
-        <ScrollView
+        <ListView
+          useFlashList={platformEnv.isNative}
           flex={1}
           minHeight={0}
-          height="100%"
+          data={filteredTokens}
+          keyExtractor={(item) =>
+            `${item.networkId}-${item.contractAddress || item.symbol}`
+          }
+          renderItem={({ item }) => renderTokenItem(item)}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
+            px: '$2',
             py: '$0',
             gap: '$0',
           }}
-        >
-          {filteredTokens.length ? (
-            filteredTokens.map(renderTokenItem)
-          ) : (
-            <YStack py="$10">
-              <Empty
-                illustration="TwoBlocks"
-                title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.token_no_search_results_desc,
-                })}
-              />
-            </YStack>
-          )}
-          <YStack alignItems="center" pt="$4" pb="$2">
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-              More deposit tokens coming soon
-            </SizableText>
-          </YStack>
-        </ScrollView>
+          ListEmptyComponent={
+            shouldShowLoadingSkeleton ? (
+              <>
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <XStack
+                    key={String(index)}
+                    mx="$-2"
+                    px="$2"
+                    py="$2.5"
+                    gap="$3"
+                  >
+                    <Skeleton w="$10" h="$10" radius="round" />
+                    <YStack flex={1} justifyContent="center" gap="$2">
+                      <Skeleton h="$4" w="$32" radius="round" />
+                      <Skeleton h="$3" w="$24" radius="round" />
+                    </YStack>
+                  </XStack>
+                ))}
+              </>
+            ) : (
+              <YStack py="$10">
+                <Empty
+                  illustration="TwoBlocks"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
+                  description="More deposit tokens coming soon"
+                />
+              </YStack>
+            )
+          }
+        />
       </Stack>
     </YStack>
   );
@@ -353,11 +383,7 @@ function PerpsNativeAmountKeypad({
               {item === 'backspace' ? (
                 <Icon name="XBackspaceOutline" size="$5" color="$iconSubdued" />
               ) : (
-                <SizableText
-                  size="$heading2xl"
-                  fontWeight="400"
-                  color="$text"
-                >
+                <SizableText size="$heading2xl" fontWeight="400" color="$text">
                   {item}
                 </SizableText>
               )}
@@ -424,6 +450,8 @@ function DepositWithdrawContent({
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
   >([]);
+  const [hasLoadedDepositTokenBalances, setHasLoadedDepositTokenBalances] =
+    useState(false);
   const [nativeTokenConfigs, setNativeTokenConfigs] = useState<
     ISwapNativeTokenConfig[]
   >([]);
@@ -473,6 +501,7 @@ function DepositWithdrawContent({
       networkId: currentPerpsDepositSelectedToken.networkId ?? '',
       walletId: accountResult.wallet?.id ?? '',
       indexedAccountId: selectedAccount.indexedAccountId,
+      showSwapEntry: true,
       token: {
         networkId: currentPerpsDepositSelectedToken.networkId ?? '',
         address: currentPerpsDepositSelectedToken.contractAddress ?? '',
@@ -510,6 +539,7 @@ function DepositWithdrawContent({
         !selectedAccount.accountAddress ||
         !checkAccountSupport
       ) {
+        setHasLoadedDepositTokenBalances(true);
         return [];
       }
       try {
@@ -600,14 +630,18 @@ function DepositWithdrawContent({
               ),
             );
           setDepositTokensWithPrice(depositTokensWithPriceRes);
+          setHasLoadedDepositTokenBalances(true);
           return depositTokensWithPriceRes;
         }
+        setHasLoadedDepositTokenBalances(true);
+        return [];
       } catch (error) {
         console.error(
           '[DepositWithdrawModal] Failed to fetch tokens balance:',
           error,
         );
         setDepositTokensWithPrice([]);
+        setHasLoadedDepositTokenBalances(true);
         setPerpsDepositTokensAtom((prev) => ({
           ...prev,
           currentPerpsDepositSelectedToken: undefined,
@@ -629,6 +663,15 @@ function DepositWithdrawContent({
       debounced: 1000,
     },
   );
+
+  useEffect(() => {
+    setHasLoadedDepositTokenBalances(false);
+  }, [
+    selectedAccount.accountId,
+    selectedAccount.accountAddress,
+    selectedAccount.indexedAccountId,
+    checkAccountSupport,
+  ]);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
@@ -1565,6 +1608,168 @@ function DepositWithdrawContent({
     };
   }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
 
+  const depositEstimateDescription = useMemo(() => {
+    if (selectedAction !== 'deposit') {
+      return '';
+    }
+
+    if (isArbitrumUsdcToken) {
+      return 'Direct deposit on Arbitrum. Your USDC is sent straight to your Hyperliquid account without an extra swap or bridge.';
+    }
+
+    const providerName = perpDepositQuote?.result?.info?.providerName?.trim();
+    const providerDetail = providerName
+      ? `This DeFi deposit uses ${providerName} to swap or bridge into USDC before funds arrive on Hyperliquid.`
+      : 'This deposit may swap or bridge into USDC before funds arrive on Hyperliquid.';
+
+    return `${providerDetail} Final received amount may refresh with the latest route and fees.`;
+  }, [
+    isArbitrumUsdcToken,
+    perpDepositQuote?.result?.info?.providerName,
+    selectedAction,
+  ]);
+
+  const depositEstimateHintTrigger = useMemo(
+    () => (
+      <DashText
+        size="$bodySm"
+        color="$textSubdued"
+        dashColor="$textSubdued"
+        dashThickness={0.5}
+        cursor={gtMd ? 'help' : undefined}
+      >
+        {intl.formatMessage({
+          id: ETranslations.private_send_estimated_received,
+        })}
+      </DashText>
+    ),
+    [gtMd, intl],
+  );
+
+  const depositEstimateHint = useMemo(() => {
+    const shouldShowRouteLine =
+      selectedAction === 'deposit' &&
+      (isArbitrumUsdcToken || !!currentPerpsDepositSelectedToken?.symbol);
+    const routeFromSymbol =
+      perpDepositQuote?.result?.fromTokenInfo?.symbol ??
+      currentPerpsDepositSelectedToken?.symbol ??
+      '';
+    const routeToSymbol =
+      perpDepositQuote?.result?.toTokenInfo?.symbol ?? 'USDC';
+    const routeProviderName =
+      perpDepositQuote?.result?.info?.providerName?.trim() || 'Li.fi';
+    const routeProviderLogo = perpDepositQuote?.result?.info?.providerLogo;
+    const routeProviderLogoSrc =
+      routeProviderLogo ||
+      (routeProviderName === 'Li.fi' ? LIFI_FALLBACK_LOGO : undefined);
+    const shouldShowToToken = routeFromSymbol !== routeToSymbol;
+    const routeLine = shouldShowRouteLine ? (
+      <XStack alignItems="center" gap="$1">
+        {isArbitrumUsdcToken ? (
+          <>
+            <SizableText size="$bodyMd" color="$text">
+              Arbitrum USDC
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              →
+            </SizableText>
+            <SizableText size="$bodyMd" color="$text">
+              Hyperliquid
+            </SizableText>
+          </>
+        ) : (
+          <>
+            {shouldShowToToken ? (
+              <>
+                <SizableText size="$bodyMd" color="$text">
+                  {routeFromSymbol}
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  →
+                </SizableText>
+              </>
+            ) : null}
+            {routeProviderLogoSrc ? (
+              <Image
+                src={
+                  typeof routeProviderLogoSrc === 'string'
+                    ? routeProviderLogoSrc
+                    : undefined
+                }
+                source={
+                  typeof routeProviderLogoSrc === 'string'
+                    ? undefined
+                    : routeProviderLogoSrc
+                }
+                size="$4"
+                borderRadius="$1"
+              />
+            ) : null}
+            <SizableText size="$bodyMd" color="$text">
+              {routeProviderName}
+            </SizableText>
+            {shouldShowToToken ? (
+              <>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  →
+                </SizableText>
+                <SizableText size="$bodyMd" color="$text">
+                  {routeToSymbol}
+                </SizableText>
+              </>
+            ) : null}
+          </>
+        )}
+      </XStack>
+    ) : null;
+
+    const desktopContent = (
+      <YStack px="$2" pt="$1.5" pb="$2.5" gap="$2">
+        {routeLine}
+        <SizableText size="$bodySm" color="$textSubdued">
+          {depositEstimateDescription}
+        </SizableText>
+      </YStack>
+    );
+
+    const mobileContent = (
+      <YStack px="$5" pt="$1.5" pb="$4" gap="$2">
+        {routeLine}
+        <SizableText size="$bodySm" color="$textSubdued">
+          {depositEstimateDescription}
+        </SizableText>
+      </YStack>
+    );
+
+    if (gtMd) {
+      return (
+        <Tooltip
+          renderTrigger={depositEstimateHintTrigger}
+          renderContent={desktopContent}
+        />
+      );
+    }
+
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.private_send_estimated_received,
+        })}
+        renderTrigger={depositEstimateHintTrigger}
+        renderContent={mobileContent}
+      />
+    );
+  }, [
+    currentPerpsDepositSelectedToken?.symbol,
+    depositEstimateDescription,
+    depositEstimateHintTrigger,
+    gtMd,
+    intl,
+    isArbitrumUsdcToken,
+    selectedAction,
+    perpDepositQuote?.result,
+  ]);
+
   const showDepositNoConfirmHint = useMemo(
     () =>
       selectedAction === 'deposit' &&
@@ -1667,16 +1872,7 @@ function DepositWithdrawContent({
             gap="$2.5"
           >
             <XStack alignItems="center" gap="$1.5">
-              <DashText
-                size="$bodySm"
-                color="$textSubdued"
-                dashColor="$textSubdued"
-                dashThickness={0.5}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.private_send_estimated_received,
-                })}
-              </DashText>
+              {depositEstimateHint}
               <Stack
                 w="$4"
                 h="$4"
@@ -1889,13 +2085,7 @@ function DepositWithdrawContent({
     desktopDialogHeader = isDesktopDepositSelectTokenPage ? (
       <Dialog.Header showExitButton>
         <XStack alignItems="center" gap="$3">
-          <Button
-            testID="perp-desktop-select-token-back"
-            variant="tertiary"
-            size="small"
-            icon="ChevronLeftOutline"
-            onPress={closeDesktopTokenSelectorPage}
-          />
+          <NavBackButton onPress={closeDesktopTokenSelectorPage} />
           <SizableText size="$heading2xl" color="$text">
             {intl.formatMessage({ id: ETranslations.global_select_crypto })}
           </SizableText>
@@ -1916,6 +2106,8 @@ function DepositWithdrawContent({
         depositTokensWithPrice={depositTokensWithPrice}
         onClose={closeDesktopTokenSelectorPage}
         listHeight={PERP_DESKTOP_DEPOSIT_SELECT_TOKEN_LIST_HEIGHT}
+        isLoading={balanceLoading}
+        hasLoaded={hasLoadedDepositTokenBalances}
       />
     </YStack>
   ) : (
@@ -2244,7 +2436,7 @@ export async function showDepositWithdrawDialog(
       : {
           height: PERP_DESKTOP_DEPOSIT_WITHDRAW_DIALOG_HEIGHT,
           maxHeight: `min(${PERP_DESKTOP_DEPOSIT_WITHDRAW_DIALOG_HEIGHT}px, calc(100vh - 64px))`,
-          overflow: 'hidden',
+          overflow: 'visible',
           display: 'flex',
           flexDirection: 'column',
         },
