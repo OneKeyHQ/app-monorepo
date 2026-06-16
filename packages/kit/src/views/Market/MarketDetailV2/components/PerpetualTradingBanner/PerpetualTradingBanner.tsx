@@ -12,6 +12,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -62,6 +66,10 @@ export function PerpetualTradingBanner({
       navigation.switchTab(ETabRoutes.Perp);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+          coin: hlTicker,
+        });
+        appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
+          mode: 'perp',
           coin: hlTicker,
         });
       } catch (error) {

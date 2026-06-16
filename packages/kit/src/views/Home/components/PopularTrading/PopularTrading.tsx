@@ -27,10 +27,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import {
-  EPerpPageEnterSource,
-  setPerpPageEnterSource,
-} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -47,6 +44,7 @@ import { LeverageBadge } from '../../../Market/components/PerpsBadges';
 import {
   useMarketBasicConfig,
   useNavigateToMarketTab,
+  usePerpsNavigation,
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
@@ -191,6 +189,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.PopularTrading,
+  );
   const {
     isLoading: isMarketBasicConfigLoading,
     minLiquidity,
@@ -879,11 +880,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
-        setPerpPageEnterSource(EPerpPageEnterSource.PopularTrading);
-        navigation.switchTab(ETabRoutes.Perp);
-        void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin: record.perpsCoin,
-        });
+        navigateToPerps(record.perpsCoin);
         return;
       }
 
@@ -919,7 +916,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }, 300);
     },
-    [navigation, marketTab],
+    [marketTab, navigateToPerps, navigation],
   );
 
   const renderEmptyStateCards = useCallback(() => {
