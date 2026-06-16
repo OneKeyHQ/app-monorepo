@@ -222,7 +222,28 @@ export function useSwapStockEstimatedReceiveState({
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
       ? stockChannel.currentStockToken
       : stockChannel.payToken;
-  const receiveAmount = quoteResult?.toAmount ?? toTokenAmount.value;
+  const sendToken =
+    stockChannel.tradeSide === ESwapStockTradeSide.Buy
+      ? stockChannel.payToken
+      : stockChannel.currentStockToken;
+  const quoteMatchesStockTrade = useMemo(
+    () =>
+      Boolean(
+        quoteResult &&
+        equalTokenNoCaseSensitive({
+          token1: quoteResult.fromTokenInfo,
+          token2: sendToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: quoteResult.toTokenInfo,
+          token2: receiveToken,
+        }),
+      ),
+    [quoteResult, receiveToken, sendToken],
+  );
+  const quoteToAmount = quoteMatchesStockTrade ? quoteResult?.toAmount : '';
+  const receiveAmount =
+    quoteToAmount || (!quoteResult ? toTokenAmount.value : '');
   const isLoading = quoteLoading || quoteEventFetching;
   const isSellSide = stockChannel.tradeSide === ESwapStockTradeSide.Sell;
   const canSelectReceiveToken =
@@ -234,7 +255,9 @@ export function useSwapStockEstimatedReceiveState({
   const receiveFiatValue = useMemo(() => {
     const amountBN = new BigNumber(receiveAmount ?? 0);
     const priceBN = new BigNumber(
-      getStockTokenUsdPrice(quoteResult?.toTokenInfo) ??
+      getStockTokenUsdPrice(
+        quoteMatchesStockTrade ? quoteResult?.toTokenInfo : undefined,
+      ) ??
         getStockTokenUsdPrice(receiveToken) ??
         0,
     );
@@ -251,6 +274,7 @@ export function useSwapStockEstimatedReceiveState({
   }, [
     currencyMap,
     receiveAmount,
+    quoteMatchesStockTrade,
     quoteResult?.toTokenInfo,
     receiveToken,
     settingsPersistAtom.currencyInfo.id,
@@ -264,7 +288,6 @@ export function useSwapStockEstimatedReceiveState({
   );
 
   useEffect(() => {
-    const quoteToAmount = quoteResult?.toAmount;
     if (
       !quoteToAmount ||
       (toTokenAmount.value === quoteToAmount && !toTokenAmount.isInput)
@@ -273,7 +296,7 @@ export function useSwapStockEstimatedReceiveState({
     }
     setToTokenAmount({ value: quoteToAmount, isInput: false });
   }, [
-    quoteResult?.toAmount,
+    quoteToAmount,
     setToTokenAmount,
     toTokenAmount.isInput,
     toTokenAmount.value,

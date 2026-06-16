@@ -3,8 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
@@ -50,6 +52,8 @@ export function useSwapStockChannel({
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
   const [tradeSide, setTradeSide] = useState(ESwapStockTradeSide.Buy);
@@ -148,15 +152,37 @@ export function useSwapStockChannel({
     }
   }, [payToken]);
 
+  const resetStockTradeAmounts = useCallback(() => {
+    setFromTokenAmount({ value: '', isInput: false });
+    setToTokenAmount({ value: '', isInput: false });
+  }, [setFromTokenAmount, setToTokenAmount]);
+
   const selectStockSwapToken = useCallback(
-    (token: ISwapToken) => {
+    (
+      token: ISwapToken,
+      options?: {
+        resetAmounts?: boolean;
+      },
+    ) => {
+      const previousStockTokenKey = getTokenIdentityKey(
+        stockTokenSnapshotRef.current,
+      );
+      const nextStockTokenKey = getTokenIdentityKey(token);
+      if (
+        options?.resetAmounts &&
+        previousStockTokenKey &&
+        nextStockTokenKey &&
+        previousStockTokenKey !== nextStockTokenKey
+      ) {
+        resetStockTradeAmounts();
+      }
       setStockTokenState(token);
       stockTokenSnapshotRef.current = token;
       void syncStockExecutionTokens({
         stockToken: token,
       });
     },
-    [syncStockExecutionTokens],
+    [resetStockTradeAmounts, syncStockExecutionTokens],
   );
 
   useEffect(() => {
@@ -165,7 +191,7 @@ export function useSwapStockChannel({
         return;
       }
       requestMarketActiveToken(token);
-      selectStockSwapToken(token);
+      selectStockSwapToken(token, { resetAmounts: true });
     };
     appEventBus.on(
       EAppEventBusNames.SwapStockTokenSelected,
@@ -256,7 +282,7 @@ export function useSwapStockChannel({
       const nextSwapToken = buildStockSwapTokenFromMarketToken(token);
       requestedStockTokenKeyRef.current = getTokenIdentityKey(nextSwapToken);
       requestMarketActiveToken(nextSwapToken);
-      selectStockSwapToken(nextSwapToken);
+      selectStockSwapToken(nextSwapToken, { resetAmounts: true });
     },
     [requestMarketActiveToken, selectStockSwapToken],
   );
