@@ -54,11 +54,14 @@ import {
   isPerpsMobileLayoutTraceRectChanged,
   tracePerpsMobileLayout,
 } from '../utils/mobileLayoutTrace';
+import {
+  type IMobilePerpMarketTab,
+  getMobilePerpMarketPageScrollState,
+} from '../utils/mobilePerpMarketScrollState';
 import { preloadPerpsMobileTokenSelectorPage } from '../utils/preloadPerpsTokenSelector';
 
 const IOS_CHART_HEIGHT = 500;
 const IOS_CHART_BOTTOM_OVERLAP = 56;
-type IMobilePerpMarketTab = 'orderbook' | 'info';
 
 const MOBILE_PERP_MARKET_TAB_ITEMS: Array<{
   key: IMobilePerpMarketTab;
@@ -616,12 +619,26 @@ function MobilePerpMarket() {
   );
 
   const pageFooter = useMemo(() => <PerpMarketFooter />, []);
-  const pageScrollEnabled =
-    (platformEnv.isNativeAndroid && !isTradingViewInteractionOverlayOpen) ||
-    (!platformEnv.isNativeIOS && activeTab === 'info');
+  const { pageScrollContainerEnabled, pageNativeScrollEnabled } =
+    getMobilePerpMarketPageScrollState({
+      activeTab,
+      isInteractionOverlayOpen: isTradingViewInteractionOverlayOpen,
+      isNativeAndroid: Boolean(platformEnv.isNativeAndroid),
+      isNativeIOS: Boolean(platformEnv.isNativeIOS),
+    });
+  const pageScrollProps = useMemo(
+    () => ({
+      showsVerticalScrollIndicator: false,
+      scrollEnabled: pageNativeScrollEnabled,
+    }),
+    [pageNativeScrollEnabled],
+  );
 
   return (
-    <Page scrollEnabled={pageScrollEnabled}>
+    <Page
+      scrollEnabled={pageScrollContainerEnabled}
+      scrollProps={pageScrollProps}
+    >
       {pageHeader}
       <Page.Body p="$0">
         {inlineHeader}
