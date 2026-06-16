@@ -349,6 +349,8 @@ function StockEstimatedReceive({
     quoteResult,
     stockChannel,
   });
+  const receiveTokenSymbol = receiveToken?.symbol ?? '';
+  const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
 
   return (
     <XStack
@@ -371,7 +373,7 @@ function StockEstimatedReceive({
           })}
         </DashText>
       </XStack>
-      <YStack flex={1} maxWidth={246} alignItems="flex-end" minWidth={0}>
+      <YStack flex={1} maxWidth={360} alignItems="flex-end" minWidth={0}>
         {isLoading ? (
           <>
             <Skeleton h="$4" w="$20" />
@@ -379,36 +381,36 @@ function StockEstimatedReceive({
           </>
         ) : (
           <>
-            <Popover
-              floatingPanelProps={{
-                width: 288,
-              }}
-              title={intl.formatMessage({
-                id: ETranslations.dexmarket_select_token,
-              })}
-              open={isReceiveTokenPopoverOpen}
-              onOpenChange={setIsReceiveTokenPopoverOpen}
-              renderTrigger={
-                <XStack
-                  alignItems="center"
-                  justifyContent="flex-end"
-                  gap="$1"
-                  maxWidth="100%"
-                  minWidth={0}
-                  px="$1"
-                  py="$0.5"
-                  mr="$-1"
-                  borderRadius="$2"
-                  {...(canSelectReceiveToken
-                    ? {
-                        onPress: () => setIsReceiveTokenPopoverOpen(true),
-                        hoverStyle: { bg: '$bgHover' },
-                        pressStyle: { bg: '$bgActive' },
-                        userSelect: 'none',
-                      }
-                    : undefined)}
-                >
-                  {receiveAmount && receiveToken?.symbol ? (
+            {hasReceiveAmount ? (
+              <Popover
+                floatingPanelProps={{
+                  width: 288,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.dexmarket_select_token,
+                })}
+                open={isReceiveTokenPopoverOpen}
+                onOpenChange={setIsReceiveTokenPopoverOpen}
+                renderTrigger={
+                  <XStack
+                    alignItems="center"
+                    justifyContent="flex-end"
+                    gap="$1"
+                    maxWidth="100%"
+                    minWidth={0}
+                    px="$1"
+                    py="$0.5"
+                    mr="$-1"
+                    borderRadius="$2"
+                    {...(canSelectReceiveToken
+                      ? {
+                          onPress: () => setIsReceiveTokenPopoverOpen(true),
+                          hoverStyle: { bg: '$bgHover' },
+                          pressStyle: { bg: '$bgActive' },
+                          userSelect: 'none',
+                        }
+                      : undefined)}
+                  >
                     <XStack
                       alignItems="center"
                       justifyContent="flex-end"
@@ -421,8 +423,7 @@ function StockEstimatedReceive({
                         formatter="balance"
                         numberOfLines={1}
                         textAlign="right"
-                        flexShrink={1}
-                        minWidth={0}
+                        flexShrink={0}
                       >
                         {receiveAmount}
                       </NumberSizeableText>
@@ -432,33 +433,38 @@ function StockEstimatedReceive({
                         numberOfLines={1}
                         flexShrink={0}
                       >
-                        {receiveToken.symbol}
+                        {receiveTokenSymbol}
                       </SizableText>
                     </XStack>
-                  ) : (
-                    <SizableText size="$bodyMdMedium" color="$text">
-                      '--'
-                    </SizableText>
-                  )}
-                  {canSelectReceiveToken ? (
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      size="$4"
-                      color="$iconSubdued"
-                      flexShrink={0}
-                    />
-                  ) : null}
-                </XStack>
-              }
-              renderContent={
-                <StockPayTokenPopoverContent
-                  tokens={stockChannel.payTokens}
-                  currentSelectToken={stockChannel.payToken}
-                  disableNativeToken={stockChannel.disableNativePayToken}
-                  onTokenPress={onReceiveTokenPress}
-                />
-              }
-            />
+                    {canSelectReceiveToken ? (
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                        flexShrink={0}
+                      />
+                    ) : null}
+                  </XStack>
+                }
+                renderContent={
+                  <StockPayTokenPopoverContent
+                    tokens={stockChannel.payTokens}
+                    currentSelectToken={stockChannel.payToken}
+                    disableNativeToken={stockChannel.disableNativePayToken}
+                    onTokenPress={onReceiveTokenPress}
+                  />
+                }
+              />
+            ) : (
+              <SizableText
+                size="$bodyMdMedium"
+                color="$text"
+                numberOfLines={1}
+                textAlign="right"
+              >
+                --
+              </SizableText>
+            )}
             <NumberSizeableText
               size="$bodyMd"
               color="$textSubdued"
