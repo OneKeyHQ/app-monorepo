@@ -14,6 +14,8 @@ import type {
 import { MESSAGE_TYPES } from '../../TradingViewPerpsV2/constants/messageTypes';
 import { fetchTradingViewV2DataWithSlicing } from '../hooks';
 
+import { sendVolumeVisibilityUpdate } from './volumeVisibilityHandler';
+
 import type { IMessageHandlerContext, IMessageHandlerParams } from './types';
 
 const MAX_MARKS_COUNT = 60;
@@ -253,6 +255,7 @@ export async function handleKLineDataRequest({
     webRef,
     accountAddress,
     marksTimeRange,
+    tokenSymbol,
   } = context;
 
   // Safely extract history data with proper type checking
@@ -324,6 +327,14 @@ export async function handleKLineDataRequest({
             kLineData,
             requestData: messageData,
           },
+        });
+
+        sendVolumeVisibilityUpdate({
+          allowHide: Boolean(safeData.firstDataRequest),
+          kLineData,
+          source: 'history',
+          symbol: (safeData.symbol as string) || tokenSymbol || tokenAddress,
+          webRef,
         });
       }
 
