@@ -3880,6 +3880,27 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@endo/cache-map@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@endo/cache-map@npm:1.1.0"
+  checksum: 10/1cf2ebae70e9983edd30e830933df52ab9a0140fdecd420325fd20f1633b9afeb377b5cac548c7b7d04beb4cd1a14e672055ad25145119b2b151db78ffaa0b2f
+  languageName: node
+  linkType: hard
+
+"@endo/env-options@npm:^1.1.11":
+  version: 1.1.11
+  resolution: "@endo/env-options@npm:1.1.11"
+  checksum: 10/a85326b2f422ebb3f5895ed263d230bf9c4915ed2f798210bebb3941daf94d97495f4767f4113bab8f3781b0534ecbe1d29067d7806478fd6237ab69e97fe5c1
+  languageName: node
+  linkType: hard
+
+"@endo/immutable-arraybuffer@npm:^1.1.2":
+  version: 1.1.2
+  resolution: "@endo/immutable-arraybuffer@npm:1.1.2"
+  checksum: 10/99159e4a04aad1dbe633b54b90f4591ff527c301ff2dc6585b65949e9c98b8942d726a23815470e6e4641c447bc94368cc96282f8fb50fb78f326b670c48cd16
+  languageName: node
+  linkType: hard
+
 "@esbuild/aix-ppc64@npm:0.19.10":
   version: 0.19.10
   resolution: "@esbuild/aix-ppc64@npm:0.19.10"
@@ -10185,6 +10206,7 @@ __metadata:
     react-native-uuid: "npm:^2.0.1"
     redux-persist: "npm:^6.0.0"
     rimraf: "npm:3.0.2"
+    ses: "npm:2.1.0"
     stackblur-canvas: "npm:^2.7.0"
     webextension-polyfill: "npm:^0.8.0"
     zod: "npm:^3.23.0"
@@ -44020,6 +44042,17 @@ __metadata:
   version: 0.0.1
   resolution: "server-only@npm:0.0.1"
   checksum: 10/c432348956641ea3f460af8dc3765f3a1bdbcf7a1e0205b0756d868e6e6fe8934cdee6bff68401a1dd49ba4a831c75916517a877446d54b334f7de36fa273e53
+  languageName: node
+  linkType: hard
+
+"ses@npm:2.1.0":
+  version: 2.1.0
+  resolution: "ses@npm:2.1.0"
+  dependencies:
+    "@endo/cache-map": "npm:^1.1.0"
+    "@endo/env-options": "npm:^1.1.11"
+    "@endo/immutable-arraybuffer": "npm:^1.1.2"
+  checksum: 10/a7b4cca1a4dadfa1a319f49e7addf52cb5efb5cb2767534d2a8bed682c2d8b81a96a320407ba5af5a762f24c07cb08a10d41acbe1ae5057595ad909a6b0a5cdf
   languageName: node
   linkType: hard
 

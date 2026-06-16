@@ -205,6 +205,13 @@ const usePassKeyOperations = () => {
           void verifyPassKey();
         }
         break;
+      case EPassKeyWindowType.devSesCheck:
+        // Dev-only idle mode: intentionally do nothing here. We must NOT run a
+        // create/unlock WebAuthn operation and must NOT auto-close the window,
+        // so the SES runtime-check message handler (installed on page load in
+        // ui-passkey.tsx) stays registered and the window keeps responding to
+        // the ext-passkey runtime check.
+        break;
       default:
         break;
     }
