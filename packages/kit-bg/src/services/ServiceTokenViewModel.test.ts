@@ -145,7 +145,7 @@ describe('ServiceTokenViewModel', () => {
 
   it('emits a structure + valuation frame on the first ingest of a multi-token + aggregate owner', () => {
     const svc = makeService();
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         orderedTokens: [
           makeToken('a'),
@@ -212,11 +212,11 @@ describe('ServiceTokenViewModel', () => {
         b: makeFiat({ balance: '1', fiatValue: '10', price: 10 }),
       },
     });
-    svc.ingestRound(round1);
+    void svc.ingestRound(round1);
     mockEmit.mockClear();
 
     // same ids / membership / metas / scalar — only fiat values move
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         orderedTokens: [makeToken('a'), makeToken('b')],
         tokenListMap: {
@@ -236,10 +236,10 @@ describe('ServiceTokenViewModel', () => {
 
   it('emits a new structure frame on a structural change with monotonic versions', () => {
     const svc = makeService();
-    svc.ingestRound(makeRound({ orderedTokens: [makeToken('a')] }));
+    void svc.ingestRound(makeRound({ orderedTokens: [makeToken('a')] }));
     mockEmit.mockClear();
 
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({ orderedTokens: [makeToken('a'), makeToken('b')] }),
     );
 
@@ -253,7 +253,7 @@ describe('ServiceTokenViewModel', () => {
 
   it('getTokenListFrames returns a coherent full frame and is empty for unknown owners', async () => {
     const svc = makeService();
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         ownerKey: 'accX__netX',
         orderedTokens: [makeToken('a')],
@@ -278,7 +278,7 @@ describe('ServiceTokenViewModel', () => {
   it('REPLACES (does not concat) the owner slices each round — a shorter list shrinks orderedIds', () => {
     const svc = makeService();
     // round 1: a, b, c
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         orderedTokens: [makeToken('a'), makeToken('b'), makeToken('c')],
         tokenListMap: {
@@ -289,7 +289,7 @@ describe('ServiceTokenViewModel', () => {
       }),
     );
     // round 2: only a (b, c gone). A concat would keep b/c; a replace drops them.
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         orderedTokens: [makeToken('a')],
         tokenListMap: { a: makeFiat({ fiatValue: '3' }) },
@@ -303,7 +303,7 @@ describe('ServiceTokenViewModel', () => {
     const svc = makeService();
     // Ingest 9 distinct owners; cap is 8, so the FIRST (owner0) is evicted.
     for (let i = 0; i < 9; i += 1) {
-      svc.ingestRound(
+      void svc.ingestRound(
         makeRound({
           ownerKey: `acc${i}__net`,
           orderedTokens: [makeToken('a')],
@@ -321,7 +321,7 @@ describe('ServiceTokenViewModel', () => {
     expect(retained.structure?.orderedIds).toEqual(['a']);
 
     // Re-ingesting the evicted owner re-creates its VM (fresh generation 0).
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({
         ownerKey: 'acc0__net',
         orderedTokens: [makeToken('a')],
@@ -337,7 +337,7 @@ describe('ServiceTokenViewModel', () => {
     const svc = makeService();
     // Seed owners 0..7 (fills the cap exactly).
     for (let i = 0; i < 8; i += 1) {
-      svc.ingestRound(
+      void svc.ingestRound(
         makeRound({
           ownerKey: `acc${i}__net`,
           orderedTokens: [makeToken('a')],
@@ -345,11 +345,11 @@ describe('ServiceTokenViewModel', () => {
       );
     }
     // Re-touch owner0 -> it becomes MRU (moves to the Map tail).
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({ ownerKey: 'acc0__net', orderedTokens: [makeToken('a')] }),
     );
     // Ingest a NEW owner (owner8). The LRU is now owner1 (owner0 was refreshed).
-    svc.ingestRound(
+    void svc.ingestRound(
       makeRound({ ownerKey: 'acc8__net', orderedTokens: [makeToken('a')] }),
     );
     // owner0 survived (it was refreshed); owner1 was evicted.
@@ -359,14 +359,13 @@ describe('ServiceTokenViewModel', () => {
     expect(evicted.structureVersion).toBe(-1);
   });
 
-  it('frame production is fully synchronous (no pending promises)', () => {
+  it('frame production body is fully synchronous (emits before any microtask)', () => {
     const svc = makeService();
-    const result: unknown = svc.ingestRound(
-      makeRound({ orderedTokens: [makeToken('a')] }),
-    );
-    // ingestRound returns void, NOT a promise — the whole path is synchronous.
-    expect(result).toBeUndefined();
-    // the emits happened synchronously, before any microtask could run.
+    // ingestRound is an @backgroundMethod (UI feeds the BG VM across the runtime
+    // boundary) so it returns a Promise, but its BODY is synchronous: the two
+    // appEventBus emits fire SYNCHRONOUSLY (before any microtask), proving no
+    // await/nextTick in the frame-production path.
+    void svc.ingestRound(makeRound({ orderedTokens: [makeToken('a')] }));
     expect(mockEmit).toHaveBeenCalledTimes(2);
   });
 });

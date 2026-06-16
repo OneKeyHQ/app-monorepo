@@ -191,9 +191,13 @@ class ServiceTokenViewModel extends ServiceBase {
    * `buildFrames`, update the `prev` refs on a structural change, bump the
    * monotonic version counters, then PUSH the frames over appEventBus.
    *
-   * SYNCHRONOUS: no await/nextTick/microtask anywhere in this method.
+   * SYNCHRONOUS body: no await/nextTick/microtask anywhere in this method (the
+   * `async`/`Promise<void>` is only the @backgroundMethod RPC contract so the UI
+   * can feed the BG VM across the runtime boundary — the body runs synchronously
+   * before any microtask; the UI calls it fire-and-forget).
    */
-  ingestRound(params: IIngestRoundParams): void {
+  @backgroundMethod()
+  async ingestRound(params: IIngestRoundParams): Promise<void> {
     const {
       ownerKey,
       orderedTokens,

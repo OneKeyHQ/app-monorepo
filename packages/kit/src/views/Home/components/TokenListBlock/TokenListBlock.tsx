@@ -650,7 +650,7 @@ function TokenListBlock({
         // hideZero inputs are read off a ref (assigned next to the SLC consts)
         // so this dead-when-OFF call needs no extra render deps.
         if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-          backgroundApiProxy.serviceTokenViewModel.ingestRound({
+          void backgroundApiProxy.serviceTokenViewModel.ingestRound({
             ownerKey: slcIngestInputsRef.current.ownerKey,
             orderedTokens: r.tokens.data,
             smallBalanceTokens: r.smallBalanceTokens.data,
@@ -1957,7 +1957,7 @@ function TokenListBlock({
       // removes the atom writers); the VM is fed the already-merged result, no
       // duplicated merge logic in the VM yet (design §3 defers that).
       if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-        backgroundApiProxy.serviceTokenViewModel.ingestRound({
+        void backgroundApiProxy.serviceTokenViewModel.ingestRound({
           ownerKey: slcIngestInputsRef.current.ownerKey,
           orderedTokens: tokenList.tokens,
           smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
