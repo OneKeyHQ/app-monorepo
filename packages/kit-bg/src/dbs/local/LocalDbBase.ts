@@ -1949,6 +1949,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         verifyString: originalVerifyString,
       }),
     ]);
+
+    // A password change re-encrypts every credential and the verifyString with
+    // the new password, but records that were not already LSE-wrapped are
+    // written back as portable inner payloads (only the already-LSE branch
+    // rewraps). The old-password verify above ran with skipLazyUpgrade, so
+    // nothing re-applies the local secret envelope here. Without this, changing
+    // the password would let historical credentials bypass the new
+    // secure-storage / CryptoKey boundary until the next unlock/verify or app
+    // restart. Reset the per-session guards so the just-rewritten records are
+    // re-scanned (the records are now all at the target KDF, so the KDF step
+    // completes and unblocks the LSE migration gate), then run the same
+    // post-verify lazy upgrade (KDF upgrade -> LSE migration) the unlock path
+    // uses. Only for a real password change (oldPassword present), not initial
+    // create. Fire-and-forget to match the unlock path and avoid blocking the
+    // password-change flow; the migration is KDF-gated, CAS-safe and retryable.
+    if (oldPassword) {
+      this._localPasswordKdfLazyUpgradeExecuted = false;
+      this._localSecretEnvelopeCredentialMigrationExecuted = false;
+      this.runPostPasswordVerifiedLazyUpgrade({ password: newPassword });
+    }
   }
 
   async getAllCredentials(): Promise<IDBCredentialBase[]> {

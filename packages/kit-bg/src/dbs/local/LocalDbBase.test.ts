@@ -1798,6 +1798,52 @@ describe('LocalDbBase.updatePassword', () => {
     );
   });
 
+  it('starts post-password lazy upgrade (LSE migration) after a password change', async () => {
+    const db = new TestLocalDb();
+    const oldPassword = await encodePasswordAsync({ password: 'old-password' });
+    const newPassword = await encodePasswordAsync({ password: 'new-password' });
+    db.context.verifyString = await encryptVerifyString({
+      password: oldPassword,
+    });
+    db.credentials = [
+      {
+        id: 'hd-1',
+        credential: await encryptRevealableSeed({
+          rs: { entropyWithLangPrefixed: 'english:00010203', seed: 'seed-hex' },
+          password: oldPassword,
+        }),
+      },
+    ];
+    // Simulate a session where the lazy upgrade / migration already ran, so the
+    // per-session guards are set. A password change must reset them and
+    // re-trigger, otherwise the just-rewritten (still portable) records would
+    // bypass the secure-storage / CryptoKey boundary until the next unlock.
+    db._localPasswordKdfLazyUpgradeExecuted = true;
+    db._localSecretEnvelopeCredentialMigrationExecuted = true;
+    const postVerifySpy = jest
+      .spyOn(db, 'runPostPasswordVerifiedLazyUpgrade')
+      .mockImplementation(jest.fn());
+
+    await db.updatePassword({ oldPassword, newPassword });
+
+    expect(postVerifySpy).toHaveBeenCalledTimes(1);
+    expect(postVerifySpy).toHaveBeenCalledWith({ password: newPassword });
+    expect(db._localSecretEnvelopeCredentialMigrationExecuted).toBe(false);
+    expect(db._localPasswordKdfLazyUpgradeExecuted).toBe(false);
+  });
+
+  it('does not start post-password lazy upgrade when setting the initial password', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'new-password' });
+    const postVerifySpy = jest
+      .spyOn(db, 'runPostPasswordVerifiedLazyUpgrade')
+      .mockImplementation(jest.fn());
+
+    await db.setPassword({ password });
+
+    expect(postVerifySpy).not.toHaveBeenCalled();
+  });
+
   it('keeps LSE credentials wrapped when changing password', async () => {
     const db = new TestLocalDb();
     const oldPassword = await encodePasswordAsync({ password: 'old-password' });
