@@ -335,6 +335,7 @@ function TokenDetailsHeaderContent({
     tokenDetailsKey,
     isLoadingTokenDetails,
   ]);
+  const tokenLogoURI = tokenDetails?.info?.logoURI ?? tokenInfo.logoURI;
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -623,7 +624,7 @@ function TokenDetailsHeaderContent({
           networkId={networkId}
           tokenAddress={tokenInfo.address}
           walletType={wallet?.type}
-          tokenLogoURI={tokenInfo.logoURI}
+          tokenLogoURI={tokenLogoURI}
         />
         <TokenDetailsAddressBlock
           shouldShow={shouldShowAddressBlock}

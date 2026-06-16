@@ -1,4 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { ETokenDappType } from '@onekeyhq/shared/types/token';
@@ -16,6 +17,20 @@ type ISwapKLineStableTokenIdentity = {
   isNative?: boolean;
 };
 
+function normalizeSwapKLineStableTokenAddress({
+  networkId,
+  contractAddress,
+}: {
+  networkId: string;
+  contractAddress?: string;
+}) {
+  const address = contractAddress?.trim();
+  if (!address) {
+    return undefined;
+  }
+  return normalizeTokenContractAddress({ networkId, contractAddress: address });
+}
+
 export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
@@ -29,11 +44,13 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
 export function getSwapKLineStableTokenAddress(
   token?: ISwapKLineStableTokenIdentity,
 ) {
-  const address = token?.contractAddress?.trim();
-  if (!token?.networkId || token.isNative || !address) {
+  if (!token?.networkId || token.isNative) {
     return undefined;
   }
-  return address.startsWith('0x') ? address.toLowerCase() : address;
+  return normalizeSwapKLineStableTokenAddress({
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+  });
 }
 
 export function getSwapKLineStableTokenKey(
@@ -76,13 +93,16 @@ export async function fetchSwapKLineTokenAddressesStableStatus(
 
     return new Map(
       stableCoinsList.flatMap((item) =>
-        item.results.map((result) => {
-          const contractAddress = result.contractAddress.startsWith('0x')
-            ? result.contractAddress.toLowerCase()
-            : result.contractAddress;
+        item.results.flatMap((result) => {
+          const contractAddress = normalizeSwapKLineStableTokenAddress({
+            networkId: item.networkId,
+            contractAddress: result.contractAddress,
+          });
+          if (!contractAddress) {
+            return [];
+          }
           return [
-            `${item.networkId}:${contractAddress}`,
-            result.isStableCoin,
+            [`${item.networkId}:${contractAddress}`, result.isStableCoin],
           ] as const;
         }),
       ),

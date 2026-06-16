@@ -37,9 +37,11 @@ export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
   contextAtom<{
     isRefreshing: boolean;
     initialized: boolean;
+    loadedOwnerKey?: string;
   }>({
     isRefreshing: true,
     initialized: false,
+    loadedOwnerKey: undefined,
   });
 
 export const { atom: deFiListSlicedAtom, use: useDeFiListSlicedAtom } =
