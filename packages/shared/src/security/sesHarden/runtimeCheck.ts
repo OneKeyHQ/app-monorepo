@@ -678,7 +678,8 @@ export function runFunctionGlobalEscapeCheck(
   // level-based expectation stays: L1 keeps native eval, L2 (safe-eval) must
   // prevent the globalThis escape.
   const evalBlockedByDesign = isExtensionRuntime(runtime);
-  const purpose = '验证 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
+  const purpose =
+    '验证 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
   const expectsBlocked = evalBlockedByDesign || level === 'L2';
 
   try {
