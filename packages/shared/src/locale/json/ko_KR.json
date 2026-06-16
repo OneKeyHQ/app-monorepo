@@ -4315,6 +4315,7 @@
   "send_address_format_switched_toast__msg": "Switched to {label} to cover the send amount",
   "send_address_not_transferred_not_checksummed__desc": "전송하기 전에 확인하세요. 주소는 전송에 사용되지 않았으며 체크섬 형식이 아닙니다.",
   "send_insufficient_balance_all_formats__msg": "보유 중인 주소 형식 중 어느 것도 이 금액을 충당할 만큼 잔액이 충분하지 않습니다.",
+  "send_insufficient_native_token_for_token_send__msg": "{symbol}이(가) 부족합니다. {token} 전송을 다시 시도하기 전에 최소 {amount} {symbol}을(를) 추가하세요.",
   "send_revert_address_format__action": "Switch back to {label}",
   "send_tag_out_of_range__msg": "대상 태그는 {min}과 {max} 사이여야 합니다.",
   "send_token_selector.no_match_found": "검색 결과가 없습니다.",

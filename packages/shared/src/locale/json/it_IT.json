@@ -4315,6 +4315,7 @@
   "send_address_format_switched_toast__msg": "Switched to {label} to cover the send amount",
   "send_address_not_transferred_not_checksummed__desc": "Verifica prima di inviare. L'indirizzo non è stato utilizzato per trasferimenti e non è in formato checksum.",
   "send_insufficient_balance_all_formats__msg": "Nessuno dei tuoi formati di indirizzo ha un saldo sufficiente a coprire questo importo.",
+  "send_insufficient_native_token_for_token_send__msg": "{symbol} insufficiente. Aggiungi almeno {amount} {symbol} prima di riprovare a inviare {token}.",
   "send_revert_address_format__action": "Switch back to {label}",
   "send_tag_out_of_range__msg": "Il tag di destinazione deve essere compreso tra {min} e {max}",
   "send_token_selector.no_match_found": "Non sono stati trovati risultati per la tua ricerca.",

@@ -4315,6 +4315,7 @@
   "send_address_format_switched_toast__msg": "Switched to {label} to cover the send amount",
   "send_address_not_transferred_not_checksummed__desc": "भेजने से पहले सत्यापित करें। पता ट्रांसफर के लिए उपयोग नहीं किया गया है और यह चेकसम प्रारूप में नहीं है।",
   "send_insufficient_balance_all_formats__msg": "आपके किसी भी पते के फ़ॉर्मेट में इस राशि को कवर करने के लिए पर्याप्त बैलेंस नहीं है।",
+  "send_insufficient_native_token_for_token_send__msg": "{symbol} अपर्याप्त है। {token} भेजने का प्रयास करने से पहले कम से कम {amount} {symbol} जोड़ें।",
   "send_revert_address_format__action": "Switch back to {label}",
   "send_tag_out_of_range__msg": "गंतव्य टैग {min} और {max} के बीच होना चाहिए",
   "send_token_selector.no_match_found": "आपकी खोज के लिए कोई मिलान नहीं मिला।",

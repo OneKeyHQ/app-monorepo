@@ -4320,6 +4320,7 @@ export enum ETranslations {
   send_address_format_switched_toast__msg = 'send_address_format_switched_toast__msg',
   send_address_not_transferred_not_checksummed__desc = 'send_address_not_transferred_not_checksummed__desc',
   send_insufficient_balance_all_formats__msg = 'send_insufficient_balance_all_formats__msg',
+  send_insufficient_native_token_for_token_send__msg = 'send_insufficient_native_token_for_token_send__msg',
   send_revert_address_format__action = 'send_revert_address_format__action',
   send_tag_out_of_range__msg = 'send_tag_out_of_range__msg',
   send_token_selector_no_match_found = 'send_token_selector.no_match_found',

@@ -4315,6 +4315,7 @@
   "send_address_format_switched_toast__msg": "已切换到 {label} 以满足发送金额",
   "send_address_not_transferred_not_checksummed__desc": "在发送之前请验证。地址未用于转账且不在校验和格式中。",
   "send_insufficient_balance_all_formats__msg": "您的所有地址格式均没有足够的余额来支付此金额。",
+  "send_insufficient_native_token_for_token_send__msg": "{symbol} 不足，请至少充值 {amount} {symbol} 后再尝试发送 {token}",
   "send_revert_address_format__action": "切回 {label}",
   "send_tag_out_of_range__msg": "目标标签必须在 {min} 和 {max} 之间",
   "send_token_selector.no_match_found": "未找到符合您搜索的匹配项。",
