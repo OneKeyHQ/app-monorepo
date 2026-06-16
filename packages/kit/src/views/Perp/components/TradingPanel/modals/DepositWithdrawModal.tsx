@@ -947,6 +947,31 @@ function DepositWithdrawContent({
     checkFromTokenFiatValue.value,
   );
 
+  const isDepositQuotePendingDebounce = useMemo(
+    () =>
+      selectedAction === 'deposit' &&
+      !isArbitrumUsdcToken &&
+      checkFromTokenFiatValue.value &&
+      tokenAmount !== depositQuoteAmountDebounced,
+    [
+      checkFromTokenFiatValue.value,
+      depositQuoteAmountDebounced,
+      isArbitrumUsdcToken,
+      selectedAction,
+      tokenAmount,
+    ],
+  );
+
+  const isDepositQuoteLoading = useMemo(
+    () => perpDepositQuoteLoading || isDepositQuotePendingDebounce,
+    [isDepositQuotePendingDebounce, perpDepositQuoteLoading],
+  );
+
+  const shouldRefreshDepositQuote = useMemo(
+    () => checkRefreshQuote || isDepositQuotePendingDebounce,
+    [checkRefreshQuote, isDepositQuotePendingDebounce],
+  );
+
   const handleAmountChange = useCallback(
     (value: string) => {
       const decimals =
@@ -1237,7 +1262,10 @@ function DepositWithdrawContent({
     }
 
     try {
-      if (checkRefreshQuote) {
+      if (isDepositQuotePendingDebounce) {
+        return;
+      }
+      if (shouldRefreshDepositQuote) {
         void perpDepositQuoteAction();
         return;
       }
@@ -1314,7 +1342,6 @@ function DepositWithdrawContent({
     selectedAccount.accountAddress,
     selectedAccount.accountId,
     validateAmountBeforeSubmit,
-    checkRefreshQuote,
     selectedAction,
     checkDepositWalletNotBackedUp,
     perpDepositQuoteAction,
@@ -1326,6 +1353,8 @@ function DepositWithdrawContent({
     onClose,
     buildPerpDepositTx,
     withdraw,
+    isDepositQuotePendingDebounce,
+    shouldRefreshDepositQuote,
   ]);
 
   const nativeInputProps = platformEnv.isNativeIOS
@@ -1390,12 +1419,12 @@ function DepositWithdrawContent({
         });
       }
     }
-    if (checkRefreshQuote) {
+    if (shouldRefreshDepositQuote) {
       depositActionText = intl.formatMessage({
         id: ETranslations.swap_page_button_refresh_quotes,
       });
     }
-    if (perpDepositQuoteLoading) {
+    if (isDepositQuoteLoading) {
       depositActionText = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,
       });
@@ -1408,12 +1437,12 @@ function DepositWithdrawContent({
     intl,
     multipleStepText,
     shouldApprove,
-    checkRefreshQuote,
-    perpDepositQuoteLoading,
     selectedAction,
     accountTypeInfo.isHwWallet,
     accountTypeInfo.isExternalAccount,
     shouldResetApprove,
+    isDepositQuoteLoading,
+    shouldRefreshDepositQuote,
   ]);
 
   const shouldShowBuyButton = useMemo(
@@ -1795,7 +1824,7 @@ function DepositWithdrawContent({
       isValidAmount &&
       !isSubmitting &&
       !balanceLoading &&
-      !perpDepositQuoteLoading &&
+      !isDepositQuoteLoading &&
       depositToAmount.canDeposit,
     [
       selectedAction,
@@ -1804,8 +1833,8 @@ function DepositWithdrawContent({
       isValidAmount,
       isSubmitting,
       balanceLoading,
-      perpDepositQuoteLoading,
       depositToAmount.canDeposit,
+      isDepositQuoteLoading,
     ],
   );
 
@@ -1909,7 +1938,7 @@ function DepositWithdrawContent({
                 />
               </Stack>
             </XStack>
-            {perpDepositQuoteLoading ? (
+            {isDepositQuoteLoading ? (
               <Skeleton h="$4" w="$20" borderRadius="$1" />
             ) : (
               <SizableText
@@ -1966,8 +1995,8 @@ function DepositWithdrawContent({
                   !isValidAmount ||
                   isSubmitting ||
                   balanceLoading ||
-                  perpDepositQuoteLoading ||
-                  (!depositToAmount.canDeposit && !checkRefreshQuote)
+                  isDepositQuoteLoading ||
+                  (!depositToAmount.canDeposit && !shouldRefreshDepositQuote)
                 }
                 loading={isSubmitting}
                 onPress={handleConfirm}
@@ -1989,8 +2018,8 @@ function DepositWithdrawContent({
                 : !isValidAmount ||
                   isSubmitting ||
                   balanceLoading ||
-                  perpDepositQuoteLoading ||
-                  (!depositToAmount.canDeposit && !checkRefreshQuote)
+                  isDepositQuoteLoading ||
+                  (!depositToAmount.canDeposit && !shouldRefreshDepositQuote)
             }
             ctaLoading={isSubmitting}
             onCtaPress={shouldShowBuyButton ? handleBuyPress : handleConfirm}
