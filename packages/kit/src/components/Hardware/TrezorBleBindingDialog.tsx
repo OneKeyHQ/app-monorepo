@@ -113,6 +113,15 @@ function TrezorBleBindingContent({
   // The bleConnectId currently being probed/bound (one at a time).
   const [bindingId, setBindingId] = useState<string | null>(null);
   const isSearchingRef = useRef(false);
+  // Tracks mount state so an in-flight bind that resolves after the dialog is
+  // closed doesn't restart a scan nothing will stop (leaked scanner).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const deviceScanner = useMemo(
     () =>
@@ -244,7 +253,9 @@ function TrezorBleBindingContent({
         });
       } finally {
         setBindingId(null);
-        if (shouldResumeScan) {
+        // Skip the resume if the dialog was closed mid-bind — the unmount
+        // cleanup already stopped scanning and nothing would stop a new scan.
+        if (shouldResumeScan && isMountedRef.current) {
           // Resume scanning so the user can pick again.
           scanDevice();
         }
