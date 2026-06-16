@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { TypedDataUtils } from 'eth-sig-util';
 
 import {
   buildHardwareEvmTransaction,
@@ -28,8 +29,6 @@ import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
-
-import { buildEvmTypedDataHardwareParams } from './evmTypedDataHardwareUtils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -170,12 +169,26 @@ export class KeyringHardware extends KeyringHardwareBase {
       message.type === EMessageTypesEth.TYPED_DATA_V3 ||
       message.type === EMessageTypesEth.TYPED_DATA_V4
     ) {
-      const { data, metamaskV4Compat, domainHash, messageHash } =
-        buildEvmTypedDataHardwareParams(message);
+      const useV4 = message.type === EMessageTypesEth.TYPED_DATA_V4;
+      const data = JSON.parse(message.message);
+      const typedData = TypedDataUtils.sanitizeData(data);
+      const domainHash = TypedDataUtils.hashStruct(
+        'EIP712Domain',
+        typedData.domain,
+        typedData.types,
+        useV4,
+      ).toString('hex');
+      const messageHash = TypedDataUtils.hashStruct(
+        // @ts-expect-error
+        typedData.primaryType,
+        typedData.message,
+        typedData.types,
+        useV4,
+      ).toString('hex');
 
       const res = await sdk.evmSignTypedData(connectId, deviceId, {
         path,
-        metamaskV4Compat,
+        metamaskV4Compat: !!useV4,
         data,
         domainHash,
         messageHash,

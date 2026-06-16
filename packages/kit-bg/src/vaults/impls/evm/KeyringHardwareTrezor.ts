@@ -30,7 +30,7 @@ import {
   getTrezorAdapterFromBackgroundApi,
 } from '../../base/trezorTransportUtils';
 
-import { buildEvmTypedDataHardwareParams } from './evmTypedDataHardwareUtils';
+import { buildTrezorEvmTypedDataParams } from './trezorEvmTypedDataParams';
 
 import type { IDBAccount, IDBDevice } from '../../../dbs/local/types';
 import type { IThirdPartyHardwareAdapter } from '../../../services/ServiceHardware/adapters/types';
@@ -325,7 +325,7 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     deviceParams: NonNullable<ISignMessageParams['deviceParams']>,
   ): Promise<string> {
     const { data, metamaskV4Compat, domainSeparatorHash, messageHash } =
-      buildEvmTypedDataHardwareParams(message);
+      buildTrezorEvmTypedDataParams(message);
     const chainId = Number(await this.getNetworkChainId());
     const sdkParams: ITrezorEvmSignTypedDataParams = {
       path,
