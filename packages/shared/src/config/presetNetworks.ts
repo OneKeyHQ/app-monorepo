@@ -1902,26 +1902,6 @@ const manta: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const joystream: IServerNetwork = {
-  'chainId': 'joystream',
-  'code': 'joy',
-  'decimals': 10,
-  'id': 'dot--joystream',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/joystream.png',
-  'name': 'Joystream',
-  'shortcode': 'joy',
-  'shortname': 'JOY',
-  'symbol': 'JOY',
-  'feeMeta': {
-    'decimals': 10,
-    'symbol': 'JOY',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const hydradx: IServerNetwork = {
   'chainId': 'hydration',
   'code': 'hydration',
@@ -2406,7 +2386,6 @@ export const presetNetworksMap = {
   // polkadot
   astar,
   manta,
-  joystream,
   hydradx,
   bifrost,
   bifrostDot,
@@ -2578,7 +2557,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     // polkadot
     astar,
     manta,
-    joystream,
     hydradx,
     bifrost,
     bifrostDot,
