@@ -20,6 +20,9 @@ interface IUseChartConfigProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  showDottedArea?: boolean;
+  dottedAreaColor?: string;
+  dottedAreaOpacity?: number;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
   priceFormatterType?: 'usd' | 'percent';
@@ -39,6 +42,9 @@ export function useChartConfig({
   lineWidth = 3,
   showPriceScale = false,
   showHorzGridLines = false,
+  showDottedArea = false,
+  dottedAreaColor,
+  dottedAreaOpacity,
   priceScaleMargins,
   priceFormatter,
   priceFormatterType,
@@ -61,6 +67,9 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      showDottedArea,
+      dottedAreaColor: dottedAreaColor ?? lineColor,
+      dottedAreaOpacity,
       priceScaleMargins,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
@@ -97,6 +106,9 @@ export function useChartConfig({
       lineWidth,
       showPriceScale,
       showHorzGridLines,
+      showDottedArea,
+      dottedAreaColor,
+      dottedAreaOpacity,
       priceScaleMargins,
       priceFormatter,
       priceFormatterType,

@@ -29,6 +29,9 @@ export interface ILightweightChartConfig {
   lineWidth: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  showDottedArea?: boolean;
+  dottedAreaColor?: string;
+  dottedAreaOpacity?: number;
   priceScaleMargins?: { top: number; bottom: number };
   horzLineColor?: string;
   horzLineStyle?: number;
@@ -53,6 +56,9 @@ export interface ILightweightChartProps {
   lineWidth?: number;
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
+  showDottedArea?: boolean;
+  dottedAreaColor?: string;
+  dottedAreaOpacity?: number;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
   fontSize?: number;

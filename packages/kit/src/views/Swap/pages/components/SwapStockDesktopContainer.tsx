@@ -137,11 +137,12 @@ function StockMarketDataItem({
 }) {
   return (
     <YStack
-      flex={1}
+      flexGrow={1}
+      flexBasis={0}
       minWidth={0}
-      h={44}
+      h={48}
       px="$3.5"
-      py="$1"
+      py="$1.5"
       borderRadius="$3"
       bg="$bgStrong"
       justifyContent="space-between"
@@ -212,13 +213,13 @@ function StockMarketDataGrid() {
   );
 
   return (
-    <YStack gap="$3">
+    <YStack w="100%" gap="$3">
       <SizableText size="$bodyMdMedium" color="$text">
         Market data
       </SizableText>
-      <YStack gap={14}>
+      <YStack w="100%" gap="$3">
         {[0, 2, 4].map((rowStart) => (
-          <XStack key={rowStart} gap={14} w="100%">
+          <XStack key={rowStart} gap="$3" w="100%" alignItems="stretch">
             {rows.slice(rowStart, rowStart + 2).map((item) => (
               <StockMarketDataItem
                 key={item.label}
@@ -696,11 +697,13 @@ function StockPriceChart({
         data={chartData}
         height={220}
         lineColor="#008347D6"
-        topColor="#00834726"
+        topColor="#00834700"
         bottomColor="#00834700"
         lineWidth={2}
         showPriceScale
-        showHorzGridLines
+        showDottedArea
+        dottedAreaColor="#008347D6"
+        dottedAreaOpacity={0.36}
         priceFormatter={priceFormatter}
         fontSize={11}
       />

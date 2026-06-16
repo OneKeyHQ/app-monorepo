@@ -6,7 +6,13 @@ function getStyles(): string {
   return `
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; }
-    #chart { width: 100%; height: 100%; }
+    #chart { width: 100%; height: 100%; position: relative; }
+    .ok-lightweight-dotted-area-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
     .tv-lightweight-charts table tr:last-child { pointer-events: none !important; }
   `.trim();
 }
@@ -145,6 +151,75 @@ function getChartInitScript(): string {
         }
         window.secondarySeries.setData(nextConfig.secondaryLineData);
       }
+      function removeDottedAreaOverlay() {
+        var overlays = container.querySelectorAll('.ok-lightweight-dotted-area-overlay');
+        overlays.forEach(function(node) { node.remove(); });
+      }
+      function syncDottedArea(nextConfig) {
+        removeDottedAreaOverlay();
+        if (!nextConfig.showDottedArea || !window.series) return;
+        var data = Array.isArray(nextConfig.data) ? nextConfig.data : [];
+        if (data.length < 2) return;
+        var rect = container.getBoundingClientRect();
+        var width = rect.width;
+        var height = rect.height;
+        if (width <= 0 || height <= 0) return;
+        var points = data.map(function(point) {
+          var x = chart.timeScale().timeToCoordinate(point.time);
+          var y = window.series.priceToCoordinate(point.value);
+          if (typeof x !== 'number' || typeof y !== 'number') return null;
+          return { x: x, y: y };
+        }).filter(Boolean);
+        if (points.length < 2) return;
+        var areaBottom = Math.max.apply(
+          null,
+          points.map(function(point) { return point.y; }).concat([height - 28])
+        );
+        var safeAreaBottom = Math.min(height, areaBottom);
+        var firstPoint = points[0];
+        var lastPoint = points[points.length - 1];
+        var pathData = [
+          'M ' + firstPoint.x.toFixed(2) + ' ' + safeAreaBottom.toFixed(2)
+        ].concat(
+          points.map(function(point) {
+            return 'L ' + point.x.toFixed(2) + ' ' + point.y.toFixed(2);
+          })
+        ).concat([
+          'L ' + lastPoint.x.toFixed(2) + ' ' + safeAreaBottom.toFixed(2),
+          'Z'
+        ]).join(' ');
+        var svgNS = 'http://www.w3.org/2000/svg';
+        var patternId = 'ok-dotted-area-' + Math.random().toString(36).slice(2);
+        var svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('class', 'ok-lightweight-dotted-area-overlay');
+        svg.setAttribute('width', String(width));
+        svg.setAttribute('height', String(height));
+        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+        var defs = document.createElementNS(svgNS, 'defs');
+        var pattern = document.createElementNS(svgNS, 'pattern');
+        pattern.setAttribute('id', patternId);
+        pattern.setAttribute('width', '8');
+        pattern.setAttribute('height', '8');
+        pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+        var circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('cx', '1');
+        circle.setAttribute('cy', '1');
+        circle.setAttribute('r', '1');
+        circle.setAttribute(
+          'fill',
+          nextConfig.dottedAreaColor || nextConfig.theme.lineColor
+        );
+        circle.setAttribute('opacity', String(nextConfig.dottedAreaOpacity ?? 0.42));
+        pattern.appendChild(circle);
+        defs.appendChild(pattern);
+        svg.appendChild(defs);
+        var path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', 'url(#' + patternId + ')');
+        path.setAttribute('stroke', 'none');
+        svg.appendChild(path);
+        container.appendChild(svg);
+      }
 
       // Price formatter: use USD formatter when priceFormatterType is set, otherwise default %
       // NOTE: Keep in sync with formatChartUsdPrice in shared/src/utils/perpsUtils.ts
@@ -233,6 +308,9 @@ function getChartInitScript(): string {
         syncPrimarySeries(nextConfig);
         syncSecondarySeries(nextConfig);
         window.chart.timeScale().fitContent();
+        requestAnimationFrame(function() {
+          syncDottedArea(nextConfig);
+        });
       };
       window.applyChartConfig(config);
   `.trim();

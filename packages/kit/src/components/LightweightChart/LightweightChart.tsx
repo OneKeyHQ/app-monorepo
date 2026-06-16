@@ -9,10 +9,109 @@ import {
   createChartOptions,
 } from './utils/chartOptions';
 
-import type { ILightweightChartProps } from './types';
+import type { ILightweightChartData, ILightweightChartProps } from './types';
 import type { IChartApi, ISeriesApi } from 'lightweight-charts';
 
 const getChartLib = createLazySdkLoader(() => import('lightweight-charts'));
+const DOTTED_AREA_OVERLAY_CLASS = 'ok-lightweight-dotted-area-overlay';
+
+function removeDottedAreaOverlay(container: HTMLDivElement) {
+  container
+    .querySelectorAll(`.${DOTTED_AREA_OVERLAY_CLASS}`)
+    .forEach((node) => node.remove());
+}
+
+function renderDottedAreaOverlay({
+  chart,
+  color,
+  container,
+  data,
+  height,
+  opacity,
+  series,
+}: {
+  chart: IChartApi;
+  color: string;
+  container: HTMLDivElement;
+  data: ILightweightChartData[];
+  height: number;
+  opacity?: number;
+  series: ISeriesApi<'Area'> | ISeriesApi<'Baseline'>;
+}) {
+  removeDottedAreaOverlay(container);
+
+  const width = container.clientWidth;
+  if (width <= 0 || height <= 0 || data.length < 2) {
+    return;
+  }
+
+  const points: { x: number; y: number }[] = [];
+  for (const point of data) {
+    const x = chart.timeScale().timeToCoordinate(point.time);
+    const y = series.priceToCoordinate(point.value);
+    if (typeof x === 'number' && typeof y === 'number') {
+      points.push({ x: Number(x), y: Number(y) });
+    }
+  }
+
+  if (points.length < 2) {
+    return;
+  }
+
+  const areaBottom = Math.max(...points.map((point) => point.y), height - 28);
+  const safeAreaBottom = Math.min(height, areaBottom);
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const pathData = [
+    `M ${firstPoint.x.toFixed(2)} ${safeAreaBottom.toFixed(2)}`,
+    ...points.map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`),
+    `L ${lastPoint.x.toFixed(2)} ${safeAreaBottom.toFixed(2)}`,
+    'Z',
+  ].join(' ');
+  const patternId = `ok-dotted-area-${Math.random().toString(36).slice(2)}`;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add(DOTTED_AREA_OVERLAY_CLASS);
+  svg.setAttribute('width', `${width}`);
+  svg.setAttribute('height', `${height}`);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.style.position = 'absolute';
+  svg.style.inset = '0';
+  svg.style.pointerEvents = 'none';
+  svg.style.zIndex = '1';
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const pattern = document.createElementNS(
+    'http://www.w3.org/2000/svg',
+    'pattern',
+  );
+  pattern.setAttribute('id', patternId);
+  pattern.setAttribute('width', '8');
+  pattern.setAttribute('height', '8');
+  pattern.setAttribute('patternUnits', 'userSpaceOnUse');
+
+  const circle = document.createElementNS(
+    'http://www.w3.org/2000/svg',
+    'circle',
+  );
+  circle.setAttribute('cx', '1');
+  circle.setAttribute('cy', '1');
+  circle.setAttribute('r', '1');
+  circle.setAttribute('fill', color);
+  circle.setAttribute('opacity', String(opacity ?? 0.42));
+  pattern.appendChild(circle);
+  defs.appendChild(pattern);
+  svg.appendChild(defs);
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', pathData);
+  path.setAttribute('fill', `url(#${patternId})`);
+  path.setAttribute('stroke', 'none');
+  svg.appendChild(path);
+
+  container.style.position = 'relative';
+  container.appendChild(svg);
+}
 
 export function LightweightChart({
   data,
@@ -26,6 +125,9 @@ export function LightweightChart({
   lineWidth,
   showPriceScale,
   showHorzGridLines,
+  showDottedArea,
+  dottedAreaColor,
+  dottedAreaOpacity,
   priceScaleMargins,
   priceFormatter,
   fontSize,
@@ -52,6 +154,9 @@ export function LightweightChart({
     lineWidth,
     showPriceScale,
     showHorzGridLines,
+    showDottedArea,
+    dottedAreaColor,
+    dottedAreaOpacity,
     priceScaleMargins,
     priceFormatter,
     fontSize,
@@ -148,6 +253,28 @@ export function LightweightChart({
 
       chart.timeScale().fitContent();
 
+      const updateDottedAreaOverlay = () => {
+        if (!chart || !chartConfig.showDottedArea) {
+          removeDottedAreaOverlay(container);
+          return;
+        }
+        requestAnimationFrame(() => {
+          if (cancelled || !chart) {
+            return;
+          }
+          renderDottedAreaOverlay({
+            chart,
+            color: chartConfig.dottedAreaColor ?? chartConfig.theme.lineColor,
+            container,
+            data: chartConfig.data,
+            height,
+            opacity: chartConfig.dottedAreaOpacity,
+            series,
+          });
+        });
+      };
+      updateDottedAreaOverlay();
+
       chartRef.current = chart;
       seriesRef.current = series;
 
@@ -200,6 +327,7 @@ export function LightweightChart({
         if (entries.length === 0 || entries[0].target !== container) return;
         const { width: newWidth } = entries[0].contentRect;
         chart?.applyOptions({ width: newWidth });
+        updateDottedAreaOverlay();
       });
 
       resizeObserver.observe(container);
@@ -209,6 +337,7 @@ export function LightweightChart({
       cancelled = true;
       // Cleanup in correct order
       resizeObserver?.disconnect();
+      removeDottedAreaOverlay(container);
       chart?.remove();
 
       // CRITICAL: Clear all refs to release memory
