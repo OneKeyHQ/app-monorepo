@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  Alert,
   Button,
   DashText,
   Divider,
@@ -30,7 +29,6 @@ import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart'
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
-import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
@@ -43,7 +41,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { MarketTokenSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelector';
@@ -57,7 +54,6 @@ import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -85,8 +81,8 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 
 import SwapActionsState from './SwapActionsState';
-import SwapAlertContainer from './SwapAlertContainer';
 import SwapQuoteResult from './SwapQuoteResult';
+import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
@@ -244,7 +240,7 @@ function StockMarketDataGrid() {
   return (
     <YStack w="100%" gap="$3" testID={SwapTestIDs.stockMarketDataGrid}>
       <SizableText size="$bodyMdMedium" color="$text">
-        Market data
+        {intl.formatMessage({ id: ETranslations.trade_stock_market_data })}
       </SizableText>
       <YStack w="100%" gap="$3">
         {[0, 2, 4].map((rowStart) => (
@@ -480,102 +476,6 @@ function StockEstimatedReceive({
       </YStack>
     </XStack>
   );
-}
-
-function StockTradeStatusAlert({
-  stockChannel,
-}: {
-  stockChannel: IUseSwapStockChannelReturn;
-}) {
-  const intl = useIntl();
-  const { perpsInfo } = useTokenDetail();
-  const { perpDisabled } = usePerpTabConfig();
-  const { navigateToPerps } = usePerpsNavigation(
-    EPerpPageEnterSource.MarketList,
-  );
-  const perpsTicker = perpsInfo?.hlTicker;
-  const onOpenPerps = useCallback(() => {
-    if (perpDisabled || !perpsTicker) {
-      return;
-    }
-    navigateToPerps(perpsTicker);
-  }, [navigateToPerps, perpDisabled, perpsTicker]);
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MarketClosed) {
-    const reason = stockChannel.stockMarketStatus?.reason;
-    return (
-      <Alert
-        testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.dexmarket_stock_status_closed_error,
-        })}
-        description={
-          reason ??
-          intl.formatMessage({
-            id: ETranslations.dexmarket_stock_status_tooltip,
-          })
-        }
-        action={
-          perpsTicker && !perpDisabled
-            ? {
-                primary: intl.formatMessage({
-                  id: ETranslations.global_perp,
-                }),
-                primaryVariant: 'secondary',
-                onPrimaryPress: onOpenPerps,
-              }
-            : undefined
-        }
-      />
-    );
-  }
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable) {
-    return (
-      <Alert
-        testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_alert_no_provider_supports_trade,
-        })}
-        description={
-          stockChannel.stockMarketStatus?.reason ??
-          intl.formatMessage({
-            id: ETranslations.dexmarket_stock_status_tooltip,
-          })
-        }
-        action={
-          perpsTicker && !perpDisabled
-            ? {
-                primary: intl.formatMessage({
-                  id: ETranslations.global_perp,
-                }),
-                primaryVariant: 'secondary',
-                onPrimaryPress: onOpenPerps,
-              }
-            : undefined
-        }
-      />
-    );
-  }
-
-  if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
-    return (
-      <Alert
-        testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_alert_no_provider_supports_trade,
-        })}
-      />
-    );
-  }
-
-  return null;
 }
 
 function StockActionGate({
@@ -845,19 +745,19 @@ function StockTradeTicket({
         onToAnotherAddressModal={onToAnotherAddressModal}
         onSelectPercentageStage={onSelectPercentageStage}
       />
-      <StockTradeStatusAlert stockChannel={stockChannel} />
+      <SwapStockTradeAlert
+        alerts={alerts}
+        quoteEventFetching={quoteEventFetching}
+        quoteLoading={quoteLoading}
+        quoteResult={quoteResult}
+        stockChannel={stockChannel}
+      />
       {stockChannel.readyForQuote ? (
         <SwapQuoteResult
           refreshAction={refreshAction}
           onOpenProviderList={onOpenProviderList}
           quoteResult={quoteResult}
         />
-      ) : null}
-      {alerts.states.length > 0 &&
-      !quoteLoading &&
-      !quoteEventFetching &&
-      alerts?.quoteId === (quoteResult?.quoteId ?? '') ? (
-        <SwapAlertContainer alerts={alerts.states} />
       ) : null}
     </YStack>
   );

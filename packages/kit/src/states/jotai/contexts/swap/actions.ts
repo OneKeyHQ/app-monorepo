@@ -709,6 +709,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 message: errorData.errorMessage,
                 fromToken: event.tokenPairs.fromToken,
                 toToken: event.tokenPairs.toToken,
+                isStock: errorData.isStock,
+                isMarketOpen: errorData.isMarketOpen,
+                eventId: errorData.eventId,
               });
               set(swapAlertsAtom(), {
                 states: [errorAlert],

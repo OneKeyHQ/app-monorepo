@@ -70,6 +70,9 @@ export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  eventId?: string;
 };
 
 // swap mev config
