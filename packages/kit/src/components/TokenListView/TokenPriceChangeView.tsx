@@ -8,9 +8,7 @@ import {
   isValidNumberValue,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import { useTokenFiat } from '../../states/jotai/contexts/tokenList/cells';
-
-import { useTokenListViewContext } from './TokenListViewContext';
+import { useTokenPrice24h } from './useTokenFiatField';
 
 type IProps = {
   $key: string;
@@ -18,21 +16,10 @@ type IProps = {
 
 function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
-  const {
-    tokenListMap: contextTokenListMap,
-    aggregateTokenFiatMap: contextAggregateTokenFiatMap,
-    useCellSeam,
-  } = useTokenListViewContext();
-  // Home path (spec §5): per-key cell subscription; non-cell paths resolve from
-  // the context map + context aggregate fiat (PR-6). price24h must survive (spec
-  // §3.1) — sumAggregateEntry preserves it on the cell path; the context
-  // aggregate fiat carries it on the non-cell path.
-  const cellToken = useTokenFiat($key);
-  const mapToken =
-    contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
-  const token = useCellSeam ? cellToken : mapToken;
+  // 方案B: subscribe to `price24h` only. Seam handled inside the hook.
+  const price24h = useTokenPrice24h($key);
 
-  if (!isValidNumberValue(token?.price24h)) {
+  if (!isValidNumberValue(price24h)) {
     return (
       <NumberSizeableText
         formatter="priceChange"
@@ -44,9 +31,8 @@ function TokenPriceChangeView(props: IProps) {
     );
   }
 
-  const priceChange = token.price24h;
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-    priceChange,
+    priceChange: price24h,
   });
 
   return (
@@ -56,7 +42,7 @@ function TokenPriceChangeView(props: IProps) {
       color={changeColor}
       {...rest}
     >
-      {priceChange}
+      {price24h}
     </NumberSizeableText>
   );
 }
