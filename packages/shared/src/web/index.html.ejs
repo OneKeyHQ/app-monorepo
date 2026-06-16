@@ -22,6 +22,63 @@
       /* add global styles to packages/shared/src/web/index.css */
     </style>
 
+    <% if ( (platform === 'desktop' || platform === 'web') && isDev ) { %>
+    <script>
+      // DEV-ONLY (gated by isDev — ZERO prod effect): pre-read the cold-start
+      // cache from IndexedDB HERE, during HTML parse, while the main thread is
+      // still free.
+      //
+      // WHY: the cold-start IDB read costs ~1.5s when it happens during the boot
+      // JS storm (the IDB onsuccess callback is starved by jotaiInit / React /
+      // render work), but only ~3ms pre-bundle. AND hydrate.ts skips cold-start
+      // entirely in dev (production-only, to avoid schema drift between code
+      // changes). This pre-read populates ONLY the webColdStartStorage in-memory
+      // Map with the single `onekey_jotai_context_atoms_snapshot` blob — NOT the
+      // `__ONEKEY_CTX_ATOM_SNAPSHOT__` global — so the self-contained,
+      // currency-gated, provisional SLC token-list slim cold-start activates in
+      // dev for local verification, while the generic L2 context-atom hydration
+      // (the schema-drift-prone part) stays OFF. Prod keeps its real hydrate.ts
+      // path untouched.
+      (function () {
+        try {
+          var DBN = 'onekey-cold-start-cache';
+          var SNAP_KEY = 'onekey_jotai_context_atoms_snapshot';
+          navigator.storageBuckets
+            .open(DBN, { persisted: true, durability: 'strict' })
+            .then(function (bk) {
+              return new Promise(function (res, rej) {
+                var r = bk.indexedDB.open(DBN, 1);
+                r.onupgradeneeded = function () {
+                  try { r.result.createObjectStore('kv'); } catch (e) {}
+                };
+                r.onsuccess = function () { res(r.result); };
+                r.onerror = function () { rej(r.error); };
+              });
+            })
+            .then(function (db) {
+              return new Promise(function (res, rej) {
+                var tx = db.transaction('kv', 'readonly');
+                var req = tx.objectStore('kv').get(SNAP_KEY);
+                req.onsuccess = function () {
+                  try { db.close(); } catch (e) {}
+                  res(req.result);
+                };
+                req.onerror = function () { rej(req.error); };
+              });
+            })
+            .then(function (blob) {
+              if (typeof blob !== 'string') return;
+              var g = globalThis;
+              var map = g.__ONEKEY_COLD_START_CACHE_MAP__;
+              if (!map) { map = new Map(); g.__ONEKEY_COLD_START_CACHE_MAP__ = map; }
+              // Do NOT clobber a value a facade write may already have set.
+              if (!map.has(SNAP_KEY)) map.set(SNAP_KEY, blob);
+            })
+            .catch(function () { /* best-effort: no cold paint, no harm */ });
+        } catch (e) { /* storageBuckets unsupported -> no-op */ }
+      })();
+    </script>
+    <% } %>
 
       <% if ( platform === 'ext' ) { %>
       <!--    <script>-->
