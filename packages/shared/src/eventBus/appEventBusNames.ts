@@ -67,6 +67,10 @@ export enum EAppEventBusNames {
   // and valuation (per-tick, version-gap) channels can be guarded independently.
   TokenListSlcStructureFrame = 'TokenListSlcStructureFrame',
   TokenListSlcValuationFrame = 'TokenListSlcValuationFrame',
+  // TokenList SLC Phase-2 risky frame (design 2026-06-16 §R0). Full idempotent
+  // risky-token snapshot for an owner with its OWN monotonic version (independent
+  // of structure/valuation). Small + low-frequency -> PUSH; never diffed.
+  TokenListSlcRiskyFrame = 'TokenListSlcRiskyFrame',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',

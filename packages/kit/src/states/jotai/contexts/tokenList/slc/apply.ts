@@ -23,7 +23,11 @@ import type {
   ITokenKey,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
-import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import type { IStoreProjection } from './projection';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
@@ -52,6 +56,13 @@ export function shallowEqualArray(a: string[], b: string[]): boolean {
 /** Runtime value stored in `listStructureAtom` (spec §3, = IListStructure). */
 export type IListStructureValue = IListStructure;
 
+/** Runtime value stored in `riskyListFrameAtom` (design §R0). */
+export interface IRiskyListFrameValue {
+  riskyTokens: IAccountToken[];
+  riskyMap: Record<ITokenKey, ITokenFiat>;
+  ownerKey: string;
+}
+
 /**
  * Injected dependency bag (spec §11.2, §11.5). Equality / summation / identity
  * logic, the jotai store accessors, the `listStructureAtom` instance, and the
@@ -69,6 +80,13 @@ export interface IApplyDeps {
   shallowEqual: (a: string[], b: string[]) => boolean;
   /** the per-store `listStructureAtom` instance (contextAtom()-resolved). */
   listStructureAtom: PrimitiveAtom<IListStructureValue>;
+  /**
+   * the per-store `riskyListFrameAtom` instance (design §R0). The single landing
+   * spot for the BG risky frame, written by `applyRiskyFrame`. OPTIONAL: only the
+   * receive-shell producer drives the risky path, so callers that never call
+   * `applyRiskyFrame` (cold-start hydrate, tests) may omit it.
+   */
+  riskyListFrameAtom?: PrimitiveAtom<IRiskyListFrameValue>;
   /** lazy meta cell builder — same `$key` returns the same atom. */
   meta: (
     store: IJotaiContextStore,
@@ -105,6 +123,7 @@ export interface IApplyDeps {
 export function buildApplyDeps(params: {
   store: IJotaiContextStore;
   listStructureAtom: PrimitiveAtom<IListStructure>;
+  riskyListFrameAtom?: PrimitiveAtom<IRiskyListFrameValue>;
   resolveCurrentStore: IApplyDeps['resolveCurrentStore'];
   fiatEqual: IApplyDeps['fiatEqual'];
   metaEqual: IApplyDeps['metaEqual'];
@@ -125,6 +144,7 @@ export function buildApplyDeps(params: {
     clearAll: params.clearAll,
     shallowEqual: params.shallowEqual,
     listStructureAtom: params.listStructureAtom,
+    riskyListFrameAtom: params.riskyListFrameAtom,
     meta: params.meta,
     cell: params.cell,
     subcell: params.subcell,
@@ -318,5 +338,40 @@ export function applyValuationFrame(
         }
       }
     }
+  });
+}
+
+/**
+ * applyRiskyFrame (design §R0). Lands the BG risky frame — a FULL idempotent
+ * snapshot ({ riskyTokens, riskyMap }) — into `riskyListFrameAtom`. Guards:
+ *   - identity check (reset/recreate guard, same as the other applies);
+ * Version-guarding lives in the receive shell (drops stale riskyVersion before
+ * calling here), so this layer just writes the current owner's snapshot. The
+ * write is unconditional after the identity check: the snapshot is idempotent
+ * and small (a list + map), so there is no per-cell diff here. The `ownerKey` is
+ * stamped onto the atom value so a reader can confirm owner membership.
+ */
+export function applyRiskyFrame(
+  store: IJotaiContextStore,
+  frame: {
+    riskyTokens: IAccountToken[];
+    riskyMap: Record<ITokenKey, ITokenFiat>;
+    storeData: IJotaiContextStoreData;
+    ownerKey: string;
+  },
+  deps: IApplyDeps,
+): void {
+  // identity check (reset/recreate guard)
+  if (deps.resolveCurrentStore(frame.storeData) !== store) {
+    return;
+  }
+  const { riskyListFrameAtom } = deps;
+  if (!riskyListFrameAtom) {
+    return;
+  }
+  deps.set(riskyListFrameAtom, {
+    riskyTokens: frame.riskyTokens,
+    riskyMap: frame.riskyMap,
+    ownerKey: frame.ownerKey,
   });
 }

@@ -28,6 +28,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
   ICustomTokenItem,
@@ -74,6 +75,59 @@ interface IOwnerVM {
   lastStructureSnapshot: IStructureSnapshot | undefined;
   /** last full valuation frame emitted for this owner (PULL backstop). */
   lastValuationFrame: IValuationFrame | undefined;
+  /**
+   * monotonic risky-frame version, INDEPENDENT of structure/valuation. Bumped
+   * only when the risky change-gate fires (membership OR a per-`$key` balance
+   * change), NOT on a pure price tick. Owner-switch resets it to -1.
+   */
+  riskyVersion: number;
+  /** last full risky snapshot emitted for this owner (PULL backstop + gate). */
+  lastRisky: IRiskySnapshot | undefined;
+  /**
+   * Most-recently-ingested RAW slices for this owner (the `getRawTokenList` /
+   * `getAllTokenListMap` PULL source). REPLACED (not concatenated) each round.
+   * Kept separate from the frames so the large raw list is PULL-only and never
+   * pushed over appEventBus (design §4 "推小拉大").
+   */
+  lastRaw: IRawTokenListData;
+}
+
+/**
+ * The risky snapshot kept on the owner VM (PULL backstop) and compared by the
+ * synchronous change-gate. The list + map are the full current risky set.
+ */
+interface IRiskySnapshot {
+  riskyTokens: IAccountToken[];
+  riskyMap: Record<ITokenKey, ITokenFiat>;
+}
+
+/**
+ * Raw token-list data for an owner — the merged-with-risky list plus the settled
+ * owner identity the switch skeleton needs (design §R0 #3, red-team C-F1: the
+ * `allTokenList.accountId/networkId` is the PREVIOUS settled owner, deliberately
+ * lagging the scoped current owner; it must survive verbatim so `ownerMismatch`
+ * keeps firing).
+ */
+interface IRawTokenListData {
+  /** `[...orderedTokens, ...smallBalanceTokens, ...riskyTokens]`. */
+  tokens: IAccountToken[];
+  /** keys string mirrored from the legacy `allTokenListAtom` write. */
+  keys: string;
+  /** SETTLED owner accountId (lags the scoped current owner — see above). */
+  accountId: string | undefined;
+  /** SETTLED owner networkId (lags the scoped current owner — see above). */
+  networkId: string | undefined;
+  /**
+   * Raw `$key -> ITokenFiat` map for this round (normal + small-balance merged).
+   * Includes the per-network aggregate SUB-token `$key` fiat — the source the
+   * `getAllTokenListMap` composition needs for `checkIsOnlyOneTokenHasBalance`
+   * (red-team C-F2: those readers index by the sub-token per-network `$key`,
+   * which is NOT in the flattened aggregate map). Kept raw (not the valuation
+   * frame's filtered `changedFiatById`) so the composed map is exact.
+   */
+  tokenListMap: Record<ITokenKey, ITokenFiat>;
+  /** nested aggregate map `aggKey -> networkId -> ITokenFiat` (for flatten). */
+  aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
 }
 
 /**
@@ -103,6 +157,24 @@ export interface IIngestRoundParams {
   keepDefault?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   customTokens?: ICustomTokenItem[];
+  /**
+   * Risky token list for this owner (design §R0 #1). NOT part of the home SLC
+   * structure/valuation frames (those are risk-blind); carried so the VM can
+   * build the dedicated risky frame + the merged raw list. Optional for older
+   * call sites (defaults to empty).
+   */
+  riskyTokens?: IAccountToken[];
+  /** Risky `$key -> ITokenFiat` map (design §R0 #1). */
+  riskyMap?: Record<ITokenKey, ITokenFiat>;
+  /**
+   * SETTLED owner identity for the `getRawTokenList` switch skeleton (design
+   * §R0 #3, red-team C-F1). Mirrors the legacy `allTokenListAtom` fields. These
+   * lag the scoped current owner on purpose; the VM stores them verbatim.
+   */
+  accountId?: string;
+  networkId?: string;
+  /** keys string mirrored from the legacy `allTokenListAtom` write. */
+  rawKeys?: string;
 }
 
 /** Result of a PULL — the authoritative full frames for an owner. */
@@ -112,6 +184,27 @@ export interface ITokenListFramesPullResult {
   valuationVersion: number;
   structure: IStructureSnapshot | undefined;
   valuation: IValuationFrame | undefined;
+  /** monotonic risky version (-1 when the owner is unknown / has no risky set). */
+  riskyVersion: number;
+  /** full current risky list (empty when unknown). */
+  riskyTokens: IAccountToken[];
+  /** full current risky `$key -> ITokenFiat` map (empty when unknown). */
+  riskyMap: Record<ITokenKey, ITokenFiat>;
+  /** identity-check payload for the risky frame apply (undefined when unknown). */
+  storeData: IJotaiContextStoreData | undefined;
+}
+
+/**
+ * Result of the `getRawTokenList` PULL (design §R0 #3, PULL-only — never pushed).
+ * Returns the merged-with-risky raw list AND the SETTLED owner identity the
+ * switch skeleton compares against the scoped current owner.
+ */
+export interface IRawTokenListPullResult {
+  ownerKey: string;
+  tokens: IAccountToken[];
+  keys: string;
+  accountId: string | undefined;
+  networkId: string | undefined;
 }
 
 @backgroundClass()
@@ -183,6 +276,16 @@ class ServiceTokenViewModel extends ServiceBase {
       valuationVersion: -1,
       lastStructureSnapshot: undefined,
       lastValuationFrame: undefined,
+      riskyVersion: -1,
+      lastRisky: undefined,
+      lastRaw: {
+        tokens: [],
+        keys: '',
+        accountId: undefined,
+        networkId: undefined,
+        tokenListMap: {},
+        aggregateTokensMap: {},
+      },
     };
   }
 
@@ -210,6 +313,11 @@ class ServiceTokenViewModel extends ServiceBase {
       keepDefault,
       homeDefaultTokenMap,
       customTokens,
+      riskyTokens = [],
+      riskyMap = {},
+      accountId,
+      networkId,
+      rawKeys = '',
     } = params;
 
     if (!ownerKey) {
@@ -284,6 +392,80 @@ class ServiceTokenViewModel extends ServiceBase {
       valuationVersion: vm.valuationVersion,
       valuation,
     });
+
+    // --- raw token list (PULL-only source) ---------------------------------
+    // REPLACE (not concat) the owner's raw slices each round: the merged list is
+    // [...orderedTokens, ...smallBalanceTokens, ...riskyTokens] (mirrors the
+    // legacy `allTokenListAtom` write `[...mergedTokens, ...riskyTokens]`), kept
+    // for the `getRawTokenList` PULL together with the SETTLED owner identity
+    // the switch skeleton compares against (red-team C-F1). Never pushed.
+    vm.lastRaw = {
+      tokens: [...orderedTokens, ...smallBalanceTokens, ...riskyTokens],
+      keys: rawKeys,
+      accountId,
+      networkId,
+      tokenListMap,
+      aggregateTokensMap,
+    };
+
+    // --- risky frame (design §R0 #2) ---------------------------------------
+    // SYNCHRONOUS change-gate: emit a FULL idempotent risky snapshot only when
+    // the risky set changes by membership ($key set) OR by a per-`$key` BALANCE
+    // change (red-team C-F4: footer filters `riskyMap[$key].balance>0`, so a
+    // balance crossing 0 on an existing risky token must re-emit even though
+    // membership is unchanged). A pure price tick (same $keys + same balances)
+    // does NOT emit. The comparison is a sync shallowEqual (NO awaited hash —
+    // red-team R-#1: an async hop would break the synchronous BG invariant and
+    // silently hang on v6.3.0 Android).
+    if (this.riskyChanged(vm.lastRisky, riskyTokens, riskyMap)) {
+      vm.riskyVersion += 1;
+      vm.lastRisky = { riskyTokens, riskyMap };
+      appEventBus.emit(EAppEventBusNames.TokenListSlcRiskyFrame, {
+        ownerKey,
+        riskyVersion: vm.riskyVersion,
+        riskyTokens,
+        riskyMap,
+        storeData,
+      });
+    }
+  }
+
+  /**
+   * SYNCHRONOUS risky change-gate (design §R0 #2, red-team C-F4 / R-#1). Returns
+   * true when the risky set differs from the previously-emitted snapshot by
+   * either its `$key` membership OR any per-`$key` balance. A pure price-only
+   * move (same $keys + same balances) returns false so no risky frame is emitted.
+   * Mirrors the style of `buildFrames`'s `aggMembershipEqual` — all in-memory,
+   * no await / hash.
+   */
+  private riskyChanged(
+    prev: IRiskySnapshot | undefined,
+    nextTokens: IAccountToken[],
+    nextMap: Record<ITokenKey, ITokenFiat>,
+  ): boolean {
+    if (!prev) {
+      // First risky observation for the owner. Emit only when there is actually
+      // a risky set so an owner with no risky tokens stays at riskyVersion -1.
+      return nextTokens.length > 0;
+    }
+    const prevTokens = prev.riskyTokens;
+    if (prevTokens.length !== nextTokens.length) {
+      return true;
+    }
+    // Membership ($key order included — the list is sorted deterministically by
+    // the producer) AND per-`$key` balance comparison in one pass.
+    for (let i = 0; i < nextTokens.length; i += 1) {
+      const key = nextTokens[i].$key;
+      if (prevTokens[i].$key !== key) {
+        return true;
+      }
+      const prevBalance = prev.riskyMap[key]?.balance;
+      const nextBalance = nextMap[key]?.balance;
+      if (prevBalance !== nextBalance) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -306,6 +488,10 @@ class ServiceTokenViewModel extends ServiceBase {
         valuationVersion: -1,
         structure: undefined,
         valuation: undefined,
+        riskyVersion: -1,
+        riskyTokens: [],
+        riskyMap: {},
+        storeData: undefined,
       };
     }
     return {
@@ -314,6 +500,79 @@ class ServiceTokenViewModel extends ServiceBase {
       valuationVersion: vm.valuationVersion,
       structure: vm.lastStructureSnapshot,
       valuation: vm.lastValuationFrame,
+      riskyVersion: vm.riskyVersion,
+      riskyTokens: vm.lastRisky?.riskyTokens ?? [],
+      riskyMap: vm.lastRisky?.riskyMap ?? {},
+      // The risky frame apply needs the owner's storeData for the identity check;
+      // the structure/valuation snapshots already carry it, so reuse whichever is
+      // present (both are stamped for the same owner).
+      storeData:
+        vm.lastStructureSnapshot?.storeData ?? vm.lastValuationFrame?.storeData,
+    };
+  }
+
+  /**
+   * PULL-only raw token list (design §R0 #3, "推小拉大": the largest payload is
+   * NEVER pushed). Returns the owner's merged-with-risky raw list AND the SETTLED
+   * owner identity (accountId/networkId/keys) the switch skeleton compares
+   * against the scoped current owner (red-team C-F1: this lags on purpose so
+   * `ownerMismatch` keeps firing on owner switch). Returns an empty list +
+   * undefined identity for an unknown / evicted owner so the caller can fall
+   * back to skeleton.
+   */
+  @backgroundMethod()
+  async getRawTokenList({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<IRawTokenListPullResult> {
+    const vm = this.vmByOwner.get(ownerKey);
+    if (!vm) {
+      return {
+        ownerKey,
+        tokens: [],
+        keys: '',
+        accountId: undefined,
+        networkId: undefined,
+      };
+    }
+    return {
+      ownerKey,
+      tokens: vm.lastRaw.tokens,
+      keys: vm.lastRaw.keys,
+      accountId: vm.lastRaw.accountId,
+      networkId: vm.lastRaw.networkId,
+    };
+  }
+
+  /**
+   * PULL the FULL fiat map for an owner (design §R0 #4). Composed SYNCHRONOUSLY
+   * as `{ ...tokenListMap, ...riskyMap, ...flatten(aggregateTokensMap) }` —
+   * mirroring the legacy `allTokenListMapAtom` write. The flatten reuses the
+   * existing pure `flattenAggregateTokensMap` (BigNumber-only, no await). Note:
+   * this map keys aggregates by their AGGREGATE `$key` (summed across networks);
+   * the per-network sub-token `$key` fiat is carried in `tokenListMap`/`riskyMap`
+   * (red-team C-F2 / completeness-#9: `checkIsOnlyOneTokenHasBalance` reads per-network
+   * sub-token `$key`, which lives in `tokenListMap`, NOT in the flattened agg).
+   * Returns an empty map for an unknown / evicted owner.
+   */
+  @backgroundMethod()
+  async getAllTokenListMap({
+    ownerKey,
+  }: {
+    ownerKey: string;
+  }): Promise<Record<ITokenKey, ITokenFiat>> {
+    const vm = this.vmByOwner.get(ownerKey);
+    if (!vm) {
+      return {};
+    }
+    const { tokenListMap, aggregateTokensMap } = vm.lastRaw;
+    const riskyMap: Record<ITokenKey, ITokenFiat> =
+      vm.lastRisky?.riskyMap ?? {};
+    return {
+      ...tokenListMap,
+      ...riskyMap,
+      ...flattenAggregateTokensMap(aggregateTokensMap),
     };
   }
 

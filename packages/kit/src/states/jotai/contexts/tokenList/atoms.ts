@@ -103,6 +103,28 @@ export const { atom: listStructureAtom, use: useListStructureAtom } =
     ownedAggregateTokenListMap: {},
   });
 
+/**
+ * TokenList SLC — risky frame projection atom (design 2026-06-16 §R0).
+ *
+ * The UI receive shell (`useTokenListSlcProducer`) lands the BG risky frame
+ * (PUSH + PULL) here, version-guarded + identity-checked, as a FULL idempotent
+ * snapshot. ADDITIVE in R0 (nothing reads it yet); R1 migrates `TokenListFooter`
+ * off the legacy `riskyTokenListAtom`/`riskyTokenListMapAtom` onto this. The
+ * risky set is risk-blind in the home structure/valuation frames, so it rides a
+ * dedicated channel with its OWN monotonic version. `ownerKey` is the applied
+ * owner so a reader can confirm the snapshot belongs to its scoped owner.
+ */
+export const { atom: riskyListFrameAtom, use: useRiskyListFrameAtom } =
+  contextAtom<{
+    riskyTokens: IAccountToken[];
+    riskyMap: { [key: string]: ITokenFiat };
+    ownerKey: string;
+  }>({
+    riskyTokens: [],
+    riskyMap: {},
+    ownerKey: '',
+  });
+
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   contextAtom<{
     address: string;

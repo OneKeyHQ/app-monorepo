@@ -9,7 +9,10 @@ import type {
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  EHardwareUiStateAction,
+  IJotaiContextStoreData,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IStructureSnapshot,
   IValuationFrame,
@@ -294,6 +297,19 @@ export interface IAppEventBusPayload {
     ownerKey: string;
     valuationVersion: number;
     valuation: IValuationFrame;
+  };
+  // TokenList SLC Phase-2 risky frame (design 2026-06-16 §R0). FULL idempotent
+  // risky snapshot for an owner: the risky token list + its `$key -> ITokenFiat`
+  // map. `riskyVersion` is monotonic and INDEPENDENT of the structure/valuation
+  // versions; the UI shell version-guards + drops stale PULLs against it. Carries
+  // the owner's `storeData` so the receive shell can identity-check it (never
+  // diffed — always the whole current risky set).
+  [EAppEventBusNames.TokenListSlcRiskyFrame]: {
+    ownerKey: string;
+    riskyVersion: number;
+    riskyTokens: IAccountToken[];
+    riskyMap: Record<string, ITokenFiat>;
+    storeData: IJotaiContextStoreData;
   };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined

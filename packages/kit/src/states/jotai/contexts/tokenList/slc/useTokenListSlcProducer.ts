@@ -50,13 +50,20 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
+  IAccountToken,
   ICustomTokenItem,
   IHomeDefaultToken,
+  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { listStructureAtom, useTokenListContextData } from '../atoms';
+import {
+  listStructureAtom,
+  riskyListFrameAtom,
+  useTokenListContextData,
+} from '../atoms';
 
 import {
+  applyRiskyFrame,
   applyStructureSnapshot,
   applyValuationFrame,
   buildApplyDeps,
@@ -129,6 +136,7 @@ export function useTokenListSlcProducer(
     return buildApplyDeps({
       store,
       listStructureAtom: listStructureAtom(),
+      riskyListFrameAtom: riskyListFrameAtom(),
       resolveCurrentStore,
       fiatEqual,
       metaEqual,
@@ -153,6 +161,12 @@ export function useTokenListSlcProducer(
   // is not dropped.
   const lastStructureVersionRef = useRef<number>(-1);
   const lastValuationVersionRef = useRef<number>(-1);
+  // Risky frame version guard (design §R0). INDEPENDENT of structure/valuation;
+  // co-located here + reset(-1) in the same place so an owner switch resets all
+  // three together (red-team R-#2: a separate ref/effect would race owner
+  // teardown vs an in-flight risky PULL and cross-apply owner-A risky onto
+  // owner-B).
+  const lastRiskyVersionRef = useRef<number>(-1);
 
   useEffect(() => {
     if (!store || !deps || !ownerKey) {
@@ -175,6 +189,7 @@ export function useTokenListSlcProducer(
     // Reset the version guard for this (store, owner) pass.
     lastStructureVersionRef.current = -1;
     lastValuationVersionRef.current = -1;
+    lastRiskyVersionRef.current = -1;
 
     // S2. version-guarded apply helpers (closure over deps/store/refs).
     const applyStructure = (
@@ -242,6 +257,24 @@ export function useTokenListSlcProducer(
       }
     };
 
+    // Risky apply (design §R0). Version-guard against the risky-only monotonic
+    // version (independent of structure/valuation), identity-checked + landed in
+    // `riskyListFrameAtom` via the SAME apply contract.
+    const applyRisky = (
+      riskyVersion: number,
+      riskyTokens: IAccountToken[],
+      riskyMap: Record<string, ITokenFiat>,
+    ): void => {
+      if (riskyVersion < 0) {
+        return;
+      }
+      if (riskyVersion <= lastRiskyVersionRef.current) {
+        return;
+      }
+      applyRiskyFrame(s, { riskyTokens, riskyMap, storeData, ownerKey }, deps);
+      lastRiskyVersionRef.current = riskyVersion;
+    };
+
     // S2b. frame handlers — ignore frames for a different owner; the BG VM may
     // have multiple owners and broadcasts to all shells.
     const onStructure = (payload: {
@@ -264,12 +297,27 @@ export function useTokenListSlcProducer(
       }
       applyValuation(payload.valuationVersion, payload.valuation);
     };
+    const onRisky = (payload: {
+      ownerKey: string;
+      riskyVersion: number;
+      riskyTokens: IAccountToken[];
+      riskyMap: Record<string, ITokenFiat>;
+    }): void => {
+      if (payload.ownerKey !== ownerKey) {
+        return;
+      }
+      applyRisky(payload.riskyVersion, payload.riskyTokens, payload.riskyMap);
+    };
 
     // S3. SUBSCRIBE FIRST. From this instant any push lands in the handlers (or
     // is version-dropped). This guarantees no push emitted during the S4 PULL is
     // lost — the H4 s.sub lines are DELETED, not toggled.
     appEventBus.on(EAppEventBusNames.TokenListSlcStructureFrame, onStructure);
     appEventBus.on(EAppEventBusNames.TokenListSlcValuationFrame, onValuation);
+    // Risky frame (design §R0 #6): the 3rd subscribe-then-pull, INSIDE this same
+    // effect body + sharing the same `cancelled` flag (below) so the owner-switch
+    // teardown discards an in-flight risky PULL alongside the other two.
+    appEventBus.on(EAppEventBusNames.TokenListSlcRiskyFrame, onRisky);
 
     // S4. PULL the authoritative full frames and apply through the SAME
     // version-guarded path. A push racing this in-flight pull is not lost
@@ -284,6 +332,10 @@ export function useTokenListSlcProducer(
         // structure first so cells exist before valuation self-heals them.
         applyStructure(pulled.structureVersion, pulled.structure);
         applyValuation(pulled.valuationVersion, pulled.valuation);
+        // The frames PULL also carries the risky snapshot (the BG VM keeps it on
+        // the same owner VM), so apply it here too — guarded by the SAME
+        // `cancelled` flag + owner check above.
+        applyRisky(pulled.riskyVersion, pulled.riskyTokens, pulled.riskyMap);
       })
       .catch(() => {
         // PULL failure is non-fatal: pushes keep the list live; the next
@@ -300,6 +352,7 @@ export function useTokenListSlcProducer(
         EAppEventBusNames.TokenListSlcValuationFrame,
         onValuation,
       );
+      appEventBus.off(EAppEventBusNames.TokenListSlcRiskyFrame, onRisky);
       // Drop any pending debounced persist so a late write cannot land on a
       // torn-down/owner-switched projection.
       cancelPendingSlimColdCache(s);

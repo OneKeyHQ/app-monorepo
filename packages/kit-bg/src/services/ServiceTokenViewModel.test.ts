@@ -33,6 +33,13 @@ interface IValuationFramePayload {
   valuationVersion: number;
   valuation: IValuationFrame;
 }
+interface IRiskyFramePayload {
+  ownerKey: string;
+  riskyVersion: number;
+  riskyTokens: IAccountToken[];
+  riskyMap: Record<string, ITokenFiat>;
+  storeData: IJotaiContextStoreData;
+}
 
 // --- mocks ----------------------------------------------------------------
 // Strip the background decorators (they otherwise pull in the whole bg infra).
@@ -51,6 +58,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     TokenListSlcStructureFrame: 'TokenListSlcStructureFrame',
     TokenListSlcValuationFrame: 'TokenListSlcValuationFrame',
+    TokenListSlcRiskyFrame: 'TokenListSlcRiskyFrame',
   },
   appEventBus: {
     emit: (name: string, payload: unknown): void => {
@@ -136,6 +144,11 @@ function valuationEmits(): IValuationFramePayload[] {
   return mockEmit.mock.calls
     .filter((c) => c[0] === 'TokenListSlcValuationFrame')
     .map((c) => c[1] as IValuationFramePayload);
+}
+function riskyEmits(): IRiskyFramePayload[] {
+  return mockEmit.mock.calls
+    .filter((c) => c[0] === 'TokenListSlcRiskyFrame')
+    .map((c) => c[1] as IRiskyFramePayload);
 }
 
 describe('ServiceTokenViewModel', () => {
@@ -367,5 +380,354 @@ describe('ServiceTokenViewModel', () => {
     // await/nextTick in the frame-production path.
     void svc.ingestRound(makeRound({ orderedTokens: [makeToken('a')] }));
     expect(mockEmit).toHaveBeenCalledTimes(2);
+  });
+
+  // --- §R0 #3 getRawTokenList ---------------------------------------------
+
+  describe('getRawTokenList', () => {
+    it('returns the merged-with-risky raw list + SETTLED owner identity', async () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          ownerKey: 'accSettled__net',
+          orderedTokens: [makeToken('a'), makeToken('b')],
+          smallBalanceTokens: [makeToken('c')],
+          tokenListMap: {
+            a: makeFiat({ fiatValue: '3' }),
+            b: makeFiat({ fiatValue: '2' }),
+            c: makeFiat({ fiatValue: '0' }),
+          },
+          riskyTokens: [makeToken('risk1'), makeToken('risk2')],
+          riskyMap: {
+            risk1: makeFiat({ balance: '1', fiatValue: '5' }),
+            risk2: makeFiat({ balance: '2', fiatValue: '6' }),
+          },
+          // The SETTLED owner identity LAGS the scoped current owner (C-F1): it
+          // is the identity of the round that just settled, not the live owner.
+          accountId: 'settledAccount',
+          networkId: 'settledNetwork',
+          rawKeys: 'keys_a_b_c_risk',
+        }),
+      );
+
+      const raw = await svc.getRawTokenList({ ownerKey: 'accSettled__net' });
+      // merged-with-risky = [...ordered, ...small, ...risky]
+      expect(raw.tokens.map((t) => t.$key)).toEqual([
+        'a',
+        'b',
+        'c',
+        'risk1',
+        'risk2',
+      ]);
+      expect(raw.keys).toBe('keys_a_b_c_risk');
+      // SETTLED owner identity for the switch skeleton (C-F1).
+      expect(raw.accountId).toBe('settledAccount');
+      expect(raw.networkId).toBe('settledNetwork');
+    });
+
+    it('returns an empty list + undefined identity for an evicted / unknown owner', async () => {
+      const svc = makeService();
+      // Fill past the cap (8) so owner0 is evicted.
+      for (let i = 0; i < 9; i += 1) {
+        void svc.ingestRound(
+          makeRound({
+            ownerKey: `acc${i}__net`,
+            orderedTokens: [makeToken('a')],
+            accountId: `account${i}`,
+            networkId: 'net',
+            rawKeys: `keys${i}`,
+          }),
+        );
+      }
+      const evicted = await svc.getRawTokenList({ ownerKey: 'acc0__net' });
+      expect(evicted.tokens).toEqual([]);
+      expect(evicted.keys).toBe('');
+      expect(evicted.accountId).toBeUndefined();
+      expect(evicted.networkId).toBeUndefined();
+
+      const unknown = await svc.getRawTokenList({ ownerKey: 'nope' });
+      expect(unknown.tokens).toEqual([]);
+      expect(unknown.accountId).toBeUndefined();
+    });
+
+    it('REPLACES (does not concat) the raw list each round', async () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a'), makeToken('b'), makeToken('c')],
+          tokenListMap: {
+            a: makeFiat({ fiatValue: '3' }),
+            b: makeFiat({ fiatValue: '2' }),
+            c: makeFiat({ fiatValue: '1' }),
+          },
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+          rawKeys: 'round1',
+        }),
+      );
+      // round 2: shorter list + no risky — a concat would keep b/c/risk1.
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ fiatValue: '3' }) },
+          riskyTokens: [],
+          riskyMap: {},
+          rawKeys: 'round2',
+        }),
+      );
+      const raw = await svc.getRawTokenList({ ownerKey: 'acc1__net1' });
+      expect(raw.tokens.map((t) => t.$key)).toEqual(['a']);
+      expect(raw.keys).toBe('round2');
+    });
+  });
+
+  // --- §R0 #4 getAllTokenListMap ------------------------------------------
+
+  describe('getAllTokenListMap', () => {
+    it('composes {...tokenListMap, ...riskyMap, ...flatten(agg)} and exposes the PER-NETWORK sub-token fiat (NOT just the summed agg)', async () => {
+      const svc = makeService();
+      // The aggregate sub-tokens live in `tokenListMap` under their per-network
+      // `$key` (the home merge path) AND the aggregate `$key` lives in the nested
+      // aggregateTokensMap. checkIsOnlyOneTokenHasBalance reads the per-network
+      // sub-token `$key` (C-F2 / completeness-#9): assert that value is present + correct,
+      // not just the summed aggregate.
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [
+            makeToken('a'),
+            makeToken('aggregate_eth', { isAggregateToken: true }),
+          ],
+          tokenListMap: {
+            a: makeFiat({ balance: '10', fiatValue: '100' }),
+            // per-network sub-token $keys (these are what the badge reads)
+            'eth_sub_evm--1': makeFiat({ balance: '1', fiatValue: '3000' }),
+            'eth_sub_evm--10': makeFiat({ balance: '0', fiatValue: '0' }),
+          },
+          aggregateTokensMap: {
+            aggregate_eth: {
+              'evm--1': makeFiat({ balance: '1', fiatValue: '3000' }),
+              'evm--10': makeFiat({ balance: '0', fiatValue: '0' }),
+            },
+          },
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '2', fiatValue: '7' }) },
+        }),
+      );
+
+      const map = await svc.getAllTokenListMap({ ownerKey: 'acc1__net1' });
+      // normal token fiat
+      expect(map.a.fiatValue).toBe('100');
+      // risky fiat present
+      expect(map.risk1.fiatValue).toBe('7');
+      // PER-NETWORK sub-token $key fiat == the per-network value (NOT the sum):
+      // this is the C-F2 assertion that the F2-shape bug would fail.
+      expect(map['eth_sub_evm--1'].fiatValue).toBe('3000');
+      expect(map['eth_sub_evm--10'].fiatValue).toBe('0');
+      // the flattened aggregate $key carries the SUMMED value (3000 + 0).
+      expect(map.aggregate_eth.fiatValue).toBe('3000');
+    });
+
+    it('reflects the latest round after a price tick + is empty for an evicted owner', async () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ balance: '1', fiatValue: '100' }) },
+        }),
+      );
+      // price tick: same id, only fiat moves (valuation-only frame).
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ balance: '1', fiatValue: '120' }) },
+        }),
+      );
+      const map = await svc.getAllTokenListMap({ ownerKey: 'acc1__net1' });
+      expect(map.a.fiatValue).toBe('120');
+
+      const empty = await svc.getAllTokenListMap({ ownerKey: 'nope' });
+      expect(empty).toEqual({});
+    });
+  });
+
+  // --- §R0 #2 risky frame --------------------------------------------------
+
+  describe('risky frame', () => {
+    it('emits a FULL risky snapshot on the first ingest with a risky set, with its own version + the two NEW event name', () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ fiatValue: '1' }) },
+          riskyTokens: [makeToken('risk1'), makeToken('risk2')],
+          riskyMap: {
+            risk1: makeFiat({ balance: '1', fiatValue: '5' }),
+            risk2: makeFiat({ balance: '2', fiatValue: '6' }),
+          },
+        }),
+      );
+      expect(riskyEmits()).toHaveLength(1);
+      const payload = riskyEmits()[0];
+      expect(payload.ownerKey).toBe('acc1__net1');
+      // INDEPENDENT monotonic version, starts at 0 (NOT coupled to structure 0).
+      expect(payload.riskyVersion).toBe(0);
+      expect(payload.riskyTokens.map((t) => t.$key)).toEqual([
+        'risk1',
+        'risk2',
+      ]);
+      expect(payload.riskyMap.risk1.fiatValue).toBe('5');
+      expect(mockEmit.mock.calls.map((c) => c[0])).toEqual(
+        expect.arrayContaining(['TokenListSlcRiskyFrame']),
+      );
+    });
+
+    it('does NOT emit a risky frame when the owner has no risky tokens (stays at version -1)', async () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ fiatValue: '1' }) },
+          riskyTokens: [],
+          riskyMap: {},
+        }),
+      );
+      expect(riskyEmits()).toHaveLength(0);
+      const pulled = await svc.getTokenListFrames({ ownerKey: 'acc1__net1' });
+      expect(pulled.riskyVersion).toBe(-1);
+      expect(pulled.riskyTokens).toEqual([]);
+    });
+
+    it('re-emits on a MEMBERSHIP change (a risky token added)', () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      mockEmit.mockClear();
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1'), makeToken('risk2')],
+          riskyMap: {
+            risk1: makeFiat({ balance: '1', fiatValue: '5' }),
+            risk2: makeFiat({ balance: '2', fiatValue: '6' }),
+          },
+        }),
+      );
+      expect(riskyEmits()).toHaveLength(1);
+      expect(riskyEmits()[0].riskyVersion).toBe(1);
+    });
+
+    it('re-emits on a per-$key BALANCE change with UNCHANGED membership (C-F4)', () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      mockEmit.mockClear();
+      // same $key membership, balance moved 1 -> 0 (footer hideZero would go
+      // stale if the gate were membership-only).
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '0', fiatValue: '0' }) },
+        }),
+      );
+      expect(riskyEmits()).toHaveLength(1);
+      expect(riskyEmits()[0].riskyMap.risk1.balance).toBe('0');
+    });
+
+    it('does NOT re-emit on a pure price tick (same membership + same balance)', () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: {
+            risk1: makeFiat({ balance: '1', fiatValue: '5', price: 5 }),
+          },
+        }),
+      );
+      mockEmit.mockClear();
+      // same balance, only price/fiatValue move -> no risky re-emit.
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: {
+            risk1: makeFiat({ balance: '1', fiatValue: '7', price: 7 }),
+          },
+        }),
+      );
+      expect(riskyEmits()).toHaveLength(0);
+    });
+
+    it('keeps the risky version monotonic + INDEPENDENT of structure/valuation', async () => {
+      const svc = makeService();
+      // round 1: structure + risky both at 0.
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a')],
+          tokenListMap: { a: makeFiat({ fiatValue: '1' }) },
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      // round 2: a structural change (token added) BUT the risky set is unchanged
+      // -> structureVersion advances, riskyVersion does NOT.
+      void svc.ingestRound(
+        makeRound({
+          orderedTokens: [makeToken('a'), makeToken('b')],
+          tokenListMap: {
+            a: makeFiat({ fiatValue: '1' }),
+            b: makeFiat({ fiatValue: '2' }),
+          },
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      const pulled = await svc.getTokenListFrames({ ownerKey: 'acc1__net1' });
+      expect(pulled.structureVersion).toBe(1); // advanced
+      expect(pulled.riskyVersion).toBe(0); // independent — did NOT advance
+    });
+
+    it('serves the risky snapshot through getTokenListFrames PULL + is empty for an evicted owner', async () => {
+      const svc = makeService();
+      void svc.ingestRound(
+        makeRound({
+          ownerKey: 'accR__net',
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      const pulled = await svc.getTokenListFrames({ ownerKey: 'accR__net' });
+      expect(pulled.riskyVersion).toBe(0);
+      expect(pulled.riskyTokens.map((t) => t.$key)).toEqual(['risk1']);
+      expect(pulled.riskyMap.risk1.fiatValue).toBe('5');
+      expect(pulled.storeData).toBeDefined();
+
+      const unknown = await svc.getTokenListFrames({ ownerKey: 'nope' });
+      expect(unknown.riskyVersion).toBe(-1);
+      expect(unknown.riskyTokens).toEqual([]);
+      expect(unknown.riskyMap).toEqual({});
+      expect(unknown.storeData).toBeUndefined();
+    });
+
+    it('risky push is SYNCHRONOUS (emits before any microtask)', () => {
+      const svc = makeService();
+      // ingestRound returns a Promise (the @backgroundMethod RPC contract) but
+      // its BODY is synchronous: the risky emit fires before any microtask,
+      // proving no await/nextTick on the risky path (R-#1).
+      void svc.ingestRound(
+        makeRound({
+          riskyTokens: [makeToken('risk1')],
+          riskyMap: { risk1: makeFiat({ balance: '1', fiatValue: '5' }) },
+        }),
+      );
+      // 1 structure (empty ordered still emits a first structure) + 1 valuation
+      // + 1 risky, all SYNCHRONOUS.
+      expect(riskyEmits()).toHaveLength(1);
+    });
   });
 });

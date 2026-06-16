@@ -667,6 +667,16 @@ function TokenListBlock({
             homeDefaultTokenMap:
               slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
             customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+            // Risky slice (design §R0 #5) — already settled in scope on `r`.
+            // Carried so the BG VM can build the dedicated risky frame + merged
+            // raw list. Risk tokens are NOT in the home structure/valuation
+            // frames (those are risk-blind).
+            riskyTokens: r.riskTokens.data,
+            riskyMap: r.riskTokens.map,
+            // SETTLED owner identity for the `getRawTokenList` switch skeleton.
+            accountId: account?.id,
+            networkId: network?.id,
+            rawKeys: r.allTokens?.keys ?? '',
           });
         }
 
@@ -1973,6 +1983,16 @@ function TokenListBlock({
           homeDefaultTokenMap:
             slcIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
           customTokens: slcIngestInputsRef.current.nonZeroInputs.customTokens,
+          // Risky slice (design §R0 #5) — the coherent FULL risky set this
+          // effect just produced (post merge/dedup/sort). Carried so the BG VM
+          // can build the dedicated risky frame + merged raw list.
+          riskyTokens: riskyTokenList.riskyTokens,
+          riskyMap: riskyTokenListMap,
+          // SETTLED owner identity for the `getRawTokenList` switch skeleton —
+          // mirrors the legacy `allTokenListAtom` write just below.
+          accountId: account?.id,
+          networkId: network?.id,
+          rawKeys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
         });
       }
 
