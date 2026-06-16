@@ -31,6 +31,7 @@ import {
   type IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
+  LowerTransactionAmountError,
   NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -84,6 +85,16 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 
+// Minimum spendable KAS required to fund a KRC20 commit transaction, surfaced to
+// the user via Toast when their balance is too low (instead of the generic
+// "insufficient balance / no UTXO" errors that don't tell the user to top up KAS).
+//
+// 1.5 KAS = 1.3 (BASE_KAS_TO_P2SH_ADDRESS, the fixed P2SH commit output) + 0.2
+// (DUST_AMOUNT, the change floor coin selection requires). The network fee is
+// negligible (~0.001 KAS) and absorbed by the 0.2 dust buffer. Most of the 1.3
+// KAS is returned once the reveal tx confirms.
+const KRC20_MIN_KAS_TO_SEND = '1.5';
+
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
@@ -130,12 +141,25 @@ export default class Vault extends VaultBase {
 
     let encodedTx: IEncodedTxKaspa;
 
-    const dbAccount = await this.getAccount();
-    const confirmUtxos = await this._collectUTXOsInfoByApi({
-      address: dbAccount.address,
-    });
-
     const isKRC20 = transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative;
+
+    const dbAccount = await this.getAccount();
+    let confirmUtxos: IKaspaUnspentOutputInfo[];
+    try {
+      confirmUtxos = await this._collectUTXOsInfoByApi({
+        address: dbAccount.address,
+      });
+    } catch (e) {
+      // A KRC20 commit must be funded with KAS. When the account has no spendable
+      // KAS UTXOs, surface a clear "top up KAS" hint instead of the generic
+      // "no available UTXO" error.
+      if (isKRC20) {
+        throw this._createInsufficientKasForKRC20Error(
+          transferInfo.tokenInfo?.symbol,
+        );
+      }
+      throw e;
+    }
 
     // KRC20
     if (isKRC20) {
@@ -823,6 +847,21 @@ export default class Vault extends VaultBase {
     }
   }
 
+  _createInsufficientKasForKRC20Error(tokenSymbol?: string) {
+    return new OneKeyLocalError(
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.send_insufficient_native_token_for_token_send__msg,
+        },
+        {
+          symbol: 'KAS',
+          amount: KRC20_MIN_KAS_TO_SEND,
+          token: tokenSymbol || 'KRC20',
+        },
+      ),
+    );
+  }
+
   _createKRC20TransferData({
     tokenInfo,
     amount,
@@ -881,16 +920,27 @@ export default class Vault extends VaultBase {
       throw new OneKeyLocalError('Invalid P2SH commitAddress address');
     }
 
-    const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
-      confirmUtxos,
-      transferInfo: {
-        from: '',
-        amount: BASE_KAS_TO_P2SH_ADDRESS,
-        to: commitAddress,
-      },
-      priority,
-      specifiedFeeRate,
-    });
+    let encodedTx: IEncodedTxKaspa;
+    try {
+      encodedTx = await this.prepareAndBuildTx({
+        confirmUtxos,
+        transferInfo: {
+          from: '',
+          amount: BASE_KAS_TO_P2SH_ADDRESS,
+          to: commitAddress,
+        },
+        priority,
+        specifiedFeeRate,
+      });
+    } catch (e) {
+      // The commit needs ~BASE_KAS_TO_P2SH_ADDRESS KAS plus a network fee. When
+      // UTXO selection can't cover it, translate the generic insufficient-balance
+      // error into a clear "top up KAS" hint.
+      if (e instanceof LowerTransactionAmountError) {
+        throw this._createInsufficientKasForKRC20Error(tokenInfo.symbol);
+      }
+      throw e;
+    }
 
     encodedTx.commitScriptPubKey = commitScriptPubKey;
     encodedTx.commitAddress = commitAddress;
