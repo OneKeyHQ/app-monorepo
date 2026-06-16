@@ -89,11 +89,12 @@ import type {
 // the user via Toast when their balance is too low (instead of the generic
 // "insufficient balance / no UTXO" errors that don't tell the user to top up KAS).
 //
-// 1.5 KAS = 1.3 (BASE_KAS_TO_P2SH_ADDRESS, the fixed P2SH commit output) + 0.2
-// (DUST_AMOUNT, the change floor coin selection requires). The network fee is
-// negligible (~0.001 KAS) and absorbed by the 0.2 dust buffer. Most of the 1.3
-// KAS is returned once the reveal tx confirms.
-const KRC20_MIN_KAS_TO_SEND = '1.5';
+// The hard minimum is ~1.5 KAS = 1.3 (BASE_KAS_TO_P2SH_ADDRESS, the fixed P2SH
+// commit output) + 0.2 (DUST_AMOUNT, the change floor coin selection requires);
+// the network fee is negligible (~0.001 KAS) and absorbed by the 0.2 dust
+// buffer. We advise 2 KAS to leave comfortable headroom above that minimum.
+// Most of the 1.3 KAS is returned once the reveal tx confirms.
+const KRC20_MIN_KAS_TO_SEND = '2';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
