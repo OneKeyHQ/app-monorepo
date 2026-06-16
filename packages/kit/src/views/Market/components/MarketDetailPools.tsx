@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IMarketDetailPlatform,
   IMarketDetailPool,
@@ -179,44 +180,80 @@ export function MarketDetailPools({
     },
   );
 
+  // Resolve the OneKey networks that still exist locally. The server pools API
+  // may return networks that have already been delisted/removed from the
+  // client; getNetworksByIds simply filters those out instead of throwing.
+  const { result: existingNetworks } = usePromiseResult(
+    async () => {
+      const networkIds = pools
+        .map((i) => i.onekeyNetworkId)
+        .filter((i): i is string => Boolean(i));
+      if (!networkIds.length) {
+        return [];
+      }
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+          networkIds,
+        });
+      return networks;
+    },
+    [pools],
+    {
+      initResult: [],
+    },
+  );
+
+  const existingNetworkMap = useMemo(() => {
+    const map = new Map<string, IServerNetwork>();
+    for (const network of existingNetworks) {
+      map.set(network.id, network);
+    }
+    return map;
+  }, [existingNetworks]);
+
+  // Drop pools whose network has been delisted. Previously a single stale
+  // networkId broke the entire selector row: getNetwork throws for unknown
+  // networks and the symbols Promise.all rejected as a whole, leaving every
+  // network icon blank.
+  const validPools = useMemo(
+    () =>
+      pools.filter(
+        (i) => i.onekeyNetworkId && existingNetworkMap.has(i.onekeyNetworkId),
+      ),
+    [pools, existingNetworkMap],
+  );
+
   const oneKeyNetworkIds = useMemo(() => {
-    const result = pools
+    const result = validPools
       .map((i) => i.onekeyNetworkId)
       .filter((i) => Boolean(i)) as string[];
     if (tickers?.length) {
       result.push(CEX);
     }
     return result;
-  }, [pools, tickers?.length]);
+  }, [validPools, tickers?.length]);
 
-  const { result: oneKeyNetworkSymbols } = usePromiseResult(
-    async () => {
-      const symbols: {
-        logoURI?: string;
-        networkName?: string;
-      }[] = await Promise.all(
-        oneKeyNetworkIds.map((networkId) => {
-          if (networkId === CEX) {
-            return Promise.resolve({ networkName: CEX });
-          }
-          return networkId
-            ? backgroundApiProxy.serviceNetwork.getNetwork({ networkId })
-            : Promise.resolve({ logoURI: '' });
-        }),
-      );
-      return symbols;
-    },
-    [oneKeyNetworkIds],
-    {
-      initResult: [],
-    },
-  );
+  const oneKeyNetworkSymbols = useMemo(() => {
+    const symbols: {
+      logoURI?: string;
+      networkName?: string;
+    }[] = validPools.map((i) => {
+      const network = i.onekeyNetworkId
+        ? existingNetworkMap.get(i.onekeyNetworkId)
+        : undefined;
+      return { logoURI: network?.logoURI };
+    });
+    if (tickers?.length) {
+      symbols.push({ networkName: CEX });
+    }
+    return symbols;
+  }, [validPools, existingNetworkMap, tickers?.length]);
   const [index, selectIndex] = useState(0);
-  const isCEXSelected = !pools[index];
+  const isCEXSelected = !validPools[index];
 
   const listData = useMemo(
-    () => (isCEXSelected ? tickers : pools[index]) ?? [],
-    [index, isCEXSelected, pools, tickers],
+    () => (isCEXSelected ? tickers : validPools[index]) ?? [],
+    [index, isCEXSelected, validPools, tickers],
   );
 
   const formatListData = isCEXSelected

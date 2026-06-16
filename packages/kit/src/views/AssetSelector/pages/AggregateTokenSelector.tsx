@@ -403,6 +403,13 @@ function AggregateTokenSelector() {
       (token) => token.networkId,
     );
 
+    // Drop tokens whose network is no longer listed (delisted/removed). Their
+    // metadata is missing from listedNetworkMap, so they would otherwise render
+    // as blank rows with a broken icon and empty name.
+    result = result.filter((token) =>
+      Boolean(listedNetworkMap[token.networkId ?? '']),
+    );
+
     if (exchangeFilter?.supportedAssets) {
       result = result.filter((token) => {
         const symbolUpper = (
