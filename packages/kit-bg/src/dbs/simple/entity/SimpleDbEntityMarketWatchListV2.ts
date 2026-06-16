@@ -1,6 +1,9 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketWatchListDataV2,
   IMarketWatchListItemV2,
@@ -13,10 +16,37 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
 
   override enableCache = false;
 
-  private _invalidItemsCleaned = false;
+  private _watchListDataCleaned = false;
 
   private _isValidItem(item: IMarketWatchListItemV2): boolean {
     return !!(item.perpsCoin || item.chainId?.trim());
+  }
+
+  private _buildItemKey(item: IMarketWatchListItemV2): string {
+    if (item.perpsCoin) {
+      return `perps:${item.perpsCoin}`;
+    }
+    const contractAddress = item.isNative
+      ? ''
+      : (normalizeTokenContractAddress({
+          networkId: item.chainId,
+          contractAddress: item.contractAddress,
+        }) ?? '');
+    return `${item.chainId}:${contractAddress}`;
+  }
+
+  private _dedupeItems(
+    items: IMarketWatchListItemV2[],
+  ): IMarketWatchListItemV2[] {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const key = this._buildItemKey(item);
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 
   async getMarketWatchListV2() {
@@ -24,14 +54,17 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     const data = result?.data ?? [];
 
     // Filter out invalid items (non-perps with empty chainId) on every read
-    const cleanData = data.filter((item) => this._isValidItem(item));
+    const validData = data.filter((item) => this._isValidItem(item));
+    const cleanData = this._dedupeItems(validData);
 
-    // Persist cleanup once per app session if invalid items were found
-    if (!this._invalidItemsCleaned) {
-      this._invalidItemsCleaned = true;
+    // Persist cleanup once per app session if invalid or duplicate items were found
+    if (!this._watchListDataCleaned) {
+      this._watchListDataCleaned = true;
       if (cleanData.length !== data.length) {
         void this.setRawData((rawData) => ({
-          data: (rawData?.data ?? []).filter((item) => this._isValidItem(item)),
+          data: this._dedupeItems(
+            (rawData?.data ?? []).filter((item) => this._isValidItem(item)),
+          ),
         }));
       }
     }
@@ -89,10 +122,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       const newList: IMarketWatchListItemV2[] = sortUtils.buildSortedList({
         oldList,
         saveItems: watchList,
-        uniqByFn: (i) =>
-          i.perpsCoin
-            ? `perps:${i.perpsCoin}`
-            : `${i.chainId}:${i.contractAddress}`,
+        uniqByFn: (i) => this._buildItemKey(i),
       });
 
       return { data: newList };
