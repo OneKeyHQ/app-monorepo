@@ -25,6 +25,7 @@ export enum EOneKeyErrorClassNames {
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
   LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
+  LocalDBIndexedAccountIndexConflictError = 'LocalDBIndexedAccountIndexConflictError',
   PrimeTransferImportCancelledError = 'PrimeTransferImportCancelledError',
   RequestLimitExceededError = 'RequestLimitExceededError',
   OneKeyValidatorError = 'OneKeyValidatorError',
