@@ -110,13 +110,15 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
       // timeout per transaction.
       let warmupTimer: ReturnType<typeof setTimeout> | undefined;
       try {
+        const hydrationPromise =
+          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded();
+        // If the timeout wins the race, hydration keeps running with no awaiter;
+        // guard it so a later rejection can't surface as an unhandled rejection.
+        void hydrationPromise.catch(() => undefined);
         const warmupTimeout = new Promise<void>((resolve) => {
           warmupTimer = setTimeout(resolve, 5000);
         });
-        await Promise.race([
-          appGlobals.$backgroundApiProxy.serviceKeylessCloudSync.hydrateKeylessSyncCredentialFromStorageIfNeeded(),
-          warmupTimeout,
-        ]);
+        await Promise.race([hydrationPromise, warmupTimeout]);
       } catch (error) {
         console.error(
           'hydrateKeylessSyncCredentialFromStorageIfNeeded error',
