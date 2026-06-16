@@ -38,6 +38,13 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     Promise<void>
   >();
 
+  // Vendors whose credentials are already loaded into the (persistent) offscreen
+  // connector for this SW lifetime. Avoids re-pushing on every forwarded call,
+  // which would reset the connector's array (length=0; push) and could clobber a
+  // freshly-minted credential the connector auto-merged but the SW cache hasn't
+  // caught up on yet. Cleared on reset() (the connector is recreated).
+  private replayedVendors = new Set<VendorType>();
+
   /** Cached unsubscribe fn returned by `onOffscreenEvent`. */
   private unsubscribeFromBus: (() => void) | null = null;
 
@@ -114,6 +121,8 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     defaultLogger.hardware.sdkLog.log(
       `[3rdPartyHW][Bridge] reset vendor=${params.vendor}`,
     );
+    // The connector is recreated → its credentials must be re-pushed next time.
+    this.replayedVendors.delete(params.vendor);
     void offscreenApiProxy.thirdPartyHardware.reset(params);
   }
 
@@ -132,7 +141,13 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
       `[3rdPartyHW][Bridge] setKnownCredentials vendor=${params.vendor} count=${params.credentials.length}`,
     );
     this.knownCredentialsByVendor.set(params.vendor, [...params.credentials]);
-    return offscreenApiProxy.thirdPartyHardware.setKnownCredentials(params);
+    const push =
+      offscreenApiProxy.thirdPartyHardware.setKnownCredentials(params);
+    // This already loads the connector, so replayKnownCredentials can skip.
+    void push.then(() => {
+      this.replayedVendors.add(params.vendor);
+    });
+    return push;
   }
 
   // -------------------------------------------------------------------------
@@ -237,6 +252,12 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
   }
 
   private replayKnownCredentials(vendor: VendorType): Promise<void> {
+    // Only needed once per SW lifetime: the offscreen connector persists across
+    // SW restarts and auto-merges newly-minted credentials itself, so re-pushing
+    // on every call is redundant (and a reset that could drop fresh credentials).
+    if (this.replayedVendors.has(vendor)) {
+      return Promise.resolve();
+    }
     const credentials = this.knownCredentialsByVendor.get(vendor);
     if (!credentials?.length) {
       return Promise.resolve();
@@ -245,6 +266,9 @@ export class OffscreenHardwareBridgeClient implements IHardwareBridge {
     if (existing) return existing;
     const replay = offscreenApiProxy.thirdPartyHardware
       .setKnownCredentials({ vendor, credentials })
+      .then(() => {
+        this.replayedVendors.add(vendor);
+      })
       .finally(() => {
         this.replayCredentialsPromisesByVendor.delete(vendor);
       });

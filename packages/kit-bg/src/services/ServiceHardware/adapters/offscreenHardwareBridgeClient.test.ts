@@ -108,7 +108,7 @@ describe('OffscreenHardwareBridgeClient', () => {
     expect(completed).toBe(true);
   });
 
-  it('replays cached credentials before searching after offscreen reload', async () => {
+  it('loads credentials into the connector only once, then re-loads after reset', async () => {
     const order: string[] = [];
     mockedOffscreenApiProxy.thirdPartyHardware.setKnownCredentials.mockImplementation(
       async () => {
@@ -122,21 +122,24 @@ describe('OffscreenHardwareBridgeClient', () => {
       },
     );
     const client = new OffscreenHardwareBridgeClient();
+    // Warm-load already pushes credentials to the (persistent) offscreen connector.
     await client.setKnownCredentials({
       vendor: 'trezor',
       credentials: [{ credential: 'cred-1' }],
     });
     order.length = 0;
 
+    // Subsequent calls must NOT re-push (avoids resetting the connector's array
+    // and clobbering a freshly-merged credential).
     await client.searchDevices({ vendor: 'trezor' });
+    await client.searchDevices({ vendor: 'trezor' });
+    expect(order).toEqual(['search', 'search']);
 
+    // reset recreates the connector → credentials must be pushed again.
+    client.reset({ vendor: 'trezor' });
+    order.length = 0;
+    await client.searchDevices({ vendor: 'trezor' });
     expect(order).toEqual(['credentials', 'search']);
-    expect(
-      mockedOffscreenApiProxy.thirdPartyHardware.setKnownCredentials,
-    ).toHaveBeenLastCalledWith({
-      vendor: 'trezor',
-      credentials: [{ credential: 'cred-1' }],
-    });
   });
 
   it('merges credentials from offscreen events for later replay', async () => {
