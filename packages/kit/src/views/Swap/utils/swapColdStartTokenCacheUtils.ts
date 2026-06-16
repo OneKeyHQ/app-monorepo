@@ -503,7 +503,7 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
   };
 }
 
-export function getSelectedTokensColdStartLimitSupport({
+export function getSelectedTokensColdStartChannelSupport({
   swapType,
   fromToken,
   toToken,

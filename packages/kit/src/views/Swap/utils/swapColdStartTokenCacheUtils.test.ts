@@ -12,7 +12,7 @@ import {
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
   buildSwapSelectedTokensColdStartContext,
-  getSelectedTokensColdStartLimitSupport,
+  getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
   getSwapTokenSupportTypes,
   isSwapSelectedTokensColdStartContextMatched,
@@ -590,9 +590,21 @@ describe('swap cold-start selected token context', () => {
     });
   });
 
+  it('does not build ordinary default tokens when initializing Stock', () => {
+    expect(
+      buildSwapDefaultSelectedTokensFromHomeAccount({
+        homeSelectedAccount: buildSelectedAccount({
+          networkId: 'evm--56',
+        }),
+        swapType: ESwapTabSwitchType.STOCK,
+        now: 1,
+      }),
+    ).toBeUndefined();
+  });
+
   it('waits for runtime networks before completing a Limit cold-start token sync', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [],
@@ -602,7 +614,7 @@ describe('swap cold-start selected token context', () => {
 
   it('clears prefilled Limit defaults when runtime support is disabled', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -617,7 +629,7 @@ describe('swap cold-start selected token context', () => {
 
   it('checks Stock runtime support from supportStock', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.STOCK,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -631,7 +643,7 @@ describe('swap cold-start selected token context', () => {
     ).toBe(false);
 
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.STOCK,
         fromToken: buildSwapToken('evm--56'),
         swapNetworks: [
@@ -646,7 +658,7 @@ describe('swap cold-start selected token context', () => {
 
   it('keeps synced Limit tokens when the current runtime list omits their network', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.LIMIT,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [
@@ -659,9 +671,9 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
-  it('does not apply Limit runtime support checks outside the Limit tab', () => {
+  it('does not apply channel runtime support checks outside Limit and Stock tabs', () => {
     expect(
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: ESwapTabSwitchType.SWAP,
         fromToken: buildSwapToken('evm--1'),
         swapNetworks: [

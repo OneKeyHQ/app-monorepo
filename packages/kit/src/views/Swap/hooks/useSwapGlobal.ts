@@ -62,7 +62,7 @@ import {
   SWAP_COLD_START_HOME_SCENE_NAME,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartContext,
-  getSelectedTokensColdStartLimitSupport,
+  getSelectedTokensColdStartChannelSupport,
   getSwapDefaultToTokenForSwapType,
   getSwapSelectedTokensColdStartContextNetworkId,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -235,9 +235,9 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
-  const selectedTokensRuntimeLimitSupport = useMemo(
+  const selectedTokensRuntimeChannelSupport = useMemo(
     () =>
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: swapTypeSwitch,
         fromToken: swapFromToken,
         toToken,
@@ -806,7 +806,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     ) {
       if (
         hasSelectedTokens &&
-        getSelectedTokensColdStartLimitSupport({
+        getSelectedTokensColdStartChannelSupport({
           swapType: swapTypeSwitchRef.current,
           fromToken: fromTokenRef.current,
           toToken: toTokenRef.current,
@@ -909,7 +909,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (
       shouldPreserveUserInputAmount() &&
       (!hasSelectedTokens ||
-        getSelectedTokensColdStartLimitSupport({
+        getSelectedTokensColdStartChannelSupport({
           swapType: swapTypeSwitchRef.current,
           fromToken: fromTokenRef.current,
           toToken: toTokenRef.current,
@@ -925,7 +925,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (
       hasSelectedTokens &&
       shouldPreserveUserInputSelectedTokens() &&
-      getSelectedTokensColdStartLimitSupport({
+      getSelectedTokensColdStartChannelSupport({
         swapType: swapTypeSwitchRef.current,
         fromToken: fromTokenRef.current,
         toToken: toTokenRef.current,
@@ -945,17 +945,17 @@ export function useSwapInit(params?: ISwapInitParams) {
         return;
       }
       if (isSelectedTokensColdStartContextValid) {
-        const selectedTokensColdStartLimitSupport =
-          getSelectedTokensColdStartLimitSupport({
+        const selectedTokensColdStartChannelSupport =
+          getSelectedTokensColdStartChannelSupport({
             swapType: swapTypeSwitchRef.current,
             fromToken: fromTokenRef.current,
             toToken: toTokenRef.current,
             swapNetworks: swapNetworksRef.current,
           });
-        if (selectedTokensColdStartLimitSupport === undefined) {
+        if (selectedTokensColdStartChannelSupport === undefined) {
           return;
         }
-        if (!selectedTokensColdStartLimitSupport) {
+        if (!selectedTokensColdStartChannelSupport) {
           clearSelectedTokensColdStartCache();
           markInitialSelectedTokensSynced();
           return;
@@ -1302,7 +1302,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapActiveAccount.account?.id,
     swapActiveAccount.dbAccount?.id,
     swapActiveAccount.deriveType,
-    selectedTokensRuntimeLimitSupport,
+    selectedTokensRuntimeChannelSupport,
   ]);
   const [swapFromMarketJumpToken, setSwapFromMarketJumpToken] =
     useSwapFromMarketJumpTokenAtom();

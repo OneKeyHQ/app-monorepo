@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
-
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import {
   useSwapActions,
@@ -15,217 +10,34 @@ import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
-import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IMarketTokenDetail,
-  IMarketTokenListItem,
-} from '@onekeyhq/shared/types/marketV2';
-import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchUSMarketStatusResult,
   IMarketPresetTokenContext,
-  ISpeedSwapConfig,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 
-export enum ESwapStockChannelAsyncStatus {
-  Idle = 'idle',
-  Initializing = 'initializing',
-  Ready = 'ready',
-  Empty = 'empty',
-}
+import {
+  ESwapStockChannelAsyncStatus,
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+  buildStockSwapTokenFromMarketDetail,
+  buildStockSwapTokenFromMarketToken,
+  getMarketPresetTokenKey,
+  getTokenIdentityKey,
+} from './swapStockChannelUtils';
+import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
+import { useSwapStockPayTokens } from './useSwapStockPayTokens';
 
-export enum ESwapStockChannelStage {
-  InitializingStock = 'initializingStock',
-  MissingStock = 'missingStock',
-  CheckingMarketStatus = 'checkingMarketStatus',
-  MarketClosed = 'marketClosed',
-  MarketUnavailable = 'marketUnavailable',
-  InitializingPayToken = 'initializingPayToken',
-  MissingPayToken = 'missingPayToken',
-  Ready = 'ready',
-}
-
-export enum ESwapStockTradeSide {
-  Buy = 'buy',
-  Sell = 'sell',
-}
-
-const defaultSpeedSwapConfig: ISpeedSwapConfig = {
-  provider: '',
-  speedConfig: {
-    spenderAddress: '',
-    slippage: 0.5,
-    defaultTokens: [],
-    defaultLimitTokens: [],
-    swapMevNetConfig: mevSwapNetworks,
-  },
-  supportSpeedSwap: undefined,
-  onlySupportCrossChain: false,
-  onlySupportSingleChain: false,
-  speedDefaultSelectToken: undefined,
-};
-
-const EMPTY_DEFAULT_TOKENS: IToken[] = [];
-const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
-
-function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
-  if (!token?.networkId) {
-    return '';
-  }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
-    token.isNative ? 'native' : 'token'
-  }`;
-}
-
-function getMarketPresetTokenKey(token?: IMarketPresetTokenContext) {
-  if (!token?.networkId) {
-    return '';
-  }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
-    token.isNative ? 'native' : 'token'
-  }`;
-}
-
-function getMarketListTokenKey(token?: IMarketTokenListItem) {
-  const networkId = token?.networkId ?? token?.chainId ?? '';
-  if (!networkId || !token) {
-    return '';
-  }
-  return `${networkId}:${token.address}:${token.isNative ? 'native' : 'token'}`;
-}
-
-function buildStockSwapTokenFromMarketToken(token: IMarketToken): ISwapToken {
-  return {
-    networkId: token.networkId,
-    contractAddress: token.address,
-    decimals: token.decimals,
-    symbol: token.symbol,
-    name: token.name,
-    logoURI: token.tokenImageUri,
-    networkLogoURI: token.networkLogoUri,
-    isNative: !!token.isNative,
-    price: token.price ? token.price.toString() : undefined,
-  };
-}
-
-function buildStockSwapTokenFromMarketListToken(
-  token: IMarketTokenListItem,
-): ISwapToken | undefined {
-  const networkId = token.networkId ?? token.chainId;
-  if (!networkId) {
-    return undefined;
-  }
-  return {
-    networkId,
-    contractAddress: token.address,
-    decimals: token.decimals,
-    symbol: token.symbol,
-    name: token.name,
-    logoURI: token.logoUrl,
-    isNative: !!token.isNative,
-    price: token.price,
-  };
-}
-
-function buildStockSwapTokenFromMarketDetail({
-  tokenDetail,
-  tokenAddress,
-  networkId,
-  isNative,
-}: {
-  tokenDetail?: IMarketTokenDetail;
-  tokenAddress?: string;
-  networkId?: string;
-  isNative?: boolean;
-}): ISwapToken | undefined {
-  const resolvedNetworkId = tokenDetail?.networkId ?? networkId;
-  const resolvedTokenAddress = tokenAddress ?? tokenDetail?.address;
-  if (!tokenDetail || !resolvedNetworkId || !resolvedTokenAddress) {
-    return undefined;
-  }
-  return {
-    networkId: resolvedNetworkId,
-    contractAddress: resolvedTokenAddress,
-    decimals: tokenDetail.decimals,
-    symbol: tokenDetail.symbol,
-    name: tokenDetail.name,
-    logoURI: tokenDetail.logoUrl,
-    isNative: !!(isNative ?? tokenDetail.isNative),
-    price: tokenDetail.priceConverted ?? tokenDetail.price,
-  };
-}
-
-function findTokenFromCandidates({
-  candidates,
-  token,
-}: {
-  candidates: IToken[];
-  token?: Partial<ISwapTokenBase>;
-}) {
-  if (!token) {
-    return undefined;
-  }
-  return candidates.find((candidate) =>
-    equalTokenNoCaseSensitive({
-      token1: candidate,
-      token2: token,
-    }),
-  );
-}
-
-function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
-  const stablePayTokens = candidates.filter((candidate) =>
-    STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
-  );
-  return stablePayTokens.length ? stablePayTokens : candidates;
-}
-
-function getTokenBalanceValue({
-  token,
-  balances,
-}: {
-  token: IToken;
-  balances?: Record<string, string | undefined>;
-}) {
-  const balance =
-    balances?.[getTokenIdentityKey(token)] ?? token.balanceParsed ?? '0';
-  const value = new BigNumber(balance);
-  return value.isFinite() ? value : new BigNumber(0);
-}
-
-function findDefaultStockPayToken({
-  candidates,
-  balances,
-}: {
-  candidates: IToken[];
-  balances?: Record<string, string | undefined>;
-}) {
-  const preferredCandidates = getStockDefaultPayTokenCandidates(candidates);
-  if (balances) {
-    let bestToken = preferredCandidates[0];
-    let bestBalance = bestToken
-      ? getTokenBalanceValue({ token: bestToken, balances })
-      : new BigNumber(0);
-    for (const token of preferredCandidates.slice(1)) {
-      const balance = getTokenBalanceValue({ token, balances });
-      if (balance.gt(bestBalance)) {
-        bestToken = token;
-        bestBalance = balance;
-      }
-    }
-    if (bestToken && bestBalance.gt(0)) {
-      return bestToken;
-    }
-  }
-  return preferredCandidates[0] ?? candidates[0];
-}
+export {
+  ESwapStockChannelAsyncStatus,
+  ESwapStockChannelStage,
+  ESwapStockTradeSide,
+} from './swapStockChannelUtils';
 
 export function useSwapStockChannel({
   marketPresetToken,
@@ -234,7 +46,6 @@ export function useSwapStockChannel({
   marketPresetToken?: IMarketPresetTokenContext;
   disableNativePayToken?: boolean;
 }) {
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const tokenDetailActions = useTokenDetailActions();
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -337,21 +148,11 @@ export function useSwapStockChannel({
     }
   }, [payToken]);
 
-  const stockCategoryType = useMemo(() => {
-    const stockCategory = spotCategories.find((category) =>
-      isMarketStockCategory({
-        id: category.type,
-        name: category.name,
-      }),
-    );
-    return stockCategory?.type;
-  }, [spotCategories]);
-
   const selectStockSwapToken = useCallback(
-    async (token: ISwapToken) => {
+    (token: ISwapToken) => {
       setStockTokenState(token);
       stockTokenSnapshotRef.current = token;
-      await syncStockExecutionTokens({
+      void syncStockExecutionTokens({
         stockToken: token,
       });
     },
@@ -364,7 +165,7 @@ export function useSwapStockChannel({
         return;
       }
       requestMarketActiveToken(token);
-      void selectStockSwapToken(token);
+      selectStockSwapToken(token);
     };
     appEventBus.on(
       EAppEventBusNames.SwapStockTokenSelected,
@@ -388,114 +189,20 @@ export function useSwapStockChannel({
     requestMarketActiveToken(selectedStockToken);
   }, [requestMarketActiveToken, selectedStockToken, selectedStockTokenKey]);
 
-  useEffect(() => {
-    if (
-      selectedStockTokenKey ||
-      !marketPresetTokenKey ||
-      !marketPresetToken?.networkId
-    ) {
-      return;
-    }
-    if (requestedStockTokenKeyRef.current === marketPresetTokenKey) {
-      return;
-    }
-    requestMarketActiveToken(marketPresetToken);
-  }, [
+  const {
+    defaultStockTokenLoading,
+    shouldLoadDefaultStockToken,
+    stockCategoryType,
+  } = useSwapStockDefaultToken({
     marketPresetToken,
     marketPresetTokenKey,
-    requestMarketActiveToken,
-    selectedStockTokenKey,
-  ]);
-
-  const shouldLoadDefaultStockToken =
-    !selectedStockTokenKey && !marketPresetTokenKey && !marketStockToken;
-  const defaultStockTokenScope = `${shouldLoadDefaultStockToken ? '1' : '0'}:${
-    stockCategoryType ?? ''
-  }`;
-  const {
-    result: defaultStockTokenState,
-    isLoading: defaultStockTokenLoading,
-  } = usePromiseResult(
-    async () => {
-      if (!shouldLoadDefaultStockToken || !stockCategoryType) {
-        return {
-          scope: defaultStockTokenScope,
-          token: undefined as IMarketTokenListItem | undefined,
-        };
-      }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: '',
-          type: stockCategoryType,
-          sortBy: 'v24hUSD',
-          sortType: 'desc',
-          page: 1,
-          limit: 1,
-        });
-      return {
-        scope: defaultStockTokenScope,
-        token: response.list.find((item) => !!item.stock) ?? response.list[0],
-      };
-    },
-    [defaultStockTokenScope, shouldLoadDefaultStockToken, stockCategoryType],
-    {
-      initResult: {
-        scope: '',
-        token: undefined as IMarketTokenListItem | undefined,
-      },
-      watchLoading: shouldLoadDefaultStockToken,
-    },
-  );
-
-  const defaultStockToken =
-    defaultStockTokenState.scope === defaultStockTokenScope
-      ? defaultStockTokenState.token
-      : undefined;
-  const defaultStockTokenKey = getMarketListTokenKey(defaultStockToken);
-
-  useEffect(() => {
-    const defaultStockNetworkId =
-      defaultStockToken?.networkId ?? defaultStockToken?.chainId;
-    if (
-      !shouldLoadDefaultStockToken ||
-      !defaultStockToken ||
-      !defaultStockTokenKey ||
-      !defaultStockNetworkId
-    ) {
-      return;
-    }
-    if (requestedStockTokenKeyRef.current === defaultStockTokenKey) {
-      return;
-    }
-    requestMarketActiveToken({
-      contractAddress: defaultStockToken.address,
-      networkId: defaultStockNetworkId,
-      isNative: defaultStockToken.isNative,
-    });
-    const nextSwapToken =
-      buildStockSwapTokenFromMarketListToken(defaultStockToken);
-    if (nextSwapToken) {
-      void selectStockSwapToken(nextSwapToken);
-    }
-  }, [
-    defaultStockToken,
-    defaultStockTokenKey,
-    requestMarketActiveToken,
-    selectStockSwapToken,
-    shouldLoadDefaultStockToken,
-  ]);
-
-  useEffect(() => {
-    if (selectedStockTokenKey || !marketStockToken || !tokenDetail?.stock) {
-      return;
-    }
-    void selectStockSwapToken(marketStockToken);
-  }, [
     marketStockToken,
+    requestMarketActiveToken,
     selectStockSwapToken,
     selectedStockTokenKey,
-    tokenDetail?.stock,
-  ]);
+    spotCategories,
+    tokenDetailHasStock: !!tokenDetail?.stock,
+  });
 
   const stockMarketStatus = useMemo<
     IFetchUSMarketStatusResult | undefined
@@ -513,193 +220,6 @@ export function useSwapStockChannel({
   }, [currentStockTokenKey, tokenDetail?.stock]);
   const stockMarketStatusOpen = stockMarketStatus?.open === true;
 
-  const speedSwapConfigScope = stockNetworkId;
-  const { result: speedSwapConfigState, isLoading: payTokenOptionsLoading } =
-    usePromiseResult(
-      async () => {
-        if (!stockNetworkId) {
-          return {
-            scope: speedSwapConfigScope,
-            config: defaultSpeedSwapConfig,
-          };
-        }
-        const config =
-          await backgroundApiProxy.serviceSwap.fetchSpeedSwapConfig({
-            networkId: stockNetworkId,
-          });
-        return {
-          scope: speedSwapConfigScope,
-          config,
-        };
-      },
-      [speedSwapConfigScope, stockNetworkId],
-      {
-        initResult: {
-          scope: '',
-          config: defaultSpeedSwapConfig,
-        },
-        watchLoading: true,
-      },
-    );
-  const speedConfigReady = speedSwapConfigState.scope === speedSwapConfigScope;
-  const defaultTokens = useMemo(
-    () =>
-      (speedConfigReady
-        ? speedSwapConfigState.config.speedConfig.defaultTokens
-        : EMPTY_DEFAULT_TOKENS) as IToken[],
-    [speedConfigReady, speedSwapConfigState.config.speedConfig.defaultTokens],
-  );
-
-  useEffect(() => {
-    manualStockPayTokenKeyRef.current = '';
-  }, [stockNetworkId]);
-
-  const payTokens = useMemo(() => {
-    if (!defaultTokens?.length) {
-      return [];
-    }
-    if (!currentStockTokenKey || defaultTokens.length === 1) {
-      return [...defaultTokens];
-    }
-    return defaultTokens.filter(
-      (token) =>
-        !equalTokenNoCaseSensitive({
-          token1: token,
-          token2: currentStockToken,
-        }),
-    );
-  }, [currentStockToken, currentStockTokenKey, defaultTokens]);
-
-  const selectablePayTokens = useMemo(
-    () =>
-      disableNativePayToken
-        ? payTokens.filter((token) => !token.isNative)
-        : payTokens,
-    [disableNativePayToken, payTokens],
-  );
-  const selectablePayTokenKeys = useMemo(
-    () => selectablePayTokens.map(getTokenIdentityKey).join('|'),
-    [selectablePayTokens],
-  );
-  const hasActiveAccount = Boolean(
-    activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
-  );
-  const shouldLoadPayTokenBalances = Boolean(
-    speedConfigReady && selectablePayTokens.length > 0,
-  );
-  const payTokenBalanceScope = `${
-    shouldLoadPayTokenBalances ? '1' : '0'
-  }:${selectablePayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
-    activeAccount?.account?.id ?? ''
-  }`;
-  const { result: payTokenBalanceState, isLoading: payTokenBalanceLoading } =
-    usePromiseResult(
-      async () => {
-        if (!shouldLoadPayTokenBalances) {
-          return {
-            scope: payTokenBalanceScope,
-            balances: {} as Record<string, string | undefined>,
-          };
-        }
-        if (!hasActiveAccount) {
-          return {
-            scope: payTokenBalanceScope,
-            balances: selectablePayTokens.reduce<
-              Record<string, string | undefined>
-            >((acc, token) => {
-              acc[getTokenIdentityKey(token)] = token.balanceParsed ?? '0';
-              return acc;
-            }, {}),
-          };
-        }
-
-        const accountRequestMap = new Map<
-          string,
-          Promise<
-            | {
-                id?: string;
-                address?: string;
-              }
-            | undefined
-          >
-        >();
-        const getNetworkAccount = (tokenNetworkId: string) => {
-          const cachedRequest = accountRequestMap.get(tokenNetworkId);
-          if (cachedRequest) {
-            return cachedRequest;
-          }
-          const request = (async () => {
-            const defaultDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: tokenNetworkId,
-                },
-              );
-            return backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: activeAccount?.indexedAccount?.id
-                ? undefined
-                : activeAccount?.account?.id,
-              indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-              networkId: tokenNetworkId,
-              deriveType: defaultDeriveType ?? 'default',
-            });
-          })();
-          accountRequestMap.set(tokenNetworkId, request);
-          return request;
-        };
-
-        const balanceEntries = await Promise.all(
-          selectablePayTokens.map(async (token) => {
-            const fallbackBalance = token.balanceParsed ?? '0';
-            try {
-              const networkAccount = await getNetworkAccount(token.networkId);
-              if (!networkAccount?.id || !networkAccount?.address) {
-                return [getTokenIdentityKey(token), fallbackBalance] as const;
-              }
-              const details =
-                await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                  networkId: token.networkId,
-                  contractAddress: token.contractAddress,
-                  accountId: networkAccount.id,
-                  accountAddress: networkAccount.address,
-                  currency: 'usd',
-                });
-              return [
-                getTokenIdentityKey(token),
-                details?.[0]?.balanceParsed ?? fallbackBalance,
-              ] as const;
-            } catch {
-              return [getTokenIdentityKey(token), fallbackBalance] as const;
-            }
-          }),
-        );
-        return {
-          scope: payTokenBalanceScope,
-          balances: Object.fromEntries(balanceEntries),
-        };
-      },
-      [
-        activeAccount?.account?.id,
-        activeAccount?.indexedAccount?.id,
-        hasActiveAccount,
-        payTokenBalanceScope,
-        selectablePayTokens,
-        shouldLoadPayTokenBalances,
-      ],
-      {
-        initResult: {
-          scope: '',
-          balances: {} as Record<string, string | undefined>,
-        },
-        watchLoading: shouldLoadPayTokenBalances,
-      },
-    );
-  const payTokenBalanceReady =
-    payTokenBalanceState.scope === payTokenBalanceScope;
-  const payTokenBalances = payTokenBalanceReady
-    ? payTokenBalanceState.balances
-    : undefined;
-
   const selectPayToken = useCallback(
     (token: IToken, manual = true) => {
       if (manual) {
@@ -715,51 +235,28 @@ export function useSwapStockChannel({
     [syncStockExecutionTokens],
   );
 
-  useEffect(() => {
-    if (
-      !speedConfigReady ||
-      selectablePayTokens.length === 0 ||
-      !payTokenBalanceReady
-    ) {
-      return;
-    }
-
-    const currentToken = findTokenFromCandidates({
-      candidates: selectablePayTokens,
-      token: payToken,
-    });
-    const preferredToken = findDefaultStockPayToken({
-      candidates: selectablePayTokens,
-      balances: payTokenBalances,
-    });
-    if (
-      currentToken &&
-      (manualStockPayTokenKeyRef.current ===
-        getTokenIdentityKey(currentToken) ||
-        equalTokenNoCaseSensitive({
-          token1: currentToken,
-          token2: preferredToken,
-        }))
-    ) {
-      return;
-    }
-
-    selectPayToken(preferredToken, false);
-  }, [
-    payToken,
-    payTokenBalanceReady,
-    payTokenBalances,
+  const {
+    payTokenStatus,
+    payTokenOptionsLoading,
+    payTokens,
     selectablePayTokens,
-    selectPayToken,
     speedConfigReady,
-  ]);
+  } = useSwapStockPayTokens({
+    currentStockToken,
+    currentStockTokenKey,
+    disableNativePayToken,
+    manualStockPayTokenKeyRef,
+    payToken,
+    selectPayToken,
+    stockNetworkId,
+  });
 
   const selectStockToken = useCallback(
     (token: IMarketToken) => {
       const nextSwapToken = buildStockSwapTokenFromMarketToken(token);
       requestedStockTokenKeyRef.current = getTokenIdentityKey(nextSwapToken);
       requestMarketActiveToken(nextSwapToken);
-      void selectStockSwapToken(nextSwapToken);
+      selectStockSwapToken(nextSwapToken);
     },
     [requestMarketActiveToken, selectStockSwapToken],
   );
@@ -821,32 +318,6 @@ export function useSwapStockChannel({
     }
     return ESwapStockChannelAsyncStatus.Empty;
   }, [currentStockTokenKey, stockMarketStatus, tokenDetail?.stock]);
-
-  const payTokenStatus = useMemo(() => {
-    if (!stockNetworkId) {
-      return ESwapStockChannelAsyncStatus.Idle;
-    }
-    if (
-      payTokenOptionsLoading ||
-      !speedConfigReady ||
-      (shouldLoadPayTokenBalances &&
-        (!payTokenBalanceReady || payTokenBalanceLoading))
-    ) {
-      return ESwapStockChannelAsyncStatus.Initializing;
-    }
-    if (selectablePayTokens.length === 0) {
-      return ESwapStockChannelAsyncStatus.Empty;
-    }
-    return ESwapStockChannelAsyncStatus.Ready;
-  }, [
-    payTokenOptionsLoading,
-    payTokenBalanceLoading,
-    payTokenBalanceReady,
-    selectablePayTokens.length,
-    shouldLoadPayTokenBalances,
-    speedConfigReady,
-    stockNetworkId,
-  ]);
 
   const channelStage = useMemo(() => {
     if (stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing) {
