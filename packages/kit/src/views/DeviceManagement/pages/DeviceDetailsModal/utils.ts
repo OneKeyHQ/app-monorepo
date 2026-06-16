@@ -70,12 +70,16 @@ export function canShowTrezorBleBinding(
     isSupportDesktopBle?: boolean;
   } = platformEnv,
 ) {
+  // Stay visible even after a bleConnectId is bound: a stored BLE connectId can
+  // go stale (device wiped/re-flashed → new peripheral id, or OS bond dropped),
+  // and the signing-time fallback has no path to re-bind an already-bound
+  // device. Keeping this entry lets the user re-pick and overwrite the stale
+  // connectId instead of getting stuck on repeated reconnect failures.
   return (
     thirdPartyDeviceUtils.isTrezorBleBindingSupportedPlatform(platform) &&
     device?.vendor === EHardwareVendor.trezor &&
     Boolean(device.connectId) &&
     Boolean(device.deviceId) &&
-    !device.bleConnectId &&
     thirdPartyDeviceUtils.isTrezorBleSupportedDevice(device)
   );
 }

@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -1619,15 +1620,18 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     ipcMain: trezorBleSenderGatedIpcMain,
     logger: (entry) => {
       const message = `[hwk:${entry.scope}] ${entry.event}`;
+      // THP debug payloads can carry handshake packets / pairing credentials /
+      // static keys — redact before anything reaches the on-disk file log.
+      const data = sanitizeTrezorThpModuleLogData(entry.data) ?? '';
       if (entry.level === 'error') {
-        logger.error(message, entry.data ?? '');
+        logger.error(message, data);
         return;
       }
       if (entry.level === 'warn') {
-        logger.warn(message, entry.data ?? '');
+        logger.warn(message, data);
         return;
       }
-      logger.info(message, entry.data ?? '');
+      logger.info(message, data);
     },
   });
 

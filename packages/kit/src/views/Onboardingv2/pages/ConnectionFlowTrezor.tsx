@@ -416,7 +416,13 @@ export default function TrezorConnectionFlow() {
               <>
                 {sortedDevicesData.map((data) => (
                   <ListItem
-                    key={data.device?.deviceId}
+                    // Desktop fused scan returns one USB row and one BLE row for
+                    // the same physical Trezor, sharing the same stable deviceId
+                    // (== connectId). Key on deviceId + transport so the two rows
+                    // stay distinct React nodes instead of collapsing into one.
+                    key={`${data.device?.deviceId ?? data.device?.connectId ?? ''}-${
+                      getTrezorDeviceTransportLabel(data.device) ?? ''
+                    }`}
                     drillIn
                     onPress={async () => {
                       await handleDeviceSelect(data);

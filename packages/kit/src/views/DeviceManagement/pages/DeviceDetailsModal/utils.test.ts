@@ -46,7 +46,7 @@ describe('DeviceDetailsModal utils', () => {
     });
   });
 
-  it('shows Trezor BLE binding only before a BLE connectId is bound on BLE capable models', () => {
+  it('shows Trezor BLE binding on BLE capable models, including re-binding when already bound', () => {
     expect(
       canShowTrezorBleBinding(
         {
@@ -62,6 +62,7 @@ describe('DeviceDetailsModal utils', () => {
       ),
     ).toBe(true);
 
+    // Already bound: still shown so a stale BLE connectId can be re-picked.
     expect(
       canShowTrezorBleBinding(
         {
@@ -75,7 +76,7 @@ describe('DeviceDetailsModal utils', () => {
         },
         { isDesktop: true },
       ),
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       canShowTrezorBleBinding(
