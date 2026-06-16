@@ -375,7 +375,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   qrAccountEnabled: true,
 
-  supportedThirdPartyVendors: [EHardwareVendor.ledger],
+  supportedThirdPartyVendors: [EHardwareVendor.ledger, EHardwareVendor.trezor],
 
   supportExportedSecretKeys: [
     ECoreApiExportedSecretKeyType.privateKey,

@@ -469,6 +469,18 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      deviceIdentity?:
+        | {
+            vendor: 'ledger';
+            type: 'chainFingerprint';
+            chain: ChainForFingerprint;
+            value: string;
+          }
+        | {
+            vendor: 'trezor';
+            type: 'deviceId';
+            value: string;
+          };
       chainFingerprint?: string;
       chainFingerprintChain?: ChainForFingerprint;
 

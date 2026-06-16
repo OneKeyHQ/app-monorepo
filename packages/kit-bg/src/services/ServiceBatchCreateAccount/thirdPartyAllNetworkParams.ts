@@ -30,7 +30,17 @@ function getShowOnDevice(item: AllNetworkAddressParams): boolean | undefined {
 function normalizeItem(
   item: AllNetworkAddressParams,
 ): IThirdPartyAllNetworkAddressParams {
-  const normalized: IThirdPartyAllNetworkAddressParams = { ...item };
+  const {
+    autoInstallApp: _autoInstallApp,
+    passphraseState: _passphraseState,
+    useEmptyPassphrase: _useEmptyPassphrase,
+    ...itemParams
+  } = item as AllNetworkAddressParams & {
+    autoInstallApp?: boolean;
+    passphraseState?: string;
+    useEmptyPassphrase?: boolean;
+  };
+  const normalized: IThirdPartyAllNetworkAddressParams = { ...itemParams };
   const showOnDevice = getShowOnDevice(item);
 
   if (showOnDevice !== undefined) {
@@ -55,6 +65,23 @@ export function normalizeThirdPartyAllNetworkBundle(
   bundle: AllNetworkAddressParams[],
 ): IThirdPartyAllNetworkAddressParams[] {
   return bundle.map(normalizeItem);
+}
+
+export function shouldUseThirdPartyAllNetworkGetAddress({
+  isThirdPartyWallet,
+  supportsAllNetworkGetAddress,
+  hasAllNetworkGetAddress,
+}: {
+  isThirdPartyWallet: boolean;
+  isVerifyAddressAction?: boolean;
+  supportsAllNetworkGetAddress?: boolean;
+  hasAllNetworkGetAddress?: boolean;
+}): boolean {
+  return (
+    isThirdPartyWallet &&
+    !!supportsAllNetworkGetAddress &&
+    !!hasAllNetworkGetAddress
+  );
 }
 
 function getLedgerFingerprintChain(
