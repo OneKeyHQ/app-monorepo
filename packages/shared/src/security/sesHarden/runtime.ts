@@ -245,10 +245,9 @@ function recordSesHardenPatchWarning(
       // before lockdown or indicates unexpected tampering. Enabled in
       // production too (see isSesHardenPatchWarningMonitorEnabled), deduped
       // per fingerprint.
-      console.warn(
-        '[OneKey SES Harden] Post-lockdown patch attempt detected',
-        { warning },
-      );
+      console.warn('[OneKey SES Harden] Post-lockdown patch attempt detected', {
+        warning,
+      });
     }
   }
 }
