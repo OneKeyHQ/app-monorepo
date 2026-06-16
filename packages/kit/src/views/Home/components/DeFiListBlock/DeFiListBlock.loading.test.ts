@@ -5,22 +5,34 @@ describe('deFiListLoadingReducer', () => {
     expect(deFiListLoadingReducer({ type: 'start' })).toEqual({
       isRefreshing: true,
       initialized: false,
+      loadedOwnerKey: undefined,
     });
   });
 
-  it('clears the flag on "settled"', () => {
-    expect(deFiListLoadingReducer({ type: 'settled' })).toEqual({
-      isRefreshing: false,
-      initialized: true,
-    });
-  });
-
-  it('clears the flag on "error"', () => {
+  it('clears the flag and keeps the loaded owner on "settled"', () => {
     expect(
-      deFiListLoadingReducer({ type: 'error', error: new Error('boom') }),
+      deFiListLoadingReducer({
+        type: 'settled',
+        loadedOwnerKey: 'account-1:network-1',
+      }),
     ).toEqual({
       isRefreshing: false,
       initialized: true,
+      loadedOwnerKey: 'account-1:network-1',
+    });
+  });
+
+  it('clears the flag and keeps the loaded owner on "error"', () => {
+    expect(
+      deFiListLoadingReducer({
+        type: 'error',
+        error: new Error('boom'),
+        loadedOwnerKey: 'account-1:network-1',
+      }),
+    ).toEqual({
+      isRefreshing: false,
+      initialized: true,
+      loadedOwnerKey: 'account-1:network-1',
     });
   });
 });
