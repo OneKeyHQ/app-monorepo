@@ -31,6 +31,10 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type {
+  IEstimateGasParams,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
+import type {
   IInternalDappTxParams,
   IStakeTxSui,
 } from '@onekeyhq/shared/types/staking';
@@ -395,13 +399,14 @@ export default class Vault extends VaultBase {
       };
     }
 
-    if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
+    if (feeInfo?.feeBudget?.budget && feeInfo?.feeBudget?.gasPrice) {
       const newTx = Transaction.from(encodedTx.rawTx);
-      newTx.setGasPrice(feeInfo.gas.gasPrice);
-      newTx.setGasBudget(feeInfo.gas.gasLimit);
+      // feeBudget values are integer MIST; setGas* strictly validate u64 since @mysten/sui 2.x
+      newTx.setGasPrice(BigInt(feeInfo.feeBudget.gasPrice));
+      newTx.setGasBudget(BigInt(feeInfo.feeBudget.budget));
       const newEncodedTx = {
         ...encodedTx,
-        rawTx: newTx.serialize(),
+        rawTx: await newTx.toJSON({ client }),
       };
       return {
         ...unsignedTx,
@@ -410,6 +415,82 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve(unsignedTx);
+  }
+
+  // Sui estimates its gas budget directly via RPC (dryRun + reference gas
+  // price), so route both official and custom networks through estimateFeeByRpc
+  // instead of the server estimate-fee endpoint.
+  override async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    return this.estimateFeeByRpc(params);
+  }
+
+  // Estimate the Sui gas budget purely via RPC (dryRun + reference gas price),
+  // without relying on the server estimate-fee endpoint.
+  override async estimateFeeByRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const encodedTx = params.encodedTx as IEncodedTxSui;
+    if (!encodedTx?.rawTx) {
+      throw new OneKeyLocalError('estimateFeeByRpc: encodedTx is required');
+    }
+    const client = await this.getClient();
+    const network = await this.getNetwork();
+
+    const tx = Transaction.from(encodedTx.rawTx);
+    tx.setSender(
+      tx.getData().sender ??
+        encodedTx.sender ??
+        (await this.getAccountAddress()),
+    );
+
+    const [gasPrice, dryRun] = await Promise.all([
+      client.getReferenceGasPrice(),
+      client.dryRunTransactionBlock({
+        transactionBlock: await tx.build({ client }),
+      }),
+    ]);
+
+    const { computationCost, storageCost, storageRebate } =
+      dryRun.effects.gasUsed;
+
+    // Mirror @mysten/sui core-resolver computeGasBudget so the estimated budget
+    // matches what the SDK actually reserves at signing time.
+    // GAS_SAFE_OVERHEAD = 1000n
+    const safeOverhead = BigInt(1000) * gasPrice;
+    const baseComputationCostWithOverhead =
+      BigInt(computationCost) + safeOverhead;
+    const computedBudget =
+      baseComputationCostWithOverhead +
+      BigInt(storageCost) -
+      BigInt(storageRebate);
+    const budget = (
+      computedBudget > baseComputationCostWithOverhead
+        ? computedBudget
+        : baseComputationCostWithOverhead
+    ).toString();
+
+    return {
+      data: {
+        data: {
+          isEIP1559: false,
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+          feeBudget: [
+            {
+              budget,
+              gasPrice: gasPrice.toString(),
+              computationCost,
+              storageCost,
+              storageRebate,
+            },
+          ],
+        },
+      },
+    };
   }
 
   override async broadcastTransaction(

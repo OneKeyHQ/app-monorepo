@@ -107,12 +107,34 @@ async function createTokenTransaction({
       address: sender,
       coinType,
     });
+
+    // No coin objects: pay gas from the address balance (gasMode addressBalance).
+    // We must NOT reference tx.gas here — using it forces the SDK to require a
+    // gas coin (usesGasCoin=true). With no tx.gas, the resolver leaves the gas
+    // payment empty and withdraws gas from the address balance automatically.
     if (allCoins.length === 0) {
-      // gas can only be paid with coin objects for now
-      throw new OneKeyInternalError({
-        key: ETranslations.earn_insufficient_balance,
+      const addressBalanceOnly = new BigNumber(fundsInAddressBalance ?? '0');
+      if (addressBalanceOnly.lte(0)) {
+        throw new OneKeyInternalError({
+          key: ETranslations.earn_insufficient_balance,
+        });
+      }
+      // `amount` is the max-send amount (already balance - fee). Withdraw it and
+      // send it out; the gas budget is withdrawn from the remaining balance.
+      const [withdrawn] = tx.moveCall({
+        target: '0x2::coin::redeem_funds',
+        typeArguments: [coinType],
+        arguments: [
+          tx.withdrawal({
+            amount: new BigNumber(amount).toFixed(0),
+            type: coinType,
+          }),
+        ],
       });
+      tx.transferObjects([withdrawn], recipient);
+      return tx;
     }
+
     const transferred: TransactionObjectArgument[] = [tx.gas];
     const addressBalance = new BigNumber(fundsInAddressBalance ?? '0');
     if (addressBalance.gt(0)) {
@@ -154,9 +176,9 @@ async function createTokenTransaction({
   return tx;
 }
 
-// 0x2::coin::redeem_funds / 0x2::balance::redeem_funds withdraw address
-// balances and are part of plain transfers, not contract interactions
-function isAddressBalanceWithdrawCall(moveCall: {
+// 0x2::{coin,balance}::send_funds (deposit) and redeem_funds (withdraw) operate
+// on address balances and are part of plain transfers, not contract interactions.
+function isAddressBalanceCall(moveCall: {
   package: string;
   module: string;
   function: string;
@@ -164,26 +186,33 @@ function isAddressBalanceWithdrawCall(moveCall: {
   return (
     normalizeSuiAddress(moveCall.package) === normalizeSuiAddress('0x2') &&
     (moveCall.module === 'coin' || moveCall.module === 'balance') &&
-    moveCall.function === 'redeem_funds'
+    (moveCall.function === 'redeem_funds' || moveCall.function === 'send_funds')
   );
 }
 
 function analyzeTransactionType(tx: Transaction) {
   const commands = tx.getData().commands;
-  const hasMoveCall = commands.some(
-    (cmd) =>
-      cmd.$kind === 'MoveCall' &&
-      cmd.MoveCall &&
-      !isAddressBalanceWithdrawCall(cmd.MoveCall),
+  const moveCalls = commands.filter(
+    (cmd) => cmd.$kind === 'MoveCall' && cmd.MoveCall,
   );
-  if (hasMoveCall) {
+
+  // Any move call that is NOT an address-balance op makes this a contract call.
+  const hasContractMoveCall = moveCalls.some(
+    (cmd) => cmd.MoveCall && !isAddressBalanceCall(cmd.MoveCall),
+  );
+  if (hasContractMoveCall) {
     return ESuiTransactionType.ContractInteraction;
   }
 
-  const transferCommands = commands.filter(
+  // send_funds deposits have no TransferObjects command, so treat any
+  // address-balance op as a transfer too (not just TransferObjects).
+  const hasAddressBalanceCall = moveCalls.some(
+    (cmd) => cmd.MoveCall && isAddressBalanceCall(cmd.MoveCall),
+  );
+  const hasTransferCommand = commands.some(
     (cmd) => cmd.$kind === 'TransferObjects',
   );
-  if (transferCommands.length) {
+  if (hasAddressBalanceCall || hasTransferCommand) {
     return ESuiTransactionType.TokenTransfer;
   }
   return ESuiTransactionType.Unknown;
@@ -295,8 +324,63 @@ function parseMoveCall(transaction: Transaction) {
   };
 }
 
+// Deposit a coin into the recipient's address balance accumulator.
+// 0x2::coin::send_funds<T>(coin: Coin<T>, recipient: address) — anyone can deposit.
+function createSendToAddressBalanceTransaction({
+  sender,
+  recipient,
+  amount,
+  coinType,
+}: {
+  sender: string;
+  recipient: string;
+  amount: string; // base units (MIST)
+  coinType: string;
+}) {
+  const tx = new Transaction();
+  tx.setSender(sender);
+  tx.moveCall({
+    target: '0x2::coin::send_funds',
+    typeArguments: [coinType],
+    arguments: [
+      // coinWithBalance sources from owned coins / address balance at build time
+      tx.coin({ type: coinType, balance: BigInt(amount) }),
+      tx.pure.address(recipient),
+    ],
+  });
+  return tx;
+}
+
+// Withdraw from the sender's own address balance and send it out as a coin.
+// 0x2::coin::redeem_funds<T>(Withdrawal<Balance<T>>) -> Coin<T>, then transfer.
+function createWithdrawFromAddressBalanceTransaction({
+  sender,
+  recipient,
+  amount,
+  coinType,
+}: {
+  sender: string;
+  recipient: string;
+  amount: string; // base units (MIST)
+  coinType: string;
+}) {
+  const tx = new Transaction();
+  tx.setSender(sender);
+  const [withdrawn] = tx.moveCall({
+    target: '0x2::coin::redeem_funds',
+    typeArguments: [coinType],
+    arguments: [
+      tx.withdrawal({ amount: BigInt(amount).toString(), type: coinType }),
+    ],
+  });
+  tx.transferObjects([withdrawn], recipient);
+  return tx;
+}
+
 export default {
   createTokenTransaction,
+  createSendToAddressBalanceTransaction,
+  createWithdrawFromAddressBalanceTransaction,
   analyzeTransactionType,
   parseTransferDetails,
   parseMoveCall,
