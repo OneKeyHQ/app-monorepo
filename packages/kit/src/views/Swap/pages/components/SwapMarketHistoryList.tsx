@@ -29,16 +29,17 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  EProtocolOfExchange,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  EProtocolOfExchange,
-  ESwapTxHistoryStatus,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { getSwapMarketPendingHistoryKey } from '../../utils/swapMarketHistory';
+import {
+  getSwapMarketPendingHistoryKey,
+  isSwapMarketHistoryItem,
+} from '../../utils/swapMarketHistory';
 
 interface ISectionData {
   title: string;
@@ -83,17 +84,7 @@ const SwapMarketHistoryList = ({
     let filterData = (swapTxHistoryList ?? []).filter(
       (item) => !isPrivateSendSwapHistoryItem(item),
     );
-    if (protocol === EProtocolOfExchange.STOCK) {
-      filterData = filterData.filter(
-        (item) => item.protocol === EProtocolOfExchange.STOCK,
-      );
-    } else {
-      filterData = filterData.filter(
-        (item) =>
-          item.protocol !== EProtocolOfExchange.STOCK &&
-          item.protocol !== EProtocolOfExchange.LIMIT,
-      );
-    }
+    filterData = filterData.filter(isSwapMarketHistoryItem);
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>
@@ -173,7 +164,7 @@ const SwapMarketHistoryList = ({
       ];
     }
     return result;
-  }, [filterToken, intl, protocol, showType, swapTxHistoryList]);
+  }, [filterToken, intl, showType, swapTxHistoryList]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (

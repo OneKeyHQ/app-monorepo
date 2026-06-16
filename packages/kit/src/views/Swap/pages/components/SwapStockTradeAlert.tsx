@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -26,6 +27,7 @@ import {
   type IUseSwapStockChannelReturn,
 } from '../../hooks/useSwapStockChannel';
 import { SwapTestIDs } from '../../testIDs';
+import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalytics';
 
 import SwapAlertContainer from './SwapAlertContainer';
 
@@ -154,6 +156,7 @@ function BasicSwapStockTradeAlert({
     EPerpPageEnterSource.MarketList,
   );
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const stockAlertShownKeysRef = useRef(new Set<string>());
   const stockQuoteAlert = useStockQuoteAlert({ quoteResult, stockChannel });
   const notAvailableInRegionMessage = intl.formatMessage({
     id: ETranslations.trade_stock_not_available_in_region,
@@ -215,8 +218,23 @@ function BasicSwapStockTradeAlert({
     if (!canOpenPerps || !perpsTicker) {
       return;
     }
+    defaultLogger.swap.stockTradeAlert.stockTradeAlertActionClick({
+      ...getStockTradeAlertAnalyticsPayload({
+        alertType: 'marketClosed',
+        alertLevel: ESwapAlertLevel.WARNING,
+        tradeSide: stockChannel.tradeSide,
+        stockToken: stockChannel.currentStockToken,
+      }),
+      action: 'perp',
+    });
     navigateToPerps(perpsTicker);
-  }, [canOpenPerps, navigateToPerps, perpsTicker]);
+  }, [
+    canOpenPerps,
+    navigateToPerps,
+    perpsTicker,
+    stockChannel.currentStockToken,
+    stockChannel.tradeSide,
+  ]);
 
   const shouldShowSwapAlerts =
     alerts.states.length > 0 &&
@@ -240,6 +258,74 @@ function BasicSwapStockTradeAlert({
     }
     return swapAlerts;
   }, [stockPrimaryAlert, swapAlerts]);
+
+  const stockAlertForLog = useMemo(() => {
+    if (isStockMarketClosed) {
+      return {
+        alertType: 'marketClosed',
+        alertLevel: ESwapAlertLevel.WARNING,
+      };
+    }
+    if (
+      stockChannel.channelStage === ESwapStockChannelStage.MarketUnavailable
+    ) {
+      return {
+        alertType: 'marketUnavailable',
+        alertLevel: ESwapAlertLevel.WARNING,
+      };
+    }
+    if (stockChannel.channelStage === ESwapStockChannelStage.MissingPayToken) {
+      return {
+        alertType: 'missingPayToken',
+        alertLevel: ESwapAlertLevel.WARNING,
+      };
+    }
+    if (stockPrimaryAlert) {
+      return {
+        alertType:
+          stockPrimaryAlert === stockQuoteAlert ? 'quoteAlert' : 'stockEvent',
+        alertLevel: stockPrimaryAlert.alertLevel,
+        message: stockPrimaryAlert.message,
+      };
+    }
+    return undefined;
+  }, [
+    isStockMarketClosed,
+    stockChannel.channelStage,
+    stockPrimaryAlert,
+    stockQuoteAlert,
+  ]);
+
+  useEffect(() => {
+    if (!stockAlertForLog) {
+      return;
+    }
+    const alertKey = [
+      stockAlertForLog.alertType,
+      stockAlertForLog.alertLevel,
+      stockAlertForLog.message,
+      stockChannel.tradeSide,
+      stockChannel.currentStockToken?.networkId,
+      stockChannel.currentStockToken?.contractAddress,
+      stockChannel.currentStockToken?.symbol,
+    ].join('|');
+    if (stockAlertShownKeysRef.current.has(alertKey)) {
+      return;
+    }
+    stockAlertShownKeysRef.current.add(alertKey);
+    defaultLogger.swap.stockTradeAlert.stockTradeAlertShown(
+      getStockTradeAlertAnalyticsPayload({
+        alertType: stockAlertForLog.alertType,
+        alertLevel: stockAlertForLog.alertLevel,
+        tradeSide: stockChannel.tradeSide,
+        stockToken: stockChannel.currentStockToken,
+      }),
+    );
+  }, [
+    stockAlertForLog,
+    stockChannel.currentStockToken,
+    stockChannel.tradeSide,
+  ]);
 
   if (isStockMarketClosed) {
     const description = canOpenPerps

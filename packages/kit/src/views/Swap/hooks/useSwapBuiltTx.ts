@@ -128,6 +128,7 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
+import { getStockTradeAnalyticsPayload } from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -1881,6 +1882,15 @@ export function useSwapBuildTx() {
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
         orderId: buildSwapRes?.orderId ?? '',
+        orderType:
+          buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
+            ? 'market'
+            : undefined,
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildSwapRes.result?.protocol,
+          fromToken: buildSwapRes.result?.fromTokenInfo,
+          toToken: buildSwapRes.result?.toTokenInfo,
+        }),
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1994,6 +2004,15 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
             orderId: buildSwapRes?.orderId ?? '',
+            orderType:
+              data?.protocol === EProtocolOfExchange.STOCK
+                ? 'market'
+                : undefined,
+            ...getStockTradeAnalyticsPayload({
+              protocol: data?.protocol,
+              fromToken: data?.fromTokenInfo,
+              toToken: data?.toTokenInfo,
+            }),
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');

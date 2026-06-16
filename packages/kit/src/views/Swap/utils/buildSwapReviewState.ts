@@ -316,6 +316,11 @@ export function buildSwapReviewState({
     });
   }
 
+  const isStockReview = quoteResult?.protocol === EProtocolOfExchange.STOCK;
+  const hasNetworkFeeStep = steps.some(
+    (step) => step.type !== ESwapStepType.SIGN_MESSAGE,
+  );
+
   const preSwapData: ISwapPreSwapData = {
     swapType,
     fromToken,
@@ -329,19 +334,20 @@ export function buildSwapReviewState({
     minToAmount: quoteResult?.minToAmount,
     slippage:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT ||
-      quoteResult?.unSupportSlippage
+      (quoteResult?.unSupportSlippage && !isStockReview)
         ? undefined
         : slippage,
     rateDifference:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT
         ? undefined
         : reviewRateDifference,
-    unSupportSlippage: quoteResult?.unSupportSlippage ?? false,
+    unSupportSlippage: Boolean(
+      quoteResult?.unSupportSlippage && !isStockReview,
+    ),
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,
     allowanceResult: quoteResult?.allowanceResult,
-    ...(steps.length > 0 &&
-    steps[steps.length - 1].type !== ESwapStepType.SIGN_MESSAGE
+    ...(steps.length > 0 && hasNetworkFeeStep
       ? {
           supportNetworkFeeLevel: true,
         }

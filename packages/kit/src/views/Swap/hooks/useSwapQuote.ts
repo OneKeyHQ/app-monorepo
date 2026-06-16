@@ -52,6 +52,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapManualProviderSelectionIntent } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { shouldPreserveSwapUserInputAmountOnAccountSwitch } from '../utils/swapColdStartTokenCacheUtils';
+import { getStockTradeAnalyticsPayload } from '../utils/swapStockAnalytics';
 import { getSwapExecutionType } from '../utils/swapTypeUtils';
 import { truncateDecimalPlaces } from '../utils/utils';
 
@@ -757,6 +758,11 @@ export function useSwapQuote() {
         status: finalStatus,
         providerQuoteResult,
         message: finalMessage,
+        ...getStockTradeAnalyticsPayload({
+          protocol: quoteProtocol,
+          fromToken: fromTokenRef.current,
+          toToken: toTokenRef.current,
+        }),
       });
     },
     [swapAddressInfo.address, swapToAddressInfo.address],

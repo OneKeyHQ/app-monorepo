@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
-  DashText,
   Divider,
   Empty,
   Icon,
@@ -57,6 +56,7 @@ import {
   formatCurrencyStatValue,
   formatMarketCapValue,
   formatPercentValue,
+  formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
 import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -210,6 +210,7 @@ function buildStockMarketDataRows({
   tokenDetail?: IStockMarketTokenDetail;
 }): IStockMarketDataRow[] {
   const assetAnalysis = tokenDetail?.stock?.assetAnalysis;
+  const tradingActivity = tokenDetail?.stock?.tradingActivity;
   return [
     {
       label: intl.formatMessage({
@@ -233,21 +234,30 @@ function buildStockMarketDataRows({
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
+        id: ETranslations.dexmarket_stock_pe_ttm,
       }),
-      value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
+      value: formatRatioValue(tradingActivity?.peRatio),
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_pe_ttm_desc,
+      }),
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.dexmarket_stock_52_week_high,
+        id: ETranslations.dexmarket_stock_ps,
       }),
-      value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
+      value: formatRatioValue(tradingActivity?.psRatio),
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_ps_desc,
+      }),
     },
     {
       label: intl.formatMessage({
-        id: ETranslations.dexmarket_stock_52_week_low,
+        id: ETranslations.dexmarket_stock_dividend_yield,
       }),
-      value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
+      value: formatPercentValue(tradingActivity?.dividendYield),
+      tooltip: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_dividend_yield_desc,
+      }),
     },
   ];
 }
@@ -281,6 +291,7 @@ function StockMarketDataGridContent({
                 compact={compact}
                 label={item.label}
                 value={item.value}
+                tooltip={item.tooltip}
               />
             ))}
           </XStack>
@@ -408,16 +419,11 @@ function StockEstimatedReceive({
     >
       <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
         <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
-        <DashText
-          size="$bodyMd"
-          color="$text"
-          dashColor="$borderStrong"
-          dashThickness={0.5}
-        >
+        <SizableText size="$bodyMd" color="$text">
           {intl.formatMessage({
             id: ETranslations.private_send_estimated_received,
           })}
-        </DashText>
+        </SizableText>
       </XStack>
       <YStack flex={1} maxWidth={360} alignItems="flex-end" minWidth={0}>
         {isLoading ? (
@@ -1212,7 +1218,7 @@ function SwapStockDesktopContent({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type: EProtocolOfExchange.STOCK,
+        type: EProtocolOfExchange.SWAP,
         storeName,
       },
     });

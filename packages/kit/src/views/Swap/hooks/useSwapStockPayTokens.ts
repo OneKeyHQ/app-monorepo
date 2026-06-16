@@ -18,6 +18,7 @@ import type {
 
 import {
   ESwapStockChannelAsyncStatus,
+  filterStockPayTokenCandidates,
   findDefaultStockPayToken,
   findTokenFromCandidates,
   getTokenIdentityKey,
@@ -214,13 +215,16 @@ export function useSwapStockPayTokens({
   ]);
 
   const rawPayTokens = useMemo(() => {
-    if (!defaultTokens?.length) {
+    const stockPayTokenCandidates = filterStockPayTokenCandidates(
+      defaultTokens ?? [],
+    );
+    if (!stockPayTokenCandidates.length) {
       return [];
     }
-    if (!currentStockTokenKey || defaultTokens.length === 1) {
-      return [...defaultTokens];
+    if (!currentStockTokenKey || stockPayTokenCandidates.length === 1) {
+      return [...stockPayTokenCandidates];
     }
-    return defaultTokens.filter(
+    return stockPayTokenCandidates.filter(
       (token) =>
         !equalTokenNoCaseSensitive({
           token1: token,
@@ -368,6 +372,14 @@ export function useSwapStockPayTokens({
         : payTokens,
     [disableNativePayToken, payTokens],
   );
+  const activeSelectablePayToken = useMemo(
+    () =>
+      findTokenFromCandidates({
+        candidates: selectablePayTokens,
+        token: payToken,
+      }),
+    [payToken, selectablePayTokens],
+  );
   const payTokenBalances = payTokenDetailsReady
     ? payTokenDetailsState.balances
     : undefined;
@@ -405,10 +417,6 @@ export function useSwapStockPayTokens({
       return;
     }
 
-    const currentToken = findTokenFromCandidates({
-      candidates: selectablePayTokens,
-      token: payToken,
-    });
     const persistedToken = persistedStockPayTokenKey
       ? selectablePayTokens.find(
           (candidate) =>
@@ -420,12 +428,15 @@ export function useSwapStockPayTokens({
       balances: payTokenBalances,
     });
     const nextPayToken = persistedToken ?? preferredToken;
+    if (!nextPayToken) {
+      return;
+    }
     if (
-      currentToken &&
+      activeSelectablePayToken &&
       (manualStockPayTokenKeyRef.current ===
-        getTokenIdentityKey(currentToken) ||
+        getTokenIdentityKey(activeSelectablePayToken) ||
         equalTokenNoCaseSensitive({
-          token1: currentToken,
+          token1: activeSelectablePayToken,
           token2: nextPayToken,
         }))
     ) {
@@ -434,6 +445,7 @@ export function useSwapStockPayTokens({
 
     selectPayToken(nextPayToken, false);
   }, [
+    activeSelectablePayToken,
     manualStockPayTokenKeyRef,
     payToken,
     payTokenDetailsReady,
@@ -459,8 +471,12 @@ export function useSwapStockPayTokens({
     if (selectablePayTokens.length === 0) {
       return ESwapStockChannelAsyncStatus.Empty;
     }
+    if (!activeSelectablePayToken) {
+      return ESwapStockChannelAsyncStatus.Initializing;
+    }
     return ESwapStockChannelAsyncStatus.Ready;
   }, [
+    activeSelectablePayToken,
     payTokenOptionsLoading,
     payTokenDetailsLoading,
     payTokenDetailsReady,

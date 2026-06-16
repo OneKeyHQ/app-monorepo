@@ -57,7 +57,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   swapSlippageCustomDefaultList,
   swapSlippageItems,
@@ -79,6 +78,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
 import { buildSwapRecipientAddressSettingsUpdate } from '../../utils/incognitoSettings';
+import { isSwapMarketHistoryItem } from '../../utils/swapMarketHistory';
 import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -588,15 +588,11 @@ const SwapHeaderRightActionContainer = ({
     () =>
       filterSwapHistoryPendingList(swapHistoryPendingList).filter(
         (i) =>
-          !isPrivateSendSwapHistoryItem(i) &&
-          (swapTypeSwitch === ESwapTabSwitchType.STOCK
-            ? i.protocol === EProtocolOfExchange.STOCK
-            : i.protocol !== EProtocolOfExchange.STOCK &&
-              i.protocol !== EProtocolOfExchange.LIMIT) &&
+          isSwapMarketHistoryItem(i) &&
           (i.status === ESwapTxHistoryStatus.PENDING ||
             i.status === ESwapTxHistoryStatus.CANCELING),
       ),
-    [swapHistoryPendingList, swapTypeSwitch],
+    [swapHistoryPendingList],
   );
   const limitOpenStatusList = useMemo(
     () =>
@@ -621,9 +617,6 @@ const SwapHeaderRightActionContainer = ({
       swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
       showSwapProSlippageSetting);
   const historyProtocolType = useMemo(() => {
-    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-      return EProtocolOfExchange.STOCK;
-    }
     if (
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)

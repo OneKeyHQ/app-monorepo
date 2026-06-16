@@ -81,6 +81,10 @@ import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../utils/swapStockAnalytics';
 
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
@@ -982,8 +986,11 @@ export function useSwapProTokenSearch(
             resultCount: finalList.length,
             networkId: currentNetworkId,
             networkName,
+            network: networkName,
             direction: ESwapDirectionType.FROM,
             from: 'pro',
+            tokenRole: getSwapAnalyticsTokenRole(ESwapDirectionType.FROM),
+            tokenListType: getSwapAnalyticsTokenListType({ from: 'pro' }),
           });
         }
       } catch (e) {

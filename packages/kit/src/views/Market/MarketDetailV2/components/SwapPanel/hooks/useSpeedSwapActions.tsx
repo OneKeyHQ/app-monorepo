@@ -26,6 +26,7 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { getStockTradeAnalyticsPayload } from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
   useInAppNotificationAtom,
@@ -1061,6 +1062,15 @@ export function useSpeedSwapActions(props: {
         router: JSON.stringify(buildRes.result?.routesData ?? ''),
         isFirstTime: settingsAtom.isFirstTimeSwap,
         createFrom: 'marketDex',
+        orderType:
+          buildRes.result?.protocol === EProtocolOfExchange.STOCK
+            ? 'market'
+            : undefined,
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildRes.result?.protocol,
+          fromToken: buildRes.result?.fromTokenInfo,
+          toToken: buildRes.result?.toTokenInfo,
+        }),
       });
     },
     [

@@ -127,6 +127,24 @@ export function buildStockSwapTokenFromMarketDetail({
   };
 }
 
+export function resolveStockChannelToken({
+  stockTokenState,
+  marketStockToken,
+}: {
+  stockTokenState?: ISwapToken;
+  marketStockToken?: ISwapToken;
+}) {
+  return stockTokenState ?? marketStockToken;
+}
+
+export function filterStockPayTokenCandidates<
+  T extends Partial<ISwapTokenBase>,
+>(candidates: T[]) {
+  return candidates.filter((candidate) =>
+    STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
+  );
+}
+
 export function findTokenFromCandidates({
   candidates,
   token,
@@ -146,10 +164,7 @@ export function findTokenFromCandidates({
 }
 
 function getStockDefaultPayTokenCandidates(candidates: IToken[]) {
-  const stablePayTokens = candidates.filter((candidate) =>
-    STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
-  );
-  return stablePayTokens.length ? stablePayTokens : candidates;
+  return filterStockPayTokenCandidates(candidates);
 }
 
 function getTokenBalanceValue({
@@ -189,5 +204,5 @@ export function findDefaultStockPayToken({
       return bestToken;
     }
   }
-  return preferredCandidates[0] ?? candidates[0];
+  return preferredCandidates[0];
 }

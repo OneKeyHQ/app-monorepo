@@ -45,6 +45,10 @@ import {
   isSwapNetworkCacheCompatible,
   isSwapNetworkCacheReadyForBasicList,
 } from '../utils/swapNetworkCacheUtils';
+import {
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../utils/swapStockAnalytics';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
@@ -443,8 +447,13 @@ export function useSwapTokenList(
         networkName: currentSelectNetwork?.isAllNetworks
           ? 'All Networks'
           : (currentSelectNetwork?.name ?? ''),
+        network: currentSelectNetwork?.isAllNetworks
+          ? 'All Networks'
+          : (currentSelectNetwork?.name ?? networkId),
         direction: selectTokenModalType,
         from,
+        tokenRole: getSwapAnalyticsTokenRole(selectTokenModalType),
+        tokenListType: getSwapAnalyticsTokenListType({ from }),
       });
 
       searchLogStateRef.current = { key, phase: 'done' };

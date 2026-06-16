@@ -16,12 +16,14 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IFetchUSMarketStatusResult,
   IMarketPresetTokenContext,
   ISwapToken,
   ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapStockChannelAsyncStatus,
@@ -29,8 +31,10 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketToken,
+  filterStockPayTokenCandidates,
   getMarketPresetTokenKey,
   getTokenIdentityKey,
+  resolveStockChannelToken,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
@@ -70,6 +74,11 @@ export function useSwapStockChannel({
 
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
   const marketPresetTokenKey = getMarketPresetTokenKey(marketPresetToken);
+  const activeMarketTokenKey = getTokenIdentityKey({
+    networkId: networkId ?? '',
+    contractAddress: tokenAddress ?? '',
+    isNative: !!isNative,
+  });
   const marketStockToken = useMemo(
     () =>
       tokenDetail?.stock
@@ -83,18 +92,26 @@ export function useSwapStockChannel({
     [isNative, networkId, tokenAddress, tokenDetail],
   );
   const swapPairPayToken = isBuySide ? fromToken : toToken;
-  const swapPairStockToken = isBuySide ? toToken : fromToken;
-  const selectedStockToken = stockTokenState ?? swapPairStockToken;
-  const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
-  const currentStockToken = selectedStockToken ?? marketStockToken;
-  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
-  const payToken = payTokenState ?? swapPairPayToken;
-  const stockNetworkId = currentStockToken?.networkId ?? networkId ?? '';
-  const activeMarketTokenKey = getTokenIdentityKey({
-    networkId: networkId ?? '',
-    contractAddress: tokenAddress ?? '',
-    isNative: !!isNative,
+  const selectedStockToken = resolveStockChannelToken({
+    stockTokenState,
+    marketStockToken,
   });
+  const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
+  const currentStockToken = selectedStockToken;
+  const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
+  const swapPairStockPayToken = useMemo(
+    () =>
+      filterStockPayTokenCandidates(
+        swapPairPayToken ? [swapPairPayToken] : [],
+      )[0],
+    [swapPairPayToken],
+  );
+  const payToken = payTokenState ?? swapPairStockPayToken;
+  const stockNetworkId = currentStockToken?.networkId ?? networkId ?? '';
+  const isActiveMarketStockDetail =
+    !!currentStockTokenKey &&
+    activeMarketTokenKey === currentStockTokenKey &&
+    !!tokenDetail?.stock;
 
   const requestMarketActiveToken = useCallback(
     (token?: Partial<ISwapTokenBase>) => {
@@ -190,6 +207,11 @@ export function useSwapStockChannel({
       if (!token?.networkId) {
         return;
       }
+      defaultLogger.swap.selectToken.selectToken({
+        selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
+        tokenRole: 'stockToken',
+        tokenListType: 'stock',
+      });
       requestMarketActiveToken(token);
       selectStockSwapToken(token, { resetAmounts: true });
     };
@@ -233,7 +255,7 @@ export function useSwapStockChannel({
   const stockMarketStatus = useMemo<
     IFetchUSMarketStatusResult | undefined
   >(() => {
-    if (!currentStockTokenKey || !tokenDetail?.stock) {
+    if (!isActiveMarketStockDetail || !tokenDetail?.stock) {
       return undefined;
     }
     const isOpen = tokenDetail.stock.isOpen;
@@ -243,7 +265,7 @@ export function useSwapStockChannel({
       reason: tokenDetail.stock.description ?? null,
       unavailable: typeof isOpen === 'boolean' ? undefined : true,
     };
-  }, [currentStockTokenKey, tokenDetail?.stock]);
+  }, [isActiveMarketStockDetail, tokenDetail?.stock]);
   const stockMarketStatusOpen = stockMarketStatus?.open === true;
 
   const selectPayToken = useCallback(
@@ -281,6 +303,11 @@ export function useSwapStockChannel({
     (token: IMarketToken) => {
       const nextSwapToken = buildStockSwapTokenFromMarketToken(token);
       requestedStockTokenKeyRef.current = getTokenIdentityKey(nextSwapToken);
+      defaultLogger.swap.selectToken.selectToken({
+        selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
+        tokenRole: 'stockToken',
+        tokenListType: 'stock',
+      });
       requestMarketActiveToken(nextSwapToken);
       selectStockSwapToken(nextSwapToken, { resetAmounts: true });
     },
@@ -336,14 +363,19 @@ export function useSwapStockChannel({
     if (!currentStockTokenKey) {
       return ESwapStockChannelAsyncStatus.Idle;
     }
-    if (!tokenDetail?.stock) {
+    if (!isActiveMarketStockDetail || !tokenDetail?.stock) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
     if (stockMarketStatus) {
       return ESwapStockChannelAsyncStatus.Ready;
     }
     return ESwapStockChannelAsyncStatus.Empty;
-  }, [currentStockTokenKey, stockMarketStatus, tokenDetail?.stock]);
+  }, [
+    currentStockTokenKey,
+    isActiveMarketStockDetail,
+    stockMarketStatus,
+    tokenDetail?.stock,
+  ]);
 
   const channelStage = useMemo(() => {
     if (stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing) {

@@ -76,6 +76,10 @@ import NetworkToggleGroup from '../../components/SwapNetworkToggleGroup';
 import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
+import {
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../../utils/swapStockAnalytics';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import {
@@ -390,9 +394,20 @@ const SwapTokenSelectPage = ({
         selectFrom: item.isPopular
           ? ESwapSelectTokenSource.POPULAR_SELECT
           : ESwapSelectTokenSource.NORMAL_SELECT,
+        tokenRole: getSwapAnalyticsTokenRole(type),
+        tokenListType: getSwapAnalyticsTokenListType({
+          swapType: swapTypeSwitch,
+        }),
       });
     },
-    [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
+    [
+      checkRiskToken,
+      navigation,
+      route.params.storeName,
+      selectTokenHandler,
+      swapTypeSwitch,
+      type,
+    ],
   );
 
   const onSelectCurrentNetwork = useCallback(

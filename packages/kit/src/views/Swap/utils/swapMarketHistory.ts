@@ -6,20 +6,24 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
-function matchSwapHistoryProtocol({
+export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
+  return (
+    item.protocol !== EProtocolOfExchange.LIMIT &&
+    !isPrivateSendSwapHistoryItem(item)
+  );
+}
+
+function matchSwapMarketHistoryProtocol({
   item,
   protocol,
 }: {
   item: ISwapTxHistory;
   protocol?: EProtocolOfExchange;
 }) {
-  if (protocol === EProtocolOfExchange.STOCK) {
-    return item.protocol === EProtocolOfExchange.STOCK;
+  if (protocol === EProtocolOfExchange.LIMIT) {
+    return false;
   }
-  return (
-    item.protocol !== EProtocolOfExchange.STOCK &&
-    item.protocol !== EProtocolOfExchange.LIMIT
-  );
+  return isSwapMarketHistoryItem(item);
 }
 
 function getSwapMarketPendingHistoryList(
@@ -28,8 +32,7 @@ function getSwapMarketPendingHistoryList(
 ) {
   return filterSwapHistoryPendingList(swapHistoryPendingList).filter(
     (item) =>
-      !isPrivateSendSwapHistoryItem(item) &&
-      matchSwapHistoryProtocol({ item, protocol }) &&
+      matchSwapMarketHistoryProtocol({ item, protocol }) &&
       (item.status === ESwapTxHistoryStatus.PENDING ||
         item.status === ESwapTxHistoryStatus.CANCELING),
   );
