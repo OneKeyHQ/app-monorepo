@@ -438,6 +438,10 @@ function DepositWithdrawContent({
   if (tokensRef.current !== tokens) {
     tokensRef.current = tokens;
   }
+  const cachedDepositTokens = useMemo(
+    () => Object.values(tokens).flat(),
+    [tokens],
+  );
   const currentPerpsDepositSelectedTokenRef = useRef<
     IPerpsDepositToken | undefined
   >(currentPerpsDepositSelectedToken);
@@ -1426,8 +1430,25 @@ function DepositWithdrawContent({
     ],
   );
 
+  const fallbackSelectedDepositToken = useMemo(() => {
+    const arbitrumUsdcToken = cachedDepositTokens.find((token) =>
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: {
+          networkId: PERPS_NETWORK_ID,
+          contractAddress: USDC_TOKEN_INFO.address,
+        },
+      }),
+    );
+
+    return arbitrumUsdcToken ?? cachedDepositTokens[0];
+  }, [cachedDepositTokens]);
+
+  const resolvedCurrentPerpsDepositSelectedToken =
+    currentPerpsDepositSelectedToken ?? fallbackSelectedDepositToken;
+
   useEffect(() => {
-    if (!currentPerpsDepositSelectedToken) {
+    if (!currentPerpsDepositSelectedToken && fallbackSelectedDepositToken) {
       const arbUSDCToken = depositTokensWithPrice.find((token) =>
         equalTokenNoCaseSensitive({
           token1: token,
@@ -1440,7 +1461,9 @@ function DepositWithdrawContent({
       setPerpsDepositTokensAtom((prev) => ({
         ...prev,
         currentPerpsDepositSelectedToken:
-          arbUSDCToken ?? depositTokensWithPrice?.[0],
+          arbUSDCToken ??
+          depositTokensWithPrice?.[0] ??
+          fallbackSelectedDepositToken,
       }));
     } else if (!checkAccountSupport) {
       setPerpsDepositTokensAtom((prev) => ({
@@ -1449,6 +1472,7 @@ function DepositWithdrawContent({
       }));
     }
   }, [
+    fallbackSelectedDepositToken,
     depositTokensWithPrice,
     currentPerpsDepositSelectedToken,
     setPerpsDepositTokensAtom,
@@ -1456,11 +1480,11 @@ function DepositWithdrawContent({
   ]);
 
   const currentNetworkInfo = useMemo(() => {
-    if (!currentPerpsDepositSelectedToken?.networkId) return null;
+    if (!resolvedCurrentPerpsDepositSelectedToken?.networkId) return null;
     return networkUtils.getLocalNetworkInfo(
-      currentPerpsDepositSelectedToken.networkId,
+      resolvedCurrentPerpsDepositSelectedToken.networkId,
     );
-  }, [currentPerpsDepositSelectedToken?.networkId]);
+  }, [resolvedCurrentPerpsDepositSelectedToken?.networkId]);
 
   const perpsNetworkInfo = useMemo(
     () => networkUtils.getLocalNetworkInfo(PERPS_NETWORK_ID),
@@ -1491,14 +1515,15 @@ function DepositWithdrawContent({
   }, []);
 
   const depositTokenSelectComponent = useMemo(() => {
-    const sourceBalanceFormatted =
-      currentPerpsDepositSelectedToken?.balanceParsed
-        ? numberFormat(currentPerpsDepositSelectedToken.balanceParsed, {
-            formatter: 'balance',
-          })
-        : '--';
+    const displayDepositToken = resolvedCurrentPerpsDepositSelectedToken;
+    const hasSourceBalance = displayDepositToken?.balanceParsed !== undefined;
+    const sourceBalanceFormatted = hasSourceBalance
+      ? numberFormat(displayDepositToken.balanceParsed, {
+          formatter: 'balance',
+        })
+      : '--';
     const sourceBalanceText = `${sourceBalanceFormatted} ${
-      currentPerpsDepositSelectedToken?.symbol ?? ''
+      displayDepositToken?.symbol ?? ''
     }`;
 
     return (
@@ -1512,49 +1537,34 @@ function DepositWithdrawContent({
         onPress={openTokenSelectorPage}
       >
         <XStack alignItems="center" gap="$2.5" flex={1} minWidth={0}>
-          {balanceLoading && checkAccountSupport ? (
-            <Skeleton w="$9" h="$9" radius="round" />
-          ) : (
-            <Token
-              size="md"
-              tokenImageUri={currentPerpsDepositSelectedToken?.logoURI}
-              networkImageUri={currentPerpsDepositSelectedToken?.networkLogoURI}
-              showNetworkIcon
-            />
-          )}
+          <Token
+            size="md"
+            tokenImageUri={displayDepositToken?.logoURI}
+            networkImageUri={displayDepositToken?.networkLogoURI}
+            showNetworkIcon
+          />
           <YStack flex={1} minWidth={0}>
-            {balanceLoading && checkAccountSupport ? (
-              <YStack gap="$1.5">
-                <XStack w="$28" h="$4">
-                  <Skeleton w="100%" h="100%" />
-                </XStack>
-                <XStack w="$24" h="$4">
-                  <Skeleton w="100%" h="100%" />
-                </XStack>
-              </YStack>
-            ) : (
-              <YStack gap="$0.5">
-                <XStack alignItems="center" gap="$1" flexWrap="wrap">
-                  <SizableText size="$bodyMdMedium" color="$text">
-                    {currentPerpsDepositSelectedToken?.symbol ?? '-'}
-                  </SizableText>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {currentNetworkInfo?.name ?? ''}
-                  </SizableText>
-                  <Icon
-                    name="ChevronDownSmallOutline"
-                    color="$iconSubdued"
-                    size="$3.5"
-                  />
-                </XStack>
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {sourceBalanceText}
+            <YStack gap="$0.5">
+              <XStack alignItems="center" gap="$1" flexWrap="wrap">
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {displayDepositToken?.symbol ?? '-'}
                 </SizableText>
-              </YStack>
-            )}
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {currentNetworkInfo?.name ?? ''}
+                </SizableText>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  color="$iconSubdued"
+                  size="$3.5"
+                />
+              </XStack>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {sourceBalanceText}
+              </SizableText>
+            </YStack>
           </YStack>
         </XStack>
-        {!balanceLoading ? (
+        {checkAccountSupport ? (
           <Button
             testID="perp-deposit-token-max"
             variant="secondary"
@@ -1563,14 +1573,15 @@ function DepositWithdrawContent({
             h="$8"
             minWidth={56}
             ml="$1"
+            disabled={!hasSourceBalance}
             onPress={() => {
               handleMaxPress({
-                networkId: currentPerpsDepositSelectedToken?.networkId ?? '',
-                isNative: !!currentPerpsDepositSelectedToken?.isNative,
-                amount: currentPerpsDepositSelectedToken?.balanceParsed || '0',
-                symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
-                decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
-                price: currentPerpsDepositSelectedToken?.price,
+                networkId: displayDepositToken?.networkId ?? '',
+                isNative: !!displayDepositToken?.isNative,
+                amount: displayDepositToken?.balanceParsed || '0',
+                symbol: displayDepositToken?.symbol ?? '',
+                decimals: displayDepositToken?.decimals ?? 6,
+                price: displayDepositToken?.price,
               });
             }}
           >
@@ -1580,20 +1591,12 @@ function DepositWithdrawContent({
       </XStack>
     );
   }, [
-    balanceLoading,
     checkAccountSupport,
     currentNetworkInfo?.name,
-    currentPerpsDepositSelectedToken?.balanceParsed,
-    currentPerpsDepositSelectedToken?.decimals,
-    currentPerpsDepositSelectedToken?.isNative,
-    currentPerpsDepositSelectedToken?.logoURI,
-    currentPerpsDepositSelectedToken?.networkId,
-    currentPerpsDepositSelectedToken?.networkLogoURI,
-    currentPerpsDepositSelectedToken?.price,
-    currentPerpsDepositSelectedToken?.symbol,
     handleMaxPress,
     intl,
     openTokenSelectorPage,
+    resolvedCurrentPerpsDepositSelectedToken,
   ]);
 
   const depositToAmount = useMemo(() => {
