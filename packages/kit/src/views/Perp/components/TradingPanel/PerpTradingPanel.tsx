@@ -53,7 +53,10 @@ import {
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
-import { TradingButtonGroup } from './TradingButtonGroup';
+import {
+  FORCE_PERPS_ORDER_PANEL_IP_RESTRICTED,
+  TradingButtonGroup,
+} from './TradingButtonGroup';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -369,6 +372,10 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   );
 
   const canShowTradingButtons = useMemo(() => {
+    if (FORCE_PERPS_ORDER_PANEL_IP_RESTRICTED) {
+      return true;
+    }
+
     return shouldShowPerpsOrderPanelTradingButtons({
       canShowCachedTradingButtons,
       statusReady: displayReady.statusReady,

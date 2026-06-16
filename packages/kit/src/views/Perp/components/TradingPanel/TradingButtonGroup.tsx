@@ -120,6 +120,7 @@ import type { LayoutChangeEvent } from 'react-native';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+export const FORCE_PERPS_ORDER_PANEL_IP_RESTRICTED = true;
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -235,6 +236,9 @@ function SideButtonInternal({
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const isPerpActionIpRestricted =
+    FORCE_PERPS_ORDER_PANEL_IP_RESTRICTED ||
+    Boolean(perpConfigCommon?.ipDisablePerp);
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
@@ -373,10 +377,9 @@ function SideButtonInternal({
   const isServerActionDisabled = useMemo(
     () =>
       Boolean(
-        perpConfigCommon?.disablePerpActionPerp ||
-        perpConfigCommon?.ipDisablePerp,
+        perpConfigCommon?.disablePerpActionPerp || isPerpActionIpRestricted,
       ),
-    [perpConfigCommon?.disablePerpActionPerp, perpConfigCommon?.ipDisablePerp],
+    [isPerpActionIpRestricted, perpConfigCommon?.disablePerpActionPerp],
   );
 
   const shouldAutoEnableTrading = useMemo(
@@ -523,6 +526,10 @@ function SideButtonInternal({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
+    if (isPerpActionIpRestricted)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_ip_restricted,
+      });
     if (formData.orderMode === 'scale') {
       return side === 'long'
         ? intl.formatMessage({
@@ -535,10 +542,6 @@ function SideButtonInternal({
     if (priceError === 'bbo_unavailable' && !shouldEnableTradingBeforeOrder)
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
-      });
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
       });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
@@ -578,7 +581,7 @@ function SideButtonInternal({
     side,
     spotTradeSymbol,
     intl,
-    perpConfigCommon?.ipDisablePerp,
+    isPerpActionIpRestricted,
     perpConfigCommon?.disablePerpActionPerp,
     shouldEnableTradingBeforeOrder,
   ]);
@@ -1324,7 +1327,7 @@ function SideButtonInternal({
       hasSecondaryText: Boolean(buttonSecondaryText),
       hasOrderValue,
       disablePerpAction: Boolean(perpConfigCommon?.disablePerpActionPerp),
-      ipDisablePerp: Boolean(perpConfigCommon?.ipDisablePerp),
+      ipDisablePerp: isPerpActionIpRestricted,
       marketDataFreshness: marketDataFreshness.reason,
     });
   }, [
@@ -1336,8 +1339,8 @@ function SideButtonInternal({
     isMobile,
     isNoEnoughMargin,
     isSpot,
+    isPerpActionIpRestricted,
     perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.enableTradingTriggered,
     perpsAccountLoading.enableTradingStatusPending,
@@ -1643,6 +1646,9 @@ function EmptySizeSideButton({
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const isPerpActionIpRestricted =
+    FORCE_PERPS_ORDER_PANEL_IP_RESTRICTED ||
+    Boolean(perpConfigCommon?.ipDisablePerp);
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
@@ -1677,7 +1683,7 @@ function EmptySizeSideButton({
   const shouldEnableTradingBeforeOrder =
     shouldAutoEnableTrading || shouldShowEnableTradingDialog;
   const isServerActionDisabled = Boolean(
-    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+    perpConfigCommon?.disablePerpActionPerp || isPerpActionIpRestricted,
   );
   const hasNonColdStartDisabledReason =
     isSubmitting ||
@@ -1722,7 +1728,7 @@ function EmptySizeSideButton({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (perpConfigCommon?.ipDisablePerp)
+    if (isPerpActionIpRestricted)
       return intl.formatMessage({
         id: ETranslations.perp_button_ip_restricted,
       });
@@ -1761,7 +1767,7 @@ function EmptySizeSideButton({
     intl,
     isSpot,
     perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
+    isPerpActionIpRestricted,
     side,
     spotTradeSymbol,
   ]);
