@@ -338,7 +338,7 @@ function StockEstimatedReceive({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const intl = useIntl();
-  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const receiveToken =
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
@@ -355,6 +355,21 @@ function StockEstimatedReceive({
     }
     return fiatBN.toFixed();
   }, [receiveAmount, receiveToken?.price]);
+  useEffect(() => {
+    const quoteToAmount = quoteResult?.toAmount;
+    if (
+      !quoteToAmount ||
+      (toTokenAmount.value === quoteToAmount && !toTokenAmount.isInput)
+    ) {
+      return;
+    }
+    setToTokenAmount({ value: quoteToAmount, isInput: false });
+  }, [
+    quoteResult?.toAmount,
+    setToTokenAmount,
+    toTokenAmount.isInput,
+    toTokenAmount.value,
+  ]);
 
   return (
     <XStack
@@ -597,6 +612,23 @@ function getStockInputTokenIdentityKey(token?: Partial<ISwapToken>) {
   }`;
 }
 
+function getStockInputTokenPrice(token?: ISwapToken) {
+  if (token?.price) {
+    return token.price;
+  }
+  const balanceBN = new BigNumber(token?.balanceParsed ?? 0);
+  const fiatValueBN = new BigNumber(token?.fiatValue ?? 0);
+  if (
+    balanceBN.isNaN() ||
+    balanceBN.isZero() ||
+    fiatValueBN.isNaN() ||
+    fiatValueBN.isZero()
+  ) {
+    return undefined;
+  }
+  return fiatValueBN.dividedBy(balanceBN).toFixed();
+}
+
 function useStockInputTokenBalance({
   enabled,
   token,
@@ -674,12 +706,14 @@ function useStockInputTokenBalance({
         return {
           scope: balanceScope,
           balance: undefined as string | undefined,
+          tokenDetail: undefined as ISwapToken | undefined,
         };
       }
       if (!networkAccount) {
         return {
           scope: balanceScope,
           balance: token.balanceParsed ?? '0',
+          tokenDetail: token,
         };
       }
       const details =
@@ -693,6 +727,7 @@ function useStockInputTokenBalance({
       return {
         scope: balanceScope,
         balance: details?.[0]?.balanceParsed ?? token.balanceParsed ?? '0',
+        tokenDetail: details?.[0],
       };
     },
     [balanceScope, enabled, networkAccount, shouldWaitForNetworkAccount, token],
@@ -700,6 +735,7 @@ function useStockInputTokenBalance({
       initResult: {
         scope: '',
         balance: undefined as string | undefined,
+        tokenDetail: undefined as ISwapToken | undefined,
       },
       watchLoading: enabled,
     },
@@ -710,6 +746,7 @@ function useStockInputTokenBalance({
 
   return {
     balance: balanceReady ? detailState.balance : undefined,
+    tokenDetail: balanceReady ? detailState.tokenDetail : undefined,
     loading:
       enabled &&
       Boolean(
@@ -852,15 +889,18 @@ function StockAmountInput({
   ]);
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
+  const inputTokenPrice =
+    getStockInputTokenPrice(stockInputTokenBalance.tokenDetail) ??
+    getStockInputTokenPrice(inputToken);
   const amountFiatValue = useMemo(() => {
     const amountBN = new BigNumber(fromTokenAmount.value ?? 0);
-    const priceBN = new BigNumber(inputToken?.price ?? 0);
+    const priceBN = new BigNumber(inputTokenPrice ?? 0);
     const fiatBN = amountBN.multipliedBy(priceBN);
     if (fiatBN.isNaN() || fiatBN.isZero()) {
       return '';
     }
     return fiatBN.toFixed();
-  }, [inputToken?.price, fromTokenAmount.value]);
+  }, [fromTokenAmount.value, inputTokenPrice]);
 
   useEffect(() => {
     if (!inputTokenReady || stockInputTokenBalance.loading) {
@@ -877,6 +917,25 @@ function StockAmountInput({
     setFromTokenBalance,
     stockInputTokenBalance.loading,
   ]);
+  useEffect(() => {
+    const tokenDetail = stockInputTokenBalance.tokenDetail;
+    if (
+      !isBuySide ||
+      !tokenDetail ||
+      !payToken ||
+      !equalTokenNoCaseSensitive({ token1: tokenDetail, token2: payToken })
+    ) {
+      return;
+    }
+    if (
+      tokenDetail.price === payToken.price &&
+      tokenDetail.fiatValue === payToken.fiatValue &&
+      tokenDetail.balanceParsed === payToken.balanceParsed
+    ) {
+      return;
+    }
+    selectPayToken(tokenDetail as IToken, false);
+  }, [isBuySide, payToken, selectPayToken, stockInputTokenBalance.tokenDetail]);
 
   if (!inputTokenReady || !inputTokenBalanceReady) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
