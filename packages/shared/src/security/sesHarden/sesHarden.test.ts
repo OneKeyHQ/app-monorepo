@@ -83,6 +83,42 @@ test('keeps L0 as no-lockdown', () => {
   });
 });
 
+test('warms up override-mistake libraries before calling lockdown', () => {
+  const calls: string[] = [];
+  const warmUp = jest.fn(() => {
+    calls.push('warmUp');
+  });
+  const lockdown = jest.fn(() => {
+    calls.push('lockdown');
+  });
+
+  maybeLockdownOneKeyRuntime({
+    runtime: 'web',
+    level: 'L2',
+    warmUp,
+    lockdown,
+  });
+
+  expect(warmUp).toHaveBeenCalledTimes(1);
+  expect(lockdown).toHaveBeenCalledTimes(1);
+  // The warm-up MUST run before the freeze; otherwise an offender like
+  // decimal.js would still patch a frozen intrinsic and throw at module init.
+  expect(calls).toEqual(['warmUp', 'lockdown']);
+});
+
+test('does not warm up when lockdown is skipped (L0)', () => {
+  const warmUp = jest.fn();
+
+  maybeLockdownOneKeyRuntime({
+    runtime: 'web',
+    level: 'L0',
+    warmUp,
+    lockdown: jest.fn(),
+  });
+
+  expect(warmUp).not.toHaveBeenCalled();
+});
+
 test('uses synchronous const config as the default level', () => {
   expect(getConfiguredSesHardenLevel('ext-background')).toBe(
     ONEKEY_SES_HARDEN_DEFAULT_LEVEL,
@@ -161,7 +197,7 @@ test('uses unsafe eval in L1 while applying loose lockdown options', () => {
     regExpTaming: 'unsafe',
     localeTaming: 'unsafe',
     consoleTaming: 'unsafe',
-    overrideTaming: 'moderate',
+    overrideTaming: 'severe',
     stackFiltering: 'verbose',
     domainTaming: 'safe',
     evalTaming: 'unsafe-eval',
@@ -309,7 +345,9 @@ test('records post-lockdown patch warning errors', () => {
     ]);
     expect(g.__ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__).toBe(2);
     expect(warnSpy).toHaveBeenCalledWith(
-      '[OneKey SES Harden] Post-lockdown patch attempt detected',
+      expect.stringContaining(
+        '[OneKey SES Harden] Post-lockdown patch attempt detected',
+      ),
       expect.any(Object),
     );
   } finally {
@@ -408,9 +446,90 @@ test('emits each post-lockdown patch warning fingerprint only once', () => {
     // ...but the console is only warned once per unique fingerprint per session.
     const patchWarnCalls = warnSpy.mock.calls.filter(
       ([message]) =>
-        message === '[OneKey SES Harden] Post-lockdown patch attempt detected',
+        typeof message === 'string' &&
+        message.startsWith(
+          '[OneKey SES Harden] Post-lockdown patch attempt detected',
+        ),
     );
     expect(patchWarnCalls).toHaveLength(1);
+  } finally {
+    if (originalAddEventListener) {
+      g.addEventListener = originalAddEventListener;
+    } else {
+      delete g.addEventListener;
+    }
+    warnSpy.mockRestore();
+  }
+});
+
+test('surfaces the offending library (culprit) and keeps distinct libraries separate', () => {
+  const g = globalThis as unknown as ISesHardenGlobal;
+  const originalAddEventListener = g.addEventListener;
+  const listeners = new Map<string, EventListenerOrEventListenerObject>();
+  const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+  g.addEventListener = jest.fn((type, listener) => {
+    listeners.set(type, listener);
+  }) as typeof globalThis.addEventListener;
+
+  try {
+    maybeLockdownOneKeyRuntime({
+      runtime: 'web',
+      level: 'L1',
+      lockdown: jest.fn(),
+    });
+
+    const listener = listeners.get('unhandledrejection');
+    expect(listener).toBeDefined();
+
+    // Every override-mistake error carries the identical message, so the bare
+    // message cannot tell two offending libraries apart.
+    const message =
+      "Cannot assign to read only property 'constructor' of object '[object Object]'";
+    const dispatchReason = (stack: string) => {
+      const event = { reason: { message, stack } } as unknown as Event;
+      if (typeof listener === 'function') {
+        listener(event);
+      } else {
+        listener?.handleEvent(event);
+      }
+    };
+
+    // Real-world stack captured from a webpack bundle: decimal.js patched a
+    // frozen intrinsic while being required by ripple-binary-codec.
+    const decimalStack = [
+      `TypeError: ${message}`,
+      '    at http://localhost:3000/main.bundle.js:313857:33',
+      '    at ../../node_modules/decimal.js/decimal.js (http://localhost:3000/main.bundle.js:313897:3)',
+      '    at __webpack_require__ (http://localhost:3000/main.bundle.js:1429398:29)',
+      '    at ../../node_modules/ripple-binary-codec/dist/types/amount.js (http://localhost:3000/main.bundle.js:549249:22)',
+    ].join('\n');
+    // A different library throwing the exact same message.
+    const bnStack = [
+      `TypeError: ${message}`,
+      '    at inherits (../../node_modules/bn.js/lib/bn.js:16:30)',
+      '    at ../../node_modules/bn.js/lib/bn.js (http://localhost:3000/main.bundle.js:120000:3)',
+    ].join('\n');
+
+    dispatchReason(decimalStack);
+    dispatchReason(bnStack);
+
+    const warnings = getSesHardenPatchWarnings();
+    // Distinct culprits => distinct fingerprints => NOT collapsed into one
+    // entry (the previous fingerprint used the message line and merged them).
+    expect(warnings).toHaveLength(2);
+    expect(warnings.map((w) => w.culprit).toSorted()).toEqual([
+      'bn.js/lib/bn.js:16:30',
+      'decimal.js/decimal.js',
+    ]);
+    // The offending library is surfaced in the console title, not buried in a
+    // collapsed object — `__webpack_require__` plumbing is skipped.
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '[OneKey SES Harden] Post-lockdown patch attempt detected @ decimal.js/decimal.js',
+      ),
+      expect.any(Object),
+    );
   } finally {
     if (originalAddEventListener) {
       g.addEventListener = originalAddEventListener;

@@ -10,7 +10,17 @@ export const SES_HARDEN_LOOSE_LOCKDOWN_OPTIONS = {
   regExpTaming: 'unsafe',
   localeTaming: 'unsafe',
   consoleTaming: 'unsafe',
-  overrideTaming: 'moderate',
+  // 'severe' (not the SES default 'moderate') is required for a bundled app:
+  // webpack/rollup write module exports onto Object.prototype-inheriting
+  // objects, and libraries like axios/decimal.js assign `constructor` onto such
+  // objects at init (the "override mistake"). Only 'severe' enables override for
+  // all of Object.prototype, so those assignments shadow on the receiver
+  // instead of throwing against the frozen intrinsic. Matches MetaMask's
+  // posture. It does NOT weaken intrinsic integrity: shared prototypes stay
+  // frozen and only per-receiver shadowing is allowed. A warm-up list (see
+  // runtime.ts defaultWarmUpBeforeLockdown) is kept as defense-in-depth.
+  // Behavior is locked down by sesHardenLibCompat.test.ts.
+  overrideTaming: 'severe',
   stackFiltering: 'verbose',
   domainTaming: 'safe',
   evalTaming: 'unsafe-eval',

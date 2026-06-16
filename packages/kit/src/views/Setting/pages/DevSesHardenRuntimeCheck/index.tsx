@@ -594,6 +594,53 @@ function LabeledLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Renders a single post-lockdown patch warning. Shared between this runtime's
+// own warnings and the warnings pulled from each extension runtime (background
+// /offscreen/passkey) so the offending module (`culprit`) and full stack are
+// visible no matter which runtime recorded it.
+function PatchWarningItem({
+  warning,
+}: {
+  warning: ISesRuntimeCheckReport['patchWarnings']['items'][number];
+}) {
+  return (
+    <YStack
+      gap="$1"
+      p="$2"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+      borderRadius="$1"
+    >
+      <SizableText size="$bodyMdMedium">
+        #{warning.id} {warning.kind} count={warning.count}{' '}
+        lastSeenAt={warning.lastSeenAt}
+      </SizableText>
+      {warning.culprit ? (
+        <SizableText size="$bodyMdMedium" color="$textCritical">
+          报错模块: {warning.culprit}
+        </SizableText>
+      ) : null}
+      <SizableText color="$textSubdued">
+        createdAt={warning.createdAt}
+      </SizableText>
+      <SizableText color="$textSubdued">{warning.message}</SizableText>
+      <SizableText color="$textSubdued">
+        fingerprint={warning.fingerprint}
+      </SizableText>
+      {warning.source ? (
+        <SizableText color="$textSubdued">
+          {warning.source}:{warning.lineno ?? 0}:{warning.colno ?? 0}
+        </SizableText>
+      ) : null}
+      {warning.stack ? (
+        <SizableText size="$bodySm" color="$textSubdued">
+          {warning.stack}
+        </SizableText>
+      ) : null}
+    </YStack>
+  );
+}
+
 function showLevelMatrixItemDialog(item: ISesLevelMatrixRow) {
   Dialog.show({
     title: item.item,
@@ -1168,6 +1215,22 @@ export default function DevSesHardenRuntimeCheck() {
                           label="状态："
                           value={JSON.stringify(runtimeReport.report.state)}
                         />
+                        {runtimeReport.report.patchWarnings.items.length ? (
+                          <>
+                            <SizableText size="$bodyMdMedium">
+                              Post-lockdown patch warnings (
+                              {runtimeReport.report.patchWarnings.items.length})
+                            </SizableText>
+                            {runtimeReport.report.patchWarnings.items.map(
+                              (warning) => (
+                                <PatchWarningItem
+                                  key={warning.id}
+                                  warning={warning}
+                                />
+                              ),
+                            )}
+                          </>
+                        ) : null}
                       </>
                     ) : (
                       <LabeledLine
@@ -1256,34 +1319,7 @@ export default function DevSesHardenRuntimeCheck() {
                   </SizableText>
                 ) : (
                   report.patchWarnings.items.map((warning) => (
-                    <YStack
-                      key={warning.id}
-                      gap="$1"
-                      p="$2"
-                      borderWidth="$px"
-                      borderColor="$borderSubdued"
-                      borderRadius="$1"
-                    >
-                      <SizableText size="$bodyMdMedium">
-                        #{warning.id} {warning.kind} count={warning.count}{' '}
-                        lastSeenAt={warning.lastSeenAt}
-                      </SizableText>
-                      <SizableText color="$textSubdued">
-                        createdAt={warning.createdAt}
-                      </SizableText>
-                      <SizableText color="$textSubdued">
-                        {warning.message}
-                      </SizableText>
-                      <SizableText color="$textSubdued">
-                        fingerprint={warning.fingerprint}
-                      </SizableText>
-                      {warning.source ? (
-                        <SizableText color="$textSubdued">
-                          {warning.source}:{warning.lineno ?? 0}:
-                          {warning.colno ?? 0}
-                        </SizableText>
-                      ) : null}
-                    </YStack>
+                    <PatchWarningItem key={warning.id} warning={warning} />
                   ))
                 )}
               </YStack>

@@ -146,22 +146,79 @@ function getOrCreatePatchWarnings(): ISesHardenPatchWarning[] {
   return warnings;
 }
 
-function getPatchWarningStackFrame(value: unknown): string | undefined {
-  return getPatchErrorStack(value)
-    ?.split('\n')
+// Stack frames that are bundler/runtime plumbing or SES/the monitor itself —
+// never the actual library that performed the post-lockdown patch. Skipping
+// them lets us surface the real offending dependency instead of, say,
+// `__webpack_require__`.
+const SES_HARDEN_STACK_FRAME_NOISE = [
+  '__webpack_require__',
+  'webpackJsonp',
+  '__webpack_modules__',
+  'sesHarden',
+  'recordSesHardenPatchWarning',
+  '/ses/',
+  '/ses-',
+];
+
+// Split a stack string into its actual call-site frames, dropping the leading
+// message line (e.g. "TypeError: Cannot assign to read only property
+// 'constructor' ...") which carries no location. Previously the fingerprint
+// accidentally used that message line as the "frame", so every override-mistake
+// error from any library collapsed into one fingerprint.
+function getPatchWarningStackFrames(value: unknown): string[] {
+  const stack = getPatchErrorStack(value);
+  if (!stack) {
+    return [];
+  }
+  return stack
+    .split('\n')
     .map((line) => line.trim())
-    .find(Boolean);
+    .filter((line) => line.startsWith('at '));
+}
+
+// Reduce a raw stack frame to its most diagnostic part: the `node_modules/<pkg>`
+// path when present (so the offending dependency is immediately visible), else
+// the frame text minus the leading `at `.
+function normalizePatchWarningFrame(frame: string): string {
+  const withoutPrefix = frame.replace(/^at\s+/u, '');
+  const nodeModulesMatch = withoutPrefix.match(/node_modules[\\/]([^\s)]+)/u);
+  return nodeModulesMatch ? nodeModulesMatch[1] : withoutPrefix;
+}
+
+function isNoisePatchWarningFrame(frame: string): boolean {
+  return SES_HARDEN_STACK_FRAME_NOISE.some((needle) => frame.includes(needle));
+}
+
+// The library/call-site most likely responsible for the post-lockdown patch:
+// the first real module frame (preferring `node_modules`) after skipping the
+// message line and bundler/runtime plumbing. This is what the bare error
+// message cannot tell you — e.g. it resolves to `decimal.js/decimal.js`.
+function getPatchWarningCulprit(value: unknown): string | undefined {
+  const frames = getPatchWarningStackFrames(value);
+  if (!frames.length) {
+    return undefined;
+  }
+  const moduleFrame = frames.find(
+    (frame) =>
+      frame.includes('node_modules') && !isNoisePatchWarningFrame(frame),
+  );
+  const chosen =
+    moduleFrame ??
+    frames.find((frame) => !isNoisePatchWarningFrame(frame)) ??
+    frames[0];
+  return normalizePatchWarningFrame(chosen);
 }
 
 function getPatchWarningFingerprint(
   kind: ISesHardenPatchWarningKind,
   value: unknown,
+  culprit: string | undefined,
   event?: Event,
 ): string {
   return [
     kind,
     getPatchErrorMessage(value) ?? String(value),
-    getStringProperty(event, 'filename') ?? getPatchWarningStackFrame(value),
+    getStringProperty(event, 'filename') ?? culprit,
   ]
     .filter(Boolean)
     .join('|');
@@ -181,7 +238,8 @@ function recordSesHardenPatchWarning(
   const warnings = getOrCreatePatchWarnings();
   const count = (g.__ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__ ?? 0) + 1;
   const now = new Date().toISOString();
-  const fingerprint = getPatchWarningFingerprint(kind, value, event);
+  const culprit = getPatchWarningCulprit(value);
+  const fingerprint = getPatchWarningFingerprint(kind, value, culprit, event);
   const existingIndex = warnings.findIndex(
     (item) => item.fingerprint === fingerprint,
   );
@@ -194,6 +252,7 @@ function recordSesHardenPatchWarning(
       lastSeenAt: now,
       count: existingWarning.count + 1,
       stack: getPatchErrorStack(value) ?? existingWarning.stack,
+      culprit: culprit ?? existingWarning.culprit,
       source: getStringProperty(event, 'filename') ?? existingWarning.source,
       lineno: getNumberProperty(event, 'lineno') ?? existingWarning.lineno,
       colno: getNumberProperty(event, 'colno') ?? existingWarning.colno,
@@ -211,6 +270,7 @@ function recordSesHardenPatchWarning(
       count: 1,
       message: getPatchErrorMessage(value) ?? String(value),
       stack: getPatchErrorStack(value),
+      culprit,
       source: getStringProperty(event, 'filename'),
       lineno: getNumberProperty(event, 'lineno'),
       colno: getNumberProperty(event, 'colno'),
@@ -245,9 +305,12 @@ function recordSesHardenPatchWarning(
       // before lockdown or indicates unexpected tampering. Enabled in
       // production too (see isSesHardenPatchWarningMonitorEnabled), deduped
       // per fingerprint.
-      console.warn('[OneKey SES Harden] Post-lockdown patch attempt detected', {
-        warning,
-      });
+      console.warn(
+        `[OneKey SES Harden] Post-lockdown patch attempt detected${
+          warning.culprit ? ` @ ${warning.culprit}` : ''
+        }`,
+        { warning },
+      );
     }
   }
 }
@@ -304,6 +367,48 @@ function defaultLoadSes(): void {
   require('ses');
 }
 
+// Dependencies that perform the SES "override mistake" at module-init time:
+// they assign `.constructor` (or another frozen-intrinsic property) onto an
+// object whose prototype chain reaches Object.prototype, which throws (in
+// strict mode) once `lockdown()` freezes Object.prototype — unless override for
+// that property is enabled.
+//
+// The PRIMARY fix is `overrideTaming: 'severe'` (see options.ts): it enables
+// override for all of Object.prototype, so these libraries work even when loaded
+// after lockdown. This warm-up is kept as DEFENSE IN DEPTH: loading the
+// offenders here, while intrinsics are still mutable, lets their init-time
+// assignment land regardless of the override-taming setting (and the cached
+// module is reused afterwards), so they stay safe even if that setting is ever
+// relaxed to 'moderate'/'min'.
+//
+// Confirmed offenders (surfaced by the patch-warning monitor):
+//  - decimal.js (pulled in by ripple-binary-codec for XRP) does
+//    `Decimal.prototype.constructor = Decimal` on an object-literal prototype
+//    inside clone().
+//  - axios (lazily pulled in by @ton/ton's HttpApi, so it initializes AFTER
+//    lockdown) runs a "reserved names hotfix" at module init: reduceDescriptors
+//    assigns `constructor` onto a fresh `{}` whose prototype is the frozen
+//    Object.prototype.
+// bn.js / elliptic are NOT offenders (their inherits() chains keep a writable
+// own constructor). Behavior is locked down by sesHardenLibCompat.test.ts. Add
+// new offenders here as the patch-warning monitor surfaces their `culprit`.
+function defaultWarmUpBeforeLockdown(): void {
+  // Each warm-up is independent: a failure/absence of one must not skip the
+  // others, so they get their own try/catch instead of sharing one.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    require('decimal.js');
+  } catch {
+    // Best-effort: a failed/missing warm-up must never block startup.
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    require('axios');
+  } catch {
+    // Best-effort: a failed/missing warm-up must never block startup.
+  }
+}
+
 function getLockdownAfterLoad(
   loadSes: () => void,
 ): NonNullable<ISesHardenGlobal['lockdown']> {
@@ -334,6 +439,7 @@ export function maybeLockdownOneKeyRuntime(options: {
   level?: ISesHardenLevel;
   loadSes?: () => void;
   lockdown?: (lockdownOptions?: LockdownOptions) => void;
+  warmUp?: () => void;
 }): ISesHardenRuntimeState {
   const level = options.level ?? getSesHardenLevelFromRuntime(options.runtime);
   const lockdownOptions = getSesLockdownOptions(level, options.runtime);
@@ -380,6 +486,9 @@ export function maybeLockdownOneKeyRuntime(options: {
   const lockdown =
     options.lockdown ?? getLockdownAfterLoad(options.loadSes ?? defaultLoadSes);
 
+  // Warm up known override-mistake libraries while intrinsics are still
+  // mutable. Must run immediately before lockdown() freezes them.
+  (options.warmUp ?? defaultWarmUpBeforeLockdown)();
   lockdown(lockdownOptions);
 
   const state: ISesHardenRuntimeState = {

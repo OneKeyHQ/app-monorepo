@@ -33,6 +33,12 @@ export type ISesHardenPatchWarning = {
   count: number;
   message: string;
   stack?: string;
+  // The library/call-site most likely responsible for the post-lockdown patch,
+  // extracted from `stack` (preferring the first `node_modules/<pkg>` frame,
+  // e.g. `decimal.js/decimal.js`). The bare `message` is identical for every
+  // override-mistake error, so this is what actually tells you WHICH dependency
+  // patched a frozen intrinsic.
+  culprit?: string;
   source?: string;
   lineno?: number;
   colno?: number;
