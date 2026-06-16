@@ -51,6 +51,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { registerColdStartFlushTrigger } from '@onekeyhq/shared/src/storage/coldStartFlushTrigger';
 import { coldStartCacheStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { parseColdStartSnapshotRaw } from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
@@ -173,6 +174,11 @@ export function readSlcColdStartProjection(
       aggMembership: structureValue.aggMembership,
       ownerKey: structureValue.ownerKey,
       generation: structureValue.generation,
+      // Persist the hideZero membership + strict funded set so a hideZero cold
+      // start paints the kept set at T0 instead of being filtered to the empty
+      // placeholder (the original "list empty for a long time" bug).
+      nonZeroIds: structureValue.nonZeroIds,
+      fundedIds: structureValue.fundedIds,
       smallBalanceFiatValue: structureValue.smallBalanceFiatValue,
       ownedAggregateTokenListMap: structureValue.ownedAggregateTokenListMap,
     },
@@ -207,6 +213,101 @@ export function persistSlimColdCache(params: {
     scopedKey: buildSlimScopedKey(scopeKey),
     value: slim,
   });
+}
+
+// --- DEBOUNCED PERSIST SCHEDULER -------------------------------------------
+
+/**
+ * Debounce window for the slim persist. The persist walks the live projection
+ * cells; `applyStructureSnapshot` registers META cells but the FIAT cells are
+ * created/filled by `applyValuationFrame` which runs AFTER the structure apply.
+ * Persisting synchronously inside `applyStructure` therefore snapshots EMPTY
+ * cells -> `compactFiat: {}` (rows with no prices, the cold-start "empty list"
+ * bug). Scheduling a short-debounced persist from BOTH the structure and the
+ * valuation apply lets the cells fill first and coalesces one round's two
+ * frames into a single write that captures a COMPLETE bundle.
+ */
+export const PERSIST_DEBOUNCE_MS = 500;
+
+interface IPendingSlimPersist {
+  timer: ReturnType<typeof setTimeout>;
+  run: () => void;
+}
+
+// Per-store pending persist. Keyed by the store OBJECT so a store reset/recreate
+// (new object) starts a fresh slot; entries are removed on fire/cancel so this
+// never retains a dead store.
+const slimPersistPending = new Map<IJotaiContextStore, IPendingSlimPersist>();
+
+let slimPersistFlushTriggerRegistered = false;
+
+/**
+ * On app background / tab hide, force out any pending debounced persist so a
+ * quit inside the debounce window does not lose the slim bundle. Idempotent.
+ */
+function ensureSlimPersistFlushTrigger(): void {
+  if (slimPersistFlushTriggerRegistered) {
+    return;
+  }
+  slimPersistFlushTriggerRegistered = true;
+  try {
+    registerColdStartFlushTrigger(() => {
+      for (const store of Array.from(slimPersistPending.keys())) {
+        flushPendingSlimColdCache(store);
+      }
+    });
+  } catch {
+    slimPersistFlushTriggerRegistered = false;
+  }
+}
+
+/**
+ * Schedule a debounced slim persist for `store`. Re-scheduling within the
+ * window resets the timer (coalescing), and the persist reads the LIVE
+ * projection + currency at FIRE time — so by the time it runs the accompanying
+ * valuation has populated the fiat cells. Callers gate this with the
+ * single-slim-writer registry guard exactly as the synchronous persist did.
+ */
+export function schedulePersistSlimColdCache(params: {
+  store: IJotaiContextStore;
+  projection: IStoreProjection;
+  getCurrency: () => string;
+}): void {
+  const { store, projection, getCurrency } = params;
+  ensureSlimPersistFlushTrigger();
+  const existing = slimPersistPending.get(store);
+  if (existing) {
+    clearTimeout(existing.timer);
+  }
+  const run = () => {
+    slimPersistPending.delete(store);
+    persistSlimColdCache({ store, projection, currency: getCurrency() });
+  };
+  const timer = setTimeout(run, PERSIST_DEBOUNCE_MS);
+  slimPersistPending.set(store, { timer, run });
+}
+
+/** Run a pending persist for `store` immediately (background flush trigger). */
+export function flushPendingSlimColdCache(store: IJotaiContextStore): void {
+  const pending = slimPersistPending.get(store);
+  if (!pending) {
+    return;
+  }
+  clearTimeout(pending.timer);
+  pending.run();
+}
+
+/**
+ * Drop a pending persist for `store` without running it (producer unmount /
+ * owner switch) so a late persist cannot land on a torn-down/stale projection.
+ */
+export function cancelPendingSlimColdCache(store: IJotaiContextStore): void {
+  const pending = slimPersistPending.get(store);
+  if (!pending) {
+    return;
+  }
+  clearTimeout(pending.timer);
+  slimPersistPending.delete(store);
 }
 
 // --- T0 READ + FAN-OUT HYDRATE (水合) --------------------------------------
@@ -286,16 +387,16 @@ export function fanOutSlimToApply(params: {
   const structure: IStructureSnapshot = {
     orderedIds: bundle.orderedIds,
     smallBalanceIds: bundle.smallBalanceIds,
-    // nonZeroIds is the hideZero VIEW filter (spec §8#2) — the slim bundle does
-    // not persist it; emit empty so the structure atom is well-formed. The first
-    // real structure frame of THIS session (which supersedes this provisional
-    // cold paint) carries the authoritative nonZeroIds.
-    nonZeroIds: [],
-    // fundedIds (STRICT balance>0) is likewise not persisted in the slim bundle;
-    // emit empty here and let the first real frame populate it. The cold paint is
-    // provisional (curGeneration reset to -1 below), so any hasHoldingsNow reader
-    // resolves against the real frame, not this empty seed.
-    fundedIds: [],
+    // nonZeroIds is the hideZero VIEW filter (spec §8#2). It IS persisted in the
+    // slim bundle now (so a hideZero cold start paints the kept set at T0 rather
+    // than being filtered to the empty placeholder); older bundles without it
+    // fall back to `[]` and fill on the first real frame. The cold paint is
+    // provisional (curGeneration reset to -1 below), so the first real frame
+    // still supersedes it with the authoritative set.
+    nonZeroIds: bundle.nonZeroIds ?? [],
+    // fundedIds (STRICT balance>0) is likewise persisted now so `hasHoldingsNow`
+    // is correct at T0; older bundles fall back to `[]`.
+    fundedIds: bundle.fundedIds ?? [],
     metaPatch,
     aggMembership: bundle.aggMembership,
     // Restore the REAL persisted small-balance fiat scalar (PR-0 enabler) instead

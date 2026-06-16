@@ -62,7 +62,10 @@ import {
   buildApplyDeps,
   shallowEqualArray,
 } from './apply';
-import { persistSlimColdCache } from './coldStart';
+import {
+  cancelPendingSlimColdCache,
+  schedulePersistSlimColdCache,
+} from './coldStart';
 import {
   aggCell,
   cell,
@@ -190,14 +193,18 @@ export function useTokenListSlcProducer(
       applyStructureSnapshot(s, projection, { ...structure, storeData }, deps);
       lastStructureVersionRef.current = structureVersion;
 
-      // D4: persist the slim cold-start bundle off the JUST-APPLIED projection
-      // (BG-fed), EXACTLY ONE writer per storeName. Only the primary-registered
-      // store persists, avoiding the double-authority revival.
+      // D4: persist the slim cold-start bundle, EXACTLY ONE writer per storeName
+      // (primary-registered store only, avoiding the double-authority revival).
+      // DEBOUNCED, not synchronous: applyStructureSnapshot registers meta cells
+      // but the FIAT cells are created/filled by leaf render + applyValuationFrame
+      // which run AFTER this. A synchronous persist here snapshots empty cells
+      // -> compactFiat:{} (the cold-start "empty list" bug). The debounce lets
+      // the accompanying valuation + leaves populate the cells first.
       if (isPrimaryColdStartWriter(resolvedStoreName, s)) {
-        persistSlimColdCache({
+        schedulePersistSlimColdCache({
           store: s,
           projection,
-          currency: currencyIdRef.current,
+          getCurrency: () => currencyIdRef.current,
         });
       }
     };
@@ -221,6 +228,18 @@ export function useTokenListSlcProducer(
         (fn) => fn(),
       );
       lastValuationVersionRef.current = valuationVersion;
+
+      // Re-persist on valuation too: this is the apply that fills the fiat cells,
+      // so a debounced persist scheduled here captures a NON-EMPTY compactFiat
+      // (the structure-only persist froze it empty). Debounced + single-writer,
+      // so a round's structure+valuation coalesce into one complete write.
+      if (isPrimaryColdStartWriter(resolvedStoreName, s)) {
+        schedulePersistSlimColdCache({
+          store: s,
+          projection,
+          getCurrency: () => currencyIdRef.current,
+        });
+      }
     };
 
     // S2b. frame handlers — ignore frames for a different owner; the BG VM may
@@ -281,6 +300,9 @@ export function useTokenListSlcProducer(
         EAppEventBusNames.TokenListSlcValuationFrame,
         onValuation,
       );
+      // Drop any pending debounced persist so a late write cannot land on a
+      // torn-down/owner-switched projection.
+      cancelPendingSlimColdCache(s);
       deregisterMountedStore(resolvedStoreName, s);
     };
   }, [store, deps, ownerKey, storeName]);

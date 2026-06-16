@@ -49,6 +49,19 @@ export interface ISlimSnapshotStructure {
   ownerKey: string;
   generation: number;
   /**
+   * hideZero VIEW-filter membership (keepDefault zero-balance kept). Optional so
+   * OLDER bundles parse; absent -> restored as `[]`. Persisting it lets a
+   * hideZero cold start paint the kept set at T0 instead of being filtered to
+   * the empty placeholder until the first real frame (the original cold-start
+   * "empty list" bug).
+   */
+  nonZeroIds?: ITokenKey[];
+  /**
+   * STRICT funded set (balance>0, agg-aware) — drives `hasHoldingsNow`. Optional
+   * for back-compat; absent -> restored as `[]`.
+   */
+  fundedIds?: ITokenKey[];
+  /**
    * §6 small-balance fiat scalar. Optional on the wire so OLDER persisted slim
    * bundles (written before PR-0) still parse; absent -> restored as '0'.
    */
@@ -80,6 +93,17 @@ export interface ITokenListSlimColdCache {
   ownerKey: string;
   /** currency id the compact fiat values are stored in (gate, spec §3#3). */
   currency: string;
+  /**
+   * hideZero VIEW-filter membership persisted so a hideZero cold start paints
+   * the kept set at T0 instead of an empty list. Optional so older bundles
+   * parse; absent -> restored as `[]`.
+   */
+  nonZeroIds?: ITokenKey[];
+  /**
+   * STRICT funded set (balance>0) persisted so `hasHoldingsNow` is correct at
+   * T0. Optional for back-compat; absent -> restored as `[]`.
+   */
+  fundedIds?: ITokenKey[];
   /**
    * §6 small-balance fiat scalar persisted so a cold start restores the REAL
    * value (not a hardcoded '0'). Optional so older bundles (pre-PR-0) parse;
@@ -216,6 +240,8 @@ export function buildSlimSnapshot(
     gen: structure.generation,
     ownerKey: structure.ownerKey,
     currency,
+    nonZeroIds: structure.nonZeroIds ?? [],
+    fundedIds: structure.fundedIds ?? [],
     smallBalanceFiatValue: structure.smallBalanceFiatValue ?? '0',
     ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap ?? {},
   };
