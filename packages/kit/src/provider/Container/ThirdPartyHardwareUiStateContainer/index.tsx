@@ -690,6 +690,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const { usbConnectId, featuresDeviceId, promiseId } =
       uiState?.payload ?? {};
     if (!usbConnectId || !featuresDeviceId || !promiseId) {
+      // A malformed request may still carry a promiseId the keyring is awaiting.
+      // Resolve it (no binding) so the caller doesn't hang until timeout.
+      if (promiseId) {
+        void backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: null,
+        });
+      }
       void clearCurrentUiState();
       return;
     }
