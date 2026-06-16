@@ -69,6 +69,7 @@ import { EmptySearch } from '../Empty';
 import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
+import { computeShowTokenListSkeleton } from './computeShowTokenListSkeleton';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -787,76 +788,58 @@ function TokenListViewCmp(props: IProps) {
     };
   }, []);
 
-  const showSkeleton = useMemo(() => {
-    if (
-      showActiveAccountTokenList &&
-      !activeAccountTokenListState.initialized &&
-      activeAccountTokenListState.isRefreshing
-    ) {
-      return true;
-    }
-
-    if (
-      isTokenSelector &&
-      searchAll &&
-      tokenSelectorSearchKey.length >=
-        (searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH) &&
-      tokenSelectorSearchTokenList.searchKey !== tokenSelectorSearchKey &&
-      filteredTokens.length === 0
-    ) {
-      return true;
-    }
-
-    // PR-7: the legacy per-owner `renderedTokenListCache` instant-display
-    // short-circuit was REMOVED. On home, cold-start instant paint is the slim
-    // cold cache fan-out and in-session switch instant paint is the BG per-owner
-    // VM pull — both paint the cells before this gate matters; the skeleton is
-    // governed by the `ownerMismatch` clause below (home switch) and the final
-    // `tokenListState` clause (cold). Non-home (AssetList) relies on its own
-    // `tokenListState.initialized` from `refresh*`, unchanged.
-    //
-    // Loaded atoms belong to a previous owner — show skeleton until the fresh
-    // data lands. Without this `tokenListState.initialized` is still true from
-    // the prior network so the existing checks below would not fire.
-    if (ownerMismatch && !showActiveAccountTokenList) {
-      return true;
-    }
-    // PR-3: selector list is the self-fetched `tokenSelectorTokenList` (props),
-    // not the home atoms. The home mirror keeps `tokenListState.initialized`
-    // true, so the final clause below never fires for the selector and the
-    // selector would render EmptyToken for a frame before the self-fetch lands.
-    // Show a skeleton until the selector self-fetch resolves (the cache-hit
-    // check above already returned `false` when a per-owner cached list exists,
-    // matching the pre-PR-3 instant render).
-    if (
-      isTokenSelector &&
-      !showActiveAccountTokenList &&
-      !tokenSelectorInitialized
-    ) {
-      return true;
-    }
-    return (
-      (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
-      (!isTokenSelector && searchTokenState.isSearching) ||
-      (!tokenListState.initialized && tokenListState.isRefreshing)
-    );
-  }, [
-    ownerMismatch,
-    isTokenSelector,
-    tokenSelectorInitialized,
-    searchAll,
-    tokenSelectorSearchKey,
-    tokenSelectorSearchTokenList.searchKey,
-    searchKeyLengthThreshold,
-    filteredTokens.length,
-    tokenSelectorSearchTokenState.isSearching,
-    searchTokenState.isSearching,
-    tokenListState.initialized,
-    tokenListState.isRefreshing,
-    activeAccountTokenListState.initialized,
-    activeAccountTokenListState.isRefreshing,
-    showActiveAccountTokenList,
-  ]);
+  // Skeleton decision extracted to a pure, unit-tested predicate
+  // (computeShowTokenListSkeleton). The cold-start fix lives in its final
+  // clause: the home first-load skeleton (`!initialized && isRefreshing`) now
+  // also requires `displayCount === 0`, so the SLC cold paint's rows render
+  // immediately instead of being hidden by the plainMode `if (showSkeleton)`
+  // early-return until the network round lands. PR-7/PR-3 branch rationale is
+  // documented inline in that function.
+  const showSkeleton = useMemo(
+    () =>
+      computeShowTokenListSkeleton({
+        showActiveAccountTokenList: !!showActiveAccountTokenList,
+        activeAccountTokenListInitialized:
+          activeAccountTokenListState.initialized,
+        activeAccountTokenListIsRefreshing:
+          activeAccountTokenListState.isRefreshing,
+        isTokenSelector: !!isTokenSelector,
+        searchAll: !!searchAll,
+        tokenSelectorSearchKeyLength: tokenSelectorSearchKey.length,
+        searchKeyLengthThreshold:
+          searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH,
+        tokenSelectorSearchTokenListSearchKey:
+          tokenSelectorSearchTokenList.searchKey ?? '',
+        tokenSelectorSearchKey,
+        filteredTokensLength: filteredTokens.length,
+        ownerMismatch,
+        tokenSelectorInitialized: !!tokenSelectorInitialized,
+        tokenSelectorSearchTokenStateIsSearching:
+          tokenSelectorSearchTokenState.isSearching,
+        searchTokenStateIsSearching: searchTokenState.isSearching,
+        tokenListInitialized: tokenListState.initialized,
+        tokenListIsRefreshing: tokenListState.isRefreshing,
+        displayCount,
+      }),
+    [
+      ownerMismatch,
+      isTokenSelector,
+      tokenSelectorInitialized,
+      searchAll,
+      tokenSelectorSearchKey,
+      tokenSelectorSearchTokenList.searchKey,
+      searchKeyLengthThreshold,
+      filteredTokens.length,
+      tokenSelectorSearchTokenState.isSearching,
+      searchTokenState.isSearching,
+      tokenListState.initialized,
+      tokenListState.isRefreshing,
+      activeAccountTokenListState.initialized,
+      activeAccountTokenListState.isRefreshing,
+      showActiveAccountTokenList,
+      displayCount,
+    ],
+  );
 
   useEffect(() => {
     if (showSkeleton) {
