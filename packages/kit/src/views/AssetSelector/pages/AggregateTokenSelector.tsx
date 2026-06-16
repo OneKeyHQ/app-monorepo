@@ -43,10 +43,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
-  useAllTokenListMapAtom,
   useProcessingTokenStateAtom,
   useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateSubTokenFiat,
+  useHomeTokenListSnapshot,
+} from '../../../states/jotai/contexts/tokenList/slc';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
@@ -56,6 +59,7 @@ const listedNetworkMap = getListedNetworkMap();
 
 function AggregateTokenListItem({
   token,
+  aggKey,
   onPress,
   allNetworksState,
   refreshAllNetworkState,
@@ -63,6 +67,7 @@ function AggregateTokenListItem({
   hideBalanceAndValue,
 }: {
   token: IAccountToken;
+  aggKey: string;
   onPress: ({
     token,
     enabledInAllNetworks,
@@ -89,8 +94,10 @@ function AggregateTokenListItem({
     processingTokenKey !== null && processingTokenKey !== token.$key;
   const intl = useIntl();
 
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
-  const tokenInfo = allTokenListMapAtom[token.$key];
+  // Reactive per-row fiat from the home per-network sub-cell (red-team C-F3:
+  // read the live cell so a price tick updates the row while the modal is open,
+  // NOT a one-shot PULL that would freeze). The modal is a home store mirror.
+  const tokenInfo = useAggregateSubTokenFiat(aggKey, token.networkId);
   const {
     activeAccount: { wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -287,7 +294,12 @@ function AggregateTokenSelector() {
   const intl = useIntl();
 
   const [searchKey, setSearchKey] = useState('');
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
+  // Full merged home fiat map for the sort + hideZero memos (keyed by the
+  // per-network sub-token `$key`, which the synthesized BG map carries in its
+  // `tokenListMap` slice — red-team C-F2: NOT the summed aggregate map).
+  // Refreshes on every home structure frame. Replaces the deleted
+  // `homeTokenFiatMap` whole-map read.
+  const { map: homeTokenFiatMap } = useHomeTokenListSnapshot();
   const navigation = useAppNavigation();
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
@@ -388,14 +400,14 @@ function AggregateTokenSelector() {
   const sortedAggregateTokens = useMemo(() => {
     let tokens = sortTokensCommon({
       tokens: aggregateTokens,
-      tokenListMap: allTokenListMapAtom,
+      tokenListMap: homeTokenFiatMap,
     });
 
     if (hideZeroBalanceTokens) {
       tokens = tokens.filter((token) => {
-        return new BigNumber(
-          allTokenListMapAtom[token.$key]?.fiatValue ?? -1,
-        ).gt(0);
+        return new BigNumber(homeTokenFiatMap[token.$key]?.fiatValue ?? -1).gt(
+          0,
+        );
       });
     }
 
@@ -423,7 +435,7 @@ function AggregateTokenSelector() {
     return result;
   }, [
     aggregateTokens,
-    allTokenListMapAtom,
+    homeTokenFiatMap,
     allAggregateTokenList,
     hideZeroBalanceTokens,
     exchangeFilter,
@@ -462,6 +474,7 @@ function AggregateTokenSelector() {
       <AggregateTokenListItem
         key={token.$key}
         token={token}
+        aggKey={aggregateToken.$key}
         onPress={handleOnPressToken}
         allNetworksState={allNetworksState}
         refreshAllNetworkState={refreshAllNetworkState}
@@ -471,6 +484,7 @@ function AggregateTokenSelector() {
     ));
   }, [
     filteredAggregateTokens,
+    aggregateToken.$key,
     handleOnPressToken,
     searchKey,
     allNetworksState,

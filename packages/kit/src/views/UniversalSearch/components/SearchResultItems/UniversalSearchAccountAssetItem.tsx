@@ -9,7 +9,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -40,7 +40,10 @@ export function UniversalSearchAccountAssetItem({
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
+  // Callback snapshot (red-team R-#4): the full home fiat map, captured in
+  // `handlePress` and seeded into the TokenDetails route. Replaces the deleted
+  // `homeTokenFiatMap`. This is a home store mirror (UniversalSearch wrapper).
+  const { map: homeTokenFiatMap } = useHomeTokenListSnapshot();
   // PR-3 (tokenList SLC full-delete): no longer reads `aggregateTokensListMapAtom`.
   // `TokenName` defaults `aggregateTokenList` to `[]` when the prop is omitted and
   // derives the aggregate badge from `allAggregateTokenMap` (passed in via the
@@ -82,7 +85,7 @@ export function UniversalSearchAccountAssetItem({
         tokenInfo: token,
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-        tokenMap: allTokenListMapAtom,
+        tokenMap: homeTokenFiatMap,
         accountAddress: activeAccount.account?.address ?? '',
       },
     });
@@ -105,7 +108,7 @@ export function UniversalSearchAccountAssetItem({
     });
   }, [
     activeAccount,
-    allTokenListMapAtom,
+    homeTokenFiatMap,
     getSearchInput,
     item.type,
     navigation,

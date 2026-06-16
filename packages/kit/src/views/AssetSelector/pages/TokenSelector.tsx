@@ -18,10 +18,7 @@ import {
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
-import {
-  useAllTokenListMapAtom,
-  useTokenListActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -150,6 +147,7 @@ const TokenSelectorHeaderRight = memo(
     );
   },
 );
+TokenSelectorHeaderRight.displayName = 'TokenSelectorHeaderRight';
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,
@@ -251,7 +249,6 @@ function TokenSelector() {
       initialized: false,
     });
   const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
-  const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
   });
@@ -385,7 +382,12 @@ function TokenSelector() {
 
         const { tokenHasBalance, tokenHasBalanceCount } =
           checkIsOnlyOneTokenHasBalance({
-            tokenMap: allTokenListMap,
+            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
+            // `r.smallBalanceTokens.map`), which is keyed by the per-network
+            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
+            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
+            // the deleted home `allTokenListMapAtom` read.
+            tokenMap: selectorTokenListMap,
             aggregateTokenList,
             allAggregateTokenList,
           });
@@ -553,7 +555,7 @@ function TokenSelector() {
       closeAfterSelect,
       allAggregateTokenMap,
       selectorAggregateTokenListMap,
-      allTokenListMap,
+      selectorTokenListMap,
       onSelect,
       navigation,
       aggregateTokenSelectorScreen,

@@ -15,7 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAllTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/slc';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -50,9 +50,13 @@ function TokenNameView(props: IProps) {
   } = props;
   const intl = useIntl();
 
-  const { allAggregateTokenMap, ownedAggregateTokenListMap, networksMap } =
-    useTokenListViewContext();
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  const {
+    allAggregateTokenMap,
+    ownedAggregateTokenListMap,
+    networksMap,
+    tokenListMap: contextTokenListMap,
+    useCellSeam,
+  } = useTokenListViewContext();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
     [allAggregateTokenMap, $key],
@@ -65,13 +69,23 @@ function TokenNameView(props: IProps) {
   const shouldShowDeFiReceiptTokenBadge =
     showDeFiReceiptTokenBadge && !platformEnv.isNative;
 
+  // Per-network sub-token fiat slice (red-team C-F2): the home cell-seam reads
+  // the live sub-cells; non-cell paths read the host-provided map. NEVER the
+  // summed aggCell — these keys are per-network sub-token `$key`s.
+  const subTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: $key,
+    aggregateTokenList,
+    useCellSeam,
+    contextTokenListMap,
+  });
+
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     return checkIsOnlyOneTokenHasBalance({
-      tokenMap: allTokenListMap,
+      tokenMap: subTokenFiatMap,
       aggregateTokenList,
       allAggregateTokenList,
     });
-  }, [aggregateTokenList, allTokenListMap, allAggregateTokenList]);
+  }, [aggregateTokenList, subTokenFiatMap, allAggregateTokenList]);
 
   const network = useMemo(() => {
     if (!networkId) return undefined;

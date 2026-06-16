@@ -35,24 +35,6 @@ export const { atom: searchTokenListAtom, use: useSearchTokenListAtom } =
     tokens: [],
   });
 
-export const { atom: allTokenListAtom, use: useAllTokenListAtom } =
-  contextAtom<{
-    tokens: IAccountToken[];
-    keys: string;
-    accountId?: string;
-    networkId?: string;
-  }>({
-    tokens: [],
-    keys: '',
-    accountId: undefined,
-    networkId: undefined,
-  });
-
-export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
-  contextAtom<{
-    [key: string]: ITokenFiat;
-  }>({});
-
 export const {
   atom: activeAccountTokenListAtom,
   use: useActiveAccountTokenListAtom,

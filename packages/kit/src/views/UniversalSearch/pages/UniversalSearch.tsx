@@ -47,10 +47,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/slc';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
@@ -161,8 +158,13 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [allTokenList] = useAllTokenListAtom();
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
+  // each home structure frame). Keeps the search cache hint alive (do
+  // NOT drop the cache) — `getRawTokenList()` also returns the SETTLED owner
+  // identity so the `shouldUseTokensCacheData` owner match still holds. Replaces
+  // the deleted `allTokenListAtom` / `allTokenListMapAtom`.
+  const allTokenList = useHomeTokenListSnapshot();
+  const allTokenListMap = allTokenList.map;
 
   const { result: allAggregateTokenInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),

@@ -39,10 +39,7 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/slc';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import {
   useFirmwareUpdatesDetectStatusPersistAtom,
@@ -153,8 +150,7 @@ function MoreActionContentHeader({
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
   const scanQrCode = useScanQrCode();
   const { closePopover } = usePopoverContext();
 
@@ -166,20 +162,12 @@ function MoreActionContentHeader({
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [
-    closePopover,
-    scanQrCode,
-    account,
-    network,
-    allTokens.tokens,
-    allTokens.keys,
-    map,
-  ]);
+  }, [closePopover, scanQrCode, account, network, tokens, keys, map]);
 
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
@@ -868,8 +856,7 @@ function MoreActionGeneralGrid() {
   } = useActiveAccount({ num: 0 });
   const scanQrCode = useScanQrCode();
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const { tokens, keys, map } = useHomeTokenListSnapshot();
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
@@ -878,12 +865,12 @@ function MoreActionGeneralGrid() {
       account,
       network,
       tokens: {
-        data: allTokens.tokens,
-        keys: allTokens.keys,
+        data: tokens,
+        keys,
         map,
       },
     });
-  }, [scanQrCode, account, network, allTokens.tokens, allTokens.keys, map]);
+  }, [scanQrCode, account, network, tokens, keys, map]);
 
   const handlePrime = useCallback(() => {
     navigation.pushFullModal(EModalRoutes.PrimeModal, {

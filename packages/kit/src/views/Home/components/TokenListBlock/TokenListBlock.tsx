@@ -50,7 +50,6 @@ import {
 import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useAllTokenListAtom,
   useListStructureAtom,
   useTokenListActions,
   useTokenListStateAtom,
@@ -112,7 +111,6 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
   buildAggregateTokenListData,
-  buildLocalAggregateTokenMapKey,
   calculateAccountTokensValue,
   flattenAggregateTokensMap,
   getEmptyTokenData,
@@ -403,14 +401,9 @@ function TokenListBlock({
     }
   });
 
-  const {
-    refreshAllTokenList,
-    refreshAllTokenListMap,
-    updateTokenListState,
-    updateSearchKey,
-  } = useTokenListActions().current;
+  const { updateTokenListState, updateSearchKey } =
+    useTokenListActions().current;
 
-  const [allTokenListAtomValue] = useAllTokenListAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -671,15 +664,6 @@ function TokenListBlock({
         }
 
         if (r.allTokens) {
-          refreshAllTokenList({
-            keys: r.allTokens?.keys,
-            tokens: r.allTokens?.data,
-            accountId: account?.id,
-            networkId: network?.id,
-          });
-          refreshAllTokenListMap({
-            tokens: r.allTokens.map,
-          });
           const mergedTokens = r.allTokens.data;
           if (mergedTokens && mergedTokens.length) {
             void backgroundApiProxy.serviceToken.updateLocalTokens({
@@ -717,8 +701,6 @@ function TokenListBlock({
       updateAccountOverviewState,
       updateAccountWorth,
       indexedAccount?.id,
-      refreshAllTokenList,
-      refreshAllTokenListMap,
       updateTokenListState,
       setIsHeaderRefreshing,
       syncTokenFilterToOverview,
@@ -876,18 +858,6 @@ function TokenListBlock({
   // re-stamped for the new owner.
   const activeOwnerRef = useRef<{ accountId?: string; networkId?: string }>({});
   activeOwnerRef.current = { accountId: account?.id, networkId: network?.id };
-
-  // Mirror of `allTokenListAtom`'s owner stamp, kept in a ref so callbacks
-  // (e.g. `handleClearAllNetworkData`) can consult it without taking the
-  // atom value — whose identity changes on every write — as a dependency.
-  const allTokenListStampRef = useRef<{
-    accountId?: string;
-    networkId?: string;
-  }>({});
-  allTokenListStampRef.current = {
-    accountId: allTokenListAtomValue.accountId,
-    networkId: allTokenListAtomValue.networkId,
-  };
 
   // TokenList SLC producer (spec §4.1, §6). Observes the settled atoms the
   // refresh* writers above land into and projects each fetch round into the
@@ -1151,13 +1121,7 @@ function TokenListBlock({
           });
         }
 
-        const mergeDeriveAssetsEnabled = !!(
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId,
-          })
-        ).mergeDeriveAssetsEnabled;
-
-        // Re-check after the await above — the owner can switch mid-flight.
+        // Re-check the owner — it can switch mid-flight.
         if (isStaleOwnerRequest()) {
           isAllNetworkManualRefresh.current = false;
           return r;
@@ -1198,23 +1162,6 @@ function TokenListBlock({
         // `allNetworksResult` consuming effect, after merge/dedup/sort/high-low
         // split have produced the coherent full merged snapshot.
 
-        if (r.allTokens) {
-          refreshAllTokenListMap({
-            tokens: r.allTokens.map,
-            merge: true,
-            mergeDerive: mergeDeriveAssetsEnabled,
-          });
-          refreshAllTokenList({
-            keys: r.allTokens.keys,
-            tokens: r.allTokens.data,
-            map: r.allTokens.map,
-            merge: true,
-            mergeDerive: mergeDeriveAssetsEnabled,
-            accountId: account?.id,
-            networkId: network?.id,
-          });
-        }
-
         updateAllNetworkData();
       }
 
@@ -1227,8 +1174,6 @@ function TokenListBlock({
       indexedAccount?.id,
       mergeDeriveAddressData,
       network?.id,
-      refreshAllTokenList,
-      refreshAllTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateAllNetworkData,
@@ -1239,8 +1184,6 @@ function TokenListBlock({
   );
 
   const handleClearAllNetworkData = useCallback(() => {
-    const emptyTokens = getEmptyTokenData();
-
     // Cancel the pending throttled flush and discard its accumulation —
     // otherwise a trailing `updateAllNetworkData` fires after this clear and
     // merges the previous owner's tokens into the freshly stamped-empty list
@@ -1252,23 +1195,7 @@ function TokenListBlock({
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
-
-    refreshAllTokenList({
-      tokens: emptyTokens.allTokens.data,
-      keys: emptyTokens.allTokens.keys,
-      accountId: account?.id,
-      networkId: network?.id,
-    });
-    refreshAllTokenListMap({
-      tokens: emptyTokens.allTokens.map,
-    });
-  }, [
-    account?.id,
-    network?.id,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
-    updateAllNetworkData,
-  ]);
+  }, [updateAllNetworkData]);
 
   const handleAllNetworkRequestsFinished = useCallback(
     async ({
@@ -1443,48 +1370,20 @@ function TokenListBlock({
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
+      // Refresh the shared cached aggregate raw data (consumed by the
+      // single-network aggregate-build path / `updateAllNetworkData`). The
+      // legacy `allTokenList*` cache-hydrate that also lived here was deleted in
+      // the tokenList SLC §R2+R3 cutover — the SLC slim cold cache + ingestRound
+      // are now the single cache/paint authority — so the per-network token list
+      // assembly that fed those writers is gone too.
       aggregateTokenRawData.current =
         (await backgroundApiProxy.simpleDb.aggregateToken.getRawData()) ??
         undefined;
 
-      const key = buildLocalAggregateTokenMapKey({
-        networkId,
-        accountId,
-      });
-
-      const localAggregateTokenMap =
-        aggregateTokenRawData.current?.aggregateTokenMapV2?.[key] ?? {};
-      const aggregateTokenConfigMap =
-        aggregateTokenRawData.current?.aggregateTokenConfigMap ?? {};
-
-      const flattenLocalAggregateTokenMap = flattenAggregateTokensMap(
-        localAggregateTokenMap,
-      );
-
-      let tokenList: IAccountToken[] = [];
-      const riskyTokenList: IAccountToken[] = [];
-      let tokenListMap: {
-        [key: string]: ITokenFiat;
-      } = {};
+      // Per-account worth map for the overview update below.
       let tokenListValue: Record<string, string> = {};
-      let aggregateTokenListMap: Record<
-        string,
-        {
-          commonToken: IAccountToken;
-          tokens: IAccountToken[];
-        }
-      > = {};
-      let aggregateTokenMap: {
-        [key: string]: ITokenFiat;
-      } = {};
       const hasAnyCache = data.some((item) => item.hasCache);
       data.forEach((item) => {
-        tokenList.push(...item.tokenList, ...item.smallBalanceTokenList);
-        riskyTokenList.push(...item.riskyTokenList);
-        tokenListMap = {
-          ...tokenListMap,
-          ...item.tokenListMap,
-        };
         tokenListValue = {
           ...tokenListValue,
           [accountUtils.buildAccountValueKey({
@@ -1492,56 +1391,6 @@ function TokenListBlock({
             networkId: item.networkId,
           })]: item.tokenListValue,
         };
-      });
-
-      if (aggregateTokenConfigMap) {
-        tokenList = tokenList
-          .map((token) => {
-            const aggregateTokenData = buildAggregateTokenListData({
-              networkId: token.networkId ?? '',
-              accountId: token.accountId ?? '',
-              token,
-              tokenMap: tokenListMap,
-              aggregateTokenListMap,
-              aggregateTokenMap,
-              aggregateTokenConfigMapRawData: aggregateTokenConfigMap,
-              networkName: '',
-            });
-
-            if (aggregateTokenData.isAggregateToken) {
-              aggregateTokenListMap = aggregateTokenData.aggregateTokenListMap;
-              aggregateTokenMap = aggregateTokenData.aggregateTokenMap;
-              return null;
-            }
-
-            return token;
-          })
-          .filter(Boolean);
-
-        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
-          (item) => item.commonToken,
-        );
-
-        tokenList = [...tokenList, ...aggregateTokenList];
-      }
-
-      refreshAllTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: true,
-      });
-
-      refreshAllTokenList({
-        keys: `${accountId}_${networkId}_local_all`,
-        tokens: [...tokenList, ...riskyTokenList],
-        map: {
-          ...tokenListMap,
-          ...flattenLocalAggregateTokenMap,
-        },
-        merge: true,
-        mergeDerive: true,
-        accountId: account?.id,
-        networkId: network?.id,
       });
 
       if (syncTokenFilterToOverview) {
@@ -1592,9 +1441,6 @@ function TokenListBlock({
       account?.id,
       indexedAccount?.id,
       mergeDeriveAddressData,
-      network?.id,
-      refreshAllTokenList,
-      refreshAllTokenListMap,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -1939,20 +1785,6 @@ function TokenListBlock({
         });
       }
 
-      refreshAllTokenList({
-        keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-        tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
-        accountId: account?.id,
-        networkId: network?.id,
-      });
-      refreshAllTokenListMap({
-        tokens: {
-          ...mergeTokenListMap,
-          ...riskyTokenListMap,
-          ...flattenAggregateTokenMap,
-        },
-      });
-
       updateTokenListState({
         initialized: true,
         isRefreshing: false,
@@ -1965,8 +1797,6 @@ function TokenListBlock({
     mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
     updateAccountWorth,
     updateTokenListState,
   ]);
@@ -2032,7 +1862,6 @@ function TokenListBlock({
       let tokenList: IAccountToken[] = [];
       let smallBalanceTokenList: IAccountToken[] = [];
       let riskyTokenList: IAccountToken[] = [];
-      let tokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
       let tokenListWorth: Record<string, string> = {};
       let hasLocalTokenCache = false;
@@ -2108,7 +1937,6 @@ function TokenListBlock({
         smallBalanceTokenList =
           tokenListData.smallBalanceTokenList.smallBalanceTokens;
         riskyTokenList = tokenListData.riskyTokenList.riskyTokens;
-        tokenListMap = tokenListData.allTokenListMap;
       } else {
         const localTokens =
           await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -2123,7 +1951,6 @@ function TokenListBlock({
         tokenList = localTokens.tokenList;
         smallBalanceTokenList = localTokens.smallBalanceTokenList;
         riskyTokenList = localTokens.riskyTokenList;
-        tokenListMap = localTokens.tokenListMap;
         tokenListValue = localTokens.tokenListValue;
         tokenListWorth = {
           [accountUtils.buildAccountValueKey({
@@ -2162,18 +1989,6 @@ function TokenListBlock({
           // previous owner's data, leaving allTokenList.accountId/networkId
           // stale and triggering the owner-mismatch skeleton in TokenListView
           // forever for this empty-cache target.
-          const emptyKeys = `${accountId}_${networkId}_local_empty`;
-          // Use the request-time `accountId`/`networkId` (the owner this
-          // response belongs to) — not closure-captured React state which
-          // can read like "current owner" but is actually frozen at the
-          // useEffect run that fired this request.
-          refreshAllTokenList({
-            keys: emptyKeys,
-            tokens: [],
-            accountId,
-            networkId,
-          });
-          refreshAllTokenListMap({ tokens: {} });
           handleClearAllNetworkData();
           updateAccountOverviewState({
             isRefreshing: false,
@@ -2218,19 +2033,6 @@ function TokenListBlock({
           merge: false,
           currency: cachedWorthCurrency,
         });
-        // Same rationale as the empty-cache branch above: write the
-        // request-time owner IDs so a late response stamps `allTokenList`
-        // with the owner it actually belongs to.
-        refreshAllTokenList({
-          keys: `${accountId}_${networkId}_local`,
-          tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
-          accountId,
-          networkId,
-        });
-        refreshAllTokenListMap({
-          tokens: tokenListMap,
-        });
-
         updateAccountOverviewState({
           isRefreshing: false,
           initialized: true,
@@ -2267,8 +2069,6 @@ function TokenListBlock({
     indexedAccount?.id,
     mergeDeriveAddressData,
     network?.id,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
     setOverviewTokenCacheState,
     syncTokenFilterToOverview,
     updateAccountOverviewState,
@@ -2589,13 +2389,6 @@ function TokenListBlock({
         });
 
         if (r.allTokens) {
-          refreshAllTokenList({
-            keys: r.allTokens.keys,
-            tokens: r.allTokens.data,
-            accountId,
-            networkId,
-          });
-          refreshAllTokenListMap({ tokens: r.allTokens.map });
           // Keep the broader local token directory in sync, like `run` does;
           // `saveToLocal` only persists the per-account token cache.
           const mergedTokens = r.allTokens.data;
@@ -2626,8 +2419,6 @@ function TokenListBlock({
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,
-      refreshAllTokenList,
-      refreshAllTokenListMap,
       updateTokenListState,
     ],
   );

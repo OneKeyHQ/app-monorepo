@@ -44,7 +44,6 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
   useActiveAccountTokenListAtom,
   useActiveAccountTokenListStateAtom,
-  useAllTokenListAtom,
   useListStructureAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
@@ -293,7 +292,15 @@ function TokenListViewCmp(props: IProps) {
   });
 
   const [activeAccountTokenListAtomValue] = useActiveAccountTokenListAtom();
-  const [allTokenList] = useAllTokenListAtom();
+  // SETTLED owner identity for the switch skeleton (red-team C-F1): the
+  // producer stamps `listStructureAtom().ownerKey = `${accountId}__${networkId}``
+  // on every applied STRUCTURE frame, so it LAGS the scoped current owner on a
+  // network/account switch exactly like the deleted `allTokenListAtom` did —
+  // which is what keeps `ownerMismatch` firing (do NOT collapse to the scoped
+  // `accountId`/`networkId`, that would make it eternally false and flash the
+  // previous owner's balances). Empty on non-home stores (no producer), so
+  // `ownerMismatch` stays false there, matching the prior empty-atom behavior.
+  const [listStructure] = useListStructureAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListStateAtomValue] =
@@ -384,13 +391,29 @@ function TokenListViewCmp(props: IProps) {
   // own `refresh*`, NOT on this flag; on home the cells + `listStructure`
   // generation govern (see `homeProjectedIds`). Kept for the non-home skeleton
   // gate below.
+  // Parse the SETTLED owner identity off the lagging structure ownerKey. The
+  // networkId never contains the `__` separator, so split on the LAST `__`.
+  const settledOwner = useMemo(() => {
+    const key = listStructure.ownerKey;
+    if (!key) {
+      return { accountId: undefined, networkId: undefined };
+    }
+    const sep = key.lastIndexOf('__');
+    if (sep < 0) {
+      return { accountId: undefined, networkId: undefined };
+    }
+    return {
+      accountId: key.slice(0, sep),
+      networkId: key.slice(sep + 2),
+    };
+  }, [listStructure.ownerKey]);
   const ownerMismatch =
     !!accountId &&
     !!networkId &&
-    !!allTokenList.accountId &&
-    !!allTokenList.networkId &&
-    (allTokenList.accountId !== accountId ||
-      allTokenList.networkId !== networkId);
+    !!settledOwner.accountId &&
+    !!settledOwner.networkId &&
+    (settledOwner.accountId !== accountId ||
+      settledOwner.networkId !== networkId);
 
   const tokens = useMemo(() => {
     // PR-7: on the HOME cell path order/membership/rows come from
@@ -630,7 +653,8 @@ function TokenListViewCmp(props: IProps) {
   // `useAtomValue`) so a cell write alone never re-runs the projection (risk
   // #9). Non-home paths (TokenSelector / scoped / active-account) keep the
   // legacy `limitedTokens` → `tokenByKey` path, completely unchanged.
-  const [listStructure] = useListStructureAtom();
+  // (`listStructure` is read once near the top of the component for the switch
+  // skeleton owner; reused here.)
 
   // HOME pure projection over the structure ids. The cell/meta reads are
   // captured at structure-frame time via `store.get`, so the deps are the

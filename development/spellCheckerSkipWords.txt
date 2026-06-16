@@ -1021,6 +1021,8 @@ multiline
 recrypt
 Lista
 customizable
+cutover
+coldstart
 ledgerbounds
 testid
 closeable

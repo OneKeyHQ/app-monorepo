@@ -1,17 +1,11 @@
 import { useRef } from 'react';
 
-import { isEqual, uniqBy } from 'lodash';
+import { uniqBy } from 'lodash';
 
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import {
-  mergeDeriveTokenList,
-  mergeDeriveTokenListMap,
-  sortTokensByFiatValue,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ETokenListSortType,
   IAccountToken,
-  ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
@@ -19,8 +13,6 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   activeAccountTokenListAtom,
   activeAccountTokenListStateAtom,
-  allTokenListAtom,
-  allTokenListMapAtom,
   contextAtomMethod,
   createAccountStateAtom,
   processingTokenStateAtom,
@@ -53,99 +45,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       set(searchTokenListAtom(), { tokens: payload.tokens });
-    },
-  );
-
-  refreshAllTokenList = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: IAccountToken[];
-        keys: string;
-        merge?: boolean;
-        map?: {
-          [key: string]: ITokenFiat;
-        };
-        mergeDerive?: boolean;
-        accountId?: string;
-        networkId?: string;
-      },
-    ) => {
-      const { keys, tokens, merge, mergeDerive, accountId, networkId } =
-        payload;
-      const allTokenList = get(allTokenListAtom());
-
-      if (merge) {
-        if (tokens.length) {
-          let newTokens = allTokenList.tokens;
-
-          newTokens = mergeDeriveTokenList({
-            sourceTokens: tokens,
-            targetTokens: newTokens,
-            mergeDeriveAssets: mergeDerive,
-          });
-
-          const tokenListMap = get(allTokenListMapAtom());
-
-          newTokens = sortTokensByFiatValue({
-            tokens: uniqBy(newTokens, (item) => item.$key),
-            map: {
-              ...tokenListMap,
-              // The aggregate fiat map is already merged into `payload.map` by
-              // the home producer (e.g. `flattenLocalAggregateTokenMap`); the
-              // dedicated aggregate atom was removed in the tokenList SLC
-              // full-delete (PR-8).
-              ...payload.map,
-            },
-          });
-
-          set(allTokenListAtom(), {
-            tokens: newTokens,
-            keys: `${allTokenList.keys}_${keys}`,
-            accountId,
-            networkId,
-          });
-        }
-      } else if (!isEqual(allTokenList.keys, keys)) {
-        set(allTokenListAtom(), {
-          tokens: uniqBy(tokens, (item) => item.$key),
-          keys,
-          accountId,
-          networkId,
-        });
-      }
-    },
-  );
-
-  refreshAllTokenListMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: {
-          [key: string]: ITokenFiat;
-        };
-        merge?: boolean;
-        mergeDerive?: boolean;
-      },
-    ) => {
-      const { tokens, merge, mergeDerive } = payload;
-      if (merge) {
-        const tokenListMap = get(allTokenListMapAtom());
-        set(
-          allTokenListMapAtom(),
-          mergeDeriveTokenListMap({
-            sourceMap: tokens,
-            targetMap: tokenListMap,
-            mergeDeriveAssets: mergeDerive,
-          }),
-        );
-
-        return;
-      }
-
-      set(allTokenListMapAtom(), tokens);
     },
   );
 
@@ -268,8 +167,6 @@ const createActions = memoFn(() => {
 
 export function useTokenListActions() {
   const actions = createActions();
-  const refreshAllTokenList = actions.refreshAllTokenList.use();
-  const refreshAllTokenListMap = actions.refreshAllTokenListMap.use();
 
   const refreshSearchTokenList = actions.refreshSearchTokenList.use();
 
@@ -293,8 +190,6 @@ export function useTokenListActions() {
 
   return useRef({
     refreshSearchTokenList,
-    refreshAllTokenList,
-    refreshAllTokenListMap,
     updateSearchKey,
     updateTokenListState,
     updateSearchTokenState,

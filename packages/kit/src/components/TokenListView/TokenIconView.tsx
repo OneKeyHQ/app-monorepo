@@ -4,7 +4,7 @@ import { useMedia } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { useAllTokenListMapAtom } from '../../states/jotai/contexts/tokenList';
+import { useAggregateSubTokenFiatMap } from '../../states/jotai/contexts/tokenList/slc';
 import { Token } from '../Token';
 
 import { useTokenListViewContext } from './TokenListViewContext';
@@ -32,9 +32,13 @@ function TokenIconView(props: IProps) {
 
   const tokenSize = gtMd ? 'md' : 'lg';
 
-  const { allAggregateTokenMap, ownedAggregateTokenListMap, networksMap } =
-    useTokenListViewContext();
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  const {
+    allAggregateTokenMap,
+    ownedAggregateTokenListMap,
+    networksMap,
+    tokenListMap: contextTokenListMap,
+    useCellSeam,
+  } = useTokenListViewContext();
   const allAggregateTokenList = useMemo(
     () => allAggregateTokenMap?.[$key]?.tokens ?? [],
     [allAggregateTokenMap, $key],
@@ -45,10 +49,20 @@ function TokenIconView(props: IProps) {
   );
   const firstAggregateToken = aggregateTokenList?.[0];
 
+  // Per-network sub-token fiat slice (red-team C-F2): the home cell-seam reads
+  // the live sub-cells; non-cell paths read the host-provided map. NEVER the
+  // summed aggCell — these keys are per-network sub-token `$key`s.
+  const subTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: $key,
+    aggregateTokenList,
+    useCellSeam,
+    contextTokenListMap,
+  });
+
   const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
     if (isAggregateToken) {
       return checkIsOnlyOneTokenHasBalance({
-        tokenMap: allTokenListMap,
+        tokenMap: subTokenFiatMap,
         aggregateTokenList,
         allAggregateTokenList,
       });
@@ -59,7 +73,7 @@ function TokenIconView(props: IProps) {
     };
   }, [
     aggregateTokenList,
-    allTokenListMap,
+    subTokenFiatMap,
     allAggregateTokenList,
     isAggregateToken,
   ]);
