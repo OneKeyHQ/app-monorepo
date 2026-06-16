@@ -153,16 +153,14 @@ function BasicEditAddress() {
   const { control } = form;
   const networkIdValue = useFormWatch({ control, name: 'networkId' });
   const addressValue = useFormWatch({ control, name: 'to' });
+  const { errors } = form.formState;
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
-    const errors = Object.values(form.formState.errors);
-    if (errors.length) {
+    if (Object.values(errors).length) {
       return false;
     }
-    return (
-      !addressValue.pending && !!addressValue.resolved && form.formState.isValid
-    );
-  }, [addressValue.pending, addressValue.resolved, form.formState]);
+    return !addressValue.pending && !!addressValue.resolved;
+  }, [addressValue.pending, addressValue.resolved, errors]);
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
