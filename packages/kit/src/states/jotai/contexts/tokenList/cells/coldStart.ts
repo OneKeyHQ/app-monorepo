@@ -486,6 +486,15 @@ export function hydrateCellsFromColdStart(params: {
 
 // --- VERSION-FLAG CLEANUP --------------------------------------------------
 
+// TODO(cleanup, remove after one shipped release): TRANSITIONAL migration code.
+// `purgeOldColdStartIfNeeded` + `scheduleColdStartCleanupOnce` exist only to
+// one-time evict the OLD `::ctx:renderedTokenListCacheAtom` cold-start fields
+// (disk + the in-memory double-authority map) left by builds prior to the slim
+// bundle. Once every active install has launched a build carrying this purge,
+// these two functions, the `TOKEN_COLD_START_CLEANUP_VERSION*` flag, the
+// `purgeOldColdStartRuntimeKeys` import, and the HomePageReady hook can all be
+// deleted — the slim key is never matched by the purge, so removing it is safe.
+
 /**
  * One-time version-flag purge of the OLD persisted cold-start fields (spec §7).
  * MUST run AFTER the T0 read+fan-out (scheduled on HomePageReady) so it never

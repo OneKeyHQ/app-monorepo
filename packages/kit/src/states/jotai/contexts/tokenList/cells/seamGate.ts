@@ -15,6 +15,35 @@
  * Pure: no React / jotai / native / module globals (spec §11.5). This is the
  * unit under seamGate.test.ts.
  */
+
+// NOTE(seam is PERMANENT, do NOT plan to delete it — audited 2026-06-16):
+// The cell path (fast, per-key, home) and the legacy whole-`tokenListMap` path
+// (seam OFF) are a deliberate TWO-MODE architecture, not transitional debt. The
+// seam-OFF paths CANNOT be moved onto cells by "threading" because their data
+// never enters the BG VM per-owner round pipeline (the only `ingestRound` caller
+// is home/TokenListBlock):
+//   - scoped-LP override (`hasActiveScopedOverride`): a UI-only `useState` dapp
+//     map (TokenListBlock `scopedLpTokenListMap`, TokenSelector
+//     `scopedActiveTokenListMap`). It overlays LP prices on a subset of the list
+//     — there is NO ownerKey and `ingestRound` (REPLACE semantics) cannot express
+//     it. Making this cell-fed needs a NEW BG VM round/frame type, not a refactor.
+//     => PERMANENT.
+//   - TokenSelector (search / all-networks / custom-token-add) and the
+//     active-account / cross-account list: their fetches don't flow through a
+//     per-owner round, so there are no frames to subscribe to. Migrating is a
+//     pipeline re-architecture, not threading. => keep legacy unless redesigned.
+//   - AssetList host is the only seam-OFF path that is owner-shaped and could
+//     plausibly host a producer later — moderate work, do it standalone if ever.
+// Deleting the seam would blank these screens to `-` (an empty cell registry with
+// no producer). Keep this module + its test as the documented mode selector.
+//
+// DO NOT hoist the value leaves' `useTokenFiat` up to the row (TokenListItem):
+// TokenListItem does NOT subscribe to fiat today, so a price tick re-renders ONLY
+// the 4 small memo'd value leaves, not the row (icon/name/actions stay put). The
+// per-leaf split is INTENTIONAL tick isolation. Hoisting widens every tick to the
+// whole row (regressing the hot path the cells exist to protect); the 4→1
+// subscription "saving" is on the SAME cell in lockstep (~0 cost) and would also
+// strand RiskTokenManager, which composes these leaves WITHOUT TokenListItem.
 import type { ITokenFiat } from '@onekeyhq/shared/types/token';
 
 export interface IResolveUseCellSeamParams {
