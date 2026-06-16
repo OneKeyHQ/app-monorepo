@@ -136,6 +136,7 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
+import { SwapStockDesktopContainer } from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -1143,6 +1144,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       filteredNetworks = swapNetworks.filter(
         (item) => !!item.supportSingleSwap || !!item.supportCrossChainSwap,
       );
+    } else if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      filteredNetworks = swapNetworks.filter((item) => !!item.supportStock);
     } else {
       filteredNetworks = swapNetworks.filter((item) => !!item.supportLimit);
     }
@@ -1170,6 +1173,39 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   useSwapQuote();
 
   const renderSwapSwapBridgeContainer = useCallback(() => {
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg &&
+      pageType !== EPageType.modal &&
+      !platformEnv.isNative
+    ) {
+      return (
+        <SwapStockDesktopContainer
+          storeName={storeName}
+          marketPresetToken={marketPresetTokenContext}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
+          headerContent={
+            <SwapHeaderContainer
+              pageType={pageType}
+              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              showSwapPro={platformEnv.isNative}
+              hideRightActions
+            />
+          }
+        />
+      );
+    }
     if (!platformEnv.isNative) {
       return (
         <SwapOldSwapBridgeLimitContainer
@@ -1251,6 +1287,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapRecentTokenPairs,
     swapBridgeSupportNetworksFilterAllNet,
     storeName,
+    marketPresetTokenContext,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
     gtLg,
@@ -1259,7 +1296,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   // Desktop: show provider panel on the right side, need wider layout
   // Show when: on large desktop (gtLg), not in modal, and not on native platform
   const showDesktopProviderPanel =
-    gtLg && pageType !== EPageType.modal && !platformEnv.isNative;
+    gtLg &&
+    pageType !== EPageType.modal &&
+    !platformEnv.isNative &&
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const containerLayout = useMemo(() => {
     if (pageType === EPageType.modal) {
@@ -1267,6 +1307,13 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     }
     // Use full layout when showing desktop provider panel to allow scrolling on the entire viewport
     if (showDesktopProviderPanel) {
+      return 'full' as const;
+    }
+    if (
+      swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+      gtLg &&
+      !platformEnv.isNative
+    ) {
       return 'full' as const;
     }
     if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
@@ -1344,21 +1391,22 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
+  const { pageType, swapInitParams } = props;
   const initialSelectedTokensOnInit =
-    props.swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
-    Boolean(props.swapInitParams?.importNetworkId)
+    swapInitParams?.swapSource === ESwapSource.WALLET_HOME_TOKEN_LIST &&
+    Boolean(swapInitParams?.importNetworkId)
       ? {
-          fromToken: props.swapInitParams?.importFromToken,
-          toToken: props.swapInitParams?.importToToken,
+          fromToken: swapInitParams?.importFromToken,
+          toToken: swapInitParams?.importToToken,
           swapType:
-            props.swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+            swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }
       : undefined;
 
   return (
     <SwapProviderMirror
       storeName={
-        props?.pageType === EPageType.modal
+        pageType === EPageType.modal
           ? EJotaiContextStoreNames.swapModal
           : EJotaiContextStoreNames.swap
       }
@@ -1368,7 +1416,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapMainLoad {...props} pageType={props?.pageType} />
+          <SwapMainLoad {...props} pageType={pageType} />
         </LazyPageContainer>
       </MarketWatchListProviderMirrorV2>
     </SwapProviderMirror>

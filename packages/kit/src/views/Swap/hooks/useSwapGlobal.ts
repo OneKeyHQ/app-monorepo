@@ -468,6 +468,7 @@ export function useSwapInit(params?: ISwapInitParams) {
 
       let clearedSelectedTokens = false;
       if (
+        swapTypeSwitchRef.current !== ESwapTabSwitchType.STOCK &&
         shouldClearSwapSelectedTokensBeforeHomeAccountSync({
           cachedContext: selectedTokensColdStartContextRef.current,
           hasSelectedTokens,
@@ -742,6 +743,7 @@ export function useSwapInit(params?: ISwapInitParams) {
             supportSingleSwap: supportNet.supportSingleSwap,
             supportCrossChainSwap: supportNet.supportCrossChainSwap,
             supportLimit: supportNet.supportLimit,
+            supportStock: supportNet.supportStock,
           })
         : [];
       if (!normalizedSwapTabSwitchType && enableSwitchAction) {
@@ -772,6 +774,22 @@ export function useSwapInit(params?: ISwapInitParams) {
   );
 
   const syncDefaultSelectedToken = useCallback(async () => {
+    const isStockDefaultTokenFlow =
+      (params?.swapTabSwitchType ?? swapTypeSwitchRef.current) ===
+      ESwapTabSwitchType.STOCK;
+    if (
+      params?.fromAmount &&
+      (!fromTokenAmount.isInput || fromTokenAmount.value !== params.fromAmount)
+    ) {
+      void setFromTokenAmount({
+        value: params.fromAmount,
+        isInput: true,
+      });
+    }
+    if (isStockDefaultTokenFlow) {
+      markInitialSelectedTokensSynced();
+      return;
+    }
     const hasImportTokenParams = Boolean(
       params?.importFromToken || params?.importToToken,
     );
@@ -805,15 +823,6 @@ export function useSwapInit(params?: ISwapInitParams) {
       if (homeAccountSyncResult.clearedSelectedTokens) {
         hasSelectedTokens = false;
       }
-    }
-    if (
-      params?.fromAmount &&
-      (!fromTokenAmount.isInput || fromTokenAmount.value !== params.fromAmount)
-    ) {
-      void setFromTokenAmount({
-        value: params.fromAmount,
-        isInput: true,
-      });
     }
     if (hasImportTokenParams) {
       if (!swapNetworksRef.current.length) {
@@ -1063,6 +1072,7 @@ export function useSwapInit(params?: ISwapInitParams) {
             swapTypeSwitch,
             ESwapTabSwitchType.SWAP,
             ESwapTabSwitchType.LIMIT,
+            ESwapTabSwitchType.STOCK,
           ].filter(
             (type, index, list): type is ESwapTabSwitchType =>
               !!type &&

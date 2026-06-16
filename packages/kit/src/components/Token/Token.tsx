@@ -43,6 +43,7 @@ export type ITokenProps = {
   tokenImageUris?: string[];
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
+  showNetworkIconBorder?: boolean;
   networkId?: string;
   isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
@@ -71,6 +72,7 @@ export function Token({
   networkImageUri,
   networkId,
   showNetworkIcon,
+  showNetworkIconBorder = true,
   fallbackIcon,
   isAggregateToken,
   bg: bgProp,
@@ -163,8 +165,8 @@ export function Token({
           position="absolute"
           right="$-1"
           bottom="$-1"
-          p="$0.5"
-          bg="$bgApp"
+          p={showNetworkIconBorder ? '$0.5' : '$0'}
+          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
           <NetworkAvatarBase size={chainImageSize} logoURI={networkImageUri} />
@@ -181,8 +183,8 @@ export function Token({
           position="absolute"
           right="$-1"
           bottom="$-1"
-          p="$0.5"
-          bg="$bgApp"
+          p={showNetworkIconBorder ? '$0.5' : '$0'}
+          bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
           borderRadius="$full"
         >
           <NetworkAvatar networkId={networkId} size={chainImageSize} />

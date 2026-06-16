@@ -34,10 +34,12 @@ export function getSwapNetworkSupportTabSwitchTypes({
   supportSingleSwap,
   supportCrossChainSwap,
   supportLimit,
+  supportStock,
 }: {
   supportSingleSwap?: boolean;
   supportCrossChainSwap?: boolean;
   supportLimit?: boolean;
+  supportStock?: boolean;
 }) {
   const supportTypes: ESwapTabSwitchType[] = [];
   if (supportSingleSwap || supportCrossChainSwap) {
@@ -48,6 +50,9 @@ export function getSwapNetworkSupportTabSwitchTypes({
   }
   if (supportLimit) {
     supportTypes.push(ESwapTabSwitchType.LIMIT);
+  }
+  if (supportStock) {
+    supportTypes.push(ESwapTabSwitchType.STOCK);
   }
   return supportTypes;
 }
@@ -63,6 +68,9 @@ export function getSwapExecutionType({
 }) {
   if (protocol === EProtocolOfExchange.LIMIT) {
     return ESwapTabSwitchType.LIMIT;
+  }
+  if (protocol === EProtocolOfExchange.STOCK) {
+    return ESwapTabSwitchType.STOCK;
   }
   if (fromNetworkId && toNetworkId && fromNetworkId !== toNetworkId) {
     return ESwapTabSwitchType.BRIDGE;

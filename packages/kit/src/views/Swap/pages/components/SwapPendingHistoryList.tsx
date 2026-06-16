@@ -35,6 +35,7 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { SwapTestIDs } from '../../testIDs';
+
 const SwapPendingHistoryListComponent = ({
   pageType,
 }: {

@@ -82,9 +82,7 @@ export function useSwapQuote() {
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
-  const shouldPauseQuoteForTokenSelector = Boolean(
-    currentSelectNetwork?.networkId,
-  );
+  const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
   const swapProInputToken = useSwapProInputToken();
   const swapProToToken = useSwapProToToken();
   const focusSwapPro = useMemo(() => {
@@ -249,7 +247,7 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (!isFocusRef.current) return;
-    if (shouldPauseQuoteForTokenSelector) return;
+    if (shouldPauseQuote) return;
     if (!fromTokenAmount.value && fromTokenAmount.isInput) {
       void quoteAction(
         swapSlippageRef.current,
@@ -262,11 +260,11 @@ export function useSwapQuote() {
         swapToAddressInfoRef.current.address,
       );
     }
-  }, [fromTokenAmount, quoteAction, shouldPauseQuoteForTokenSelector]);
+  }, [fromTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
     if (!isFocusRef.current) return;
-    if (shouldPauseQuoteForTokenSelector) return;
+    if (shouldPauseQuote) return;
     if (
       !toTokenAmount.value &&
       toTokenAmount.isInput &&
@@ -283,10 +281,10 @@ export function useSwapQuote() {
         swapToAddressInfoRef.current.address,
       );
     }
-  }, [toTokenAmount, quoteAction, shouldPauseQuoteForTokenSelector]);
+  }, [toTokenAmount, quoteAction, shouldPauseQuote]);
 
   useEffect(() => {
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
@@ -311,7 +309,7 @@ export function useSwapQuote() {
     cleanQuoteInterval,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
-    shouldPauseQuoteForTokenSelector,
+    shouldPauseQuote,
   ]);
 
   // Re-quote when slippage is changed via the settings dialog (not via the main
@@ -342,7 +340,7 @@ export function useSwapQuote() {
     if (!keyChanged && !customValueChanged) {
       return;
     }
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
 
@@ -360,11 +358,11 @@ export function useSwapQuote() {
     slippageItem,
     swapSlippageDialogOpening.status,
     quoteAction,
-    shouldPauseQuoteForTokenSelector,
+    shouldPauseQuote,
   ]);
 
   useEffect(() => {
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
     if (
@@ -451,11 +449,11 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentDecimal,
     fromAmountDebounce,
-    shouldPauseQuoteForTokenSelector,
+    shouldPauseQuote,
   ]);
 
   useEffect(() => {
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
     let kind = ESwapQuoteKind.SELL;
@@ -477,7 +475,7 @@ export function useSwapQuote() {
       undefined,
       swapToAddressInfoRef.current.address,
     );
-  }, [quoteAction, swapTabSwitchType, shouldPauseQuoteForTokenSelector]);
+  }, [quoteAction, swapTabSwitchType, shouldPauseQuote]);
 
   useEffect(
     () => () => {
@@ -487,7 +485,7 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
     if (
@@ -577,12 +575,12 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentToDecimal,
     toAmountDebounce,
-    shouldPauseQuoteForTokenSelector,
+    shouldPauseQuote,
   ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
   useEffect(() => {
-    if (shouldPauseQuoteForTokenSelector) {
+    if (shouldPauseQuote) {
       return;
     }
     if (isFocusRef.current) return;
@@ -613,10 +611,7 @@ export function useSwapQuote() {
       swapToAddressInfoRef.current.address,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    swapAddressInfo.accountInfo?.deriveType,
-    shouldPauseQuoteForTokenSelector,
-  ]);
+  }, [swapAddressInfo.accountInfo?.deriveType, shouldPauseQuote]);
 
   const swapApprovingSuccessAction = useCallback(
     async (data: {
@@ -733,15 +728,18 @@ export function useSwapQuote() {
             .join('; ');
         }
       }
+      let quoteProtocol: EProtocolOfExchange | undefined;
+      if (swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT) {
+        quoteProtocol = EProtocolOfExchange.LIMIT;
+      } else if (swapTabSwitchTypeRef.current === ESwapTabSwitchType.STOCK) {
+        quoteProtocol = EProtocolOfExchange.STOCK;
+      }
       defaultLogger.swap.swapQuote.swapQuote({
         fromAddress: swapAddressInfo.address ?? '',
         toAddress: swapToAddressInfo.address ?? '',
         walletType: activeAccountRef.current?.accountInfo?.wallet?.type ?? '',
         quoteType: getSwapExecutionType({
-          protocol:
-            swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT
-              ? EProtocolOfExchange.LIMIT
-              : undefined,
+          protocol: quoteProtocol,
           fromNetworkId: fromTokenRef.current?.networkId,
           toNetworkId: toTokenRef.current?.networkId,
         }),
@@ -818,7 +816,10 @@ export function useSwapQuote() {
             EAppEventBusNames.SwapApprovingSuccess,
             swapApprovingSuccessAction,
           );
-          if (shouldRefreshPreservedInputQuoteOnFocusRef.current) {
+          if (
+            shouldRefreshPreservedInputQuoteOnFocusRef.current &&
+            !shouldPauseQuote
+          ) {
             shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
             const quoteKind =
               swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT &&
@@ -836,6 +837,8 @@ export function useSwapQuote() {
               undefined,
               swapToAddressInfoRef.current.address,
             );
+          } else if (shouldPauseQuote) {
+            shouldRefreshPreservedInputQuoteOnFocusRef.current = false;
           }
         } else if (isHiddenModel) {
           if (

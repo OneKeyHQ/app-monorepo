@@ -303,9 +303,13 @@ const SwapSettingsDialogContent = ({
     (!marketPresetSettings ||
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showSwapSettingsSlippage =
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting;
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+    showSwapProSlippageSetting;
   const showSmartModeSetting =
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT || focusSwapPro;
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+    focusSwapPro;
   const dialogContentMaxHeight = useMemo(() => {
     if (!platformEnv.isNative || keyboardHeight <= 0) {
       return undefined;
@@ -433,7 +437,8 @@ const SwapSettingsDialogContent = ({
             }}
           />
         )}
-        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        {swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK ? (
           <>
             <SwapProviderSettingItem
               title={intl.formatMessage({
@@ -543,7 +548,9 @@ const SwapHeaderRightActionContainer = ({
       (!marketPresetSettings.enabled && !marketPresetSettings.isLoading));
   const showHeaderSlippageValue =
     !compact &&
-    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || showSwapProSlippageSetting);
+    ((swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+      swapTypeSwitch !== ESwapTabSwitchType.STOCK) ||
+      showSwapProSlippageSetting);
   const slippageTitle = useMemo(() => {
     if (!showHeaderSlippageValue) {
       return null;
@@ -582,6 +589,7 @@ const SwapHeaderRightActionContainer = ({
 
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+    swapTypeSwitch === ESwapTabSwitchType.STOCK ||
     (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =

@@ -592,7 +592,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const protocol = get(swapTypeSwitchAtom());
         const { swapIncognitoMode } = await settingsAtom.get();
         const incognitoEnabled =
-          protocol === ESwapTabSwitchType.LIMIT
+          protocol === ESwapTabSwitchType.LIMIT ||
+          protocol === ESwapTabSwitchType.STOCK
             ? false
             : (incognito ?? swapIncognitoMode);
         const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
@@ -954,7 +955,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const protocol = get(swapTypeSwitchAtom());
       const { swapIncognitoMode } = await settingsAtom.get();
       const incognitoEnabled =
-        protocol === ESwapTabSwitchType.LIMIT
+        protocol === ESwapTabSwitchType.LIMIT ||
+        protocol === ESwapTabSwitchType.STOCK
           ? false
           : (incognito ?? swapIncognitoMode);
       const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
@@ -1493,7 +1495,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const quoteEventProgressTotalCount = getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
-          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+          swapIncognitoMode &&
+          swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+          swapTypeSwitch !== ESwapTabSwitchType.STOCK
             ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
             : undefined,
       });
@@ -2237,11 +2241,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       const swapSupportNetworks = get(swapNetworks());
-      const currentTypeSupportNetworks =
+      let currentTypeSupportNetworks = swapSupportNetworks.filter(
+        (item) => item.supportLimit,
+      );
+      if (
         swapTypeSwitchValue === ESwapTabSwitchType.SWAP ||
         swapTypeSwitchValue === ESwapTabSwitchType.BRIDGE
-          ? swapSupportNetworks
-          : swapSupportNetworks.filter((item) => item.supportLimit);
+      ) {
+        currentTypeSupportNetworks = swapSupportNetworks;
+      } else if (swapTypeSwitchValue === ESwapTabSwitchType.STOCK) {
+        currentTypeSupportNetworks = swapSupportNetworks.filter(
+          (item) => item.supportStock,
+        );
+      }
       const tokenListSupportNetworks = lpToken
         ? currentTypeSupportNetworks.filter(
             isTokenSelectorDappTokenFilterSupportedNetworkBase,
