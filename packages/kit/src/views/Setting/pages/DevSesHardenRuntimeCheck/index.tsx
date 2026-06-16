@@ -1,12 +1,16 @@
 // cspell:ignore lockdown evalTaming tamper IndexedDB XHR randomBytes isNormalized oneKey
-import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  Accordion,
   Badge,
   Button,
   Dialog,
+  Icon,
   Page,
   SizableText,
+  Stack,
   TextAreaInput,
   Toast,
   XStack,
@@ -14,6 +18,10 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components';
+import {
+  ANIMATE_ONLY_OPACITY,
+  ANIMATE_ONLY_TRANSFORM,
+} from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getSesHardenLevelFromRuntime } from '@onekeyhq/shared/src/security/sesHarden';
 import type {
@@ -318,7 +326,7 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
   {
     item: 'overrideTaming',
     description:
-      'overrideTaming 控制对属性覆盖/override 的兼容策略，moderate 是 SES 推荐的兼容折中档。',
+      "overrideTaming 控制 override mistake 的兼容策略。打包后的依赖（axios/decimal.js 等）会在初始化时往继承自 Object.prototype 的对象上赋值 constructor，需用 'severe' 才能放行（与 MetaMask 一致）；severe 不削弱 intrinsic 冻结，仅允许在接收者自身 shadow。",
     l0: {
       emoji: '❌',
       detail: 'L0 不启用 SES，因此没有 overrideTaming。',
@@ -326,11 +334,11 @@ const SES_LEVEL_MATRIX: readonly ISesLevelMatrixRow[] = [
     l1: {
       emoji: '✅',
       detail:
-        "L1 使用 'moderate'，降低 prototype override 风险，同时保留一定兼容性。",
+        "L1 使用 'severe'，让打包依赖的 override 赋值在接收者自身 shadow，避免撞到冻结的 Object.prototype。",
     },
     l2: {
       emoji: '✅',
-      detail: "L2 与 L1 一样使用 'moderate'。",
+      detail: "L2 与 L1 一样使用 'severe'。",
     },
   },
   {
@@ -612,8 +620,8 @@ function PatchWarningItem({
       borderRadius="$1"
     >
       <SizableText size="$bodyMdMedium">
-        #{warning.id} {warning.kind} count={warning.count}{' '}
-        lastSeenAt={warning.lastSeenAt}
+        #{warning.id} {warning.kind} count={warning.count} lastSeenAt=
+        {warning.lastSeenAt}
       </SizableText>
       {warning.culprit ? (
         <SizableText size="$bodyMdMedium" color="$textCritical">
@@ -870,6 +878,68 @@ async function collectExtensionRuntimeReports(
   );
 }
 
+function CollapsibleSection({
+  value,
+  title,
+  children,
+}: {
+  value: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Accordion.Item value={value}>
+      <Accordion.Trigger
+        unstyled
+        flexDirection="row"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$2"
+        borderWidth={0}
+        bg="$transparent"
+        py="$3"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        focusVisibleStyle={{
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineColor: '$focusRing',
+          outlineOffset: 0,
+        }}
+      >
+        {({ open }: { open: boolean }) => (
+          <>
+            <SizableText size="$headingLg">{title}</SizableText>
+            <Stack
+              animation="quick"
+              animateOnly={ANIMATE_ONLY_TRANSFORM}
+              rotate={open ? '-180deg' : '0deg'}
+            >
+              <Icon
+                name="ChevronDownSmallOutline"
+                color={open ? '$iconActive' : '$iconSubdued'}
+                size="$6"
+              />
+            </Stack>
+          </>
+        )}
+      </Accordion.Trigger>
+      <Accordion.HeightAnimator animation="quick">
+        <Accordion.Content
+          unstyled
+          animation="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={{ opacity: 0 }}
+          exitStyle={{ opacity: 0 }}
+          pt="$3"
+        >
+          {children}
+        </Accordion.Content>
+      </Accordion.HeightAnimator>
+    </Accordion.Item>
+  );
+}
+
 export default function DevSesHardenRuntimeCheck() {
   const { copyText } = useClipboard();
   const [report, setReport] = useState<IAggregatedSesRuntimeCheckReport>();
@@ -948,6 +1018,18 @@ export default function DevSesHardenRuntimeCheck() {
     }
   }, []);
 
+  // Auto-run the checks once when the page mounts. The ref guard keeps it to a
+  // single run even under React StrictMode's dev double-invoke, so we don't fire
+  // two runs (and two toasts) on entry.
+  const didAutoRunRef = useRef(false);
+  useEffect(() => {
+    if (didAutoRunRef.current) {
+      return;
+    }
+    didAutoRunRef.current = true;
+    void runChecks();
+  }, [runChecks]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="SES Harden Runtime Check" />
@@ -964,425 +1046,444 @@ export default function DevSesHardenRuntimeCheck() {
             </SizableText>
           </YStack>
 
-          <YStack gap="$3">
-            <SizableText size="$headingLg">L0 / L1 / L2 区别</SizableText>
-            <SizableText color="$textSubdued">
-              lockdown 在当前 JS realm 内不可逆。当前等级只由
-              packages/shared/src/security/sesHarden/config.ts 的同步常量控制；
-              修改 L0/L1/L2 后需要重新构建或 reload
-              让入口按新常量初始化。当前实现里 L2 相比 L1 只额外把 evalTaming 从
-              unsafe-eval 收紧到 safe-eval。
-            </SizableText>
-            <SizableText color="$textSubdued">
-              图例：✅ 启用或收紧；❌ 未启用或未收紧；➖
-              保持原生兼容、默认值或回滚用途。
-            </SizableText>
-            <YStack
-              borderWidth="$px"
-              borderColor="$borderSubdued"
-              borderRadius="$2"
-              overflow="hidden"
-            >
-              <XStack bg="$bgSubdued" borderBottomWidth="$px">
-                <YStack width={168} p="$3">
-                  <SizableText size="$bodyMd" fontWeight="600">
-                    配置项
-                  </SizableText>
-                </YStack>
-                <YStack flex={1} p="$3" alignItems="flex-end">
-                  <SizableText
-                    size="$bodyMd"
-                    fontWeight="600"
-                    textAlign="right"
+          <Accordion type="multiple" gap="$4" defaultValue={['checks']}>
+            <CollapsibleSection value="checks" title="测试项目与结果">
+              <YStack gap="$3">
+                <XStack gap="$2" flexWrap="wrap">
+                  <Button
+                    testID="ses-harden-run-checks"
+                    variant="primary"
+                    loading={isRunning}
+                    onPress={() => {
+                      void runChecks();
+                    }}
                   >
-                    L0
-                  </SizableText>
-                </YStack>
-                <YStack flex={1} p="$3" alignItems="flex-end">
-                  <SizableText
-                    size="$bodyMd"
-                    fontWeight="600"
-                    textAlign="right"
+                    Run Checks
+                  </Button>
+                  <Button
+                    testID="ses-harden-copy-report"
+                    variant="secondary"
+                    onPress={copyReport}
                   >
-                    L1
-                  </SizableText>
-                </YStack>
-                <YStack flex={1} p="$3" alignItems="flex-end">
-                  <SizableText
-                    size="$bodyMd"
-                    fontWeight="600"
-                    textAlign="right"
-                  >
-                    L2
-                  </SizableText>
-                </YStack>
-              </XStack>
-              {SES_LEVEL_MATRIX.map((item) => (
-                <XStack key={item.item} borderTopWidth="$px">
-                  <YStack width={168} p="$3">
-                    <SizableText
-                      size="$bodyMd"
-                      fontWeight="600"
-                      textDecorationLine="underline"
-                      onPress={() => showLevelMatrixItemDialog(item)}
+                    Copy Test Result
+                  </Button>
+                  {platformEnv.isExtension ? (
+                    <Button
+                      testID="ses-harden-open-passkey-runtime"
+                      variant="secondary"
+                      onPress={() => {
+                        void openPassKeyRuntime();
+                      }}
                     >
-                      {item.item}
-                    </SizableText>
-                  </YStack>
-                  <YStack flex={1} p="$3" alignItems="flex-end">
-                    <SizableText
-                      size="$bodyLg"
-                      textAlign="right"
-                      onPress={() =>
-                        showLevelMatrixCellDialog({
-                          item,
-                          level: 'L0',
-                          cell: item.l0,
-                        })
-                      }
-                    >
-                      {item.l0.emoji}
-                    </SizableText>
-                  </YStack>
-                  <YStack flex={1} p="$3" alignItems="flex-end">
-                    <SizableText
-                      size="$bodyLg"
-                      textAlign="right"
-                      onPress={() =>
-                        showLevelMatrixCellDialog({
-                          item,
-                          level: 'L1',
-                          cell: item.l1,
-                        })
-                      }
-                    >
-                      {item.l1.emoji}
-                    </SizableText>
-                  </YStack>
-                  <YStack flex={1} p="$3" alignItems="flex-end">
-                    <SizableText
-                      size="$bodyLg"
-                      textAlign="right"
-                      onPress={() =>
-                        showLevelMatrixCellDialog({
-                          item,
-                          level: 'L2',
-                          cell: item.l2,
-                        })
-                      }
-                    >
-                      {item.l2.emoji}
-                    </SizableText>
-                  </YStack>
+                      Open PassKey runtime
+                    </Button>
+                  ) : null}
                 </XStack>
-              ))}
-            </YStack>
-          </YStack>
+                <SizableText color="$textSubdued">
+                  每张卡片同时展示测试说明和运行结果。核心硬化验证是
+                  Object/Array 原型冻结、harden 深冻结，以及 L2
+                  的动态函数逃逸限制。Tamper 测试会主动尝试 set 和
+                  defineProperty，确认 harden 后不能篡改原型、内建函数和
+                  hardened object。同时会检查
+                  IndexedDB、fetch、timer、crypto、desktop/ext bridge
+                  等启动期关键 patch 是否仍然安装且可用。在 extension UI
+                  中还会请求 background、offscreen、passkey runtime
+                  各自执行同一套检查。
+                </SizableText>
 
-          <XStack gap="$2" flexWrap="wrap">
-            <Button
-              testID="ses-harden-run-checks"
-              variant="primary"
-              loading={isRunning}
-              onPress={() => {
-                void runChecks();
-              }}
-            >
-              Run Checks
-            </Button>
-            <Button
-              testID="ses-harden-copy-report"
-              variant="secondary"
-              onPress={copyReport}
-            >
-              Copy Test Result
-            </Button>
-            {platformEnv.isExtension ? (
-              <Button
-                testID="ses-harden-open-passkey-runtime"
-                variant="secondary"
-                onPress={() => {
-                  void openPassKeyRuntime();
-                }}
-              >
-                Open PassKey runtime
-              </Button>
-            ) : null}
-          </XStack>
+                {report ? (
+                  <XStack alignItems="center" gap="$2">
+                    <SizableText size="$bodyLgMedium">总体结果</SizableText>
+                    <Badge
+                      badgeType={hasFailures ? 'critical' : 'success'}
+                      badgeSize="sm"
+                    >
+                      <Badge.Text>
+                        {hasFailures ? 'Failed' : 'Passed'}
+                      </Badge.Text>
+                    </Badge>
+                  </XStack>
+                ) : null}
 
-          <YStack gap="$3">
-            <SizableText size="$headingLg">测试项目与结果</SizableText>
-            <SizableText color="$textSubdued">
-              每张卡片同时展示测试说明和运行结果。核心硬化验证是 Object/Array
-              原型冻结、harden 深冻结，以及 L2 的动态函数逃逸限制。Tamper
-              测试会主动尝试 set 和 defineProperty，确认 harden
-              后不能篡改原型、内建函数和 hardened object。同时会检查
-              IndexedDB、fetch、timer、crypto、desktop/ext bridge 等启动期关键
-              patch 是否仍然安装且可用。在 extension UI 中还会请求
-              background、offscreen、passkey runtime 各自执行同一套检查。
-            </SizableText>
+                {report ? (
+                  <DimensionSummaryBadges runtimeReport={report} />
+                ) : null}
 
-            {report ? (
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyLgMedium">总体结果</SizableText>
-                <Badge
-                  badgeType={hasFailures ? 'critical' : 'success'}
-                  badgeSize="sm"
-                >
-                  <Badge.Text>{hasFailures ? 'Failed' : 'Passed'}</Badge.Text>
-                </Badge>
-              </XStack>
-            ) : null}
-
-            {report ? <DimensionSummaryBadges runtimeReport={report} /> : null}
-
-            {report?.extensionRuntimeReports?.length ? (
-              <YStack
-                gap="$2"
-                p="$3"
-                borderWidth="$px"
-                borderColor="$borderSubdued"
-                borderRadius="$2"
-              >
-                <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                  <Badge
-                    badgeType={
-                      report.extensionRuntimeReports.some(
-                        (item) => item.status === 'fail',
-                      )
-                        ? 'critical'
-                        : 'success'
-                    }
-                    badgeSize="sm"
-                  >
-                    <Badge.Text>
-                      {
-                        report.extensionRuntimeReports.filter(
-                          (item) => item.status === 'pass',
-                        ).length
-                      }
-                      /{report.extensionRuntimeReports.length}
-                    </Badge.Text>
-                  </Badge>
-                  <SizableText size="$bodyLgMedium">
-                    Extension 多 Runtime 结果
-                  </SizableText>
-                </XStack>
-                <LabeledLine
-                  label="功能："
-                  value="从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。"
-                />
-                <LabeledLine
-                  label="硬化点："
-                  value="验证每个扩展 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
-                />
-                <LabeledLine
-                  label="目的："
-                  value="避免只验证 UI runtime，却漏掉 background/offscreen/passkey 这些独立 JS heap 的 harden 和关键 patch 顺序。"
-                />
-                {report.extensionRuntimeReports.map((runtimeReport) => (
+                {report?.extensionRuntimeReports?.length ? (
                   <YStack
-                    key={runtimeReport.runtime}
-                    gap="$1"
-                    p="$2"
+                    gap="$2"
+                    p="$3"
                     borderWidth="$px"
                     borderColor="$borderSubdued"
-                    borderRadius="$1"
+                    borderRadius="$2"
                   >
                     <XStack alignItems="center" gap="$2" flexWrap="wrap">
                       <Badge
-                        badgeType={getCheckBadgeType(runtimeReport.status)}
+                        badgeType={
+                          report.extensionRuntimeReports.some(
+                            (item) => item.status === 'fail',
+                          )
+                            ? 'critical'
+                            : 'success'
+                        }
                         badgeSize="sm"
                       >
-                        <Badge.Text>{runtimeReport.status}</Badge.Text>
+                        <Badge.Text>
+                          {
+                            report.extensionRuntimeReports.filter(
+                              (item) => item.status === 'pass',
+                            ).length
+                          }
+                          /{report.extensionRuntimeReports.length}
+                        </Badge.Text>
                       </Badge>
-                      <SizableText size="$bodyMdMedium">
-                        {runtimeReport.runtime}
+                      <SizableText size="$bodyLgMedium">
+                        Extension 多 Runtime 结果
                       </SizableText>
                     </XStack>
-                    {runtimeReport.report ? (
-                      <>
-                        <DimensionSummaryBadges
-                          runtimeReport={runtimeReport.report}
-                        />
-                        <LabeledLine
-                          label="结果："
-                          value={`level=${runtimeReport.report.level}, lockdownApplied=${String(
-                            runtimeReport.report.state?.lockdownApplied,
-                          )}`}
-                        />
-                        <LabeledLine
-                          label="状态："
-                          value={JSON.stringify(runtimeReport.report.state)}
-                        />
-                        {runtimeReport.report.patchWarnings.items.length ? (
+                    <LabeledLine
+                      label="功能："
+                      value="从当前扩展 UI 通过 chrome.runtime.sendMessage 请求 background、offscreen、passkey 在各自独立 JS realm 内执行同一套 SES runtime checks。"
+                    />
+                    <LabeledLine
+                      label="硬化点："
+                      value="验证每个扩展 runtime 自己的 lockdown 状态、intrinsics 冻结、防篡改结果，以及启动期 bridge/fetch/timer/crypto/IndexedDB patch。"
+                    />
+                    <LabeledLine
+                      label="目的："
+                      value="避免只验证 UI runtime，却漏掉 background/offscreen/passkey 这些独立 JS heap 的 harden 和关键 patch 顺序。"
+                    />
+                    {report.extensionRuntimeReports.map((runtimeReport) => (
+                      <YStack
+                        key={runtimeReport.runtime}
+                        gap="$1"
+                        p="$2"
+                        borderWidth="$px"
+                        borderColor="$borderSubdued"
+                        borderRadius="$1"
+                      >
+                        <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                          <Badge
+                            badgeType={getCheckBadgeType(runtimeReport.status)}
+                            badgeSize="sm"
+                          >
+                            <Badge.Text>{runtimeReport.status}</Badge.Text>
+                          </Badge>
+                          <SizableText size="$bodyMdMedium">
+                            {runtimeReport.runtime}
+                          </SizableText>
+                        </XStack>
+                        {runtimeReport.report ? (
                           <>
-                            <SizableText size="$bodyMdMedium">
-                              Post-lockdown patch warnings (
-                              {runtimeReport.report.patchWarnings.items.length})
-                            </SizableText>
-                            {runtimeReport.report.patchWarnings.items.map(
-                              (warning) => (
-                                <PatchWarningItem
-                                  key={warning.id}
-                                  warning={warning}
-                                />
-                              ),
-                            )}
+                            <DimensionSummaryBadges
+                              runtimeReport={runtimeReport.report}
+                            />
+                            <LabeledLine
+                              label="结果："
+                              value={`level=${runtimeReport.report.level}, lockdownApplied=${String(
+                                runtimeReport.report.state?.lockdownApplied,
+                              )}`}
+                            />
+                            <LabeledLine
+                              label="状态："
+                              value={JSON.stringify(runtimeReport.report.state)}
+                            />
+                            {runtimeReport.report.patchWarnings.items.length ? (
+                              <>
+                                <SizableText size="$bodyMdMedium">
+                                  Post-lockdown patch warnings (
+                                  {
+                                    runtimeReport.report.patchWarnings.items
+                                      .length
+                                  }
+                                  )
+                                </SizableText>
+                                {runtimeReport.report.patchWarnings.items.map(
+                                  (warning) => (
+                                    <PatchWarningItem
+                                      key={warning.id}
+                                      warning={warning}
+                                    />
+                                  ),
+                                )}
+                              </>
+                            ) : null}
                           </>
-                        ) : null}
-                      </>
+                        ) : (
+                          <LabeledLine
+                            label="结果："
+                            value={runtimeReport.error ?? 'not available'}
+                          />
+                        )}
+                      </YStack>
+                    ))}
+                  </YStack>
+                ) : null}
+
+                {report ? (
+                  <YStack
+                    gap="$2"
+                    p="$3"
+                    borderWidth="$px"
+                    borderColor="$borderSubdued"
+                    borderRadius="$2"
+                  >
+                    <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                      <Badge
+                        badgeType={
+                          report.patchWarnings.enabled ? 'success' : 'info'
+                        }
+                        badgeSize="sm"
+                      >
+                        <Badge.Text>
+                          {report.patchWarnings.enabled
+                            ? 'enabled'
+                            : 'disabled'}
+                        </Badge.Text>
+                      </Badge>
+                      <Badge
+                        badgeType={
+                          report.patchWarnings.installed ? 'success' : 'info'
+                        }
+                        badgeSize="sm"
+                      >
+                        <Badge.Text>
+                          {report.patchWarnings.installed
+                            ? 'installed'
+                            : 'not installed'}
+                        </Badge.Text>
+                      </Badge>
+                      <Badge
+                        badgeType={
+                          report.patchWarnings.items.length > 0
+                            ? 'warning'
+                            : 'success'
+                        }
+                        badgeSize="sm"
+                      >
+                        <Badge.Text>
+                          unique: {report.patchWarnings.uniqueCount}/
+                          {report.patchWarnings.limit}
+                        </Badge.Text>
+                      </Badge>
+                      <SizableText size="$bodyLgMedium">
+                        Post-lockdown patch warnings
+                      </SizableText>
+                    </XStack>
+                    <LabeledLine
+                      label="功能："
+                      value={`仅 dev mode 下记录 lockdown 后尝试 patch 冻结对象并抛出的只读/不可扩展错误，最多保留最近 ${report.patchWarnings.limit} 类唯一提醒。`}
+                    />
+                    <LabeledLine
+                      label="硬化点："
+                      value="不改变业务函数行为，只监听 error/unhandledrejection，并按 kind + message + source/stack 生成 fingerprint 去重。"
+                    />
+                    <LabeledLine
+                      label="目的："
+                      value="用于判断某个 patch 是否应该移动到 harden 之前，还是属于异常篡改行为；生产环境不安装，降低运行时开销。"
+                    />
+                    <LabeledLine
+                      label="结果："
+                      value={`enabled=${String(
+                        report.patchWarnings.enabled,
+                      )}, installed=${String(
+                        report.patchWarnings.installed,
+                      )}, unique=${report.patchWarnings.uniqueCount}, totalRecorded=${
+                        report.patchWarnings.totalRecorded
+                      }`}
+                    />
+                    {report.patchWarnings.items.length === 0 ? (
+                      <SizableText color="$textSubdued">
+                        当前没有记录到 post-lockdown patch warning。
+                      </SizableText>
                     ) : (
-                      <LabeledLine
-                        label="结果："
-                        value={runtimeReport.error ?? 'not available'}
-                      />
+                      report.patchWarnings.items.map((warning) => (
+                        <PatchWarningItem key={warning.id} warning={warning} />
+                      ))
                     )}
                   </YStack>
+                ) : null}
+
+                {checksWithCoverage.map(({ coverageItem, check }) => (
+                  <YStack
+                    key={coverageItem.name}
+                    gap="$1"
+                    p="$3"
+                    borderWidth="$px"
+                    borderColor="$borderSubdued"
+                    borderRadius="$2"
+                  >
+                    <XStack alignItems="center" gap="$2" flexWrap="wrap">
+                      <Badge badgeType="info" badgeSize="sm">
+                        <Badge.Text>
+                          {getDimensionLabel(coverageItem.dimension)}
+                        </Badge.Text>
+                      </Badge>
+                      {check ? (
+                        <Badge
+                          badgeType={getCheckBadgeType(check.status)}
+                          badgeSize="sm"
+                        >
+                          <Badge.Text>{check.status}</Badge.Text>
+                        </Badge>
+                      ) : (
+                        <Badge badgeType="info" badgeSize="sm">
+                          <Badge.Text>not run</Badge.Text>
+                        </Badge>
+                      )}
+                      <SizableText size="$bodyLgMedium">
+                        {coverageItem.title}
+                      </SizableText>
+                    </XStack>
+
+                    <LabeledLine
+                      label="功能："
+                      value={coverageItem.functionality}
+                    />
+                    <LabeledLine
+                      label="硬化点："
+                      value={coverageItem.hardening}
+                    />
+
+                    {check ? (
+                      <>
+                        <LabeledLine label="目的：" value={check.purpose} />
+                        <LabeledLine label="结果：" value={check.detail} />
+                      </>
+                    ) : null}
+                  </YStack>
                 ))}
-              </YStack>
-            ) : null}
 
-            {report ? (
-              <YStack
-                gap="$2"
-                p="$3"
-                borderWidth="$px"
-                borderColor="$borderSubdued"
-                borderRadius="$2"
-              >
-                <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                  <Badge
-                    badgeType={
-                      report.patchWarnings.enabled ? 'success' : 'info'
-                    }
-                    badgeSize="sm"
-                  >
-                    <Badge.Text>
-                      {report.patchWarnings.enabled ? 'enabled' : 'disabled'}
-                    </Badge.Text>
-                  </Badge>
-                  <Badge
-                    badgeType={
-                      report.patchWarnings.installed ? 'success' : 'info'
-                    }
-                    badgeSize="sm"
-                  >
-                    <Badge.Text>
-                      {report.patchWarnings.installed
-                        ? 'installed'
-                        : 'not installed'}
-                    </Badge.Text>
-                  </Badge>
-                  <Badge
-                    badgeType={
-                      report.patchWarnings.items.length > 0
-                        ? 'warning'
-                        : 'success'
-                    }
-                    badgeSize="sm"
-                  >
-                    <Badge.Text>
-                      unique: {report.patchWarnings.uniqueCount}/
-                      {report.patchWarnings.limit}
-                    </Badge.Text>
-                  </Badge>
-                  <SizableText size="$bodyLgMedium">
-                    Post-lockdown patch warnings
-                  </SizableText>
-                </XStack>
-                <LabeledLine
-                  label="功能："
-                  value={`仅 dev mode 下记录 lockdown 后尝试 patch 冻结对象并抛出的只读/不可扩展错误，最多保留最近 ${report.patchWarnings.limit} 类唯一提醒。`}
-                />
-                <LabeledLine
-                  label="硬化点："
-                  value="不改变业务函数行为，只监听 error/unhandledrejection，并按 kind + message + source/stack 生成 fingerprint 去重。"
-                />
-                <LabeledLine
-                  label="目的："
-                  value="用于判断某个 patch 是否应该移动到 harden 之前，还是属于异常篡改行为；生产环境不安装，降低运行时开销。"
-                />
-                <LabeledLine
-                  label="结果："
-                  value={`enabled=${String(
-                    report.patchWarnings.enabled,
-                  )}, installed=${String(
-                    report.patchWarnings.installed,
-                  )}, unique=${report.patchWarnings.uniqueCount}, totalRecorded=${
-                    report.patchWarnings.totalRecorded
-                  }`}
-                />
-                {report.patchWarnings.items.length === 0 ? (
-                  <SizableText color="$textSubdued">
-                    当前没有记录到 post-lockdown patch warning。
-                  </SizableText>
-                ) : (
-                  report.patchWarnings.items.map((warning) => (
-                    <PatchWarningItem key={warning.id} warning={warning} />
-                  ))
-                )}
-              </YStack>
-            ) : null}
-
-            {checksWithCoverage.map(({ coverageItem, check }) => (
-              <YStack
-                key={coverageItem.name}
-                gap="$1"
-                p="$3"
-                borderWidth="$px"
-                borderColor="$borderSubdued"
-                borderRadius="$2"
-              >
-                <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                  <Badge badgeType="info" badgeSize="sm">
-                    <Badge.Text>
-                      {getDimensionLabel(coverageItem.dimension)}
-                    </Badge.Text>
-                  </Badge>
-                  {check ? (
-                    <Badge
-                      badgeType={getCheckBadgeType(check.status)}
-                      badgeSize="sm"
-                    >
-                      <Badge.Text>{check.status}</Badge.Text>
-                    </Badge>
-                  ) : (
-                    <Badge badgeType="info" badgeSize="sm">
-                      <Badge.Text>not run</Badge.Text>
-                    </Badge>
-                  )}
-                  <SizableText size="$bodyLgMedium">
-                    {coverageItem.title}
-                  </SizableText>
-                </XStack>
-
-                <LabeledLine
-                  label="功能："
-                  value={coverageItem.functionality}
-                />
-                <LabeledLine label="硬化点：" value={coverageItem.hardening} />
-
-                {check ? (
-                  <>
-                    <LabeledLine label="目的：" value={check.purpose} />
-                    <LabeledLine label="结果：" value={check.detail} />
-                  </>
+                {report ? (
+                  <YStack gap="$2">
+                    <SizableText size="$bodyLgMedium">
+                      复制结果 JSON
+                    </SizableText>
+                    <TextAreaInput
+                      value={reportText}
+                      editable={false}
+                      minHeight={220}
+                    />
+                  </YStack>
                 ) : null}
               </YStack>
-            ))}
-
-            {report ? (
-              <YStack gap="$2">
-                <SizableText size="$bodyLgMedium">复制结果 JSON</SizableText>
-                <TextAreaInput
-                  value={reportText}
-                  editable={false}
-                  minHeight={220}
-                />
+            </CollapsibleSection>
+            <CollapsibleSection value="levels" title="L0 / L1 / L2 区别">
+              <YStack gap="$3">
+                <SizableText color="$textSubdued">
+                  lockdown 在当前 JS realm 内不可逆。当前等级只由
+                  packages/shared/src/security/sesHarden/config.ts
+                  的同步常量控制； 修改 L0/L1/L2 后需要重新构建或 reload
+                  让入口按新常量初始化。当前实现里 L2 相比 L1 只额外把
+                  evalTaming 从 unsafe-eval 收紧到 safe-eval。
+                </SizableText>
+                <SizableText color="$textSubdued">
+                  图例：✅ 启用或收紧；❌ 未启用或未收紧；➖
+                  保持原生兼容、默认值或回滚用途。
+                </SizableText>
+                <YStack
+                  borderWidth="$px"
+                  borderColor="$borderSubdued"
+                  borderRadius="$2"
+                  overflow="hidden"
+                >
+                  <XStack bg="$bgSubdued" borderBottomWidth="$px">
+                    <YStack width={168} p="$3">
+                      <SizableText size="$bodyMd" fontWeight="600">
+                        配置项
+                      </SizableText>
+                    </YStack>
+                    <YStack flex={1} p="$3" alignItems="flex-end">
+                      <SizableText
+                        size="$bodyMd"
+                        fontWeight="600"
+                        textAlign="right"
+                      >
+                        L0
+                      </SizableText>
+                    </YStack>
+                    <YStack flex={1} p="$3" alignItems="flex-end">
+                      <SizableText
+                        size="$bodyMd"
+                        fontWeight="600"
+                        textAlign="right"
+                      >
+                        L1
+                      </SizableText>
+                    </YStack>
+                    <YStack flex={1} p="$3" alignItems="flex-end">
+                      <SizableText
+                        size="$bodyMd"
+                        fontWeight="600"
+                        textAlign="right"
+                      >
+                        L2
+                      </SizableText>
+                    </YStack>
+                  </XStack>
+                  {SES_LEVEL_MATRIX.map((item) => (
+                    <XStack key={item.item} borderTopWidth="$px">
+                      <YStack width={168} p="$3">
+                        <SizableText
+                          size="$bodyMd"
+                          fontWeight="600"
+                          textDecorationLine="underline"
+                          onPress={() => showLevelMatrixItemDialog(item)}
+                        >
+                          {item.item}
+                        </SizableText>
+                      </YStack>
+                      <YStack flex={1} p="$3" alignItems="flex-end">
+                        <SizableText
+                          size="$bodyLg"
+                          textAlign="right"
+                          onPress={() =>
+                            showLevelMatrixCellDialog({
+                              item,
+                              level: 'L0',
+                              cell: item.l0,
+                            })
+                          }
+                        >
+                          {item.l0.emoji}
+                        </SizableText>
+                      </YStack>
+                      <YStack flex={1} p="$3" alignItems="flex-end">
+                        <SizableText
+                          size="$bodyLg"
+                          textAlign="right"
+                          onPress={() =>
+                            showLevelMatrixCellDialog({
+                              item,
+                              level: 'L1',
+                              cell: item.l1,
+                            })
+                          }
+                        >
+                          {item.l1.emoji}
+                        </SizableText>
+                      </YStack>
+                      <YStack flex={1} p="$3" alignItems="flex-end">
+                        <SizableText
+                          size="$bodyLg"
+                          textAlign="right"
+                          onPress={() =>
+                            showLevelMatrixCellDialog({
+                              item,
+                              level: 'L2',
+                              cell: item.l2,
+                            })
+                          }
+                        >
+                          {item.l2.emoji}
+                        </SizableText>
+                      </YStack>
+                    </XStack>
+                  ))}
+                </YStack>
               </YStack>
-            ) : null}
-          </YStack>
+            </CollapsibleSection>
+          </Accordion>
         </YStack>
       </Page.Body>
     </Page>
