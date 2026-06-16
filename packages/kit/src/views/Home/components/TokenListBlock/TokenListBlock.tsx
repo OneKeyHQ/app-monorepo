@@ -406,8 +406,6 @@ function TokenListBlock({
   const {
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
     updateTokenListState,
     updateSearchKey,
   } = useTokenListActions().current;
@@ -633,14 +631,6 @@ function TokenListBlock({
           }
         }
 
-        refreshRiskyTokenList({
-          keys: r.riskTokens.keys,
-          riskyTokens: r.riskTokens.data,
-        });
-        refreshRiskyTokenListMap({
-          tokens: r.riskTokens.map,
-        });
-
         // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
         // 2). Hand the SAME settled slices this single-network round just wrote
         // to the atoms over to the BG view-model so it can build + push the BG
@@ -726,8 +716,6 @@ function TokenListBlock({
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
-      refreshRiskyTokenList,
-      refreshRiskyTokenListMap,
       indexedAccount?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
@@ -960,14 +948,6 @@ function TokenListBlock({
   };
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    refreshRiskyTokenList({
-      keys: riskyTokenListRef.current.keys,
-      riskyTokens: riskyTokenListRef.current.tokens,
-      merge: true,
-      map: riskyTokenListRef.current.map,
-      mergeDerive: true,
-    });
-
     tokenListRef.current.tokens = [];
     tokenListRef.current.keys = '';
     tokenListRef.current.map = {};
@@ -1218,12 +1198,6 @@ function TokenListBlock({
         // `allNetworksResult` consuming effect, after merge/dedup/sort/high-low
         // split have produced the coherent full merged snapshot.
 
-        refreshRiskyTokenListMap({
-          tokens: r.riskTokens.map,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-
         if (r.allTokens) {
           refreshAllTokenListMap({
             tokens: r.allTokens.map,
@@ -1255,7 +1229,6 @@ function TokenListBlock({
       network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
-      refreshRiskyTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateAllNetworkData,
@@ -1289,22 +1262,11 @@ function TokenListBlock({
     refreshAllTokenListMap({
       tokens: emptyTokens.allTokens.map,
     });
-
-    refreshRiskyTokenList({
-      riskyTokens: emptyTokens.riskTokens.data,
-      keys: emptyTokens.riskTokens.keys,
-    });
-
-    refreshRiskyTokenListMap({
-      tokens: emptyTokens.riskTokens.map,
-    });
   }, [
     account?.id,
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
     updateAllNetworkData,
   ]);
 
@@ -1563,26 +1525,9 @@ function TokenListBlock({
         tokenList = [...tokenList, ...aggregateTokenList];
       }
 
-      refreshRiskyTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: true,
-      });
-
       refreshAllTokenListMap({
         tokens: tokenListMap,
         merge: true,
-        mergeDerive: true,
-      });
-
-      refreshRiskyTokenList({
-        keys: `${accountId}_${networkId}_local_all`,
-        riskyTokens: riskyTokenList,
-        merge: true,
-        map: {
-          ...tokenListMap,
-          ...flattenLocalAggregateTokenMap,
-        },
         mergeDerive: true,
       });
 
@@ -1650,8 +1595,6 @@ function TokenListBlock({
       network?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
-      refreshRiskyTokenList,
-      refreshRiskyTokenListMap,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -1996,10 +1939,6 @@ function TokenListBlock({
         });
       }
 
-      refreshRiskyTokenList(riskyTokenList);
-      refreshRiskyTokenListMap({
-        tokens: riskyTokenListMap,
-      });
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
         tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
@@ -2028,8 +1967,6 @@ function TokenListBlock({
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
     updateAccountWorth,
     updateTokenListState,
   ]);
@@ -2226,8 +2163,6 @@ function TokenListBlock({
           // stale and triggering the owner-mismatch skeleton in TokenListView
           // forever for this empty-cache target.
           const emptyKeys = `${accountId}_${networkId}_local_empty`;
-          refreshRiskyTokenList({ riskyTokens: [], keys: emptyKeys });
-          refreshRiskyTokenListMap({ tokens: {} });
           // Use the request-time `accountId`/`networkId` (the owner this
           // response belongs to) — not closure-captured React state which
           // can read like "current owner" but is actually frozen at the
@@ -2283,14 +2218,6 @@ function TokenListBlock({
           merge: false,
           currency: cachedWorthCurrency,
         });
-        refreshRiskyTokenList({
-          riskyTokens: riskyTokenList,
-          keys: `${accountId}_${networkId}_local`,
-        });
-        refreshRiskyTokenListMap({
-          tokens: tokenListMap,
-        });
-
         // Same rationale as the empty-cache branch above: write the
         // request-time owner IDs so a late response stamps `allTokenList`
         // with the owner it actually belongs to.
@@ -2342,8 +2269,6 @@ function TokenListBlock({
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
     setOverviewTokenCacheState,
     syncTokenFilterToOverview,
     updateAccountOverviewState,
@@ -2663,11 +2588,6 @@ function TokenListBlock({
           merge: false,
         });
 
-        refreshRiskyTokenList({
-          keys: r.riskTokens.keys,
-          riskyTokens: r.riskTokens.data,
-        });
-        refreshRiskyTokenListMap({ tokens: r.riskTokens.map });
         if (r.allTokens) {
           refreshAllTokenList({
             keys: r.allTokens.keys,
@@ -2706,8 +2626,6 @@ function TokenListBlock({
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,
-      refreshRiskyTokenList,
-      refreshRiskyTokenListMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       updateTokenListState,

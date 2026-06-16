@@ -53,15 +53,6 @@ export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
     [key: string]: ITokenFiat;
   }>({});
 
-export const { atom: riskyTokenListAtom, use: useRiskyTokenListAtom } =
-  contextAtom<{
-    riskyTokens: IAccountToken[];
-    keys: string;
-  }>({
-    riskyTokens: [],
-    keys: '',
-  });
-
 export const {
   atom: activeAccountTokenListAtom,
   use: useActiveAccountTokenListAtom,
@@ -69,11 +60,6 @@ export const {
   tokens: [],
   keys: '',
 });
-
-export const { atom: riskyTokenListMapAtom, use: useRiskyTokenListMapAtom } =
-  contextAtom<{
-    [key: string]: ITokenFiat;
-  }>({});
 
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
@@ -108,8 +94,8 @@ export const { atom: listStructureAtom, use: useListStructureAtom } =
  *
  * The UI receive shell (`useTokenListSlcProducer`) lands the BG risky frame
  * (PUSH + PULL) here, version-guarded + identity-checked, as a FULL idempotent
- * snapshot. ADDITIVE in R0 (nothing reads it yet); R1 migrates `TokenListFooter`
- * off the legacy `riskyTokenListAtom`/`riskyTokenListMapAtom` onto this. The
+ * snapshot. `TokenListFooter` reads it (R1 migrated the footer off the deleted
+ * legacy risky whole-map atoms onto this single frame). The
  * risky set is risk-blind in the home structure/valuation frames, so it rides a
  * dedicated channel with its OWN monotonic version. `ownerKey` is the applied
  * owner so a reader can confirm the snapshot belongs to its scoped owner.

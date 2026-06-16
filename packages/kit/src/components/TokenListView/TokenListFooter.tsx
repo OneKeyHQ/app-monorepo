@@ -36,8 +36,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   useListStructureAtom,
-  useRiskyTokenListAtom,
-  useRiskyTokenListMapAtom,
+  useRiskyListFrameAtom,
   useSearchKeyAtom,
 } from '../../states/jotai/contexts/tokenList';
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
@@ -96,9 +95,11 @@ function TokenListFooter(props: IProps) {
 
   const [listStructure] = useListStructureAtom();
 
-  const [riskyTokenList] = useRiskyTokenListAtom();
-
-  const [riskyTokenListMap] = useRiskyTokenListMapAtom();
+  // Risky tokens ride the dedicated BG risky frame (design §R0/§R1): the home
+  // structure/valuation frames are risk-blind, so the footer reads the FULL
+  // idempotent snapshot ({ riskyTokens, riskyMap }) landed by the receive shell.
+  const [{ riskyTokens, riskyMap: riskyTokenListMap }] =
+    useRiskyListFrameAtom();
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -133,8 +134,6 @@ function TokenListFooter(props: IProps) {
     () => smallBalanceIds.join('_'),
     [smallBalanceIds],
   );
-
-  const { riskyTokens, keys: riskyTokenKeys } = riskyTokenList;
 
   // nonZeroIds membership replaces the per-token `balance > 0` filter (the
   // producer computed nonZeroIds agg-aware, so the aggregate balance fallback
@@ -297,7 +296,10 @@ function TokenListFooter(props: IProps) {
         indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: filteredRiskyTokens,
-          keys: riskyTokenKeys,
+          // `keys` is dead on the risky path — RiskTokenManager only consumes
+          // { tokens, map } (design §R1 red-team C-F5). Any stable non-empty
+          // value suffices; the precise keys-string is not required.
+          keys: 'risky',
           map: riskyTokenListMap,
         },
         deriveType,
@@ -314,7 +316,6 @@ function TokenListFooter(props: IProps) {
     navigation,
     indexedAccount?.id,
     filteredRiskyTokens,
-    riskyTokenKeys,
     riskyTokenListMap,
     deriveType,
     deriveInfo,

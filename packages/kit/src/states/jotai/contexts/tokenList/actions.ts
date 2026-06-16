@@ -24,8 +24,6 @@ import {
   contextAtomMethod,
   createAccountStateAtom,
   processingTokenStateAtom,
-  riskyTokenListAtom,
-  riskyTokenListMapAtom,
   searchKeyAtom,
   searchTokenListAtom,
   searchTokenStateAtom,
@@ -167,77 +165,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
-  refreshRiskyTokenList = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        riskyTokens: IAccountToken[];
-        keys: string;
-        merge?: boolean;
-        map?: {
-          [key: string]: ITokenFiat;
-        };
-        mergeDerive?: boolean;
-      },
-    ) => {
-      const { keys, riskyTokens, merge, mergeDerive } = payload;
-
-      if (merge) {
-        if (riskyTokens.length) {
-          let newTokens = get(riskyTokenListAtom()).riskyTokens;
-
-          newTokens = mergeDeriveTokenList({
-            sourceTokens: riskyTokens,
-            targetTokens: newTokens,
-            mergeDeriveAssets: mergeDerive,
-          });
-
-          set(riskyTokenListAtom(), {
-            riskyTokens: uniqBy(newTokens, (item) => item.$key),
-            keys: `${get(riskyTokenListAtom()).keys}_${keys}`,
-          });
-        }
-      } else if (!isEqual(get(riskyTokenListAtom()).keys, keys)) {
-        set(riskyTokenListAtom(), {
-          riskyTokens: uniqBy(riskyTokens, (item) => item.$key),
-          keys,
-        });
-      }
-    },
-  );
-
-  refreshRiskyTokenListMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: {
-          [key: string]: ITokenFiat;
-        };
-        merge?: boolean;
-        mergeDerive?: boolean;
-      },
-    ) => {
-      const { tokens, merge, mergeDerive } = payload;
-      if (merge) {
-        const tokenListMap = get(riskyTokenListMapAtom());
-        set(
-          riskyTokenListMapAtom(),
-          mergeDeriveTokenListMap({
-            sourceMap: tokens,
-            targetMap: tokenListMap,
-            mergeDeriveAssets: mergeDerive,
-          }),
-        );
-
-        return;
-      }
-
-      set(riskyTokenListMapAtom(), payload.tokens);
-    },
-  );
-
   updateSearchKey = contextAtomMethod((get, set, value: string) => {
     set(searchKeyAtom(), value);
   });
@@ -343,8 +270,6 @@ export function useTokenListActions() {
   const actions = createActions();
   const refreshAllTokenList = actions.refreshAllTokenList.use();
   const refreshAllTokenListMap = actions.refreshAllTokenListMap.use();
-  const refreshRiskyTokenList = actions.refreshRiskyTokenList.use();
-  const refreshRiskyTokenListMap = actions.refreshRiskyTokenListMap.use();
 
   const refreshSearchTokenList = actions.refreshSearchTokenList.use();
 
@@ -370,8 +295,6 @@ export function useTokenListActions() {
     refreshSearchTokenList,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshRiskyTokenList,
-    refreshRiskyTokenListMap,
     updateSearchKey,
     updateTokenListState,
     updateSearchTokenState,
