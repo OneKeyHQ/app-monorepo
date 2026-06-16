@@ -1,21 +1,13 @@
 import { useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
-import { forEach, isEqual, uniqBy } from 'lodash';
+import { isEqual, uniqBy } from 'lodash';
 
-import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
-  mergeAggregateTokenListMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
-  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  isUnavailableOrZeroFiatValue,
-  sumFiatValuesFromTokens,
-} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   ETokenListSortType,
   IAccountToken,
@@ -27,24 +19,16 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 import {
   activeAccountTokenListAtom,
   activeAccountTokenListStateAtom,
-  aggregateTokensListMapAtom,
-  aggregateTokensMapAtom,
   allTokenListAtom,
   allTokenListMapAtom,
   contextAtomMethod,
   createAccountStateAtom,
-  flattenAggregateTokensMapAtom,
   processingTokenStateAtom,
   riskyTokenListAtom,
   riskyTokenListMapAtom,
   searchKeyAtom,
   searchTokenListAtom,
   searchTokenStateAtom,
-  smallBalanceTokenListAtom,
-  smallBalanceTokenListMapAtom,
-  smallBalanceTokensFiatValueAtom,
-  tokenListAtom,
-  tokenListMapAtom,
   tokenListSortAtom,
   tokenListStateAtom,
 } from './atoms';
@@ -105,13 +89,15 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const tokenListMap = get(allTokenListMapAtom());
-          const aggregateTokenMap = get(flattenAggregateTokensMapAtom());
 
           newTokens = sortTokensByFiatValue({
             tokens: uniqBy(newTokens, (item) => item.$key),
             map: {
               ...tokenListMap,
-              ...aggregateTokenMap,
+              // The aggregate fiat map is already merged into `payload.map` by
+              // the home producer (e.g. `flattenLocalAggregateTokenMap`); the
+              // dedicated aggregate atom was removed in the tokenList SLC
+              // full-delete (PR-8).
               ...payload.map,
             },
           });
@@ -165,107 +151,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
-  refreshTokenList = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: IAccountToken[];
-        keys: string;
-        merge?: boolean;
-        map?: {
-          [key: string]: ITokenFiat;
-        };
-        mergeDerive?: boolean;
-        split?: boolean;
-      },
-    ) => {
-      const { keys, tokens, merge, mergeDerive, split } = payload;
-      if (merge) {
-        if (tokens.length) {
-          let newTokens = get(tokenListAtom()).tokens.concat(
-            get(smallBalanceTokenListAtom()).smallBalanceTokens,
-          );
-
-          newTokens = mergeDeriveTokenList({
-            sourceTokens: tokens,
-            targetTokens: newTokens,
-            mergeDeriveAssets: mergeDerive,
-          });
-
-          const tokenListMap = get(tokenListMapAtom());
-          const aggregateTokenMap = get(flattenAggregateTokensMapAtom());
-
-          const mergedTokenListMap = {
-            ...tokenListMap,
-            ...aggregateTokenMap,
-            ...payload.map,
-          };
-
-          newTokens = sortTokensByFiatValue({
-            tokens: uniqBy(newTokens, (item) => item.$key),
-            map: mergedTokenListMap,
-          });
-
-          const index = newTokens.findIndex((token) =>
-            isUnavailableOrZeroFiatValue(
-              mergedTokenListMap[token.$key]?.fiatValue,
-            ),
-          );
-
-          if (index > -1) {
-            const tokensWithBalance = newTokens.slice(0, index);
-            let tokensWithZeroBalance = newTokens.slice(index);
-
-            tokensWithZeroBalance = sortTokensByOrder({
-              tokens: tokensWithZeroBalance,
-            });
-
-            newTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
-          }
-
-          if (split) {
-            const highValueTokens = newTokens.slice(
-              0,
-              TOKEN_LIST_HIGH_VALUE_MAX,
-            );
-            const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
-
-            const lowValueTokensFiatValue = sumFiatValuesFromTokens(
-              lowValueTokens,
-              mergedTokenListMap,
-            );
-
-            set(tokenListAtom(), {
-              tokens: highValueTokens,
-              keys: `${get(tokenListAtom()).keys}_${keys}`,
-            });
-
-            set(
-              smallBalanceTokensFiatValueAtom(),
-              lowValueTokensFiatValue.toFixed(),
-            );
-
-            set(smallBalanceTokenListAtom(), {
-              smallBalanceTokens: lowValueTokens,
-              keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
-            });
-          } else {
-            set(tokenListAtom(), {
-              tokens: uniqBy(newTokens, (item) => item.$key),
-              keys,
-            });
-          }
-        }
-      } else if (!isEqual(get(tokenListAtom()).keys, keys)) {
-        set(tokenListAtom(), {
-          tokens: uniqBy(tokens, (item) => item.$key),
-          keys,
-        });
-      }
-    },
-  );
-
   refreshActiveAccountTokenList = contextAtomMethod(
     (
       get,
@@ -279,38 +164,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
         tokens: uniqBy(payload.tokens, (item) => item.$key),
         keys: payload.keys,
       });
-    },
-  );
-
-  refreshTokenListMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: {
-          [key: string]: ITokenFiat;
-        };
-        merge?: boolean;
-        mergeDerive?: boolean;
-      },
-    ) => {
-      const { tokens, merge, mergeDerive } = payload;
-
-      if (merge) {
-        const tokenListMap = get(tokenListMapAtom());
-        set(
-          tokenListMapAtom(),
-          mergeDeriveTokenListMap({
-            sourceMap: tokens,
-            targetMap: tokenListMap,
-            mergeDeriveAssets: mergeDerive,
-          }),
-        );
-
-        return;
-      }
-
-      set(tokenListMapAtom(), payload.tokens);
     },
   );
 
@@ -382,166 +235,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       }
 
       set(riskyTokenListMapAtom(), payload.tokens);
-    },
-  );
-
-  refreshSmallBalanceTokenList = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        smallBalanceTokens: IAccountToken[];
-        keys: string;
-        merge?: boolean;
-        map?: {
-          [key: string]: ITokenFiat;
-        };
-        mergeDerive?: boolean;
-        tokens?: IAccountToken[];
-      },
-    ) => {
-      const { keys, smallBalanceTokens, merge, mergeDerive } = payload;
-
-      if (merge) {
-        if (smallBalanceTokens.length) {
-          let newTokens = get(smallBalanceTokenListAtom()).smallBalanceTokens;
-
-          newTokens = mergeDeriveTokenList({
-            sourceTokens: smallBalanceTokens,
-            targetTokens: newTokens,
-            mergeDeriveAssets: mergeDerive,
-          });
-
-          set(smallBalanceTokenListAtom(), {
-            smallBalanceTokens: uniqBy(newTokens, (item) => item.$key),
-            keys: `${get(smallBalanceTokenListAtom()).keys}_${keys}`,
-          });
-        }
-      } else if (!isEqual(get(smallBalanceTokenListAtom()).keys, keys)) {
-        set(smallBalanceTokenListAtom(), {
-          smallBalanceTokens: uniqBy(smallBalanceTokens, (item) => item.$key),
-          keys,
-        });
-      }
-    },
-  );
-
-  refreshSmallBalanceTokenListMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: {
-          [key: string]: ITokenFiat;
-        };
-        merge?: boolean;
-        mergeDerive?: boolean;
-      },
-    ) => {
-      const { tokens, merge, mergeDerive } = payload;
-      if (merge) {
-        const tokenListMap = get(smallBalanceTokenListMapAtom());
-        set(
-          smallBalanceTokenListMapAtom(),
-          mergeDeriveTokenListMap({
-            sourceMap: tokens,
-            targetMap: tokenListMap,
-            mergeDeriveAssets: mergeDerive,
-          }),
-        );
-
-        return;
-      }
-
-      set(smallBalanceTokenListMapAtom(), payload.tokens);
-    },
-  );
-
-  refreshSmallBalanceTokensFiatValue = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        value: string;
-        merge?: boolean;
-      },
-    ) => {
-      const { value, merge } = payload;
-
-      const smallBalanceTokensFiatValue = get(
-        smallBalanceTokensFiatValueAtom(),
-      );
-
-      if (merge) {
-        const mergedValue = new BigNumber(smallBalanceTokensFiatValue)
-          .plus(value)
-          .toFixed();
-        set(smallBalanceTokensFiatValueAtom(), mergedValue);
-        return;
-      }
-
-      set(smallBalanceTokensFiatValueAtom(), value);
-    },
-  );
-
-  refreshAggregateTokensMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: Record<string, Record<string, ITokenFiat>>;
-        merge?: boolean;
-      },
-    ) => {
-      const { tokens, merge } = payload;
-      if (merge) {
-        const tokenMap = get(aggregateTokensMapAtom());
-        const newTokenMap = { ...tokenMap };
-        forEach(
-          tokens,
-          (value: Record<string, ITokenFiat>, aggregateTokenKey: string) => {
-            if (newTokenMap[aggregateTokenKey]) {
-              forEach(value, (tokenFiat: ITokenFiat, networkId: string) => {
-                newTokenMap[aggregateTokenKey][networkId] = tokenFiat;
-              });
-            } else {
-              newTokenMap[aggregateTokenKey] = value;
-            }
-          },
-        );
-        set(aggregateTokensMapAtom(), newTokenMap);
-      } else {
-        set(aggregateTokensMapAtom(), payload.tokens);
-      }
-    },
-  );
-
-  refreshAggregateTokensListMap = contextAtomMethod(
-    (
-      get,
-      set,
-      payload: {
-        tokens: {
-          [key: string]: {
-            tokens: IAccountToken[];
-          };
-        };
-        merge?: boolean;
-      },
-    ) => {
-      const { tokens, merge } = payload;
-      if (merge) {
-        const tokenListMap = get(aggregateTokensListMapAtom());
-        set(
-          aggregateTokensListMapAtom(),
-          mergeAggregateTokenListMap({
-            sourceMap: tokens,
-            targetMap: tokenListMap,
-          }),
-        );
-      } else {
-        set(aggregateTokensListMapAtom(), tokens);
-      }
     },
   );
 
@@ -650,17 +343,8 @@ export function useTokenListActions() {
   const actions = createActions();
   const refreshAllTokenList = actions.refreshAllTokenList.use();
   const refreshAllTokenListMap = actions.refreshAllTokenListMap.use();
-  const refreshTokenList = actions.refreshTokenList.use();
-  const refreshTokenListMap = actions.refreshTokenListMap.use();
   const refreshRiskyTokenList = actions.refreshRiskyTokenList.use();
   const refreshRiskyTokenListMap = actions.refreshRiskyTokenListMap.use();
-  const refreshSmallBalanceTokenList =
-    actions.refreshSmallBalanceTokenList.use();
-  const refreshSmallBalanceTokenListMap =
-    actions.refreshSmallBalanceTokenListMap.use();
-
-  const refreshSmallBalanceTokensFiatValue =
-    actions.refreshSmallBalanceTokensFiatValue.use();
 
   const refreshSearchTokenList = actions.refreshSearchTokenList.use();
 
@@ -682,22 +366,12 @@ export function useTokenListActions() {
 
   const updateTokenListSort = actions.updateTokenListSort.use();
 
-  const refreshAggregateTokensMap = actions.refreshAggregateTokensMap.use();
-
-  const refreshAggregateTokensListMap =
-    actions.refreshAggregateTokensListMap.use();
-
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshTokenList,
-    refreshTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
     updateSearchKey,
     updateTokenListState,
     updateSearchTokenState,
@@ -706,7 +380,5 @@ export function useTokenListActions() {
     refreshActiveAccountTokenList,
     updateActiveAccountTokenListState,
     updateTokenListSort,
-    refreshAggregateTokensMap,
-    refreshAggregateTokensListMap,
   });
 }

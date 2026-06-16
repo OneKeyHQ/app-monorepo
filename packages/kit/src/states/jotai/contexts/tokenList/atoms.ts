@@ -1,5 +1,4 @@
 import type { IListStructure } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/slcPure/types';
-import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
@@ -9,7 +8,6 @@ const {
   Provider: ProviderJotaiContextTokenList,
   withProvider: withTokenListProvider,
   contextAtom,
-  contextAtomComputed,
   contextAtomMethod,
   useContextData: useTokenListContextData,
 } = createJotaiContext();
@@ -55,14 +53,6 @@ export const { atom: allTokenListMapAtom, use: useAllTokenListMapAtom } =
     [key: string]: ITokenFiat;
   }>({});
 
-export const { atom: tokenListAtom, use: useTokenListAtom } = contextAtom<{
-  tokens: IAccountToken[];
-  keys: string;
-}>({
-  tokens: [],
-  keys: '',
-});
-
 export const { atom: riskyTokenListAtom, use: useRiskyTokenListAtom } =
   contextAtom<{
     riskyTokens: IAccountToken[];
@@ -73,14 +63,6 @@ export const { atom: riskyTokenListAtom, use: useRiskyTokenListAtom } =
   });
 
 export const {
-  atom: smallBalanceTokenListAtom,
-  use: useSmallBalanceTokenListAtom,
-} = contextAtom<{ smallBalanceTokens: IAccountToken[]; keys: string }>({
-  smallBalanceTokens: [],
-  keys: '',
-});
-
-export const {
   atom: activeAccountTokenListAtom,
   use: useActiveAccountTokenListAtom,
 } = contextAtom<{ tokens: IAccountToken[]; keys: string }>({
@@ -88,27 +70,10 @@ export const {
   keys: '',
 });
 
-export const { atom: tokenListMapAtom, use: useTokenListMapAtom } =
-  contextAtom<{
-    [key: string]: ITokenFiat;
-  }>({});
-
 export const { atom: riskyTokenListMapAtom, use: useRiskyTokenListMapAtom } =
   contextAtom<{
     [key: string]: ITokenFiat;
   }>({});
-
-export const {
-  atom: smallBalanceTokenListMapAtom,
-  use: useSmallBalanceTokenListMapAtom,
-} = contextAtom<{
-  [key: string]: ITokenFiat;
-}>({});
-
-export const {
-  atom: smallBalanceTokensFiatValueAtom,
-  use: useSmallBalanceTokensFiatValueAtom,
-} = contextAtom<string>('0');
 
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
@@ -148,37 +113,6 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     isRefreshing: true,
     initialized: false,
   });
-
-export const {
-  atom: aggregateTokensListMapAtom,
-  use: useAggregateTokensListMapAtom,
-} = contextAtom<
-  Record<
-    string,
-    {
-      tokens: IAccountToken[];
-    }
-  >
->({});
-
-export const { atom: aggregateTokensMapAtom, use: useAggregateTokensMapAtom } =
-  contextAtom<{
-    // aggregate token key
-    [key: string]: {
-      // networkId
-      [key: string]: ITokenFiat;
-    };
-  }>({});
-
-export const {
-  atom: flattenAggregateTokensMapAtom,
-  use: useFlattenAggregateTokensMapAtom,
-} = contextAtomComputed<{
-  [key: string]: ITokenFiat;
-}>((get) => {
-  const aggregateTokensMap = get(aggregateTokensMapAtom());
-  return flattenAggregateTokensMap(aggregateTokensMap);
-});
 
 export const {
   atom: activeAccountTokenListStateAtom,
@@ -233,16 +167,17 @@ export const RENDERED_TOKEN_LIST_CACHE_MAX_OWNERS = 50;
  * hideZeroBalance, hideDeFiMarked, etc.). Keyed by `${accountId}__${networkId}`.
  *
  * Stores both the rendered token list AND its `$key`→ITokenFiat balance/price
- * map so a network/account switch can hydrate `tokenListAtom` and
- * `tokenListMapAtom` together — otherwise the new owner's tokens render with
- * the previous owner's map (no balance, no price) until the async
- * `getAccountLocalTokens` fetch returns.
+ * map so a network/account switch can hydrate the singleton store leaves/cells
+ * together — otherwise the new owner's tokens render with the previous owner's
+ * map (no balance, no price) until the async `getAccountLocalTokens` fetch
+ * returns.
  *
  * ROLE (post TokenList SLC §7 migration): this atom is now IN-MEMORY ONLY (no
  * `coldStartCache`). It serves ONLY the in-session network/account SWITCH
  * eager-hydrate (`TokenListBlock` looks the entry up by current
- * `${accountId}__${networkId}` and hydrates the singleton atoms before
- * `initTokenListData`'s async fetch runs; `TokenListView`'s effect MRU-writes
+ * `${accountId}__${networkId}` and hydrates the singleton store leaves/cells
+ * before `initTokenListData`'s async fetch runs; `TokenListView`'s effect
+ * MRU-writes
  * it). The COLD-START persisted role (role-1) is replaced by the slim bundle
  * (slc/coldStart.ts, key `ctx:tokenListSlimColdCache`). Dropping
  * `coldStartCache` here is what stops the OLD `ctx:renderedTokenListCacheAtom`
@@ -267,8 +202,8 @@ export const {
       // Optional in the read type because entries persisted by an earlier
       // build don't carry it. Fresh writes always include it.
       tokenListMap?: Record<string, ITokenFiat>;
-      // Raw nested aggregate-token map (the source for
-      // `flattenAggregateTokensMapAtom`). Cached so a paint-time hydrate can
+      // Raw nested aggregate-token map (the source for the flattened
+      // aggregate fiat map). Cached so a paint-time hydrate can
       // restore aggregate-token balance/value alongside `tokenListMap` —
       // without this, rendering cached tokens against stale aggregate data
       // briefly mis-attributes balances after a network/account switch.

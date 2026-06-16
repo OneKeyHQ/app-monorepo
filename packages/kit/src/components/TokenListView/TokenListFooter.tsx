@@ -127,9 +127,8 @@ function TokenListFooter(props: IProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, listStructureGeneration]);
 
-  // `keys` is only a change/identity token downstream (the modal feeds it into
-  // `refreshTokenList` as the list-version string), so the joined small-balance
-  // ids are sufficient.
+  // `keys` is only a change/identity token downstream (used as the modal's
+  // list-version string), so the joined small-balance ids are sufficient.
   const smallBalanceTokenKeys = useMemo(
     () => smallBalanceIds.join('_'),
     [smallBalanceIds],

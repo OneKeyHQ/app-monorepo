@@ -406,15 +406,8 @@ function TokenListBlock({
   const {
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshTokenList,
-    refreshTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
-    refreshAggregateTokensListMap,
-    refreshAggregateTokensMap,
     updateTokenListState,
     updateSearchKey,
   } = useTokenListActions().current;
@@ -640,31 +633,12 @@ function TokenListBlock({
           }
         }
 
-        refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
-        // can search all tokens in token list
-        refreshTokenListMap({
-          tokens: {
-            ...r.tokens.map,
-            ...r.smallBalanceTokens.map,
-            ...r.riskTokens.map,
-          },
-        });
         refreshRiskyTokenList({
           keys: r.riskTokens.keys,
           riskyTokens: r.riskTokens.data,
         });
         refreshRiskyTokenListMap({
           tokens: r.riskTokens.map,
-        });
-        refreshSmallBalanceTokenList({
-          keys: r.smallBalanceTokens.keys,
-          smallBalanceTokens: r.smallBalanceTokens.data,
-        });
-        refreshSmallBalanceTokenListMap({
-          tokens: r.smallBalanceTokens.map,
-        });
-        refreshSmallBalanceTokensFiatValue({
-          value: r.smallBalanceTokens.fiatValue ?? '0',
         });
 
         // TokenList SLC Phase-2 BG dual-write (DARK / flag-OFF — design §5 step
@@ -742,13 +716,8 @@ function TokenListBlock({
       mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
-      refreshTokenList,
-      refreshTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenList,
-      refreshSmallBalanceTokenListMap,
-      refreshSmallBalanceTokensFiatValue,
       indexedAccount?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
@@ -981,15 +950,6 @@ function TokenListBlock({
   };
 
   const updateAllNetworkData = useThrottledCallback(() => {
-    refreshTokenList({
-      keys: tokenListRef.current.keys,
-      tokens: tokenListRef.current.tokens,
-      merge: true,
-      map: tokenListRef.current.map,
-      mergeDerive: true,
-      split: true,
-    });
-
     refreshRiskyTokenList({
       keys: riskyTokenListRef.current.keys,
       riskyTokens: riskyTokenListRef.current.tokens,
@@ -1013,7 +973,6 @@ function TokenListBlock({
       networkId,
       dbAccount,
       allNetworkDataInit,
-      isSingleRequest,
     }: {
       accountId: string;
       networkId: string;
@@ -1241,26 +1200,6 @@ function TokenListBlock({
           ...riskyTokenListRef.current.map,
         };
 
-        if (r.aggregateTokenListMap) {
-          refreshAggregateTokensListMap({
-            tokens: r.aggregateTokenListMap,
-            merge: true,
-          });
-        }
-
-        const nestedAggregateTokensMap = r.aggregateTokenMap
-          ? nestAggregateTokensMap({
-              aggregateTokenMap: r.aggregateTokenMap,
-              networkId,
-            })
-          : {};
-        if (r.aggregateTokenMap) {
-          refreshAggregateTokensMap({
-            tokens: nestedAggregateTokensMap,
-            merge: isSingleRequest,
-          });
-        }
-
         // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). The
         // per-round all-network ingestRound was REMOVED here: this round's
         // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
@@ -1268,18 +1207,6 @@ function TokenListBlock({
         // round. The all-network feed now happens ONCE, at the tail of the
         // `allNetworksResult` consuming effect, after merge/dedup/sort/high-low
         // split have produced the coherent full merged snapshot.
-
-        refreshTokenListMap({
-          tokens: mergedMap,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
-
-        refreshSmallBalanceTokenListMap({
-          tokens: mergedMap,
-          merge: true,
-          mergeDerive: mergeDeriveAssetsEnabled,
-        });
 
         refreshRiskyTokenListMap({
           tokens: r.riskTokens.map,
@@ -1316,13 +1243,9 @@ function TokenListBlock({
       indexedAccount?.id,
       mergeDeriveAddressData,
       network?.id,
-      refreshAggregateTokensListMap,
-      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenListMap,
-      refreshTokenListMap,
       updateAccountOverviewState,
       updateAccountWorth,
       updateAllNetworkData,
@@ -1347,32 +1270,6 @@ function TokenListBlock({
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
 
-    // Aggregate-token keys are owner-independent (commonSymbol-based), so a
-    // leftover map from ANOTHER owner would resolve that owner's balances for
-    // the new owner's aggregate rows until the first fresh response replaces
-    // it. Only clear on a true owner mismatch: when the stamp already matches
-    // (same-owner re-init via the useAllNetwork runner) the maps hold this
-    // owner's own values, and wiping them would only blank aggregate-row
-    // balances until the refetch lands. Note the stamp ref is a render
-    // snapshot, one commit stale at the first post-switch clear — so that
-    // first clear always sees a mismatch and clears; the failure direction
-    // is an extra clear, never a false skip.
-    if (
-      allTokenListStampRef.current.accountId !== account?.id ||
-      allTokenListStampRef.current.networkId !== network?.id
-    ) {
-      refreshAggregateTokensMap({
-        tokens: {},
-      });
-      refreshAggregateTokensListMap({
-        tokens: {},
-      });
-    }
-
-    refreshSmallBalanceTokensFiatValue({
-      value: '0',
-    });
-
     refreshAllTokenList({
       tokens: emptyTokens.allTokens.data,
       keys: emptyTokens.allTokens.keys,
@@ -1381,22 +1278,6 @@ function TokenListBlock({
     });
     refreshAllTokenListMap({
       tokens: emptyTokens.allTokens.map,
-    });
-
-    refreshTokenList({
-      tokens: emptyTokens.tokens.data,
-      keys: emptyTokens.tokens.keys,
-    });
-    refreshTokenListMap({
-      tokens: emptyTokens.tokens.map,
-    });
-
-    refreshSmallBalanceTokenList({
-      smallBalanceTokens: emptyTokens.smallBalanceTokens.data,
-      keys: emptyTokens.smallBalanceTokens.keys,
-    });
-    refreshSmallBalanceTokenListMap({
-      tokens: emptyTokens.smallBalanceTokens.map,
     });
 
     refreshRiskyTokenList({
@@ -1410,17 +1291,10 @@ function TokenListBlock({
   }, [
     account?.id,
     network?.id,
-    refreshAggregateTokensListMap,
-    refreshAggregateTokensMap,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
-    refreshTokenList,
-    refreshTokenListMap,
     updateAllNetworkData,
   ]);
 
@@ -1608,8 +1482,6 @@ function TokenListBlock({
 
       const localAggregateTokenMap =
         aggregateTokenRawData.current?.aggregateTokenMapV2?.[key] ?? {};
-      const localAggregateTokenListMap =
-        aggregateTokenRawData.current?.aggregateTokenListMap?.[key] ?? {};
       const aggregateTokenConfigMap =
         aggregateTokenRawData.current?.aggregateTokenConfigMap ?? {};
 
@@ -1681,26 +1553,6 @@ function TokenListBlock({
         tokenList = [...tokenList, ...aggregateTokenList];
       }
 
-      refreshAggregateTokensMap({
-        tokens: localAggregateTokenMap,
-      });
-
-      refreshAggregateTokensListMap({
-        tokens: localAggregateTokenListMap,
-      });
-
-      refreshTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: true,
-      });
-
-      refreshSmallBalanceTokenListMap({
-        tokens: tokenListMap,
-        merge: true,
-        mergeDerive: true,
-      });
-
       refreshRiskyTokenListMap({
         tokens: tokenListMap,
         merge: true,
@@ -1711,18 +1563,6 @@ function TokenListBlock({
         tokens: tokenListMap,
         merge: true,
         mergeDerive: true,
-      });
-
-      refreshTokenList({
-        keys: `${accountId}_${networkId}_local_all`,
-        tokens: tokenList,
-        merge: true,
-        map: {
-          ...tokenListMap,
-          ...flattenLocalAggregateTokenMap,
-        },
-        mergeDerive: true,
-        split: true,
       });
 
       refreshRiskyTokenList({
@@ -1798,15 +1638,10 @@ function TokenListBlock({
       indexedAccount?.id,
       mergeDeriveAddressData,
       network?.id,
-      refreshAggregateTokensListMap,
-      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenListMap,
-      refreshTokenList,
-      refreshTokenListMap,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -2111,28 +1946,6 @@ function TokenListBlock({
         });
       }
 
-      refreshAggregateTokensListMap({
-        tokens: aggregateTokenListMap,
-      });
-
-      refreshAggregateTokensMap({
-        tokens: aggregateTokenMap,
-      });
-
-      refreshTokenList(tokenList);
-
-      refreshTokenListMap({
-        tokens: mergeTokenListMap,
-      });
-
-      refreshSmallBalanceTokenList(smallBalanceTokenList);
-      refreshSmallBalanceTokenListMap({
-        tokens: mergeTokenListMap,
-      });
-      refreshSmallBalanceTokensFiatValue({
-        value: smallBalanceTokensFiatValue.toFixed(),
-      });
-
       // TokenList SLC Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
       // view-model the COHERENT FULL merged snapshot this effect just produced —
       // post merge/dedup ($key uniqBy) / sortTokensByFiatValue / zero-balance
@@ -2150,9 +1963,9 @@ function TokenListBlock({
           smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
           tokenListMap: mergeTokenListMap,
           aggregateTokensMap: aggregateTokenMap,
-          // SAME merged value fed to `refreshAggregateTokensListMap` above —
-          // carried onto the structure frame so the home cell-path leaves source
-          // the owned aggregate sub-token list from `listStructureAtom`.
+          // The owned aggregate sub-token list map, carried onto the structure
+          // frame so the home cell-path leaves source the owned aggregate
+          // sub-token list from `listStructureAtom`.
           ownedAggregateTokenListMap: aggregateTokenListMap,
           smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
           storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
@@ -2195,15 +2008,8 @@ function TokenListBlock({
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
-    refreshAggregateTokensListMap,
-    refreshAggregateTokensMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
-    refreshTokenList,
-    refreshTokenListMap,
     updateAccountWorth,
     updateTokenListState,
   ]);
@@ -2400,14 +2206,6 @@ function TokenListBlock({
           // stale and triggering the owner-mismatch skeleton in TokenListView
           // forever for this empty-cache target.
           const emptyKeys = `${accountId}_${networkId}_local_empty`;
-          refreshTokenList({ tokens: [], keys: emptyKeys });
-          refreshTokenListMap({ tokens: {} });
-          refreshSmallBalanceTokenList({
-            smallBalanceTokens: [],
-            keys: emptyKeys,
-          });
-          refreshSmallBalanceTokenListMap({ tokens: {} });
-          refreshSmallBalanceTokensFiatValue({ value: '0' });
           refreshRiskyTokenList({ riskyTokens: [], keys: emptyKeys });
           refreshRiskyTokenListMap({ tokens: {} });
           // Use the request-time `accountId`/`networkId` (the owner this
@@ -2465,22 +2263,6 @@ function TokenListBlock({
           merge: false,
           currency: cachedWorthCurrency,
         });
-        refreshTokenList({
-          tokens: tokenList,
-          keys: `${accountId}_${networkId}_local`,
-        });
-        refreshTokenListMap({
-          tokens: tokenListMap,
-        });
-
-        refreshSmallBalanceTokenList({
-          smallBalanceTokens: smallBalanceTokenList,
-          keys: `${accountId}_${networkId}_local`,
-        });
-        refreshSmallBalanceTokenListMap({
-          tokens: tokenListMap,
-        });
-
         refreshRiskyTokenList({
           riskyTokens: riskyTokenList,
           keys: `${accountId}_${networkId}_local`,
@@ -2542,11 +2324,6 @@ function TokenListBlock({
     refreshAllTokenListMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
-    refreshSmallBalanceTokenList,
-    refreshSmallBalanceTokenListMap,
-    refreshSmallBalanceTokensFiatValue,
-    refreshTokenList,
-    refreshTokenListMap,
     setOverviewTokenCacheState,
     syncTokenFilterToOverview,
     updateAccountOverviewState,
@@ -2866,27 +2643,11 @@ function TokenListBlock({
           merge: false,
         });
 
-        refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
-        refreshTokenListMap({
-          tokens: {
-            ...r.tokens.map,
-            ...r.smallBalanceTokens.map,
-            ...r.riskTokens.map,
-          },
-        });
         refreshRiskyTokenList({
           keys: r.riskTokens.keys,
           riskyTokens: r.riskTokens.data,
         });
         refreshRiskyTokenListMap({ tokens: r.riskTokens.map });
-        refreshSmallBalanceTokenList({
-          keys: r.smallBalanceTokens.keys,
-          smallBalanceTokens: r.smallBalanceTokens.data,
-        });
-        refreshSmallBalanceTokenListMap({ tokens: r.smallBalanceTokens.map });
-        refreshSmallBalanceTokensFiatValue({
-          value: r.smallBalanceTokens.fiatValue ?? '0',
-        });
         if (r.allTokens) {
           refreshAllTokenList({
             keys: r.allTokens.keys,
@@ -2925,13 +2686,8 @@ function TokenListBlock({
       walletTokenFilterParams,
       updateAccountOverviewState,
       updateAccountWorth,
-      refreshTokenList,
-      refreshTokenListMap,
       refreshRiskyTokenList,
       refreshRiskyTokenListMap,
-      refreshSmallBalanceTokenList,
-      refreshSmallBalanceTokenListMap,
-      refreshSmallBalanceTokensFiatValue,
       refreshAllTokenList,
       refreshAllTokenListMap,
       updateTokenListState,

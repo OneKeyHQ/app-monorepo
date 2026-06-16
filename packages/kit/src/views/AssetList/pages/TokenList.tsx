@@ -86,14 +86,8 @@ function TokenList() {
     [aggregateTokensMap],
   );
 
-  const {
-    refreshTokenList,
-    refreshTokenListMap,
-    updateTokenListState,
-    updateSearchKey,
-    refreshAggregateTokensListMap,
-    refreshAggregateTokensMap,
-  } = useTokenListActions().current;
+  const { updateTokenListState, updateSearchKey } =
+    useTokenListActions().current;
 
   const headerRight = useCallback(() => {
     if (!helpText) return null;
@@ -161,37 +155,10 @@ function TokenList() {
 
   useEffect(() => {
     if (keys && tokens && tokenMap) {
-      refreshTokenList({
-        tokens,
-        keys,
-      });
-      refreshTokenListMap({
-        tokens: tokenMap,
-      });
       perfTokenListView.markEnd('tokenListRefreshing_tokenListPageUseEffect');
       updateTokenListState({ initialized: true, isRefreshing: false });
     }
-
-    if (aggregateTokensListMap && aggregateTokensMap) {
-      refreshAggregateTokensListMap({
-        tokens: aggregateTokensListMap,
-      });
-      refreshAggregateTokensMap({
-        tokens: aggregateTokensMap,
-      });
-    }
-  }, [
-    aggregateTokensMap,
-    aggregateTokensListMap,
-    keys,
-    refreshTokenList,
-    refreshTokenListMap,
-    tokenMap,
-    tokens,
-    updateTokenListState,
-    refreshAggregateTokensListMap,
-    refreshAggregateTokensMap,
-  ]);
+  }, [keys, tokenMap, tokens, updateTokenListState]);
 
   return (
     <Page>

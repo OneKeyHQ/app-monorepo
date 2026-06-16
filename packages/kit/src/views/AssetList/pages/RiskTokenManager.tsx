@@ -41,10 +41,7 @@ import TokenPriceView from '../../../components/TokenListView/TokenPriceView';
 import TokenValueView from '../../../components/TokenListView/TokenValueView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useTokenListActions,
-  withTokenListProvider,
-} from '../../../states/jotai/contexts/tokenList';
+import { withTokenListProvider } from '../../../states/jotai/contexts/tokenList';
 import { AssetListTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -98,8 +95,6 @@ function RiskTokenManager() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [searchKey, setSearchKey] = useState('');
-
-  const { refreshTokenListMap } = useTokenListActions().current;
 
   const headerRight = useCallback(() => {
     return (
@@ -256,14 +251,6 @@ function RiskTokenManager() {
 
     void fetchRiskTokens();
   }, [networkId]);
-
-  useEffect(() => {
-    if (tokenMap) {
-      refreshTokenListMap({
-        tokens: tokenMap,
-      });
-    }
-  }, [tokenMap, refreshTokenListMap]);
 
   const handleToggleBlockedToken = useCallback(
     (token: IAccountToken & { isBlocked: boolean }) => {
