@@ -45,7 +45,7 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
 import {
@@ -171,6 +171,16 @@ class ServiceNetwork extends ServiceBase {
       // Convert Map back to array
       let networks = Array.from(networkMap.values());
       perf.markEnd('convertMapToArray');
+
+      // Defense-in-depth: never surface delisted (TRASH) networks, no matter
+      // which source they came from. The backend marks a network as delisted by
+      // setting its status to TRASH while still returning it (see
+      // ServiceCustomRpc.fetchNetworkFromServer), so the merged result MUST drop
+      // them here. Without this, a stale server-network entry would keep showing
+      // in the wallet network selector until the next successful server fetch.
+      perf.markStart('filterNetworks-excludeTrashNetwork');
+      networks = networks.filter((n) => n.status !== ENetworkStatus.TRASH);
+      perf.markEnd('filterNetworks-excludeTrashNetwork');
 
       perf.markStart('filterNetworks-excludeCustomNetwork');
       if (params.excludeCustomNetwork) {

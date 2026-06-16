@@ -541,10 +541,15 @@ class ServiceCustomRpc extends ServiceBase {
 
     const serverNetworks = resp.data.data;
     const presetNetworkIds = Object.values(getNetworkIdsMap());
-    // filter preset networks
+    // Persist ALL non-preset server networks, INCLUDING delisted (TRASH) ones,
+    // keeping their `status`. The backend marks a network as delisted by flipping
+    // its `status` to TRASH while still returning the entry (it does NOT drop it from
+    // the list). If we filtered TRASH out here, a network that was cached while
+    // LISTED and later delisted would keep its stale LISTED snapshot in the DB
+    // forever. Instead we store the real status and let the read/merge layer
+    // (ServiceNetwork.getAllNetworks) filter TRASH out.
     const usedNetworks = serverNetworks.filter(
-      (n) =>
-        !presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.LISTED,
+      (n) => !presetNetworkIds.includes(n.id),
     );
 
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
@@ -564,6 +569,15 @@ class ServiceCustomRpc extends ServiceBase {
 
     // If the server network is updated, clear the getAllNetworks cache
     await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
+
+    // Notify network-list views to refresh in place. A delisted (TRASH) network
+    // is only dropped by the read/merge layer AFTER this fetch persists its new
+    // status, so without this signal an already-rendered selector keeps showing
+    // the stale entry until it is reopened. We reuse AddedCustomNetwork, which is
+    // the de-facto "network list changed, refresh" signal every network selector
+    // already listens to. Bounded in frequency by the fetch throttle, so it does
+    // not cause excessive refreshes.
+    appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
