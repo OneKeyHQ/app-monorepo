@@ -4119,6 +4119,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
+      isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,

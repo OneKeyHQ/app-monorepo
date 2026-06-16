@@ -125,6 +125,8 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
         vendor: 'trezor',
         device_id: 'TREZOR-FEATURES-DEVICE-ID',
       } as never,
+      // Trezor (third-party): prefer firmware device_id over the USB serial.
+      isThirdParty: true,
     });
 
     expect(rawDeviceId).toBe('TREZOR-FEATURES-DEVICE-ID');
