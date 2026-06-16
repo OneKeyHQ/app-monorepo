@@ -266,6 +266,22 @@ export function applyStructureSnapshot(
     deps.aggCell(store, aggKey);
   }
 
+  // 8b. ensure a fiat cell exists for every live NORMAL key. The valuation
+  // frame applied in the SAME round can only WRITE existing cells (orphan
+  // guard); it never lazy-creates. On an owner switch the producer PULL runs
+  // applyStructure (which clearAll'd every cell) → applyValuation back-to-back,
+  // BEFORE any leaf has re-rendered to lazily re-create cells — so without this
+  // pre-create the valuation orphan-skips EVERY key and the whole list stays at
+  // "-" (worst on virtualized off-screen rows that never render a leaf, e.g.
+  // BTC lower in the list) until a much later push. Mirrors step 8's agg ensure
+  // and cold-start's `fanOutSlimToApply`, which pre-creates cells for the same
+  // reason. `normalKeys` ⊇ the valuation's `changedFiatById` keys (both derive
+  // from orderedIds ∪ smallBalanceIds minus aggregates), so this creates no
+  // orphans.
+  for (const k of normalKeys) {
+    deps.cell(store, k);
+  }
+
   // 9. orderedIds ref-stability via shallowEqual
   const cur = deps.get(deps.listStructureAtom);
   const orderedIds = deps.shallowEqual(snapshot.orderedIds, cur.orderedIds)

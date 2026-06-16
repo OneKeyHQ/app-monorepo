@@ -456,6 +456,45 @@ describe('applyValuationFrame', () => {
     expect(projection.cells.has('ghost')).toBe(false);
   });
 
+  it('owner-switch round: structure pre-creates cells so a same-round valuation fills every key (no orphan-skip)', () => {
+    // Regression: an account switch ran applyStructureSnapshot (clearAll) then
+    // applyValuationFrame back-to-back BEFORE any leaf re-rendered to lazily
+    // create the per-key cells, so the valuation orphan-skipped EVERY key and
+    // the whole list (incl. small-balance rows feeding the low-value sheet)
+    // stayed at "-". applyStructureSnapshot must pre-create the live normal
+    // fiat cells (orderedIds ∪ smallBalanceIds) so the same-round valuation can
+    // fill them.
+    const { store, ctx, projection, deps } = setup();
+    applyStructureSnapshot(
+      ctx,
+      projection,
+      makeStructure({ orderedIds: ['a', 'b'], smallBalanceIds: ['c'] }),
+      deps,
+    );
+    // NO manual cell seeding — mimic the post-clearAll state where no leaf has
+    // rendered yet. The cells must already exist from the structure apply.
+    expect(projection.cells.has('a')).toBe(true);
+    expect(projection.cells.has('b')).toBe(true);
+    expect(projection.cells.has('c')).toBe(true);
+
+    applyValuationFrame(
+      ctx,
+      projection,
+      makeValuation({
+        changedFiatById: {
+          a: makeFiat({ fiatValue: '11' }),
+          b: makeFiat({ fiatValue: '22' }),
+          c: makeFiat({ fiatValue: '33' }),
+        },
+      }),
+      deps,
+    );
+
+    expect(store.get(cell(ctx, 'a'))?.fiatValue).toBe('11');
+    expect(store.get(cell(ctx, 'b'))?.fiatValue).toBe('22');
+    expect(store.get(cell(ctx, 'c'))?.fiatValue).toBe('33');
+  });
+
   it('owner guard drops a wrong-owner valuation', () => {
     const { store, ctx, projection, deps } = setup();
     applyStructureSnapshot(
