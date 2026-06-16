@@ -425,7 +425,7 @@ function DepositWithdrawContent({
   const withdrawable = computedValue?.withdrawable ?? '';
   const [amount, setAmount] = useState('');
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
-    'token',
+    'usd',
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
@@ -446,16 +446,21 @@ function DepositWithdrawContent({
     () => Object.values(tokens).flat(),
     [tokens],
   );
+  const currentDepositTokenIdentity = useMemo(
+    () =>
+      currentPerpsDepositSelectedToken
+        ? `${currentPerpsDepositSelectedToken.networkId ?? ''}::${
+            currentPerpsDepositSelectedToken.contractAddress ??
+            currentPerpsDepositSelectedToken.symbol ??
+            ''
+          }`
+        : undefined,
+    [currentPerpsDepositSelectedToken],
+  );
   const currentPerpsDepositSelectedTokenRef = useRef<
     IPerpsDepositToken | undefined
   >(currentPerpsDepositSelectedToken);
-  if (
-    currentPerpsDepositSelectedTokenRef.current?.contractAddress !==
-    currentPerpsDepositSelectedToken?.contractAddress
-  ) {
-    currentPerpsDepositSelectedTokenRef.current =
-      currentPerpsDepositSelectedToken;
-  }
+  const previousDepositTokenIdentityRef = useRef<string | undefined>(undefined);
 
   const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
     IPerpsDepositToken[]
@@ -695,6 +700,30 @@ function DepositWithdrawContent({
 
     return () => clearTimeout(timer);
   }, [selectedAction]);
+
+  useEffect(() => {
+    currentPerpsDepositSelectedTokenRef.current =
+      currentPerpsDepositSelectedToken;
+  }, [currentDepositTokenIdentity, currentPerpsDepositSelectedToken]);
+
+  useEffect(() => {
+    if (selectedAction !== 'deposit') {
+      previousDepositTokenIdentityRef.current = undefined;
+      return;
+    }
+    const previousTokenIdentity = previousDepositTokenIdentityRef.current;
+    previousDepositTokenIdentityRef.current = currentDepositTokenIdentity;
+
+    if (
+      previousTokenIdentity &&
+      currentDepositTokenIdentity &&
+      previousTokenIdentity !== currentDepositTokenIdentity
+    ) {
+      setAmount('');
+      setDepositInputUnit('usd');
+      setShowMinAmountError(false);
+    }
+  }, [currentDepositTokenIdentity, selectedAction]);
 
   useEffect(() => {
     if (result) {
@@ -1820,28 +1849,6 @@ function DepositWithdrawContent({
     perpDepositQuote?.result,
   ]);
 
-  const showDepositNoConfirmHint = useMemo(
-    () =>
-      selectedAction === 'deposit' &&
-      !accountTypeInfo.isHwWallet &&
-      !accountTypeInfo.isExternalAccount &&
-      isValidAmount &&
-      !isSubmitting &&
-      !balanceLoading &&
-      !isDepositQuoteLoading &&
-      depositToAmount.canDeposit,
-    [
-      selectedAction,
-      accountTypeInfo.isHwWallet,
-      accountTypeInfo.isExternalAccount,
-      isValidAmount,
-      isSubmitting,
-      balanceLoading,
-      depositToAmount.canDeposit,
-      isDepositQuoteLoading,
-    ],
-  );
-
   const nativeAmountCtaLabel = useMemo(() => {
     if (shouldShowBuyButton) {
       return intl.formatMessage({ id: ETranslations.global_add_money });
@@ -1964,19 +1971,6 @@ function DepositWithdrawContent({
           <Stack h="$px" bg="$borderSubdued" my="$1.5" />
           {depositTokenSelectComponent}
         </YStack>
-
-        {showDepositNoConfirmHint ? (
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign="center"
-            mt="$-1"
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp__deposit_no_second_confirmation__desc,
-            })}
-          </SizableText>
-        ) : null}
 
         {!shouldUseNativeAmountKeypad ? (
           <YStack pt="$1">
@@ -2201,6 +2195,7 @@ function DepositWithdrawContent({
               pb={isMobile ? '$2' : '$6'}
             >
               <SendAutoSizeAmountInput
+                key={`deposit-${currentDepositTokenIdentity ?? 'default'}-${depositInputUnit}`}
                 ref={amountInputRef}
                 value={amount}
                 onChange={handleAmountChange}
@@ -2283,6 +2278,7 @@ function DepositWithdrawContent({
               pb={isMobile ? '$2' : '$6'}
             >
               <SendAutoSizeAmountInput
+                key="withdraw-usdc"
                 ref={amountInputRef}
                 value={amount}
                 onChange={handleAmountChange}
