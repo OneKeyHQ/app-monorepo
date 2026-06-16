@@ -183,25 +183,27 @@ export function MarketDetailPools({
   // Resolve the OneKey networks that still exist locally. The server pools API
   // may return networks that have already been delisted/removed from the
   // client; getNetworksByIds simply filters those out instead of throwing.
-  const { result: existingNetworks } = usePromiseResult(
-    async () => {
-      const networkIds = pools
-        .map((i) => i.onekeyNetworkId)
-        .filter((i): i is string => Boolean(i));
-      if (!networkIds.length) {
-        return [];
-      }
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-          networkIds,
-        });
-      return networks;
-    },
-    [pools],
-    {
-      initResult: [],
-    },
-  );
+  const { result: existingNetworks, isLoading: isExistingNetworksLoading } =
+    usePromiseResult(
+      async () => {
+        const networkIds = pools
+          .map((i) => i.onekeyNetworkId)
+          .filter((i): i is string => Boolean(i));
+        if (!networkIds.length) {
+          return [];
+        }
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+            networkIds,
+          });
+        return networks;
+      },
+      [pools],
+      {
+        initResult: [],
+        watchLoading: true,
+      },
+    );
 
   const existingNetworkMap = useMemo(() => {
     const map = new Map<string, IServerNetwork>();
@@ -215,12 +217,18 @@ export function MarketDetailPools({
   // networkId broke the entire selector row: getNetwork throws for unknown
   // networks and the symbols Promise.all rejected as a whole, leaving every
   // network icon blank.
+  // While the existing-network set is still loading, keep all pools so the
+  // selector doesn't momentarily collapse to the CEX tab; delisted networks are
+  // filtered out once existingNetworks resolves.
   const validPools = useMemo(
     () =>
-      pools.filter(
-        (i) => i.onekeyNetworkId && existingNetworkMap.has(i.onekeyNetworkId),
-      ),
-    [pools, existingNetworkMap],
+      isExistingNetworksLoading
+        ? pools
+        : pools.filter(
+            (i) =>
+              i.onekeyNetworkId && existingNetworkMap.has(i.onekeyNetworkId),
+          ),
+    [pools, isExistingNetworksLoading, existingNetworkMap],
   );
 
   const oneKeyNetworkIds = useMemo(() => {
