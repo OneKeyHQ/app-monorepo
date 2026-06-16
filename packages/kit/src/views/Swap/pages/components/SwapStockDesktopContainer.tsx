@@ -8,6 +8,7 @@ import {
   Button,
   DashText,
   Divider,
+  Empty,
   Icon,
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
@@ -41,6 +42,13 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
+import { PortfolioSkeleton } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PortfolioSkeleton';
+import { usePortfolioData } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
+import {
+  PortfolioHeaderSmall,
+  PortfolioItemSmall,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/layout';
+import { useNetworkAccount } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/hooks/useNetworkAccount';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { MarketTokenSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelector';
@@ -112,6 +120,12 @@ interface ISwapStockDesktopContainerProps {
 }
 
 type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
+type IStockMarketTokenDetail = ReturnType<typeof useTokenDetail>['tokenDetail'];
+type IStockMarketDataRow = {
+  label: string;
+  value: string;
+  tooltip?: string;
+};
 
 const STOCK_CHART_RANGE_ITEMS: {
   label: IStockChartRange;
@@ -137,10 +151,12 @@ function normalizeStockChartData(points?: { t: number; c: number }[]) {
 }
 
 function StockMarketDataItem({
+  compact,
   label,
   value,
   tooltip,
 }: {
+  compact?: boolean;
   label: string;
   value: string;
   tooltip?: string;
@@ -150,8 +166,8 @@ function StockMarketDataItem({
       flexGrow={1}
       flexBasis={0}
       minWidth={0}
-      h={48}
-      px="$3.5"
+      h={compact ? 44 : 48}
+      px={compact ? '$3' : '$3.5'}
       py="$1.5"
       borderRadius="$3"
       bg="$bgSubdued"
@@ -175,72 +191,94 @@ function StockMarketDataItem({
           />
         ) : null}
       </XStack>
-      <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
+      <SizableText
+        size={compact ? '$bodySmMedium' : '$bodyMd'}
+        color="$text"
+        numberOfLines={1}
+      >
         {value}
       </SizableText>
     </YStack>
   );
 }
 
-function StockMarketDataGrid() {
-  const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
+function buildStockMarketDataRows({
+  intl,
+  tokenDetail,
+}: {
+  intl: ReturnType<typeof useIntl>;
+  tokenDetail?: IStockMarketTokenDetail;
+}): IStockMarketDataRow[] {
   const assetAnalysis = tokenDetail?.stock?.assetAnalysis;
-  const rows = useMemo(
-    () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_24h_volume,
-        }),
-        value: formatCurrencyStatValue(
-          assetAnalysis?.volume24h ?? tokenDetail?.volume24h,
-        ),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_volume_shares,
-        }),
-        value: formatMarketCapValue(assetAnalysis?.volumeShares),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_turnover_rate,
-        }),
-        value: formatPercentValue(assetAnalysis?.turnoverRate),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
-        }),
-        value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_52_week_high,
-        }),
-        value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
-      },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.dexmarket_stock_52_week_low,
-        }),
-        value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
-      },
-    ],
-    [assetAnalysis, intl, tokenDetail?.volume24h],
-  );
+  return [
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_24h_volume,
+      }),
+      value: formatCurrencyStatValue(
+        assetAnalysis?.volume24h ?? tokenDetail?.volume24h,
+      ),
+    },
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_volume_shares,
+      }),
+      value: formatMarketCapValue(assetAnalysis?.volumeShares),
+    },
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_turnover_rate,
+      }),
+      value: formatPercentValue(assetAnalysis?.turnoverRate),
+    },
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_1y_avg_daily_vol,
+      }),
+      value: formatCurrencyStatValue(assetAnalysis?.avgDailyVolume1y),
+    },
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_52_week_high,
+      }),
+      value: formatCurrencyStatValue(assetAnalysis?.weekHigh52),
+    },
+    {
+      label: intl.formatMessage({
+        id: ETranslations.dexmarket_stock_52_week_low,
+      }),
+      value: formatCurrencyStatValue(assetAnalysis?.weekLow52),
+    },
+  ];
+}
+
+function StockMarketDataGridContent({
+  compact,
+  rows,
+  testID,
+}: {
+  compact?: boolean;
+  rows: IStockMarketDataRow[];
+  testID: string;
+}) {
+  const intl = useIntl();
+  const rowGap = compact ? '$2' : '$3';
 
   return (
-    <YStack w="100%" gap="$3" testID={SwapTestIDs.stockMarketDataGrid}>
-      <SizableText size="$bodyMdMedium" color="$text">
+    <YStack w="100%" gap={rowGap} testID={testID}>
+      <SizableText
+        size={compact ? '$bodySmMedium' : '$bodyMdMedium'}
+        color="$text"
+      >
         {intl.formatMessage({ id: ETranslations.trade_stock_market_data })}
       </SizableText>
-      <YStack w="100%" gap="$3">
+      <YStack w="100%" gap={rowGap}>
         {[0, 2, 4].map((rowStart) => (
-          <XStack key={rowStart} gap="$3" w="100%" alignItems="stretch">
+          <XStack key={rowStart} gap={rowGap} w="100%" alignItems="stretch">
             {rows.slice(rowStart, rowStart + 2).map((item) => (
               <StockMarketDataItem
                 key={item.label}
+                compact={compact}
                 label={item.label}
                 value={item.value}
               />
@@ -249,6 +287,26 @@ function StockMarketDataGrid() {
         ))}
       </YStack>
     </YStack>
+  );
+}
+
+function StockMarketDataGrid() {
+  const intl = useIntl();
+  const { tokenDetail } = useTokenDetail();
+  const rows = useMemo(
+    () =>
+      buildStockMarketDataRows({
+        intl,
+        tokenDetail,
+      }),
+    [intl, tokenDetail],
+  );
+
+  return (
+    <StockMarketDataGridContent
+      rows={rows}
+      testID={SwapTestIDs.stockMarketDataGrid}
+    />
   );
 }
 
@@ -1011,6 +1069,69 @@ function StockPriceChart({
   );
 }
 
+function StockMobilePositionsSection() {
+  const intl = useIntl();
+  const { tokenAddress, networkId } = useTokenDetail();
+  const { accountAddress, xpub } = useNetworkAccount(networkId ?? '');
+  const { portfolioData, isRefreshing } = usePortfolioData({
+    tokenAddress: tokenAddress ?? '',
+    networkId: networkId ?? '',
+    accountAddress,
+    xpub,
+  });
+  let positionsContent: ReactNode;
+  if (isRefreshing && portfolioData.length === 0) {
+    positionsContent = <PortfolioSkeleton />;
+  } else if (portfolioData.length > 0) {
+    positionsContent = (
+      <YStack>
+        {portfolioData.map((item) => (
+          <PortfolioItemSmall
+            key={`${item.accountAddress}-${item.tokenAddress}`}
+            item={item}
+          />
+        ))}
+      </YStack>
+    );
+  } else {
+    positionsContent = (
+      <Empty
+        description={intl.formatMessage({
+          id: ETranslations.dexmarket_details_nodata,
+        })}
+        pt="$16"
+      />
+    );
+  }
+
+  return (
+    <YStack mx="$-5" mt="$2">
+      <XStack
+        px="$5"
+        h="$10"
+        alignItems="flex-end"
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+      >
+        <YStack
+          h="$10"
+          justifyContent="center"
+          borderBottomWidth={2}
+          borderBottomColor="$borderActive"
+        >
+          <SizableText size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.dexmarket_details_myposition,
+            })}
+          </SizableText>
+        </YStack>
+      </XStack>
+      <PortfolioHeaderSmall />
+      <YStack minHeight={180}>{positionsContent}</YStack>
+    </YStack>
+  );
+}
+
 function StockMarketContextPanel({
   stockChannel,
 }: {
@@ -1227,6 +1348,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           onTradeSideChange={handleTradeSideChange}
           compact
         />
+        <StockMobilePositionsSection />
       </YStack>
     </Keyboard.AwareScrollView>
   );

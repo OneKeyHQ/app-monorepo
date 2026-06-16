@@ -6,6 +6,7 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSwapStockPayTokenPreferenceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -47,6 +48,23 @@ type IStockPayToken = IToken & {
 };
 
 const EMPTY_STOCK_PAY_TOKENS: IStockPayToken[] = [];
+
+function buildStockPayTokenPreferenceScope({
+  accountId,
+  indexedAccountId,
+  stockNetworkId,
+}: {
+  accountId?: string;
+  indexedAccountId?: string;
+  stockNetworkId: string;
+}) {
+  if (!stockNetworkId) {
+    return '';
+  }
+  return `${stockNetworkId}:${
+    indexedAccountId || accountId || 'no-active-account'
+  }`;
+}
 
 function getNetworkLogoURI(networkId?: string) {
   if (!networkId) {
@@ -132,6 +150,24 @@ export function useSwapStockPayTokens({
   stockNetworkId: string;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
+    useSwapStockPayTokenPreferenceAtom();
+  const stockPayTokenPreferenceScope = useMemo(
+    () =>
+      buildStockPayTokenPreferenceScope({
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: activeAccount?.indexedAccount?.id,
+        stockNetworkId,
+      }),
+    [
+      activeAccount?.account?.id,
+      activeAccount?.indexedAccount?.id,
+      stockNetworkId,
+    ],
+  );
+  const persistedStockPayTokenKey = stockPayTokenPreferenceScope
+    ? (payTokenPreferenceByScope[stockPayTokenPreferenceScope] ?? '')
+    : '';
   const speedSwapConfigScope = stockNetworkId;
   const { result: speedSwapConfigState, isLoading: payTokenOptionsLoading } =
     usePromiseResult(
@@ -170,8 +206,12 @@ export function useSwapStockPayTokens({
   );
 
   useEffect(() => {
-    manualStockPayTokenKeyRef.current = '';
-  }, [manualStockPayTokenKeyRef, stockNetworkId]);
+    manualStockPayTokenKeyRef.current = persistedStockPayTokenKey;
+  }, [
+    manualStockPayTokenKeyRef,
+    persistedStockPayTokenKey,
+    stockPayTokenPreferenceScope,
+  ]);
 
   const rawPayTokens = useMemo(() => {
     if (!defaultTokens?.length) {
@@ -333,6 +373,30 @@ export function useSwapStockPayTokens({
     : undefined;
 
   useEffect(() => {
+    const manualPayTokenKey = manualStockPayTokenKeyRef.current;
+    if (!stockPayTokenPreferenceScope || !manualPayTokenKey || !payToken) {
+      return;
+    }
+    if (manualPayTokenKey !== getTokenIdentityKey(payToken)) {
+      return;
+    }
+    setPayTokenPreferenceByScope((prev) => {
+      if (prev[stockPayTokenPreferenceScope] === manualPayTokenKey) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [stockPayTokenPreferenceScope]: manualPayTokenKey,
+      };
+    });
+  }, [
+    manualStockPayTokenKeyRef,
+    payToken,
+    setPayTokenPreferenceByScope,
+    stockPayTokenPreferenceScope,
+  ]);
+
+  useEffect(() => {
     if (
       !speedConfigReady ||
       selectablePayTokens.length === 0 ||
@@ -345,28 +409,36 @@ export function useSwapStockPayTokens({
       candidates: selectablePayTokens,
       token: payToken,
     });
+    const persistedToken = persistedStockPayTokenKey
+      ? selectablePayTokens.find(
+          (candidate) =>
+            getTokenIdentityKey(candidate) === persistedStockPayTokenKey,
+        )
+      : undefined;
     const preferredToken = findDefaultStockPayToken({
       candidates: selectablePayTokens,
       balances: payTokenBalances,
     });
+    const nextPayToken = persistedToken ?? preferredToken;
     if (
       currentToken &&
       (manualStockPayTokenKeyRef.current ===
         getTokenIdentityKey(currentToken) ||
         equalTokenNoCaseSensitive({
           token1: currentToken,
-          token2: preferredToken,
+          token2: nextPayToken,
         }))
     ) {
       return;
     }
 
-    selectPayToken(preferredToken, false);
+    selectPayToken(nextPayToken, false);
   }, [
     manualStockPayTokenKeyRef,
     payToken,
     payTokenDetailsReady,
     payTokenBalances,
+    persistedStockPayTokenKey,
     selectablePayTokens,
     selectPayToken,
     speedConfigReady,

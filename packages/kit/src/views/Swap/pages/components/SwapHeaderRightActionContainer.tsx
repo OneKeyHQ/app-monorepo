@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -40,6 +41,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -49,10 +51,12 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   swapSlippageCustomDefaultList,
@@ -489,6 +493,67 @@ const SwapSettingsDialogContent = ({
   );
 };
 
+const StockKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const navigation = useAppNavigation();
+  const {
+    isNative,
+    networkId: networkIdFromHook,
+    tokenAddress: tokenAddressFromHook,
+    tokenDetail,
+  } = useTokenDetail();
+  const networkId = networkIdFromHook ?? tokenDetail?.networkId ?? '';
+  const tokenAddress = tokenAddressFromHook ?? tokenDetail?.address ?? '';
+  const network = useMemo(
+    () =>
+      networkUtils.getNetworkShortCode({
+        networkId,
+      }) || networkId,
+    [networkId],
+  );
+  const disabled =
+    !tokenDetail?.stock ||
+    !tokenDetail?.symbol ||
+    !networkId ||
+    (!tokenAddress && !isNative);
+
+  const onOpenStockMarketDetail = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress,
+        network,
+        isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+      },
+    });
+  }, [disabled, isNative, navigation, network, tokenAddress]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenStockMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
 const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
@@ -602,6 +667,7 @@ const SwapHeaderRightActionContainer = ({
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
     swapTypeSwitch === ESwapTabSwitchType.STOCK ||
     (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+  const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
@@ -684,18 +750,30 @@ const SwapHeaderRightActionContainer = ({
       showFooter: true,
     });
   }, [intl, marketPresetSettings, swapStoreName]);
+
+  let kLineButton: ReactNode = null;
+  if (showKLineButton) {
+    kLineButton = isStockType ? (
+      <StockKLineHeaderButton
+        iconSize={resolvedIconSize}
+        iconColor={iconColor}
+        buttonSize={resolvedButtonSize}
+      />
+    ) : (
+      <HeaderIconButton
+        testID={SwapTestIDs.kLineButton}
+        icon="TradingViewCandlesOutline"
+        onPress={onOpenSwapKLineModal}
+        disabled={isKLineDisabled}
+        iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+        size={resolvedButtonSize}
+      />
+    );
+  }
+
   return (
     <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
-      {showKLineButton ? (
-        <HeaderIconButton
-          testID={SwapTestIDs.kLineButton}
-          icon="TradingViewCandlesOutline"
-          onPress={onOpenSwapKLineModal}
-          disabled={isKLineDisabled}
-          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-          size={resolvedButtonSize}
-        />
-      ) : null}
+      {kLineButton}
 
       {slippageTitle ? (
         <XStack

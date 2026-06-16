@@ -178,6 +178,18 @@ export const {
 });
 
 export const {
+  atom: swapStockPayTokenPreferenceAtom,
+  use: useSwapStockPayTokenPreferenceAtom,
+} = contextAtom<Record<string, string>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenPreferenceAtom,
+  },
+);
+
+export const {
   atom: swapInitialSelectedTokensSyncedAtom,
   use: useSwapInitialSelectedTokensSyncedAtom,
 } = contextAtom<boolean>(false);
