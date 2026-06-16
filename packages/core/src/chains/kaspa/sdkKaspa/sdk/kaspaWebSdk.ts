@@ -2,7 +2,11 @@ import { Script } from '@onekeyfe/kaspa-core-lib';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { BASE_KAS_TO_P2SH_ADDRESS } from '../constant';
+import {
+  BASE_KAS_TO_P2SH_ADDRESS,
+  DEFAULT_FEE_RATE,
+  DUST_AMOUNT,
+} from '../constant';
 import { EKaspaSignType } from '../publickey';
 import { SignatureType } from '../transaction';
 import { EOpcodes } from '../types';
@@ -47,14 +51,38 @@ const getKaspaApi = async () => {
 
     const tx = createTransaction(revealEntries, [], BigInt(0));
 
-    const fee = calculateTransactionFee(kaspaNetworkId, tx);
+    // The reveal tx must be priced at the network fee rate the commit tx used,
+    // NOT the protocol base minimum. calculateTransactionFee() only returns the
+    // base minimum (~1 sompi/gram); when the node's minimum relay fee rate is
+    // elevated (network congestion), a base-minimum reveal is rejected as
+    // non-standard ("transaction ... is under the required amount ... for compute
+    // mass ..."). The commit carries the chosen fee rate (sompi/gram) on
+    // feeInfo.price, so scale the base fee up to that rate. This is an output-less
+    // compound tx, where the generator uses priorityFee as the exact fee, and the
+    // 1.3 KAS input leaves ample room for the higher fee. When the network is idle
+    // (price falls back to DEFAULT_FEE_RATE = 1) this keeps the previous behavior.
+    const baseFee = calculateTransactionFee(kaspaNetworkId, tx) ?? BigInt(0);
+    const feeRate = Number(encodedTx.feeInfo?.price) || DEFAULT_FEE_RATE;
+    let priorityFee = BigInt(Math.ceil(Number(baseFee) * feeRate));
+
+    // Cap the priority fee so the reveal always has room to land. The reveal's
+    // only input is the fixed 1.3 KAS P2SH output; if `baseFee * feeRate` (which
+    // scales with the network rate and the x2 buffer) exceeds `input - dust`,
+    // createTransactions throws "insufficient funds" and the reveal can never be
+    // broadcast, permanently locking the commit's KAS in the P2SH output. Better
+    // to slightly underpay the buffer than to strand the funds.
+    const revealInput = kaspaToSompi(BASE_KAS_TO_P2SH_ADDRESS) as bigint;
+    const maxPriorityFee = revealInput - BigInt(DUST_AMOUNT);
+    if (priorityFee > maxPriorityFee) {
+      priorityFee = maxPriorityFee;
+    }
 
     const settings = {
       priorityEntries: revealEntries,
       entries: revealEntries,
       outputs: [],
       changeAddress: encodedTx.changeAddress ?? accountAddress,
-      priorityFee: fee?.valueOf(),
+      priorityFee,
       networkId: kaspaNetworkId,
     };
     const { transactions } = await createTransactions(settings);

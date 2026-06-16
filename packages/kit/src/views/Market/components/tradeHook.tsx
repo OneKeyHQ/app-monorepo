@@ -66,7 +66,7 @@ export const useMarketTradeNetworkId = (
   }, [network, symbol]);
 
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
-  const { symbol = '', name } = token || {};
+  const { symbol = '', name, image } = token || {};
   const intl = useIntl();
   const network = useMarketTradeNetwork(token);
   const networkId = useMarketTradeNetworkId(network, symbol);
@@ -294,10 +294,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       // Navigate to protocols list page if multiple providers
       void EarnNavigation.pushToEarnProtocols(navigation, {
         symbol: normalizedSymbol,
+        logoURI: image ? encodeURIComponent(image) : undefined,
         // filterNetworkId: networkId,
       });
     }
-  }, [createAccountIfNotExists, navigation, networkId, symbol]);
+  }, [createAccountIfNotExists, image, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
   return useMemo(
