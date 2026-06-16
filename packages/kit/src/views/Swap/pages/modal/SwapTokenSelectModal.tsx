@@ -33,6 +33,7 @@ import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapNetworksAtom,
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -43,6 +44,10 @@ import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -105,6 +110,10 @@ const SwapTokenSelectPage = ({
     () => route.params?.type ?? ESwapDirectionType.FROM,
     [route.params?.type],
   );
+  const isSwapStockSelectTarget = route.params?.selectTarget === 'swapStock';
+  const stockSelectDefaultNetworkId = isSwapStockSelectTarget
+    ? route.params?.defaultNetworkId
+    : undefined;
   const intl = useIntl();
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const searchKeywordDebounce = useDebounce(searchKeyword, 500);
@@ -112,9 +121,38 @@ const SwapTokenSelectPage = ({
   const requestedSearchKeyword = searchKeyword
     ? searchKeywordDebounce
     : searchKeyword;
-  const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
-  const [swapNetworksIncludeAllNetwork] =
+  const [rawSwapNetworks] = useSwapNetworksAtom();
+  const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
+  const swapNetworksIncludeAllNetwork = useMemo(() => {
+    if (!isSwapStockSelectTarget || !stockSelectDefaultNetworkId) {
+      return swapNetworksIncludeAllNetworkBase;
+    }
+    if (
+      swapNetworksIncludeAllNetworkBase.some(
+        (network) => network.networkId === stockSelectDefaultNetworkId,
+      )
+    ) {
+      return swapNetworksIncludeAllNetworkBase;
+    }
+    const stockNetwork = rawSwapNetworks.find(
+      (network) => network.networkId === stockSelectDefaultNetworkId,
+    );
+    if (!stockNetwork) {
+      return swapNetworksIncludeAllNetworkBase;
+    }
+    const [allNetwork, ...networks] = swapNetworksIncludeAllNetworkBase;
+    if (!allNetwork) {
+      return [stockNetwork, ...networks];
+    }
+    return [allNetwork, stockNetwork, ...networks];
+  }, [
+    isSwapStockSelectTarget,
+    rawSwapNetworks,
+    stockSelectDefaultNetworkId,
+    swapNetworksIncludeAllNetworkBase,
+  ]);
+  const swapAllSupportNetworks = swapNetworksIncludeAllNetwork;
   const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -126,6 +164,9 @@ const SwapTokenSelectPage = ({
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
   const showLpTokenFilterSwitch = useMemo(() => {
+    if (isSwapStockSelectTarget) {
+      return false;
+    }
     if (!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED || !currentSelectNetwork) {
       return false;
     }
@@ -140,11 +181,19 @@ const SwapTokenSelectPage = ({
         ? true
         : currentSelectNetwork.isDeFiEnabled,
     });
-  }, [currentSelectNetwork]);
+  }, [currentSelectNetwork, isSwapStockSelectTarget]);
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
-  const requestLpToken = showLpTokenFilterSwitch ? showLpTokensOnly : undefined;
+  const requestLpToken = useMemo(() => {
+    if (isSwapStockSelectTarget) {
+      return false;
+    }
+    if (showLpTokenFilterSwitch) {
+      return showLpTokensOnly;
+    }
+    return undefined;
+  }, [isSwapStockSelectTarget, showLpTokenFilterSwitch, showLpTokensOnly]);
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const hasUserSelectedNetworkRef = useRef(false);
@@ -186,6 +235,9 @@ const SwapTokenSelectPage = ({
     [fromToken?.networkId, swapNetworksIncludeAllNetwork],
   );
   const syncDefaultNetworkSelect = useCallback(() => {
+    if (stockSelectDefaultNetworkId) {
+      return getSelectableDefaultNetwork(stockSelectDefaultNetworkId);
+    }
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
         return getSelectableDefaultNetwork(fromToken.networkId);
@@ -216,6 +268,7 @@ const SwapTokenSelectPage = ({
     fromToken?.networkId,
     getSelectableDefaultNetwork,
     isFromTokenNetworkBridgeOnly,
+    stockSelectDefaultNetworkId,
     swapTypeSwitch,
     toToken?.networkId,
     type,
@@ -344,6 +397,11 @@ const SwapTokenSelectPage = ({
 
   const selectTokenHandler = useCallback(
     (token: ISwapToken) => {
+      if (isSwapStockSelectTarget) {
+        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, token);
+        navigation.popStack();
+        return;
+      }
       navigation.popStack();
       if (type === ESwapDirectionType.FROM) {
         if (
@@ -373,6 +431,7 @@ const SwapTokenSelectPage = ({
       selectToToken,
       setSwapSelectFromToken,
       setSwapSelectToToken,
+      isSwapStockSelectTarget,
       type,
     ],
   );
@@ -390,18 +449,21 @@ const SwapTokenSelectPage = ({
       } else {
         selectTokenHandler(item);
       }
-      defaultLogger.swap.selectToken.selectToken({
-        selectFrom: item.isPopular
-          ? ESwapSelectTokenSource.POPULAR_SELECT
-          : ESwapSelectTokenSource.NORMAL_SELECT,
-        tokenRole: getSwapAnalyticsTokenRole(type),
-        tokenListType: getSwapAnalyticsTokenListType({
-          swapType: swapTypeSwitch,
-        }),
-      });
+      if (!isSwapStockSelectTarget) {
+        defaultLogger.swap.selectToken.selectToken({
+          selectFrom: item.isPopular
+            ? ESwapSelectTokenSource.POPULAR_SELECT
+            : ESwapSelectTokenSource.NORMAL_SELECT,
+          tokenRole: getSwapAnalyticsTokenRole(type),
+          tokenListType: getSwapAnalyticsTokenListType({
+            swapType: swapTypeSwitch,
+          }),
+        });
+      }
     },
     [
       checkRiskToken,
+      isSwapStockSelectTarget,
       navigation,
       route.params.storeName,
       selectTokenHandler,

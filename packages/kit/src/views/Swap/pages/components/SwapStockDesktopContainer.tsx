@@ -50,7 +50,6 @@ import {
 import { useNetworkAccount } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/hooks/useNetworkAccount';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { MarketTokenSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/MarketTokenSelector';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   formatCurrencyStatValue,
@@ -58,7 +57,6 @@ import {
   formatPercentValue,
   formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
-import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,7 +68,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import {
   EProtocolOfExchange,
-  type ESwapDirectionType,
+  ESwapDirectionType,
   type IFetchQuoteResult,
   type IMarketPresetTokenContext,
   type ISwapAlertState,
@@ -840,28 +838,32 @@ function StockMarketHeaderSkeleton() {
 }
 
 function StockMarketTokenHeader({
-  stockChannel,
+  storeName,
   compact,
 }: {
-  stockChannel: IUseSwapStockChannelReturn;
+  storeName: EJotaiContextStoreNames;
   compact?: boolean;
 }) {
   const { tokenDetail, networkId } = useTokenDetail();
   const navigation = useAppNavigation();
+  const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
-    networkId,
+    networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
-  const handleOpenMobileTokenSelector = useCallback(() => {
-    navigation.pushModal(EModalRoutes.MarketModal, {
-      screen: EModalMarketRoutes.MobileTokenSelector,
+  const handleOpenStockTokenSelector = useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapTokenSelect,
       params: {
-        mode: 'stock',
+        type: ESwapDirectionType.FROM,
+        storeName,
         selectTarget: 'swapStock',
+        defaultNetworkId: stockTokenNetworkId,
       },
     });
-  }, [navigation]);
+  }, [navigation, stockTokenNetworkId, storeName]);
 
   if (!tokenDetail) {
     return <StockMarketHeaderSkeleton />;
@@ -887,7 +889,7 @@ function StockMarketTokenHeader({
             borderRadius="$full"
             hoverStyle={{ bg: '$bgHover' }}
             pressStyle={{ bg: '$bgActive' }}
-            onPress={handleOpenMobileTokenSelector}
+            onPress={handleOpenStockTokenSelector}
           >
             <Token
               size="md"
@@ -915,11 +917,43 @@ function StockMarketTokenHeader({
             />
           </XStack>
         ) : (
-          <MarketTokenSelector
-            mode="stock"
-            triggerVariant="compact"
-            onSelectToken={stockChannel.selectStockToken}
-          />
+          <XStack
+            gap="$2.5"
+            alignItems="center"
+            cursor="pointer"
+            bg="$transparent"
+            px="$0"
+            py="$0"
+            borderRadius="$full"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={handleOpenStockTokenSelector}
+          >
+            <Token
+              size="md"
+              tokenImageUri={tokenDetail.logoUrl}
+              tokenImageUris={tokenDetail.logoUrls}
+              networkImageUri={effectiveNetworkLogoUri}
+              showNetworkIconBorder={false}
+              bg="$transparent"
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <SizableText
+              size="$headingSm"
+              color="$text"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              maxWidth="$32"
+              flexShrink={1}
+            >
+              {tokenDetail.symbol}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
         )}
         <XStack ml="$10" alignItems="center" gap="$1" minHeight="$5">
           {stock?.subtitle ? (
@@ -1139,9 +1173,9 @@ function StockMobilePositionsSection() {
 }
 
 function StockMarketContextPanel({
-  stockChannel,
+  storeName,
 }: {
-  stockChannel: IUseSwapStockChannelReturn;
+  storeName: EJotaiContextStoreNames;
 }) {
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
   const chartReady = !!networkId && !!tokenDetail?.symbol;
@@ -1158,7 +1192,7 @@ function StockMarketContextPanel({
       borderRadius="$5"
       bg="$bg"
     >
-      <StockMarketTokenHeader stockChannel={stockChannel} />
+      <StockMarketTokenHeader storeName={storeName} />
 
       <Stack mt="$6" mb="$2.5">
         {chartReady ? (
@@ -1276,7 +1310,7 @@ function SwapStockDesktopContent({
               onTradeSideChange={handleTradeSideChange}
             />
           </YStack>
-          <StockMarketContextPanel stockChannel={stockChannel} />
+          <StockMarketContextPanel storeName={storeName} />
         </XStack>
       </YStack>
     </YStack>
@@ -1335,7 +1369,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$4"
         flex={1}
       >
-        <StockMarketTokenHeader stockChannel={stockChannel} compact />
+        <StockMarketTokenHeader storeName={props.storeName} compact />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
