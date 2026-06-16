@@ -553,6 +553,20 @@ function TokenListViewCmp(props: IProps) {
   // mounted (home always has one).
   const { store: tokenListStore } = useTokenListContextData();
 
+  // P2a: hoist the network-search whole-map spread out of `filteredTokens` so a
+  // search keystroke (which re-runs that memo) does not rebuild this O(N) object
+  // on every keystroke; it is rebuilt only when the underlying maps change. Only
+  // the selector network-search (`searchAll`) branch needs it. The sort-branch
+  // spreads stay inline — different, mutually-exclusive `!isTokenSelector` gate.
+  const useNetworkSearch = !!isTokenSelector && !!searchAll;
+  const networkSearchTokenFiatMap = useMemo(
+    () =>
+      useNetworkSearch
+        ? { ...visibleTokenListMap, ...aggregateTokenMap }
+        : undefined,
+    [useNetworkSearch, visibleTokenListMap, aggregateTokenMap],
+  );
+
   const filteredTokens = useMemo(() => {
     // PR-6: the HOME path derives its order/membership from `homeProjectedIds`
     // (off `listStructure` + cells via `projectHomeDisplayIds`), so this memo —
@@ -565,7 +579,6 @@ function TokenListViewCmp(props: IProps) {
     if (isHomeProjectionPath) {
       return tokens;
     }
-    const useNetworkSearch = !!isTokenSelector && !!searchAll;
     let resp = getFilteredTokenBySearchKey({
       tokens,
       searchKey: isTokenSelector ? tokenSelectorSearchKey : searchKey,
@@ -577,9 +590,7 @@ function TokenListViewCmp(props: IProps) {
       searchKeyLengthThreshold,
       networksMap: useNetworkSearch ? networksMap : undefined,
       enableNetworkSearch: useNetworkSearch,
-      tokenFiatMap: useNetworkSearch
-        ? { ...visibleTokenListMap, ...aggregateTokenMap }
-        : undefined,
+      tokenFiatMap: networkSearchTokenFiatMap,
       localAggregateTokenListMap:
         useNetworkSearch && !showActiveAccountTokenList
           ? tokenSelectorAggregateTokenListMap
@@ -632,6 +643,8 @@ function TokenListViewCmp(props: IProps) {
     sortDirection,
     visibleTokenListMap,
     aggregateTokenMap,
+    useNetworkSearch,
+    networkSearchTokenFiatMap,
   ]);
 
   const limitedTokens = useMemo(() => {
