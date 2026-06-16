@@ -13,6 +13,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
@@ -26,6 +30,7 @@ import type {
 import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getSwapExecutionType } from '../../utils/swapTypeUtils';
 
 import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
@@ -97,15 +102,44 @@ const SwapOldSwapBridgeLimitContainer = ({
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
 
-  let swapTitle: string;
-  if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_bridge });
-  } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_limit });
-  } else {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_swap });
-  }
+  const swapLabel = intl.formatMessage({ id: ETranslations.swap_page_swap });
+  const bridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_page_bridge,
+  });
+  const effectiveSwapType = getSwapExecutionType({
+    fromNetworkId: fromToken?.networkId,
+    toNetworkId: toToken?.networkId,
+  });
+  const isEffectiveBridge =
+    effectiveSwapType === ESwapTabSwitchType.BRIDGE &&
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+  const swapTitleContent =
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+      </SizableText>
+    ) : (
+      <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
+        <SizableText
+          size="$headingLg"
+          color={isEffectiveBridge ? '$textSubdued' : '$text'}
+        >
+          {swapLabel}
+        </SizableText>
+        <SizableText size="$headingLg" color="$textSubdued">
+          &
+        </SizableText>
+        <SizableText
+          size="$headingLg"
+          color={isEffectiveBridge ? '$text' : '$textSubdued'}
+        >
+          {bridgeLabel}
+        </SizableText>
+      </XStack>
+    );
 
   // Desktop: show provider panel on the right side
   // Show when: on large desktop (gtLg), not in modal, and not in Limit mode
@@ -195,7 +229,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }}
       >
         <XStack alignItems="center" justifyContent="space-between">
-          <SizableText size="$headingLg">{swapTitle}</SizableText>
+          {swapTitleContent}
           <SwapHeaderRightActionContainer
             pageType={pageType}
             iconSize="$5"
@@ -298,7 +332,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             }}
           >
             <XStack alignItems="center" justifyContent="space-between">
-              <SizableText size="$headingLg">{swapTitle}</SizableText>
+              {swapTitleContent}
               <SwapHeaderRightActionContainer
                 pageType={pageType}
                 iconSize="$5"

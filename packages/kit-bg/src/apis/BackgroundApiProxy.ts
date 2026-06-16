@@ -83,6 +83,7 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTokenViewModel from '../services/ServiceTokenViewModel';
 import type ServiceTransaction from '../services/ServiceTransaction';
@@ -273,6 +274,10 @@ class BackgroundApiProxy
   serviceHardwareUI = this._createProxyService(
     'serviceHardwareUI',
   ) as ServiceHardwareUI;
+
+  serviceThirdPartyHardware = this._createProxyService(
+    'serviceThirdPartyHardware',
+  ) as ServiceThirdPartyHardware;
 
   serviceFirmwareUpdate = this._createProxyService(
     'serviceFirmwareUpdate',

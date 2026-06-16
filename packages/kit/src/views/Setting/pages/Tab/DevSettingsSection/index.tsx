@@ -1409,6 +1409,23 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
+                      {platformEnv.isWeb ||
+                      platformEnv.isDesktop ||
+                      platformEnv.isExtension ? (
+                        <SectionPressItem
+                          icon="ShieldCheckDoneOutline"
+                          title="SES Harden Runtime Check"
+                          subtitle="Validate lockdown, harden, eval, Error, Intl, RegExp, JSON and Promise"
+                          testID="ses-harden-runtime-check-menu"
+                          searchKeywords="SES lockdown harden Object.prototype evalTaming runtime check"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                            );
+                          }}
+                        />
+                      ) : null}
+
                       <SearchFilterItem keywords="SentryCrashSettings Sentry Crash 崩溃">
                         <SentryCrashSettings />
                       </SearchFilterItem>
@@ -1781,6 +1798,14 @@ const BaseDevSettingsSection = () => {
                           handleOpenMockTradingViewKLineEmptyIntervalsDialog
                         }
                       />
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="showMarketHomeWsDebug"
+                        title="Market Home WS Debug"
+                        subtitle="显示 Market 首页 WS 订阅数量和可视窗口高亮"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"

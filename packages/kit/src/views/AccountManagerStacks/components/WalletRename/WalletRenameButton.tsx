@@ -39,17 +39,15 @@ export function WalletRenameButton({
     return !!editable;
   }, [editable, wallet?.id]);
 
-  // Third-party HW wallets (e.g. Ledger) rename is DB-only — do not go
-  // through the OneKey SDK device label flow, since the device does not
-  // speak OneKey protocol and applySettings would fail.
-  const isThirdPartyHwWallet = useMemo(
-    () =>
-      Boolean(
-        wallet?.associatedDeviceInfo?.vendor &&
-        getVendorProfile(wallet.associatedDeviceInfo.vendor).isThirdParty,
-      ),
-    [wallet?.associatedDeviceInfo?.vendor],
-  );
+  // Third-party HW wallets without vendor-routed settings (e.g. Ledger) rename
+  // is DB-only. Trezor has a dedicated settings route, so it can update the
+  // hardware label through serviceHardware.setDeviceLabel.
+  const shouldUseDbOnlyWalletRename = useMemo(() => {
+    const vendor = wallet?.associatedDeviceInfo?.vendor;
+    if (!vendor) return false;
+    const profile = getVendorProfile(vendor);
+    return profile.isThirdParty && !profile.supportsDeviceSettings;
+  }, [wallet?.associatedDeviceInfo?.vendor]);
 
   return (
     <>
@@ -69,7 +67,7 @@ export function WalletRenameButton({
               !accountUtils.isHwHiddenWallet({
                 wallet,
               }) &&
-              !isThirdPartyHwWallet
+              !shouldUseDbOnlyWalletRename
             ) {
               void showHardwareLabelSetDialog(
                 {

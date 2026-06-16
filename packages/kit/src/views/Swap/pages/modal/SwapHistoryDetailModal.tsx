@@ -1350,7 +1350,7 @@ const SwapHistoryDetailModal = () => {
   const renderRate = useCallback(
     () => (
       <SwapRateInfoItem
-        rate={txHistory?.swapInfo.instantRate ?? '0'}
+        rate={txHistory?.swapInfo.instantRate}
         fromToken={txHistory?.baseInfo.fromToken}
         toToken={txHistory?.baseInfo.toToken}
       />

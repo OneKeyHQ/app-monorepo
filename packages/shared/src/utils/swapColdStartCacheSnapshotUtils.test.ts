@@ -101,7 +101,7 @@ function buildSwapSnapshot({
 }
 
 describe('swapColdStartCacheSnapshotUtils', () => {
-  it('keeps swap type and token snapshot when home account context matches', () => {
+  it('keeps bridge context and visible swap tab when home account context matches', () => {
     const snapshot = buildSwapSnapshot();
 
     normalizeSwapColdStartCacheSnapshot(snapshot);
@@ -113,6 +113,16 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
         )
       ],
+    ).toBe(ESwapTabSwitchType.SWAP);
+    expect(
+      (
+        snapshot[
+          buildSnapshotKey(
+            swapScope,
+            CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+          )
+        ] as { swapType?: ESwapTabSwitchType }
+      ).swapType,
     ).toBe(ESwapTabSwitchType.BRIDGE);
     expect(
       snapshot[
@@ -124,7 +134,7 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     ).toEqual({ networkId: 'btc--0', symbol: 'BTC' });
   });
 
-  it('normalizes cross-network selected tokens to bridge even when cached type is swap', () => {
+  it('normalizes cross-network selected tokens to bridge context while showing swap tab', () => {
     const snapshot = buildSwapSnapshot({
       contextSwapType: ESwapTabSwitchType.SWAP,
       snapshotSwapType: ESwapTabSwitchType.SWAP,
@@ -139,7 +149,7 @@ describe('swapColdStartCacheSnapshotUtils', () => {
           CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
         )
       ],
-    ).toBe(ESwapTabSwitchType.BRIDGE);
+    ).toBe(ESwapTabSwitchType.SWAP);
     expect(
       (
         snapshot[

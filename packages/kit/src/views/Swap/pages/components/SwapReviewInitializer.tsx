@@ -18,6 +18,8 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
+
 import type { ISwapReviewState } from '../../utils/swapReviewState';
 
 type ISwapReviewInitializerProps = {
@@ -47,7 +49,8 @@ export function SwapReviewInitializer({
 
   useEffect(() => {
     setSwapTypeSwitch(
-      reviewState.preSwapData.swapType ?? ESwapTabSwitchType.SWAP,
+      getVisibleSwapTabSwitchType(reviewState.preSwapData.swapType) ??
+        ESwapTabSwitchType.SWAP,
     );
     setSwapSelectFromToken(reviewState.preSwapData.fromToken);
     setSwapSelectToToken(reviewState.preSwapData.toToken);

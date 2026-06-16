@@ -48,6 +48,7 @@ export const OthersWalletAvatarImages = {
 
 export const ThirdPartyWalletAvatarImages = {
   ledger: require('../assets/wallet/avatar/Ledger.png'),
+  trezor: require('../assets/wallet/avatar/Trezor.png'),
 };
 
 export const AllWalletAvatarImages = {

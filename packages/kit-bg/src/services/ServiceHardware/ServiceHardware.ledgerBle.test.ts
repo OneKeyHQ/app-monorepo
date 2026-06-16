@@ -1,3 +1,5 @@
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+
 import { mapThirdPartyDeviceToSearchDevice } from './thirdPartyDeviceMapping';
 
 describe('ServiceHardware Ledger BLE device mapping', () => {
@@ -18,27 +20,8 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
 
     expect(result).toMatchObject({
       connectId: '0738',
+      deviceId: null,
       name: 'Leo',
-    });
-  });
-
-  it('uses the actual BLE device name instead of the vendor default', () => {
-    const result = mapThirdPartyDeviceToSearchDevice({
-      device: {
-        vendor: 'ledger',
-        model: 'nanoX',
-        firmwareVersion: '',
-        deviceId: 'A58F',
-        connectId: 'A58F',
-        label: 'Andox',
-        connectionType: 'ble',
-      } as never,
-      defaultDeviceName: 'Ledger',
-    });
-
-    expect(result).toMatchObject({
-      connectId: 'A58F',
-      name: 'Andox',
     });
   });
 
@@ -80,6 +63,73 @@ describe('ServiceHardware Ledger BLE device mapping', () => {
       connectId: null,
       name: 'Andox',
     });
+  });
+
+  it('preserves Trezor USB connectId because it is a stable serial number', () => {
+    const result = mapThirdPartyDeviceToSearchDevice({
+      device: {
+        vendor: 'trezor',
+        model: 'T3W1',
+        firmwareVersion: '',
+        deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+        connectId: 'A37803C61D8DCB1542D7AEE7',
+        label: 'Trezor Safe 7',
+        connectionType: 'usb',
+      } as never,
+      defaultDeviceName: 'Trezor',
+      hasPersistentConnectId: () => true,
+      hasPersistentDeviceId: () => true,
+    });
+
+    expect(result).toMatchObject({
+      connectId: 'A37803C61D8DCB1542D7AEE7',
+      deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+      name: 'Trezor Safe 7',
+    });
+  });
+
+  it('preserves Trezor BLE connectId as handle and firmware deviceId as identity', () => {
+    const result = mapThirdPartyDeviceToSearchDevice({
+      device: {
+        vendor: 'trezor',
+        model: 'T3W1',
+        firmwareVersion: '',
+        deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+        connectId: '81a6048ecf0d10bcf684e8a0b0b700b8',
+        label: 'n',
+        connectionType: 'ble',
+      } as never,
+      defaultDeviceName: 'Trezor',
+      hasPersistentConnectId: () => true,
+      hasPersistentDeviceId: () => true,
+    });
+
+    expect(result).toMatchObject({
+      connectId: '81a6048ecf0d10bcf684e8a0b0b700b8',
+      deviceId: 'TREZOR-FEATURES-DEVICE-ID',
+      name: 'n',
+    });
+    expect(result.deviceId).not.toBe(result.connectId);
+  });
+
+  it('uses firmware device_id instead of Trezor USB serial when creating raw device id', () => {
+    const rawDeviceId = deviceUtils.getRawDeviceId({
+      device: {
+        connectId: 'A37803C61D8DCB1542D7AEE7',
+        deviceId: 'A37803C61D8DCB1542D7AEE7',
+        name: 'Trezor Safe 7',
+        deviceType: 'unknown',
+        uuid: '',
+      } as never,
+      features: {
+        vendor: 'trezor',
+        device_id: 'TREZOR-FEATURES-DEVICE-ID',
+      } as never,
+      // Trezor (third-party): prefer firmware device_id over the USB serial.
+      isThirdParty: true,
+    });
+
+    expect(rawDeviceId).toBe('TREZOR-FEATURES-DEVICE-ID');
   });
 
   it('rejects explicit BLE devices when connectId is empty', () => {

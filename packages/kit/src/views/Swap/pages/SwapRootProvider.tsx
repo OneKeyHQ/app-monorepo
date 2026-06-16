@@ -32,6 +32,7 @@ import {
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
 } from '../utils/swapColdStartTokenCacheUtils';
+import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
 
@@ -56,7 +57,11 @@ export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
   store.set(swapSelectFromTokenAtom(), defaultTokens.fromToken);
   store.set(swapSelectToTokenAtom(), defaultTokens.toToken);
   store.set(swapSelectedTokensColdStartContextAtom(), defaultTokens.context);
-  store.set(swapTypeSwitchAtom(), defaultTokens.swapType);
+  store.set(
+    swapTypeSwitchAtom(),
+    getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
+      defaultTokens.swapType,
+  );
   return true;
 }
 
@@ -117,7 +122,10 @@ function SwapColdStartCacheSync() {
       setSwapFromToken(defaultTokens.fromToken);
       setSwapToToken(defaultTokens.toToken);
       setSelectedTokensColdStartContext(defaultTokens.context);
-      setSwapTypeSwitch(defaultTokens.swapType);
+      setSwapTypeSwitch(
+        getVisibleSwapTabSwitchType(defaultTokens.swapType) ??
+          defaultTokens.swapType,
+      );
       return true;
     };
 

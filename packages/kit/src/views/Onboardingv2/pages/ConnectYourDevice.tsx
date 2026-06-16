@@ -97,6 +97,7 @@ import type { IDeviceType, SearchDevice } from '@onekeyfe/hd-core';
 import type { ReactVideoSource } from 'react-native-video';
 
 const LedgerConnectionFlow = lazy(() => import('./ConnectionFlowLedger'));
+const TrezorConnectionFlow = lazy(() => import('./ConnectionFlowTrezor'));
 
 enum EConnectionStatus {
   init = 'init',
@@ -1264,7 +1265,10 @@ function ConnectYourDevicePage({
       const connectId = item.device.connectId ?? '';
       try {
         // For third-party devices, skip CheckAndUpdate and go directly to FinalizeWalletSetup
-        if (item.vendor === EHardwareVendor.ledger) {
+        if (
+          item.vendor === EHardwareVendor.ledger ||
+          item.vendor === EHardwareVendor.trezor
+        ) {
           navigation.push(EOnboardingPagesV2.FinalizeWalletSetup, {
             deviceData: {
               ...item,
@@ -1323,6 +1327,65 @@ function ConnectYourDevicePage({
     [navigation],
   );
 
+  let content = (
+    <>
+      <XStack alignItems="center" gap="$4">
+        {tabOptions.length > 1 ? (
+          <SegmentControl
+            fullWidth
+            value={tabValue}
+            onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
+            options={tabOptions}
+          />
+        ) : null}
+        {isSupportedQRCode ? (
+          <YStack ml="auto">
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.global_advanced,
+              })}
+              renderTrigger={
+                <IconButton
+                  testID={OnboardingTestIDs.connectYourDeviceAdvancedMenuBtn}
+                  variant="tertiary"
+                  icon="DotHorOutline"
+                />
+              }
+              renderContent={
+                <QRWalletConnect
+                  navigateToCreateQRWallet={navigateToCreateQRWallet}
+                />
+              }
+            />
+          </YStack>
+        ) : null}
+      </XStack>
+      {tabValue === EConnectDeviceChannel.usbOrBle ? (
+        <USBOrBLEConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+          vendor={vendor}
+        />
+      ) : null}
+      {tabValue === EConnectDeviceChannel.bluetooth ? (
+        <BluetoothConnectionIndicator
+          tabValue={tabValue}
+          deviceTypeItems={deviceTypeItems}
+          connectDevice={connectDevice}
+          vendor={vendor}
+        />
+      ) : null}
+    </>
+  );
+
+  if (vendor === EHardwareVendor.ledger) {
+    content = <LedgerConnectionFlow />;
+  }
+  if (vendor === EHardwareVendor.trezor) {
+    content = <TrezorConnectionFlow />;
+  }
+
   return (
     <OnboardingPage
       headerTitle={intl.formatMessage({
@@ -1333,61 +1396,7 @@ function ConnectYourDevicePage({
       narrow
       contentContainerProps={{ gap: '$5' }}
     >
-      {vendor === EHardwareVendor.ledger ? (
-        <LedgerConnectionFlow />
-      ) : (
-        <>
-          <XStack alignItems="center" gap="$4">
-            {tabOptions.length > 1 ? (
-              <SegmentControl
-                fullWidth
-                value={tabValue}
-                onChange={(v) => setTabValue(v as EConnectDeviceChannel)}
-                options={tabOptions}
-              />
-            ) : null}
-            {isSupportedQRCode ? (
-              <YStack ml="auto">
-                <Popover
-                  title={intl.formatMessage({
-                    id: ETranslations.global_advanced,
-                  })}
-                  renderTrigger={
-                    <IconButton
-                      testID={
-                        OnboardingTestIDs.connectYourDeviceAdvancedMenuBtn
-                      }
-                      variant="tertiary"
-                      icon="DotHorOutline"
-                    />
-                  }
-                  renderContent={
-                    <QRWalletConnect
-                      navigateToCreateQRWallet={navigateToCreateQRWallet}
-                    />
-                  }
-                />
-              </YStack>
-            ) : null}
-          </XStack>
-          {tabValue === EConnectDeviceChannel.usbOrBle ? (
-            <USBOrBLEConnectionIndicator
-              tabValue={tabValue}
-              deviceTypeItems={deviceTypeItems}
-              connectDevice={connectDevice}
-              vendor={vendor}
-            />
-          ) : null}
-          {tabValue === EConnectDeviceChannel.bluetooth ? (
-            <BluetoothConnectionIndicator
-              tabValue={tabValue}
-              deviceTypeItems={deviceTypeItems}
-              connectDevice={connectDevice}
-              vendor={vendor}
-            />
-          ) : null}
-        </>
-      )}
+      {content}
     </OnboardingPage>
   );
 }

@@ -16,6 +16,11 @@ import '@onekeyhq/shared/src/polyfills';
 // which awaits the cold-start gate on web/desktop.
 import '@onekeyhq/kit-bg/src/hydration/hydrate';
 
+// Initialize desktop bridge before runtime hardening, then keep all application
+// imports behind the hardened runtime.
+import '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
+import '@onekeyhq/shared/src/security/sesHarden/installDesktopRenderer';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';

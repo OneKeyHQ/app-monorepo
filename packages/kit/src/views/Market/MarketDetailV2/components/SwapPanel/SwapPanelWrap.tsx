@@ -149,34 +149,25 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
-    let actionTranslationId;
-    let actionToken: ISwapToken | undefined;
-    let actionOtherToken: ISwapToken | undefined;
-    if (!speedSwapEnabled) {
-      actionTranslationId = onlySupportCrossChain
-        ? ETranslations.promode_swap_unsupported_message_btc
-        : ETranslations.promode_swap_unsupported_message_regular;
-      actionToken = {
-        networkId: networkId || '',
-        contractAddress: tokenDetail?.address || '',
-        symbol: tokenDetail?.symbol || '',
-        decimals: tokenDetail?.decimals || 0,
-        logoURI: tokenDetail?.logoUrl || '',
-        isNative: !!tokenDetail?.isNative,
-      };
-      actionOtherToken = {
-        networkId: paymentToken?.networkId || '',
-        contractAddress: paymentToken?.contractAddress || '',
-        symbol: paymentToken?.symbol || '',
-        decimals: paymentToken?.decimals || 0,
-        logoURI: paymentToken?.logoURI || '',
-        isNative: paymentToken?.isNative || false,
-      };
-    }
+    const actionToken: ISwapToken | undefined = {
+      networkId: networkId || '',
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl || '',
+      isNative: !!tokenDetail?.isNative,
+    };
+    const actionOtherToken: ISwapToken | undefined = {
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      isNative: paymentToken?.isNative || false,
+    };
     return {
       enabled: isEnabled,
       warningMessage,
-      actionTranslationId,
       actionToken,
       actionOtherToken,
       onlySupportCrossChain,

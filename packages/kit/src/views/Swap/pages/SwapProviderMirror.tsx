@@ -17,6 +17,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 import {
   hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot,
@@ -52,7 +53,8 @@ export const SwapProviderMirror = memo(
         store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         store.set(
           swapTypeSwitchAtom(),
-          initialSelectedTokensOnInit.swapType ?? ESwapTabSwitchType.SWAP,
+          getVisibleSwapTabSwitchType(initialSelectedTokensOnInit.swapType) ??
+            ESwapTabSwitchType.SWAP,
         );
       } else {
         hasInitializedSelectedTokensRef.current =

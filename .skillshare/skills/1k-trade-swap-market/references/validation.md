@@ -76,3 +76,6 @@ Use these recipes based on failure type:
   shown separately and do not inflate the business transfer amount.
 - Market K-line bug: verify token detail payload, chart fetch, fallback data, and WebView events separately.
 - Handoff bug: start from Earn/Market/Buy, then confirm Swap owns state after quote starts.
+- Visible-entry merge bug: enter through route params, header tab, cold-start
+  cache, and history/detail; verify visible tab normalization and internal
+  execution/support/history semantics stay distinct.

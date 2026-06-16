@@ -209,6 +209,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
+    symbol: chartSymbol,
     enabled:
       isVisible &&
       effectiveDataSource !== 'websocket' &&
@@ -237,6 +238,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !mockEmptyKLineEnabled &&
       !forceEmptyKLineData,
     chartType: activeKLineResolution,
+    symbol: chartSymbol,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
