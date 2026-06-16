@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   DashText,
   Divider,
   IconButton,
@@ -32,7 +31,7 @@ import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   calcCellAlign,
   getColumnStyle,
-  getPerpFillDirectionType,
+  getFillDirectionDisplayInfo,
 } from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
@@ -54,7 +53,6 @@ export type ITradesHistoryRowProps = {
   isHovered?: boolean;
   onHoverChange?: (index: number | null) => void;
   builderFeeRate?: number;
-  twapId?: number;
 };
 
 const TradesHistoryRow = memo(
@@ -69,7 +67,6 @@ const TradesHistoryRow = memo(
     isHovered,
     onHoverChange,
     builderFeeRate,
-    twapId,
   }: ITradesHistoryRowProps) => {
     const canShare = useMemo(() => {
       return (
@@ -116,40 +113,8 @@ const TradesHistoryRow = memo(
     }, [fill.time]);
 
     const directionInfo = useMemo(() => {
-      if (isSpotInstrument(fill.coin)) {
-        return {
-          directionStr:
-            fill.side === 'B'
-              ? intl.formatMessage({ id: ETranslations.global_buy })
-              : intl.formatMessage({ id: ETranslations.global_sell }),
-          directionColor: fill.side === 'B' ? '$green11' : '$red11',
-        };
-      }
-      const side = fill.side;
-      let directionColor = '$green11';
-      if (side === 'A') {
-        directionColor = '$red11';
-      }
-
-      const directionType = getPerpFillDirectionType(fill.dir);
-      let directionStr = fill.dir;
-      if (directionType === 'openLong') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_long,
-        });
-      } else if (directionType === 'openShort') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_short,
-        });
-      } else if (directionType === 'closeLong') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_order_close_long,
-        });
-      } else if (directionType === 'closeShort') {
-        directionStr = intl.formatMessage({
-          id: ETranslations.perp_order_close_short,
-        });
-      }
+      const { text, color } = getFillDirectionDisplayInfo({ fill, intl });
+      let directionStr = text;
 
       if (fill.liquidation) {
         const liqPrefix = intl.formatMessage({
@@ -161,8 +126,8 @@ const TradesHistoryRow = memo(
         directionStr = `${liqPrefix}: ${directionStr}`;
       }
 
-      return { directionStr, directionColor };
-    }, [fill.coin, fill.dir, fill.side, fill.liquidation, intl]);
+      return { directionStr, directionColor: color };
+    }, [fill, intl]);
 
     const tradeBaseInfo = useMemo(() => {
       const price = fill.px;
@@ -264,11 +229,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {twapId !== undefined ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`TWAP #${twapId}`}
-                  </Badge>
-                ) : null}
               </XStack>
               <SizableText size="$bodySm" color="$textSubdued">
                 {dateInfo.date} {dateInfo.time}
@@ -442,11 +402,6 @@ const TradesHistoryRow = memo(
                 >
                   {directionInfo.directionStr}
                 </SizableText>
-                {twapId !== undefined ? (
-                  <Badge badgeType="info" badgeSize="sm">
-                    {`TWAP #${twapId}`}
-                  </Badge>
-                ) : null}
               </XStack>
             </XStack>
 

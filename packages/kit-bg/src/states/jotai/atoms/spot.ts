@@ -126,6 +126,15 @@ export const {
   initialValue: {},
 });
 
+export type ISpotPairDisplayNameMap = Record<string, string>;
+export const {
+  target: spotPairDisplayNameMapAtom,
+  use: useSpotPairDisplayNameMapAtom,
+} = globalAtom<ISpotPairDisplayNameMap>({
+  name: EAtomNames.spotPairDisplayNameMapAtom,
+  initialValue: {},
+});
+
 export type ISpotExternalMarketCaps = Record<string, string>;
 export const {
   target: spotExternalMarketCapsAtom,

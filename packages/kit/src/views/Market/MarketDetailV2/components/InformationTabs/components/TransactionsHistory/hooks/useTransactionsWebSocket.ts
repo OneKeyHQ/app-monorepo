@@ -23,6 +23,8 @@ interface IUseTransactionsWebSocketProps {
 
 interface IMarketWSDataUpdatePayload {
   channel: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
   messageType?: string;
   data: unknown;
   originalData?: unknown;
@@ -152,6 +154,14 @@ export function useTransactionsWebSocket({
         return;
       }
 
+      if (payload.networkId && payload.networkId !== networkId) {
+        return;
+      }
+
+      if (!payload.networkId && payload.isSubscriptionAmbiguous) {
+        return;
+      }
+
       if (!payload.data || typeof payload.data !== 'object') {
         return;
       }
@@ -166,11 +176,19 @@ export function useTransactionsWebSocket({
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
         address: tokenAddress,
         type: 'tokenTxs',
+        networkId,
+        currency,
       });
 
       onNewTransaction?.(mapTransactionUpdate(transactionData));
     },
-    [markSubscriptionActivity, onNewTransaction, tokenAddress],
+    [
+      markSubscriptionActivity,
+      onNewTransaction,
+      tokenAddress,
+      networkId,
+      currency,
+    ],
   );
 
   useEffect(() => {

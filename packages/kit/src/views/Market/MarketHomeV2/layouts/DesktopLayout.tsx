@@ -6,13 +6,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { CompactNetworkSelector } from '../components/CompactNetworkSelector';
 import { MarketBannerList } from '../components/MarketBanner';
-import { MarketFilterBar } from '../components/MarketFilterBar';
 import { MarketPerpsTokenList } from '../components/MarketPerpsList';
 import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
 import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
 import { TimeRangeDropdown } from '../components/TimeRangeDropdown';
 import {
   COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS,
+  isMarketStockCategoryById,
   shouldHideSpotExtendedStats,
 } from '../utils';
 
@@ -25,6 +25,8 @@ import type {
   IMarketHomeTabValue,
 } from '../types';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
+
+const DESKTOP_STICKY_HEADER_TOP_GAP = 8;
 
 interface IDesktopLayoutProps {
   filterBarProps: IMarketFilterBarProps;
@@ -56,12 +58,17 @@ export function DesktopLayout({
 }: IDesktopLayoutProps) {
   const {
     watchlistTabName,
-    spotTabName,
+    spotTabItems,
     perpsTabName,
     showPerpsTab,
     handleTabChange,
+    getSpotCategoryIdByTabName,
     selectedTabName,
-  } = useMarketTabsLogic(onTabChange);
+  } = useMarketTabsLogic(onTabChange, {
+    spotCategories: filterBarProps.categories,
+    selectedSpotCategory: filterBarProps.selectedCategory,
+    onSpotCategoryChange: filterBarProps.onCategoryChange,
+  });
 
   const isFocused = useIsFirstFocus();
 
@@ -86,6 +93,23 @@ export function DesktopLayout({
 
   const { activeTabName, setActiveTabName, tabsRef } =
     useSyncedMarketTab(selectedTabName);
+  const [stockDataCategoryMap, setStockDataCategoryMap] = useState<
+    Record<string, boolean>
+  >({});
+  const handleStockDataChange = useCallback(
+    (categoryId: string, isStockData: boolean) => {
+      setStockDataCategoryMap((prev) => {
+        if (prev[categoryId] === isStockData) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [categoryId]: isStockData,
+        };
+      });
+    },
+    [],
+  );
 
   // Mount each sub-tab's heavy list only after the tab has been activated
   // once. The initial activeTabName comes in synchronously from
@@ -113,6 +137,9 @@ export function DesktopLayout({
   const activeTabNameRef = useRef(activeTabName);
   activeTabNameRef.current = activeTabName;
 
+  const stockDataCategoryMapRef = useRef(stockDataCategoryMap);
+  stockDataCategoryMapRef.current = stockDataCategoryMap;
+
   const renderTabBar = useCallback(
     (tabBarProps: TabBarProps<string>) => {
       const handleTabPress = (name: string) => {
@@ -123,6 +150,19 @@ export function DesktopLayout({
       };
       const currentFilterBarProps = filterBarPropsRef.current;
       const currentActiveTabName = activeTabNameRef.current;
+      const currentSpotCategoryId =
+        getSpotCategoryIdByTabName(currentActiveTabName);
+      const currentSpotCategoryHasStockData = Boolean(
+        currentSpotCategoryId &&
+        (isMarketStockCategoryById(
+          currentFilterBarProps.categories,
+          currentSpotCategoryId,
+        ) ||
+          stockDataCategoryMapRef.current[currentSpotCategoryId]),
+      );
+      const showSpotControls = Boolean(
+        currentSpotCategoryId && !currentSpotCategoryHasStockData,
+      );
       // Wrap TabBar + portal target in a single sticky container.
       // Override TabBar's own sticky with position: relative so
       // the outer wrapper controls stickiness for both.
@@ -137,8 +177,8 @@ export function DesktopLayout({
                 containerStyle={{ position: 'relative' as any }}
               />
             </XStack>
-            {/* Right side controls - only visible on Spot tab */}
-            {currentActiveTabName === spotTabName ? (
+            {/* Right side controls - hidden when the active spot data is stock */}
+            {showSpotControls ? (
               <XStack gap="$3" alignItems="center" pr="$5">
                 <TimeRangeDropdown
                   value={currentFilterBarProps.timeRange}
@@ -151,11 +191,14 @@ export function DesktopLayout({
               </XStack>
             ) : null}
           </XStack>
-          <div ref={portalRefCallback} />
+          <div
+            ref={portalRefCallback}
+            style={{ paddingTop: DESKTOP_STICKY_HEADER_TOP_GAP }}
+          />
         </YStack>
       );
     },
-    [portalRefCallback, spotTabName],
+    [getSpotCategoryIdByTabName, portalRefCallback],
   );
 
   const onTabChangeHandler = useCallback(
@@ -176,12 +219,12 @@ export function DesktopLayout({
     return { paddingBottom: 0 };
   }, []);
 
-  const hiddenSpotDesktopColumns = useMemo(
-    () =>
-      shouldHideSpotExtendedStats(filterBarProps.selectedCategory)
+  const getHiddenSpotDesktopColumns = useCallback(
+    (categoryId: string) =>
+      shouldHideSpotExtendedStats(categoryId)
         ? COMPACT_SPOT_HIDDEN_DESKTOP_COLUMNS
         : undefined,
-    [filterBarProps.selectedCategory],
+    [],
   );
 
   const stickyHeaderCtx = useMemo(
@@ -192,6 +235,57 @@ export function DesktopLayout({
   if (!isFocused) {
     return null;
   }
+
+  const tabElements = [
+    <Tabs.Tab key={watchlistTabName} name={watchlistTabName}>
+      <YStack px="$4" flex={1}>
+        {hasActivated(watchlistTabName) ? (
+          <MarketWatchlistTokenList
+            tabIntegrated
+            tabName={watchlistTabName}
+            listContainerProps={listContainerProps}
+            enableWebSocket={activeTabName === watchlistTabName}
+          />
+        ) : null}
+      </YStack>
+    </Tabs.Tab>,
+    ...spotTabItems.map((item) => (
+      <Tabs.Tab key={item.categoryId} name={item.tabName}>
+        <YStack px="$4" flex={1}>
+          {hasActivated(item.tabName) ? (
+            <MarketNormalTokenList
+              networkId={selectedNetworkId}
+              selectedCategory={item.categoryId}
+              timeRange={filterBarProps.timeRange}
+              tabIntegrated
+              tabName={item.tabName}
+              listContainerProps={listContainerProps}
+              hiddenDesktopColumns={getHiddenSpotDesktopColumns(
+                item.categoryId,
+              )}
+              onStockDataChange={handleStockDataChange}
+              enableWebSocket={activeTabName === item.tabName}
+            />
+          ) : null}
+        </YStack>
+      </Tabs.Tab>
+    )),
+    ...(showPerpsTab
+      ? [
+          <Tabs.Tab key={perpsTabName} name={perpsTabName}>
+            <YStack px="$4" flex={1}>
+              {hasActivated(perpsTabName) ? (
+                <MarketPerpsTokenList
+                  tabIntegrated
+                  tabName={perpsTabName}
+                  listContainerProps={listContainerProps}
+                />
+              ) : null}
+            </YStack>
+          </Tabs.Tab>,
+        ]
+      : []),
+  ];
 
   return (
     <DesktopStickyHeaderContext.Provider value={stickyHeaderCtx}>
@@ -204,46 +298,7 @@ export function DesktopLayout({
           onTabChange={onTabChangeHandler}
           {...containerProps}
         >
-          <Tabs.Tab name={watchlistTabName}>
-            <YStack px="$4" flex={1}>
-              {hasActivated(watchlistTabName) ? (
-                <MarketWatchlistTokenList
-                  tabIntegrated
-                  tabName={watchlistTabName}
-                  listContainerProps={listContainerProps}
-                />
-              ) : null}
-            </YStack>
-          </Tabs.Tab>
-          <Tabs.Tab name={spotTabName}>
-            <YStack px="$4" flex={1}>
-              {hasActivated(spotTabName) ? (
-                <MarketNormalTokenList
-                  networkId={selectedNetworkId}
-                  selectedCategory={filterBarProps.selectedCategory}
-                  timeRange={filterBarProps.timeRange}
-                  tabIntegrated
-                  tabName={spotTabName}
-                  listContainerProps={listContainerProps}
-                  toolbar={<MarketFilterBar {...filterBarProps} />}
-                  hiddenDesktopColumns={hiddenSpotDesktopColumns}
-                />
-              ) : null}
-            </YStack>
-          </Tabs.Tab>
-          {showPerpsTab ? (
-            <Tabs.Tab name={perpsTabName}>
-              <YStack px="$4" flex={1}>
-                {hasActivated(perpsTabName) ? (
-                  <MarketPerpsTokenList
-                    tabIntegrated
-                    tabName={perpsTabName}
-                    listContainerProps={listContainerProps}
-                  />
-                ) : null}
-              </YStack>
-            </Tabs.Tab>
-          ) : null}
+          {tabElements}
         </Tabs.Container>
       </YStack>
     </DesktopStickyHeaderContext.Provider>

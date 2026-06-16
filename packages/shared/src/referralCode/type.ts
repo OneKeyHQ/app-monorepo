@@ -546,13 +546,6 @@ export interface IBatchCheckWalletItem {
   address: string;
 }
 
-export interface IBatchCheckWalletParams {
-  items: IBatchCheckWalletItem[];
-}
-
-// Response is a map where key is "networkId:address" and value is boolean
-export type IBatchCheckWalletResponse = Record<string, boolean>;
-
 // V2 batch check - includes bind window status
 export interface IBatchCheckWalletV2Item {
   bound: boolean;

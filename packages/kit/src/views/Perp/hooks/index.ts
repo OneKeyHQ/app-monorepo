@@ -6,6 +6,7 @@ export { usePerpsFavorites, type IFavoriteItem } from './usePerpsFavorites';
 
 export { usePerpActiveTabValidation } from './usePerpActiveTabValidation';
 export { useFundingCountdown } from './useFundingCountdown';
+export { usePrewarmPerpsTokenSelectorImages } from './usePrewarmPerpsTokenSelectorImages';
 export { usePerpsActiveAssetCtxDisplay } from './usePerpsActiveAssetCtxDisplay';
 export {
   usePopularTickers,

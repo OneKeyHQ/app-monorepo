@@ -6,21 +6,26 @@ import { useIntl } from 'react-intl';
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSpotPairDisplayMapAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotPairDisplayMapAtom,
+  useSpotPairDisplayNameMapAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  getSpotTokenDisplayName,
   getValidPriceDecimals,
   isSpotInstrument,
-  parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpTestIDs } from '../../../testIDs';
-import { calcCellAlign, getColumnStyle } from '../utils';
+import {
+  calcCellAlign,
+  getColumnStyle,
+  getOrderAssetDisplayName,
+} from '../utils';
 
 import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
@@ -70,20 +75,14 @@ const OpenOrdersRow = memo(
     const intl = useIntl();
     const { coin, side, orderType: originalOrderType, reduceOnly } = order;
     const [spotDisplayMap] = useSpotPairDisplayMapAtom();
+    const [spotPairDisplayNameMap] = useSpotPairDisplayNameMapAtom();
     const assetInfo = useMemo(() => {
       const isSpot = isSpotInstrument(coin);
-      const assetSymbol = (() => {
-        if (!isSpot) {
-          return parseDexCoin(coin).displayName;
-        }
-        const displayName = spotDisplayMap[coin];
-        if (displayName) return displayName;
-        if (coin.includes('/')) {
-          const [baseName] = coin.split('/');
-          return getSpotTokenDisplayName(baseName);
-        }
-        return coin;
-      })();
+      const assetSymbol = getOrderAssetDisplayName(
+        coin,
+        spotDisplayMap,
+        spotPairDisplayNameMap,
+      );
       const orderType = (() => {
         switch (originalOrderType) {
           case 'Market':
@@ -148,7 +147,15 @@ const OpenOrdersRow = memo(
         orderType,
         typeColor,
       };
-    }, [coin, side, originalOrderType, reduceOnly, intl, spotDisplayMap]);
+    }, [
+      coin,
+      side,
+      originalOrderType,
+      reduceOnly,
+      intl,
+      spotDisplayMap,
+      spotPairDisplayNameMap,
+    ]);
     const handleSwitchInstrument = useCallback(() => {
       void actions.current.switchTradeInstrument({
         mode: assetInfo.isSpot ? 'spot' : 'perp',

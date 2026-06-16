@@ -4,6 +4,7 @@ import {
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
@@ -15,7 +16,6 @@ import type {
 import {
   ESwapApproveTransactionStatus,
   ESwapStepType,
-  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { isEncodedTxMatch } from './marketEncodedTxUtils';
@@ -62,7 +62,7 @@ export function buildMarketReviewState({
     fromTokenAmount,
     toTokenAmount,
     quoteResult,
-    swapType: ESwapTabSwitchType.SWAP,
+    swapType: getSwapExecutionTypeFromQuoteResult(quoteResult),
     shouldFallback,
     // Old Market tx confirm supported fee editing for wrap/swap,
     // so preview prebuild should stay enabled for every path.

@@ -20,11 +20,24 @@ Important anchor:
 - `packages/kit/src/views/Earn/EarnHome.tsx`
 - `packages/kit/src/views/Earn/EarnProvider.tsx`
 - `packages/kit/src/views/Earn/EarnProviderMirror.tsx`
+- `packages/kit/src/views/Earn/components/Recommended.tsx`
+- `packages/kit/src/views/Earn/components/RecommendedSection.tsx`
+- `packages/kit/src/views/Earn/components/ProtocolsTabContent.tsx`
+- `packages/kit/src/views/Earn/components/AvailableAssetsTabViewList.tsx`
 - `packages/kit/src/views/Earn/hooks/useEarnPortfolio.ts`
 - `packages/kit/src/views/Earn/hooks/useStakingPendingTxs.ts`
+- `packages/kit/src/states/jotai/contexts/earn/actions.ts`
+- `packages/kit/src/views/Home/components/EarnListView/EarnListView.tsx`
 - `packages/kit/src/views/Earn/pages/EarnProtocols/index.tsx`
 - `packages/kit/src/views/Earn/pages/EarnProtocolDetails/index.tsx`
 - `packages/kit/src/views/Earn/pages/EarnProtocolDetails/hooks/useProtocolDetailData.ts`
+
+Important anchors:
+
+- `Recommended` and `RecommendedSection` for recommendation-card data and display.
+- `AvailableAssetsTabViewList` for available-assets fetch, filters, and search.
+- `ProtocolsTabContent` and `EarnMainTabs` for active-tab propagation.
+- `useEarnActions.triggerRefresh` for available-assets refresh ownership.
 
 ## Staking Operation Stack
 

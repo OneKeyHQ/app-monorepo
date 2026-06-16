@@ -10,6 +10,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -31,19 +32,21 @@ import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/
 
 type ICustomTabItemProps = IStackProps & {
   isSelected?: boolean;
+  compact?: boolean;
   onPress?: IStackProps['onPress'];
 };
 
 function CustomTabItem({
   children,
   isSelected,
+  compact,
   onPress,
   ...rest
 }: ICustomTabItemProps) {
   return (
     <Stack
       py="$1"
-      px="$2.5"
+      px={compact ? '$2' : '$2.5'}
       borderRadius="$2"
       borderCurve="continuous"
       userSelect="none"
@@ -135,7 +138,10 @@ const SwapHeaderContainer = ({
 
   const handleSwapTypeChange = useCallback(
     async (value: string | number) => {
-      const newType = value as ESwapTabSwitchType;
+      const newType =
+        value === ESwapTabSwitchType.BRIDGE
+          ? ESwapTabSwitchType.SWAP
+          : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
       if (newType === ESwapTabSwitchType.LIMIT) {
@@ -159,15 +165,14 @@ const SwapHeaderContainer = ({
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
     gtLg && pageType !== 'modal' && !platformEnv.isNative;
+  const swapBridgeLabel = `${intl.formatMessage({
+    id: ETranslations.swap_page_swap,
+  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
 
   const segmentOptions = [
     {
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+      label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
-    },
-    {
-      label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
-      value: ESwapTabSwitchType.BRIDGE,
     },
     {
       label: intl.formatMessage({
@@ -214,57 +219,66 @@ const SwapHeaderContainer = ({
     );
   }
 
+  const isNativeLayout = platformEnv.isNative;
+  const tabs = (
+    <>
+      <CustomTabItem
+        compact={isNativeLayout}
+        isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
+        onPress={async () => {
+          if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
+            if (fromToken?.networkId && fromToken?.networkId !== networkId) {
+              await updateSelectedAccountNetworkAction(fromToken?.networkId);
+            }
+            void swapTypeSwitchAction(
+              ESwapTabSwitchType.SWAP,
+              fromToken?.networkId || networkId,
+            );
+          }
+        }}
+      >
+        {swapBridgeLabel}
+      </CustomTabItem>
+      <CustomTabItem
+        compact={isNativeLayout}
+        isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
+        onPress={() => {
+          if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
+            void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
+          }
+        }}
+      >
+        {intl.formatMessage({
+          id: showSwapPro
+            ? ETranslations.dexmarket_pro
+            : ETranslations.swap_page_limit,
+        })}
+      </CustomTabItem>
+    </>
+  );
+
+  if (isNativeLayout) {
+    return (
+      <XStack alignItems="center" gap="$2" px="$5" py="$1">
+        <Stack flex={1}>
+          <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
+            {tabs}
+          </ScrollableFilterBar>
+        </Stack>
+        {!hideRightActions ? (
+          <SwapHeaderRightActionContainer
+            pageType={pageType}
+            marketPresetSettings={marketPresetSettings}
+            compact
+          />
+        ) : null}
+      </XStack>
+    );
+  }
+
   return (
     <XStack justifyContent="space-between" px="$5" py="$1">
-      <XStack gap="$3">
-        <CustomTabItem
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
-          onPress={async () => {
-            if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
-              if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-                await updateSelectedAccountNetworkAction(fromToken?.networkId);
-              }
-              void swapTypeSwitchAction(
-                ESwapTabSwitchType.SWAP,
-                fromToken?.networkId || networkId,
-              );
-            }
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.swap_page_swap })}
-        </CustomTabItem>
-
-        <CustomTabItem
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
-          onPress={async () => {
-            if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-              if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-                await updateSelectedAccountNetworkAction(fromToken?.networkId);
-              }
-              void swapTypeSwitchAction(
-                ESwapTabSwitchType.BRIDGE,
-                fromToken?.networkId || networkId,
-              );
-            }
-          }}
-        >
-          {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
-        </CustomTabItem>
-        <CustomTabItem
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
-          onPress={() => {
-            if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
-              void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
-            }
-          }}
-        >
-          {intl.formatMessage({
-            id: showSwapPro
-              ? ETranslations.dexmarket_pro
-              : ETranslations.swap_page_limit,
-          })}
-        </CustomTabItem>
-      </XStack>
+      <XStack gap="$3">{tabs}</XStack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
           pageType={pageType}

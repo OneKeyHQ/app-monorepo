@@ -22,6 +22,7 @@ export enum EAtomNames {
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
   thirdPartyHardwareUiStateAtom = 'thirdPartyHardwareUiStateAtom',
   thirdPartyAppInstallAtom = 'thirdPartyAppInstallAtom',
+  thirdPartyBatchInstallAtom = 'thirdPartyBatchInstallAtom',
   hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
@@ -116,6 +117,7 @@ export enum EAtomNames {
   spotAssetCtxsMapAtom = 'spotAssetCtxsMapAtom',
   spotActiveOpenOrdersAtom = 'spotActiveOpenOrdersAtom',
   spotPairDisplayMapAtom = 'spotPairDisplayMapAtom',
+  spotPairDisplayNameMapAtom = 'spotPairDisplayNameMapAtom',
   spotExternalMarketCapsAtom = 'spotExternalMarketCapsAtom',
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   // network doctor

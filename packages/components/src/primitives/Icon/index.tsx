@@ -212,6 +212,49 @@ const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
   'AnonymousHiddenOutline',
 ];
 
+const PERPS_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
+  'BookOpenOutline',
+  'ChevronBottomOutline',
+  'ChevronDownSmallOutline',
+  'ChevronTriangleDownSmallSolid',
+  'ClockTimeHistoryOutline',
+  'Copy3Outline',
+  'DownloadOutline',
+  'OpenOutline',
+  'SliderVerOutline',
+  'TradingViewCandlesOutline',
+];
+
+const TAB_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
+  'CodeBracketsOutline',
+  'CodeBracketsSolid',
+  'CoinsOutline',
+  'CoinsSolid',
+  'CompassOutline',
+  'CompassSolid',
+  'GiftOutline',
+  'GiftSolid',
+  'PhoneOutline',
+  'PhoneSolid',
+  'SwitchHorOutline',
+  'SwitchHorSolid',
+  'TradeOutline',
+  'TradeSolid',
+  'TradingViewCandlesOutline',
+  'TradingViewCandlesSolid',
+  'Wallet4Outline',
+  'Wallet4Solid',
+];
+
+const APP_COLD_START_ICON_NAMES = [
+  ...new Set([
+    ...CRITICAL_ICON_NAMES,
+    ...SWAP_COLD_START_ICON_NAMES,
+    ...PERPS_COLD_START_ICON_NAMES,
+    ...TAB_COLD_START_ICON_NAMES,
+  ]),
+];
+
 export const prefetchSwapColdStartIcons = () =>
   loadIcons(...SWAP_COLD_START_ICON_NAMES)
     .then(() => undefined)
@@ -222,7 +265,7 @@ export const prefetchSwapColdStartIcons = () =>
  * so segments start loading early and icons are ready by first render.
  */
 export function warmCriticalIcons() {
-  for (const name of CRITICAL_ICON_NAMES) {
+  for (const name of APP_COLD_START_ICON_NAMES) {
     if (!ComponentMaps[name] && ICON_CONFIG[name]) {
       void loadIcon(name);
     }

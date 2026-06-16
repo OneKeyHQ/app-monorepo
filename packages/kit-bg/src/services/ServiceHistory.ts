@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { isNil, unionBy, uniqBy } from 'lodash';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
@@ -7,6 +8,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { HISTORY_TIME_RANGE_MONTHS } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
 import {
@@ -89,6 +91,21 @@ const PRIVATE_SEND_SWAP_HISTORY_TERMINAL_STATUSES = new Set([
   ESwapTxHistoryStatus.PARTIALLY_FILLED,
 ]);
 
+type IHistoryDecodedAction = IAccountHistoryTx['decodedTx']['actions'][number];
+type IHistoryDecodedTransfer = NonNullable<
+  IHistoryDecodedAction['assetTransfer']
+>['sends'][number];
+type IPrivateSendDisplayPriceTarget = {
+  accountId: string;
+  networkId: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function shouldPreferPrivateSendSwapHistory(
   next: ISwapTxHistory,
   current: ISwapTxHistory,
@@ -108,6 +125,559 @@ function shouldPreferPrivateSendSwapHistory(
     (next.date.updated ?? next.date.created) >
     (current.date.updated ?? current.date.created)
   );
+}
+
+function mergeNullishRecordFields<T extends Record<string, unknown>>({
+  primary,
+  fallback,
+}: {
+  primary: T;
+  fallback: T;
+}) {
+  const result: Record<string, unknown> = { ...primary };
+  Object.entries(fallback).forEach(([key, fallbackValue]) => {
+    const primaryValue = result[key];
+    if (primaryValue === undefined || primaryValue === null) {
+      if (fallbackValue !== undefined && fallbackValue !== null) {
+        result[key] = fallbackValue;
+      }
+      return;
+    }
+    if (isRecord(primaryValue) && isRecord(fallbackValue)) {
+      result[key] = mergeNullishRecordFields({
+        primary: primaryValue,
+        fallback: fallbackValue,
+      });
+    }
+  });
+  return result as T;
+}
+
+function mergePrivateSendPayloadFields({
+  localPayload,
+  onChainPayload,
+}: {
+  localPayload: IAccountHistoryTx['decodedTx']['payload'];
+  onChainPayload: IAccountHistoryTx['decodedTx']['payload'];
+}): IAccountHistoryTx['decodedTx']['payload'] {
+  if (!localPayload) {
+    return onChainPayload;
+  }
+  if (!onChainPayload) {
+    return localPayload;
+  }
+
+  const nextPayload = mergeNullishRecordFields({
+    primary: onChainPayload as unknown as Record<string, unknown>,
+    fallback: localPayload as unknown as Record<string, unknown>,
+  }) as IAccountHistoryTx['decodedTx']['payload'];
+
+  const localPrivateSend = localPayload.privateSend;
+  const onChainPrivateSend = onChainPayload.privateSend;
+  if (localPrivateSend && onChainPrivateSend) {
+    return {
+      ...nextPayload,
+      privateSend: mergeNullishRecordFields({
+        primary: onChainPrivateSend as unknown as Record<string, unknown>,
+        fallback: localPrivateSend as unknown as Record<string, unknown>,
+      }) as NonNullable<
+        IAccountHistoryTx['decodedTx']['payload']
+      >['privateSend'],
+    } as IAccountHistoryTx['decodedTx']['payload'];
+  }
+
+  return nextPayload;
+}
+
+function mergePrivateSendExtraInfoFields({
+  localExtraInfo,
+  onChainExtraInfo,
+}: {
+  localExtraInfo: IAccountHistoryTx['decodedTx']['extraInfo'];
+  onChainExtraInfo: IAccountHistoryTx['decodedTx']['extraInfo'];
+}) {
+  if (!localExtraInfo) {
+    return onChainExtraInfo;
+  }
+  if (!onChainExtraInfo) {
+    return localExtraInfo;
+  }
+  if (!isRecord(localExtraInfo) || !isRecord(onChainExtraInfo)) {
+    return onChainExtraInfo;
+  }
+
+  return mergeNullishRecordFields({
+    primary: onChainExtraInfo,
+    fallback: localExtraInfo,
+  }) as IAccountHistoryTx['decodedTx']['extraInfo'];
+}
+
+function getPrivateSendPositivePriceValue(value?: number | string) {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const valueBN = new BigNumber(value);
+  if (valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)) {
+    return undefined;
+  }
+
+  return valueBN.toFixed();
+}
+
+function hasPrivateSendTransferPrice(transfer?: IHistoryDecodedTransfer) {
+  return !!getPrivateSendPositivePriceValue(transfer?.price);
+}
+
+function getPrivateSendPositiveNumberValue(value?: number | string) {
+  const valueBN = new BigNumber(value ?? '');
+  return valueBN.isNaN() || !valueBN.isFinite() || !valueBN.isGreaterThan(0)
+    ? undefined
+    : valueBN;
+}
+
+function normalizePrivateSendTransferTokenId(tokenId?: string) {
+  return tokenId?.trim().toLowerCase() ?? '';
+}
+
+function isSamePrivateSendTransferForPrice({
+  localTransfer,
+  onChainTransfer,
+}: {
+  localTransfer: IHistoryDecodedTransfer;
+  onChainTransfer: IHistoryDecodedTransfer;
+}) {
+  return (
+    localTransfer.amount === onChainTransfer.amount &&
+    localTransfer.symbol === onChainTransfer.symbol &&
+    localTransfer.isNative === onChainTransfer.isNative &&
+    normalizePrivateSendTransferTokenId(localTransfer.tokenIdOnNetwork) ===
+      normalizePrivateSendTransferTokenId(onChainTransfer.tokenIdOnNetwork)
+  );
+}
+
+function findPrivateSendLocalTransferWithPrice({
+  localTransfers,
+  onChainTransfer,
+  index,
+}: {
+  localTransfers: IHistoryDecodedTransfer[];
+  onChainTransfer: IHistoryDecodedTransfer;
+  index: number;
+}) {
+  const sameIndexTransfer = localTransfers[index];
+  if (
+    sameIndexTransfer &&
+    hasPrivateSendTransferPrice(sameIndexTransfer) &&
+    isSamePrivateSendTransferForPrice({
+      localTransfer: sameIndexTransfer,
+      onChainTransfer,
+    })
+  ) {
+    return sameIndexTransfer;
+  }
+
+  return localTransfers.find(
+    (localTransfer) =>
+      hasPrivateSendTransferPrice(localTransfer) &&
+      isSamePrivateSendTransferForPrice({
+        localTransfer,
+        onChainTransfer,
+      }),
+  );
+}
+
+function mergePrivateSendTransferPrices({
+  localTransfers,
+  onChainTransfers,
+}: {
+  localTransfers: IHistoryDecodedTransfer[];
+  onChainTransfers: IHistoryDecodedTransfer[];
+}) {
+  let updated = false;
+  const transfers = onChainTransfers.map((onChainTransfer, index) => {
+    if (hasPrivateSendTransferPrice(onChainTransfer)) {
+      return onChainTransfer;
+    }
+
+    const localTransfer = findPrivateSendLocalTransferWithPrice({
+      localTransfers,
+      onChainTransfer,
+      index,
+    });
+    if (!localTransfer?.price) {
+      return onChainTransfer;
+    }
+
+    updated = true;
+    return {
+      ...onChainTransfer,
+      price: localTransfer.price,
+    };
+  });
+
+  return { transfers, updated };
+}
+
+function getPrivateSendAssetTransferActions(actions?: IHistoryDecodedAction[]) {
+  return actions?.filter((action) => !!action.assetTransfer) ?? [];
+}
+
+function mergePrivateSendActionTransferPrices({
+  localActions,
+  onChainActions,
+}: {
+  localActions?: IHistoryDecodedAction[];
+  onChainActions?: IHistoryDecodedAction[];
+}) {
+  if (!onChainActions?.length) {
+    return { actions: onChainActions, updated: false };
+  }
+
+  let assetTransferActionIndex = 0;
+  let updated = false;
+  const localAssetTransferActions =
+    getPrivateSendAssetTransferActions(localActions);
+  const actions = onChainActions.map((action) => {
+    const { assetTransfer } = action;
+    if (!assetTransfer) {
+      return action;
+    }
+
+    const localAssetTransfer =
+      localAssetTransferActions[assetTransferActionIndex]?.assetTransfer;
+    assetTransferActionIndex += 1;
+    if (!localAssetTransfer) {
+      return action;
+    }
+
+    const sendsResult = mergePrivateSendTransferPrices({
+      localTransfers: localAssetTransfer.sends,
+      onChainTransfers: assetTransfer.sends,
+    });
+    const receivesResult = mergePrivateSendTransferPrices({
+      localTransfers: localAssetTransfer.receives,
+      onChainTransfers: assetTransfer.receives,
+    });
+    if (!sendsResult.updated && !receivesResult.updated) {
+      return action;
+    }
+
+    updated = true;
+    return {
+      ...action,
+      assetTransfer: {
+        ...assetTransfer,
+        sends: sendsResult.transfers,
+        receives: receivesResult.transfers,
+      },
+    };
+  });
+
+  return { actions, updated };
+}
+
+function getPrivateSendDisplayPriceKey({
+  networkId,
+  tokenAddress,
+  isNative,
+}: {
+  networkId?: string;
+  tokenAddress?: string;
+  isNative?: boolean;
+}) {
+  if (!networkId) {
+    return undefined;
+  }
+  if (isNative) {
+    return `${networkId}:native`;
+  }
+  const normalizedTokenAddress =
+    normalizePrivateSendTransferTokenId(tokenAddress);
+  if (!normalizedTokenAddress) {
+    return undefined;
+  }
+  return `${networkId}:${normalizedTokenAddress}`;
+}
+
+function getPrivateSendTargetPriceKey({
+  accountId,
+  networkId,
+  tokenAddress,
+  isNative,
+}: IPrivateSendDisplayPriceTarget) {
+  const displayPriceKey = getPrivateSendDisplayPriceKey({
+    networkId,
+    tokenAddress,
+    isNative,
+  });
+  return displayPriceKey ? `${accountId}:${displayPriceKey}` : undefined;
+}
+
+function buildPrivateSendTransferDisplayPriceTarget({
+  tx,
+  transfer,
+}: {
+  tx: IAccountHistoryTx;
+  transfer: IHistoryDecodedTransfer;
+}): IPrivateSendDisplayPriceTarget | undefined {
+  if (transfer.isNFT) {
+    return undefined;
+  }
+
+  const accountId = tx.decodedTx.accountId;
+  const networkId = transfer.networkId ?? tx.decodedTx.networkId;
+  if (!accountId || !networkId) {
+    return undefined;
+  }
+
+  const tokenAddress = transfer.tokenIdOnNetwork;
+  return {
+    accountId,
+    networkId,
+    tokenAddress,
+    isNative: transfer.isNative || !tokenAddress,
+  };
+}
+
+function buildPrivateSendNativeDisplayPriceTarget(
+  tx: IAccountHistoryTx,
+): IPrivateSendDisplayPriceTarget | undefined {
+  const accountId = tx.decodedTx.accountId;
+  const networkId = tx.decodedTx.networkId;
+  if (!accountId || !networkId) {
+    return undefined;
+  }
+  return {
+    accountId,
+    networkId,
+    isNative: true,
+  };
+}
+
+function collectPrivateSendTransfersFromActions(
+  actions?: IHistoryDecodedAction[],
+) {
+  return (
+    actions?.flatMap((action) => {
+      const { assetTransfer } = action;
+      return assetTransfer
+        ? [...assetTransfer.sends, ...assetTransfer.receives]
+        : [];
+    }) ?? []
+  );
+}
+
+function convertPrivateSendDisplayPrice({
+  price,
+  sourceCurrency,
+  targetCurrency,
+  currencyMap,
+}: {
+  price?: number | string;
+  sourceCurrency?: string;
+  targetCurrency: string;
+  currencyMap: Record<string, ICurrencyItem>;
+}) {
+  const priceBN = getPrivateSendPositiveNumberValue(price);
+  if (!priceBN) {
+    return undefined;
+  }
+
+  const resolvedSourceCurrency = sourceCurrency || USD_CURRENCY_ID;
+  if (resolvedSourceCurrency === targetCurrency) {
+    return priceBN.toFixed();
+  }
+
+  const sourceCurrencyInfo = currencyMap[resolvedSourceCurrency];
+  const targetCurrencyInfo = currencyMap[targetCurrency];
+  const sourceRate = new BigNumber(sourceCurrencyInfo?.value ?? NaN);
+  const targetRate = new BigNumber(targetCurrencyInfo?.value ?? NaN);
+  if (!sourceRate.isFinite() || sourceRate.isZero() || !targetRate.isFinite()) {
+    return undefined;
+  }
+
+  return priceBN.div(sourceRate).times(targetRate).toFixed();
+}
+
+function applyPrivateSendDisplayPricesToActions({
+  actions,
+  tx,
+  priceMap,
+}: {
+  actions?: IHistoryDecodedAction[];
+  tx: IAccountHistoryTx;
+  priceMap: Map<string, string>;
+}) {
+  if (!actions?.length) {
+    return { actions, updated: false };
+  }
+
+  let updated = false;
+  const nextActions = actions.map((action) => {
+    const { assetTransfer } = action;
+    if (!assetTransfer) {
+      return action;
+    }
+
+    const updateTransfer = (transfer: IHistoryDecodedTransfer) => {
+      const target = buildPrivateSendTransferDisplayPriceTarget({
+        tx,
+        transfer,
+      });
+      const priceKey = target
+        ? getPrivateSendTargetPriceKey(target)
+        : undefined;
+      const price = priceKey ? priceMap.get(priceKey) : undefined;
+      if (transfer.price === price) {
+        return transfer;
+      }
+      updated = true;
+      return {
+        ...transfer,
+        price,
+      };
+    };
+
+    return {
+      ...action,
+      assetTransfer: {
+        ...assetTransfer,
+        sends: assetTransfer.sends.map(updateTransfer),
+        receives: assetTransfer.receives.map(updateTransfer),
+      },
+    };
+  });
+
+  return { actions: nextActions, updated };
+}
+
+function normalizePrivateSendHistoryAddress(address?: string) {
+  const normalized = address?.trim();
+  return normalized || '';
+}
+
+function isSamePrivateSendHistoryAddress(a?: string, b?: string) {
+  const normalizedA = normalizePrivateSendHistoryAddress(a);
+  const normalizedB = normalizePrivateSendHistoryAddress(b);
+  if (!normalizedA || !normalizedB) {
+    return false;
+  }
+  if (normalizedA === normalizedB) {
+    return true;
+  }
+  const normalizedLowerA = normalizedA.toLowerCase();
+  const normalizedLowerB = normalizedB.toLowerCase();
+  if (normalizedLowerA.startsWith('0x') && normalizedLowerB.startsWith('0x')) {
+    return normalizedLowerA === normalizedLowerB;
+  }
+  return false;
+}
+
+function getPrivateSendPayinAddressFromSwapHistory(
+  swapHistory: ISwapTxHistory,
+) {
+  const payinAddress = isRecord(swapHistory.ctx)
+    ? swapHistory.ctx.payinAddress
+    : undefined;
+  return typeof payinAddress === 'string'
+    ? normalizePrivateSendHistoryAddress(payinAddress)
+    : '';
+}
+
+function applyPrivateSendSwapHistoryRecipientToHistoryTx({
+  tx,
+  swapHistory,
+}: {
+  tx: IAccountHistoryTx;
+  swapHistory: ISwapTxHistory;
+}): IAccountHistoryTx {
+  const payload = tx.decodedTx.payload;
+  const privateSendPayload = payload?.privateSend ?? {};
+  if (
+    normalizePrivateSendHistoryAddress(privateSendPayload.originalRecipient)
+  ) {
+    return tx;
+  }
+
+  const receiver = normalizePrivateSendHistoryAddress(
+    swapHistory.txInfo.receiver,
+  );
+  if (!payload || !receiver) {
+    return tx;
+  }
+
+  const payinAddress = getPrivateSendPayinAddressFromSwapHistory(swapHistory);
+  if (isSamePrivateSendHistoryAddress(receiver, payinAddress)) {
+    return tx;
+  }
+
+  return {
+    ...tx,
+    decodedTx: {
+      ...tx.decodedTx,
+      payload: {
+        ...payload,
+        privateSend: {
+          ...privateSendPayload,
+          originalRecipient: receiver,
+          ...(payinAddress && !privateSendPayload.payinAddress
+            ? { payinAddress }
+            : {}),
+        },
+      },
+    },
+  };
+}
+
+function mergePrivateSendLocalDecodedTxFields({
+  localTx,
+  onChainHistoryTx,
+}: {
+  localTx: IAccountHistoryTx;
+  onChainHistoryTx: IAccountHistoryTx;
+}): IAccountHistoryTx {
+  if (!isPrivateSendAccountHistoryTx(localTx)) {
+    return onChainHistoryTx;
+  }
+
+  const localPayload = localTx.decodedTx.payload;
+  const localExtraInfo = localTx.decodedTx.extraInfo;
+  const actionsResult = mergePrivateSendActionTransferPrices({
+    localActions: localTx.decodedTx.actions,
+    onChainActions: onChainHistoryTx.decodedTx.actions,
+  });
+  const outputActionsResult = mergePrivateSendActionTransferPrices({
+    localActions: localTx.decodedTx.outputActions,
+    onChainActions: onChainHistoryTx.decodedTx.outputActions,
+  });
+  if (
+    !localPayload &&
+    !localExtraInfo &&
+    !actionsResult.updated &&
+    !outputActionsResult.updated
+  ) {
+    return onChainHistoryTx;
+  }
+
+  return {
+    ...onChainHistoryTx,
+    decodedTx: {
+      ...onChainHistoryTx.decodedTx,
+      payload: mergePrivateSendPayloadFields({
+        localPayload,
+        onChainPayload: onChainHistoryTx.decodedTx.payload,
+      }),
+      extraInfo: mergePrivateSendExtraInfoFields({
+        localExtraInfo,
+        onChainExtraInfo: onChainHistoryTx.decodedTx.extraInfo,
+      }),
+      ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
+      ...(outputActionsResult.updated
+        ? { outputActions: outputActionsResult.actions }
+        : {}),
+    },
+  };
 }
 
 // Sentinel value stored inside a merge-derive opaque cursor map to mark a
@@ -156,20 +726,212 @@ class ServiceHistory extends ServiceBase {
       if (!swapHistory) {
         return this.clearHistoryTxDisplayStatus(tx);
       }
+      const txWithSwapHistoryRecipient =
+        applyPrivateSendSwapHistoryRecipientToHistoryTx({
+          tx,
+          swapHistory,
+        });
 
       const displayStatus = getPrivateSendHistoryDisplayStatus({
-        historyTx: tx,
+        historyTx: txWithSwapHistoryRecipient,
         swapHistory,
       });
 
       if (!displayStatus || displayStatus === tx.decodedTx.status) {
-        return this.clearHistoryTxDisplayStatus(tx);
+        return this.clearHistoryTxDisplayStatus(txWithSwapHistoryRecipient);
+      }
+
+      return {
+        ...txWithSwapHistoryRecipient,
+        displayStatus,
+        displayStatusSource: 'privateSendOrder',
+      };
+    });
+  }
+
+  private async attachPrivateSendDisplayPrices({
+    txs,
+    targetCurrency,
+    currencyMap,
+  }: {
+    txs: IAccountHistoryTx[];
+    targetCurrency?: string;
+    currencyMap?: Record<string, ICurrencyItem>;
+  }): Promise<IAccountHistoryTx[]> {
+    const privateSendTxs = txs.filter((tx) =>
+      isPrivateSendAccountHistoryTx(tx),
+    );
+    if (!privateSendTxs.length || !targetCurrency || !currencyMap) {
+      return txs;
+    }
+
+    const groupedTargets = new Map<
+      string,
+      Map<string, IPrivateSendDisplayPriceTarget>
+    >();
+    const addTarget = (target?: IPrivateSendDisplayPriceTarget) => {
+      if (!target) {
+        return;
+      }
+      const priceKey = getPrivateSendTargetPriceKey(target);
+      if (!priceKey) {
+        return;
+      }
+      const groupKey = `${target.accountId}:${target.networkId}`;
+      const group = groupedTargets.get(groupKey) ?? new Map();
+      group.set(priceKey, target);
+      groupedTargets.set(groupKey, group);
+    };
+
+    privateSendTxs.forEach((tx) => {
+      [
+        ...collectPrivateSendTransfersFromActions(tx.decodedTx.actions),
+        ...collectPrivateSendTransfersFromActions(tx.decodedTx.outputActions),
+      ].forEach((transfer) => {
+        addTarget(buildPrivateSendTransferDisplayPriceTarget({ tx, transfer }));
+      });
+
+      if (getPrivateSendPositiveNumberValue(tx.decodedTx.totalFeeInNative)) {
+        addTarget(buildPrivateSendNativeDisplayPriceTarget(tx));
+      }
+    });
+
+    const priceMap = new Map<string, string>();
+    await Promise.all(
+      [...groupedTargets.values()].map(async (group) => {
+        const targets = [...group.values()];
+        const firstTarget = targets[0];
+        if (!firstTarget) {
+          return;
+        }
+        const { accountId, networkId } = firstTarget;
+        try {
+          const resolvedTargets = await Promise.all(
+            targets.map(async (target) => {
+              let tokenAddress = target.tokenAddress;
+              if (target.isNative || !tokenAddress) {
+                tokenAddress =
+                  await this.backgroundApi.serviceToken.getNativeTokenAddress({
+                    networkId,
+                  });
+              }
+              return target.isNative || tokenAddress
+                ? { ...target, tokenAddress: tokenAddress ?? '' }
+                : undefined;
+            }),
+          );
+          const validTargets = resolvedTargets.filter(
+            (
+              target,
+            ): target is IPrivateSendDisplayPriceTarget & {
+              tokenAddress: string;
+            } => !!target && (target.isNative || !!target.tokenAddress),
+          );
+          if (!validTargets.length) {
+            return;
+          }
+
+          const uniqueTokenAddresses = [
+            ...new Set(validTargets.map((target) => target.tokenAddress)),
+          ];
+          const tokenDetails =
+            await this.backgroundApi.serviceToken.fetchTokensDetails({
+              accountId,
+              networkId,
+              contractList: uniqueTokenAddresses,
+            });
+          const tokenDetailsByAddress = new Map<
+            string,
+            (typeof tokenDetails)[number]
+          >();
+          tokenDetails.forEach((tokenDetail) => {
+            const address = tokenDetail.info.address;
+            if (address) {
+              tokenDetailsByAddress.set(address.toLowerCase(), tokenDetail);
+            }
+          });
+
+          uniqueTokenAddresses.forEach((tokenAddress, index) => {
+            const tokenAddressKey = tokenAddress.toLowerCase();
+            const tokenDetail =
+              tokenDetailsByAddress.get(tokenAddressKey) ?? tokenDetails[index];
+            const price = convertPrivateSendDisplayPrice({
+              price: tokenDetail?.price,
+              sourceCurrency: tokenDetail?.currency ?? USD_CURRENCY_ID,
+              targetCurrency,
+              currencyMap,
+            });
+            if (!price) {
+              return;
+            }
+            validTargets
+              .filter(
+                (target) =>
+                  target.tokenAddress.toLowerCase() === tokenAddressKey,
+              )
+              .forEach((target) => {
+                const priceKey = getPrivateSendTargetPriceKey(target);
+                if (priceKey) {
+                  priceMap.set(priceKey, price);
+                }
+              });
+          });
+        } catch {
+          // Display-price repair is best effort; unknown is better than stale.
+        }
+      }),
+    );
+
+    return txs.map((tx) => {
+      if (!isPrivateSendAccountHistoryTx(tx)) {
+        return tx;
+      }
+
+      const actionsResult = applyPrivateSendDisplayPricesToActions({
+        actions: tx.decodedTx.actions,
+        tx,
+        priceMap,
+      });
+      const outputActionsResult = applyPrivateSendDisplayPricesToActions({
+        actions: tx.decodedTx.outputActions,
+        tx,
+        priceMap,
+      });
+      const nativeTarget = buildPrivateSendNativeDisplayPriceTarget(tx);
+      const nativePriceKey = nativeTarget
+        ? getPrivateSendTargetPriceKey(nativeTarget)
+        : undefined;
+      const nativePrice = nativePriceKey
+        ? priceMap.get(nativePriceKey)
+        : undefined;
+      const totalFeeInNativeBN = getPrivateSendPositiveNumberValue(
+        tx.decodedTx.totalFeeInNative,
+      );
+      const totalFeeFiatValue =
+        totalFeeInNativeBN && nativePrice
+          ? totalFeeInNativeBN.times(nativePrice).toFixed()
+          : undefined;
+      const shouldUpdateFeeFiatValue =
+        tx.decodedTx.totalFeeFiatValue !== totalFeeFiatValue;
+
+      if (
+        !actionsResult.updated &&
+        !outputActionsResult.updated &&
+        !shouldUpdateFeeFiatValue
+      ) {
+        return tx;
       }
 
       return {
         ...tx,
-        displayStatus,
-        displayStatusSource: 'privateSendOrder',
+        decodedTx: {
+          ...tx.decodedTx,
+          ...(actionsResult.updated ? { actions: actionsResult.actions } : {}),
+          ...(outputActionsResult.updated
+            ? { outputActions: outputActionsResult.actions }
+            : {}),
+          totalFeeFiatValue,
+        },
       };
     });
   }
@@ -360,13 +1122,19 @@ class ServiceHistory extends ServiceBase {
     });
     const txsWithPrivateSendDisplayStatus =
       await this.attachPrivateSendDisplayStatus(filtered);
+    const txsWithPrivateSendDisplayPrices =
+      await this.attachPrivateSendDisplayPrices({
+        txs: txsWithPrivateSendDisplayStatus,
+        targetCurrency: sourceCurrency,
+        currencyMap,
+      });
 
     // Load-more is single-network (the AllNetworks branch never reaches here),
     // so resolve the logo once and stamp every tx instead of per-tx fetching.
     const logoNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
       networkId,
     });
-    for (const tx of txsWithPrivateSendDisplayStatus) {
+    for (const tx of txsWithPrivateSendDisplayPrices) {
       tx.decodedTx.networkLogoURI = logoNetwork.logoURI;
     }
 
@@ -379,7 +1147,7 @@ class ServiceHistory extends ServiceBase {
       isIndexer: !!onChainResult.isIndexer,
       accounts: [] as IAllNetworkAccountInfo[],
       allAccounts: [] as IAllNetworkAccountInfo[],
-      txs: txsWithPrivateSendDisplayStatus,
+      txs: txsWithPrivateSendDisplayPrices,
       addressMap: onChainResult.addressMap,
       accountsWithChangedPendingTxs: [] as {
         accountId: string;
@@ -391,6 +1159,27 @@ class ServiceHistory extends ServiceBase {
       }[],
       accountsWithChangedTxs: [] as { accountId: string; networkId: string }[],
     };
+  }
+
+  // Local history is cached per network + address/xpub and shared by every
+  // account that resolves to the same address (e.g. a watch-only account later
+  // re-imported as an HD account). Cached txs keep whatever accountId was
+  // current when they were saved, so normalize them to the requesting accountId
+  // before they surface — otherwise a stale (possibly deleted) accountId leaks
+  // into the UI and downstream per-account checks. Single-account paths only;
+  // all-networks intentionally keeps each sub-account's own accountId.
+  private _normalizeLocalTxsAccountId({
+    txs,
+    accountId,
+  }: {
+    txs: IAccountHistoryTx[];
+    accountId: string;
+  }): IAccountHistoryTx[] {
+    return txs.map((tx) =>
+      tx.decodedTx.accountId === accountId
+        ? tx
+        : { ...tx, decodedTx: { ...tx.decodedTx, accountId } },
+    );
   }
 
   @backgroundMethod()
@@ -432,6 +1221,9 @@ class ServiceHistory extends ServiceBase {
       }),
     ]);
 
+    const normalizeLocalTxsAccountId = (txsToNormalize: IAccountHistoryTx[]) =>
+      this._normalizeLocalTxsAccountId({ txs: txsToNormalize, accountId });
+
     const isAllNetworks = networkUtils.isAllNetwork({ networkId });
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -465,12 +1257,14 @@ class ServiceHistory extends ServiceBase {
       localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
     } else {
-      localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
-        networkId,
-        accountAddress,
-        xpub,
-        tokenIdOnNetwork,
-      });
+      localHistoryPendingTxs = normalizeLocalTxsAccountId(
+        await this.getAccountLocalHistoryPendingTxs({
+          networkId,
+          accountAddress,
+          xpub,
+          tokenIdOnNetwork,
+        }),
+      );
     }
 
     // 2. Check if the locally pending transactions have been confirmed
@@ -583,12 +1377,14 @@ class ServiceHistory extends ServiceBase {
       localHistoryConfirmedTxs =
         await this.getAccountsLocalHistoryConfirmedTxs(allNetworksParams);
     } else {
-      localHistoryConfirmedTxs = await this.getAccountLocalHistoryConfirmedTxs({
-        networkId,
-        accountAddress,
-        xpub,
-        tokenIdOnNetwork,
-      });
+      localHistoryConfirmedTxs = normalizeLocalTxsAccountId(
+        await this.getAccountLocalHistoryConfirmedTxs({
+          networkId,
+          accountAddress,
+          xpub,
+          tokenIdOnNetwork,
+        }),
+      );
     }
 
     // 4. Fetch the on-chain history
@@ -614,7 +1410,9 @@ class ServiceHistory extends ServiceBase {
         ),
       );
     const privateSendDisplayStatusTxById = new Map(
-      privateSendDisplayStatusTxs.map((tx) => [tx.id, tx]),
+      privateSendDisplayStatusTxs
+        .filter((tx) => isPrivateSendAccountHistoryTx(tx))
+        .map((tx) => [tx.id, tx]),
     );
     const withPrivateSendDisplayStatus = (txsToMap: IAccountHistoryTx[]) =>
       txsToMap.map((tx) => privateSendDisplayStatusTxById.get(tx.id) ?? tx);
@@ -681,6 +1479,7 @@ class ServiceHistory extends ServiceBase {
         await this.batchUpdateLocalHistoryTxs(allNetworksParams);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
+      onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
     } else {
       let pendingTxsToModify: IAccountHistoryTx[] = [];
       try {
@@ -710,6 +1509,7 @@ class ServiceHistory extends ServiceBase {
       ]);
       finalPendingTxs = updateResult.allFinalPendingTxs;
       confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
+      onChainHistoryTxs = updateResult.allMergedOnChainHistoryTxs;
     }
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
@@ -735,6 +1535,11 @@ class ServiceHistory extends ServiceBase {
     }
 
     result = await this.attachPrivateSendDisplayStatus(result);
+    result = await this.attachPrivateSendDisplayPrices({
+      txs: result,
+      targetCurrency: sourceCurrency,
+      currencyMap,
+    });
 
     const accountsWithChangedPendingTxs = new Set<string>(); // accountId_networkId
     const accountsWithChangedConfirmedTxs = new Set<string>(); // accountId_networkId
@@ -1085,9 +1890,15 @@ class ServiceHistory extends ServiceBase {
 
       const resultWithPrivateSendDisplayStatus =
         await this.attachPrivateSendDisplayStatus(result);
+      const resultWithPrivateSendDisplayPrices =
+        await this.attachPrivateSendDisplayPrices({
+          txs: resultWithPrivateSendDisplayStatus,
+          targetCurrency: sourceCurrency,
+          currencyMap,
+        });
 
       return filterHistoryTxs({
-        txs: resultWithPrivateSendDisplayStatus,
+        txs: resultWithPrivateSendDisplayPrices,
         sourceCurrency,
         targetCurrency,
         currencyMap,
@@ -1106,16 +1917,21 @@ class ServiceHistory extends ServiceBase {
       }),
     ]);
 
-    const localHistoryConfirmedTxs =
-      await this.getAccountLocalHistoryConfirmedTxs({
+    const localHistoryConfirmedTxs = this._normalizeLocalTxsAccountId({
+      txs: await this.getAccountLocalHistoryConfirmedTxs({
         networkId,
         accountAddress,
         xpub,
-      });
-    const localHistoryPendingTxs = await this.getAccountLocalHistoryPendingTxs({
-      networkId,
-      accountAddress,
-      xpub,
+      }),
+      accountId,
+    });
+    const localHistoryPendingTxs = this._normalizeLocalTxsAccountId({
+      txs: await this.getAccountLocalHistoryPendingTxs({
+        networkId,
+        accountAddress,
+        xpub,
+      }),
+      accountId,
     });
 
     const result = unionBy(
@@ -1125,9 +1941,15 @@ class ServiceHistory extends ServiceBase {
 
     const resultWithPrivateSendDisplayStatus =
       await this.attachPrivateSendDisplayStatus(result);
+    const resultWithPrivateSendDisplayPrices =
+      await this.attachPrivateSendDisplayPrices({
+        txs: resultWithPrivateSendDisplayStatus,
+        targetCurrency: sourceCurrency,
+        currencyMap,
+      });
 
     return filterHistoryTxs({
-      txs: resultWithPrivateSendDisplayStatus,
+      txs: resultWithPrivateSendDisplayPrices,
       filterScam,
       filterLowValue,
       sourceCurrency,
@@ -1182,6 +2004,7 @@ class ServiceHistory extends ServiceBase {
     }[],
   ) {
     const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
+    const allMergedOnChainHistoryTxs: IAccountHistoryTx[] = [];
     const allNonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
     const allFinalPendingTxs: IAccountHistoryTx[] = [];
 
@@ -1205,13 +2028,28 @@ class ServiceHistory extends ServiceBase {
         pendingTxs,
         pendingTxsToModify,
       } = param;
+      const localHistoryTxs = [...confirmedTxs, ...pendingTxs];
+      const mergedOnChainHistoryTxs = onChainHistoryTxs.map(
+        (onChainHistoryTx) => {
+          const localHistoryTx = localHistoryTxs.find((tx) =>
+            this.isSameScopedHistoryTx(onChainHistoryTx, tx),
+          );
+          return localHistoryTx
+            ? mergePrivateSendLocalDecodedTxFields({
+                localTx: localHistoryTx,
+                onChainHistoryTx,
+              })
+            : onChainHistoryTx;
+        },
+      );
+      allMergedOnChainHistoryTxs.push(...mergedOnChainHistoryTxs);
 
       // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
       let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
       confirmedTxsToSave = confirmedTxs
         .map((tx) => {
-          const onChainHistoryTx = onChainHistoryTxs.find((item) =>
+          const onChainHistoryTx = mergedOnChainHistoryTxs.find((item) =>
             this.isSameScopedHistoryTx(item, tx),
           );
           if (onChainHistoryTx) {
@@ -1222,7 +2060,7 @@ class ServiceHistory extends ServiceBase {
         .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
       const resp = unionBy(
-        [...onChainHistoryTxs, ...confirmedTxsToSave],
+        [...mergedOnChainHistoryTxs, ...confirmedTxsToSave],
         (tx) => tx.id,
       );
 
@@ -1309,6 +2147,7 @@ class ServiceHistory extends ServiceBase {
 
     return {
       allConfirmedTxsToSave,
+      allMergedOnChainHistoryTxs,
       allNonceHasBeenUsedTxs,
       allFinalPendingTxs,
     };

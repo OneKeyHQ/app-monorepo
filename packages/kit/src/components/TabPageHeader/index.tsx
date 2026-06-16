@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, XStack, YStack, useMedia, useTheme } from '@onekeyhq/components';
+import { Page, XStack, useMedia, useTheme } from '@onekeyhq/components';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -15,6 +15,7 @@ import { HistoryIconButton } from '../../views/Discovery/pages/components/Histor
 
 import {
   GiftAction,
+  HeaderUpdateButton,
   WalletConnectionForWeb,
   WalletConnectionGroup,
 } from './components';
@@ -105,9 +106,10 @@ function BaseDesktopTabPageHeader({
       return (
         <>
           {customHeaderRightItems}
-          <YStack pl="$5">
+          <XStack pl="$5" alignItems="center">
+            <HeaderUpdateButton />
             <HeaderNotificationIconButton testID="header-right-notification" />
-          </YStack>
+          </XStack>
         </>
       );
     }
@@ -126,7 +128,10 @@ function BaseDesktopTabPageHeader({
             <HistoryIconButton />
           </XStack>
         ) : null}
-        <HeaderNotificationIconButton testID="header-right-notification" />
+        <XStack alignItems="center">
+          <HeaderUpdateButton />
+          <HeaderNotificationIconButton testID="header-right-notification" />
+        </XStack>
       </>
     );
   }, [customHeaderRightItems, tabRoute]);

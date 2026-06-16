@@ -117,6 +117,7 @@ import type {
   CommonParams,
   CoreApi,
   CoreMessage,
+  DeviceProfile,
   DeviceSupportFeaturesPayload,
   DeviceUploadResourceParams,
   Features,
@@ -127,7 +128,6 @@ import type {
   OnekeyFeatures,
   SearchDevice,
   UiEvent,
-  DeviceProfile,
 } from '@onekeyfe/hd-core';
 
 const DEVICE_PIN_ON_DEVICE_TYPES = new Set<IDeviceType>([
@@ -2015,6 +2015,26 @@ class ServiceHardware extends ServiceBase {
       ) => Promise<{ success: boolean; payload: unknown }>;
     };
     return hw.listInstalledApps(params.connectId);
+  }
+
+  @backgroundMethod()
+  async thirdPartyHardwareListInstalledAppNames(params: {
+    vendor: EHardwareVendor;
+    connectId: string;
+  }) {
+    await this.ensureAdaptersInitialized(params.vendor);
+    const adapter = this.getThirdPartyAdapter(params.vendor);
+    if (!adapter) {
+      throw new OneKeyLocalError(
+        `No third-party adapter registered for vendor ${params.vendor}`,
+      );
+    }
+    const hw = adapter.hw as unknown as {
+      listInstalledNames: (
+        connectId: string,
+      ) => Promise<{ success: boolean; payload: unknown }>;
+    };
+    return hw.listInstalledNames(params.connectId);
   }
 
   @backgroundMethod()

@@ -6,6 +6,7 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import type { ICustomPriorityFeeOverride } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import {
   checkWrappedTokenPair,
@@ -81,7 +82,10 @@ export const { atom: swapMevConfigAtom, use: useSwapMevConfigAtom } =
 
 // swap bridge limit switch
 export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
-  contextAtom<ESwapTabSwitchType>(ESwapTabSwitchType.SWAP);
+  contextAtom<ESwapTabSwitchType>(ESwapTabSwitchType.SWAP, {
+    coldStartCache: true,
+    coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+  });
 
 // swap networks & tokens
 export const { atom: swapNetworks, use: useSwapNetworksAtom } = contextAtom<
@@ -95,13 +99,10 @@ export const {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
   networks = networks.filter((net) => {
-    if (swapType === ESwapTabSwitchType.BRIDGE) {
-      return net.supportCrossChainSwap;
-    }
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
     }
-    return net.supportSingleSwap;
+    return net.supportSingleSwap || net.supportCrossChainSwap;
   });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
@@ -149,6 +150,31 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
     coldStartCache: true,
     coldStartCacheKey: CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
   });
+
+export const {
+  atom: swapLastNonLimitSelectedTokensAtom,
+  use: useSwapLastNonLimitSelectedTokensAtom,
+} = contextAtom<
+  | {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
+export const {
+  atom: swapSelectedTokensColdStartContextAtom,
+  use: useSwapSelectedTokensColdStartContextAtom,
+} = contextAtom<ISwapSelectedTokensColdStartContext | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+});
+
+export const {
+  atom: swapInitialSelectedTokensSyncedAtom,
+  use: useSwapInitialSelectedTokensSyncedAtom,
+} = contextAtom<boolean>(false);
 
 export const {
   atom: swapSwapModalSelectFromTokenAtom,

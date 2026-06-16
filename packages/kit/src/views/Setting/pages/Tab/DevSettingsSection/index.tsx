@@ -1388,6 +1388,17 @@ const BaseDevSettingsSection = () => {
                       />
 
                       <SectionPressItem
+                        icon="BugOutline"
+                        title="Drawing Order Stress (Android crash repro)"
+                        subtitle="Repro getChildDrawingOrder crash (REACT-NATIVE-48W/4AM)"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevDrawingOrderStressModal,
+                          );
+                        }}
+                      />
+
+                      <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"
                         testID="dev-unit-tests-menu"
@@ -1770,6 +1781,14 @@ const BaseDevSettingsSection = () => {
                           handleOpenMockTradingViewKLineEmptyIntervalsDialog
                         }
                       />
+                      <SectionFieldItem
+                        icon="TradeOutline"
+                        name="showMarketHomeWsDebug"
+                        title="Market Home WS Debug"
+                        subtitle="显示 Market 首页 WS 订阅数量和可视窗口高亮"
+                      >
+                        <Switch size={ESwitchSize.small} />
+                      </SectionFieldItem>
                       <SectionFieldItem
                         icon="BrowserOutline"
                         name="allowLocalhostUrlInDAppBrowser"

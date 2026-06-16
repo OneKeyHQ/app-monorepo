@@ -76,6 +76,7 @@ import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
+import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 initSentry();
 
@@ -147,6 +148,12 @@ const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
+let isAppReady = false;
+// Custom scheme used to serve the renderer bundle via interceptFileProtocol.
+// Module-scoped so softRestartRenderer and createMainWindow reference the SAME
+// value — a divergence would make the pre-recreate uninterceptProtocol call
+// silently no-op and reintroduce the stale-interceptor bug it exists to prevent.
+const PROTOCOL = 'file';
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
@@ -183,6 +190,97 @@ function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
   safelyMainWindow?.show();
   safelyMainWindow?.focus();
+}
+
+// MAS / Mac App Store builds cannot call `app.relaunch()` (sandbox forbids it),
+// so a JS bundle update there cannot hard-restart. Instead we "soft restart":
+// destroy the renderer and recreate it in-process. createMainWindow() re-runs
+// processPreLaunchPendingTask() + getUpdateBundleData() + getBundleIndexHtmlPath()
+// and (after the P0-1 uninterceptProtocol fix) rebinds the file:// interceptor to
+// the new bundle, so the recreated window loads the freshly-installed bundle.
+// The active bundle pointer was already written to the main-process store
+// (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
+let softRestarting = false;
+async function softRestartRenderer() {
+  if (softRestarting) {
+    logger.warn('[softRestart] already in progress, ignoring re-entrant call');
+    return;
+  }
+  softRestarting = true;
+  const startedAt = Date.now();
+  const targetBundle = store.getUpdateBundleData();
+  logger.info('[softRestart] begin', {
+    mas: process.mas,
+    targetAppVersion: targetBundle?.appVersion,
+    targetBundleVersion: targetBundle?.bundleVersion,
+    nativeVersion: app.getVersion(),
+    hadTrayWindow: !!getTrayWindow(),
+  });
+  try {
+    // Give the newly installed bundle a fresh boot-fail budget (the bundle-level
+    // analog of createMainWindow's app-version-change reset). createMainWindow
+    // then increments to 1 — the soft restart still COUNTS, so a new bundle that
+    // crashes on boot accumulates toward the recovery page just like a cold boot,
+    // while repeated SUCCESSFUL soft restarts can't trip recovery (each resets
+    // here, then markBootSuccess clears it). This keeps the crash self-heal /
+    // auto-rollback path alive on MAS where app.relaunch() is unavailable.
+    store.resetConsecutiveBootFailCount();
+    // destroy() force-terminates the old renderer process (same as today's hard
+    // restart), giving the recreated window a clean customElements registry and
+    // killing any in-flight JS in the old renderer so it cannot re-trigger.
+    getSafelyMainWindow()?.destroy();
+    mainWindow = null;
+    isAppReady = false;
+    logger.info('[softRestart] old renderer destroyed');
+    // The macOS tray panel is a separate BrowserWindow running its own copy of
+    // the bundle; it is NOT recreated by createMainWindow, so after a soft
+    // restart it would keep running the OLD bundle. Destroy it (keeping the tray
+    // icon + polling alive) so the next tray open lazily rebuilds it from the new
+    // bundle (loadTrayUrl reads the current bundle path fresh on each create).
+    destroyTrayWindow();
+    logger.info('[softRestart] tray window destroyed (will rebuild on demand)');
+    // Remove the previous window's file:// interceptor NOW, before the recreated
+    // window's loadURL runs. The interceptor lives on the persistent
+    // defaultSession (it outlives the window) and still captures the OLD bundle's
+    // path + metadata. createMainWindow only re-registers it later, after an
+    // `await getMetadata`, so without this the new bundle's very first
+    // `file://{newBundle}/index.html` request would be served by the stale
+    // interceptor → hash mismatch / tamper dialog / old bundle. Clearing it here
+    // lets Chromium's default file handler serve the real new index.html (same
+    // as a cold boot), and createMainWindow then installs a fresh interceptor.
+    try {
+      const wasIntercepted =
+        session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL);
+      if (wasIntercepted) {
+        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+      logger.info('[softRestart] stale file interceptor cleared', {
+        wasIntercepted,
+      });
+    } catch (e) {
+      logger.warn(
+        '[softRestart] uninterceptProtocol before recreate failed',
+        e,
+      );
+    }
+    mainWindow = await createMainWindow({ isSoftRestart: true });
+    showMainWindow();
+    logger.info('[softRestart] done: renderer recreated with new bundle', {
+      durationMs: Date.now() - startedAt,
+      indexHtml:
+        globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.(),
+    });
+  } catch (e) {
+    // If recreation fails there is no safe in-process recovery on MAS; exit so
+    // the user can relaunch manually (equivalent to today's MAS behavior).
+    logger.error('[softRestart] failed, exiting', {
+      durationMs: Date.now() - startedAt,
+      error: e,
+    });
+    app.exit(0);
+  } finally {
+    softRestarting = false;
+  }
 }
 
 const initMenu = () => {
@@ -429,7 +527,6 @@ function quitOrMinimizeApp() {
 }
 
 const emitter = new EventEmitter();
-let isAppReady = false;
 function handleDeepLinkUrl(
   event: Event | null,
   url: string,
@@ -522,8 +619,20 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
-async function createMainWindow() {
+async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+  const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
+  // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
+  // attempt to bring up the (newly installed) bundle, so it MUST count toward
+  // crash detection — otherwise a bundle that crashes the renderer on init
+  // would, on MAS (no app.relaunch()), leave a dead white window with no path
+  // to the recovery page / auto-rollback. softRestartRenderer resets the
+  // counter to 0 right before calling this (the bundle-version analog of the
+  // app-version-change reset below — a new bundle deserves a fresh budget), so
+  // a soft restart starts the new bundle at count 1: repeated SUCCESSFUL soft
+  // restarts can't accumulate (each resets, then markBootSuccess clears it),
+  // while a new bundle that keeps crashing accumulates across subsequent
+  // launches and reaches the recovery page at 3, exactly like a cold boot.
   const currentAppVersion = app.getVersion();
   const storedFailVersion = store.getBootFailAppVersion();
   if (storedFailVersion && storedFailVersion !== currentAppVersion) {
@@ -537,7 +646,7 @@ async function createMainWindow() {
   }
   store.setBootFailAppVersion(currentAppVersion);
   const bootFailCount = store.incrementConsecutiveBootFailCount();
-  logger.info('Boot fail count:', bootFailCount);
+  logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -634,6 +743,7 @@ async function createMainWindow() {
     getAppName: () => APP_NAME,
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
+    softRestartRenderer,
   };
 
   if (isMac) {
@@ -642,12 +752,28 @@ async function createMainWindow() {
     });
   }
 
-  const PROTOCOL = 'file';
   const perfIndexHtmlPath =
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(__dirname, '..', 'build', 'index.html');
 
+  // Re-registering interceptFileProtocol on a session that already has an
+  // interceptor for the scheme silently fails (Electron returns false), which
+  // would leave the OLD closure — capturing the previous bundle's path/metadata
+  // — still serving requests after a MAS soft restart, so the recreated window
+  // would load the STALE bundle. Clear any prior interceptor first so each
+  // createMainWindow() installs a fresh handler bound to the new bundle data.
+  const uninterceptFileProtocolIfNeeded = () => {
+    try {
+      if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
+        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+    } catch (e) {
+      logger.warn('uninterceptProtocol failed', e);
+    }
+  };
+
   if (isLocalUnpacked) {
+    uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -719,7 +845,11 @@ async function createMainWindow() {
   setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
-  if (isWin || isMac) {
+  // Skip on soft restart: process.argv is unchanged across an in-process
+  // recreate, so replaying the launch deep link here would re-dispatch the
+  // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
+  // every bundle update. Only a genuine cold boot should consume argv.
+  if ((isWin || isMac) && !isSoftRestart) {
     // Keep only command line / deep linked arguments
     const deeplinkingUrl = process.argv[1];
     handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -807,13 +937,6 @@ async function createMainWindow() {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
-  });
-  ipcMain.on(ipcMessageKeys.APP_READY, () => {
-    if (!process.mas) {
-      app.relaunch();
-    }
-    app.exit(0);
-    disposeContextMenu?.();
   });
 
   registerInfoHandlers(isDevServer, () => {
@@ -969,8 +1092,13 @@ async function createMainWindow() {
       event,
       payload: { module: string; method: string; params: any[] },
     ) => {
-      // Only allow calls from the main window renderer
-      if (event.sender.id !== browserWindow.webContents.id) {
+      // Only allow calls from the main window renderer. Resolve the live main
+      // window dynamically (not the closure-captured `browserWindow`) so a MAS
+      // soft restart — which destroys and recreates the window — keeps the gate
+      // pointed at the current renderer instead of the destroyed one.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1145,6 +1273,10 @@ async function createMainWindow() {
     return false;
   });
 
+  // `session` here is the persistent defaultSession, which OUTLIVES the
+  // BrowserWindow. `.on` is additive, so on a MAS soft restart this would stack
+  // one more listener per recreate. Clear any prior one first so it stays at 1.
+  browserWindow.webContents.session.removeAllListeners('select-hid-device');
   browserWindow.webContents.session.on(
     'select-hid-device',
     (event, details, callback) => {
@@ -1299,6 +1431,7 @@ async function createMainWindow() {
         metadataFailed = true;
       }
     }
+    uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -1562,7 +1695,12 @@ if (!singleInstance && !process.mas) {
 //  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
-  if (!mainWindow) {
+  // During a soft restart `mainWindow` is transiently null while
+  // createMainWindow() runs. Skip creating a window here in that window of time,
+  // otherwise a dock-icon click would spawn a SECOND main window (without
+  // isSoftRestart, so it would also bump the boot-fail counter). softRestart's
+  // own showMainWindow() will surface the recreated window.
+  if (!mainWindow && !softRestarting) {
     mainWindow = await createMainWindow();
   }
   showMainWindow();

@@ -800,6 +800,7 @@ export interface IEarnProtocolIntroInfo {
 
 export interface IEarnPopupActionIcon {
   type: 'popup';
+  text?: IEarnText;
   data: {
     title?: IEarnText;
     bulletList?: IEarnText[];
@@ -818,6 +819,11 @@ export interface IEarnPopupActionIcon {
       title: IEarnText;
       value: string;
     }[];
+    platformBonusInfos?: {
+      title: IEarnText;
+      description: IEarnText;
+    }[];
+    button?: IEarnActionIcon;
   };
 }
 
@@ -1114,6 +1120,16 @@ export type IEarnActionIcon =
   | IEarnCloseActionIcon
   | IEarnCancelWithdrawalActionIcon
   | IEarnListaCheckActionIcon;
+
+export interface IEarnPlatformBonus {
+  icon: IEarnIcon;
+  title: IEarnText;
+  period: IEarnText;
+  summary: IEarnText[];
+  button: IEarnPopupActionIcon & {
+    text: IEarnText;
+  };
+}
 
 interface IEarnGridItem {
   title: IEarnText;
@@ -1462,6 +1478,7 @@ export interface IStakeEarnDetail {
   };
   actions?: IEarnDetailActions[];
   subscriptionValue?: ISubscriptionValue;
+  platformBonus?: IEarnPlatformBonus;
   tags?: IStakeBadgeTag[];
   protocol?: IProtocolInfo;
   withdrawApprove?: IEarnWithdrawApproveInfo;
@@ -1604,6 +1621,7 @@ export interface IStakeTransactionConfirmation {
   tooltip?: IEarnTooltip;
   apyDetail?: IStakeEarnDetail['apyDetail'];
   effectiveApy?: string | number;
+  platformBonus?: IEarnPlatformBonus;
   rewards?: Array<{
     title: IEarnText;
     description: IEarnText;

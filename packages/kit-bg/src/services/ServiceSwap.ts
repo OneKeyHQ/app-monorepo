@@ -40,6 +40,12 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  getDenyBridgeProviderString,
+  getDenySwapProviderString,
+  hasUnifiedCrossChainSwapProviderManagers,
+  mergeDenyProviderStrings,
+} from '@onekeyhq/shared/src/utils/swapProviderManagerUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -130,9 +136,19 @@ const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
 
-type ICheckStableCoinsListItem = {
+type ICheckStableCoinsListParamsItem = {
+  networkId: string;
+  contractAddressList: string[];
+};
+
+type ICheckStableCoinsListResultItem = {
   contractAddress: string;
   isStableCoin: boolean;
+};
+
+type ICheckStableCoinsListItem = {
+  networkId: string;
+  results: ICheckStableCoinsListResultItem[];
 };
 
 type IPrivateSendOrderDetail = {
@@ -206,9 +222,7 @@ function mergePrivateSendOrderDetailToken({
   return {
     ...currentToken,
     ...orderDetailToken,
-    price: isSameToken
-      ? (orderDetailToken.price ?? currentToken.price)
-      : orderDetailToken.price,
+    price: isSameToken ? currentToken.price : undefined,
   };
 }
 
@@ -531,6 +545,10 @@ export default class ServiceSwap extends ServiceBase {
       await this.backgroundApi.serviceNetwork.getAllNetworks({
         clearCache: options?.refreshClientNetworks,
       });
+    const deFiEnabledNetworksMapState =
+      await this.backgroundApi.serviceDeFi.getDeFiEnabledNetworksMapState({
+        syncIfEmpty: false,
+      });
     const swapNetworks = data?.data
       ?.map((network) => {
         const clientNetwork = allClientSupportNetworks.networks.find(
@@ -543,6 +561,14 @@ export default class ServiceSwap extends ServiceBase {
             shortcode: clientNetwork.shortcode,
             logoURI: clientNetwork.logoURI,
             backendIndex: clientNetwork.backendIndex ?? false,
+            ...(deFiEnabledNetworksMapState.isReady
+              ? {
+                  isDeFiEnabled:
+                    !!deFiEnabledNetworksMapState.enabledNetworksMap[
+                      network.networkId
+                    ],
+                }
+              : {}),
             networkId: network.networkId,
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
@@ -1167,12 +1193,18 @@ export default class ServiceSwap extends ServiceBase {
     if (fromNetworkId === toNetworkId) {
       return undefined;
     }
-    const { bridgeProviderManager } = await inAppNotificationAtom.get();
-    const denyBridges = bridgeProviderManager.filter((item) => !item.enable);
-    if (!denyBridges?.length) {
-      return undefined;
-    }
-    return denyBridges.map((item) => item.providerInfo.provider).join(',');
+    const { swapProviderManager, bridgeProviderManager } =
+      await inAppNotificationAtom.get();
+    return mergeDenyProviderStrings(
+      getDenySwapProviderString({
+        providerManagers: swapProviderManager,
+        fromNetworkId,
+        toNetworkId,
+      }),
+      getDenyBridgeProviderString({
+        providerManagers: bridgeProviderManager,
+      }),
+    );
   }
 
   async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {
@@ -1180,27 +1212,11 @@ export default class ServiceSwap extends ServiceBase {
       return undefined;
     }
     const { swapProviderManager } = await inAppNotificationAtom.get();
-    const denyDexs = swapProviderManager.filter((item) => !item.enable);
-    let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
-    const denyDexNetworks = swapProviderManager.filter((item) => {
-      if (item.enable) {
-        const netDisEnable = item.disableNetworks?.find(
-          (net) => net.networkId === fromNetworkId,
-        );
-        if (netDisEnable) {
-          return true;
-        }
-        return false;
-      }
-      return false;
+    return getDenySwapProviderString({
+      providerManagers: swapProviderManager,
+      fromNetworkId,
+      toNetworkId,
     });
-    if (denyDexNetworks?.length) {
-      denyDexArr = [
-        ...(denyDexArr ?? []),
-        ...denyDexNetworks.map((item) => item.providerInfo.provider),
-      ];
-    }
-    return denyDexArr?.join(',');
   }
 
   @backgroundMethod()
@@ -1350,19 +1366,17 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkStableCoinsList({
-    contractAddressesList,
+    list,
   }: {
-    contractAddressesList: string[];
+    list: ICheckStableCoinsListParamsItem[];
   }): Promise<ICheckStableCoinsListItem[]> {
-    if (!contractAddressesList.length) {
+    if (!list.length) {
       return [];
     }
     const client = await this.getRawDataClient(EServiceEndpointEnum.Swap);
     const response = await client.post<
       IFetchResponse<ICheckStableCoinsListItem[]>
-    >('/swap/v1/check-stable-coins-list', {
-      contractAddressesList,
-    });
+    >('/swap/v1/check-stable-coins-list', list);
     return response.data?.data ?? [];
   }
 
@@ -1565,7 +1579,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async updateSwapProviderManager(
     data: ISwapProviderManager[],
-    isBridge: boolean,
+    isBridge?: boolean,
   ) {
     if (isBridge) {
       await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
@@ -1575,15 +1589,24 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         bridgeProviderManager: data,
       }));
-    } else {
-      await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(
-        data,
-      );
-      await inAppNotificationAtom.set((pre) => ({
-        ...pre,
-        swapProviderManager: data,
-      }));
+      return;
     }
+    const shouldClearLegacyBridgeProviderManager =
+      hasUnifiedCrossChainSwapProviderManagers(data);
+
+    await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(data);
+    if (shouldClearLegacyBridgeProviderManager) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        [],
+      );
+    }
+    await inAppNotificationAtom.set((pre) => ({
+      ...pre,
+      swapProviderManager: data,
+      ...(shouldClearLegacyBridgeProviderManager
+        ? { bridgeProviderManager: [] }
+        : undefined),
+    }));
   }
 
   @backgroundMethod()
@@ -1998,7 +2021,21 @@ export default class ServiceSwap extends ServiceBase {
           swapHistoryPendingList: newPendingList,
         };
       });
-      if (shouldShowToast && item.status !== ESwapTxHistoryStatus.PENDING) {
+      const isPrivateSendHistory = isPrivateSendSwapHistoryItem(item);
+      const isSuccessStatus =
+        item.status === ESwapTxHistoryStatus.SUCCESS ||
+        item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED;
+      if (
+        shouldShowToast &&
+        item.status !== ESwapTxHistoryStatus.PENDING &&
+        (!isPrivateSendHistory || isSuccessStatus)
+      ) {
+        let toastTitleId = ETranslations.swap_page_toast_swap_failed;
+        if (isSuccessStatus) {
+          toastTitleId = isPrivateSendHistory
+            ? ETranslations.private_send_success
+            : ETranslations.swap_page_toast_swap_successful;
+        }
         let fromAmountFinal = item.baseInfo.fromAmount;
         if (item.swapInfo.otherFeeInfos?.length) {
           item.swapInfo.otherFeeInfos.forEach((extraFeeInfo) => {
@@ -2015,17 +2052,9 @@ export default class ServiceSwap extends ServiceBase {
           });
         }
         void this.backgroundApi.serviceApp.showToast({
-          method:
-            item.status === ESwapTxHistoryStatus.SUCCESS ||
-            item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-              ? 'success'
-              : 'error',
+          method: isSuccessStatus ? 'success' : 'error',
           title: appLocale.intl.formatMessage({
-            id:
-              item.status === ESwapTxHistoryStatus.SUCCESS ||
-              item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
-                ? ETranslations.swap_page_toast_swap_successful
-                : ETranslations.swap_page_toast_swap_failed,
+            id: toastTitleId,
           }),
           message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
             item.baseInfo.fromToken.symbol

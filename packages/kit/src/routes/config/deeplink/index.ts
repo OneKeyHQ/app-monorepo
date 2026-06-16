@@ -71,6 +71,7 @@ async function openRedeemBitcoinVoucherDialog(initialCode?: string) {
         await import('../../../views/Redemption/components');
       showRedemptionCenterDialog({
         initialCode: pendingRedeemBitcoinVoucherInitialCode,
+        source: 'deeplink',
       });
     } finally {
       pendingRedeemBitcoinVoucherInitialCode = undefined;

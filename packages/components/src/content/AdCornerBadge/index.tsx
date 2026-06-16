@@ -9,7 +9,7 @@ import { SizableText, Stack } from '../../primitives';
 import type { IStackProps } from '../../primitives';
 
 type IAdCornerBadgeSize = 'sm' | 'lg';
-type IAdCornerBadgePlacement = 'top-left' | 'top-right';
+type IAdCornerBadgePlacement = 'top-left' | 'top-right' | 'bottom-right';
 
 const adCornerBadgeSizeMap: Record<
   IAdCornerBadgeSize,
@@ -19,14 +19,18 @@ const adCornerBadgeSizeMap: Record<
     paddingY: number;
     fontSize: number;
     lineHeight: number;
+    bg: string;
+    color: string;
   }
 > = {
   sm: {
-    offset: 3,
-    paddingX: 4,
-    paddingY: 1,
-    fontSize: 9,
-    lineHeight: 11,
+    offset: 2,
+    paddingX: 3,
+    paddingY: 0,
+    fontSize: 8,
+    lineHeight: 10,
+    bg: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(0, 0, 0, 0.5)',
   },
   lg: {
     offset: 6,
@@ -34,6 +38,8 @@ const adCornerBadgeSizeMap: Record<
     paddingY: 2,
     fontSize: 11,
     lineHeight: 13,
+    bg: 'rgba(255, 255, 255, 0.65)',
+    color: 'rgba(0, 0, 0, 0.65)',
   },
 };
 
@@ -49,26 +55,28 @@ function BasicAdCornerBadge({
   const label = intl.formatMessage({ id: ETranslations.discovery_ad_label });
   const config = adCornerBadgeSizeMap[badgeSize];
   const isTopLeft = placement === 'top-left';
+  const isBottomRight = placement === 'bottom-right';
 
   return (
     <Stack
       role="img"
       aria-label={label}
       position="absolute"
-      top={config.offset}
+      top={isBottomRight ? undefined : config.offset}
+      bottom={isBottomRight ? config.offset : undefined}
       left={isTopLeft ? config.offset : undefined}
       right={isTopLeft ? undefined : config.offset}
       paddingHorizontal={config.paddingX}
       paddingVertical={config.paddingY}
       borderRadius="$full"
-      bg="rgba(255, 255, 255, 0.65)"
+      bg={config.bg}
       pointerEvents="none"
       zIndex={1}
       {...rest}
     >
       <SizableText
         allowFontScaling={false}
-        color="rgba(0, 0, 0, 0.65)"
+        color={config.color}
         fontWeight="500"
         fontSize={config.fontSize}
         lineHeight={config.lineHeight}

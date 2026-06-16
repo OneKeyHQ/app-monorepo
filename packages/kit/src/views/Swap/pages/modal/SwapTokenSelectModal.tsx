@@ -30,7 +30,6 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
-import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -79,6 +78,11 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import {
+  buildSwapTokenSelectorDisableNetworks,
+  isSwapTokenSelectorFromNetworkBridgeOnly,
+} from './SwapTokenSelectModal.utils';
+
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
 
@@ -117,36 +121,26 @@ const SwapTokenSelectPage = ({
     useTokenSelectorFilterPersistAtom();
   const [currentSelectNetwork, setCurrentSelectNetwork] =
     useSwapSelectTokenNetworkAtom();
-  const currentSelectNetworkForDappTokenFilter = useMemo(() => {
-    if (!currentSelectNetwork) {
-      return undefined;
+  const showLpTokenFilterSwitch = useMemo(() => {
+    if (!SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED || !currentSelectNetwork) {
+      return false;
     }
 
-    if (currentSelectNetwork.isAllNetworks) {
-      return {
+    return isTokenSelectorDappTokenFilterSupportedNetwork({
+      network: {
         id: currentSelectNetwork.networkId,
-        isAllNetworks: true,
-      };
-    }
-
-    return {
-      id: currentSelectNetwork.networkId,
-      backendIndex: currentSelectNetwork.backendIndex,
-    };
-  }, [currentSelectNetwork]);
-  const isDeFiEnabled = useIsDeFiEnabled(
-    currentSelectNetwork?.networkId,
-    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
-  );
-  const showLpTokenFilterSwitch =
-    SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED &&
-    isTokenSelectorDappTokenFilterSupportedNetwork({
-      network: currentSelectNetworkForDappTokenFilter,
-      isDeFiEnabled,
+        isAllNetworks: currentSelectNetwork.isAllNetworks,
+        backendIndex: currentSelectNetwork.backendIndex,
+      },
+      isDeFiEnabled: currentSelectNetwork.isAllNetworks
+        ? true
+        : currentSelectNetwork.isDeFiEnabled,
     });
+  }, [currentSelectNetwork]);
   const showLpTokensOnly = showLpTokenFilterSwitch
     ? tokenSelectorFilter.swapShowLpTokensOnly
     : false;
+  const requestLpToken = showLpTokenFilterSwitch ? showLpTokensOnly : undefined;
   const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
   const toTokenRef = useRef<ISwapToken | undefined>(toToken);
   const hasUserSelectedNetworkRef = useRef(false);
@@ -159,46 +153,65 @@ const SwapTokenSelectPage = ({
   const { selectFromToken, selectToToken, syncNetworksSort } =
     useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const getSelectableDefaultNetwork = useCallback(
+    (networkId?: string) => {
+      const preferredNetwork = networkId
+        ? swapNetworksIncludeAllNetwork.find(
+            (item: ISwapNetwork) => item.networkId === networkId,
+          )
+        : undefined;
+
+      if (preferredNetwork) {
+        return preferredNetwork;
+      }
+
+      return (
+        swapNetworksIncludeAllNetwork.find(
+          (network) => network.isAllNetworks,
+        ) ?? swapNetworksIncludeAllNetwork[0]
+      );
+    },
+    [swapNetworksIncludeAllNetwork],
+  );
+  const isFromTokenNetworkBridgeOnly = useMemo(
+    () =>
+      isSwapTokenSelectorFromNetworkBridgeOnly({
+        fromTokenNetworkId: fromToken?.networkId,
+        swapNetworksIncludeAllNetwork,
+      }),
+    [fromToken?.networkId, swapNetworksIncludeAllNetwork],
+  );
   const syncDefaultNetworkSelect = useCallback(() => {
     if (type === ESwapDirectionType.FROM) {
       if (fromToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(fromToken.networkId);
       }
       if (toToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(toToken.networkId);
       }
     } else {
       if (toToken?.networkId) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === toToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        return getSelectableDefaultNetwork(toToken.networkId);
       }
       if (
         fromToken?.networkId &&
         (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
           swapTypeSwitch === ESwapTabSwitchType.LIMIT)
       ) {
-        return (
-          swapNetworksIncludeAllNetwork.find(
-            (item: ISwapNetwork) => item.networkId === fromToken.networkId,
-          ) ?? swapNetworksIncludeAllNetwork?.[0]
-        );
+        if (
+          swapTypeSwitch === ESwapTabSwitchType.SWAP &&
+          isFromTokenNetworkBridgeOnly
+        ) {
+          return getSelectableDefaultNetwork();
+        }
+        return getSelectableDefaultNetwork(fromToken.networkId);
       }
     }
-    return swapNetworksIncludeAllNetwork?.[0];
+    return getSelectableDefaultNetwork();
   }, [
     fromToken?.networkId,
-    swapNetworksIncludeAllNetwork,
+    getSelectableDefaultNetwork,
+    isFromTokenNetworkBridgeOnly,
     swapTypeSwitch,
     toToken?.networkId,
     type,
@@ -238,6 +251,30 @@ const SwapTokenSelectPage = ({
     });
   }, [setCurrentSelectNetwork, syncDefaultNetworkSelect]);
 
+  useEffect(() => {
+    if (!currentSelectNetwork?.networkId) {
+      return;
+    }
+
+    const latestNetwork = swapNetworksIncludeAllNetwork.find(
+      (network) => network.networkId === currentSelectNetwork.networkId,
+    );
+    if (!latestNetwork || latestNetwork === currentSelectNetwork) {
+      return;
+    }
+
+    setCurrentSelectNetwork((prev) => {
+      if (!prev || prev.networkId !== latestNetwork.networkId) {
+        return prev;
+      }
+      return latestNetwork;
+    });
+  }, [
+    currentSelectNetwork,
+    setCurrentSelectNetwork,
+    swapNetworksIncludeAllNetwork,
+  ]);
+
   useEffect(
     () => () => {
       setCurrentSelectNetwork(undefined);
@@ -267,7 +304,7 @@ const SwapTokenSelectPage = ({
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
-    showLpTokenFilterSwitch ? showLpTokensOnly : undefined,
+    requestLpToken,
   );
   const alertIndex = useMemo(
     () =>
@@ -389,35 +426,13 @@ const SwapTokenSelectPage = ({
   }, [intl]);
 
   const disableNetworks = useMemo(() => {
-    let res: string[] = [];
-    const networkIds = swapNetworksIncludeAllNetwork.map(
-      (net) => net.networkId,
-    );
-    if (
-      (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-        swapTypeSwitch === ESwapTabSwitchType.LIMIT) &&
-      type === ESwapDirectionType.TO &&
-      fromToken
-    ) {
-      res = networkIds.filter((net) => net !== fromToken?.networkId);
-    }
-    if (
-      type === ESwapDirectionType.TO &&
-      fromToken &&
-      swapTypeSwitch === ESwapTabSwitchType.BRIDGE
-    ) {
-      res = networkIds.filter((net) => net === fromToken?.networkId);
-    }
-
-    if (
-      type === ESwapDirectionType.FROM &&
-      swapTypeSwitch === ESwapTabSwitchType.BRIDGE &&
-      toToken
-    ) {
-      res = networkIds.filter((net) => net === toToken?.networkId);
-    }
-    return res;
-  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, toToken, type]);
+    return buildSwapTokenSelectorDisableNetworks({
+      type,
+      swapTypeSwitch,
+      fromToken,
+      swapNetworksIncludeAllNetwork,
+    });
+  }, [fromToken, swapNetworksIncludeAllNetwork, swapTypeSwitch, type]);
   const renderItem = useCallback(
     ({
       item,
@@ -719,7 +734,7 @@ const SwapTokenSelectPage = ({
         {shouldShowPopularTokens ? <Divider mt="$2" /> : null}
         <YStack flex={1}>
           <ListView
-            useFlashList
+            useFlashList={platformEnv.isNative}
             ref={listViewRef}
             data={currentTokens}
             renderItem={renderItem}

@@ -56,9 +56,11 @@ import {
   displayFiatValueOrUnavailable,
   displayOrUnavailable,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { getSwapBridgeDefaultToToken } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapSource,
   ESwapTabSwitchType,
+  type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -144,7 +146,10 @@ const TokenDetailsAddressBlock = memo(
 );
 TokenDetailsAddressBlock.displayName = 'TokenDetailsAddressBlock';
 
-function TokenDetailsHeader(props: IProps) {
+function TokenDetailsHeaderContent({
+  focusParam,
+  ...props
+}: IProps & { focusParam: boolean }) {
   const {
     accountId,
     networkId,
@@ -236,18 +241,17 @@ function TokenDetailsHeader(props: IProps) {
     isBotWalletDeactivated,
   });
 
-  const { isFocused } = useTabIsRefreshingFocused();
   const tokenDetailsPromiseOptions = useMemo(
     () => ({
       watchLoading: true,
       overrideIsFocused: (isPageFocused: boolean) =>
-        isPageFocused && (isTabView ? isFocused : true),
+        isPageFocused && (isTabView ? focusParam : true),
       debounced: POLLING_DEBOUNCE_INTERVAL,
       ...(cachedTokenDetails !== undefined
         ? { initResult: cachedTokenDetails }
         : {}),
     }),
-    [cachedTokenDetails, isFocused, isTabView],
+    [cachedTokenDetails, focusParam, isTabView],
   );
   const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
@@ -335,31 +339,47 @@ function TokenDetailsHeader(props: IProps) {
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const createSwapActionHandler = useCallback(
-    (actionType: ESwapTabSwitchType) => async () => {
+    () => async () => {
+      const importFromToken: ISwapToken = {
+        contractAddress: tokenInfo.address,
+        symbol: tokenInfo.symbol,
+        networkId,
+        isNative: tokenInfo.isNative,
+        decimals: tokenInfo.decimals,
+        name: tokenInfo.name,
+        logoURI: tokenInfo.logoURI,
+        networkLogoURI: network?.logoURI,
+      };
+      let importToToken: ISwapToken | undefined;
+      try {
+        const { isSupportSwap, isSupportCrossChain } =
+          await backgroundApiProxy.serviceSwap.checkSupportSwap({
+            networkId,
+          });
+        if (!isSupportSwap && isSupportCrossChain) {
+          importToToken = getSwapBridgeDefaultToToken(importFromToken);
+        }
+      } catch {
+        // Keep the existing Swap fallback if capability refresh fails.
+      }
+      const swapTabSwitchType = ESwapTabSwitchType.SWAP;
+
       defaultLogger.wallet.walletActions.actionTrade({
         walletType: wallet?.type ?? '',
         networkId: network?.id ?? '',
         source: 'tokenDetails',
-        tradeType: actionType,
+        tradeType: swapTabSwitchType,
         isSoftwareWalletOnlyUser,
       });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
           importNetworkId: networkId,
-          importFromToken: {
-            contractAddress: tokenInfo.address,
-            symbol: tokenInfo.symbol,
-            networkId,
-            isNative: tokenInfo.isNative,
-            decimals: tokenInfo.decimals,
-            name: tokenInfo.name,
-            logoURI: tokenInfo.logoURI,
-            networkLogoURI: network?.logoURI,
-          },
+          importFromToken,
+          importToToken,
           importDeriveType: deriveType,
-          ...(actionType && {
-            swapTabSwitchType: actionType,
+          ...(swapTabSwitchType && {
+            swapTabSwitchType,
           }),
           swapSource: ESwapSource.TOKEN_DETAIL,
         },
@@ -382,7 +402,7 @@ function TokenDetailsHeader(props: IProps) {
     ],
   );
 
-  const handleOnSwap = createSwapActionHandler(ESwapTabSwitchType.SWAP);
+  const handleOnSwap = createSwapActionHandler();
 
   const disableSwapAction = useMemo(
     () => accountUtils.isUrlAccountFn({ accountId }),
@@ -618,6 +638,20 @@ function TokenDetailsHeader(props: IProps) {
       </>
     </DebugRenderTracker>
   );
+}
+
+function TokenDetailsHeaderWithTabFocus(props: IProps) {
+  const { isFocused } = useTabIsRefreshingFocused();
+
+  return <TokenDetailsHeaderContent {...props} focusParam={isFocused} />;
+}
+
+function TokenDetailsHeader(props: IProps) {
+  if (props.isTabView) {
+    return <TokenDetailsHeaderWithTabFocus {...props} />;
+  }
+
+  return <TokenDetailsHeaderContent {...props} focusParam />;
 }
 
 export default memo(TokenDetailsHeader);

@@ -39,7 +39,7 @@ export interface IChartViewAdapterProps extends IChartViewProps {
   bottomColor: string;
 }
 
-interface IOnekeyChartApi extends IChartApi {
+export interface IOnekeyChartApi extends IChartApi {
   // eslint-disable-next-line camelcase
   _onekey_series?: ISeriesApi<'Area'>;
 }
@@ -113,11 +113,13 @@ export function createChartDom(
 }
 
 export function updateChartDom({
+  chart,
   lineColor,
   topColor,
   bottomColor,
   data,
 }: {
+  chart: IOnekeyChartApi;
   lineColor: string;
   topColor: string;
   bottomColor: string;
@@ -129,8 +131,6 @@ export function updateChartDom({
       value,
     }),
   );
-  // @ts-ignore
-  const chart = globalThis._onekey_chart as IOnekeyChartApi;
   if (!chart._onekey_series) {
     const newSeries = chart.addAreaSeries({
       lineColor,
