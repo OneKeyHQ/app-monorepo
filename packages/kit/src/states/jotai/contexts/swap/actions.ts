@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
 import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -1978,6 +1979,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 accountId,
                 contractAddress: token.contractAddress,
                 direction: type,
+                currency: USD_CURRENCY_ID,
               });
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
