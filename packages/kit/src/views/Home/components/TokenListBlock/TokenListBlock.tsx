@@ -78,6 +78,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
@@ -123,6 +124,20 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { RichBlock } from '../RichBlock/RichBlock';
+
+import {
+  WALLET_ASSET_STATUS_BASIS,
+  WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
+  WALLET_ASSET_STATUS_SCOPE,
+  WALLET_ASSET_STATUS_SOURCE,
+  WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
+  WALLET_ASSET_STATUS_THRESHOLD_USD,
+  evaluateWalletAssetStatus,
+  getWalletAssetStatusCurrency,
+  isWalletAssetStatusAggregationComplete,
+  shouldReportWalletAssetStatusChange,
+  shouldReportWalletAssetStatusSnapshot,
+} from './assetStatusAnalytics';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -1860,7 +1875,6 @@ function TokenListBlock({
         });
 
         const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-
         accountsWorth[
           accountUtils.buildAccountValueKey({
             accountId: r.accountId ?? '',
@@ -1876,6 +1890,124 @@ function TokenListBlock({
               account.createAtNetwork === r.networkId))
         ) {
           createAtNetworkWorth = createAtNetworkWorth.plus(accountWorth);
+        }
+      }
+
+      const assetStatusAggregationComplete =
+        isWalletAssetStatusAggregationComplete({
+          expectedAccounts: allNetworkAccounts,
+          result: allNetworksResult,
+        });
+      const assetStatusCurrency =
+        getWalletAssetStatusCurrency(allNetworksResult);
+      if (
+        assetStatusAggregationComplete &&
+        assetStatusCurrency?.toLowerCase() === USD_CURRENCY_ID
+      ) {
+        const reportNow = Date.now();
+        const assetStatusAnalytics =
+          await backgroundApiProxy.simpleDb.appStatus.getWalletAssetStatusAnalytics();
+        const { wallets: eligibleWallets } =
+          await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
+            includingAccounts: true,
+          });
+        const eligibleAccountIds = Array.from(
+          new Set(
+            eligibleWallets.flatMap((eligibleWallet) =>
+              (eligibleWallet.dbIndexedAccounts ?? []).map(
+                (indexedAccountItem) => indexedAccountItem.id,
+              ),
+            ),
+          ),
+        );
+
+        if (eligibleAccountIds.length) {
+          const accountValues =
+            await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountIdBatch(
+              {
+                accounts: eligibleAccountIds.map((accountId) => ({
+                  accountId,
+                })),
+              },
+            );
+          const currentAccountValueId =
+            indexedAccount?.id ?? account?.indexedAccountId;
+          const currentAccountValue =
+            currentAccountValueId &&
+            eligibleAccountIds.includes(currentAccountValueId)
+              ? {
+                  accountId: currentAccountValueId,
+                  value: accountsWorth,
+                  currency: USD_CURRENCY_ID,
+                }
+              : undefined;
+          const assetStatusEvaluation = evaluateWalletAssetStatus({
+            accountValues,
+            currentAccountValue,
+            eligibleWalletCount: eligibleWallets.length,
+          });
+
+          if (
+            assetStatusEvaluation.assetStatus &&
+            assetStatusEvaluation.balanceBucket &&
+            assetStatusEvaluation.changeReason
+          ) {
+            const baseParams = {
+              source: WALLET_ASSET_STATUS_SOURCE,
+              scope: WALLET_ASSET_STATUS_SCOPE,
+              assetStatus: assetStatusEvaluation.assetStatus,
+              balanceBucket: assetStatusEvaluation.balanceBucket,
+              thresholdUsd: WALLET_ASSET_STATUS_THRESHOLD_USD,
+              thresholdCurrency: WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
+              assetBasis: WALLET_ASSET_STATUS_BASIS,
+              eligibleWalletTypes: WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
+              eligibleWalletCount: assetStatusEvaluation.eligibleWalletCount,
+              eligibleAccountCount: assetStatusEvaluation.eligibleAccountCount,
+              knownAccountCount: assetStatusEvaluation.knownAccountCount,
+              unknownAccountCount: assetStatusEvaluation.unknownAccountCount,
+            } as const;
+            const shouldReportSnapshot = shouldReportWalletAssetStatusSnapshot({
+              lastReportedAt: assetStatusAnalytics?.lastSnapshotReportedAt,
+              now: reportNow,
+            });
+            const shouldReportChange = shouldReportWalletAssetStatusChange({
+              previousStatus: assetStatusAnalytics?.assetStatus,
+              currentStatus: assetStatusEvaluation.assetStatus,
+            });
+
+            if (shouldReportSnapshot) {
+              defaultLogger.wallet.balance.walletAssetStatusEvaluated(
+                baseParams,
+              );
+            }
+            if (shouldReportChange) {
+              defaultLogger.wallet.balance.walletAssetStatusChanged({
+                ...baseParams,
+                previousStatus: assetStatusAnalytics?.assetStatus ?? 'unknown',
+                currentStatus: assetStatusEvaluation.assetStatus,
+                changeReason: assetStatusEvaluation.changeReason,
+              });
+            }
+
+            if (
+              shouldReportSnapshot ||
+              shouldReportChange ||
+              assetStatusAnalytics?.assetStatus !==
+                assetStatusEvaluation.assetStatus
+            ) {
+              await backgroundApiProxy.simpleDb.appStatus.setWalletAssetStatusAnalytics(
+                {
+                  assetStatus: assetStatusEvaluation.assetStatus,
+                  lastSnapshotReportedAt: shouldReportSnapshot
+                    ? reportNow
+                    : assetStatusAnalytics?.lastSnapshotReportedAt,
+                  lastStatusChangedAt: shouldReportChange
+                    ? reportNow
+                    : assetStatusAnalytics?.lastStatusChangedAt,
+                },
+              );
+            }
+          }
         }
       }
 
@@ -2013,8 +2145,10 @@ function TokenListBlock({
   }, [
     account?.createAtNetwork,
     account?.id,
+    account?.indexedAccountId,
     indexedAccount?.id,
     mergeDeriveAddressData,
+    allNetworkAccounts,
     allNetworksResult,
     network?.id,
     refreshAllTokenList,
