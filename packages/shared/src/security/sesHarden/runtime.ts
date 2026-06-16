@@ -16,6 +16,20 @@ import type {
 import type { Harden, LockdownOptions } from 'ses';
 
 export const SES_HARDEN_PATCH_WARNING_LIMIT = 20;
+// Cap the emitted-fingerprint set so a pathological stream of unique
+// post-lockdown patch errors can never grow it without bound. Once the cap is
+// reached we stop tracking new fingerprints (and therefore stop emitting brand
+// new ones) instead of evicting, keeping the dedup guarantee deterministic.
+export const SES_HARDEN_PATCH_WARNING_EMIT_FINGERPRINT_LIMIT = 100;
+
+// Fingerprints we have already emitted (console.warn) during this session.
+// Recording into the in-memory warnings array is always deduped by fingerprint,
+// but emission must also be deduped so a repeated identical patch error cannot
+// spam the console / any downstream log sink with the same entry every time it
+// fires. This lives at module scope so it is shared across calls within the
+// same JS runtime (main / bg / each ext context keep their own copy, matching
+// the per-runtime JS-heap model).
+const sesHardenEmittedWarningFingerprints = new Set<string>();
 
 const SES_HARDEN_LEVELS = new Set<ISesHardenLevel>(['L0', 'L1', 'L2']);
 const SES_HARDEN_PATCH_ERROR_PATTERNS = [
@@ -95,11 +109,15 @@ function getPatchErrorStack(value: unknown): string | undefined {
 }
 
 export function isSesHardenPatchWarningMonitorEnabled(): boolean {
-  if (typeof process === 'undefined') {
-    return true;
-  }
-
-  return process.env?.NODE_ENV !== 'production';
+  // The monitor is install-once (two passive addEventListener registrations)
+  // plus an only-on-violation callback: it fires solely on uncaught `error` /
+  // `unhandledrejection` events, never on any hot/per-operation path, and the
+  // callback bails out immediately via a cheap regex check when the error is
+  // not a post-lockdown patch attempt. That makes it safe to keep enabled in
+  // production so we retain diagnostics there. Emission to the console is
+  // additionally deduped per fingerprint (see recordSesHardenPatchWarning) so
+  // production logs are not flooded by repeated identical warnings.
+  return true;
 }
 
 function isLikelyPostLockdownPatchError(value: unknown): boolean {
@@ -209,11 +227,30 @@ function recordSesHardenPatchWarning(
     // Best-effort diagnostics only.
   }
 
-  // Keep this visible in dev builds so engineers can decide whether the patch
-  // belongs before lockdown or indicates unexpected tampering.
-  console.warn('[OneKey SES Harden] Post-lockdown patch attempt detected', {
-    warning,
-  });
+  // Emit (console.warn) only the first time we see a given fingerprint this
+  // session. Repeated identical warnings still update the in-memory record's
+  // count/lastSeenAt above, but must not re-emit: re-emitting would flood the
+  // console and any downstream log sink with duplicate entries. We only emit
+  // once we have recorded the fingerprint in the dedup set, so once the set
+  // hits its cap any further brand-new fingerprints are dropped from emission
+  // rather than emitted unbounded (a pathological flood of unique fingerprints
+  // cannot spam the log).
+  if (!sesHardenEmittedWarningFingerprints.has(fingerprint)) {
+    if (
+      sesHardenEmittedWarningFingerprints.size <
+      SES_HARDEN_PATCH_WARNING_EMIT_FINGERPRINT_LIMIT
+    ) {
+      sesHardenEmittedWarningFingerprints.add(fingerprint);
+      // Keep this visible so engineers can decide whether the patch belongs
+      // before lockdown or indicates unexpected tampering. Enabled in
+      // production too (see isSesHardenPatchWarningMonitorEnabled), deduped
+      // per fingerprint.
+      console.warn(
+        '[OneKey SES Harden] Post-lockdown patch attempt detected',
+        { warning },
+      );
+    }
+  }
 }
 
 function installSesHardenPatchWarningMonitor(
@@ -300,7 +337,7 @@ export function maybeLockdownOneKeyRuntime(options: {
   lockdown?: (lockdownOptions?: LockdownOptions) => void;
 }): ISesHardenRuntimeState {
   const level = options.level ?? getSesHardenLevelFromRuntime(options.runtime);
-  const lockdownOptions = getSesLockdownOptions(level);
+  const lockdownOptions = getSesLockdownOptions(level, options.runtime);
 
   if (level === 'L0') {
     const state: ISesHardenRuntimeState = {
@@ -360,6 +397,7 @@ export function maybeLockdownOneKeyRuntime(options: {
 
 export function resetSesHardenRuntimeStateForTest(): void {
   appliedState = undefined;
+  sesHardenEmittedWarningFingerprints.clear();
   const g = getSesGlobal();
   try {
     delete g.__ONEKEY_SES_HARDEN_STATE__;

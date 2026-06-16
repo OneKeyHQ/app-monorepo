@@ -1314,7 +1314,7 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
     buildCheck(
       'Patch warning monitor',
       'runtime-state',
-      '确认 dev mode 下 L1/L2 已安装 harden 后 patch 失败提醒，L0 和生产环境不安装。',
+      '确认 L1/L2（含生产环境）已安装 harden 后 patch 失败提醒，L0 不安装；提醒按 fingerprint 去重，每个 fingerprint 每个会话只输出一次。',
       shouldInstallPatchWarningMonitor
         ? patchWarningMonitorInstalled
         : !patchWarningMonitorInstalled,
