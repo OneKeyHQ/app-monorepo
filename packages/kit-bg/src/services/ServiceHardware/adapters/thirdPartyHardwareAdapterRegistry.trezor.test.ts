@@ -9,8 +9,6 @@ import {
 } from './thirdPartyHardwareAdapterRegistry';
 
 const mockCreateTrezorConnector = jest.fn();
-const mockGetAllDevices = jest.fn().mockResolvedValue({ devices: [] });
-const mockSdkLog = jest.fn();
 
 type IHwkSdkLogEvent = {
   type: 'log';
@@ -32,7 +30,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     hardware: {
       sdkLog: {
-        log: mockSdkLog,
+        log: jest.fn(),
       },
     },
   },
@@ -64,9 +62,18 @@ jest.mock('./TrezorAdapter', () => ({
 jest.mock('@onekeyhq/kit-bg/src/dbs/local/localDb', () => ({
   __esModule: true,
   default: {
-    getAllDevices: mockGetAllDevices,
+    getAllDevices: jest.fn().mockResolvedValue({ devices: [] }),
   },
 }));
+
+// Retrieve the mock fns from the registered mocks (not via an outer const that
+// the hoisted jest.mock factory would hit in the temporal dead zone).
+const mockSdkLog: jest.Mock = jest.requireMock(
+  '@onekeyhq/shared/src/logger/logger',
+).defaultLogger.hardware.sdkLog.log;
+const mockGetAllDevices: jest.Mock = jest.requireMock(
+  '@onekeyhq/kit-bg/src/dbs/local/localDb',
+).default.getAllDevices;
 
 describe('thirdPartyHardwareAdapterRegistry Trezor logging', () => {
   beforeEach(() => {
