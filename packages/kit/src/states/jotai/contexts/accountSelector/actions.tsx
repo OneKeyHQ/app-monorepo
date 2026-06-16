@@ -28,6 +28,7 @@ import type {
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -35,6 +36,10 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS,
+  type IContextAtomColdStartCacheKey,
+} from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -151,6 +156,75 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
       return newValue;
     });
+  }
+
+  buildAccountSelectorColdStartScopeKey({
+    sceneName,
+    sceneUrl,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+  }) {
+    if (!sceneName) {
+      return undefined;
+    }
+    const sceneId = accountSelectorUtils.buildAccountSelectorSceneId({
+      sceneName,
+      sceneUrl,
+    });
+    return `store:accountSelector@${sceneId}`;
+  }
+
+  async flushAccountSelectorColdStartSnapshot({
+    sceneName,
+    sceneUrl,
+    selectedAccounts,
+    activeAccounts,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    selectedAccounts?: ISelectedAccountsAtomMap;
+    activeAccounts?: Partial<{
+      [num: number]: IAccountSelectorActiveAccountInfo;
+    }>;
+  }) {
+    try {
+      const coldStartScopeKey = this.buildAccountSelectorColdStartScopeKey({
+        sceneName,
+        sceneUrl,
+      });
+      if (!coldStartScopeKey) {
+        return;
+      }
+
+      await writeContextAtomColdStartCacheValues({
+        flushImmediately: true,
+        entries: [
+          selectedAccounts
+            ? {
+                coldStartScopeKey,
+                coldStartCacheKey:
+                  CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom,
+                value: selectedAccounts,
+              }
+            : undefined,
+          activeAccounts
+            ? {
+                coldStartScopeKey,
+                coldStartCacheKey:
+                  CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom,
+                value: activeAccounts,
+              }
+            : undefined,
+        ].filter(Boolean) as {
+          coldStartScopeKey: string;
+          coldStartCacheKey: IContextAtomColdStartCacheKey;
+          value: unknown;
+        }[],
+      });
+    } catch {
+      // Cold-start snapshots are a best-effort fast path; simpleDb remains the source of truth.
+    }
   }
 
   mutex = new Semaphore(1);
@@ -585,6 +659,33 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           indexedAccountId: indexedAccount?.id,
         }),
       });
+
+      const sceneInfo = await this.getCurrentSceneInfo.call(set);
+      const selectedAccount = this.getSelectedAccount.call(set, { num });
+
+      await this.reloadActiveAccountInfo.call(set, {
+        num,
+        selectedAccount,
+      });
+
+      const activeAccounts = get(activeAccountsAtom());
+      await this.flushAccountSelectorColdStartSnapshot({
+        sceneName: sceneInfo?.sceneName,
+        sceneUrl: sceneInfo?.sceneUrl,
+        selectedAccounts: get(selectedAccountsAtom()),
+        activeAccounts,
+      });
+
+      if (sceneInfo?.sceneName) {
+        await this.saveToStorage.call(set, {
+          selectedAccount,
+          sceneName: sceneInfo.sceneName,
+          sceneUrl: sceneInfo.sceneUrl,
+          num,
+          selectedAccountUpdatedAt: get(accountSelectorUpdateMetaAtom())[num]
+            ?.updatedAt,
+        });
+      }
 
       appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, {
         num,

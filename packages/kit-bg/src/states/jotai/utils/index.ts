@@ -490,6 +490,60 @@ function scheduleColdStartSave(name: string) {
   }, 2000);
 }
 
+async function flushWebColdStartCacheNowIfNeeded() {
+  if (!platformEnv.isWeb && !platformEnv.isDesktop) {
+    return;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushColdStartCacheNow } =
+      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+    await flushColdStartCacheNow();
+  } catch {
+    /* webColdStartStorage may not be loaded on extension UI */
+  }
+}
+
+export async function writeContextAtomColdStartCacheValues({
+  entries,
+  flushImmediately,
+}: {
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+    value: unknown;
+  }[];
+  flushImmediately?: boolean;
+}) {
+  if (entries.length === 0) {
+    return;
+  }
+
+  let lastScopedKey = '';
+  for (const { coldStartScopeKey, coldStartCacheKey, value } of entries) {
+    const scopedKey = buildColdStartScopedKey({
+      coldStartScopeKey,
+      coldStartCacheKey,
+    });
+    lastScopedKey = scopedKey;
+    coldStartValuesMap.set(scopedKey, value);
+    coldStartDirtyKeys.add(scopedKey);
+    coldStartLog(`writeNow: ${scopedKey}`);
+  }
+
+  if (flushImmediately) {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    await flushWebColdStartCacheNowIfNeeded();
+    return;
+  }
+
+  scheduleColdStartSave(lastScopedKey);
+}
+
 let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
