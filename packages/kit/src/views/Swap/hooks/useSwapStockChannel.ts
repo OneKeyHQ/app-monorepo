@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -182,11 +182,9 @@ function findDefaultStockPayToken(candidates: IToken[]) {
 export function useSwapStockChannel({
   marketPresetToken,
   disableNativePayToken,
-  tradeSide,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
   disableNativePayToken?: boolean;
-  tradeSide: ESwapStockTradeSide;
 }) {
   const tokenDetailActions = useTokenDetailActions();
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
@@ -194,12 +192,15 @@ export function useSwapStockChannel({
   const [toToken] = useSwapSelectToTokenAtom();
   const { selectFromToken, selectToToken } = useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
+  const [tradeSide, setTradeSide] = useState(ESwapStockTradeSide.Buy);
+  const [stockTokenState, setStockTokenState] = useState<
+    ISwapToken | undefined
+  >(undefined);
+  const [payTokenState, setPayTokenState] = useState<ISwapToken | undefined>(
+    undefined,
+  );
   const requestedStockTokenKeyRef = useRef('');
   const manualStockPayTokenKeyRef = useRef('');
-  const tradeSideSwitchingRef = useRef(false);
-  const tradeSideSwitchingTimerRef = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
 
@@ -217,15 +218,42 @@ export function useSwapStockChannel({
         : undefined,
     [isNative, networkId, tokenAddress, tokenDetail],
   );
-  const payToken = isBuySide ? fromToken : toToken;
-  const selectedStockToken = isBuySide ? toToken : fromToken;
+  const swapPairPayToken = isBuySide ? fromToken : toToken;
+  const swapPairStockToken = isBuySide ? toToken : fromToken;
+  const selectedStockToken = stockTokenState ?? swapPairStockToken;
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken ?? marketStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
+  const payToken = payTokenState ?? swapPairPayToken;
   const stockNetworkId = currentStockToken?.networkId ?? networkId ?? '';
 
+  const syncStockExecutionTokens = useCallback(
+    async ({
+      nextTradeSide = tradeSide,
+      stockToken = stockTokenSnapshotRef.current ?? currentStockToken,
+      payToken: nextPayToken = payTokenSnapshotRef.current ?? payToken,
+    }: {
+      nextTradeSide?: ESwapStockTradeSide;
+      stockToken?: ISwapToken;
+      payToken?: ISwapToken;
+    } = {}) => {
+      const nextFromToken =
+        nextTradeSide === ESwapStockTradeSide.Buy ? nextPayToken : stockToken;
+      const nextToToken =
+        nextTradeSide === ESwapStockTradeSide.Buy ? stockToken : nextPayToken;
+
+      if (nextFromToken) {
+        await selectFromToken(nextFromToken, true, true, true);
+      }
+      if (nextToToken) {
+        await selectToToken(nextToToken, true, true);
+      }
+    },
+    [currentStockToken, payToken, selectFromToken, selectToToken, tradeSide],
+  );
+
   useEffect(() => {
-    if (currentStockToken && tokenDetail?.stock) {
+    if (currentStockToken) {
       stockTokenSnapshotRef.current = currentStockToken;
     }
   }, [currentStockToken, tokenDetail?.stock]);
@@ -248,19 +276,16 @@ export function useSwapStockChannel({
 
   const selectStockSwapToken = useCallback(
     async (token: ISwapToken) => {
-      if (isBuySide) {
-        await selectToToken(token, true, true);
-        return;
-      }
-      await selectFromToken(token, true, true, true);
+      setStockTokenState(token);
+      stockTokenSnapshotRef.current = token;
+      await syncStockExecutionTokens({
+        stockToken: token,
+      });
     },
-    [isBuySide, selectFromToken, selectToToken],
+    [syncStockExecutionTokens],
   );
 
   useEffect(() => {
-    if (tradeSideSwitchingRef.current) {
-      return;
-    }
     if (!selectedStockTokenKey || !selectedStockToken?.networkId) {
       return;
     }
@@ -276,9 +301,6 @@ export function useSwapStockChannel({
   }, [selectedStockToken, selectedStockTokenKey, tokenDetailActions]);
 
   useEffect(() => {
-    if (tradeSideSwitchingRef.current) {
-      return;
-    }
     if (
       selectedStockTokenKey ||
       !marketPresetTokenKey ||
@@ -349,9 +371,6 @@ export function useSwapStockChannel({
   const defaultStockTokenKey = getMarketListTokenKey(defaultStockToken);
 
   useEffect(() => {
-    if (tradeSideSwitchingRef.current) {
-      return;
-    }
     const defaultStockNetworkId =
       defaultStockToken?.networkId ?? defaultStockToken?.chainId;
     if (
@@ -385,9 +404,6 @@ export function useSwapStockChannel({
   ]);
 
   useEffect(() => {
-    if (tradeSideSwitchingRef.current) {
-      return;
-    }
     if (selectedStockTokenKey || !marketStockToken || !tokenDetail?.stock) {
       return;
     }
@@ -399,38 +415,20 @@ export function useSwapStockChannel({
     tokenDetail?.stock,
   ]);
 
-  const stockMarketStatusScope = currentStockTokenKey;
-  const {
-    result: stockMarketStatusState,
-    isLoading: stockMarketStatusLoading,
-  } = usePromiseResult(
-    async () => {
-      if (!currentStockTokenKey) {
-        return {
-          scope: stockMarketStatusScope,
-          status: undefined as IFetchUSMarketStatusResult | undefined,
-        };
-      }
-      const status =
-        await backgroundApiProxy.serviceSwap.fetchCheckUSMarketStatus();
-      return {
-        scope: stockMarketStatusScope,
-        status,
-      };
-    },
-    [currentStockTokenKey, stockMarketStatusScope],
-    {
-      initResult: {
-        scope: '',
-        status: undefined as IFetchUSMarketStatusResult | undefined,
-      },
-      watchLoading: !!currentStockTokenKey,
-    },
-  );
-  const stockMarketStatus =
-    stockMarketStatusState.scope === stockMarketStatusScope
-      ? stockMarketStatusState.status
-      : undefined;
+  const stockMarketStatus = useMemo<
+    IFetchUSMarketStatusResult | undefined
+  >(() => {
+    if (!currentStockTokenKey || !tokenDetail?.stock) {
+      return undefined;
+    }
+    const isOpen = tokenDetail.stock.isOpen;
+    return {
+      open: isOpen ?? true,
+      session: isOpen === false ? 'CLOSED' : 'REGULAR',
+      reason: tokenDetail.stock.description ?? null,
+      unavailable: typeof isOpen === 'boolean' ? undefined : true,
+    };
+  }, [currentStockTokenKey, tokenDetail?.stock]);
   const stockMarketStatusOpen =
     !stockMarketStatus ||
     stockMarketStatus.unavailable ||
@@ -506,19 +504,17 @@ export function useSwapStockChannel({
       if (manual) {
         manualStockPayTokenKeyRef.current = getTokenIdentityKey(token);
       }
-      if (isBuySide) {
-        void selectFromToken(token as ISwapToken, true, true, true);
-        return;
-      }
-      void selectToToken(token as ISwapToken, true, true);
+      const nextPayToken = token as ISwapToken;
+      setPayTokenState(nextPayToken);
+      payTokenSnapshotRef.current = nextPayToken;
+      void syncStockExecutionTokens({
+        payToken: nextPayToken,
+      });
     },
-    [isBuySide, selectFromToken, selectToToken],
+    [syncStockExecutionTokens],
   );
 
   useEffect(() => {
-    if (tradeSideSwitchingRef.current) {
-      return;
-    }
     if (!speedConfigReady || selectablePayTokens.length === 0) {
       return;
     }
@@ -562,46 +558,29 @@ export function useSwapStockChannel({
       if (nextTradeSide === tradeSide) {
         return;
       }
-      tradeSideSwitchingRef.current = true;
-      if (tradeSideSwitchingTimerRef.current) {
-        clearTimeout(tradeSideSwitchingTimerRef.current);
-      }
       const stockTokenForSwitch =
         stockTokenSnapshotRef.current ?? currentStockToken;
       const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
-      const nextFromToken =
-        nextTradeSide === ESwapStockTradeSide.Buy
-          ? payTokenForSwitch
-          : stockTokenForSwitch;
-      const nextToToken =
-        nextTradeSide === ESwapStockTradeSide.Buy
-          ? stockTokenForSwitch
-          : payTokenForSwitch;
-      const nextStockToken =
-        nextTradeSide === ESwapStockTradeSide.Buy ? nextToToken : nextFromToken;
-      if (nextStockToken?.networkId) {
-        requestedStockTokenKeyRef.current = getTokenIdentityKey(nextStockToken);
+      setTradeSide(nextTradeSide);
+      if (stockTokenForSwitch?.networkId) {
+        requestedStockTokenKeyRef.current =
+          getTokenIdentityKey(stockTokenForSwitch);
         void tokenDetailActions.current.changeActiveToken({
-          tokenAddress: nextStockToken.contractAddress ?? '',
-          networkId: nextStockToken.networkId,
-          isNative: !!nextStockToken.isNative,
+          tokenAddress: stockTokenForSwitch.contractAddress ?? '',
+          networkId: stockTokenForSwitch.networkId,
+          isNative: !!stockTokenForSwitch.isNative,
         });
       }
-      if (nextFromToken) {
-        await selectFromToken(nextFromToken, true, true, true);
-      }
-      if (nextToToken) {
-        await selectToToken(nextToToken, true, true);
-      }
-      tradeSideSwitchingTimerRef.current = setTimeout(() => {
-        tradeSideSwitchingRef.current = false;
-      }, 500);
+      await syncStockExecutionTokens({
+        nextTradeSide,
+        stockToken: stockTokenForSwitch,
+        payToken: payTokenForSwitch,
+      });
     },
     [
       currentStockToken,
       payToken,
-      selectFromToken,
-      selectToToken,
+      syncStockExecutionTokens,
       tokenDetailActions,
       tradeSide,
     ],
@@ -629,14 +608,14 @@ export function useSwapStockChannel({
     if (!currentStockTokenKey) {
       return ESwapStockChannelAsyncStatus.Idle;
     }
-    if (stockMarketStatusLoading) {
+    if (!tokenDetail?.stock) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
     if (stockMarketStatus) {
       return ESwapStockChannelAsyncStatus.Ready;
     }
     return ESwapStockChannelAsyncStatus.Empty;
-  }, [currentStockTokenKey, stockMarketStatus, stockMarketStatusLoading]);
+  }, [currentStockTokenKey, stockMarketStatus, tokenDetail?.stock]);
 
   const payTokenStatus = useMemo(() => {
     if (!stockNetworkId) {
