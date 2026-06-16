@@ -32,6 +32,7 @@ import {
 } from './useSwapStockChannel';
 
 const STOCK_PRICE_SOURCE_CURRENCY = 'usd';
+const STOCK_USD_VALUE_SYMBOLS = new Set(['USD', 'USDC', 'USDT']);
 
 function getNetworkLogoURI(networkId?: string) {
   if (!networkId) {
@@ -51,9 +52,10 @@ function getStockInputTokenIdentityKey(token?: Partial<ISwapToken>) {
   }`;
 }
 
-function getStockInputTokenPrice(token?: ISwapToken) {
-  if (token?.price) {
-    return token.price;
+function getStockTokenUsdPrice(token?: Partial<ISwapToken>) {
+  const priceBN = new BigNumber(token?.price ?? 0);
+  if (priceBN.isFinite() && priceBN.gt(0)) {
+    return token?.price;
   }
   const balanceBN = new BigNumber(token?.balanceParsed ?? 0);
   const fiatValueBN = new BigNumber(token?.fiatValue ?? 0);
@@ -63,7 +65,8 @@ function getStockInputTokenPrice(token?: ISwapToken) {
     fiatValueBN.isNaN() ||
     fiatValueBN.isZero()
   ) {
-    return undefined;
+    const symbol = token?.symbol?.toUpperCase();
+    return symbol && STOCK_USD_VALUE_SYMBOLS.has(symbol) ? '1' : undefined;
   }
   return fiatValueBN.dividedBy(balanceBN).toFixed();
 }
@@ -230,7 +233,11 @@ export function useSwapStockEstimatedReceiveState({
     settingsPersistAtom.currencyInfo.symbol;
   const receiveFiatValue = useMemo(() => {
     const amountBN = new BigNumber(receiveAmount ?? 0);
-    const priceBN = new BigNumber(receiveToken?.price ?? 0);
+    const priceBN = new BigNumber(
+      getStockTokenUsdPrice(quoteResult?.toTokenInfo) ??
+        getStockTokenUsdPrice(receiveToken) ??
+        0,
+    );
     const fiatBN = amountBN.multipliedBy(priceBN);
     if (fiatBN.isNaN() || fiatBN.isZero()) {
       return '';
@@ -244,7 +251,8 @@ export function useSwapStockEstimatedReceiveState({
   }, [
     currencyMap,
     receiveAmount,
-    receiveToken?.price,
+    quoteResult?.toTokenInfo,
+    receiveToken,
     settingsPersistAtom.currencyInfo.id,
   ]);
   const onReceiveTokenPress = useCallback(
@@ -354,8 +362,8 @@ export function useSwapStockAmountInputState({
   const inputTokenNetworkLogoURI =
     inputToken?.networkLogoURI ?? getNetworkLogoURI(inputToken?.networkId);
   const inputTokenPrice =
-    getStockInputTokenPrice(stockInputTokenBalance.tokenDetail) ??
-    getStockInputTokenPrice(inputToken);
+    getStockTokenUsdPrice(stockInputTokenBalance.tokenDetail) ??
+    getStockTokenUsdPrice(inputToken);
   const amountFiatValue = useMemo(() => {
     const amountBN = new BigNumber(fromTokenAmount.value ?? 0);
     const priceBN = new BigNumber(inputTokenPrice ?? 0);
