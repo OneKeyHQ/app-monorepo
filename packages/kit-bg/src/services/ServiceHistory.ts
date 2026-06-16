@@ -493,7 +493,14 @@ function convertPrivateSendDisplayPrice({
   const targetCurrencyInfo = currencyMap[targetCurrency];
   const sourceRate = new BigNumber(sourceCurrencyInfo?.value ?? NaN);
   const targetRate = new BigNumber(targetCurrencyInfo?.value ?? NaN);
-  if (!sourceRate.isFinite() || sourceRate.isZero() || !targetRate.isFinite()) {
+  if (
+    !sourceRate.isFinite() ||
+    sourceRate.isZero() ||
+    !targetRate.isFinite() ||
+    targetRate.isZero()
+  ) {
+    // A zero target rate would silently turn the price into '0' (a truthy
+    // string that passes the caller's `!price` check) and tag it as converted.
     return undefined;
   }
 
@@ -850,11 +857,26 @@ class ServiceHistory extends ServiceBase {
               tokenDetailsByAddress.set(address.toLowerCase(), tokenDetail);
             }
           });
+          // Native tokens often come back with an empty info.address, so they
+          // are absent from the address map; match them via info.isNative.
+          const nativeTokenDetail = tokenDetails.find(
+            (tokenDetail) => tokenDetail.info.isNative,
+          );
 
-          uniqueTokenAddresses.forEach((tokenAddress, index) => {
+          uniqueTokenAddresses.forEach((tokenAddress) => {
             const tokenAddressKey = tokenAddress.toLowerCase();
-            const tokenDetail =
-              tokenDetailsByAddress.get(tokenAddressKey) ?? tokenDetails[index];
+            const isNativeAddress = validTargets.some(
+              (target) =>
+                target.isNative &&
+                target.tokenAddress.toLowerCase() === tokenAddressKey,
+            );
+            // Match strictly by address (or by isNative for the native token).
+            // Never fall back to a positional index: fetchTokensDetails does
+            // not guarantee the response order/length matches the request, so
+            // an index match can read a different token's price.
+            const tokenDetail = isNativeAddress
+              ? nativeTokenDetail
+              : tokenDetailsByAddress.get(tokenAddressKey);
             const price = convertPrivateSendDisplayPrice({
               price: tokenDetail?.price,
               sourceCurrency: tokenDetail?.currency ?? USD_CURRENCY_ID,
@@ -907,12 +929,16 @@ class ServiceHistory extends ServiceBase {
       const totalFeeInNativeBN = getPrivateSendPositiveNumberValue(
         tx.decodedTx.totalFeeInNative,
       );
-      const totalFeeFiatValue =
+      const recomputedFeeFiatValue =
         totalFeeInNativeBN && nativePrice
           ? totalFeeInNativeBN.times(nativePrice).toFixed()
           : undefined;
+      // Only overwrite the fee fiat value when a native price was actually
+      // resolved. On a best-effort fetch miss (nativePrice undefined), keep the
+      // existing backend value instead of blanking it.
       const shouldUpdateFeeFiatValue =
-        tx.decodedTx.totalFeeFiatValue !== totalFeeFiatValue;
+        recomputedFeeFiatValue !== undefined &&
+        tx.decodedTx.totalFeeFiatValue !== recomputedFeeFiatValue;
 
       if (
         !actionsResult.updated &&
@@ -930,7 +956,9 @@ class ServiceHistory extends ServiceBase {
           ...(outputActionsResult.updated
             ? { outputActions: outputActionsResult.actions }
             : {}),
-          totalFeeFiatValue,
+          ...(shouldUpdateFeeFiatValue
+            ? { totalFeeFiatValue: recomputedFeeFiatValue }
+            : {}),
         },
       };
     });
