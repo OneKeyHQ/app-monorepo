@@ -136,7 +136,10 @@ import PreSwapDialogContent from './PreSwapDialogContent';
 import SwapHeaderContainer from './SwapHeaderContainer';
 import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
-import { SwapStockDesktopContainer } from './SwapStockDesktopContainer';
+import {
+  SwapStockDesktopContainer,
+  SwapStockMobileContainer,
+} from './SwapStockDesktopContainer';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -1203,6 +1206,26 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
               hideRightActions
             />
           }
+        />
+      );
+    }
+    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+      return (
+        <SwapStockMobileContainer
+          storeName={storeName}
+          marketPresetToken={marketPresetTokenContext}
+          onSelectToken={onSelectToken}
+          fetchLoading={fetchLoading}
+          onSelectPercentageStage={onSelectPercentageStage}
+          onBalanceMaxPress={onBalanceMaxPress}
+          onPreSwap={onPreSwap}
+          onToAnotherAddressModal={onToAnotherAddressModal}
+          onOpenProviderList={onOpenProviderList}
+          refreshAction={refreshAction}
+          quoteResult={quoteResult}
+          quoteLoading={quoteLoading}
+          quoteEventFetching={quoteEventFetching}
+          alerts={alerts}
         />
       );
     }

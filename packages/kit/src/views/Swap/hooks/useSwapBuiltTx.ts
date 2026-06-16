@@ -2157,7 +2157,10 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
-            protocol: buildSwapRes.result.protocol ?? EProtocolOfExchange.SWAP,
+            protocol:
+              buildSwapRes.result.protocol ??
+              data.protocol ??
+              EProtocolOfExchange.SWAP,
             sender: {
               amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
               token: currentFromToken ?? buildSwapRes.result.fromTokenInfo,

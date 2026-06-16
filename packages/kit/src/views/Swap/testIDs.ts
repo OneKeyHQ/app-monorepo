@@ -38,8 +38,11 @@ export const SwapTestIDs = {
   stockBuyTab: 'swap-stock-buy-tab',
   stockSellTab: 'swap-stock-sell-tab',
   stockEstimatedReceive: 'swap-stock-estimated-receive',
+  stockMobileContainer: 'swap-stock-mobile-container',
+  stockMarketTokenHeader: 'swap-stock-market-token-header',
   stockMarketPanel: 'swap-stock-market-panel',
   stockMarketDataGrid: 'swap-stock-market-data-grid',
+  stockTradeStatusAlert: 'swap-stock-trade-status-alert',
 
   // Limit order
   limitPriceInput: 'swap-limit-price-input',

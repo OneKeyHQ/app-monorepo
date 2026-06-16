@@ -13,6 +13,10 @@ import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compo
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
 import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketTokenDetail,
@@ -308,6 +312,26 @@ export function useSwapStockChannel({
     },
     [syncStockExecutionTokens],
   );
+
+  useEffect(() => {
+    const handleSwapStockTokenSelected = (token: ISwapToken) => {
+      if (!token?.networkId) {
+        return;
+      }
+      requestMarketActiveToken(token);
+      void selectStockSwapToken(token);
+    };
+    appEventBus.on(
+      EAppEventBusNames.SwapStockTokenSelected,
+      handleSwapStockTokenSelected,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapStockTokenSelected,
+        handleSwapStockTokenSelected,
+      );
+    };
+  }, [requestMarketActiveToken, selectStockSwapToken]);
 
   useEffect(() => {
     if (!selectedStockTokenKey || !selectedStockToken?.networkId) {

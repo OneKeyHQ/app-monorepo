@@ -19,6 +19,11 @@ export enum EModalMarketRoutes {
   MobileTokenSelector = 'MobileTokenSelector',
 }
 
+export type IMarketMobileTokenSelectorParams = {
+  mode?: 'all' | 'stock';
+  selectTarget?: 'marketDetail' | 'swapStock';
+};
+
 export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketDetailV2]: {
     tokenAddress: string;
@@ -30,7 +35,9 @@ export type IModalMarketParamList = {
     title: string;
     type?: EMarketBannerType;
   };
-  [EModalMarketRoutes.MobileTokenSelector]: undefined;
+  [EModalMarketRoutes.MobileTokenSelector]:
+    | IMarketMobileTokenSelectorParams
+    | undefined;
 };
 
 export const ModalMarketStack: IModalFlowNavigatorConfig<
