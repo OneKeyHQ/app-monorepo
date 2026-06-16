@@ -8,6 +8,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   DashText,
   Divider,
+  Icon,
   IconButton,
   NumberSizeableText,
   SizableText,
@@ -23,7 +24,6 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   useSwapFromTokenAmountAtom,
   useSwapSelectTokenDetailFetchingAtom,
@@ -67,7 +67,6 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { SwapRefreshButtonBase } from '../../components/SwapRefreshButton';
 import {
   ESwapStockTradeSide,
   type IUseSwapStockChannelReturn,
@@ -213,7 +212,7 @@ function StockMarketDataGrid() {
   );
 
   return (
-    <YStack w="100%" gap="$3">
+    <YStack w="100%" gap="$3" testID={SwapTestIDs.stockMarketDataGrid}>
       <SizableText size="$bodyMdMedium" color="$text">
         Market data
       </SizableText>
@@ -254,6 +253,7 @@ function StockTradeSideSwitch({
       overflow="hidden"
     >
       <YStack
+        testID={SwapTestIDs.stockBuyTab}
         flex={1}
         alignItems="center"
         justifyContent="center"
@@ -270,6 +270,7 @@ function StockTradeSideSwitch({
         </SizableText>
       </YStack>
       <YStack
+        testID={SwapTestIDs.stockSellTab}
         flex={1}
         alignItems="center"
         justifyContent="center"
@@ -293,19 +294,16 @@ function StockEstimatedReceive({
   quoteResult,
   quoteLoading,
   quoteEventFetching,
-  refreshAction,
   stockChannel,
 }: {
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
-  refreshAction: (manual?: boolean) => void;
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const intl = useIntl();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
-  const isFocused = useRouteIsFocused();
   const receiveToken =
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
       ? stockChannel.currentStockToken
@@ -323,31 +321,34 @@ function StockEstimatedReceive({
   }, [receiveAmount, receiveToken?.price]);
 
   return (
-    <YStack bg="$bgStrong" borderRadius="$3" px="$3.5" py="$2.5">
-      <XStack
-        minHeight="$12"
-        alignItems="center"
-        justifyContent="space-between"
-        gap="$3"
-      >
-        <XStack alignItems="center" gap="$2" flexShrink={0}>
-          <DashText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.private_send_estimated_received,
-            })}
-          </DashText>
-          <SwapRefreshButtonBase
-            refreshAction={refreshAction}
-            disabled={!stockChannel.readyForQuote}
-            isRefreshQuote={isLoading}
-            isLoading={isLoading}
-            isFocused={isFocused}
-          />
-        </XStack>
-        <YStack flex={1} alignItems="flex-end" minWidth={0}>
-          {isLoading ? (
-            <Skeleton h="$4" w="$24" />
-          ) : (
+    <XStack
+      testID={SwapTestIDs.stockEstimatedReceive}
+      h={48}
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+    >
+      <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
+        <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
+        <DashText
+          size="$bodyMd"
+          color="$text"
+          dashColor="$borderStrong"
+          dashThickness={0.5}
+        >
+          {intl.formatMessage({
+            id: ETranslations.private_send_estimated_received,
+          })}
+        </DashText>
+      </XStack>
+      <YStack flex={1} maxWidth={246} alignItems="flex-end" minWidth={0}>
+        {isLoading ? (
+          <>
+            <Skeleton h="$4" w="$20" />
+            <Skeleton mt="$1" h="$4" w="$16" />
+          </>
+        ) : (
+          <>
             <SizableText
               size="$bodyMdMedium"
               color="$text"
@@ -366,24 +367,20 @@ function StockEstimatedReceive({
                 '--'
               )}
             </SizableText>
-          )}
-          {isLoading ? null : (
-            <XStack alignItems="center" gap="$1">
-              <NumberSizeableText
-                size="$bodyMd"
-                color="$textSubdued"
-                formatter="value"
-                formatterOptions={{
-                  currency: settingsPersistAtom.currencyInfo.symbol,
-                }}
-              >
-                {receiveFiatValue || '0'}
-              </NumberSizeableText>
-            </XStack>
-          )}
-        </YStack>
-      </XStack>
-    </YStack>
+            <NumberSizeableText
+              size="$bodyMd"
+              color="$textSubdued"
+              formatter="value"
+              formatterOptions={{
+                currency: settingsPersistAtom.currencyInfo.symbol,
+              }}
+            >
+              {receiveFiatValue || '0'}
+            </NumberSizeableText>
+          </>
+        )}
+      </YStack>
+    </XStack>
   );
 }
 
@@ -578,7 +575,6 @@ function StockTradeTicket({
         quoteResult={quoteResult}
         quoteLoading={quoteLoading}
         quoteEventFetching={quoteEventFetching}
-        refreshAction={refreshAction}
         stockChannel={stockChannel}
       />
       <SwapActionsState
@@ -756,6 +752,7 @@ function StockMarketContextPanel({
 
   return (
     <YStack
+      testID={SwapTestIDs.stockMarketPanel}
       w={526}
       flexShrink={0}
       minHeight={623}

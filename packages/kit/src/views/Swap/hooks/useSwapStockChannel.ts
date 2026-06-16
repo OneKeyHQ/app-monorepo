@@ -226,6 +226,30 @@ export function useSwapStockChannel({
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
   const payToken = payTokenState ?? swapPairPayToken;
   const stockNetworkId = currentStockToken?.networkId ?? networkId ?? '';
+  const activeMarketTokenKey = getTokenIdentityKey({
+    networkId: networkId ?? '',
+    contractAddress: tokenAddress ?? '',
+    isNative: !!isNative,
+  });
+
+  const requestMarketActiveToken = useCallback(
+    (token?: Partial<ISwapTokenBase>) => {
+      const tokenKey = getTokenIdentityKey(token);
+      if (!token?.networkId || !tokenKey) {
+        return;
+      }
+      requestedStockTokenKeyRef.current = tokenKey;
+      if (tokenKey === activeMarketTokenKey) {
+        return;
+      }
+      void tokenDetailActions.current.changeActiveToken({
+        tokenAddress: token.contractAddress ?? '',
+        networkId: token.networkId,
+        isNative: !!token.isNative,
+      });
+    },
+    [activeMarketTokenKey, tokenDetailActions],
+  );
 
   const syncStockExecutionTokens = useCallback(
     async ({
@@ -292,13 +316,8 @@ export function useSwapStockChannel({
     if (requestedStockTokenKeyRef.current === selectedStockTokenKey) {
       return;
     }
-    requestedStockTokenKeyRef.current = selectedStockTokenKey;
-    void tokenDetailActions.current.changeActiveToken({
-      tokenAddress: selectedStockToken.contractAddress ?? '',
-      networkId: selectedStockToken.networkId,
-      isNative: !!selectedStockToken.isNative,
-    });
-  }, [selectedStockToken, selectedStockTokenKey, tokenDetailActions]);
+    requestMarketActiveToken(selectedStockToken);
+  }, [requestMarketActiveToken, selectedStockToken, selectedStockTokenKey]);
 
   useEffect(() => {
     if (
@@ -311,17 +330,12 @@ export function useSwapStockChannel({
     if (requestedStockTokenKeyRef.current === marketPresetTokenKey) {
       return;
     }
-    requestedStockTokenKeyRef.current = marketPresetTokenKey;
-    void tokenDetailActions.current.changeActiveToken({
-      tokenAddress: marketPresetToken.contractAddress ?? '',
-      networkId: marketPresetToken.networkId,
-      isNative: !!marketPresetToken.isNative,
-    });
+    requestMarketActiveToken(marketPresetToken);
   }, [
     marketPresetToken,
     marketPresetTokenKey,
+    requestMarketActiveToken,
     selectedStockTokenKey,
-    tokenDetailActions,
   ]);
 
   const shouldLoadDefaultStockToken =
@@ -384,11 +398,10 @@ export function useSwapStockChannel({
     if (requestedStockTokenKeyRef.current === defaultStockTokenKey) {
       return;
     }
-    requestedStockTokenKeyRef.current = defaultStockTokenKey;
-    void tokenDetailActions.current.changeActiveToken({
-      tokenAddress: defaultStockToken.address,
+    requestMarketActiveToken({
+      contractAddress: defaultStockToken.address,
       networkId: defaultStockNetworkId,
-      isNative: !!defaultStockToken.isNative,
+      isNative: defaultStockToken.isNative,
     });
     const nextSwapToken =
       buildStockSwapTokenFromMarketListToken(defaultStockToken);
@@ -398,9 +411,9 @@ export function useSwapStockChannel({
   }, [
     defaultStockToken,
     defaultStockTokenKey,
+    requestMarketActiveToken,
     selectStockSwapToken,
     shouldLoadDefaultStockToken,
-    tokenDetailActions,
   ]);
 
   useEffect(() => {
@@ -543,14 +556,10 @@ export function useSwapStockChannel({
     (token: IMarketToken) => {
       const nextSwapToken = buildStockSwapTokenFromMarketToken(token);
       requestedStockTokenKeyRef.current = getTokenIdentityKey(nextSwapToken);
-      void tokenDetailActions.current.changeActiveToken({
-        tokenAddress: token.address,
-        networkId: token.networkId,
-        isNative: !!token.isNative,
-      });
+      requestMarketActiveToken(nextSwapToken);
       void selectStockSwapToken(nextSwapToken);
     },
-    [selectStockSwapToken, tokenDetailActions],
+    [requestMarketActiveToken, selectStockSwapToken],
   );
 
   const switchTradeSide = useCallback(
@@ -563,13 +572,7 @@ export function useSwapStockChannel({
       const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
       setTradeSide(nextTradeSide);
       if (stockTokenForSwitch?.networkId) {
-        requestedStockTokenKeyRef.current =
-          getTokenIdentityKey(stockTokenForSwitch);
-        void tokenDetailActions.current.changeActiveToken({
-          tokenAddress: stockTokenForSwitch.contractAddress ?? '',
-          networkId: stockTokenForSwitch.networkId,
-          isNative: !!stockTokenForSwitch.isNative,
-        });
+        requestMarketActiveToken(stockTokenForSwitch);
       }
       await syncStockExecutionTokens({
         nextTradeSide,
@@ -580,8 +583,8 @@ export function useSwapStockChannel({
     [
       currentStockToken,
       payToken,
+      requestMarketActiveToken,
       syncStockExecutionTokens,
-      tokenDetailActions,
       tradeSide,
     ],
   );

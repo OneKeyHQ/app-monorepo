@@ -34,6 +34,13 @@ export const SwapTestIDs = {
   proBuySellGroup: 'swap-pro-buy-sell-group',
   proSearchTokenList: 'swap-pro-search-token-list',
 
+  // Stock
+  stockBuyTab: 'swap-stock-buy-tab',
+  stockSellTab: 'swap-stock-sell-tab',
+  stockEstimatedReceive: 'swap-stock-estimated-receive',
+  stockMarketPanel: 'swap-stock-market-panel',
+  stockMarketDataGrid: 'swap-stock-market-data-grid',
+
   // Limit order
   limitPriceInput: 'swap-limit-price-input',
   limitOrderItem: (index: number) => `swap-limit-order-${index}`,
