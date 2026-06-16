@@ -552,6 +552,20 @@ class ServiceCustomRpc extends ServiceBase {
       (n) => !presetNetworkIds.includes(n.id),
     );
 
+    // Snapshot the previous server-network set so the refresh event below is only
+    // fanned out when the set actually changed (id added/removed or status
+    // flipped), instead of on every hourly fetch.
+    const { networks: prevServerNetworks } =
+      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    const serverNetworkSignature = (list: IServerNetwork[]) =>
+      list
+        .map((n) => `${n.id}:${n.status}`)
+        .toSorted()
+        .join(',');
+    const serverNetworkListChanged =
+      serverNetworkSignature(prevServerNetworks ?? []) !==
+      serverNetworkSignature(usedNetworks);
+
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
       networkInfos: usedNetworks,
     });
@@ -570,14 +584,15 @@ class ServiceCustomRpc extends ServiceBase {
     // If the server network is updated, clear the getAllNetworks cache
     await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
 
-    // Notify network-list views to refresh in place. A delisted (TRASH) network
-    // is only dropped by the read/merge layer AFTER this fetch persists its new
-    // status, so without this signal an already-rendered selector keeps showing
-    // the stale entry until it is reopened. We reuse AddedCustomNetwork, which is
-    // the de-facto "network list changed, refresh" signal every network selector
-    // already listens to. Bounded in frequency by the fetch throttle, so it does
-    // not cause excessive refreshes.
-    appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    // Notify network-list views to refresh in place, but only when the set
+    // actually changed. A delisted (TRASH) network is dropped by the read/merge
+    // layer only AFTER this fetch persists its new status, so without this signal
+    // an already-rendered selector keeps showing the stale entry until reopened.
+    // We reuse AddedCustomNetwork, the de-facto "network list changed, refresh"
+    // signal every network selector already listens to.
+    if (serverNetworkListChanged) {
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
