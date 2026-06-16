@@ -2,9 +2,11 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, XStack, YStack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -14,6 +16,19 @@ import { useReplaceTx } from '../../hooks/useReplaceTx';
 
 import { SpeedUpAction } from './SpeedUpAction';
 import { TxHistoryListItemErrorBoundary } from './TxHistoryListItemErrorBoundary';
+
+// Highlight props for the pending-row wrapper. Reuse the shared ListItem
+// hover/press tokens so the wrapped block (main row + speed-up/cancel actions)
+// highlights exactly like a normal row, from a single source of truth. Press is
+// web/desktop only: a pressable wrapper on native would steal the touch
+// responder from list scrolling — the row keeps its own native Pressable
+// feedback there, and native has no hover. Built once at module load.
+const PENDING_ROW_HIGHLIGHT_STYLE = {
+  hoverStyle: listItemPressStyle.hoverStyle,
+  ...(platformEnv.isNative
+    ? undefined
+    : { pressStyle: listItemPressStyle.pressStyle }),
+};
 
 type IProps = {
   index: number;
@@ -115,8 +130,12 @@ function PendingTxActions({
 
   return (
     <XStack
+      // Align the actions under the title. The inset is the row's own content
+      // padding (px="$3" = 12) plus, when an icon shows, the avatar (40 /
+      // compact 32) + gap (12). The wrapper's mx is a shared left origin for
+      // both the row and these actions, so it isn't part of this offset.
       // eslint-disable-next-line no-nested-ternary
-      pl={showIcon ? (compact ? 64 : 72) : 20}
+      pl={showIcon ? (compact ? 56 : 64) : 12}
       testID="history-list-item-speed-up-and-cancel-buttons"
       pb="$3"
     >
@@ -147,28 +166,58 @@ function BaseTxHistoryListItem(props: IProps) {
   const displayStatus = getHistoryTxDisplayStatus(historyTx);
   const isPending = displayStatus === EDecodedTxStatus.Pending;
 
+  const listView = (
+    <TxActionsListView
+      hideValue={hideValue}
+      key={historyTx.id}
+      replaceType={historyTx.replacedType}
+      decodedTx={historyTx.decodedTx}
+      tableLayout={tableLayout}
+      showIcon={showIcon}
+      componentType={ETxActionComponentType.ListView}
+      componentProps={{
+        onPress: handlePress,
+        // Pending rows lift the hover/press highlight to the wrapper below so it
+        // spans the row + the speed-up/cancel actions. Drop this row's own inset
+        // (the wrapper owns it) and clear its hover/press bg so the translucent
+        // overlay isn't painted twice. onPress stays here, so the row remains the
+        // navigation target while the sibling action buttons don't open the
+        // detail. On native these are no-ops/fallbacks (see ListItem).
+        ...(isPending && {
+          mx: 0,
+          hoverStyle: undefined,
+          pressStyle: undefined,
+        }),
+      }}
+      displayStatus={displayStatus}
+      compact={compact}
+    />
+  );
+
   return (
     <TxHistoryListItemErrorBoundary>
-      <TxActionsListView
-        hideValue={hideValue}
-        key={historyTx.id}
-        replaceType={historyTx.replacedType}
-        decodedTx={historyTx.decodedTx}
-        tableLayout={tableLayout}
-        showIcon={showIcon}
-        componentType={ETxActionComponentType.ListView}
-        componentProps={{ onPress: handlePress }}
-        displayStatus={displayStatus}
-        compact={compact}
-      />
       {isPending ? (
-        <PendingTxActions
-          historyTx={historyTx}
-          showIcon={showIcon}
-          compact={compact}
-          recomputeLayout={recomputeLayout}
-        />
-      ) : null}
+        // Wrap the row + actions so hovering/pressing anywhere highlights the
+        // whole item as one continuous, rounded block. The wrapper owns the
+        // inset, radius and highlight; the row keeps onPress + its focus ring,
+        // and the action buttons keep their own hit areas.
+        <YStack
+          mx="$2"
+          borderRadius="$3"
+          borderCurve="continuous"
+          {...PENDING_ROW_HIGHLIGHT_STYLE}
+        >
+          {listView}
+          <PendingTxActions
+            historyTx={historyTx}
+            showIcon={showIcon}
+            compact={compact}
+            recomputeLayout={recomputeLayout}
+          />
+        </YStack>
+      ) : (
+        listView
+      )}
     </TxHistoryListItemErrorBoundary>
   );
 }
