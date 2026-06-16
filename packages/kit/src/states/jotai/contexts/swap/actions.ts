@@ -1994,12 +1994,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 balanceParsed?: string;
                 reservationValue?: string;
                 logoURI?: string;
+                currency?: string;
               } = {};
               if (detailInfo[0].price) {
                 condition.price = detailInfo[0].price;
               }
               if (detailInfo[0].fiatValue) {
                 condition.fiatValue = detailInfo[0].fiatValue;
+              }
+              if (condition.price || condition.fiatValue) {
+                condition.currency = USD_CURRENCY_ID;
               }
               if (detailInfo[0].balanceParsed) {
                 condition.balanceParsed = detailInfo[0].balanceParsed;

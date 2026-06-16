@@ -152,6 +152,7 @@ describe('useSwapActions', () => {
       currency: 'usd',
     });
     expect(result.current.fromToken?.price).toBe('3000');
+    expect(result.current.fromToken?.currency).toBe('usd');
     expect(result.current.balance).toBe('1.23');
   });
 });
