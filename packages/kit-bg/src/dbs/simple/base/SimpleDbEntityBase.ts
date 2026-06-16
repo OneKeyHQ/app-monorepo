@@ -138,10 +138,21 @@ abstract class SimpleDbEntityBase<T> {
 
   @backgroundMethod()
   async clearRawData() {
-    if (this.enableCache) {
-      this.clearRawDataCache();
-    }
-    return this.appStorage.removeItem(this.entityKey);
+    // Share the entity mutex with setRawData so a "Clear cache" can't interleave
+    // with an in-flight setRawData. Without it, a setRawData builder that already
+    // captured the old rawData would still setItem() AFTER this removeItem(),
+    // resurrecting the just-cleared cache (reading the in-mutex rawData inside the
+    // builder only closes the other half of the race — where clear lands before
+    // the builder's getRawData). Serializing clear and write makes them atomic:
+    // clear either fully precedes a setRawData (its builder then reads empty) or
+    // fully follows it (it removes what was just written). Safe from re-entrancy —
+    // nothing inside calls setRawData/clearRawData.
+    return this.mutex.runExclusive(async () => {
+      if (this.enableCache) {
+        this.clearRawDataCache();
+      }
+      return this.appStorage.removeItem(this.entityKey);
+    });
   }
 }
 export { SimpleDbEntityBase };
