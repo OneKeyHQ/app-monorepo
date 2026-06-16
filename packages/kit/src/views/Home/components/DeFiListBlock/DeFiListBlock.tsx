@@ -422,7 +422,12 @@ function DeFiListBlock({
         console.error(e);
       } finally {
         isForceRefreshRef.current = false;
-        updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
+        updateDeFiListState(
+          deFiListLoadingReducer({
+            type: 'settled',
+            loadedOwnerKey: currentOwnerKey,
+          }),
+        );
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.DEFI,
@@ -478,10 +483,12 @@ function DeFiListBlock({
       merge: true,
     });
     deFiDataRef.current = defiUtils.getEmptyDeFiData();
-    updateDeFiListState({
-      ...deFiListLoadingReducer({ type: 'settled' }),
-      loadedOwnerKey: currentOwnerKey,
-    });
+    updateDeFiListState(
+      deFiListLoadingReducer({
+        type: 'settled',
+        loadedOwnerKey: currentOwnerKey,
+      }),
+    );
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -771,7 +778,12 @@ function DeFiListBlock({
       // `useAllNetworkRequests` fires `onFinished` even when `resp` is
       // null (no positions), where the downstream `allNetworksResult`
       // effect would otherwise skip clearing the loading flag pair.
-      updateDeFiListState(deFiListLoadingReducer({ type: 'settled' }));
+      updateDeFiListState(
+        deFiListLoadingReducer({
+          type: 'settled',
+          loadedOwnerKey: buildDeFiListOwnerKey({ accountId, networkId }),
+        }),
+      );
     },
     [refreshCacheOnly, updateAllNetworkData, updateDeFiListState],
   );
