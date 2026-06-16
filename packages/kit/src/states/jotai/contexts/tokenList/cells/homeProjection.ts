@@ -88,8 +88,8 @@ function isDappMarkedMeta(meta: IToken | undefined): boolean {
 /**
  * Stable comparator helpers replicating the BigNumber + fallback semantics of
  * `sortTokensByFiatValue` (fiatValue ?? -1, NaN -> -1) and `sortTokensByPrice`
- * (price ?? 0, NaN -> 0) EXACTLY (spec §11.4 risk #1). Do NOT use `sortKeyFor`
- * (Number + 0 fallback) — it diverges on missing fiat for the Value sort.
+ * (price ?? 0, NaN -> 0) EXACTLY (spec §11.4 risk #1). Do NOT collapse missing
+ * fiat to 0 here — it diverges from the -1 fallback for the Value sort.
  */
 function fiatValueOf(fiat: ITokenFiat | undefined): BigNumber {
   const n = new BigNumber(fiat?.fiatValue ?? -1);

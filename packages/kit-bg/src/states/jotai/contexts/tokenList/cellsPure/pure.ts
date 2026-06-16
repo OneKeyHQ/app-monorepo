@@ -179,18 +179,6 @@ export function shallowEqualArrayOf<T>(a: T[], b: T[]): boolean {
   return true;
 }
 
-/**
- * Numeric sort key for a fiat frame (spec §11.1): plain Number, NO BigNumber
- * comparison. Missing / unparseable fiatValue collapses to 0.
- */
-export function sortKeyFor(fiat?: ITokenFiat): number {
-  if (!fiat) {
-    return 0;
-  }
-  const n = Number(fiat.fiatValue);
-  return Number.isFinite(n) ? n : 0;
-}
-
 export interface IComputeNonZeroIdsParams {
   ids: string[];
   getFiat: (key: string) => ITokenFiat | undefined;
@@ -207,8 +195,9 @@ export interface IComputeNonZeroIdsParams {
  *   2. keepDefault AND homeDefaultTokenMap hit AND (isNative || isAggregate), OR
  *   3. keepDefault AND customTokens hit ($key match OR address+networkId match).
  *
- * NOTE: in Phase-1 the result `nonZeroIds` is dead-weight (no consumer; the
- * view still filters off the whole map). It is wired for Phase-2 (spec §8#2).
+ * `nonZeroIds` is the home hideZero authority: `TokenListFooter` filters its
+ * count off membership in this set, and the cold-start bundle persists it so a
+ * hideZero cold start paints the kept set at T0 (spec §8#2).
  */
 export function computeNonZeroIds(params: IComputeNonZeroIdsParams): string[] {
   const {
@@ -260,7 +249,6 @@ export function computeNonZeroIds(params: IComputeNonZeroIdsParams): string[] {
 export interface IComputeFundedIdsParams {
   ids: string[];
   getFiat: (key: string) => ITokenFiat | undefined;
-  getMeta: (key: string) => IAccountToken | IToken | undefined;
 }
 
 /**
@@ -277,10 +265,6 @@ export interface IComputeFundedIdsParams {
  * is nonempty iff at least one token actually holds a positive balance, so it
  * will NOT latch a fresh 0-balance account as funded (which `nonZeroIds` would
  * via keepDefault) and wrongly hide the Add-money CTA.
- *
- * `getMeta` is accepted for signature/parity symmetry with `computeNonZeroIds`
- * and to leave room for future risk-level gating without a call-site churn; the
- * balance>0 rule alone already excludes risky zero-balance tokens.
  */
 export function computeFundedIds(params: IComputeFundedIdsParams): string[] {
   const { ids, getFiat } = params;

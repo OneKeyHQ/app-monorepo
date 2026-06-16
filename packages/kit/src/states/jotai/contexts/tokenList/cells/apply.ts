@@ -294,8 +294,11 @@ export function applyStructureSnapshot(
 }
 
 /**
- * applyValuationFrame (spec §4). Runs on every fiat tick. Carries only changed
- * values. Guards: identity check + owner guard. NOT gated by generation, NEVER
+ * applyValuationFrame (spec §4). Runs on every fetch round. The frame carries
+ * the FULL current fiat map (idempotent snapshot, not a delta — see
+ * IValuationFrame); this per-cell write loop is what makes it effectively
+ * changed-only, skipping a `set` when `fiatEqual` holds so unchanged cells never
+ * notify. Guards: identity check + owner guard. NOT gated by generation, NEVER
  * lazy-builds cells (would create orphans).
  *   - changedFiatById: write ONLY existing normal cells (P.cells.has, else
  *     skip) via fiatEqual (no notification when value unchanged).

@@ -11,7 +11,6 @@ export {
   isAgg,
   metaEqual,
   shallowEqualArrayOf,
-  sortKeyFor,
   sumAggregateEntry,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 export type { IComputeNonZeroIdsParams } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';

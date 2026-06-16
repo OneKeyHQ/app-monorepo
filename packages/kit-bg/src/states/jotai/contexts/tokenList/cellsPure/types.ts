@@ -91,9 +91,14 @@ export interface IStructureSnapshot {
 }
 
 /**
- * Valuation frame — emitted on every fiat tick. Carries only changed values.
- * Aggregate tokens flow through the dedicated `changedAggFiat` per-network
- * channel (spec §4, §3.1), never through `changedFiatById`.
+ * Valuation frame — emitted on every fetch round. Carries the FULL current fiat
+ * map (a complete, idempotent snapshot), NOT a delta: this is deliberate so a
+ * frame dropped by the lossy appEventBus self-heals on the next round. The
+ * per-cell `fiatEqual` guard in `applyValuationFrame` is what makes it
+ * effectively changed-only at the RENDER layer (no notify when a value is
+ * unchanged), not at the wire layer. Aggregate tokens flow through the dedicated
+ * `changedAggFiat` per-network channel (spec §4, §3.1), never through
+ * `changedFiatById`.
  */
 export interface IValuationFrame {
   changedFiatById: Record<ITokenKey, ITokenFiat>;

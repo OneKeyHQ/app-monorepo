@@ -15,10 +15,12 @@
  *     MUST stay synchronous: NO await / nextTick / microtask. BG nextTick is
  *     dead on v6.3.0 Android, so any async hop would silently hang the VM.
  *
- * PR-1 STATUS (design §5 step 2): DARK / flag-OFF. The home refresh flow
- * dual-writes into this service only when its module flag is ON (default OFF),
- * and the UI is NOT driven by these frames yet (the existing
- * `useTokenListCellsProducer` + legacy atoms still own the UI). Cut-over is PR-2.
+ * CUT-OVER COMPLETE (design §5 step 2): this service is the authoritative frame
+ * source. The home refresh flow feeds it every settled round via `ingestRound`
+ * (guarded by the always-on `ENABLE_BG_TOKEN_VIEW_MODEL` kill-switch in
+ * `TokenListBlock`), and the UI consumes the pushed/pulled frames through
+ * `useTokenListCellsProducer` + `useHomeTokenListSnapshot`. The legacy aggregate
+ * atoms are deleted.
  */
 import {
   backgroundClass,
@@ -37,7 +39,10 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
-import { buildFrames } from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
+import {
+  buildFrames,
+  metaByKeyFromTokens,
+} from '../states/jotai/contexts/tokenList/cellsPure/buildFrames';
 
 import ServiceBase from './ServiceBase';
 
@@ -373,7 +378,7 @@ class ServiceTokenViewModel extends ServiceBase {
         ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
       };
       vm.lastScalar = structure.smallBalanceFiatValue;
-      vm.lastMetaByKey = this.metaByKeyFromTokens([
+      vm.lastMetaByKey = metaByKeyFromTokens([
         ...orderedTokens,
         ...smallBalanceTokens,
       ]);
@@ -574,22 +579,6 @@ class ServiceTokenViewModel extends ServiceBase {
       ...riskyMap,
       ...flattenAggregateTokensMap(aggregateTokensMap),
     };
-  }
-
-  /**
-   * `$key -> IToken` snapshot (stripping `$key`) for meta-change detection.
-   * Mirrors the relocated `metaByKeyFromTokens` so the BG keeps an internal,
-   * synchronous copy without reaching into the UI producer.
-   */
-  private metaByKeyFromTokens(
-    tokens: IAccountToken[],
-  ): Record<ITokenKey, IToken> {
-    const out: Record<ITokenKey, IToken> = {};
-    for (const token of tokens) {
-      const { $key, ...rest } = token;
-      out[$key] = rest;
-    }
-    return out;
   }
 }
 

@@ -293,7 +293,6 @@ export function buildFrames(
   const fundedIds: ITokenKey[] = computeFundedIds({
     ids: allListIds,
     getFiat: getAggAwareFiat,
-    getMeta: (key) => metaPatch[key],
   });
 
   // --- valuation: normal token fiat ---------------------------------------

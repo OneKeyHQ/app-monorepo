@@ -4,7 +4,6 @@ import {
   fiatEqual,
   isAgg,
   metaEqual,
-  sortKeyFor,
   sumAggregateEntry,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/pure';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -134,30 +133,6 @@ describe('isAgg', () => {
   });
 });
 
-describe('sortKeyFor', () => {
-  it('missing fiat -> 0', () => {
-    expect(sortKeyFor(undefined)).toBe(0);
-  });
-
-  it('unparseable fiatValue -> 0', () => {
-    expect(sortKeyFor(makeFiat({ fiatValue: 'not-a-number' }))).toBe(0);
-  });
-
-  it('returns numeric fiatValue (plain Number)', () => {
-    expect(sortKeyFor(makeFiat({ fiatValue: '42.5' }))).toBe(42.5);
-  });
-
-  it('sorts descending stably', () => {
-    const fiats = [
-      makeFiat({ fiatValue: '1' }),
-      makeFiat({ fiatValue: '3' }),
-      makeFiat({ fiatValue: '2' }),
-    ];
-    const sorted = [...fiats].toSorted((a, b) => sortKeyFor(b) - sortKeyFor(a));
-    expect(sorted.map((f) => f.fiatValue)).toEqual(['3', '2', '1']);
-  });
-});
-
 describe('computeNonZeroIds', () => {
   const homeDefaultTokenMap = {
     // buildHomeDefaultTokenMapKey({ networkId: 'evm--1', symbol: 'ETH' })
@@ -275,7 +250,7 @@ describe('computeFundedIds (STRICT balance>0, PR-0 enabler)', () => {
       homeDefaultTokenMap,
       customTokens: [{ address: '0xcustom', networkId: 'evm--1' } as never],
     });
-    const funded = computeFundedIds({ ids, getFiat, getMeta });
+    const funded = computeFundedIds({ ids, getFiat });
 
     expect(nonZero).toEqual(['hasBalance', 'defaultNative', 'customHit']);
     expect(funded).toEqual(['hasBalance']);
@@ -295,7 +270,6 @@ describe('computeFundedIds (STRICT balance>0, PR-0 enabler)', () => {
       computeFundedIds({
         ids: ['a', 'b'],
         getFiat: () => makeFiat({ balance: '0' }),
-        getMeta: () => makeToken(),
       }),
     ).toEqual([]);
 
@@ -308,7 +282,6 @@ describe('computeFundedIds (STRICT balance>0, PR-0 enabler)', () => {
       computeFundedIds({
         ids: ['a', 'b'],
         getFiat: (k) => fiats[k],
-        getMeta: () => makeToken(),
       }),
     ).toEqual(['b']);
   });
@@ -317,8 +290,6 @@ describe('computeFundedIds (STRICT balance>0, PR-0 enabler)', () => {
     const funded = computeFundedIds({
       ids: ['defaultNative'],
       getFiat: () => makeFiat({ balance: '0' }),
-      getMeta: () =>
-        makeToken({ networkId: 'evm--1', symbol: 'ETH', isNative: true }),
     });
     expect(funded).toEqual([]);
   });
