@@ -244,9 +244,13 @@ export default class Vault extends VaultBase {
     // fold a sub-dust change into the fee so the tx carries a single output and
     // its storage mass collapses to ~0.
     if (isKRC20) {
-      const feeValue = new BigNumber(
-        encodedTx.feeInfo?.price ?? DEFAULT_FEE_RATE,
-      ).multipliedBy(encodedTx.mass);
+      // Price the guard on the transaction's ACTUAL fee. toTransaction() bases
+      // the fee on the COMPUTE mass (capped via Math.min), never on the inflated
+      // KIP-0009 storage mass that encodedTx.mass carries. Multiplying price by
+      // encodedTx.mass would overestimate the fee, drive changeValue negative and
+      // stop the guard from ever firing at elevated fee rates — the exact case
+      // this guard exists to catch. txn already holds the built transaction.
+      const feeValue = new BigNumber(txn.getFee());
       const sumInputs = encodedTx.inputs.reduce(
         (acc, input) => acc.plus(input.satoshis),
         new BigNumber(0),
