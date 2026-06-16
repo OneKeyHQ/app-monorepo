@@ -20,6 +20,9 @@ export type IPortfolioSyncSettledPayload =
 export type IPortfolioSyncArtifacts = {
   contentHash: string;
   mockArchiveBytes: ArrayBuffer;
+  mockPortfolio: IPortfolioPayload;
+  mockPortfolioJsonBytes: Uint8Array;
+  mockPortfolioJsonText: string;
   portfolio: IPortfolioPayload;
   portfolioJsonBytes: Uint8Array;
   portfolioJsonText: string;
@@ -55,6 +58,18 @@ export function isPortfolioSyncDevEnabled({
   return devSettings.settings?.enablePortfolioSyncDev ?? runtimeDevEnabled;
 }
 
+function buildServerSubmitPortfolio(
+  mockPortfolio: IPortfolioPayload,
+): IPortfolioPayload {
+  return {
+    ...mockPortfolio,
+    tokens: mockPortfolio.tokens.map((token) => ({
+      ...token,
+      iconName: null,
+    })),
+  };
+}
+
 export function buildPortfolioSyncArtifacts({
   currencyMap,
   displayCurrency,
@@ -69,7 +84,7 @@ export function buildPortfolioSyncArtifacts({
   eventPayload: IPortfolioSyncSettledPayload;
   timestamp: number;
 }): IPortfolioSyncArtifacts {
-  const portfolio = buildPortfolioPayload({
+  const mockPortfolio = buildPortfolioPayload({
     account: {
       addressMasked: accountUtils.shortenAddress({
         address: eventPayload.accountAddress,
@@ -83,11 +98,14 @@ export function buildPortfolioSyncArtifacts({
     tokenMap: eventPayload.tokenMap,
     tokens: eventPayload.tokens,
   });
+  const portfolio = buildServerSubmitPortfolio(mockPortfolio);
   const portfolioJsonText = stringUtils.stableStringify(portfolio);
   const portfolioJsonBytes = Buffer.from(portfolioJsonText, 'utf8');
+  const mockPortfolioJsonText = stringUtils.stableStringify(mockPortfolio);
+  const mockPortfolioJsonBytes = Buffer.from(mockPortfolioJsonText, 'utf8');
   const mockArchiveBytes = packPortfolioArchive([
     {
-      bytes: portfolioJsonBytes,
+      bytes: mockPortfolioJsonBytes,
       name: 'portfolio.json',
     },
   ]);
@@ -95,6 +113,9 @@ export function buildPortfolioSyncArtifacts({
   return {
     contentHash: buildPortfolioPayloadHash(portfolio),
     mockArchiveBytes,
+    mockPortfolio,
+    mockPortfolioJsonBytes,
+    mockPortfolioJsonText,
     portfolio,
     portfolioJsonBytes,
     portfolioJsonText,

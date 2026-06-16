@@ -78,7 +78,7 @@ describe('servicePortfolioSyncUtils', () => {
     ).toBe(0);
   });
 
-  test('builds portfolio.json bytes and mock archive bytes from a settled token list', () => {
+  test('builds server portfolio.json without trusted iconName and mock signed payload with iconName', () => {
     const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
       {
         accountAddress: '0x1234567890abcdef',
@@ -92,12 +92,30 @@ describe('servicePortfolioSyncUtils', () => {
         ownerNetworkId: 'all--networks',
         tokenMap: {
           eth: buildFiat({ fiatValue: '100', price: 100 }),
+          'fake-usdt': buildFiat({ fiatValue: '99', price: 1 }),
+          'real-usdt': buildFiat({ fiatValue: '98', price: 1 }),
         },
         tokens: [
           buildToken({
             $key: 'eth',
             coingeckoId: 'ethereum',
             networkId: 'evm--1',
+          }),
+          buildToken({
+            $key: 'fake-usdt',
+            address: '0x0000000000000000000000000000000000000001',
+            isNative: false,
+            name: 'Tether USD',
+            networkId: 'evm--1',
+            symbol: 'USDT',
+          }),
+          buildToken({
+            $key: 'real-usdt',
+            address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+            isNative: false,
+            name: 'Tether USD',
+            networkId: 'evm--1',
+            symbol: 'USDT',
           }),
         ],
         walletId: 'hw-1',
@@ -133,18 +151,46 @@ describe('servicePortfolioSyncUtils', () => {
         label: 'Account #1',
       },
       currency: 'cny',
-      totalFiat: '700',
+      totalFiat: '2079',
       tokens: [
         {
           contractAddress: '',
           fiatValue: '700',
-          iconName: 'ETH',
+          iconName: null,
           isAllNetworks: false,
           isNative: true,
           price: 700,
         },
+        {
+          contractAddress: '0x0000000000000000000000000000000000000001',
+          fiatValue: '693',
+          iconName: null,
+          isAllNetworks: false,
+          isNative: false,
+          price: 7,
+        },
+        {
+          contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+          fiatValue: '686',
+          iconName: null,
+          isAllNetworks: false,
+          isNative: false,
+          price: 7,
+        },
       ],
     });
+    const mockPortfolioJson = JSON.parse(
+      Buffer.from(artifacts.mockPortfolioJsonBytes).toString('utf8'),
+    ) as typeof portfolio;
+
+    expect(
+      artifacts.mockPortfolio.tokens.map((token) => token.iconName),
+    ).toEqual(['ETH', null, 'USDT']);
+    expect(mockPortfolioJson.tokens.map((token) => token.iconName)).toEqual([
+      'ETH',
+      null,
+      'USDT',
+    ]);
     expect(portfolio.tokens[0]).not.toHaveProperty('icon');
     expect(artifacts.contentHash).toMatch(/^[\da-f]{64}$/);
     expect(artifacts.contentHash).not.toContain('cny');
@@ -153,7 +199,7 @@ describe('servicePortfolioSyncUtils', () => {
     expect(view.getUint32(0, true)).toBe(0x52_41_4b_4f);
     expect(view.getUint32(6, true)).toBe(1);
     expect(artifacts.mockArchiveBytes.byteLength).toBeGreaterThan(
-      artifacts.portfolioJsonBytes.byteLength,
+      artifacts.mockPortfolioJsonBytes.byteLength,
     );
   });
 });
