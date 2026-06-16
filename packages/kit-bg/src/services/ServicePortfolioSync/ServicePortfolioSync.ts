@@ -382,15 +382,26 @@ class ServicePortfolioSync extends ServiceBase {
         return;
       }
 
+      // Reserve this content hash synchronously with the duplicate check above
+      // — with NO await in between — so a concurrent invocation observes the
+      // reservation at its own duplicate check and is skipped instead of
+      // double-uploading the same snapshot. The hardware path below awaits
+      // isHardwareChannelBusy, so reserving here (rather than after that await)
+      // is what actually closes the race on the device-upload path. Released on
+      // every non-success exit (hardware-busy below, error catch) and on
+      // success via commitProcessedArtifacts, so retries stay open.
+      this.inFlightContentHash = artifacts.contentHash;
+
       if (isHardwareWallet && deviceConnectId) {
         const hardwareBusy =
           await this.backgroundApi.serviceHardwareUI.isHardwareChannelBusy({
             connectId: deviceConnectId,
           });
         if (hardwareBusy) {
-          // Do not commit dedup state here: this snapshot was never uploaded,
-          // so an identical settled event must be allowed to retry once the
-          // hardware channel frees up.
+          // Release the reservation and do not commit dedup state: this
+          // snapshot was never uploaded, so an identical settled event must be
+          // allowed to retry once the hardware channel frees up.
+          this.inFlightContentHash = undefined;
           debugPortfolioSyncLog('skip-hardware-busy', {
             contentHash: artifacts.contentHash,
           });
@@ -406,11 +417,6 @@ class ServicePortfolioSync extends ServiceBase {
         }
       }
 
-      // Reserve this content hash while the (async) submit/upload is in flight
-      // so a concurrent invocation treats it as a duplicate instead of
-      // uploading the same snapshot twice. Cleared on success (via
-      // commitProcessedArtifacts) or on failure (catch), so retries stay open.
-      this.inFlightContentHash = artifacts.contentHash;
       const serverSubmit = await this.submitPortfolioJsonToServer({
         artifacts,
       });
