@@ -13,6 +13,9 @@ const { generateChartHTML } =
 const { getLightweightChartsRuntimeScriptTag } = jest.requireActual<
   typeof import('./lightweightChartsRuntime')
 >('./lightweightChartsRuntime');
+const { resolveSerializablePriceFormatterType } = jest.requireActual<
+  typeof import('./priceFormatterType')
+>('./priceFormatterType');
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('inlines the lightweight-charts runtime without remote script loading', () => {
@@ -41,5 +44,31 @@ describe('getLightweightChartsRuntimeScriptTag', () => {
     expect(html).toContain('LightweightCharts');
     expect(html).not.toContain('<script src=');
     expect(html).not.toContain('unpkg.com');
+  });
+});
+
+describe('resolveSerializablePriceFormatterType', () => {
+  it('keeps dotted area charts on numeric axis labels', () => {
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'dotted-area',
+        priceFormatter: (value) => `${value}%`,
+      }),
+    ).toBe('number');
+  });
+
+  it('infers percent and usd formatter output for native WebView', () => {
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'baseline',
+        priceFormatter: (value) => `${value.toFixed(2)}%`,
+      }),
+    ).toBe('percent');
+    expect(
+      resolveSerializablePriceFormatterType({
+        seriesType: 'area',
+        priceFormatter: (value) => `$${value.toFixed(2)}`,
+      }),
+    ).toBe('usd');
   });
 });

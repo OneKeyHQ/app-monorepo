@@ -5,6 +5,7 @@ import { useTheme } from '@tamagui/core';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
+import { resolveSerializablePriceFormatterType } from '../utils/priceFormatterType';
 
 import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -52,13 +53,10 @@ export function useChartConfig({
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
   const resolvedSeriesType = seriesType ?? 'area';
-  let priceFormatterType: ILightweightChartConfig['priceFormatterType'] =
-    'percent';
-  if (resolvedSeriesType === 'dotted-area') {
-    priceFormatterType = 'number';
-  } else if (priceFormatter) {
-    priceFormatterType = 'usd';
-  }
+  const priceFormatterType = resolveSerializablePriceFormatterType({
+    seriesType: resolvedSeriesType,
+    priceFormatter,
+  });
   const priceFormatterTickStep =
     resolvedSeriesType === 'dotted-area' ? 2 : undefined;
 
