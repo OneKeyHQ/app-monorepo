@@ -84,22 +84,34 @@ type ILocalSecretEnvelopeE2ESelfTestResult = {
   verifyStringStrength: ILocalSecretEnvelopeStrength;
 };
 
-type ILocalSecretEnvelopeRestoreSelfTestResult = {
-  backupPortableCredentialPrefix: string;
-  backupRejectsRawLocalSecretEnvelope: boolean;
-  credentialLayerKinds: ILocalSecretEnvelopeLayerKind[];
-  credentialStrength: ILocalSecretEnvelopeStrength;
-  innerCredentialPrefix: string;
-  primeTransferPortableCredentialPrefix: string;
-  primeTransferRejectsRawLocalSecretEnvelope: boolean;
-  rawCredentialIsLse: boolean;
-  runtimePlatform: string;
-};
-
 type ILocalSecretEnvelopeE2ESelfTestOptions = {
   expectedCredentialLayerKinds?: ILocalSecretEnvelopeLayerKind[];
   expectedRuntimePlatform?: ILocalSecretEnvelopeRuntimePlatform;
   expectedStrength?: ILocalSecretEnvelopeStrength;
+};
+
+export type ILocalSecretEnvelopeE2ECheckpointStatus =
+  | 'passed'
+  | 'failed'
+  | 'skipped';
+
+export type ILocalSecretEnvelopeE2ECheckpoint = {
+  group: string;
+  label: string;
+  status: ILocalSecretEnvelopeE2ECheckpointStatus;
+  detail?: string;
+};
+
+export type ILocalSecretEnvelopeE2ETestReport = {
+  testName: string;
+  runtimePlatform: string;
+  passed: boolean;
+  passedCount: number;
+  failedCount: number;
+  skippedCount: number;
+  checkpoints: ILocalSecretEnvelopeE2ECheckpoint[];
+  // Condensed raw result kept for "copy raw JSON" debugging.
+  summary?: Record<string, unknown>;
 };
 
 const LOCAL_SECRET_ENVELOPE_E2E_PASSWORD = 'onekey-lse-e2e-password';
@@ -139,6 +151,93 @@ function assertLocalSecretEnvelopeLayerKinds({
     )}, got ${actualLayerKinds.join(',')}`,
   );
 }
+
+function localSecretEnvelopeLayerKindsEqual(
+  actualLayerKinds: ILocalSecretEnvelopeLayerKind[],
+  expectedLayerKinds: ILocalSecretEnvelopeLayerKind[],
+): boolean {
+  return (
+    actualLayerKinds.length === expectedLayerKinds.length &&
+    actualLayerKinds.every((kind, index) => kind === expectedLayerKinds[index])
+  );
+}
+
+function getLocalSecretEnvelopeE2EErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+// Collects per-checkpoint pass/fail/skip results so the self-test can run to
+// the end and report every checkpoint, instead of throwing on first failure.
+function createLocalSecretEnvelopeE2EReporter() {
+  const checkpoints: ILocalSecretEnvelopeE2ECheckpoint[] = [];
+
+  const pass = (group: string, label: string, detail?: string) => {
+    checkpoints.push({ group, label, status: 'passed', detail });
+  };
+
+  const fail = (group: string, label: string, detail?: string) => {
+    checkpoints.push({ group, label, status: 'failed', detail });
+  };
+
+  const skip = (group: string, label: string, detail?: string) => {
+    checkpoints.push({ group, label, status: 'skipped', detail });
+  };
+
+  // Records a boolean assertion as a checkpoint and returns the condition so
+  // callers can branch (e.g. stop early when a hard precondition fails).
+  const check = (
+    group: string,
+    label: string,
+    condition: boolean,
+    detail?: string,
+  ): boolean => {
+    if (condition) {
+      pass(group, label, detail);
+    } else {
+      fail(group, label, detail);
+    }
+    return condition;
+  };
+
+  const toReport = ({
+    testName,
+    runtimePlatform,
+    summary,
+  }: {
+    testName: string;
+    runtimePlatform: string;
+    summary?: Record<string, unknown>;
+  }): ILocalSecretEnvelopeE2ETestReport => {
+    const passedCount = checkpoints.filter(
+      (item) => item.status === 'passed',
+    ).length;
+    const failedCount = checkpoints.filter(
+      (item) => item.status === 'failed',
+    ).length;
+    const skippedCount = checkpoints.filter(
+      (item) => item.status === 'skipped',
+    ).length;
+    return {
+      checkpoints,
+      failedCount,
+      passed: failedCount === 0 && passedCount > 0,
+      passedCount,
+      runtimePlatform,
+      skippedCount,
+      summary,
+      testName,
+    };
+  };
+
+  return { check, fail, pass, skip, toReport };
+}
+
+type ILocalSecretEnvelopeE2EReporter = ReturnType<
+  typeof createLocalSecretEnvelopeE2EReporter
+>;
 
 async function removeLocalSecretEnvelopeLayerKey({
   keyRef,
@@ -431,175 +530,38 @@ class ServiceE2E extends ServiceBase {
     return envelope;
   }
 
-  async addAndVerifyLocalSecretEnvelopeDebugCredential({
+  async collectLocalSecretEnvelopeDebugCredentialCheckpoints({
     credentialId,
     expectedLayerKinds,
     expectedStrength,
+    group,
     layerAdapters,
     password,
+    reporter,
     seedMarker,
   }: {
     credentialId: string;
     expectedLayerKinds: ILocalSecretEnvelopeLayerKind[];
     expectedStrength: ILocalSecretEnvelopeStrength;
+    group: string;
     layerAdapters: ILocalSecretEnvelopeLayerAdapter[];
     password: string;
+    reporter: ILocalSecretEnvelopeE2EReporter;
     seedMarker: string;
-  }): Promise<ILocalSecretEnvelopeV1> {
+  }): Promise<ILocalSecretEnvelopeV1 | undefined> {
     const revealableSeed = {
       entropyWithLangPrefixed: `english:00010203${seedMarker}`,
       seed: `seed-hex-${seedMarker}`,
     };
-    const credential = await encryptRevealableSeed({
-      password,
-      rs: revealableSeed,
-    });
-    const wrappedCredential = await wrapLocalSecretEnvelopeV1({
-      dataType: 'credential',
-      layerAdapters,
-      plaintext: credential,
-      recordId: credentialId,
-      strength: expectedStrength,
-    });
-
-    await localDb.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      await localDb.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            credential: wrappedCredential,
-            id: credentialId,
-          } satisfies IDBCredentialBase,
-        ],
-      });
-    });
-
-    const rawCredential = await localDb.getCredentialRaw(credentialId);
-    const envelope = parseLocalSecretEnvelopeV1(rawCredential.credential);
-    assertLocalSecretEnvelopeLayerKinds({
-      actualLayerKinds: getLocalSecretEnvelopeLayerKinds(envelope),
-      expectedLayerKinds,
-      label: 'debug credential',
-    });
-    assertLocalSecretEnvelopeE2E(
-      envelope.strength === expectedStrength,
-      `Local secret envelope debug credential strength mismatch: expected ${expectedStrength}, got ${envelope.strength}`,
-    );
-
-    const resolveLayerAdapter =
-      buildLocalSecretEnvelopeLayerAdapterResolver(layerAdapters);
-    if (!resolveLayerAdapter) {
-      throw new OneKeyLocalError(
-        'Local secret envelope debug layer adapter resolver is unavailable',
-      );
-    }
-    const innerCredential = await localDb.getCredentialInner({
-      credentialId,
-      resolveLayerAdapter,
-    });
-    const decrypted = await decryptRevealableSeedWithMetadata({
-      password,
-      rs: innerCredential.credential,
-    });
-    assertLocalSecretEnvelopeE2E(
-      decrypted.plaintext.seed === revealableSeed.seed &&
-        decrypted.plaintext.entropyWithLangPrefixed ===
-          revealableSeed.entropyWithLangPrefixed &&
-        !decrypted.needsUpgrade,
-      'E2E debug credential cannot be read back from local secret envelope',
-    );
-
-    return envelope;
-  }
-
-  async checkLocalSecretEnvelopeCredentialReadBlocked({
-    credentialId,
-  }: {
-    credentialId: string;
-  }): Promise<boolean> {
     try {
-      await localDb.getCredentialInner({ credentialId });
-      return false;
-    } catch {
-      return true;
-    }
-  }
-
-  @backgroundMethodForDev()
-  async runLocalSecretEnvelopeRestoreSelfTest(
-    params: IBackgroundMethodWithDevOnlyPassword,
-    options: ILocalSecretEnvelopeE2ESelfTestOptions = {},
-  ): Promise<ILocalSecretEnvelopeRestoreSelfTestResult> {
-    checkDevOnlyPassword(params);
-    let credentialEnvelope: ILocalSecretEnvelopeV1 | undefined;
-    const runId = `${Date.now().toString(36)}-${generateUUID({
-      removeDashes: true,
-    }).slice(0, 6)}`;
-    const credentialId = buildLocalSecretEnvelopeRestoreCredentialId({
-      runId,
-    });
-
-    try {
-      const config =
-        await localDb.buildLocalSecretEnvelopeCredentialMigrationConfig();
-      if (!config) {
-        throw new OneKeyLocalError(
-          'Local secret envelope restore config is unavailable',
-        );
-      }
-
-      const runtimePlatform = config.runtimePlatform ?? 'unknown';
-      const configuredLayerKinds = config.layerAdapters.map(
-        (adapter) => adapter.kind,
-      );
-      const expectedLayerKinds =
-        options.expectedCredentialLayerKinds ?? configuredLayerKinds;
-      const expectedStrength = options.expectedStrength ?? config.strength;
-
-      if (options.expectedRuntimePlatform) {
-        assertLocalSecretEnvelopeE2E(
-          runtimePlatform === options.expectedRuntimePlatform,
-          `Local secret envelope restore runtime platform mismatch: expected ${options.expectedRuntimePlatform}, got ${runtimePlatform}`,
-        );
-      }
-      assertLocalSecretEnvelopeE2E(
-        expectedLayerKinds.length > 0,
-        'Local secret envelope restore self-test requires at least one expected layer',
-      );
-      assertLocalSecretEnvelopeLayerKinds({
-        actualLayerKinds: configuredLayerKinds,
-        expectedLayerKinds,
-        label: 'restore config',
-      });
-      assertLocalSecretEnvelopeE2E(
-        config.strength === expectedStrength,
-        `Local secret envelope restore config strength mismatch: expected ${expectedStrength}, got ${config.strength}`,
-      );
-
-      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
-        config.layerAdapters,
-      );
-      if (!resolveLayerAdapter) {
-        throw new OneKeyLocalError(
-          'Local secret envelope restore layer adapter resolver is unavailable',
-        );
-      }
-
-      const password = await encodePasswordAsync({
-        password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
-      });
-      const importedCredential = {
-        privateKey: 'private-key-hex',
-      };
-      const portableCredential = await encryptImportedCredential({
+      const credential = await encryptRevealableSeed({
         password,
-        credential: importedCredential,
+        rs: revealableSeed,
       });
       const wrappedCredential = await wrapLocalSecretEnvelopeV1({
         dataType: 'credential',
-        layerAdapters: config.layerAdapters,
-        plaintext: portableCredential,
+        layerAdapters,
+        plaintext: credential,
         recordId: credentialId,
         strength: expectedStrength,
       });
@@ -621,104 +583,406 @@ class ServiceE2E extends ServiceBase {
       );
 
       const rawCredential = await localDb.getCredentialRaw(credentialId);
-      assertLocalSecretEnvelopeE2E(
-        isLocalSecretEnvelopeString(rawCredential.credential),
-        'Local secret envelope restore credential was not stored as raw LSE',
+      const envelope = parseLocalSecretEnvelopeV1(rawCredential.credential);
+      const actualLayerKinds = getLocalSecretEnvelopeLayerKinds(envelope);
+      reporter.check(
+        group,
+        'Stored as LSE with expected layers',
+        isLocalSecretEnvelopeString(rawCredential.credential) &&
+          localSecretEnvelopeLayerKindsEqual(
+            actualLayerKinds,
+            expectedLayerKinds,
+          ),
+        `expected ${expectedLayerKinds.join(',')}, got ${actualLayerKinds.join(
+          ',',
+        )}`,
       );
-      credentialEnvelope = parseLocalSecretEnvelopeV1(rawCredential.credential);
-      assertLocalSecretEnvelopeLayerKinds({
-        actualLayerKinds: getLocalSecretEnvelopeLayerKinds(credentialEnvelope),
-        expectedLayerKinds,
-        label: 'restore credential',
-      });
-      assertLocalSecretEnvelopeE2E(
-        credentialEnvelope.strength === expectedStrength,
-        `Local secret envelope restore credential strength mismatch: expected ${expectedStrength}, got ${credentialEnvelope.strength}`,
+      reporter.check(
+        group,
+        'Credential strength matches expected',
+        envelope.strength === expectedStrength,
+        `expected ${expectedStrength}, got ${envelope.strength}`,
       );
 
+      const resolveLayerAdapter =
+        buildLocalSecretEnvelopeLayerAdapterResolver(layerAdapters);
+      if (!resolveLayerAdapter) {
+        reporter.fail(
+          group,
+          'Inner seed decrypts back',
+          'layer adapter resolver is unavailable',
+        );
+        return envelope;
+      }
       const innerCredential = await localDb.getCredentialInner({
         credentialId,
         resolveLayerAdapter,
       });
-      assertLocalSecretEnvelopeE2E(
-        innerCredential.credential.startsWith('|PK|'),
-        'Local secret envelope restore inner credential is not portable |PK|',
-      );
-      const decryptedCredential = await decryptImportedCredentialWithMetadata({
+      const decrypted = await decryptRevealableSeedWithMetadata({
         password,
-        credential: innerCredential.credential,
+        rs: innerCredential.credential,
       });
-      assertLocalSecretEnvelopeE2E(
-        decryptedCredential.plaintext.privateKey ===
-          importedCredential.privateKey && !decryptedCredential.needsUpgrade,
-        'Local secret envelope restore inner credential cannot be decrypted',
+      reporter.check(
+        group,
+        'Inner seed decrypts back',
+        decrypted.plaintext.seed === revealableSeed.seed &&
+          decrypted.plaintext.entropyWithLangPrefixed ===
+            revealableSeed.entropyWithLangPrefixed &&
+          !decrypted.needsUpgrade,
       );
 
-      const backupCredentials = await buildLegacyCredentialsForCloudBackup({
-        credentials: {
-          [credentialId]: innerCredential.credential,
-        },
-        password,
-      });
-      const backupCredential = backupCredentials[credentialId];
-      assertLocalSecretEnvelopeE2E(
-        typeof backupCredential === 'string' &&
-          backupCredential.startsWith('|PK|') &&
-          backupCredential !== rawCredential.credential,
-        'Cloud Backup restore self-test did not produce portable |PK| credential',
+      return envelope;
+    } catch (error) {
+      reporter.fail(
+        group,
+        'Create & read credential',
+        getLocalSecretEnvelopeE2EErrorMessage(error),
       );
+      return undefined;
+    }
+  }
 
-      let backupRejectsRawLocalSecretEnvelope = false;
-      try {
-        await buildLegacyCredentialsForCloudBackup({
-          credentials: {
-            [credentialId]: rawCredential.credential,
-          },
-          password,
-        });
-      } catch {
-        backupRejectsRawLocalSecretEnvelope = true;
+  async checkLocalSecretEnvelopeCredentialReadBlocked({
+    credentialId,
+  }: {
+    credentialId: string;
+  }): Promise<boolean> {
+    try {
+      await localDb.getCredentialInner({ credentialId });
+      return false;
+    } catch {
+      return true;
+    }
+  }
+
+  @backgroundMethodForDev()
+  async runLocalSecretEnvelopeRestoreSelfTest(
+    params: IBackgroundMethodWithDevOnlyPassword,
+    options: ILocalSecretEnvelopeE2ESelfTestOptions = {},
+  ): Promise<ILocalSecretEnvelopeE2ETestReport> {
+    checkDevOnlyPassword(params);
+    const reporter = createLocalSecretEnvelopeE2EReporter();
+    const testName = 'LSE Restore Self-Test';
+    let runtimePlatform = 'unknown';
+    let credentialEnvelope: ILocalSecretEnvelopeV1 | undefined;
+    let rawCredentialValue: string | undefined;
+    let innerCredentialValue: string | undefined;
+    let backupRejectsRawLocalSecretEnvelope = false;
+    let primeTransferRejectsRawLocalSecretEnvelope = false;
+    let backupPortableCredentialPrefix = '';
+    let innerCredentialPrefix = '';
+    let primeTransferPortableCredentialPrefix = '';
+    const runId = `${Date.now().toString(36)}-${generateUUID({
+      removeDashes: true,
+    }).slice(0, 6)}`;
+    const credentialId = buildLocalSecretEnvelopeRestoreCredentialId({
+      runId,
+    });
+
+    try {
+      const config =
+        await localDb.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      if (!config) {
+        reporter.fail(
+          'Config',
+          'LSE restore config is available',
+          'config is unavailable',
+        );
+        return reporter.toReport({ runtimePlatform, testName });
       }
-      assertLocalSecretEnvelopeE2E(
-        backupRejectsRawLocalSecretEnvelope,
-        'Cloud Backup did not reject raw local secret envelope credential',
-      );
+      reporter.pass('Config', 'LSE restore config is available');
 
-      const primeTransferCredential = normalizePrimeTransferCredential({
-        credential: innerCredential.credential,
-      });
-      assertLocalSecretEnvelopeE2E(
-        typeof primeTransferCredential === 'string' &&
-          primeTransferCredential.startsWith('|PK|'),
-        'Prime Transfer restore self-test did not accept portable |PK| credential',
+      runtimePlatform = config.runtimePlatform ?? 'unknown';
+      const configuredLayerKinds = config.layerAdapters.map(
+        (adapter) => adapter.kind,
       );
+      const expectedLayerKinds =
+        options.expectedCredentialLayerKinds ?? configuredLayerKinds;
+      const expectedStrength = options.expectedStrength ?? config.strength;
 
-      let primeTransferRejectsRawLocalSecretEnvelope = false;
-      try {
-        normalizePrimeTransferCredential(rawCredential.credential);
-      } catch {
-        primeTransferRejectsRawLocalSecretEnvelope = true;
+      if (options.expectedRuntimePlatform) {
+        reporter.check(
+          'Config',
+          'Runtime platform matches expected',
+          runtimePlatform === options.expectedRuntimePlatform,
+          `expected ${options.expectedRuntimePlatform}, got ${runtimePlatform}`,
+        );
       }
-      assertLocalSecretEnvelopeE2E(
-        primeTransferRejectsRawLocalSecretEnvelope,
-        'Prime Transfer did not reject raw local secret envelope credential',
-      );
-
-      return {
-        backupPortableCredentialPrefix: backupCredential.slice(0, 4),
-        backupRejectsRawLocalSecretEnvelope,
-        credentialLayerKinds:
-          getLocalSecretEnvelopeLayerKinds(credentialEnvelope),
-        credentialStrength: credentialEnvelope.strength,
-        innerCredentialPrefix: innerCredential.credential.slice(0, 4),
-        primeTransferPortableCredentialPrefix: primeTransferCredential.slice(
-          0,
-          4,
+      if (
+        !reporter.check(
+          'Config',
+          'At least one expected layer',
+          expectedLayerKinds.length > 0,
+          `expected layers: ${expectedLayerKinds.join(',') || '(none)'}`,
+        )
+      ) {
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+      reporter.check(
+        'Config',
+        'Configured layers match expected',
+        localSecretEnvelopeLayerKindsEqual(
+          configuredLayerKinds,
+          expectedLayerKinds,
         ),
+        `expected ${expectedLayerKinds.join(',')}, got ${configuredLayerKinds.join(
+          ',',
+        )}`,
+      );
+      reporter.check(
+        'Config',
+        'Config strength matches expected',
+        config.strength === expectedStrength,
+        `expected ${expectedStrength}, got ${config.strength}`,
+      );
+
+      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
+        config.layerAdapters,
+      );
+      if (!resolveLayerAdapter) {
+        reporter.fail(
+          'Config',
+          'Layer adapter resolver is available',
+          'resolver is unavailable',
+        );
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+      reporter.pass('Config', 'Layer adapter resolver is available');
+
+      let password: string;
+      try {
+        password = await encodePasswordAsync({
+          password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
+        });
+      } catch (error) {
+        reporter.fail(
+          'Setup',
+          'Encode E2E password',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+
+      const importedCredential = {
+        privateKey: 'private-key-hex',
+      };
+
+      // Build credential chain: wrap -> store -> read raw -> unwrap inner.
+      try {
+        const portableCredential = await encryptImportedCredential({
+          password,
+          credential: importedCredential,
+        });
+        const wrappedCredential = await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters: config.layerAdapters,
+          plaintext: portableCredential,
+          recordId: credentialId,
+          strength: expectedStrength,
+        });
+
+        await localDb.withTransaction(
+          EIndexedDBBucketNames.account,
+          async (tx) => {
+            await localDb.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.Credential,
+              records: [
+                {
+                  credential: wrappedCredential,
+                  id: credentialId,
+                } satisfies IDBCredentialBase,
+              ],
+            });
+          },
+        );
+
+        const rawCredential = await localDb.getCredentialRaw(credentialId);
+        rawCredentialValue = rawCredential.credential;
+        reporter.check(
+          'Credential',
+          'Stored as raw LSE',
+          isLocalSecretEnvelopeString(rawCredentialValue),
+        );
+        credentialEnvelope = parseLocalSecretEnvelopeV1(rawCredentialValue);
+        const actualLayerKinds =
+          getLocalSecretEnvelopeLayerKinds(credentialEnvelope);
+        reporter.check(
+          'Credential',
+          'Layers match expected',
+          localSecretEnvelopeLayerKindsEqual(
+            actualLayerKinds,
+            expectedLayerKinds,
+          ),
+          `expected ${expectedLayerKinds.join(',')}, got ${actualLayerKinds.join(
+            ',',
+          )}`,
+        );
+        reporter.check(
+          'Credential',
+          'Strength matches expected',
+          credentialEnvelope.strength === expectedStrength,
+          `expected ${expectedStrength}, got ${credentialEnvelope.strength}`,
+        );
+
+        const innerCredential = await localDb.getCredentialInner({
+          credentialId,
+          resolveLayerAdapter,
+        });
+        innerCredentialValue = innerCredential.credential;
+        innerCredentialPrefix = innerCredentialValue.slice(0, 4);
+        reporter.check(
+          'Credential',
+          'Inner credential is portable |PK|',
+          innerCredentialValue.startsWith('|PK|'),
+        );
+        const decryptedCredential = await decryptImportedCredentialWithMetadata(
+          {
+            password,
+            credential: innerCredentialValue,
+          },
+        );
+        reporter.check(
+          'Credential',
+          'Inner credential decrypts back',
+          decryptedCredential.plaintext.privateKey ===
+            importedCredential.privateKey && !decryptedCredential.needsUpgrade,
+        );
+      } catch (error) {
+        reporter.fail(
+          'Credential',
+          'Build & read credential chain',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+
+      if (
+        rawCredentialValue !== undefined &&
+        innerCredentialValue !== undefined
+      ) {
+        const rawCredential = rawCredentialValue;
+        const innerCredential = innerCredentialValue;
+
+        // Cloud Backup export guard.
+        try {
+          const backupCredentials = await buildLegacyCredentialsForCloudBackup({
+            credentials: {
+              [credentialId]: innerCredential,
+            },
+            password,
+          });
+          const backupCredential = backupCredentials[credentialId];
+          backupPortableCredentialPrefix =
+            typeof backupCredential === 'string'
+              ? backupCredential.slice(0, 4)
+              : '';
+          reporter.check(
+            'Cloud Backup export',
+            'Exports portable |PK| credential',
+            typeof backupCredential === 'string' &&
+              backupCredential.startsWith('|PK|') &&
+              backupCredential !== rawCredential,
+          );
+        } catch (error) {
+          reporter.fail(
+            'Cloud Backup export',
+            'Exports portable |PK| credential',
+            getLocalSecretEnvelopeE2EErrorMessage(error),
+          );
+        }
+        try {
+          const rawBackup = await buildLegacyCredentialsForCloudBackup({
+            credentials: {
+              [credentialId]: rawCredential,
+            },
+            password,
+          });
+          // Cloud Backup must filter raw LSE out (not export it as a portable
+          // credential), so the result map must not contain this id.
+          backupRejectsRawLocalSecretEnvelope =
+            rawBackup[credentialId] === undefined;
+        } catch {
+          // Throwing is also an acceptable form of rejection.
+          backupRejectsRawLocalSecretEnvelope = true;
+        }
+        reporter.check(
+          'Cloud Backup export',
+          'Filters out raw LSE credential',
+          backupRejectsRawLocalSecretEnvelope,
+          backupRejectsRawLocalSecretEnvelope
+            ? undefined
+            : 'raw LSE was exported instead of being filtered out',
+        );
+
+        // Prime Transfer export guard.
+        try {
+          const primeTransferCredential = normalizePrimeTransferCredential({
+            credential: innerCredential,
+          });
+          primeTransferPortableCredentialPrefix =
+            typeof primeTransferCredential === 'string'
+              ? primeTransferCredential.slice(0, 4)
+              : '';
+          reporter.check(
+            'Prime Transfer export',
+            'Accepts portable |PK| credential',
+            typeof primeTransferCredential === 'string' &&
+              primeTransferCredential.startsWith('|PK|'),
+          );
+        } catch (error) {
+          reporter.fail(
+            'Prime Transfer export',
+            'Accepts portable |PK| credential',
+            getLocalSecretEnvelopeE2EErrorMessage(error),
+          );
+        }
+        try {
+          // Prime Transfer must filter raw LSE out (returns undefined), not
+          // accept it for transfer.
+          const normalizedRaw = normalizePrimeTransferCredential(rawCredential);
+          primeTransferRejectsRawLocalSecretEnvelope = !normalizedRaw;
+        } catch {
+          // Throwing is also an acceptable form of rejection.
+          primeTransferRejectsRawLocalSecretEnvelope = true;
+        }
+        reporter.check(
+          'Prime Transfer export',
+          'Filters out raw LSE credential',
+          primeTransferRejectsRawLocalSecretEnvelope,
+          primeTransferRejectsRawLocalSecretEnvelope
+            ? undefined
+            : 'raw LSE was accepted instead of being filtered out',
+        );
+      } else {
+        reporter.skip(
+          'Cloud Backup export',
+          'Cloud Backup export checks',
+          'credential chain unavailable',
+        );
+        reporter.skip(
+          'Prime Transfer export',
+          'Prime Transfer export checks',
+          'credential chain unavailable',
+        );
+      }
+
+      const summary: Record<string, unknown> = {
+        backupPortableCredentialPrefix,
+        backupRejectsRawLocalSecretEnvelope,
+        credentialLayerKinds: credentialEnvelope
+          ? getLocalSecretEnvelopeLayerKinds(credentialEnvelope)
+          : [],
+        credentialStrength: credentialEnvelope?.strength,
+        innerCredentialPrefix,
+        primeTransferPortableCredentialPrefix,
         primeTransferRejectsRawLocalSecretEnvelope,
-        rawCredentialIsLse: true,
+        rawCredentialIsLse: rawCredentialValue
+          ? isLocalSecretEnvelopeString(rawCredentialValue)
+          : false,
         runtimePlatform,
       };
+
+      return reporter.toReport({ runtimePlatform, summary, testName });
     } finally {
       await removeLocalSecretEnvelopeLayerKeys(credentialEnvelope);
       try {
@@ -742,11 +1006,17 @@ class ServiceE2E extends ServiceBase {
   async runLocalSecretEnvelopeDebugSelfTest(
     params: IBackgroundMethodWithDevOnlyPassword,
     options: ILocalSecretEnvelopeE2ESelfTestOptions = {},
-  ): Promise<ILocalSecretEnvelopeE2ESelfTestResult> {
+  ): Promise<ILocalSecretEnvelopeE2ETestReport> {
     checkDevOnlyPassword(params);
+    const reporter = createLocalSecretEnvelopeE2EReporter();
+    const testName = 'LSE Self-Test';
+    let runtimePlatform = 'unknown';
     let verifyStringEnvelope: ILocalSecretEnvelopeV1 | undefined;
     const credentialEnvelopes: ILocalSecretEnvelopeV1[] = [];
     const credentialIdsToCleanup: string[] = [];
+    const layerDeletionBlocksUnwrap: Partial<
+      Record<ILocalSecretEnvelopeLayerKind, boolean>
+    > = {};
     const runId = `${Date.now().toString(36)}-${generateUUID({
       removeDashes: true,
     }).slice(0, 6)}`;
@@ -755,11 +1025,16 @@ class ServiceE2E extends ServiceBase {
       const config =
         await localDb.buildLocalSecretEnvelopeCredentialMigrationConfig();
       if (!config) {
-        throw new OneKeyLocalError(
-          'Local secret envelope config is unavailable',
+        reporter.fail(
+          'Config',
+          'LSE config is available',
+          'config is unavailable',
         );
+        return reporter.toReport({ runtimePlatform, testName });
       }
-      const runtimePlatform = config.runtimePlatform ?? 'unknown';
+      reporter.pass('Config', 'LSE config is available');
+
+      runtimePlatform = config.runtimePlatform ?? 'unknown';
       const configuredLayerKinds = config.layerAdapters.map(
         (adapter) => adapter.kind,
       );
@@ -768,80 +1043,129 @@ class ServiceE2E extends ServiceBase {
       const expectedStrength = options.expectedStrength ?? config.strength;
 
       if (options.expectedRuntimePlatform) {
-        assertLocalSecretEnvelopeE2E(
+        reporter.check(
+          'Config',
+          'Runtime platform matches expected',
           runtimePlatform === options.expectedRuntimePlatform,
-          `Local secret envelope runtime platform mismatch: expected ${options.expectedRuntimePlatform}, got ${runtimePlatform}`,
+          `expected ${options.expectedRuntimePlatform}, got ${runtimePlatform}`,
         );
       }
-      assertLocalSecretEnvelopeE2E(
-        expectedLayerKinds.length > 0,
-        'Local secret envelope debug self-test requires at least one expected layer',
+      if (
+        !reporter.check(
+          'Config',
+          'At least one expected layer',
+          expectedLayerKinds.length > 0,
+          `expected layers: ${expectedLayerKinds.join(',') || '(none)'}`,
+        )
+      ) {
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+      reporter.check(
+        'Config',
+        'Configured layers match expected',
+        localSecretEnvelopeLayerKindsEqual(
+          configuredLayerKinds,
+          expectedLayerKinds,
+        ),
+        `expected ${expectedLayerKinds.join(',')}, got ${configuredLayerKinds.join(
+          ',',
+        )}`,
       );
-      assertLocalSecretEnvelopeLayerKinds({
-        actualLayerKinds: configuredLayerKinds,
-        expectedLayerKinds,
-        label: 'debug config',
-      });
-      assertLocalSecretEnvelopeE2E(
+      reporter.check(
+        'Config',
+        'Config strength matches expected',
         config.strength === expectedStrength,
-        `Local secret envelope debug config strength mismatch: expected ${expectedStrength}, got ${config.strength}`,
+        `expected ${expectedStrength}, got ${config.strength}`,
       );
 
       const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
         config.layerAdapters,
       );
       if (!resolveLayerAdapter) {
-        throw new OneKeyLocalError(
-          'Local secret envelope debug layer adapter resolver is unavailable',
+        reporter.fail(
+          'Config',
+          'Layer adapter resolver is available',
+          'resolver is unavailable',
+        );
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+      reporter.pass('Config', 'Layer adapter resolver is available');
+
+      let password: string;
+      try {
+        password = await encodePasswordAsync({
+          password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
+        });
+      } catch (error) {
+        reporter.fail(
+          'Setup',
+          'Encode E2E password',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+        return reporter.toReport({ runtimePlatform, testName });
+      }
+
+      // Verify-string round trip.
+      try {
+        const verifyStringInner = await encryptVerifyString({ password });
+        const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
+          dataType: 'verify-string',
+          layerAdapters: config.layerAdapters,
+          plaintext: verifyStringInner,
+          recordId: DB_MAIN_CONTEXT_ID,
+          strength: expectedStrength,
+        });
+        verifyStringEnvelope = parseLocalSecretEnvelopeV1(wrappedVerifyString);
+        const actualLayerKinds =
+          getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope);
+        reporter.check(
+          'Verify string',
+          'Wrapped as LSE with expected layers',
+          localSecretEnvelopeLayerKindsEqual(
+            actualLayerKinds,
+            expectedLayerKinds,
+          ),
+          `expected ${expectedLayerKinds.join(',')}, got ${actualLayerKinds.join(
+            ',',
+          )}`,
+        );
+        reporter.check(
+          'Verify string',
+          'Strength matches expected',
+          verifyStringEnvelope.strength === expectedStrength,
+          `expected ${expectedStrength}, got ${verifyStringEnvelope.strength}`,
+        );
+
+        const context = await localDb.getContext();
+        const innerVerifyString = await localDb.getContextVerifyStringInner({
+          context: {
+            ...context,
+            verifyString: wrappedVerifyString,
+          },
+          resolveLayerAdapter,
+        });
+        const decryptedVerifyString = await decryptVerifyStringWithMetadata({
+          password,
+          verifyString: innerVerifyString,
+        });
+        reporter.check(
+          'Verify string',
+          'Decrypts back to default verify string',
+          decryptedVerifyString.plaintext === DEFAULT_VERIFY_STRING &&
+            !decryptedVerifyString.needsUpgrade,
+        );
+      } catch (error) {
+        reporter.fail(
+          'Verify string',
+          'Verify string round trip',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
         );
       }
 
-      const password = await encodePasswordAsync({
-        password: LOCAL_SECRET_ENVELOPE_E2E_PASSWORD,
-      });
-      const verifyStringInner = await encryptVerifyString({ password });
-      const wrappedVerifyString = await wrapLocalSecretEnvelopeV1({
-        dataType: 'verify-string',
-        layerAdapters: config.layerAdapters,
-        plaintext: verifyStringInner,
-        recordId: DB_MAIN_CONTEXT_ID,
-        strength: expectedStrength,
-      });
-      verifyStringEnvelope = parseLocalSecretEnvelopeV1(wrappedVerifyString);
-      assertLocalSecretEnvelopeLayerKinds({
-        actualLayerKinds:
-          getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope),
-        expectedLayerKinds,
-        label: 'debug verifyString',
-      });
-      assertLocalSecretEnvelopeE2E(
-        verifyStringEnvelope.strength === expectedStrength,
-        `Local secret envelope debug verifyString strength mismatch: expected ${expectedStrength}, got ${verifyStringEnvelope.strength}`,
-      );
-
-      const context = await localDb.getContext();
-      const innerVerifyString = await localDb.getContextVerifyStringInner({
-        context: {
-          ...context,
-          verifyString: wrappedVerifyString,
-        },
-        resolveLayerAdapter,
-      });
-      const decryptedVerifyString = await decryptVerifyStringWithMetadata({
-        password,
-        verifyString: innerVerifyString,
-      });
-      assertLocalSecretEnvelopeE2E(
-        decryptedVerifyString.plaintext === DEFAULT_VERIFY_STRING &&
-          !decryptedVerifyString.needsUpgrade,
-        'E2E debug verifyString cannot be read back from local secret envelope',
-      );
-
-      const layerDeletionBlocksUnwrap: Partial<
-        Record<ILocalSecretEnvelopeLayerKind, boolean>
-      > = {};
+      // Per-layer credential wrap + key-deletion guard.
       for (let index = 0; index < expectedLayerKinds.length; index += 1) {
         const layerKind = expectedLayerKinds[index];
+        const group = `Credential layer: ${layerKind}`;
         const credentialId = buildLocalSecretEnvelopeDebugCredentialId({
           index,
           layerKind,
@@ -849,67 +1173,93 @@ class ServiceE2E extends ServiceBase {
         });
         credentialIdsToCleanup.push(credentialId);
         const credentialEnvelope =
-          await this.addAndVerifyLocalSecretEnvelopeDebugCredential({
+          await this.collectLocalSecretEnvelopeDebugCredentialCheckpoints({
             credentialId,
             expectedLayerKinds,
             expectedStrength,
+            group,
             layerAdapters: config.layerAdapters,
             password,
+            reporter,
             seedMarker: String(index + 1).padStart(2, '0'),
           });
-        credentialEnvelopes.push(credentialEnvelope);
-
-        const layer = credentialEnvelope.wrappingLayers.find(
-          (item) => item.kind === layerKind,
-        );
-        if (!layer) {
-          throw new OneKeyLocalError(
-            `E2E debug credential layer is missing: ${layerKind}`,
+        if (!credentialEnvelope) {
+          reporter.skip(
+            group,
+            'Deleting key blocks unwrap',
+            'credential was not created',
           );
+        } else {
+          credentialEnvelopes.push(credentialEnvelope);
+
+          const layer = credentialEnvelope.wrappingLayers.find(
+            (item) => item.kind === layerKind,
+          );
+          if (!layer) {
+            reporter.fail(
+              group,
+              'Deleting key blocks unwrap',
+              `layer missing: ${layerKind}`,
+            );
+          } else {
+            try {
+              const deletionBlocksUnwrap =
+                layerKind === 'secure-storage'
+                  ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer(
+                      {
+                        index,
+                        runId,
+                      },
+                    )
+                  : await (async () => {
+                      await removeLocalSecretEnvelopeLayerKey(layer);
+                      return this.checkLocalSecretEnvelopeCredentialReadBlocked(
+                        {
+                          credentialId,
+                        },
+                      );
+                    })();
+              layerDeletionBlocksUnwrap[layerKind] = deletionBlocksUnwrap;
+              reporter.check(
+                group,
+                'Deleting key blocks unwrap',
+                deletionBlocksUnwrap,
+                deletionBlocksUnwrap
+                  ? undefined
+                  : `still readable after deleting ${layerKind} layer`,
+              );
+            } catch (error) {
+              reporter.fail(
+                group,
+                'Deleting key blocks unwrap',
+                getLocalSecretEnvelopeE2EErrorMessage(error),
+              );
+            }
+          }
         }
-        const deletionBlocksUnwrap =
-          layerKind === 'secure-storage'
-            ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
-                index,
-                runId,
-              })
-            : await (async () => {
-                await removeLocalSecretEnvelopeLayerKey(layer);
-                return this.checkLocalSecretEnvelopeCredentialReadBlocked({
-                  credentialId,
-                });
-              })();
-        layerDeletionBlocksUnwrap[layerKind] = deletionBlocksUnwrap;
-        assertLocalSecretEnvelopeE2E(
-          deletionBlocksUnwrap,
-          `E2E debug credential is still readable after deleting ${layerKind} layer`,
-        );
       }
 
       const lastCredentialEnvelope =
         credentialEnvelopes[credentialEnvelopes.length - 1];
-      if (!lastCredentialEnvelope) {
-        throw new OneKeyLocalError(
-          'Local secret envelope debug credential was not created',
-        );
-      }
-
-      return {
-        credentialLayerKinds: getLocalSecretEnvelopeLayerKinds(
-          lastCredentialEnvelope,
-        ),
-        credentialStrength: lastCredentialEnvelope.strength,
+      const summary: Record<string, unknown> = {
+        credentialLayerKinds: lastCredentialEnvelope
+          ? getLocalSecretEnvelopeLayerKinds(lastCredentialEnvelope)
+          : [],
+        credentialStrength: lastCredentialEnvelope?.strength,
         cryptoKeyDeletionBlocksUnwrap:
           layerDeletionBlocksUnwrap['indexeddb-cryptokey'] === true,
         layerDeletionBlocksUnwrap,
         runtimePlatform,
         secureStorageDeletionBlocksUnwrap:
           layerDeletionBlocksUnwrap['secure-storage'] === true,
-        verifyStringIsLse: true,
-        verifyStringLayerKinds:
-          getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope),
-        verifyStringStrength: verifyStringEnvelope.strength,
+        verifyStringIsLse: Boolean(verifyStringEnvelope),
+        verifyStringLayerKinds: verifyStringEnvelope
+          ? getLocalSecretEnvelopeLayerKinds(verifyStringEnvelope)
+          : [],
+        verifyStringStrength: verifyStringEnvelope?.strength,
       };
+
+      return reporter.toReport({ runtimePlatform, summary, testName });
     } finally {
       await removeLocalSecretEnvelopeLayerKeys(verifyStringEnvelope);
       for (const envelope of credentialEnvelopes) {

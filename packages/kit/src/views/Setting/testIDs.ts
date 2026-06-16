@@ -44,6 +44,8 @@ export const SettingTestIDs = {
     'setting-local-secret-envelope-restore-self-test-button',
   localSecretEnvelopeRestoreSelfTestConfirm:
     'setting-local-secret-envelope-restore-self-test-confirm',
+  localSecretEnvelopeSelfTestCopyRaw:
+    'setting-local-secret-envelope-self-test-copy-raw',
 
   // Tab custom elements (desktop tab settings)
   tabMenuBarTraySwitch: 'setting-tab-menu-bar-tray-switch',

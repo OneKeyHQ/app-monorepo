@@ -181,20 +181,6 @@ export function showDevOnlyPasswordDialog({
   });
 }
 
-function getErrorDebugMessage(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      name: error.name,
-    };
-  }
-
-  return {
-    message: String(error),
-    name: 'UnknownError',
-  };
-}
-
 const DevSettingsAccordionTrigger = ({
   title,
   description,
@@ -449,14 +435,6 @@ function TradingViewKLineEmptyMockIntervalsDialogContent({
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
-  const [
-    isLocalSecretEnvelopeSelfTestRunning,
-    setIsLocalSecretEnvelopeSelfTestRunning,
-  ] = useState(false);
-  const [
-    isLocalSecretEnvelopeRestoreSelfTestRunning,
-    setIsLocalSecretEnvelopeRestoreSelfTestRunning,
-  ] = useState(false);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -501,85 +479,19 @@ const BaseDevSettingsSection = () => {
     });
   }, []);
 
-  const handleRunLocalSecretEnvelopeSelfTest = useCallback(() => {
-    showDevOnlyPasswordDialog({
-      title: 'Run Local Secret Envelope Self-Test',
-      description:
-        'Creates temporary LSE records and keys, verifies unwrap and key deletion behavior, then cleans up test data.',
-      confirmButtonProps: {
-        testID: SettingTestIDs.localSecretEnvelopeSelfTestConfirm,
-        variant: 'primary',
-      },
-      onConfirm: async (params) => {
-        setIsLocalSecretEnvelopeSelfTestRunning(true);
-        try {
-          const result =
-            await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeDebugSelfTest(
-              params,
-            );
-          Toast.success({
-            title: 'Local Secret Envelope self-test passed',
-          });
-          Dialog.debugMessage({
-            title: 'Local Secret Envelope Self-Test Passed',
-            debugMessage: result,
-          });
-        } catch (error) {
-          const debugMessage = getErrorDebugMessage(error);
-          Toast.error({
-            title: 'Local Secret Envelope self-test failed',
-            message: debugMessage.message,
-          });
-          Dialog.debugMessage({
-            title: 'Local Secret Envelope Self-Test Failed',
-            debugMessage,
-          });
-        } finally {
-          setIsLocalSecretEnvelopeSelfTestRunning(false);
-        }
-      },
-    });
-  }, []);
+  const handleOpenLocalSecretEnvelopeSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'debug' },
+    );
+  }, [navigation]);
 
-  const handleRunLocalSecretEnvelopeRestoreSelfTest = useCallback(() => {
-    showDevOnlyPasswordDialog({
-      title: 'Run LSE Restore Self-Test',
-      description:
-        'Creates a temporary imported credential LSE record, verifies local read, Cloud Backup export, and Prime Transfer export guards, then cleans up test data.',
-      confirmButtonProps: {
-        testID: SettingTestIDs.localSecretEnvelopeRestoreSelfTestConfirm,
-        variant: 'primary',
-      },
-      onConfirm: async (params) => {
-        setIsLocalSecretEnvelopeRestoreSelfTestRunning(true);
-        try {
-          const result =
-            await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeRestoreSelfTest(
-              params,
-            );
-          Toast.success({
-            title: 'LSE restore self-test passed',
-          });
-          Dialog.debugMessage({
-            title: 'LSE Restore Self-Test Passed',
-            debugMessage: result,
-          });
-        } catch (error) {
-          const debugMessage = getErrorDebugMessage(error);
-          Toast.error({
-            title: 'LSE restore self-test failed',
-            message: debugMessage.message,
-          });
-          Dialog.debugMessage({
-            title: 'LSE Restore Self-Test Failed',
-            debugMessage,
-          });
-        } finally {
-          setIsLocalSecretEnvelopeRestoreSelfTestRunning(false);
-        }
-      },
-    });
-  }, []);
+  const handleOpenLocalSecretEnvelopeRestoreSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'restore' },
+    );
+  }, [navigation]);
 
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
@@ -1123,32 +1035,24 @@ const BaseDevSettingsSection = () => {
 
                       <SectionPressItem
                         icon="ShieldKeyholeOutline"
-                        title="Run Local Secret Envelope Self-Test"
-                        subtitle={
-                          isLocalSecretEnvelopeSelfTestRunning
-                            ? 'Running LSE self-test...'
-                            : 'Temporary non-destructive LSE verification for CryptoKey / secureStorage layers'
-                        }
+                        title="Local Secret Envelope Self-Test"
+                        subtitle="Per-checkpoint non-destructive LSE verification for CryptoKey / secureStorage layers"
                         testID={
                           SettingTestIDs.localSecretEnvelopeSelfTestButton
                         }
                         searchKeywords="Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB self-test"
-                        onPress={handleRunLocalSecretEnvelopeSelfTest}
+                        onPress={handleOpenLocalSecretEnvelopeSelfTest}
                       />
 
                       <SectionPressItem
                         icon="CloudOutline"
-                        title="Run LSE Restore Self-Test"
-                        subtitle={
-                          isLocalSecretEnvelopeRestoreSelfTestRunning
-                            ? 'Running LSE restore self-test...'
-                            : 'Temporary non-destructive restore/export guard verification for Cloud Backup and Prime Transfer'
-                        }
+                        title="LSE Restore Self-Test"
+                        subtitle="Per-checkpoint non-destructive restore/export guard verification for Cloud Backup and Prime Transfer"
                         testID={
                           SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton
                         }
                         searchKeywords="Local Secret Envelope LSE restore Cloud Backup Prime Transfer portable credential self-test"
-                        onPress={handleRunLocalSecretEnvelopeRestoreSelfTest}
+                        onPress={handleOpenLocalSecretEnvelopeRestoreSelfTest}
                       />
 
                       <SectionPressItem
