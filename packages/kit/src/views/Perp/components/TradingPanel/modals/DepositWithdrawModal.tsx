@@ -335,7 +335,9 @@ export function DepositTokenSelectionContent({
                   title={intl.formatMessage({
                     id: ETranslations.global_no_results,
                   })}
-                  description="More deposit tokens coming soon"
+                  description={intl.formatMessage({
+                    id: ETranslations.perp_deposit_more_tokens_coming_soon__desc,
+                  })}
                 />
               </YStack>
             )
@@ -1614,17 +1616,29 @@ function DepositWithdrawContent({
     }
 
     if (isArbitrumUsdcToken) {
-      return 'Direct deposit on Arbitrum. Your USDC is sent straight to your Hyperliquid account without an extra swap or bridge.';
+      return intl.formatMessage({
+        id: ETranslations.perp_deposit_estimate_direct_arbitrum__desc,
+      });
     }
 
     const providerName = perpDepositQuote?.result?.info?.providerName?.trim();
     const providerDetail = providerName
-      ? `This DeFi deposit uses ${providerName} to swap or bridge into USDC before funds arrive on Hyperliquid.`
-      : 'This deposit may swap or bridge into USDC before funds arrive on Hyperliquid.';
+      ? intl.formatMessage(
+          {
+            id: ETranslations.perp_deposit_estimate_defi_with_provider__desc,
+          },
+          { provider: providerName },
+        )
+      : intl.formatMessage({
+          id: ETranslations.perp_deposit_estimate_defi__desc,
+        });
 
-    return `${providerDetail} Final received amount may refresh with the latest route and fees.`;
+    return `${providerDetail} ${intl.formatMessage({
+      id: ETranslations.perp_deposit_estimate_route_refresh__desc,
+    })}`;
   }, [
     isArbitrumUsdcToken,
+    intl,
     perpDepositQuote?.result?.info?.providerName,
     selectedAction,
   ]);

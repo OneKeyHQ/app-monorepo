@@ -509,10 +509,18 @@ function ReceiveSelectorContent() {
           {showSwapEntry && token?.networkId ? (
             <ReceiveOptions
               icon="SwitchHorOutline"
-              title="Trade"
-              subtitle={`Swap other tokens to ${token.symbol} (${
-                networkUtils.getLocalNetworkInfo(token.networkId)?.name ?? ''
-              })`}
+              title={intl.formatMessage({ id: ETranslations.global_trade })}
+              subtitle={intl.formatMessage(
+                {
+                  id: ETranslations.receive_trade_to_token_on_network__desc,
+                },
+                {
+                  token: token.symbol,
+                  network:
+                    networkUtils.getLocalNetworkInfo(token.networkId)?.name ??
+                    '',
+                },
+              )}
               onPress={handleSwapOnPress}
             />
           ) : null}
