@@ -106,6 +106,8 @@ import type {
 
 const { serviceAccount } = backgroundApiProxy;
 
+const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
+
 export type IAccountSelectorSyncFromSceneParams = {
   from: {
     sceneName: EAccountSelectorSceneName;
@@ -180,12 +182,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     sceneUrl,
     selectedAccounts,
     activeAccounts,
+    updateMeta,
   }: {
     sceneName: EAccountSelectorSceneName | undefined;
     sceneUrl?: string;
     selectedAccounts?: ISelectedAccountsAtomMap;
     activeAccounts?: Partial<{
       [num: number]: IAccountSelectorActiveAccountInfo;
+    }>;
+    updateMeta?: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
     }>;
   }) {
     try {
@@ -216,6 +222,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 value: activeAccounts,
               }
             : undefined,
+          updateMeta
+            ? {
+                coldStartScopeKey,
+                coldStartCacheKey:
+                  CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom,
+                value: updateMeta,
+              }
+            : undefined,
         ].filter(Boolean) as {
           coldStartScopeKey: string;
           coldStartCacheKey: IContextAtomColdStartCacheKey;
@@ -225,6 +239,62 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     } catch {
       // Cold-start snapshots are a best-effort fast path; simpleDb remains the source of truth.
     }
+  }
+
+  flushCurrentAccountSelectorColdStartSnapshot = contextAtomMethod(
+    async (
+      get,
+      _set,
+      {
+        sceneName,
+        sceneUrl,
+        includeActiveAccounts,
+      }: {
+        sceneName: EAccountSelectorSceneName | undefined;
+        sceneUrl?: string;
+        includeActiveAccounts?: boolean;
+      },
+    ) => {
+      await this.flushAccountSelectorColdStartSnapshot({
+        sceneName,
+        sceneUrl,
+        selectedAccounts: get(selectedAccountsAtom()),
+        updateMeta: get(accountSelectorUpdateMetaAtom()),
+        activeAccounts: includeActiveAccounts
+          ? get(activeAccountsAtom())
+          : undefined,
+      });
+    },
+  );
+
+  shouldKeepColdStartSelectedAccounts({
+    selectedAccountsMap,
+    selectedAccountsMapInDB,
+    updateMeta,
+  }: {
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    selectedAccountsMapInDB: IAccountSelectorSelectedAccountsMap | undefined;
+    updateMeta: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
+    }>;
+  }) {
+    if (isEqual(selectedAccountsMapInDB, selectedAccountsMap)) {
+      return false;
+    }
+    const hasSelectedAccount = Object.values(selectedAccountsMap).some(
+      (selectedAccount) =>
+        selectedAccount && !isEqual(selectedAccount, defaultSelectedAccount()),
+    );
+    if (!hasSelectedAccount) {
+      return false;
+    }
+    const now = Date.now();
+    return Object.values(updateMeta).some(
+      (meta) =>
+        meta?.updatedAt &&
+        now - meta.updatedAt >= 0 &&
+        now - meta.updatedAt <= RECENT_ACCOUNT_SWITCH_COLD_START_MS,
+    );
   }
 
   mutex = new Semaphore(1);
@@ -663,28 +733,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const sceneInfo = await this.getCurrentSceneInfo.call(set);
       const selectedAccount = this.getSelectedAccount.call(set, { num });
 
-      await this.reloadActiveAccountInfo.call(set, {
-        num,
-        selectedAccount,
-      });
-
-      const activeAccounts = get(activeAccountsAtom());
-      await this.flushAccountSelectorColdStartSnapshot({
+      await this.flushCurrentAccountSelectorColdStartSnapshot.call(set, {
         sceneName: sceneInfo?.sceneName,
         sceneUrl: sceneInfo?.sceneUrl,
-        selectedAccounts: get(selectedAccountsAtom()),
-        activeAccounts,
       });
 
       if (sceneInfo?.sceneName) {
-        await this.saveToStorage.call(set, {
-          selectedAccount,
-          sceneName: sceneInfo.sceneName,
-          sceneUrl: sceneInfo.sceneUrl,
-          num,
-          selectedAccountUpdatedAt: get(accountSelectorUpdateMetaAtom())[num]
-            ?.updatedAt,
-        });
+        void this.saveToStorage
+          .call(set, {
+            selectedAccount,
+            sceneName: sceneInfo.sceneName,
+            sceneUrl: sceneInfo.sceneUrl,
+            num,
+            selectedAccountUpdatedAt: get(accountSelectorUpdateMetaAtom())[num]
+              ?.updatedAt,
+          })
+          .catch(() => undefined);
       }
 
       appEventBus.emit(EAppEventBusNames.ConfirmAccountSelected, {
@@ -1879,6 +1943,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       }
 
       const selectedAccountsMap = get(selectedAccountsAtom());
+      const updateMeta = get(accountSelectorUpdateMetaAtom());
+      if (
+        this.shouldKeepColdStartSelectedAccounts({
+          selectedAccountsMap,
+          selectedAccountsMapInDB,
+          updateMeta,
+        })
+      ) {
+        set(accountSelectorStorageReadyAtom(), () => true);
+        return;
+      }
+
       if (
         selectedAccountsMapInDB &&
         !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
@@ -2620,6 +2696,8 @@ export function useAccountSelectorActions() {
   const getActiveAccount = actions.getActiveAccount.use();
   const initFromStorage = actions.initFromStorage.use();
   const saveToStorage = actions.saveToStorage.use();
+  const flushCurrentAccountSelectorColdStartSnapshot =
+    actions.flushCurrentAccountSelectorColdStartSnapshot.use();
 
   const clearSelectedAccount = actions.clearSelectedAccount.use();
   const updateSelectedAccountFocusedWallet =
@@ -2669,6 +2747,7 @@ export function useAccountSelectorActions() {
     refresh,
     initFromStorage,
     saveToStorage,
+    flushCurrentAccountSelectorColdStartSnapshot,
     clearSelectedAccount,
     updateSelectedAccountNetwork,
     updateSelectedAccountDeriveType,
