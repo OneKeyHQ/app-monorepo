@@ -1,7 +1,9 @@
 import { verifyMessage } from '@ethersproject/wallet';
+import BigNumber from 'bignumber.js';
 import { random, range } from 'lodash';
 
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -38,10 +40,12 @@ import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import suiTransactionUtils from '../vaults/impls/sui/sdkSui/transactions';
 
 import ServiceBase from './ServiceBase';
 
 import type { IDBExternalAccount } from '../dbs/local/types';
+import type IVaultSui from '../vaults/impls/sui/Vault';
 import type { ITransferInfo } from '../vaults/types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
@@ -314,6 +318,166 @@ class ServiceDemo extends ServiceBase {
       signedTxWithoutBroadcast,
     });
     return Promise.resolve('hello world');
+  }
+
+  // Convert a human-readable Sui amount to base units (MIST) using token decimals.
+  async demoSuiAmountToBaseUnits({
+    networkId,
+    accountId,
+    coinType,
+    amount,
+  }: {
+    networkId: string;
+    accountId: string;
+    coinType: string;
+    amount: string;
+  }): Promise<string> {
+    const token = await this.backgroundApi.serviceToken.getToken({
+      networkId,
+      accountId,
+      // native SUI is stored with an empty tokenIdOnNetwork in OneKey
+      tokenIdOnNetwork: coinType === '0x2::sui::SUI' ? '' : coinType,
+    });
+    const decimals = token?.decimals ?? 9;
+    return new BigNumber(amount).shiftedBy(decimals).toFixed(0);
+  }
+
+  // DEMO: deposit a coin into the recipient's address balance accumulator
+  // via 0x2::coin::send_funds. Returns encodedTx for the normal confirm flow.
+  @backgroundMethodForDev()
+  async demoSuiBuildSendToAddressBalanceEncodedTx({
+    networkId,
+    accountId,
+    recipient,
+    amount,
+    coinType,
+  }: {
+    networkId: string;
+    accountId: string;
+    recipient: string;
+    amount: string; // human readable
+    coinType: string;
+  }): Promise<IEncodedTxSui> {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as IVaultSui;
+    const client = await vault.getClient();
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const amountValue = await this.demoSuiAmountToBaseUnits({
+      networkId,
+      accountId,
+      coinType,
+      amount,
+    });
+    const tx = suiTransactionUtils.createSendToAddressBalanceTransaction({
+      sender: account.address,
+      recipient,
+      amount: amountValue,
+      coinType,
+    });
+    return {
+      rawTx: await tx.toJSON({ client }),
+      sender: account.address,
+    };
+  }
+
+  // DEMO: withdraw from the sender's own address balance and send it out,
+  // via tx.withdrawal + 0x2::coin::redeem_funds.
+  @backgroundMethodForDev()
+  async demoSuiBuildWithdrawFromAddressBalanceEncodedTx({
+    networkId,
+    accountId,
+    recipient,
+    amount,
+    coinType,
+  }: {
+    networkId: string;
+    accountId: string;
+    recipient: string;
+    amount: string; // human readable
+    coinType: string;
+  }): Promise<IEncodedTxSui> {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as IVaultSui;
+    const client = await vault.getClient();
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const amountValue = await this.demoSuiAmountToBaseUnits({
+      networkId,
+      accountId,
+      coinType,
+      amount,
+    });
+    const tx = suiTransactionUtils.createWithdrawFromAddressBalanceTransaction({
+      sender: account.address,
+      recipient,
+      amount: amountValue,
+      coinType,
+    });
+    return {
+      rawTx: await tx.toJSON({ client }),
+      sender: account.address,
+    };
+  }
+
+  // DEMO: estimate the Sui gas budget purely via RPC (dryRun + reference gas
+  // price) for a normal transfer, bypassing the server estimate-fee endpoint.
+  @backgroundMethodForDev()
+  async demoSuiEstimateFeeByRpc({
+    networkId,
+    accountId,
+    recipient,
+    amount,
+    coinType,
+  }: {
+    networkId: string;
+    accountId: string;
+    recipient: string;
+    amount: string; // human readable
+    coinType: string;
+  }) {
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as IVaultSui;
+    const account = await this.backgroundApi.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const isNative = coinType === '0x2::sui::SUI';
+    const encodedTx = await vault.buildEncodedTx({
+      transfersInfo: [
+        {
+          from: account.address,
+          to: recipient,
+          amount,
+          tokenInfo: {
+            address: isNative ? '' : coinType,
+            decimals: 9,
+            name: 'Sui',
+            symbol: 'SUI',
+            isNative,
+            accountId,
+            networkId,
+          },
+        },
+      ],
+    });
+    const resp = await vault.estimateFeeByRpc({
+      accountId,
+      networkId,
+      accountAddress: account.address,
+      encodedTx,
+    });
+    return resp.data.data.feeBudget?.[0];
   }
 
   @backgroundMethodForDev()

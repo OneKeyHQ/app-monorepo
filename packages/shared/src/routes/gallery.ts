@@ -73,6 +73,7 @@ export enum EGalleryRoutes {
   ComponentSelect = 'component-Select',
   ComponentPagination = 'component-Pagination',
   ComponentSend = 'component-Send',
+  ComponentSuiDemo = 'component-SuiDemo',
   ComponentShortcut = 'component-Shortcut',
   ComponentSkeleton = 'component-Skeleton',
   ComponentSlider = 'component-Slider',

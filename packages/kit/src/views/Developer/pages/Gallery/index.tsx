@@ -68,6 +68,11 @@ const SendGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SendGallery'),
 );
 
+const SuiDemoGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SuiDemoGallery'),
+);
+
 const ErrorToastGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ErrorToastGallery'),
@@ -558,6 +563,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentDialog, component: DialogGallery },
   { name: EGalleryRoutes.ComponentEmpty, component: EmptyGallery },
   { name: EGalleryRoutes.ComponentSend, component: SendGallery },
+  { name: EGalleryRoutes.ComponentSuiDemo, component: SuiDemoGallery },
   { name: EGalleryRoutes.ComponentRadio, component: RadioGallery },
   { name: EGalleryRoutes.ComponentListView, component: ListViewGallery },
   {
