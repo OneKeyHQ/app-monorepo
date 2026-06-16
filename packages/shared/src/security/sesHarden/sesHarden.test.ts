@@ -13,7 +13,10 @@ import {
   resetSesHardenRuntimeStateForTest,
 } from '.';
 
-import { buildSesRuntimeCheckReport } from './runtimeCheck';
+import {
+  buildSesRuntimeCheckReport,
+  runFunctionGlobalEscapeCheck,
+} from './runtimeCheck';
 
 import type { ISesHardenGlobal } from './types';
 
@@ -618,6 +621,72 @@ test('returns the SES-provided harden function without wrapping it', () => {
   expect(getSesHarden()).toBe(harden);
 
   delete g.harden;
+});
+
+describe('Function global escape self-check', () => {
+  // Simulate `evalTaming: 'no-eval'` (the forced ext taming) by making the
+  // `Function` constructor throw, exactly like the CSP-blocked extension
+  // runtime where `new Function('return this')()` is not allowed at all.
+  function withBlockedFunction<T>(run: () => T): T {
+    const originalFunction = globalThis.Function;
+    const BlockedFunction = function BlockedFunction() {
+      throw new EvalError(
+        "Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script",
+      );
+    } as unknown as FunctionConstructor;
+
+    globalThis.Function = BlockedFunction;
+    try {
+      return run();
+    } finally {
+      globalThis.Function = originalFunction;
+    }
+  }
+
+  test('passes when ext blocks Function at L1 (no-eval is the secure outcome)', () => {
+    // Regression: ext forces no-eval for every level, so a thrown Function on an
+    // ext runtime at L1 must report pass, not the old level==='L2' false fail.
+    const check = withBlockedFunction(() =>
+      runFunctionGlobalEscapeCheck('L1', 'ext-ui'),
+    );
+
+    expect(check.name).toBe('Function global escape');
+    expect(check.status).toBe('pass');
+    expect(check.detail).toContain('runtime=ext-ui');
+  });
+
+  test('passes when ext blocks Function at L2', () => {
+    const check = withBlockedFunction(() =>
+      runFunctionGlobalEscapeCheck('L2', 'ext-background'),
+    );
+
+    expect(check.status).toBe('pass');
+    expect(check.detail).toContain('runtime=ext-background');
+  });
+
+  test('fails when an ext runtime unexpectedly reaches globalThis', () => {
+    // If Function still works on ext (eval not actually blocked), reaching
+    // globalThis is the insecure outcome and must fail regardless of level.
+    const check = runFunctionGlobalEscapeCheck('L1', 'ext-ui');
+
+    expect(check.status).toBe('fail');
+  });
+
+  test('keeps native eval as the expectation for web at L1', () => {
+    // web/desktop L1 keeps native eval, so reaching globalThis is expected.
+    const check = runFunctionGlobalEscapeCheck('L1', 'web');
+
+    expect(check.status).toBe('pass');
+    expect(check.detail).toContain('expected native');
+  });
+
+  test('requires blocked globalThis escape for web at L2', () => {
+    // Without a real safe-eval lockdown, Function reaches globalThis, which is
+    // the insecure outcome the L2 expectation must flag as fail.
+    const check = runFunctionGlobalEscapeCheck('L2', 'web');
+
+    expect(check.status).toBe('fail');
+  });
 });
 
 test('runs real SES lockdown in an isolated child process for L1', () => {
