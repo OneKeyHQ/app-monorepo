@@ -162,11 +162,19 @@ export async function callTrezorWithBleFallback<T>(
         finalPayload?.code,
       )}); requesting BLE (re)binding for device_id=${featuresDeviceId}`,
     );
-    const boundBleConnectId = await options.requestBleConnectId({
-      dbDevice,
-      usbConnectId: dbDevice.usbConnectId || primaryConnectId,
-      featuresDeviceId,
-    });
+    let boundBleConnectId: string | null | undefined;
+    try {
+      boundBleConnectId = await options.requestBleConnectId({
+        dbDevice,
+        usbConnectId: dbDevice.usbConnectId || primaryConnectId,
+        featuresDeviceId,
+      });
+    } catch {
+      // requestBleConnectId rejects on servicePromise timeout / UI reject.
+      // Preserve the real device error (the Response contract) instead of
+      // throwing a raw, unconverted non-Response error.
+      return result;
+    }
     if (boundBleConnectId && boundBleConnectId !== primaryConnectId) {
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] retrying with (re)bound BLE ${boundBleConnectId}`,

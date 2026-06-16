@@ -469,9 +469,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
     const fullPath =
       receiveAddressPath ?? `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`;
 
-    const result = await Promise.all(
-      (params.messages as IUnsignedMessageBtc[]).map(async (message) => {
-        const res = await callTrezorWithBleFallback(
+    // Sign sequentially — the Trezor SDK job queue rejects concurrent calls to
+    // the same device (rejectIfBusy → DeviceBusy), so a parallel Promise.all
+    // would make multi-message requests fail with spurious busy errors.
+    const result: string[] = [];
+    for (const message of params.messages as IUnsignedMessageBtc[]) {
+      const res =
+        // eslint-disable-next-line no-await-in-loop
+        await callTrezorWithBleFallback(
           dbDevice,
           (connectId) =>
             adapter.hw.btcSignMessage(connectId, dbDevice.deviceId, {
@@ -486,15 +491,14 @@ export class KeyringHardwareTrezor extends KeyringHardwareBtcBase {
             }),
           this.getBleFallbackOptions(),
         );
-        if (!res.success) {
-          throw convertThirdPartyDeviceError(res.payload, {
-            vendor: 'Trezor',
-            chain: 'Bitcoin',
-          });
-        }
-        return res.payload.signature;
-      }),
-    );
+      if (!res.success) {
+        throw convertThirdPartyDeviceError(res.payload, {
+          vendor: 'Trezor',
+          chain: 'Bitcoin',
+        });
+      }
+      result.push(res.payload.signature);
+    }
 
     return result;
   }

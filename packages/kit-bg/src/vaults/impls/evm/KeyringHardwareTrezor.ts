@@ -11,7 +11,6 @@ import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
-  IUnsignedMessage,
   IUnsignedMessageEth,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
@@ -222,17 +221,24 @@ export class KeyringHardwareTrezor extends KeyringHardwareBase {
     return { txid, rawTx, encodedTx };
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
     const { messages, deviceParams } = params;
     const checkedDeviceParams = checkIsDefined(deviceParams);
-    return Promise.all(
-      messages.map(async (message: IUnsignedMessage) =>
-        this._handleSignMessage(
-          message as IUnsignedMessageEth,
-          checkedDeviceParams,
-        ),
-      ),
-    );
+    // Sign sequentially — the Trezor SDK job queue rejects concurrent calls to
+    // the same device (rejectIfBusy → DeviceBusy), so a parallel Promise.all
+    // would make multi-message requests fail with spurious busy errors.
+    const signatures: ISignedMessagePro = [];
+    for (const message of messages) {
+      // eslint-disable-next-line no-await-in-loop
+      const signature = await this._handleSignMessage(
+        message as IUnsignedMessageEth,
+        checkedDeviceParams,
+      );
+      signatures.push(signature);
+    }
+    return signatures;
   }
 
   private async _handleSignMessage(

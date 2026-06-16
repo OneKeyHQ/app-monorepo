@@ -3609,6 +3609,7 @@ class ServiceAccount extends ServiceBase {
     const deviceId = deviceUtils.getRawDeviceId({
       device: params.device,
       features,
+      isThirdParty: vendorProfile?.isThirdParty,
     });
 
     let xfp: string | undefined;
