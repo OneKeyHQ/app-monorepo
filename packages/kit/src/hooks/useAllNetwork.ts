@@ -316,7 +316,6 @@ function useAllNetworkRequests<T>(params: {
   isNFTRequests?: boolean;
   isDeFiRequests?: boolean;
   disabled?: boolean;
-  interval?: number;
   shouldAlwaysFetch?: boolean;
   onStarted?: ({
     accountId,
@@ -351,8 +350,6 @@ function useAllNetworkRequests<T>(params: {
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
-    triggerByDeps?: boolean;
-    pollingNonce?: number;
     alwaysSetState?: boolean;
     skipAccountsCache?: boolean;
     ignoreDisabled?: boolean;
@@ -421,7 +418,7 @@ function useAllNetworkRequests<T>(params: {
       // owner intentionally omitted (this appEventBus-listener effect must not
       // depend on the owner); it appears on the following `allnet.run` line.
       tln('allnet.trigger reason=enabledNetworks');
-      void runWithQueueRef.current?.({ triggerByDeps: true });
+      void runWithQueueRef.current?.();
     };
     appEventBus.on(
       EAppEventBusNames.EnabledNetworksChanged,
@@ -989,7 +986,6 @@ function useAllNetworkRequests<T>(params: {
     run: runWithQueue,
     result,
     isEmptyAccount,
-    allNetworkDataInit,
   };
 }
 
