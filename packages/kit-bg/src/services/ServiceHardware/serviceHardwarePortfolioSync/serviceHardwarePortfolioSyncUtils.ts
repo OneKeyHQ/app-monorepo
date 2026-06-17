@@ -74,14 +74,14 @@ function buildPortfolioAccountFromEventPayload(
   eventPayload: IPortfolioSyncSettledPayload,
 ): IPortfolioPayload['account'] {
   const accountIdentifier =
-    eventPayload.indexedAccountIdentifier ||
-    eventPayload.indexedAccountId ||
-    eventPayload.accountAddress;
+    typeof eventPayload.indexedAccountIndex === 'number'
+      ? `Account #${eventPayload.indexedAccountIndex + 1}`
+      : accountUtils.shortenAddress({
+          address: eventPayload.accountAddress,
+        });
 
   return {
-    addressMasked: accountUtils.shortenAddress({
-      address: accountIdentifier,
-    }),
+    addressMasked: accountIdentifier,
     label:
       eventPayload.indexedAccountName ||
       eventPayload.accountName ||

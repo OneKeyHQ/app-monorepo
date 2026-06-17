@@ -2019,7 +2019,7 @@ function TokenListBlock({
         deviceConnectId:
           device?.connectId ?? wallet?.associatedDeviceInfo?.connectId,
         indexedAccountId: indexedAccount?.id,
-        indexedAccountIdentifier: indexedAccount?.idHash ?? indexedAccount?.id,
+        indexedAccountIndex: indexedAccount?.index,
         indexedAccountName: indexedAccount?.name,
         networkId: network?.id,
         ownerAccountId: allNetworksResult[0].ownerAccountId,
@@ -2041,7 +2041,7 @@ function TokenListBlock({
     accountName,
     device?.connectId,
     indexedAccount?.id,
-    indexedAccount?.idHash,
+    indexedAccount?.index,
     indexedAccount?.name,
     mergeDeriveAddressData,
     allNetworksResult,

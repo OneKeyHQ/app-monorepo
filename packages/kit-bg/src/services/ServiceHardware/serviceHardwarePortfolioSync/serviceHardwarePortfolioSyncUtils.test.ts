@@ -87,7 +87,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         aggregateTokenMap: {},
         deviceConnectId: 'connect-1',
         indexedAccountId: 'hd-1--m/44',
-        indexedAccountIdentifier: '0x1234567890abcdef',
+        indexedAccountIndex: 0,
         indexedAccountName: 'Account #1',
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
@@ -149,7 +149,7 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
 
     expect(portfolio).toMatchObject({
       account: {
-        addressMasked: '0x123456...abcdef',
+        addressMasked: 'Account #1',
         label: 'Account #1',
       },
       currency: 'cny',
@@ -214,8 +214,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         aggregateTokenMap: {},
         deviceConnectId: 'connect-1',
         indexedAccountId: 'hd-1--m/44',
-        indexedAccountIdentifier: '0xindexedaccounthash',
-        indexedAccountName: 'Account #1',
+        indexedAccountIndex: 2,
+        indexedAccountName: 'Custom Account',
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
@@ -241,8 +241,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     });
 
     expect(artifacts.portfolio.account).toEqual({
-      addressMasked: '0xindexe...nthash',
-      label: 'Account #1',
+      addressMasked: 'Account #3',
+      label: 'Custom Account',
     });
   });
 });
