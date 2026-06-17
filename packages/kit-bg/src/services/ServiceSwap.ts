@@ -445,7 +445,10 @@ function trackPrivateSendOrderFinalStatusIfNeeded({
     tokenSymbol: currentSwapTxHistory.baseInfo.fromToken.symbol,
     receivedTokenSymbol: currentSwapTxHistory.baseInfo.toToken.symbol,
     sendAmount: currentSwapTxHistory.baseInfo.fromAmount,
-    receivedAmount: currentSwapTxHistory.baseInfo.toAmount,
+    receivedAmount:
+      finalStatus === 'done'
+        ? currentSwapTxHistory.baseInfo.toAmount
+        : undefined,
     duration: getPrivateSendHistoryDurationSeconds(currentSwapTxHistory),
   });
 }

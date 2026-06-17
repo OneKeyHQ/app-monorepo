@@ -759,7 +759,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         fromTokenSymbol: fromToken?.symbol,
         toTokenSymbol: toToken?.symbol,
         initialPeriod: data.period,
-        fallbackTriggered: kLineFallbackChainRef.current.length > 0,
+        fallbackTriggered:
+          kLineFallbackChainRef.current.length > 0 ? 'yes' : 'no',
       });
     },
     [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol],
@@ -778,7 +779,7 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       ) {
         kLineFallbackChainRef.current.push(fallbackSegment);
       }
-      const errorKey = `${selectedTokenKey}:${data.period}:${data.status}`;
+      const errorKey = `${selectedTokenKey}:${data.period}`;
       if (reportedKLineLoadErrorKeysRef.current.has(errorKey)) {
         return;
       }

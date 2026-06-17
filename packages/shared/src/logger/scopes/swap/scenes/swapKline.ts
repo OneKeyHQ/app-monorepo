@@ -10,7 +10,7 @@ interface ISwapKlineOpenParams {
   fromTokenSymbol?: string;
   toTokenSymbol?: string;
   initialPeriod?: string;
-  fallbackTriggered?: boolean;
+  fallbackTriggered?: 'yes' | 'no';
 }
 
 interface ISwapKlineTokenSwitchParams {
