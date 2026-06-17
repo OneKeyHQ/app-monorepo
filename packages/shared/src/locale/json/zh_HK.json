@@ -1668,7 +1668,7 @@
   "global.disable_passphrase": "停用 Passphrase",
   "global.disable_passphrase_detail": "您將在此裝置上停止使用 Passphrase。\n使用 Passphrase 建立的錢包會保留在鏈上,但您需要重新開啟 Passphrase 並再次輸入才能存取它們。如果您忘記 Passphrase,資金將永久遺失。",
   "global.disabled": "已禁用",
-  "global.discord": "Discord",
+  "global.discord": "不和谐",
   "global.discover": "發現",
   "global.done": "完成",
   "global.download": "下載",
