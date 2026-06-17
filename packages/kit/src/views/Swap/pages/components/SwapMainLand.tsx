@@ -53,6 +53,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
   EJotaiContextStoreNames,
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -158,6 +159,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [rateDifference] = useRateDifferenceAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   // Check custom RPC availability for the from network
@@ -787,6 +789,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         ? buildSwapRateDifference({
             fromTokenPrice: fromSelectToken?.price,
             toTokenPrice: toSelectToken?.price,
+            fromTokenCurrency: fromSelectToken?.currency,
+            toTokenCurrency: toSelectToken?.currency,
+            defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
+            currencyMap,
             instantRate: currentQuoteRes.instantRate,
           })
         : rateDifference;
@@ -811,6 +817,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       supportPreBuild,
       slippage: swapSlippageRef.current.value,
       rateDifference: reviewRateDifference,
+      defaultTokenCurrency: settingsPersistAtom.currencyInfo.id,
+      currencyMap,
       texts: reviewStepTexts,
     });
 
@@ -833,6 +841,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapFromAddressInfo.accountInfo?.account?.id,
     swapFromAddressInfo.networkId,
     settingsPersistAtom.swapBatchApproveAndSwap,
+    settingsPersistAtom.currencyInfo.id,
+    currencyMap,
     supportPreBuild,
     isCustomRpcUnavailable,
     rateDifference,

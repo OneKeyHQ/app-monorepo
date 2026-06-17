@@ -155,6 +155,7 @@ export interface ISwapTokenBase {
   fiatValue?: string;
   balanceParsed?: string;
   price?: string;
+  currency?: string;
   networkId: string;
   contractAddress: string;
   isNative?: boolean;
