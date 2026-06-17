@@ -85,7 +85,6 @@ import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
-  TOKEN_LIST_HIGH_VALUE_MAX,
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -112,23 +111,11 @@ import {
 import {
   buildAggregateTokenListData,
   calculateAccountTokensValue,
-  flattenAggregateTokensMap,
   getEmptyTokenData,
   getMergedDeriveTokenData,
   getMergedTokenData,
-  mergeAggregateTokenListMap,
-  mergeDeriveTokenList,
-  mergeDeriveTokenListMap,
-  mergeNestedAggregateTokenMap,
-  nestAggregateTokensMap,
-  sortTokensByFiatValue,
-  sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  isUnavailableOrZeroFiatValue,
-  sumFiatValuesFromTokens,
-  sumTokenGroupsFiatValueIgnoringUnavailable,
-} from '@onekeyhq/shared/src/utils/tokenValueUtils';
+import { sumTokenGroupsFiatValueIgnoringUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
@@ -139,6 +126,8 @@ import type {
 } from '@onekeyhq/shared/types/token';
 
 import { RichBlock } from '../RichBlock/RichBlock';
+
+import { buildMergedAllNetworkSnapshot } from './buildMergedAllNetworkSnapshot';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -152,6 +141,10 @@ const networkIdsMap = getNetworkIdsMap();
  * call — flip it to `false` to stop feeding the BG VM in an emergency.
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
+
+// L2: coalesce progressive all-network ingests into at most one paint per this
+// window, so a 20+ network fan-out yields a few frames (not one per network).
+const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
 
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
@@ -237,6 +230,13 @@ function TokenListBlock({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
+  // L2: accumulates each network's settled live result; a trailing throttle
+  // ingests a coherent growing snapshot so a cold owner paints progressively
+  // instead of staying blank until the whole fan-out completes.
+  const progressiveRoundsRef = useRef<IAllNetworkTokenListResp[]>([]);
+  const progressiveFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
@@ -1186,6 +1186,12 @@ function TokenListBlock({
     // merges the previous owner's tokens into the freshly stamped-empty list
     // (the owner stamp written below would then claim that data is current).
     updateAllNetworkData.cancel();
+    // L2: drop any pending progressive paint for the owner being cleared.
+    if (progressiveFlushTimerRef.current !== null) {
+      clearTimeout(progressiveFlushTimerRef.current);
+      progressiveFlushTimerRef.current = null;
+    }
+    progressiveRoundsRef.current = [];
     tokenListRef.current.tokens = [];
     tokenListRef.current.keys = '';
     tokenListRef.current.map = {};
@@ -1424,6 +1430,67 @@ function TokenListBlock({
             initialized: true,
           });
         }
+
+        // L1: cold-owner cache-seed. Feed the BG VM a coherent FULL snapshot
+        // built from the per-network LOCAL cache (no network) so a VM-cold but
+        // disk-warm owner paints instantly instead of waiting for the live
+        // fan-out. The live round (and L2 progressive frames) ingest later at a
+        // higher generation and supersede this. The cached per-network lists are
+        // already derive-merged + sorted, so pass an empty mergeDeriveAssets map
+        // (no re-merge) and let buildMergedAllNetworkSnapshot do the
+        // cross-network merge/dedup/sort/split. Owner-guarded + home store only.
+        if (
+          ENABLE_BG_TOKEN_VIEW_MODEL &&
+          accountId === account?.id &&
+          networkId === network?.id
+        ) {
+          const cacheSeedRounds = data.map((item) => ({
+            networkId: item.networkId,
+            accountId: item.accountId,
+            tokens: {
+              data: item.tokenList,
+              keys: item.tokenList.map((t) => t.$key).join(','),
+              map: item.tokenListMap,
+            },
+            smallBalanceTokens: {
+              data: item.smallBalanceTokenList,
+              keys: item.smallBalanceTokenList.map((t) => t.$key).join(','),
+              map: item.tokenListMap,
+            },
+            riskTokens: {
+              data: item.riskyTokenList,
+              keys: item.riskyTokenList.map((t) => t.$key).join(','),
+              map: item.tokenListMap,
+            },
+          }));
+          const seedSnapshot = buildMergedAllNetworkSnapshot({
+            rounds: cacheSeedRounds,
+            mergeDeriveAssetsByNetworkId: {},
+            accountId: account?.id,
+            createAtNetwork: account?.createAtNetwork,
+          });
+          void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+            ownerKey: cellsIngestInputsRef.current.ownerKey,
+            orderedTokens: seedSnapshot.orderedTokens,
+            smallBalanceTokens: seedSnapshot.smallBalanceTokens,
+            tokenListMap: seedSnapshot.mergeTokenListMap,
+            aggregateTokensMap: seedSnapshot.aggregateTokenMap,
+            ownedAggregateTokenListMap: seedSnapshot.aggregateTokenListMap,
+            smallBalanceFiatValue: seedSnapshot.smallBalanceFiatValue,
+            storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+            keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+            homeDefaultTokenMap:
+              cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+            customTokens:
+              cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+            riskyTokens: seedSnapshot.riskyTokens,
+            riskyMap: seedSnapshot.riskyTokenListMap,
+            accountId: account?.id,
+            networkId: network?.id,
+            rawKeys: `${seedSnapshot.tokenKeys}_${seedSnapshot.smallBalanceKeys}_${seedSnapshot.riskyKeys}`,
+          });
+        }
+
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
           initialized: true,
@@ -1438,6 +1505,7 @@ function TokenListBlock({
       account?.id,
       indexedAccount?.id,
       mergeDeriveAddressData,
+      network?.id,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -1462,6 +1530,99 @@ function TokenListBlock({
     [updateAllNetworksState],
   );
 
+  const flushProgressiveAllNetworkPaint = useCallback(async () => {
+    progressiveFlushTimerRef.current = null;
+    const rounds = progressiveRoundsRef.current.slice();
+    if (!rounds.length || !ENABLE_BG_TOKEN_VIEW_MODEL) {
+      return;
+    }
+    // Only paint if the accumulated rounds still belong to the active owner — a
+    // switch mid-stream must not stamp the previous owner's tokens.
+    if (
+      rounds[0].ownerAccountId !== account?.id ||
+      rounds[0].ownerNetworkId !== network?.id
+    ) {
+      return;
+    }
+    const mergeDeriveAssetsByNetworkId: Record<string, boolean | undefined> =
+      {};
+    await Promise.all(
+      Array.from(
+        new Set(
+          rounds
+            .map((r) => r.networkId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ).map(async (networkId) => {
+        try {
+          mergeDeriveAssetsByNetworkId[networkId] = (
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId,
+            })
+          ).mergeDeriveAssetsEnabled;
+        } catch (_e) {
+          mergeDeriveAssetsByNetworkId[networkId] = false;
+        }
+      }),
+    );
+    // Re-check the owner after the await — it may have switched while resolving.
+    if (
+      rounds[0].ownerAccountId !== account?.id ||
+      rounds[0].ownerNetworkId !== network?.id
+    ) {
+      return;
+    }
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId,
+      accountId: account?.id,
+      createAtNetwork: account?.createAtNetwork,
+    });
+    // Paint only — the authoritative end-of-fan-out ingest
+    // (`updateAllNetworksTokenList`) lands later at a higher generation and
+    // supersedes this; worth/overview side effects stay there.
+    void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+      ownerKey: cellsIngestInputsRef.current.ownerKey,
+      orderedTokens: snapshot.orderedTokens,
+      smallBalanceTokens: snapshot.smallBalanceTokens,
+      tokenListMap: snapshot.mergeTokenListMap,
+      aggregateTokensMap: snapshot.aggregateTokenMap,
+      ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+      smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+      storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+      keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+      homeDefaultTokenMap:
+        cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+      customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+      riskyTokens: snapshot.riskyTokens,
+      riskyMap: snapshot.riskyTokenListMap,
+      accountId: account?.id,
+      networkId: network?.id,
+      rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+    });
+  }, [account?.id, account?.createAtNetwork, network?.id]);
+
+  const handleAllNetworkRequestSettled = useCallback(
+    (result: IAllNetworkTokenListResp) => {
+      if (!result) {
+        return;
+      }
+      if (
+        result.ownerAccountId !== account?.id ||
+        result.ownerNetworkId !== network?.id
+      ) {
+        return;
+      }
+      progressiveRoundsRef.current.push(result);
+      if (progressiveFlushTimerRef.current === null) {
+        progressiveFlushTimerRef.current = setTimeout(() => {
+          void flushProgressiveAllNetworkPaint();
+        }, PROGRESSIVE_PAINT_THROTTLE_MS);
+      }
+    },
+    [account?.id, network?.id, flushProgressiveAllNetworkPaint],
+  );
+
   const {
     run: runAllNetworksRequests,
     result: allNetworksResult,
@@ -1479,312 +1640,149 @@ function TokenListBlock({
     onStarted: handleAllNetworkRequestsStarted,
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
+    onRequestSettled: handleAllNetworkRequestSettled,
     interval: 200,
     shouldAlwaysFetch,
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
-    const tokenList: {
-      tokens: IAccountToken[];
-      keys: string;
-    } = {
-      tokens: [],
-      keys: '',
-    };
+    if (!allNetworksResult?.length) {
+      return;
+    }
+    const resultTokenSelectorFilterMode =
+      allNetworksResult[0].tokenSelectorFilterMode;
+    const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
+      (result) =>
+        result.tokenSelectorFilterMode !== resultTokenSelectorFilterMode,
+    );
+    if (
+      resultTokenSelectorFilterMode !== 'wallet-token' ||
+      hasMixedTokenSelectorFilterResult
+    ) {
+      return;
+    }
+    // This callback's identity changes on owner switch, re-firing the
+    // consuming effect while `allNetworksResult` still holds the PREVIOUS
+    // owner's completed fan-out (usePromiseResult keeps the last resolved
+    // value). Reprocessing it would replace every token atom with that
+    // owner's data, write its worth under the new owner's accountId, and
+    // stamp `allTokenList` with the new owner — vouching for foreign data.
+    if (
+      allNetworksResult[0].ownerAccountId !== account?.id ||
+      allNetworksResult[0].ownerNetworkId !== network?.id
+    ) {
+      return;
+    }
+    const shouldSyncTokenFilterToOverview =
+      allNetworksResult[0].syncTokenFilterToOverview;
 
-    const smallBalanceTokenList: {
-      smallBalanceTokens: IAccountToken[];
-      keys: string;
-    } = {
-      smallBalanceTokens: [],
-      keys: '',
-    };
-
-    const riskyTokenList: {
-      riskyTokens: IAccountToken[];
-      keys: string;
-    } = {
-      riskyTokens: [],
-      keys: '',
-    };
-
-    let tokenListMap: {
-      [key: string]: ITokenFiat;
-    } = {};
-
-    let smallBalanceTokenListMap: {
-      [key: string]: ITokenFiat;
-    } = {};
-
-    let riskyTokenListMap: {
-      [key: string]: ITokenFiat;
-    } = {};
-    const accountsWorth: Record<string, string> = {};
-    let createAtNetworkWorth = new BigNumber(0);
-    let smallBalanceTokensFiatValue = new BigNumber(0);
-
-    let aggregateTokenListMap: {
-      [key: string]: {
-        tokens: IAccountToken[];
-      };
-    } = {};
-
-    let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
-
-    if (allNetworksResult?.length) {
-      const resultTokenSelectorFilterMode =
-        allNetworksResult[0].tokenSelectorFilterMode;
-      const hasMixedTokenSelectorFilterResult = allNetworksResult.some(
-        (result) =>
-          result.tokenSelectorFilterMode !== resultTokenSelectorFilterMode,
-      );
-      if (
-        resultTokenSelectorFilterMode !== 'wallet-token' ||
-        hasMixedTokenSelectorFilterResult
-      ) {
-        return;
-      }
-      // This callback's identity changes on owner switch, re-firing the
-      // consuming effect while `allNetworksResult` still holds the PREVIOUS
-      // owner's completed fan-out (usePromiseResult keeps the last resolved
-      // value). Reprocessing it would replace every token atom with that
-      // owner's data, write its worth under the new owner's accountId, and
-      // stamp `allTokenList` with the new owner — vouching for foreign data.
-      if (
-        allNetworksResult[0].ownerAccountId !== account?.id ||
-        allNetworksResult[0].ownerNetworkId !== network?.id
-      ) {
-        return;
-      }
-      const shouldSyncTokenFilterToOverview =
-        allNetworksResult[0].syncTokenFilterToOverview;
-
-      for (const r of allNetworksResult) {
-        let mergeDeriveAssetsEnabled;
-
+    // Resolve per-network `mergeDeriveAssetsEnabled` up front. The original
+    // awaited `getVaultSettings` inside the merge loop; the lookups are
+    // independent + deterministic (and memoized in bg), so hoisting them into a
+    // map keyed by networkId yields an identical merge while letting the merge
+    // itself stay a pure, shared, sync function (`buildMergedAllNetworkSnapshot`).
+    const mergeDeriveAssetsByNetworkId: Record<string, boolean | undefined> =
+      {};
+    await Promise.all(
+      Array.from(
+        new Set(
+          allNetworksResult
+            .map((r) => r.networkId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ).map(async (networkId) => {
         try {
-          if (r.networkId) {
-            mergeDeriveAssetsEnabled = (
-              await backgroundApiProxy.serviceNetwork.getVaultSettings({
-                networkId: r.networkId ?? '',
-              })
-            ).mergeDeriveAssetsEnabled;
-          }
+          mergeDeriveAssetsByNetworkId[networkId] = (
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId,
+            })
+          ).mergeDeriveAssetsEnabled;
         } catch (_e) {
-          mergeDeriveAssetsEnabled = false;
+          mergeDeriveAssetsByNetworkId[networkId] = false;
         }
+      }),
+    );
 
-        if (r.aggregateTokenListMap) {
-          aggregateTokenListMap = mergeAggregateTokenListMap({
-            sourceMap: r.aggregateTokenListMap,
-            targetMap: aggregateTokenListMap,
-          });
-        }
+    const snapshot = buildMergedAllNetworkSnapshot({
+      rounds: allNetworksResult,
+      mergeDeriveAssetsByNetworkId,
+      accountId: account?.id,
+      createAtNetwork: account?.createAtNetwork,
+    });
 
-        if (r.aggregateTokenMap) {
-          const nestedAggregateTokenMap = nestAggregateTokensMap({
-            aggregateTokenMap: r.aggregateTokenMap,
-            networkId: r.networkId ?? '',
-          });
-          aggregateTokenMap = mergeNestedAggregateTokenMap({
-            sourceMap: nestedAggregateTokenMap,
-            targetMap: aggregateTokenMap,
-          });
-        }
-
-        tokenList.tokens = mergeDeriveTokenList({
-          sourceTokens: r.tokens.data,
-          targetTokens: tokenList.tokens,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-        tokenListMap = mergeDeriveTokenListMap({
-          sourceMap: r.tokens.map,
-          targetMap: tokenListMap,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        smallBalanceTokenList.smallBalanceTokens = mergeDeriveTokenList({
-          sourceTokens: r.smallBalanceTokens.data,
-          targetTokens: smallBalanceTokenList.smallBalanceTokens,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        smallBalanceTokenList.keys = `${smallBalanceTokenList.keys}_${r.smallBalanceTokens.keys}`;
-
-        smallBalanceTokenListMap = mergeDeriveTokenListMap({
-          sourceMap: r.smallBalanceTokens.map,
-          targetMap: smallBalanceTokenListMap,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        riskyTokenList.riskyTokens = mergeDeriveTokenList({
-          sourceTokens: r.riskTokens.data,
-          targetTokens: riskyTokenList.riskyTokens,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        riskyTokenList.riskyTokens = riskyTokenList.riskyTokens.concat(
-          r.riskTokens.data,
-        );
-        riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
-
-        riskyTokenListMap = mergeDeriveTokenListMap({
-          sourceMap: r.riskTokens.map,
-          targetMap: riskyTokenListMap,
-          mergeDeriveAssets: mergeDeriveAssetsEnabled,
-        });
-
-        const accountWorth = sumTokenGroupsFiatValueIgnoringUnavailable(r);
-
-        accountsWorth[
-          accountUtils.buildAccountValueKey({
-            accountId: r.accountId ?? '',
-            networkId: r.networkId ?? '',
-          })
-        ] = accountWorth;
-
-        if (
-          account?.id &&
-          (!accountUtils.isOthersAccount({ accountId: account.id }) ||
-            (accountUtils.isOthersAccount({ accountId: account.id }) &&
-              account?.createAtNetwork &&
-              account.createAtNetwork === r.networkId))
-        ) {
-          createAtNetworkWorth = createAtNetworkWorth.plus(accountWorth);
-        }
-      }
-
-      if (shouldSyncTokenFilterToOverview) {
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenMap,
-        });
-
-        void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
-          networkId: network?.id ?? '',
-          accountId: account?.id ?? '',
-          aggregateTokenListMap,
-        });
-      }
-
-      tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
-      smallBalanceTokenList.smallBalanceTokens = uniqBy(
-        smallBalanceTokenList.smallBalanceTokens,
-        (item) => item.$key,
-      );
-      riskyTokenList.riskyTokens = uniqBy(
-        riskyTokenList.riskyTokens,
-        (item) => item.$key,
-      );
-
-      const mergeTokenListMap = {
-        ...tokenListMap,
-        ...smallBalanceTokenListMap,
-      };
-
-      const flattenAggregateTokenMap =
-        flattenAggregateTokensMap(aggregateTokenMap);
-
-      let mergedTokens = sortTokensByFiatValue({
-        tokens: [
-          ...tokenList.tokens,
-          ...smallBalanceTokenList.smallBalanceTokens,
-        ],
-        map: {
-          ...mergeTokenListMap,
-          ...flattenAggregateTokenMap,
-        },
+    if (shouldSyncTokenFilterToOverview) {
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenMap: snapshot.aggregateTokenMap,
       });
 
-      const index = mergedTokens.findIndex((token) =>
-        isUnavailableOrZeroFiatValue(mergeTokenListMap[token.$key]?.fiatValue),
-      );
-
-      if (index > -1) {
-        const tokensWithBalance = mergedTokens.slice(0, index);
-        let tokensWithZeroBalance = mergedTokens.slice(index);
-
-        tokensWithZeroBalance = sortTokensByOrder({
-          tokens: tokensWithZeroBalance,
-        });
-
-        mergedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
-      }
-
-      tokenList.tokens = mergedTokens.slice(0, TOKEN_LIST_HIGH_VALUE_MAX);
-
-      smallBalanceTokenList.smallBalanceTokens = mergedTokens.slice(
-        TOKEN_LIST_HIGH_VALUE_MAX,
-      );
-
-      smallBalanceTokensFiatValue = sumFiatValuesFromTokens(
-        smallBalanceTokenList.smallBalanceTokens,
-        mergeTokenListMap,
-      );
-
-      riskyTokenList.riskyTokens = sortTokensByFiatValue({
-        tokens: riskyTokenList.riskyTokens,
-        map: riskyTokenListMap,
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenListMap: snapshot.aggregateTokenListMap,
       });
 
-      if (shouldSyncTokenFilterToOverview) {
-        updateAccountWorth({
-          accountId: mergeDeriveAddressData
-            ? (indexedAccount?.id ?? '')
-            : (account?.id ?? ''),
-          initialized: true,
-          updateAll: true,
-          worth: accountsWorth,
-          createAtNetworkWorth: createAtNetworkWorth.toFixed(),
-        });
-      }
-
-      // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
-      // view-model the COHERENT FULL merged snapshot this effect just produced —
-      // post merge/dedup ($key uniqBy) / sortTokensByFiatValue / zero-balance
-      // re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
-      // incremental round. `ingestRound` REPLACES the owner's slices each call,
-      // so `vm.lastStructure` compares full-vs-full and the structure frame
-      // reflects the whole current list. This effect's local merge above is the
-      // single source of merge truth; the VM is fed the already-merged result,
-      // with no duplicated merge logic in the VM yet (design §3 defers that).
-      if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-        void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-          ownerKey: cellsIngestInputsRef.current.ownerKey,
-          orderedTokens: tokenList.tokens,
-          smallBalanceTokens: smallBalanceTokenList.smallBalanceTokens,
-          tokenListMap: mergeTokenListMap,
-          aggregateTokensMap: aggregateTokenMap,
-          // The owned aggregate sub-token list map, carried onto the structure
-          // frame so the home cell-path leaves source the owned aggregate
-          // sub-token list from `listStructureAtom`.
-          ownedAggregateTokenListMap: aggregateTokenListMap,
-          smallBalanceFiatValue: smallBalanceTokensFiatValue.toFixed(),
-          storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-          keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-          homeDefaultTokenMap:
-            cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-          customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-          // Risky slice (design §R0 #5) — the coherent FULL risky set this
-          // effect just produced (post merge/dedup/sort). Carried so the BG VM
-          // can build the dedicated risky frame + merged raw list.
-          riskyTokens: riskyTokenList.riskyTokens,
-          riskyMap: riskyTokenListMap,
-          // SETTLED owner identity for the `getRawTokenList` switch skeleton.
-          accountId: account?.id,
-          networkId: network?.id,
-          rawKeys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-        });
-      }
-
-      updateTokenListState({
+      updateAccountWorth({
+        accountId: mergeDeriveAddressData
+          ? (indexedAccount?.id ?? '')
+          : (account?.id ?? ''),
         initialized: true,
-        isRefreshing: false,
+        updateAll: true,
+        worth: snapshot.accountsWorth,
+        createAtNetworkWorth: snapshot.createAtNetworkWorth,
       });
     }
+
+    // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
+    // view-model the COHERENT FULL merged snapshot `buildMergedAllNetworkSnapshot`
+    // just produced — post merge/dedup ($key uniqBy) / sortTokensByFiatValue /
+    // zero-balance re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
+    // incremental round. `ingestRound` REPLACES the owner's slices each call, so
+    // `vm.lastStructure` compares full-vs-full and the structure frame reflects
+    // the whole current list. The shared merge is the single source of truth,
+    // with no duplicated merge logic in the VM yet (design §3 defers that).
+    if (ENABLE_BG_TOKEN_VIEW_MODEL) {
+      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+        ownerKey: cellsIngestInputsRef.current.ownerKey,
+        orderedTokens: snapshot.orderedTokens,
+        smallBalanceTokens: snapshot.smallBalanceTokens,
+        tokenListMap: snapshot.mergeTokenListMap,
+        aggregateTokensMap: snapshot.aggregateTokenMap,
+        // The owned aggregate sub-token list map, carried onto the structure
+        // frame so the home cell-path leaves source the owned aggregate
+        // sub-token list from `listStructureAtom`.
+        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+        homeDefaultTokenMap:
+          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+        // Risky slice (design §R0 #5) — the coherent FULL risky set produced
+        // above (post merge/dedup/sort). Carried so the BG VM can build the
+        // dedicated risky frame + merged raw list.
+        riskyTokens: snapshot.riskyTokens,
+        riskyMap: snapshot.riskyTokenListMap,
+        // SETTLED owner identity for the `getRawTokenList` switch skeleton.
+        accountId: account?.id,
+        networkId: network?.id,
+        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+      });
+    }
+
+    // L2: authoritative full ingest done — drop progressive accumulation and
+    // cancel any trailing flush so it can't re-ingest superseded data.
+    if (progressiveFlushTimerRef.current !== null) {
+      clearTimeout(progressiveFlushTimerRef.current);
+      progressiveFlushTimerRef.current = null;
+    }
+    progressiveRoundsRef.current = [];
+
+    updateTokenListState({
+      initialized: true,
+      isRefreshing: false,
+    });
   }, [
     account?.createAtNetwork,
     account?.id,
