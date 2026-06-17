@@ -290,7 +290,9 @@ async function runLocalSecretEnvelopeFlow(page, rendererUrl) {
   assert.equal(restoreResult.runtimePlatform, 'web');
   const restoreSummary = restoreResult.summary || {};
   assert.equal(restoreSummary.rawCredentialIsLse, true);
-  assert.deepEqual(restoreSummary.credentialLayerKinds, ['indexeddb-cryptokey']);
+  assert.deepEqual(restoreSummary.credentialLayerKinds, [
+    'indexeddb-cryptokey',
+  ]);
   assert.equal(restoreSummary.credentialStrength, 'profile-bound');
   assert.equal(restoreSummary.innerCredentialPrefix, '|PK|');
   assert.equal(restoreSummary.backupPortableCredentialPrefix, '|PK|');
