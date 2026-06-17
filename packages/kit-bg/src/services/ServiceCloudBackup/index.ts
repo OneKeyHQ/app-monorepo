@@ -119,7 +119,12 @@ class ServiceCloudBackup extends ServiceBase {
 
     const credentials = password
       ? await this.buildLegacyCredentialsForBackup({
-          credentials: await serviceAccount.dumpCredentials(),
+          // Legacy V1 backup path (currently dormant: backupNow is a stub). The
+          // live cloud backup (V2) goes through ServicePrimeTransfer
+          // .buildTransferData, which fails fast on unavailable credentials.
+          // Here we keep the existing best-effort behavior and only take the
+          // resolvable credentials.
+          credentials: (await serviceAccount.dumpCredentials()).credentials,
           password,
         })
       : {};

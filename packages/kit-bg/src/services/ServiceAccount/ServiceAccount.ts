@@ -75,6 +75,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
+  LocalSecretEnvelopeUnavailable,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -898,8 +899,14 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dumpCredentials() {
+  async dumpCredentials(): Promise<{
+    credentials: Record<string, string>;
+    // Credential ids skipped because the local secret envelope layer was
+    // transiently unavailable while unwrapping them (see caller handling).
+    unavailableCredentialIds: string[];
+  }> {
     const { credentials } = await this.getAllCredentials();
+    const unavailableCredentialIds: string[] = [];
     const entries = await Promise.all(
       credentials.map(async ({ credential: rawCredential, id }) => {
         const rawPortableCredential = normalizePortableCredential({
@@ -913,23 +920,39 @@ class ServiceAccount extends ServiceBase {
           return undefined;
         }
 
-        const credential = await localDb.getCredentialInner({
-          credentialId: id,
-        });
-        const portableCredential = normalizePortableCredential({
-          credential: credential.credential,
-        });
-        if (!portableCredential) {
-          return undefined;
+        try {
+          const credential = await localDb.getCredentialInner({
+            credentialId: id,
+          });
+          const portableCredential = normalizePortableCredential({
+            credential: credential.credential,
+          });
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [id, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable (keychain busy / pre-first-unlock on native; IndexedDB
+          // CryptoKey missing or unreadable on web-ext) instead of aborting the
+          // entire export via Promise.all. Genuine ciphertext corruption and any
+          // other error still propagate so they are not silently dropped.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(id);
+            return undefined;
+          }
+          throw error;
         }
-        return [id, portableCredential] as const;
       }),
     );
-    return Object.fromEntries(
-      entries.filter((entry): entry is readonly [string, string] =>
-        Boolean(entry),
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
       ),
-    );
+      unavailableCredentialIds,
+    };
   }
 
   @backgroundMethod()

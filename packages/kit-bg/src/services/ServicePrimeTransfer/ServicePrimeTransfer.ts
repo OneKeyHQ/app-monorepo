@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
   TransferInvalidCodeError,
 } from '@onekeyhq/shared/src/errors';
@@ -113,6 +114,7 @@ import e2eeClientToClientApi, {
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
+  collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
   getCliBotWalletTransferWalletId,
   normalizePrimeTransferCredential,
@@ -1373,7 +1375,10 @@ class ServicePrimeTransfer extends ServiceBase {
     privateBackupData,
   }: {
     privateBackupData: IPrimeTransferPrivateData;
-  }) {
+  }): Promise<{
+    credentials: Record<string, string>;
+    unavailableCredentialIds: string[];
+  }> {
     const credentialIds = new Set<string>();
 
     Object.keys(privateBackupData.wallets).forEach((id) => {
@@ -1398,38 +1403,54 @@ class ServicePrimeTransfer extends ServiceBase {
       }),
     );
 
+    const unavailableCredentialIds: string[] = [];
     const entries = await Promise.all(
       Array.from(credentialIds).map(async (credentialId) => {
-        const rawCredential = await localDb.getCredentialRaw(credentialId);
-        const rawPortableCredential =
-          normalizePrimeTransferCredential(rawCredential);
-        if (rawPortableCredential) {
-          return [credentialId, rawPortableCredential] as const;
-        }
+        try {
+          const rawCredential = await localDb.getCredentialRaw(credentialId);
+          const rawPortableCredential =
+            normalizePrimeTransferCredential(rawCredential);
+          if (rawPortableCredential) {
+            return [credentialId, rawPortableCredential] as const;
+          }
 
-        if (
-          !shouldUnwrapCredentialForPortableExport(rawCredential.credential)
-        ) {
-          return undefined;
-        }
+          if (
+            !shouldUnwrapCredentialForPortableExport(rawCredential.credential)
+          ) {
+            return undefined;
+          }
 
-        const portableCredential = normalizePrimeTransferCredential(
-          await localDb.getCredentialInner({
-            credentialId,
-          }),
-        );
-        if (!portableCredential) {
-          return undefined;
+          const portableCredential = normalizePrimeTransferCredential(
+            await localDb.getCredentialInner({
+              credentialId,
+            }),
+          );
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [credentialId, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable instead of aborting the whole transfer via Promise.all.
+          // The caller surfaces these for user confirmation before sending.
+          // Genuine corruption / other errors still propagate.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(credentialId);
+            return undefined;
+          }
+          throw error;
         }
-        return [credentialId, portableCredential] as const;
       }),
     );
 
-    return Object.fromEntries(
-      entries.filter((entry): entry is readonly [string, string] =>
-        Boolean(entry),
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
       ),
-    );
+      unavailableCredentialIds,
+    };
   }
 
   @backgroundMethod()
@@ -1711,9 +1732,32 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
-    privateBackupData.credentials = walletIds?.length
-      ? await this.buildScopedTransferCredentials({ privateBackupData })
-      : await serviceAccount.dumpCredentials();
+    const { credentials: builtCredentials, unavailableCredentialIds } =
+      walletIds?.length
+        ? await this.buildScopedTransferCredentials({ privateBackupData })
+        : await serviceAccount.dumpCredentials();
+    privateBackupData.credentials = builtCredentials;
+
+    // Resolve labels for skipped credentials and prune the orphaned
+    // wallet/account entries so the payload stays self-consistent (no
+    // wallet/account without its credential reaches the receiver).
+    const unavailableCredentials =
+      collectAndPruneUnavailableTransferCredentials({
+        privateData: privateBackupData,
+        unavailableCredentialIds,
+      });
+
+    // Cloud backup must never silently produce a partial backup: a partial
+    // backup can overwrite a previous complete one and lose the only
+    // recoverable copy of the skipped wallet. Fail fast with a clear, retryable
+    // message (the @toastIfError-wrapped caller surfaces it). Interactive
+    // transfer instead keeps unavailableCredentials and lets the user confirm.
+    if (isForCloudBackup && unavailableCredentials.length > 0) {
+      throw new LocalSecretEnvelopeUnavailable({
+        message:
+          "Secure storage is temporarily unavailable, so some wallets can't be backed up right now. Please try again.",
+      });
+    }
 
     // fill publicData summary by aggregating from privateBackupData
     try {
@@ -1827,6 +1871,9 @@ class ServicePrimeTransfer extends ServiceBase {
         !Object.keys(privateData?.importedAccounts || {}).length &&
         !Object.keys(privateData?.watchingAccounts || {}).length,
       ),
+      unavailableCredentials: unavailableCredentials.length
+        ? unavailableCredentials
+        : undefined,
     };
   }
 

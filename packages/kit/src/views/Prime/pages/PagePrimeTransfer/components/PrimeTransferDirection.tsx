@@ -478,6 +478,35 @@ export function PrimeTransferDirection({
             await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
               walletIds: botWalletId ? [botWalletId] : undefined,
             });
+          // Some credentials could not be read because the local secure storage
+          // layer was transiently unavailable; they were skipped. Confirm before
+          // sending the rest. Fixed English copy by design (rare edge case).
+          const unavailableCredentials = transferData?.unavailableCredentials;
+          if (unavailableCredentials?.length) {
+            const confirmedToSkip = await new Promise<boolean>((resolve) => {
+              Dialog.show({
+                title: "Some items can't be transferred",
+                description: `Secure storage is temporarily unavailable, so these items can't be read and will be skipped: ${unavailableCredentials
+                  .map((c) => c.label)
+                  .join(
+                    ', ',
+                  )}. They stay on this device — try again later to transfer them. Continue with the rest?`,
+                showCancelButton: true,
+                showConfirmButton: true,
+                onConfirmText: 'Continue',
+                onCancelText: 'Cancel',
+                disableDrag: true,
+                dismissOnOverlayPress: false,
+                onConfirm: () => resolve(true),
+                onCancel: () => resolve(false),
+                onClose: () => resolve(false),
+              });
+            });
+            if (!confirmedToSkip) {
+              await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
+              throw new OneKeyLocalError('Transfer cancelled by user');
+            }
+          }
           if (transferData?.isEmptyData) {
             Toast.error({
               title: intl.formatMessage({
