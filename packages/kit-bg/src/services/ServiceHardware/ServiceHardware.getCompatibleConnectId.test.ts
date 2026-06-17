@@ -183,4 +183,29 @@ describe('ServiceHardware.getCompatibleConnectId', () => {
       },
     );
   });
+
+  it('uses a silent hardware context for portfolio package mock upload', async () => {
+    const service = new ServiceHardware({
+      backgroundApi: {} as unknown as IBackgroundApi,
+    });
+    const getCompatibleConnectId = jest.fn().mockResolvedValue('ONEKEY_USB');
+    service.getCompatibleConnectId = getCompatibleConnectId;
+
+    await expect(
+      service.uploadPortfolioPackageMock({
+        connectId: 'ONEKEY_USB',
+        contentHash: 'portfolio-hash',
+        packageBytes: new Uint8Array([1, 2, 3]).buffer,
+      }),
+    ).resolves.toEqual({
+      bytesLength: 3,
+      contentHash: 'portfolio-hash',
+      mock: true,
+    });
+
+    expect(getCompatibleConnectId).toHaveBeenCalledWith({
+      connectId: 'ONEKEY_USB',
+      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
+    });
+  });
 });

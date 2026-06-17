@@ -1456,7 +1456,7 @@ class ServiceHardware extends ServiceBase {
   }> {
     await this.getCompatibleConnectId({
       connectId,
-      hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+      hardwareCallContext: EHardwareCallContext.SILENT_CALL,
     });
     return {
       bytesLength: packageBytes.byteLength,
