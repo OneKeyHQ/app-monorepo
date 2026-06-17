@@ -612,26 +612,40 @@ export default class ServiceSwap extends ServiceBase {
       await this.cancelFetchTokenList();
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
+    const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const shouldFetchStaticStockTokens =
+      requestProtocol === EProtocolOfExchange.STOCK;
     const params: IFetchTokenListParams = {
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      protocol: requestProtocol,
       networkId: targetNetworkId,
       keywords,
       limit,
-      accountAddress: !networkUtils.isAllNetwork({
-        networkId: targetNetworkId,
-      })
-        ? accountAddress
-        : undefined,
-      accountNetworkId,
+      accountAddress:
+        !shouldFetchStaticStockTokens &&
+        !networkUtils.isAllNetwork({
+          networkId: targetNetworkId,
+        })
+          ? accountAddress
+          : undefined,
+      accountNetworkId: shouldFetchStaticStockTokens
+        ? undefined
+        : accountNetworkId,
       skipReservationValue: true,
-      onlyAccountTokens,
+      onlyAccountTokens: shouldFetchStaticStockTokens
+        ? undefined
+        : onlyAccountTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {
       this._tokenListAbortController = new AbortController();
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
-    if (accountId && accountAddress && networkId) {
+    if (
+      !shouldFetchStaticStockTokens &&
+      accountId &&
+      accountAddress &&
+      networkId
+    ) {
       try {
         const accountAddressForAccountId =
           await this.backgroundApi.serviceAccount.getAccountAddressForApi({
