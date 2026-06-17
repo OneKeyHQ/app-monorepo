@@ -123,4 +123,35 @@ export class SimpleDbEntityDeFi extends SimpleDbEntityBase<IDeFiDBStruct> {
       };
     });
   }
+
+  // Drop cached DeFi overviews belonging to deleted accounts. `overview` keys are
+  // bare addresses/xpubs (no networkId prefix). `validOwners` is the set of
+  // lowercased addresses/xpubs of all surviving accounts. Pure-cache cleanup.
+  // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
+  async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+    await this.setRawData((rawData) => {
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot, so
+      // a concurrent clearRawData is never undone by an `existing` fallback.
+      const base = rawData;
+      const overview = base?.overview ?? {};
+      const nextOverview: NonNullable<IDeFiDBStruct['overview']> = {};
+      for (const [key, value] of Object.entries(overview)) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextOverview[key] = value;
+        }
+      }
+      return { ...base, overview: nextOverview };
+    });
+  }
 }
