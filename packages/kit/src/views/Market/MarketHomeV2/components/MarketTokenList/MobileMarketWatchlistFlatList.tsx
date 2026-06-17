@@ -51,7 +51,6 @@ interface IMobileMarketWatchlistFlatListProps {
     paddingBottom: number;
   };
   shouldSuppressItemPress?: () => boolean;
-  enableWebSocket?: boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -66,7 +65,6 @@ function MobileMarketWatchlistFlatListImpl({
   selectedFilter = 'all',
   listContainerProps,
   shouldSuppressItemPress,
-  enableWebSocket,
 }: IMobileMarketWatchlistFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();

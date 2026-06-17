@@ -143,7 +143,12 @@ export function useTradingViewV2WebSocket({
       }
 
       const receivedData = payload.data as IWsPriceData;
-      if (receivedData.type && receivedData.type !== chartType) {
+      if (
+        receivedData &&
+        !('points' in receivedData) &&
+        receivedData.type &&
+        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
+      ) {
         return;
       }
 
@@ -156,15 +161,6 @@ export function useTradingViewV2WebSocket({
 
       const webView = webRef.current;
       if (!webView) {
-        return;
-      }
-
-      if (
-        receivedData &&
-        !('points' in receivedData) &&
-        receivedData.type &&
-        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
-      ) {
         return;
       }
 
@@ -196,7 +192,7 @@ export function useTradingViewV2WebSocket({
         address: tokenAddress,
         type: 'ohlcv',
         networkId,
-        chartType,
+        chartType: wsChartType,
         currency,
       });
 
@@ -218,7 +214,6 @@ export function useTradingViewV2WebSocket({
     markSubscriptionActivity,
     networkId,
     tokenAddress,
-    chartType,
     currency,
     webRef,
     enabled,

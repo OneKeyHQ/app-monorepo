@@ -32,7 +32,6 @@ interface IMobileMarketTokenFlatListProps {
   };
   onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
   shouldSuppressItemPress?: () => boolean;
-  enableWebSocket?: boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -44,7 +43,6 @@ function MobileMarketTokenFlatListBase({
   listContainerProps,
   onStockDataChange,
   shouldSuppressItemPress,
-  enableWebSocket,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
