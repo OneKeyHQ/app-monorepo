@@ -12,6 +12,7 @@ import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanu
 import type { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
 import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import type { SimpleDbEntityHardwarePortfolioSync } from '../entity/SimpleDbEntityHardwarePortfolioSync';
 import type { SimpleDbEntityBotWallet } from '../entity/SimpleDbEntityBotWallet';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -234,6 +235,10 @@ export class SimpleDbProxy
   babylonSync = this._createProxyService(
     'babylonSync',
   ) as SimpleDbEntityBabylonSync;
+
+  hardwarePortfolioSync = this._createProxyService(
+    'hardwarePortfolioSync',
+  ) as SimpleDbEntityHardwarePortfolioSync;
 
   appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 

@@ -1,5 +1,5 @@
 /*
-yarn test packages/kit-bg/src/services/ServicePortfolioSync/servicePortfolioSyncUtils.test.ts
+yarn test packages/kit-bg/src/services/ServiceHardware/serviceHardwarePortfolioSync/serviceHardwarePortfolioSyncUtils.test.ts
 */
 import type {
   EAppEventBusNames,
@@ -12,7 +12,7 @@ import {
   PORTFOLIO_SYNC_TRANSFER_COOLDOWN_MS,
   buildPortfolioSyncArtifacts,
   getPortfolioSyncCooldownRemainingMs,
-} from './servicePortfolioSyncUtils';
+} from './serviceHardwarePortfolioSyncUtils';
 
 const currencyMap: Record<string, ICurrencyItem> = {
   cny: {
@@ -54,7 +54,7 @@ function buildFiat(params: Partial<ITokenFiat>): ITokenFiat {
   };
 }
 
-describe('servicePortfolioSyncUtils', () => {
+describe('serviceHardwarePortfolioSyncUtils', () => {
   test('calculates the 20s hardware transfer cooldown window', () => {
     expect(
       getPortfolioSyncCooldownRemainingMs({

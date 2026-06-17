@@ -14,20 +14,20 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   currencyPersistAtom,
   settingsPersistAtom,
-} from '../../states/jotai/atoms';
-import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
-import ServiceBase from '../ServiceBase';
+} from '../../../states/jotai/atoms';
+import { devSettingsPersistAtom } from '../../../states/jotai/atoms/devSettings';
+import ServiceBase from '../../ServiceBase';
 
 import {
   buildPortfolioSyncArtifacts,
   getPortfolioSyncCooldownRemainingMs,
   isPortfolioSyncDevEnabled,
-} from './servicePortfolioSyncUtils';
+} from './serviceHardwarePortfolioSyncUtils';
 
 import type {
   IPortfolioSyncArtifacts,
   IPortfolioSyncSettledPayload,
-} from './servicePortfolioSyncUtils';
+} from './serviceHardwarePortfolioSyncUtils';
 
 export type IPortfolioSyncStatus =
   | 'built'
@@ -99,14 +99,15 @@ function debugPortfolioSyncRawLog(label: string, value: string) {
 }
 
 @backgroundClass()
-class ServicePortfolioSync extends ServiceBase {
+class ServiceHardwarePortfolioSync extends ServiceBase {
   private initialized = false;
 
-  private lastContentHash: string | undefined;
-
-  private inFlightContentHash: string | undefined;
-
-  private lastHardwareTransferAtByConnectId = new Map<string, number>();
+  // Per-target dedup hash for a snapshot whose async submit/upload is still in
+  // flight. Runtime-only: a stuck reservation must not survive a restart. The
+  // durable last-synced hash + cooldown timestamp live in simpleDb
+  // (hardwarePortfolioSync), keyed per device so multiple simultaneously
+  // connected devices keep independent dedup/cooldown state.
+  private inFlightContentHashByTargetKey = new Map<string, string>();
 
   private lastArtifacts: IPortfolioSyncArtifacts | undefined;
 
@@ -162,14 +163,40 @@ class ServicePortfolioSync extends ServiceBase {
     this.lastResult = result;
   }
 
-  private commitProcessedArtifacts(artifacts: IPortfolioSyncArtifacts) {
-    // Mark this snapshot as processed only after it has actually been
-    // submitted/uploaded. Committing earlier means a hardware-busy skip (or a
-    // future failed server submit) would permanently dedupe — and thereby
-    // silently drop — the same unchanged snapshot until the portfolio changes.
-    this.lastContentHash = artifacts.contentHash;
+  private get portfolioSyncDb() {
+    return this.backgroundApi.simpleDb.hardwarePortfolioSync;
+  }
+
+  // Sync target identity: the hardware device connectId when available,
+  // otherwise the walletId. Dedup/cooldown state is scoped per target so
+  // multiple simultaneously-connected devices each keep independent state.
+  private getSyncTargetKey(
+    eventPayload: IPortfolioSyncSettledPayload,
+  ): string {
+    return eventPayload.deviceConnectId || eventPayload.walletId || '';
+  }
+
+  private async commitProcessedArtifacts({
+    artifacts,
+    targetKey,
+    transferAt,
+  }: {
+    artifacts: IPortfolioSyncArtifacts;
+    targetKey: string;
+    transferAt?: number;
+  }) {
+    // Persist the dedup hash (and optional transfer timestamp) only after the
+    // snapshot has actually been submitted/uploaded. Committing earlier means a
+    // hardware-busy skip (or a future failed server submit) would permanently
+    // dedupe — and thereby silently drop — the same unchanged snapshot until the
+    // portfolio changes. Persist BEFORE clearing the in-flight reservation so a
+    // concurrent invocation in the gap still sees this target as taken.
     this.lastArtifacts = artifacts;
-    this.inFlightContentHash = undefined;
+    await this.portfolioSyncDb.updateTargetState(targetKey, {
+      lastContentHash: artifacts.contentHash,
+      ...(transferAt !== undefined ? { lastTransferAt: transferAt } : {}),
+    });
+    this.inFlightContentHashByTargetKey.delete(targetKey);
   }
 
   private scheduleSyncAfterCooldown({
@@ -202,16 +229,16 @@ class ServicePortfolioSync extends ServiceBase {
     this.pendingCooldownTimerByConnectId.set(deviceConnectId, timer);
   }
 
-  private getHardwareCooldownRemainingMs({
-    deviceConnectId,
+  private async getHardwareCooldownRemainingMs({
+    targetKey,
     now,
   }: {
-    deviceConnectId: string;
+    targetKey: string;
     now: number;
   }) {
+    const state = await this.portfolioSyncDb.getTargetState(targetKey);
     return getPortfolioSyncCooldownRemainingMs({
-      lastTransferAt:
-        this.lastHardwareTransferAtByConnectId.get(deviceConnectId),
+      lastTransferAt: state?.lastTransferAt,
       now,
     });
   }
@@ -273,8 +300,7 @@ class ServicePortfolioSync extends ServiceBase {
   }: {
     artifacts: IPortfolioSyncArtifacts;
   }): Promise<IPortfolioServerSubmitResult> {
-    const { contentHash, portfolioJsonBytes, portfolioJsonText } = artifacts;
-    void portfolioJsonText;
+    const { contentHash, portfolioJsonBytes } = artifacts;
 
     debugPortfolioSyncLog('server-submit-ready', {
       bytesLength: portfolioJsonBytes.byteLength,
@@ -299,6 +325,7 @@ class ServicePortfolioSync extends ServiceBase {
     eventPayload: IPortfolioSyncSettledPayload,
   ) {
     const updatedAt = Date.now();
+    const targetKey = this.getSyncTargetKey(eventPayload);
     try {
       if (!(await this.shouldRunDevFlow())) {
         debugPortfolioSyncLog('skip-disabled');
@@ -318,8 +345,8 @@ class ServicePortfolioSync extends ServiceBase {
       const deviceConnectId = eventPayload.deviceConnectId;
 
       if (isHardwareWallet && deviceConnectId) {
-        const cooldownRemainingMs = this.getHardwareCooldownRemainingMs({
-          deviceConnectId,
+        const cooldownRemainingMs = await this.getHardwareCooldownRemainingMs({
+          targetKey,
           now: updatedAt,
         });
         if (cooldownRemainingMs > 0) {
@@ -362,9 +389,20 @@ class ServicePortfolioSync extends ServiceBase {
         artifacts.mockPortfolioJsonText,
       );
 
+      // Read the persisted last-synced hash for this target (await) BEFORE the
+      // synchronous check-and-reserve below. The in-flight read + duplicate
+      // check + reserve run with NO await between them, so two concurrent
+      // invocations for the same target either see it already reserved (and are
+      // deduped) or one reserves first — never both upload the same snapshot.
+      // The hardware path further down awaits isHardwareChannelBusy, which is
+      // exactly why the reservation must be taken here, not after that await.
+      const persistedTargetState = await this.portfolioSyncDb.getTargetState(
+        targetKey,
+      );
       const isDuplicate =
-        artifacts.contentHash === this.lastContentHash ||
-        artifacts.contentHash === this.inFlightContentHash;
+        artifacts.contentHash === persistedTargetState?.lastContentHash ||
+        artifacts.contentHash ===
+          this.inFlightContentHashByTargetKey.get(targetKey);
       if (isDuplicate) {
         debugPortfolioSyncLog('skip-duplicate', {
           contentHash: artifacts.contentHash,
@@ -382,15 +420,7 @@ class ServicePortfolioSync extends ServiceBase {
         return;
       }
 
-      // Reserve this content hash synchronously with the duplicate check above
-      // — with NO await in between — so a concurrent invocation observes the
-      // reservation at its own duplicate check and is skipped instead of
-      // double-uploading the same snapshot. The hardware path below awaits
-      // isHardwareChannelBusy, so reserving here (rather than after that await)
-      // is what actually closes the race on the device-upload path. Released on
-      // every non-success exit (hardware-busy below, error catch) and on
-      // success via commitProcessedArtifacts, so retries stay open.
-      this.inFlightContentHash = artifacts.contentHash;
+      this.inFlightContentHashByTargetKey.set(targetKey, artifacts.contentHash);
 
       if (isHardwareWallet && deviceConnectId) {
         const hardwareBusy =
@@ -398,10 +428,10 @@ class ServicePortfolioSync extends ServiceBase {
             connectId: deviceConnectId,
           });
         if (hardwareBusy) {
-          // Release the reservation and do not commit dedup state: this
+          // Release the reservation and do not persist dedup state: this
           // snapshot was never uploaded, so an identical settled event must be
           // allowed to retry once the hardware channel frees up.
-          this.inFlightContentHash = undefined;
+          this.inFlightContentHashByTargetKey.delete(targetKey);
           debugPortfolioSyncLog('skip-hardware-busy', {
             contentHash: artifacts.contentHash,
           });
@@ -442,12 +472,15 @@ class ServicePortfolioSync extends ServiceBase {
           bytesLength: mockUpload.bytesLength,
           contentHash: mockUpload.contentHash,
         });
-        this.commitProcessedArtifacts(artifacts);
-        this.lastHardwareTransferAtByConnectId.set(deviceConnectId, Date.now());
+        await this.commitProcessedArtifacts({
+          artifacts,
+          targetKey,
+          transferAt: Date.now(),
+        });
         return;
       }
 
-      this.commitProcessedArtifacts(artifacts);
+      await this.commitProcessedArtifacts({ artifacts, targetKey });
       this.setLastResult(
         this.buildResultBase({
           artifacts,
@@ -463,7 +496,7 @@ class ServicePortfolioSync extends ServiceBase {
       });
     } catch (error) {
       // Release the in-flight reservation so the same snapshot can be retried.
-      this.inFlightContentHash = undefined;
+      this.inFlightContentHashByTargetKey.delete(targetKey);
       debugPortfolioSyncLog('error', {
         message: (error as Error)?.message,
       });
@@ -494,4 +527,4 @@ class ServicePortfolioSync extends ServiceBase {
   }
 }
 
-export default ServicePortfolioSync;
+export default ServiceHardwarePortfolioSync;

@@ -384,13 +384,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get servicePortfolioSync() {
+  get serviceHardwarePortfolioSync() {
     const Service =
-      require('../services/ServicePortfolioSync') as typeof import('../services/ServicePortfolioSync');
+      require('../services/ServiceHardware/serviceHardwarePortfolioSync') as typeof import('../services/ServiceHardware/serviceHardwarePortfolioSync');
     const value = new Service.default({
       backgroundApi: this,
     });
-    Object.defineProperty(this, 'servicePortfolioSync', { value });
+    Object.defineProperty(this, 'serviceHardwarePortfolioSync', { value });
     return value;
   }
 
