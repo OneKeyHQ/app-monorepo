@@ -505,17 +505,6 @@ function getSupportedAssetCategory(
   return supportedAction.assetCategory;
 }
 
-function isSupportedByCurrentActionUi(
-  supportedAction: IDeFiSupportedProtocolAction,
-) {
-  if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
-    // Requires a min-receive quote/display contract before the App can expose
-    // this as a safe signing flow.
-    return false;
-  }
-  return true;
-}
-
 function getCandidateAssets({
   position,
   supportedAction,
@@ -652,7 +641,6 @@ function resolveDeFiPositionActions({
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
-      isSupportedByCurrentActionUi(supportedAction) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 

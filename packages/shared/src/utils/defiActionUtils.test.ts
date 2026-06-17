@@ -115,7 +115,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
-  it('hides Uniswap removeLiquidity until the min-receive contract is ready', () => {
+  it('resolves Uniswap removeLiquidity when tokenId metadata is available', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -143,10 +143,78 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
+    expect(actions).toHaveLength(1);
+    expect(actions[0].action).toBe(EDeFiPositionAction.RemoveLiquidity);
+    expect(actions[0].assets).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
+    expect(actions[0].assets[0].extraParams?.groupId).toBe(
+      '0x1111111111111111111111111111111111111111#123',
+    );
+  });
+
+  it('hides Uniswap removeLiquidity when tokenId metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: 'uniswap-v3-position',
+      name: 'Uniswap Position',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v3',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v3',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
     expect(actions).toHaveLength(0);
   });
 
-  it('hides grouped Uniswap removeLiquidity assets until the action is safe to expose', () => {
+  it('hides Uniswap V4 removeLiquidity when currency metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v4',
+      protocolName: 'Uniswap V4',
+      category: 'liquidity',
+      groupId: '0x1111111111111111111111111111111111111111#123',
+      name: 'Uniswap Position',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v4',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v4',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('resolves grouped Uniswap removeLiquidity assets separately', () => {
     const firstSourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -186,7 +254,10 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets).toHaveLength(2);
+    expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
+    expect(actions[0].assets[1].extraParams?.tokenId).toBe('456');
   });
 
   it('resolves Polygon claimWithdrawal with pool and group metadata', () => {
