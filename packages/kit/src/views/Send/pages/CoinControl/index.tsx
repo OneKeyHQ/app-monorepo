@@ -37,7 +37,6 @@ import type {
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EUtxoSelectionStrategy } from '@onekeyhq/shared/types/send';
 
-import { findAddressCopy } from '../../../Receive/components/btcFindAddressCopy';
 import { SendConfirmProviderMirror } from '../../components/SendConfirmProvider/SendConfirmProviderMirror';
 import { SendTestIDs } from '../../testIDs';
 
@@ -324,6 +323,14 @@ function CoinControlPage() {
     [intl],
   );
 
+  const claimedLabel = useMemo(
+    () =>
+      intl.formatMessage({
+        id: ETranslations.find_address_recovered_section__title,
+      }),
+    [intl],
+  );
+
   // Render list item
   const renderItem = useCallback(
     ({ item, index }: { item: IUtxoInfo; index: number }) => {
@@ -338,11 +345,18 @@ function CoinControlPage() {
           symbol={network?.symbol ?? 'BTC'}
           intl={intl}
           isClaimed={Boolean(item.isCustomClaimed)}
-          claimedLabel={findAddressCopy.claimedUtxoLabel}
+          claimedLabel={claimedLabel}
         />
       );
     },
-    [selectedUTXOs, handleToggleUTXO, network?.decimals, network?.symbol, intl],
+    [
+      selectedUTXOs,
+      handleToggleUTXO,
+      network?.decimals,
+      network?.symbol,
+      intl,
+      claimedLabel,
+    ],
   );
 
   // Key extractor for list items
