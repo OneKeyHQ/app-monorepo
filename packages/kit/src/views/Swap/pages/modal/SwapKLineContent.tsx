@@ -695,7 +695,6 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     setChartRealtimePrice((prev) =>
       prev?.tokenKey === selectedTokenKey ? prev : undefined,
     );
-    hasTrackedOpenRef.current = false;
     lastKLineUserPeriodRef.current = undefined;
     reportedKLineLoadErrorKeysRef.current.clear();
     kLineFallbackChainRef.current = [];
@@ -740,8 +739,14 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     return chain || undefined;
   }, []);
 
-  const handleKLineDataReady = useCallback(
-    (data: ITradingViewKLineDataReadyData) => {
+  const trackKLineOpenOnce = useCallback(
+    ({
+      initialPeriod,
+      fallbackTriggered,
+    }: {
+      initialPeriod?: string;
+      fallbackTriggered?: 'yes' | 'no';
+    }) => {
       if (
         hasTrackedOpenRef.current ||
         !selectedToken ||
@@ -751,19 +756,29 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       }
 
       hasTrackedOpenRef.current = true;
-      lastKLineUserPeriodRef.current = data.period;
       defaultLogger.swap.swapKline.swapKlineOpen({
         defaultSide: resolvedSelectedSide,
         tokenSymbol: selectedToken.symbol,
         network: selectedToken.networkId,
         fromTokenSymbol: fromToken?.symbol,
         toTokenSymbol: toToken?.symbol,
+        initialPeriod,
+        fallbackTriggered,
+      });
+    },
+    [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol],
+  );
+
+  const handleKLineDataReady = useCallback(
+    (data: ITradingViewKLineDataReadyData) => {
+      lastKLineUserPeriodRef.current = data.period;
+      trackKLineOpenOnce({
         initialPeriod: data.period,
         fallbackTriggered:
           kLineFallbackChainRef.current.length > 0 ? 'yes' : 'no',
       });
     },
-    [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol],
+    [trackKLineOpenOnce],
   );
 
   const handleKLineLoadError = useCallback(
@@ -779,6 +794,13 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       ) {
         kLineFallbackChainRef.current.push(fallbackSegment);
       }
+      trackKLineOpenOnce({
+        initialPeriod: data.period,
+        fallbackTriggered:
+          data.status === 'empty' || kLineFallbackChainRef.current.length > 1
+            ? 'yes'
+            : 'no',
+      });
       const errorKey = `${selectedTokenKey}:${data.period}`;
       if (reportedKLineLoadErrorKeysRef.current.has(errorKey)) {
         return;
@@ -794,7 +816,12 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         message: data.status === 'failed' ? data.message : undefined,
       });
     },
-    [buildKLineFallbackChain, selectedToken, selectedTokenKey],
+    [
+      buildKLineFallbackChain,
+      selectedToken,
+      selectedTokenKey,
+      trackKLineOpenOnce,
+    ],
   );
 
   const handleKLinePeriodChange = useCallback(
