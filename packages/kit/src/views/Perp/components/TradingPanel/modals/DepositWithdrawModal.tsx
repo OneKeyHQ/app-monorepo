@@ -49,6 +49,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   perpsActiveAccountAtom,
+  usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsDepositTokensAtom,
@@ -422,6 +423,7 @@ function DepositWithdrawContent({
   const { gtMd } = useMedia();
   const selectedAction = params.actionType;
   const [computedValue] = usePerpsComputedAccountValueAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const withdrawable = computedValue?.withdrawable ?? '';
   const [amount, setAmount] = useState('');
   const [depositInputUnit, setDepositInputUnit] = useState<'token' | 'usd'>(
@@ -777,6 +779,12 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.balanceParsed,
     currentPerpsDepositSelectedToken?.symbol,
   ]);
+  const hasCachedWithdrawableValue =
+    computedValue?.withdrawable !== undefined &&
+    computedValue?.withdrawable !== null &&
+    computedValue?.withdrawable !== '';
+  const shouldShowWithdrawableSkeleton =
+    perpsAccountLoading?.selectAccountLoading && !hasCachedWithdrawableValue;
 
   const amountBN = useMemo(() => new BigNumber(amount || '0'), [amount]);
 
@@ -894,27 +902,31 @@ function DepositWithdrawContent({
   const isValidAmount = useMemo(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
+    const hasActiveAmount = !!amount;
+    const isBelowDepositMin =
+      selectedAction === 'deposit' &&
+      hasActiveAmount &&
+      !checkFromTokenFiatValue.value;
+    const isBelowWithdrawMin =
+      selectedAction === 'withdraw' &&
+      hasActiveAmount &&
+      amountBN.lt(MIN_WITHDRAW_AMOUNT);
+
     if (selectedAction === 'deposit') {
-      return (
-        tokenAmountBN.lte(availableBalanceBN) &&
-        (!showMinAmountError || checkFromTokenFiatValue.value)
-      );
+      return tokenAmountBN.lte(availableBalanceBN) && !isBelowDepositMin;
     }
 
     if (selectedAction === 'withdraw') {
-      return (
-        amountBN.lte(availableBalanceBN) &&
-        (!showMinAmountError || amountBN.gte(MIN_WITHDRAW_AMOUNT))
-      );
+      return amountBN.lte(availableBalanceBN) && !isBelowWithdrawMin;
     }
 
     return true;
   }, [
+    amount,
     amountBN,
     tokenAmountBN,
     availableBalanceBN,
     selectedAction,
-    showMinAmountError,
     checkFromTokenFiatValue.value,
   ]);
 
@@ -1193,10 +1205,23 @@ function DepositWithdrawContent({
   );
 
   useEffect(() => {
-    if (selectedAction === 'deposit' && !checkFromTokenFiatValue.value) {
-      setShowMinAmountError(true);
+    if (!amount || amountBN.isNaN() || amountBN.lte(0)) {
+      setShowMinAmountError(false);
+      return;
     }
-  }, [selectedAction, checkFromTokenFiatValue.value, amount]);
+
+    if (selectedAction === 'deposit') {
+      setShowMinAmountError(!checkFromTokenFiatValue.value);
+      return;
+    }
+
+    if (selectedAction === 'withdraw') {
+      setShowMinAmountError(amountBN.lt(MIN_WITHDRAW_AMOUNT));
+      return;
+    }
+
+    setShowMinAmountError(false);
+  }, [amount, amountBN, checkFromTokenFiatValue.value, selectedAction]);
 
   const validateAmountBeforeSubmit = useCallback(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) {
@@ -1686,27 +1711,12 @@ function DepositWithdrawContent({
       });
     }
 
-    const providerName = perpDepositQuote?.result?.info?.providerName?.trim();
-    const providerDetail = providerName
-      ? intl.formatMessage(
-          {
-            id: ETranslations.perp_deposit_estimate_defi_with_provider__desc,
-          },
-          { provider: providerName },
-        )
-      : intl.formatMessage({
-          id: ETranslations.perp_deposit_estimate_defi__desc,
-        });
-
-    return `${providerDetail} ${intl.formatMessage({
+    return `${intl.formatMessage({
+      id: ETranslations.perp_deposit_estimate_defi__desc,
+    })} ${intl.formatMessage({
       id: ETranslations.perp_deposit_estimate_route_refresh__desc,
     })}`;
-  }, [
-    isArbitrumUsdcToken,
-    intl,
-    perpDepositQuote?.result?.info?.providerName,
-    selectedAction,
-  ]);
+  }, [isArbitrumUsdcToken, intl, selectedAction]);
 
   const depositEstimateHintTrigger = useMemo(
     () => (
@@ -1866,7 +1876,8 @@ function DepositWithdrawContent({
       <DashText
         size="$bodySm"
         color="$textSubdued"
-        dashThickness={0.3}
+        dashColor="$textSubdued"
+        dashThickness={0.5}
         cursor={gtMd ? 'help' : undefined}
       >
         {intl.formatMessage({
@@ -1930,24 +1941,28 @@ function DepositWithdrawContent({
           >
             <XStack alignItems="center" gap="$1.5">
               {depositEstimateHint}
-              <Stack
-                w="$4"
-                h="$4"
-                alignItems="center"
-                justifyContent="center"
-                borderRadius="$full"
-                cursor="pointer"
-                onPress={() => {
-                  void perpDepositQuoteAction();
-                }}
-                hoverStyle={{ opacity: 0.7 }}
-              >
-                <Icon
-                  name="RefreshCwOutline"
-                  size="$3.5"
-                  color="$iconSubdued"
-                />
-              </Stack>
+              {!isArbitrumUsdcToken ? (
+                <Stack
+                  w="$8"
+                  h="$8"
+                  ml="$-1"
+                  alignItems="center"
+                  justifyContent="center"
+                  borderRadius="$full"
+                  cursor="pointer"
+                  onPress={() => {
+                    void perpDepositQuoteAction();
+                  }}
+                  hoverStyle={{ opacity: 0.7 }}
+                  pressStyle={{ opacity: 0.6 }}
+                >
+                  <Icon
+                    name="RefreshCwOutline"
+                    size="$3.5"
+                    color="$iconSubdued"
+                  />
+                </Stack>
+              ) : null}
             </XStack>
             {isDepositQuoteLoading ? (
               <Skeleton h="$4" w="$20" borderRadius="$1" />
@@ -2048,7 +2063,7 @@ function DepositWithdrawContent({
                 id: ETranslations.perp_account_panel_withrawable_value,
               })}
             </SizableText>
-            {balanceLoading && checkAccountSupport ? (
+            {shouldShowWithdrawableSkeleton && checkAccountSupport ? (
               <Skeleton h="$4" w="$20" borderRadius="$1" />
             ) : (
               <XStack alignItems="center" gap="$2">
@@ -2097,7 +2112,9 @@ function DepositWithdrawContent({
               testID="perp-btn"
               variant="primary"
               size={PERP_DIALOG_BUTTON_SIZE}
-              disabled={!isValidAmount || isSubmitting || balanceLoading}
+              disabled={
+                !isValidAmount || isSubmitting || shouldShowWithdrawableSkeleton
+              }
               loading={isSubmitting}
               onPress={handleConfirm}
             >
@@ -2111,7 +2128,9 @@ function DepositWithdrawContent({
             onKeyPress={handleNativeAmountKeyPress}
             onBackspaceLongPress={handleNativeAmountBackspaceLongPress}
             ctaLabel={nativeAmountCtaLabel}
-            ctaDisabled={!isValidAmount || isSubmitting || balanceLoading}
+            ctaDisabled={
+              !isValidAmount || isSubmitting || shouldShowWithdrawableSkeleton
+            }
             ctaLoading={isSubmitting}
             onCtaPress={handleConfirm}
           />
