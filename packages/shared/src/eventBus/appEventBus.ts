@@ -67,6 +67,7 @@ export const HARDWARE_ERROR_DIALOG_TYPES = {
 // Hardware error dialog event payload type
 export interface IHardwareErrorDialogPayload {
   errorType: string; // Extensible but type-safe error types
+  vendor?: EHardwareVendor | string;
   payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
   errorCode?: number | string; // Hardware error code
   errorMessage?: string; // Error message

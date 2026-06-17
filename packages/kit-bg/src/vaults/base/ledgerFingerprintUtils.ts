@@ -1,4 +1,5 @@
-import { HardwareErrorCode, failure } from '@onekeyfe/hwk-adapter-core';
+import { failure } from '@onekeyfe/hwk-adapter-core';
+import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -161,9 +162,10 @@ async function generateAndStoreFingerprint(
   dbDevice: { id: string; connectId: string },
   chain: ChainForFingerprint,
 ): Promise<string> {
-  const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
-    EHardwareVendor.ledger,
-  );
+  const adapter =
+    await backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+      EHardwareVendor.ledger,
+    );
   if (!adapter) return '';
 
   try {
@@ -260,9 +262,10 @@ export async function verifySeedMatch(
 ): Promise<'match' | 'mismatch' | 'unknown'> {
   if (dbDevice.vendor !== EHardwareVendor.ledger) return 'unknown';
 
-  const adapter = await backgroundApi.serviceHardware.getAdapterForVendor(
-    EHardwareVendor.ledger,
-  );
+  const adapter =
+    await backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
+      EHardwareVendor.ledger,
+    );
   if (!adapter) return 'unknown';
 
   let stored: Record<string, string> = {};

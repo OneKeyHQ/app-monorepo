@@ -32,6 +32,7 @@ import type {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -54,7 +55,10 @@ import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { EHardwareTransportType } from '@onekeyhq/shared/types';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareVendor,
+  type IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -102,6 +106,73 @@ const fixErrorString = (errorMessage: string) => {
   }
   return errorMessage;
 };
+
+function stringifyOptionalFailureField(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (value) {
+    return String(value);
+  }
+  return undefined;
+}
+
+function getTrezorConnectFailureDebugPayload(payload: unknown) {
+  const failure =
+    payload && typeof payload === 'object'
+      ? (payload as {
+          code?: unknown;
+          error?: unknown;
+          message?: unknown;
+          params?: unknown;
+        })
+      : undefined;
+  const errorText = stringifyOptionalFailureField(failure?.error);
+  const messageText = stringifyOptionalFailureField(failure?.message);
+  return {
+    code: failure?.code,
+    error: errorText,
+    message: messageText,
+    params: failure?.params,
+    raw: failure ? undefined : String(payload),
+  };
+}
+
+function getTrezorConnectFailureMessage(payload: unknown) {
+  const failure = getTrezorConnectFailureDebugPayload(payload);
+  return failure.error || failure.message;
+}
+
+function getTrezorConnectFailureError(
+  payload: unknown,
+  vendor: EHardwareVendor,
+) {
+  const failure =
+    payload && typeof payload === 'object'
+      ? (payload as {
+          code?: unknown;
+          error?: unknown;
+          params?: unknown;
+        })
+      : undefined;
+  if (typeof failure?.code === 'number' && typeof failure.error === 'string') {
+    return convertThirdPartyDeviceError(
+      {
+        code: failure.code,
+        error: failure.error,
+        params: failure.params,
+      },
+      { vendor },
+    );
+  }
+  const failureMessage = getTrezorConnectFailureMessage(payload);
+  if (failureMessage) {
+    return new OneKeyLocalError(failureMessage);
+  }
+  return new OneKeyLocalError({
+    key: ETranslations.trezor_connect_failed_before_wallet_creation__msg,
+  });
+}
 
 // EncryptingData is declared in the enum but never emitted; fall back to the
 // CreatingWallet copy so the UI has something to show if it ever appears.
@@ -461,21 +532,22 @@ function FinalizeWalletSetupPage({
           // the useDeviceConnect tracking calls never reach Ledger because
           // verifyHardware/onSelectAddWalletType are bypassed. Mirror the
           // OneKey-side `addWalletStarted` + success/failure tracking here.
-          const ledgerDevice = deviceData.device as SearchDevice;
-
-          const ledgerConnectId = ledgerDevice?.connectId ?? '';
-          const ensureResult = await ensureLedgerCoreAppsReady({
-            connectId: ledgerConnectId,
-          });
-          if (!ensureResult.ok) {
-            throw (
-              ensureResult.error ??
-              new OneKeyLocalError({
-                message: intl.formatMessage({
-                  id: ETranslations.hardware_third_party_no_app_installed_on_device,
-                }),
-              })
-            );
+          let thirdPartyDevice = deviceData.device as SearchDevice;
+          if (deviceData.vendor === EHardwareVendor.ledger) {
+            const ledgerConnectId = thirdPartyDevice?.connectId ?? '';
+            const ensureResult = await ensureLedgerCoreAppsReady({
+              connectId: ledgerConnectId,
+            });
+            if (!ensureResult.ok) {
+              throw (
+                ensureResult.error ??
+                new OneKeyLocalError({
+                  message: intl.formatMessage({
+                    id: ETranslations.hardware_third_party_no_app_installed_on_device,
+                  }),
+                })
+              );
+            }
           }
 
           // Resolve the per-session transport from the tabValue passed by the
@@ -494,9 +566,11 @@ function FinalizeWalletSetupPage({
             try {
               forceTransportType = await getForceTransportType(ledgerTabValue);
             } catch (transportResolveError) {
-              console.warn(
-                '[Ledger analytics] getForceTransportType failed; falling back to persisted hardwareTransportType',
-                transportResolveError,
+              defaultLogger.hardware.sdkLog.log(
+                `[3rdPartyHW] getForceTransportType failed; falling back to persisted hardwareTransportType: ${
+                  (transportResolveError as Error)?.message ??
+                  String(transportResolveError)
+                }`,
               );
             }
           }
@@ -514,20 +588,79 @@ function FinalizeWalletSetupPage({
             isSoftwareWalletOnlyUser,
           });
           try {
+            let featuresForCreate = {
+              device_id: thirdPartyDevice?.deviceId || '',
+              vendor: deviceData.vendor,
+            } as IOneKeyDeviceFeatures;
+            if (
+              deviceData.vendor === EHardwareVendor.trezor &&
+              thirdPartyDevice.connectId
+            ) {
+              const connected =
+                await backgroundApiProxy.serviceThirdPartyHardware.connectDevice(
+                  {
+                    vendor: deviceData.vendor,
+                    connectId: thirdPartyDevice.connectId,
+                  },
+                );
+              const connectedFeatures = connected.success
+                ? connected.payload.features
+                : undefined;
+              const connectedDeviceId =
+                connected.success &&
+                (connected.payload.deviceId ||
+                  (typeof connectedFeatures?.device_id === 'string'
+                    ? connectedFeatures.device_id
+                    : ''));
+              if (!connected.success) {
+                throw getTrezorConnectFailureError(
+                  connected.payload,
+                  deviceData.vendor,
+                );
+              }
+              if (!connectedDeviceId) {
+                throw new OneKeyLocalError({
+                  key: ETranslations.trezor_device_id_required_before_wallet_creation__msg,
+                });
+              }
+              featuresForCreate = {
+                ...connectedFeatures,
+                device_id: connectedDeviceId,
+              } as IOneKeyDeviceFeatures;
+              const rawThirdPartyDevice = (
+                thirdPartyDevice as SearchDevice & {
+                  raw?: Record<string, unknown>;
+                }
+              ).raw;
+              thirdPartyDevice = {
+                ...thirdPartyDevice,
+                connectId: connected.payload.connectId,
+                deviceId: connectedDeviceId,
+                name:
+                  thirdPartyDevice.name ||
+                  connected.payload.label ||
+                  connected.payload.modelName ||
+                  connected.payload.model ||
+                  'Trezor',
+                raw: {
+                  ...rawThirdPartyDevice,
+                  vendorRaw: connected.payload.raw,
+                },
+                vendorModel: connected.payload.model,
+                vendorModelName: connected.payload.modelName,
+              } as SearchDevice;
+            }
             await actions.current.createHWWalletWithoutHidden({
-              device: ledgerDevice,
+              device: thirdPartyDevice,
               hideCheckingDeviceLoading: true,
-              features: {
-                device_id: ledgerDevice?.deviceId || '',
-                vendor: deviceData.vendor,
-              } as IOneKeyDeviceFeatures,
+              features: featuresForCreate,
               isFirmwareVerified: true,
               defaultIsTemp: true,
               vendor: deviceData.vendor,
             });
             await trackHardwareWalletConnection({
               status: 'success',
-              deviceType: ledgerDevice.deviceType,
+              deviceType: thirdPartyDevice.deviceType,
               hardwareTransportType: resolvedTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,
@@ -535,7 +668,7 @@ function FinalizeWalletSetupPage({
           } catch (createError) {
             await trackHardwareWalletConnection({
               status: 'failure',
-              deviceType: ledgerDevice.deviceType,
+              deviceType: thirdPartyDevice.deviceType,
               hardwareTransportType: resolvedTransportType,
               isSoftwareWalletOnlyUser,
               vendor: deviceData.vendor,

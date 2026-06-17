@@ -107,6 +107,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -172,6 +173,7 @@ import type {
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
+  ITrezorThpCredential,
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -226,6 +228,239 @@ function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
   return {
     enablePbkdf2Cache: true,
   };
+}
+
+export function clearTrezorThpSettingsRaw(settingsRaw: string | undefined) {
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(settingsRaw || '{}');
+  } catch {
+    settings = {};
+  }
+  delete settings.thpCredentials;
+  return JSON.stringify(settings);
+}
+
+export function buildTrezorDesktopBleUsbConnectId({
+  vendor,
+  transportType,
+  rawDeviceId,
+}: {
+  vendor: EHardwareVendor;
+  transportType?: EHardwareTransportType;
+  rawDeviceId?: string;
+}): string | undefined {
+  if (
+    vendor === EHardwareVendor.trezor &&
+    transportType === EHardwareTransportType.DesktopWebBle &&
+    rawDeviceId
+  ) {
+    return rawDeviceId;
+  }
+  return undefined;
+}
+
+function getExtraDeviceFieldString(
+  device: IDBCreateHwWalletParams['device'],
+  field:
+    | 'raw.firmwareVersion'
+    | 'raw.serialNumber'
+    | 'vendorModel'
+    | 'vendorModelName',
+) {
+  const extraDevice = device as IDBCreateHwWalletParams['device'] & {
+    raw?: Record<string, unknown>;
+    vendorModel?: unknown;
+    vendorModelName?: unknown;
+  };
+  if (field === 'raw.firmwareVersion') {
+    const value = extraDevice.raw?.firmwareVersion;
+    return isString(value) ? value : undefined;
+  }
+  if (field === 'raw.serialNumber') {
+    const value = extraDevice.raw?.serialNumber;
+    return isString(value) ? value : undefined;
+  }
+  const value = extraDevice[field];
+  return isString(value) ? value : undefined;
+}
+
+function getKnownThirdPartyFirmwareVersion(
+  version: string | undefined,
+): string | undefined {
+  if (!version || version.toLowerCase() === 'unknown') {
+    return undefined;
+  }
+  return version;
+}
+
+function buildThirdPartyFirmwareVersionFromFeatures(
+  features: Record<string, unknown>,
+): string | undefined {
+  const major = features.major_version;
+  const minor = features.minor_version;
+  const patch = features.patch_version;
+  if (
+    typeof major === 'number' &&
+    typeof minor === 'number' &&
+    typeof patch === 'number'
+  ) {
+    return `${major}.${minor}.${patch}`;
+  }
+  return undefined;
+}
+
+function getThirdPartyFirmwareVersion({
+  device,
+  features,
+}: {
+  device?: IDBCreateHwWalletParams['device'];
+  features: Record<string, unknown>;
+}): string | undefined {
+  return (
+    getKnownThirdPartyFirmwareVersion(
+      isString(features.third_party_firmware_version)
+        ? features.third_party_firmware_version
+        : undefined,
+    ) ||
+    getKnownThirdPartyFirmwareVersion(
+      isString(features.firmware_version)
+        ? features.firmware_version
+        : undefined,
+    ) ||
+    buildThirdPartyFirmwareVersionFromFeatures(features) ||
+    (device
+      ? getKnownThirdPartyFirmwareVersion(
+          getExtraDeviceFieldString(device, 'raw.firmwareVersion'),
+        )
+      : undefined)
+  );
+}
+
+export function buildThirdPartyFeaturesInfoFromDevice({
+  device,
+  features,
+  vendor,
+}: {
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  vendor: EHardwareVendor;
+}): IOneKeyDeviceFeatures {
+  const profile = getVendorProfile(vendor);
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    firmware_version?: string;
+    internal_model?: string;
+    model?: string;
+    third_party_firmware_version?: string;
+  };
+  const vendorModel = getExtraDeviceFieldString(device, 'vendorModel');
+  const vendorModelName = getExtraDeviceFieldString(device, 'vendorModelName');
+  const firmwareVersion = getThirdPartyFirmwareVersion({
+    device,
+    features: featureRecord,
+  });
+  const serialNumber = getExtraDeviceFieldString(device, 'raw.serialNumber');
+
+  return thirdPartyDeviceUtils.buildPersistedFeatures({
+    features: featureRecord,
+    vendor,
+    label:
+      featureRecord.label ||
+      device.name ||
+      vendorModelName ||
+      vendorModel ||
+      profile.defaultDeviceName,
+    model: featureRecord.model || vendorModelName || vendorModel,
+    internalModel: featureRecord.internal_model || vendorModel,
+    firmwareVersion,
+    serialNumber,
+  }) as unknown as IOneKeyDeviceFeatures;
+}
+
+export function buildThirdPartyDeviceSettingsFromDevice({
+  baseSettings,
+  device,
+  features,
+  vendor,
+  supportsSoftwarePin,
+}: {
+  baseSettings?: IDBDeviceSettings;
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  vendor: EHardwareVendor;
+  supportsSoftwarePin: boolean;
+}): IDBDeviceSettings {
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    firmware_version?: string;
+    internal_model?: string;
+    model?: string;
+    third_party_firmware_version?: string;
+  };
+  const vendorModel =
+    featureRecord.internal_model ||
+    getExtraDeviceFieldString(device, 'vendorModel');
+  const vendorModelName =
+    featureRecord.model ||
+    getExtraDeviceFieldString(device, 'vendorModelName') ||
+    vendorModel;
+  const vendorFirmwareVersion = getThirdPartyFirmwareVersion({
+    device,
+    features: featureRecord,
+  });
+
+  return {
+    ...baseSettings,
+    inputPinOnSoftware: baseSettings?.inputPinOnSoftware ?? supportsSoftwarePin,
+    vendor,
+    ...(vendorModel ? { vendorModel } : undefined),
+    ...(vendorModelName ? { vendorModelName } : undefined),
+    ...(vendorFirmwareVersion ? { vendorFirmwareVersion } : undefined),
+  };
+}
+
+function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
+  if (!settingsRaw) {
+    return {};
+  }
+  try {
+    return JSON.parse(settingsRaw) as IDBDeviceSettings;
+  } catch {
+    return {};
+  }
+}
+
+function buildThirdPartyDeviceLikeFromDbDevice({
+  device,
+  baseSettings,
+}: {
+  device: IDBDevice;
+  baseSettings: IDBDeviceSettings;
+}): IDBCreateHwWalletParams['device'] & {
+  raw?: Record<string, unknown>;
+  vendorModel?: string;
+  vendorModelName?: string;
+} {
+  const raw: Record<string, unknown> = {};
+  if (baseSettings.vendorFirmwareVersion) {
+    raw.firmwareVersion = baseSettings.vendorFirmwareVersion;
+  }
+  const serialNo = (device.featuresInfo as { serial_no?: string } | undefined)
+    ?.serial_no;
+  if (serialNo) {
+    raw.serialNumber = serialNo;
+  }
+  const deviceLike: IDBCreateHwWalletParams['device'] = {
+    connectId: device.connectId || '',
+    uuid: device.uuid,
+    deviceId: device.deviceId,
+    deviceType: device.deviceType,
+    name: device.name,
+  };
+  return Object.assign(deviceLike, {
+    raw,
+    vendorModel: baseSettings.vendorModel,
+    vendorModelName: baseSettings.vendorModelName,
+  });
 }
 
 function isLocalPasswordCredentialPasswordUpdateCandidate({
@@ -3532,6 +3767,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async updateThirdPartyDeviceFeatures({
+    vendor,
+    features,
+  }: {
+    vendor: EHardwareVendor;
+    features: IOneKeyDeviceFeatures;
+  }) {
+    const featuresDeviceId =
+      typeof features.device_id === 'string' ? features.device_id : undefined;
+    if (!featuresDeviceId) {
+      return;
+    }
+    const device = await this.getDeviceByQuery({
+      featuresDeviceId,
+      vendor,
+    });
+    if (!device) {
+      return;
+    }
+
+    const baseSettings = parseDeviceSettingsRaw(device.settingsRaw);
+    const deviceLike = buildThirdPartyDeviceLikeFromDbDevice({
+      device,
+      baseSettings,
+    });
+    const featuresInfo = buildThirdPartyFeaturesInfoFromDevice({
+      device: deviceLike,
+      features,
+      vendor,
+    });
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [device.id],
+        updater: async (item) => {
+          const newFeatures = stringUtils.stableStringify(featuresInfo);
+          if (item.features !== newFeatures) {
+            item.features = newFeatures;
+          }
+          return item;
+        },
+      });
+    });
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
+  }
+
   async updateDeviceFeaturesLabel({
     dbDeviceId,
     label,
@@ -3684,6 +3968,53 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           existing[chain] = fingerprint;
           settings.chainFingerprints = existing;
           item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
+  // Persist Trezor THP pairing credentials into the device's own settings.
+  // Stored per-device so "forget device" (which deletes the Device record)
+  // clears them automatically — no separate credential table to clean up.
+  async updateDeviceThpCredentials({
+    dbDeviceId,
+    credentials,
+  }: {
+    dbDeviceId: string;
+    credentials: ITrezorThpCredential[];
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          let settings: Record<string, unknown> = {};
+          try {
+            settings = JSON.parse(item.settingsRaw || '{}');
+          } catch {
+            // ignore
+          }
+          settings.thpCredentials = credentials;
+          item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
+  async clearTrezorDeviceThpState({ dbDeviceId }: { dbDeviceId: string }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.settingsRaw = clearTrezorThpSettingsRaw(item.settingsRaw);
+          item.bleConnectId = undefined;
           item.updatedAt = await this.timeNow();
           return item;
         },
@@ -4162,6 +4493,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
+      isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
@@ -4247,12 +4579,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   } {
     return {
       deviceType: EDeviceType.Unknown,
-      firmwareType: undefined,
+      firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
         img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
       },
       deviceName: device.name || `${profile.defaultDeviceName} Device`,
-      featuresInfo: features,
+      featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
+        device,
+        features,
+        vendor: profile.vendor,
+      }),
     };
   }
 
@@ -4354,7 +4690,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();
-            const uuid = getDeviceUUID(features);
+            const uuid =
+              buildTrezorDesktopBleUsbConnectId({
+                vendor: resolvedVendor,
+                transportType,
+                rawDeviceId,
+              }) || getDeviceUUID(features);
             compatibleConnectId = uuid;
             usbConnectId = uuid;
           }
@@ -4364,22 +4705,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    // Third-party SDKs (e.g. Ledger) attach raw model id / display name to
-    // SearchDevice so we can persist it for per-model avatar resolution later.
-    const vendorDevice = device as {
-      vendorModel?: string;
-      vendorModelName?: string;
-    };
-    const initialSettings: IDBDeviceSettings = {
-      inputPinOnSoftware: profile.supportsSoftwarePin,
-      vendor: resolvedVendor,
-    };
-    if (vendorDevice.vendorModel) {
-      initialSettings.vendorModel = vendorDevice.vendorModel;
-    }
-    if (vendorDevice.vendorModelName) {
-      initialSettings.vendorModelName = vendorDevice.vendorModelName;
-    }
+    const initialSettings: IDBDeviceSettings = profile.isThirdParty
+      ? buildThirdPartyDeviceSettingsFromDevice({
+          device,
+          features: featuresInfo,
+          vendor: resolvedVendor,
+          supportsSoftwarePin: profile.supportsSoftwarePin,
+        })
+      : {
+          inputPinOnSoftware: profile.supportsSoftwarePin,
+          vendor: resolvedVendor,
+        };
 
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
@@ -4507,15 +4843,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               } catch {
                 // ignore
               }
-              existingSettings.inputPinOnSoftware =
-                existingSettings.inputPinOnSoftware ??
-                profile.supportsSoftwarePin;
-              existingSettings.vendor = resolvedVendor;
-              if (vendorDevice.vendorModel) {
-                existingSettings.vendorModel = vendorDevice.vendorModel;
-              }
-              if (vendorDevice.vendorModelName) {
-                existingSettings.vendorModelName = vendorDevice.vendorModelName;
+              if (profile.isThirdParty) {
+                existingSettings = buildThirdPartyDeviceSettingsFromDevice({
+                  baseSettings: existingSettings,
+                  device,
+                  features: featuresInfo,
+                  vendor: resolvedVendor,
+                  supportsSoftwarePin: profile.supportsSoftwarePin,
+                });
+              } else {
+                existingSettings.inputPinOnSoftware =
+                  existingSettings.inputPinOnSoftware ??
+                  profile.supportsSoftwarePin;
+                existingSettings.vendor = resolvedVendor;
               }
               item.settingsRaw = JSON.stringify(existingSettings);
 
