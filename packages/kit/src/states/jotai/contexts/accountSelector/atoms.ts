@@ -150,7 +150,14 @@ export const {
   Partial<{
     [num: number]: IAccountSelectorUpdateMeta;
   }>
->({});
+>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom,
+  },
+);
 
 export type IAccountSelectorSyncLoadingMeta = {
   isLoading: boolean;
