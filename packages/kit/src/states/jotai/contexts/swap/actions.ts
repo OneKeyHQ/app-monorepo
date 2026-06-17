@@ -212,8 +212,31 @@ function isQuoteEventErrorSelectedTokenPair({
   );
 }
 
+function normalizeStockMarketQuoteResult({
+  quoteResult,
+  fromToken,
+  toToken,
+  fromTokenAmount,
+}: {
+  quoteResult: IFetchQuoteResult;
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount?: string;
+}): IFetchQuoteResult {
+  return {
+    ...quoteResult,
+    protocol: EProtocolOfExchange.STOCK,
+    kind: quoteResult.kind ?? ESwapQuoteKind.SELL,
+    fromAmount: quoteResult.fromAmount ?? fromTokenAmount,
+    fromTokenInfo: quoteResult.fromTokenInfo ?? fromToken,
+    toTokenInfo: quoteResult.toTokenInfo ?? toToken,
+  };
+}
+
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private stockMarketQuoteRequestId = 0;
 
   private stockTokenCheckCache = new Map<string, Promise<boolean>>();
 
@@ -970,6 +993,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
+      if (protocol === ESwapTabSwitchType.STOCK) {
+        await this.runStockMarketQuote.call(
+          set,
+          fromToken,
+          toToken,
+          slippagePercentage,
+          address,
+          accountId,
+          fromTokenAmount,
+          receivingAddress,
+        );
+        return;
+      }
       await backgroundApiProxy.serviceSwap.closeApproving();
       set(swapQuoteEventErrorAtom(), undefined);
       set(swapQuoteFetchingAtom(), true);
@@ -1036,6 +1072,125 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
   });
 
+  runStockMarketQuote = contextAtomMethod(
+    async (
+      get,
+      set,
+      fromToken: ISwapToken,
+      toToken: ISwapToken,
+      slippagePercentage: number,
+      address?: string,
+      accountId?: string,
+      fromTokenAmount?: string,
+      receivingAddress?: string,
+    ) => {
+      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      if (shouldRefreshQuote) {
+        this.cleanQuoteInterval();
+        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+        return;
+      }
+
+      const requestId = (this.stockMarketQuoteRequestId += 1);
+      await backgroundApiProxy.serviceSwap.closeApproving();
+      set(swapQuoteEventErrorAtom(), undefined);
+      set(swapQuoteFetchingAtom(), true);
+      set(swapQuoteEventCompletedAtom(), false);
+
+      try {
+        const quoteResult =
+          await backgroundApiProxy.serviceSwap.fetchSpeedMarketQuote({
+            fromToken,
+            toToken,
+            fromTokenAmount: fromTokenAmount ?? '',
+            userAddress: address ?? '',
+            receivingAddress: receivingAddress ?? address ?? '',
+            slippagePercentage,
+            accountId,
+          });
+
+        if (requestId !== this.stockMarketQuoteRequestId) {
+          return;
+        }
+
+        const currentFromToken = get(swapSelectFromTokenAtom());
+        const currentToToken = get(swapSelectToTokenAtom());
+        const currentFromTokenAmount = get(swapFromTokenAmountAtom());
+        const stillCurrentQuoteRequest =
+          equalTokenNoCaseSensitive({
+            token1: currentFromToken,
+            token2: fromToken,
+          }) &&
+          equalTokenNoCaseSensitive({
+            token1: currentToToken,
+            token2: toToken,
+          }) &&
+          currentFromTokenAmount.value === (fromTokenAmount ?? '');
+
+        if (!stillCurrentQuoteRequest) {
+          return;
+        }
+
+        const normalizedQuoteResult = quoteResult
+          ? normalizeStockMarketQuoteResult({
+              quoteResult,
+              fromToken,
+              toToken,
+              fromTokenAmount,
+            })
+          : undefined;
+        const quoteList = normalizedQuoteResult ? [normalizedQuoteResult] : [];
+        const currentEventProviderKeys = quoteList.map((quote) =>
+          buildSwapQuoteProviderKey(quote),
+        );
+
+        set(swapQuoteListAtom(), quoteList);
+        set(swapQuoteCurrentEventProviderKeysAtom(), currentEventProviderKeys);
+        set(swapQuoteCurrentEventReceivedCountAtom(), quoteList.length);
+        set(swapQuoteEventCompletedAtom(), true);
+        set(swapQuoteEventTotalCountAtom(), {
+          count: quoteList.length,
+        });
+
+        if (normalizedQuoteResult?.errorMessage) {
+          set(swapQuoteEventErrorAtom(), {
+            message: normalizedQuoteResult.errorMessage,
+            fromToken,
+            toToken,
+            isStock: true,
+            eventId: normalizedQuoteResult.eventId,
+          });
+          set(swapAlertsAtom(), {
+            states: [
+              {
+                message: normalizedQuoteResult.errorMessage,
+                alertLevel: ESwapAlertLevel.ERROR,
+              },
+            ],
+            quoteId: normalizedQuoteResult.quoteId ?? '',
+          });
+        }
+        this.reconcileManualSelectQuoteProviders.call(set);
+      } catch {
+        if (requestId === this.stockMarketQuoteRequestId) {
+          set(swapQuoteListAtom(), []);
+          set(swapQuoteCurrentEventProviderKeysAtom(), []);
+          set(swapQuoteCurrentEventReceivedCountAtom(), 0);
+          set(swapQuoteEventCompletedAtom(), true);
+          set(swapQuoteEventTotalCountAtom(), { count: 0 });
+        }
+      } finally {
+        if (requestId === this.stockMarketQuoteRequestId) {
+          set(swapQuoteFetchingAtom(), false);
+          set(swapQuoteActionLockAtom(), (v) => ({
+            ...v,
+            actionLock: false,
+          }));
+        }
+      }
+    },
+  );
+
   quoteAction = contextAtomMethod(
     async (
       get,
@@ -1078,31 +1233,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           toToken = get(swapProSellToTokenAtom());
         }
       }
-      // check limit zero
-      set(swapQuoteActionLockAtom(), (v) => ({
-        ...v,
-        type: swapTabSwitchType,
-        actionLock: true,
-        fromToken,
-        toToken,
-        fromTokenAmount: fromTokenAmount.value,
-        toTokenAmount: toTokenAmount.value,
-        kind,
-        accountId,
-        address,
-        receivingAddress,
-      }));
-      this.cleanQuoteInterval();
-      this.closeQuoteEvent();
-      if (!unResetCount) {
-        set(swapQuoteIntervalCountAtom(), 0);
-      }
-      set(swapQuoteCurrentEventProviderKeysAtom(), []);
-      set(swapQuoteCurrentEventReceivedCountAtom(), 0);
-      set(swapQuoteEventCompletedAtom(), false);
-      set(swapQuoteEventTotalCountAtom(), { count: 0 });
-      set(swapBuildTxFetchingAtom(), false);
-      set(swapShouldRefreshQuoteAtom(), false);
       const fromTokenAmountNumber = Number(fromTokenAmount.value);
       const toTokenAmountNumber = Number(toTokenAmount.value);
       let quoteKind = kind;
@@ -1123,7 +1253,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteKind = ESwapQuoteKind.SELL;
         }
       }
-      if (
+      const hasValidQuoteInput =
         fromToken &&
         toToken &&
         ((quoteKind === ESwapQuoteKind.SELL &&
@@ -1131,26 +1261,54 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmountNumber > 0) ||
           (quoteKind === ESwapQuoteKind.BUY &&
             !Number.isNaN(toTokenAmountNumber) &&
-            toTokenAmountNumber > 0))
-      ) {
-        void this.runQuoteEvent.call(
-          set,
-          fromToken,
-          toToken,
-          slippageItem.value,
-          slippageItem.key === ESwapSlippageSegmentKey.AUTO,
-          address,
-          accountId,
-          blockNumber,
-          quoteKind,
-          fromTokenAmount.value,
-          toTokenAmount.value,
-          receivingAddress,
-          incognito,
-        );
-      } else {
-        void this.resetQuoteAction.call(set);
+            toTokenAmountNumber > 0));
+
+      this.cleanQuoteInterval();
+      this.closeQuoteEvent();
+      if (!unResetCount) {
+        set(swapQuoteIntervalCountAtom(), 0);
       }
+      set(swapQuoteCurrentEventProviderKeysAtom(), []);
+      set(swapQuoteCurrentEventReceivedCountAtom(), 0);
+      set(swapQuoteEventCompletedAtom(), false);
+      set(swapQuoteEventTotalCountAtom(), { count: 0 });
+      set(swapBuildTxFetchingAtom(), false);
+      set(swapShouldRefreshQuoteAtom(), false);
+
+      if (!hasValidQuoteInput || !fromToken || !toToken) {
+        void this.resetQuoteAction.call(set);
+        return;
+      }
+
+      // check limit zero
+      set(swapQuoteActionLockAtom(), (v) => ({
+        ...v,
+        type: swapTabSwitchType,
+        actionLock: true,
+        fromToken,
+        toToken,
+        fromTokenAmount: fromTokenAmount.value,
+        toTokenAmount: toTokenAmount.value,
+        kind,
+        accountId,
+        address,
+        receivingAddress,
+      }));
+      void this.runQuoteEvent.call(
+        set,
+        fromToken,
+        toToken,
+        slippageItem.value,
+        slippageItem.key === ESwapSlippageSegmentKey.AUTO,
+        address,
+        accountId,
+        blockNumber,
+        quoteKind,
+        fromTokenAmount.value,
+        toTokenAmount.value,
+        receivingAddress,
+        incognito,
+      );
     },
   );
 
@@ -1250,6 +1408,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   );
 
   cleanQuoteInterval = () => {
+    this.stockMarketQuoteRequestId += 1;
     if (this.quoteInterval) {
       clearTimeout(this.quoteInterval);
       this.quoteInterval = undefined;

@@ -14,24 +14,37 @@ const commonButtonStyleProps: IButtonProps = {
   flex: 1,
   borderRadius: '$2',
   borderWidth: 0,
-  hoverStyle: {
-    opacity: 0.9,
-  },
-  pressStyle: {
-    opacity: 0.7,
-  },
+  cursor: 'pointer',
 };
+
+function getButtonInteractiveStyleProps(isActive: boolean): IButtonProps {
+  return {
+    ...commonButtonStyleProps,
+    hoverStyle: {
+      opacity: 0.9,
+      ...(isActive ? undefined : { bg: '$bgHover' }),
+    },
+    pressStyle: {
+      opacity: 0.7,
+      ...(isActive ? undefined : { bg: '$bgActive' }),
+    },
+  };
+}
 
 export interface ITradeTypeSelectorProps {
   value: ITradeType;
   onChange: (value: ITradeType) => void;
   size?: IButtonProps['size'];
+  buyTestID?: string;
+  sellTestID?: string;
 }
 
 export function TradeTypeSelector({
   value,
   onChange,
   size,
+  buyTestID,
+  sellTestID,
 }: ITradeTypeSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -45,12 +58,11 @@ export function TradeTypeSelector({
       value: ESwapDirection.BUY,
       label: (
         <Button
-          testID="market-options-btn"
+          testID={buyTestID ?? 'market-options-btn'}
           onPress={() => {
-            console.log('onPress');
             onChange(ESwapDirection.BUY);
           }}
-          {...commonButtonStyleProps}
+          {...getButtonInteractiveStyleProps(isBuyActive)}
           bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
           size={buttonSize}
@@ -63,15 +75,14 @@ export function TradeTypeSelector({
       value: ESwapDirection.SELL,
       label: (
         <Button
-          testID="market-options-btn"
+          testID={sellTestID ?? 'market-options-btn'}
           onPress={() => {
-            console.log('onPress');
             onChange(ESwapDirection.SELL);
           }}
           bg={isSellActive ? '$bgCriticalStrong' : '$transparent'}
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
           size={buttonSize}
-          {...commonButtonStyleProps}
+          {...getButtonInteractiveStyleProps(isSellActive)}
         >
           {intl.formatMessage({ id: ETranslations.global_sell })}
         </Button>

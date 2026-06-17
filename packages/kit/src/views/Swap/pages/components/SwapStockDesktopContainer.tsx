@@ -22,6 +22,10 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import {
+  dark as primitiveDark,
+  light as primitiveLight,
+} from '@onekeyhq/components/colors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -30,6 +34,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapFromTokenAmountAtom,
   useSwapToTokenAmountAtom,
@@ -49,6 +54,8 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/layout';
 import { useNetworkAccount } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/hooks/useNetworkAccount';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
+import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
+import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
@@ -135,6 +142,10 @@ const STOCK_CHART_RANGE_ITEMS: {
   { label: '1M', interval: '4H', seconds: 30 * 24 * 60 * 60 },
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
+const STOCK_CHART_GREEN_A9_COLORS: Record<'light' | 'dark', string> = {
+  light: primitiveLight.greenA.greenA9,
+  dark: primitiveDark.greenDarkA.greenA9,
+};
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
   const pointsByTime = new Map<number, number>();
@@ -326,52 +337,29 @@ function StockTradeSideSwitch({
   value: ESwapStockTradeSide;
   onChange: (value: ESwapStockTradeSide) => void;
 }) {
-  const intl = useIntl();
-  const isBuyActive = value === ESwapStockTradeSide.Buy;
-  const isSellActive = value === ESwapStockTradeSide.Sell;
+  const tradeType =
+    value === ESwapStockTradeSide.Sell
+      ? ESwapDirection.SELL
+      : ESwapDirection.BUY;
+  const handleChange = useCallback(
+    (nextValue: ESwapDirection | undefined) => {
+      if (nextValue === ESwapDirection.BUY) {
+        onChange(ESwapStockTradeSide.Buy);
+      } else if (nextValue === ESwapDirection.SELL) {
+        onChange(ESwapStockTradeSide.Sell);
+      }
+    },
+    [onChange],
+  );
   return (
-    <XStack
-      w={141}
-      h={36}
-      p="$0.5"
-      borderRadius="$3"
-      bg="$bgStrong"
-      overflow="hidden"
-    >
-      <YStack
-        testID={SwapTestIDs.stockBuyTab}
-        flex={1}
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2.5"
-        bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
-        userSelect="none"
-        onPress={() => onChange(ESwapStockTradeSide.Buy)}
-      >
-        <SizableText
-          size="$bodyMdMedium"
-          color={isBuyActive ? '$textOnColor' : '$textSubdued'}
-        >
-          {intl.formatMessage({ id: ETranslations.global_buy })}
-        </SizableText>
-      </YStack>
-      <YStack
-        testID={SwapTestIDs.stockSellTab}
-        flex={1}
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2.5"
-        bg={isSellActive ? '$bgCriticalStrong' : '$transparent'}
-        userSelect="none"
-        onPress={() => onChange(ESwapStockTradeSide.Sell)}
-      >
-        <SizableText
-          size="$bodyMdMedium"
-          color={isSellActive ? '$textOnColor' : '$textSubdued'}
-        >
-          {intl.formatMessage({ id: ETranslations.global_sell })}
-        </SizableText>
-      </YStack>
+    <XStack w={141}>
+      <TradeTypeSelector
+        value={tradeType}
+        onChange={handleChange}
+        size="small"
+        buyTestID={SwapTestIDs.stockBuyTab}
+        sellTestID={SwapTestIDs.stockSellTab}
+      />
     </XStack>
   );
 }
@@ -1007,7 +995,12 @@ function StockPriceChart({
   networkId?: string;
   tokenAddress?: string;
 }) {
+  const themeVariant = useThemeVariant();
   const [range, setRange] = useState<IStockChartRange>('1D');
+  const chartLineColor = useMemo(() => {
+    const variant = themeVariant === 'dark' ? 'dark' : 'light';
+    return STOCK_CHART_GREEN_A9_COLORS[variant];
+  }, [themeVariant]);
   const activeRange = useMemo(
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
@@ -1075,13 +1068,13 @@ function StockPriceChart({
       <LightweightChart
         data={chartData}
         height={220}
-        lineColor="#008347D6"
-        topColor="#00834700"
-        bottomColor="#00834700"
+        lineColor={chartLineColor}
+        topColor="transparent"
+        bottomColor="transparent"
         lineWidth={2}
         showPriceScale
         showDottedArea
-        dottedAreaColor="#008347D6"
+        dottedAreaColor={chartLineColor}
         dottedAreaOpacity={0.36}
         priceFormatter={priceFormatter}
         fontSize={11}
@@ -1205,7 +1198,7 @@ function StockMarketContextPanel({
       borderWidth="$px"
       borderColor="$borderSubdued"
       borderRadius="$5"
-      bg="$bg"
+      bg="$bgApp"
     >
       <StockMarketTokenHeader storeName={storeName} />
 
@@ -1290,7 +1283,7 @@ function SwapStockDesktopContent({
             borderWidth="$px"
             borderColor="$borderSubdued"
             borderRadius="$5"
-            bg="$bg"
+            bg="$bgApp"
             gap="$5"
           >
             <XStack alignItems="center" justifyContent="space-between">
