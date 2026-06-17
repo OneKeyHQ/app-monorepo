@@ -43,6 +43,7 @@ import {
   currencyPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
+import { mergeClaimedUtxos } from '../vaults/impls/btc/sdkBtc/findAddressUtils';
 
 import ServiceBase from './ServiceBase';
 
@@ -219,7 +220,7 @@ class ServiceAccountProfile extends ServiceBase {
       ]);
       xpub = x;
       accountAddress = a;
-    } else {
+    } else if (!params.queryByAddressOnly) {
       xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
         networkId,
@@ -1637,9 +1638,13 @@ class ServiceAccountProfile extends ServiceBase {
   public async getAccountUtxos({
     accountId,
     networkId,
+    includeClaimedAddresses,
   }: {
     accountId: string;
     networkId: string;
+    // btc find-address feature: opt-in display of claimed off-gap UTXOs,
+    // they are never included by default
+    includeClaimedAddresses?: boolean;
   }) {
     const vault = await vaultFactory.getVault({
       networkId,
@@ -1651,9 +1656,16 @@ class ServiceAccountProfile extends ServiceBase {
         'CoinControl is not supported for this network',
       );
     }
-    const { utxoList } = await (vault as BTCVault)._collectUTXOsInfoByApi();
+    const btcVault = vault as BTCVault;
+    const { utxoList } = await btcVault._collectUTXOsInfoByApi();
 
-    return utxoList;
+    if (!includeClaimedAddresses) {
+      return utxoList;
+    }
+
+    const { utxoList: claimedUtxos } =
+      await btcVault._collectClaimedUtxosInfo();
+    return mergeClaimedUtxos({ poolUtxos: utxoList, claimedUtxos });
   }
 
   // Get wallet type
