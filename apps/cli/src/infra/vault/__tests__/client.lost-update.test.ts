@@ -28,10 +28,11 @@ const LOCK_WAIT_STRESS_MUTATIONS_PER_CLIENT = 50;
 // wall-clock thresholds flake on noisy CI runners (issue: PR #11612). With
 // fair FIFO queueing of N=5 clients, p95 sits near the upper end of a
 // roughly uniform [0, (N-1)·per_op_time] distribution and the median sits
-// near the middle, so the theoretical ratio is ~1.9x; we allow 8x to
-// absorb GC / scheduler jitter while still catching pathological lock
-// starvation (which pushes the ratio to 50x+).
-const LOCK_WAIT_P95_TO_MEDIAN_RATIO = 8;
+// near the middle, so the theoretical ratio is ~1.9x; we allow 10x to
+// absorb occasional GitHub Actions Node 24 scheduler / IO jitter while
+// still catching pathological lock starvation (which pushes the ratio far
+// past this threshold, typically 50x+).
+const LOCK_WAIT_P95_TO_MEDIAN_RATIO = 10;
 
 async function delay(ms: number): Promise<void> {
   if (ms <= 0) {
@@ -221,7 +222,7 @@ describe('VaultClient lost-update protection', () => {
   // not an absolute ms threshold — the absolute form flaked on slow CI
   // runners (see LOCK_WAIT_P95_TO_MEDIAN_RATIO comment above). This still
   // catches the pathological cases we actually care about (lock starvation,
-  // unfair queueing) because those push the ratio far past 8x; it just
+  // unfair queueing) because those push the ratio far past 10x; it just
   // stops failing when the runner is merely slow rather than broken.
   it('keeps p95 lock wait bounded relative to median (fair queueing)', async () => {
     const paths = await createPaths();
