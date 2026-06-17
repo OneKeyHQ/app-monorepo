@@ -31,7 +31,6 @@ interface ISwapKlineLoadErrorParams {
   tokenSymbol: string;
   network: string;
   period: string;
-  fallbackChain?: string;
   message?: string;
 }
 

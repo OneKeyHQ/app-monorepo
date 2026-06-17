@@ -281,6 +281,7 @@ export async function handleKLineDataRequest({
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
+    const isFirstDataRequest = safeData.firstDataRequest === true;
 
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(resolution);
@@ -339,10 +340,12 @@ export async function handleKLineDataRequest({
       }
 
       if (isEmptyKLineData) {
-        context.onKLineLoadError?.({
-          status: 'empty',
-          period: normalizeTradingViewKLineInterval(resolution),
-        });
+        if (isFirstDataRequest) {
+          context.onKLineLoadError?.({
+            status: 'empty',
+            period: normalizeTradingViewKLineInterval(resolution),
+          });
+        }
         if (shouldUseEmptyKLineData) {
           sendClearAccountMarks({
             tokenAddress,

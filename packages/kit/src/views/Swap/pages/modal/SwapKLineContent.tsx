@@ -734,11 +734,6 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     [selectedToken, selectedTokenKey],
   );
 
-  const buildKLineFallbackChain = useCallback(() => {
-    const chain = kLineFallbackChainRef.current.join(',');
-    return chain || undefined;
-  }, []);
-
   const trackKLineOpenOnce = useCallback(
     ({
       initialPeriod,
@@ -811,17 +806,10 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         tokenSymbol: selectedToken.symbol,
         network: selectedToken.networkId,
         period: data.period,
-        fallbackChain:
-          data.status === 'empty' ? buildKLineFallbackChain() : undefined,
         message: data.status === 'failed' ? data.message : undefined,
       });
     },
-    [
-      buildKLineFallbackChain,
-      selectedToken,
-      selectedTokenKey,
-      trackKLineOpenOnce,
-    ],
+    [selectedToken, selectedTokenKey, trackKLineOpenOnce],
   );
 
   const handleKLinePeriodChange = useCallback(
