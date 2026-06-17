@@ -80,6 +80,10 @@ function getTxStatusTextProps(
 ): {
   key: ETranslations;
   color: ColorValue;
+  // True only for an explicitly-broadcast Pending tx; gates the spinner and ETA
+  // subtitle. The unknown/not-yet-loaded fallback below shows the "confirming"
+  // copy but leaves this false (no live tx to estimate yet).
+  isConfirming: boolean;
 } {
   if (
     status === EDecodedTxStatus.Pending ||
@@ -89,6 +93,7 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_confirming,
       color: '$textCaution',
+      isConfirming: true,
     };
   }
 
@@ -99,6 +104,7 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_success,
       color: '$textSuccess',
+      isConfirming: false,
     };
   }
 
@@ -111,6 +117,7 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_failed,
       color: '$textCritical',
+      isConfirming: false,
     };
   }
 
@@ -118,6 +125,7 @@ function getTxStatusTextProps(
   return {
     key: ETranslations.global_confirming,
     color: '$textCaution',
+    isConfirming: false,
   };
 }
 
@@ -958,15 +966,11 @@ function HistoryDetails() {
 
   const renderTxStatus = useCallback(() => {
     const status = txDetails?.status ?? historyTx?.decodedTx.status;
-    const { key, color } = getTxStatusTextProps(status);
-    const isConfirming =
-      status === EDecodedTxStatus.Pending ||
-      status === EOnChainHistoryTxStatus.Pending;
+    const { key, color, isConfirming } = getTxStatusTextProps(status);
 
-    const decodedTx = historyTx?.decodedTx;
     const broadcastTimeMs = txDetails?.timestamp
       ? txDetails.timestamp * 1000
-      : (decodedTx?.updatedAt ?? decodedTx?.createdAt);
+      : (historyTx?.decodedTx.updatedAt ?? historyTx?.decodedTx.createdAt);
     const subtitle = isConfirming
       ? getTxConfirmSubtitle({
           confirmationETASeconds: txDetails?.confirmationETASeconds,
@@ -1004,7 +1008,9 @@ function HistoryDetails() {
       </YStack>
     );
   }, [
-    historyTx?.decodedTx,
+    historyTx?.decodedTx.status,
+    historyTx?.decodedTx.updatedAt,
+    historyTx?.decodedTx.createdAt,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
