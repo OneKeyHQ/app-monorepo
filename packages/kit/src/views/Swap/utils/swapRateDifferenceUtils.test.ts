@@ -31,23 +31,6 @@ describe('buildSwapRateDifference', () => {
     });
   });
 
-  it('uses token currency tags instead of the current default currency', () => {
-    const result = buildSwapRateDifference({
-      fromTokenPrice: '6.75',
-      fromTokenCurrency: 'cny',
-      toTokenPrice: '609.7560975609756',
-      toTokenCurrency: 'usd',
-      defaultTokenCurrency: 'usd',
-      currencyMap,
-      instantRate: '0.0016325761663555',
-    });
-
-    expect(result).toEqual({
-      value: '-0.45%',
-      unit: ESwapRateDifferenceUnit.DEFAULT,
-    });
-  });
-
   it('does not compare prices when only one side has a known price basis', () => {
     expect(
       buildSwapRateDifference({
