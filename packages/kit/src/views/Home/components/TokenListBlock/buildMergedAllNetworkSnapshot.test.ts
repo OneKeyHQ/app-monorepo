@@ -181,4 +181,51 @@ describe('buildMergedAllNetworkSnapshot', () => {
     // merge-derive rewrites `$key` to `${impl-chain}_${last}` => `btc--0_native`
     expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
   });
+
+  it('per-round mergeDeriveAssets:true overrides an empty networkId map', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: true,
+        tokens: {
+          data: [makeToken('btc--0_xpubabc_native', { mergeAssets: true })],
+          keys: 'kbtc',
+          map: { 'btc--0_xpubabc_native': makeFiat('7') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: {}, // empty → only the per-round flag drives it
+      accountId: 'acc1',
+    });
+
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual(['btc--0_native']);
+  });
+
+  it('per-round mergeDeriveAssets:false prevents merge even when the map says true', () => {
+    const rounds: IAllNetworkSnapshotRound[] = [
+      makeRound({
+        networkId: 'btc--0',
+        mergeDeriveAssets: false,
+        tokens: {
+          data: [makeToken('btc--0_xpubabc_native', { mergeAssets: true })],
+          keys: 'kbtc',
+          map: { 'btc--0_xpubabc_native': makeFiat('7') },
+        },
+      }),
+    ];
+
+    const snap = buildMergedAllNetworkSnapshot({
+      rounds,
+      mergeDeriveAssetsByNetworkId: { 'btc--0': true }, // map says true; round overrides to false
+      accountId: 'acc1',
+    });
+
+    // not merged → keeps the raw per-derive `$key`
+    expect(snap.orderedTokens.map((t) => t.$key)).toEqual([
+      'btc--0_xpubabc_native',
+    ]);
+  });
 });

@@ -40,6 +40,19 @@ import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
+// [TLNATIVE temp] native log for the all-network cold-owner load optimization
+// (main runtime). No-op off-native.
+function tln(msg: string): void {
+  try {
+    const m =
+      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
+  } catch {
+    /* noop */
+  }
+}
+
 // Native keeps a strict cap to avoid Hermes memory spikes.
 // Web keeps full fan-out to preserve Home startup latency.
 const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
@@ -285,10 +298,15 @@ function useAllNetworkRequests<T>(params: {
     data,
     accountId,
     networkId,
+    generation,
   }: {
     data: any;
     accountId: string;
     networkId: string;
+    // Monotonic run generation (see runGenerationRef). Threaded into the LWW
+    // materialized view's `seedFloor` so a stale earlier run's cache seed can
+    // never clobber a newer run's live result.
+    generation: number;
   }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
@@ -331,8 +349,9 @@ function useAllNetworkRequests<T>(params: {
   }) => Promise<void> | void;
   // Fires once per network as its live fetch settles (only on the steady-state
   // sliding-window branch). Lets the consumer paint progressively (L2) instead
-  // of waiting for the whole fan-out.
-  onRequestSettled?: (result: T) => void;
+  // of waiting for the whole fan-out. The monotonic run `generation` lets the
+  // consumer's LWW materialized view reject a stale earlier run's settle.
+  onRequestSettled?: (result: T, generation: number) => void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
@@ -366,6 +385,11 @@ function useAllNetworkRequests<T>(params: {
   const allNetworkDataInit = useRef(false);
   const isFetching = useRef(false);
   const runCountRef = useRef(0);
+  // Monotonic run generation for the consumer's LWW materialized view. Unlike
+  // `runCountRef` (reset to 0 on owner/enabled-network change), this is NEVER
+  // reset — it must stay monotonic across same-owner re-runs so the LWW
+  // generation guard (out-of-order/stale-write rejection) holds.
+  const runGenerationRef = useRef(0);
   const [isEmptyAccount, setIsEmptyAccount] = useState(false);
   const [isLocked] = useAppIsLockedAtom();
   const [enabledNetworksChangedNonce, setEnabledNetworksChangedNonce] =
@@ -398,6 +422,9 @@ function useAllNetworkRequests<T>(params: {
       allNetworkDataInit.current = false;
       runCountRef.current = 0;
       setEnabledNetworksChangedNonce((v) => v + 1);
+      // owner intentionally omitted (this appEventBus-listener effect must not
+      // depend on the owner); it appears on the following `allnet.run` line.
+      tln('allnet.trigger reason=enabledNetworks');
       void runWithQueueRef.current?.({ triggerByDeps: true });
     };
     appEventBus.on(
@@ -436,6 +463,8 @@ function useAllNetworkRequests<T>(params: {
       // check, otherwise the refresh is dropped when the consuming tab
       // (e.g. DeFi) is mounted but not the active tab during the HW connect
       // batch — the cache would be cleared but no fetch would actually run.
+      // owner intentionally omitted (see enabledNetworks trigger above).
+      tln('allnet.trigger reason=addAccounts');
       void runWithQueueRef.current?.({
         skipAccountsCache: true,
         alwaysSetState: true,
@@ -451,6 +480,9 @@ function useAllNetworkRequests<T>(params: {
     if (currentAccountId && currentNetworkId && currentWalletId) {
       allNetworkDataInit.current = false;
       runCountRef.current = 0;
+      tln(
+        `allnet.trigger reason=accountSwitch owner=${currentAccountId}__${currentNetworkId}`,
+      );
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
   }, [
@@ -522,11 +554,24 @@ function useAllNetworkRequests<T>(params: {
           lastSignature: lastRunSignatureRef.current,
         })
       ) {
+        tln(
+          `allnet.run SKIP redundant sig=${currentRunSignature} owner=${currentAccountId}__${currentNetworkId}`,
+        );
         return;
       }
+      tln(
+        `allnet.run GO sig=${currentRunSignature} init=${
+          allNetworkDataInit.current ? 1 : 0
+        } mustRun=${isMustRun ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
+      );
       lastRunSignatureRef.current = currentRunSignature;
 
       runCountRef.current += 1;
+      runGenerationRef.current += 1;
+      // Capture the generation for THIS run — threaded into the cache-seed
+      // (`allNetworkCacheData`) and the per-network settle (`onRequestSettled`)
+      // so the consumer's LWW materialized view rejects a stale earlier run.
+      const runGeneration = runGenerationRef.current;
       isFetching.current = true;
 
       let onStartedError: unknown;
@@ -710,6 +755,7 @@ function useAllNetworkRequests<T>(params: {
                 data: cachedData,
                 accountId: currentAccountId,
                 networkId: currentNetworkId,
+                generation: runGeneration,
               });
             }
           } catch (e) {
@@ -737,6 +783,9 @@ function useAllNetworkRequests<T>(params: {
             accountsInfo,
             cachePriorityNetworkIds,
           );
+          tln(
+            `allnet.reorder priorityFunded=${cachePriorityNetworkIds.size} total=${allNetworks.length} owner=${currentAccountId}__${currentNetworkId}`,
+          );
           const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
             return () =>
@@ -754,6 +803,13 @@ function useAllNetworkRequests<T>(params: {
             // wave — the next network starts the instant a slot frees.
             // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
             // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
+            tln(
+              `allnet.fanout networks=${
+                requestFactories.length
+              } concurrency=${getTokenListFanOutConcurrencyLimit(
+                requestFactories.length,
+              )} sliding owner=${currentAccountId}__${currentNetworkId}`,
+            );
             resp = (
               await promiseAllSettledSlidingWindow(requestFactories, {
                 continueOnError: true,
@@ -765,7 +821,13 @@ function useAllNetworkRequests<T>(params: {
                 // the whole fan-out.
                 onSettled: (settledResult) => {
                   if (settledResult) {
-                    onRequestSettled?.(settledResult);
+                    tln(
+                      `allnet.settle net=${
+                        (settledResult as { networkId?: string }).networkId ??
+                        ''
+                      } owner=${currentAccountId}__${currentNetworkId}`,
+                    );
+                    onRequestSettled?.(settledResult, runGeneration);
                   }
                 },
               })

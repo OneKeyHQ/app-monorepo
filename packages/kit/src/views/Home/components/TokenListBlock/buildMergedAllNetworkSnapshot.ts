@@ -45,6 +45,15 @@ export interface IAllNetworkSnapshotRound {
   };
   aggregateTokenListMap?: { [key: string]: { tokens: IAccountToken[] } };
   aggregateTokenMap?: Record<string, ITokenFiat>;
+  /**
+   * Per-round merge-derive flag. When defined it OVERRIDES the
+   * `mergeDeriveAssetsByNetworkId[networkId]` lookup for THIS round. Required by
+   * the cold-owner cache∪live merge: a cache round (already derive-merged →
+   * `false`) and a live round (raw → the network's real flag) for the SAME
+   * networkId can coexist during a partial-settle window, so the flag must live
+   * on the round, not be looked up per-networkId.
+   */
+  mergeDeriveAssets?: boolean;
 }
 
 /**
@@ -120,9 +129,11 @@ export function buildMergedAllNetworkSnapshot({
   let aggregateTokenMap: Record<string, Record<string, ITokenFiat>> = {};
 
   for (const r of rounds) {
-    const mergeDeriveAssetsEnabled = r.networkId
-      ? mergeDeriveAssetsByNetworkId[r.networkId]
-      : undefined;
+    // Per-round flag wins (cache vs live can disagree for the same networkId);
+    // fall back to the per-networkId map for callers that don't tag rounds.
+    const mergeDeriveAssetsEnabled =
+      r.mergeDeriveAssets ??
+      (r.networkId ? mergeDeriveAssetsByNetworkId[r.networkId] : undefined);
 
     if (r.aggregateTokenListMap) {
       aggregateTokenListMap = mergeAggregateTokenListMap({
@@ -169,15 +180,15 @@ export function buildMergedAllNetworkSnapshot({
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
 
+    // Single derive-merge of the risky slice. The prior code re-`.concat`-ed
+    // `r.riskTokens.data` after the merge, which under `mergeDeriveAssets:true`
+    // kept BOTH the merged ($key `chain_suffix`) AND the raw per-derive rows
+    // (deduped to one only when merge was off) — a value-level non-idempotency.
     riskyTokenList.riskyTokens = mergeDeriveTokenList({
       sourceTokens: r.riskTokens.data,
       targetTokens: riskyTokenList.riskyTokens,
       mergeDeriveAssets: mergeDeriveAssetsEnabled,
     });
-
-    riskyTokenList.riskyTokens = riskyTokenList.riskyTokens.concat(
-      r.riskTokens.data,
-    );
     riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
 
     riskyTokenListMap = mergeDeriveTokenListMap({

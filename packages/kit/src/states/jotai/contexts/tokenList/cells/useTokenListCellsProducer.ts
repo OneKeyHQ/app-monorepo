@@ -87,6 +87,18 @@ import {
 import type { IApplyDeps } from './apply';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 
+// [TLNATIVE temp] full-chain native log for the iOS-only "-" repro (main runtime).
+function tln(msg: string): void {
+  try {
+    const m =
+      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
+  } catch {
+    /* noop */
+  }
+}
+
 /**
  * Receive shell. Call once from the home `TokenListBlock`, passing the current
  * `${accountId}__${networkId}` owner key and the settings currency id. The BG VM
@@ -267,6 +279,9 @@ export function useTokenListCellsProducer(
       if (payload.ownerKey !== ownerKey) {
         return;
       }
+      tln(
+        `ui.recv struct v=${payload.structureVersion} owner=${payload.ownerKey}`,
+      );
       applyStructure(payload.structureVersion, payload.structure);
     };
     const onValuation = (payload: {
@@ -277,6 +292,11 @@ export function useTokenListCellsProducer(
       if (payload.ownerKey !== ownerKey) {
         return;
       }
+      tln(
+        `ui.recv val v=${payload.valuationVersion} owner=${payload.ownerKey} changed=${
+          Object.keys(payload.valuation.changedFiatById).length
+        }`,
+      );
       applyValuation(payload.valuationVersion, payload.valuation);
     };
     const onRisky = (payload: {
@@ -311,6 +331,13 @@ export function useTokenListCellsProducer(
         if (cancelled || pulled.ownerKey !== ownerKey) {
           return;
         }
+        tln(
+          `ui.pull s=${pulled.structureVersion} v=${pulled.valuationVersion} r=${pulled.riskyVersion} owner=${pulled.ownerKey} valChanged=${
+            pulled.valuation
+              ? Object.keys(pulled.valuation.changedFiatById).length
+              : -1
+          }`,
+        );
         // structure first so cells exist before valuation self-heals them.
         applyStructure(pulled.structureVersion, pulled.structure);
         applyValuation(pulled.valuationVersion, pulled.valuation);

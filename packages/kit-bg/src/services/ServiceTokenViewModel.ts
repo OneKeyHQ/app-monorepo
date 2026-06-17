@@ -59,6 +59,18 @@ import type {
   IValuationFrame,
 } from '../states/jotai/contexts/tokenList/cellsPure/types';
 
+// [TLNATIVE temp] full-chain native log for the iOS-only "-" repro (bg runtime).
+function tln(msg: string): void {
+  try {
+    const m =
+      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
+    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
+  } catch {
+    /* noop */
+  }
+}
+
 /**
  * One owner's BG view-model state. Mirrors the UI producer's `prev` refs
  * (`lastStructure` / `lastScalar` / `lastMetaByKey`) plus the monotonic version
@@ -180,6 +192,12 @@ export interface IIngestRoundParams {
   networkId?: string;
   /** keys string mirrored from the legacy `allTokenListAtom` write. */
   rawKeys?: string;
+  /**
+   * [TLNATIVE temp] log-only tag identifying which UI ingest produced this round
+   * (single | cacheSeed | progPaint | authoritative). Threaded only into the
+   * `bg.emit` log line so interleaved frames are distinguishable on-device.
+   */
+  source?: string;
 }
 
 /** Result of a PULL — the authoritative full frames for an owner. */
@@ -323,6 +341,7 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId,
       networkId,
       rawKeys = '',
+      source,
     } = params;
 
     if (!ownerKey) {
@@ -397,6 +416,53 @@ class ServiceTokenViewModel extends ServiceBase {
       valuationVersion: vm.valuationVersion,
       valuation,
     });
+
+    tln(
+      `bg.emit owner=${ownerKey} structEmit=${!!structure} structVer=${
+        vm.structureVersion
+      } ordered=${structure ? structure.orderedIds.length : -1} valVer=${
+        vm.valuationVersion
+      } valChanged=${
+        Object.keys(valuation.changedFiatById).length
+      } src=${source ?? ''}`,
+    );
+    // [TLNATIVE temp] list the ORDERED tokens that have NO fiat in the feed
+    // (in orderedTokens but $key absent from tokenListMap) — these render a row
+    // but show "-". Pinpoints the upstream feed gap (e.g. zero-balance default
+    // tokens added without price).
+    {
+      const noFiat = orderedTokens.filter(
+        (t) => !t.isAggregateToken && !tokenListMap[t.$key],
+      );
+      tln(
+        `bg.noFiat owner=${ownerKey} ordTokens=${
+          orderedTokens.length
+        } mapKeys=${Object.keys(tokenListMap).length} noFiat=${
+          noFiat.length
+        } :: ${noFiat
+          .slice(0, 14)
+          .map(
+            (t) =>
+              `${t.symbol ?? '?'}|nat=${t.isNative ? 1 : 0}|${t.networkId}`,
+          )
+          .join(' , ')}`,
+      );
+      // per-token classification for the reported "-" symbols: where is their
+      // fiat (normal map / agg map / valuation channels) — or is it nowhere?
+      const watch = new Set(['JupSOL', 'TRX', 'BNB', 'SOL', 'USDf', 'VIRTUAL']);
+      for (const t of orderedTokens) {
+        if (watch.has(t.symbol ?? '')) {
+          tln(
+            `bg.watch ${t.symbol} key=${t.$key} agg=${
+              t.isAggregateToken ? 1 : 0
+            } inMap=${!!tokenListMap[t.$key]} inAggMap=${!!aggregateTokensMap[
+              t.$key
+            ]} inChanged=${!!valuation.changedFiatById[t.$key]} inAggChanged=${!!valuation
+              .changedAggFiat[t.$key]}`,
+          );
+        }
+      }
+    }
 
     // --- raw token list (PULL-only source) ---------------------------------
     // REPLACE (not concat) the owner's raw slices each round: the merged list is
