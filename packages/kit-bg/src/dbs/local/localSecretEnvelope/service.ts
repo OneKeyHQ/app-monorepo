@@ -9,6 +9,7 @@ import { parseLocalSecretEnvelopeV1 } from './parser';
 import {
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
+  resetSecureStorageLocalSecretEnvelopeProbeCache,
 } from './secureStorageLayerAdapter';
 
 import type {
@@ -179,6 +180,7 @@ export class LocalSecretEnvelopeService {
     this.credentialMigrationConfigCacheGeneration += 1;
     this.credentialMigrationConfigCache = undefined;
     this.credentialMigrationConfigPromise = undefined;
+    resetSecureStorageLocalSecretEnvelopeProbeCache();
   }
 
   private async buildCredentialMigrationConfigUncached(): Promise<

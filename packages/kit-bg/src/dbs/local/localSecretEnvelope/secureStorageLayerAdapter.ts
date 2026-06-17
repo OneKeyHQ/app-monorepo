@@ -171,6 +171,12 @@ function getSecureStorageProbeCacheEntry({
   return entry;
 }
 
+export function resetSecureStorageLocalSecretEnvelopeProbeCache(
+  secureStorage: ISecureStorageLocalSecretEnvelopeStorage = secureStorageInstance,
+): void {
+  secureStorageProbeCache.delete(secureStorage);
+}
+
 function cleanupSecureStorageProbeKey({
   keyRef,
   secureStorage,

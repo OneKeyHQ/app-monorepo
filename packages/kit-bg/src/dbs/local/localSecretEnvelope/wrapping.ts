@@ -1,4 +1,7 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
@@ -62,20 +65,60 @@ async function prepareWrappingLayers({
   recordId: string;
 }): Promise<ILocalSecretEnvelopeLayer[]> {
   const layers: ILocalSecretEnvelopeLayer[] = [];
-  for (let layerIndex = 0; layerIndex < layerAdapters.length; layerIndex += 1) {
-    const adapter = layerAdapters[layerIndex];
-    const layer = await adapter.prepareLayer({
+  try {
+    for (
+      let layerIndex = 0;
+      layerIndex < layerAdapters.length;
+      layerIndex += 1
+    ) {
+      const adapter = layerAdapters[layerIndex];
+      const layer = await adapter.prepareLayer({
+        dataType,
+        layerIndex,
+        recordId,
+      });
+      invariant(
+        layer.kind === adapter.kind,
+        'Local secret envelope layer adapter kind mismatch',
+      );
+      layers.push(layer);
+    }
+    return layers;
+  } catch (error) {
+    await cleanupWrappingLayerKeysBestEffort({
       dataType,
-      layerIndex,
+      layerAdapters,
+      layers,
       recordId,
     });
-    invariant(
-      layer.kind === adapter.kind,
-      'Local secret envelope layer adapter kind mismatch',
-    );
-    layers.push(layer);
+    throw error;
   }
-  return layers;
+}
+
+async function cleanupWrappingLayerKeysBestEffort({
+  dataType,
+  layerAdapters,
+  layers,
+  recordId,
+}: {
+  dataType: ILocalSecretEnvelopeDataType;
+  layerAdapters: ILocalSecretEnvelopeLayerAdapter[];
+  layers: ILocalSecretEnvelopeLayer[];
+  recordId: string;
+}): Promise<void> {
+  await Promise.all(
+    layers.map(async (layer, layerIndex) => {
+      const adapter = layerAdapters[layerIndex];
+      if (!adapter?.deleteLayerKey) {
+        return;
+      }
+      try {
+        await adapter.deleteLayerKey({ dataType, layer, layerIndex, recordId });
+      } catch {
+        // best-effort cleanup; ignore
+      }
+    }),
+  );
 }
 
 export async function wrapLocalSecretEnvelopeV1({
@@ -106,41 +149,55 @@ export async function wrapLocalSecretEnvelopeV1({
     layerAdapters,
     recordId,
   });
-  const innerPrefix = getLocalSecretEnvelopeInnerPrefix(plaintext);
-  const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
-    dataType,
-    innerPrefix,
-    recordId,
-    wrappingLayers,
-  });
-  const aad = buildLocalSecretEnvelopeAadV1({
-    dataType,
-    recordId,
-    protectedHeader,
-  });
-
-  let ciphertext = plaintext;
-  for (let layerIndex = 0; layerIndex < layerAdapters.length; layerIndex += 1) {
-    ciphertext = await layerAdapters[layerIndex].encrypt({
-      aad,
+  try {
+    const innerPrefix = getLocalSecretEnvelopeInnerPrefix(plaintext);
+    const protectedHeader = buildLocalSecretEnvelopeProtectedHeaderV1({
       dataType,
-      layer: wrappingLayers[layerIndex],
-      layerIndex,
-      plaintext: ciphertext,
+      innerPrefix,
+      recordId,
+      wrappingLayers,
+    });
+    const aad = buildLocalSecretEnvelopeAadV1({
+      dataType,
+      recordId,
+      protectedHeader,
+    });
+
+    let ciphertext = plaintext;
+    for (
+      let layerIndex = 0;
+      layerIndex < layerAdapters.length;
+      layerIndex += 1
+    ) {
+      ciphertext = await layerAdapters[layerIndex].encrypt({
+        aad,
+        dataType,
+        layer: wrappingLayers[layerIndex],
+        layerIndex,
+        plaintext: ciphertext,
+        recordId,
+      });
+    }
+
+    return serializeLocalSecretEnvelopeV1({
+      version: LOCAL_SECRET_ENVELOPE_VERSION,
+      dataType,
+      ...(innerPrefix ? { innerPrefix } : undefined),
+      recordId,
+      wrappingLayers,
+      strength,
+      protectedHeader,
+      ciphertext,
+    });
+  } catch (error) {
+    await cleanupWrappingLayerKeysBestEffort({
+      dataType,
+      layerAdapters,
+      layers: wrappingLayers,
       recordId,
     });
+    throw error;
   }
-
-  return serializeLocalSecretEnvelopeV1({
-    version: LOCAL_SECRET_ENVELOPE_VERSION,
-    dataType,
-    ...(innerPrefix ? { innerPrefix } : undefined),
-    recordId,
-    wrappingLayers,
-    strength,
-    protectedHeader,
-    ciphertext,
-  });
 }
 
 export async function unwrapLocalSecretEnvelopeV1({
@@ -194,7 +251,10 @@ export async function unwrapLocalSecretEnvelopeV1({
         layerIndex,
         recordId: parsed.recordId,
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof LocalSecretEnvelopeUnavailable) {
+        throw error;
+      }
       throw new OneKeyLocalError(
         buildLayerErrorMessage({
           layer,

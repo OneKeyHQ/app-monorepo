@@ -1827,28 +1827,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const isOriginalLocalSecretEnvelope =
       isLocalSecretEnvelopeString(originalCredential);
     let innerCredential = originalCredential;
-    let localSecretEnvelopeConfig:
-      | ILocalSecretEnvelopeCredentialMigrationConfig
+    let localSecretEnvelopeResolver:
+      | ILocalSecretEnvelopeLayerAdapterResolver
       | undefined;
 
     if (isOriginalLocalSecretEnvelope) {
-      localSecretEnvelopeConfig =
-        await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
-      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
-        localSecretEnvelopeConfig?.layerAdapters ?? [],
-      );
-      if (!resolveLayerAdapter) {
-        throw new OneKeyLocalError(
-          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-            envelope: originalCredential,
-          }),
-        );
-      }
+      localSecretEnvelopeResolver =
+        await this.resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
+          envelope: originalCredential,
+        });
       innerCredential = await unwrapLocalSecretEnvelopeV1({
         envelope: originalCredential,
         expectedDataType: 'credential',
         expectedRecordId: credential.id,
-        resolveLayerAdapter,
+        resolveLayerAdapter: localSecretEnvelopeResolver,
       });
     }
 
@@ -1900,21 +1892,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
 
     if (isOriginalLocalSecretEnvelope) {
-      if (!localSecretEnvelopeConfig) {
+      if (!localSecretEnvelopeResolver) {
         throw new OneKeyLocalError(
-          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-            envelope: originalCredential,
-          }),
-        );
-      }
-      const resolveLayerAdapter = buildLocalSecretEnvelopeLayerAdapterResolver(
-        localSecretEnvelopeConfig.layerAdapters,
-      );
-      if (!resolveLayerAdapter) {
-        throw new OneKeyLocalError(
-          buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
-            envelope: originalCredential,
-          }),
+          'Local secret envelope resolver is unavailable',
         );
       }
       nextCredential = await rewrapLocalSecretEnvelopeV1({
@@ -1922,7 +1902,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         expectedDataType: 'credential',
         expectedRecordId: credential.id,
         plaintext: nextCredential,
-        resolveLayerAdapter,
+        resolveLayerAdapter: localSecretEnvelopeResolver,
       });
     }
 
@@ -2445,9 +2425,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const config =
       await this.buildLocalSecretEnvelopeCredentialMigrationConfig();
     if (!config || !config.layerAdapters.length) {
+      // Boundary already established: do NOT silently persist a non-LSE
+      // credential that bypasses it. Fail fast with a retryable error so the
+      // caller can retry once the platform layer recovers.
       if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
-        await this.markLocalSecretEnvelopeCredentialMigrationIncomplete();
+        throw new LocalSecretEnvelopeUnavailable({
+          message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: credential,
+          }),
+        });
       }
+      // Not migrated yet: graceful degradation; lazy migration wraps later.
       return credential;
     }
 
@@ -2464,8 +2452,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         credentialId,
         error,
       });
+      if (error instanceof LocalSecretEnvelopeUnavailable) {
+        throw error;
+      }
       if (await this.isLocalSecretEnvelopeCredentialMigrationCompleted()) {
-        await this.markLocalSecretEnvelopeCredentialMigrationIncomplete();
+        throw new LocalSecretEnvelopeUnavailable({
+          message: buildLocalSecretEnvelopeLayerAdapterRequiredErrorMessage({
+            envelope: credential,
+          }),
+        });
       }
       return credential;
     }

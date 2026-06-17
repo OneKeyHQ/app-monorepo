@@ -765,7 +765,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(configSpy).not.toHaveBeenCalled();
   });
 
-  it('keeps LSE migration retryable when a new credential cannot be wrapped on write', async () => {
+  it('fails fast (retryable) when a new credential cannot be wrapped on a migrated instance', async () => {
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
     db.context.localPasswordKdfUpgraded = true;
@@ -782,6 +782,38 @@ describe('LocalDbBase local secret envelope credentials', () => {
       .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
       .mockResolvedValue(undefined);
 
+    // The instance has already established the LSE boundary, so a transient
+    // layer outage must fail fast with a retryable error rather than silently
+    // persisting a non-LSE credential that bypasses the boundary.
+    await expect(
+      db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
+        credentialId: 'imported--60--public-key',
+        credential: importedCredential,
+      }),
+    ).rejects.toBeInstanceOf(LocalSecretEnvelopeUnavailable);
+    // Nothing was persisted raw, so the completed marker stays intact.
+    expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(true);
+    expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
+      1,
+    );
+  });
+
+  it('returns the raw credential when LSE is unavailable before migration completes', async () => {
+    const db = new TestLocalDb();
+    const password = await encodePasswordAsync({ password: 'test-password' });
+    db.context.localPasswordKdfUpgraded = true;
+    db.context.localPasswordKdfUpgradedTargetIterations =
+      PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+    // Migration not yet completed: graceful degradation, the lazy migration
+    // will wrap this credential on a later unlock.
+    const importedCredential = await encryptImportedCredential({
+      credential: { privateKey: 'private-key-hex' },
+      password,
+    });
+    jest
+      .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+      .mockResolvedValue(undefined);
+
     const nextCredential =
       await db.wrapNewCredentialWithLocalSecretEnvelopeIfNeeded({
         credentialId: 'imported--60--public-key',
@@ -789,11 +821,8 @@ describe('LocalDbBase local secret envelope credentials', () => {
       });
 
     expect(nextCredential).toBe(importedCredential);
+    expect(isLocalSecretEnvelopeString(nextCredential)).toBe(false);
     expect(db.context.localSecretEnvelopeCredentialMigrated).toBe(false);
-    expect(db.context.localSecretEnvelopeCredentialMigratedTargetVersion).toBe(
-      0,
-    );
-    expect(db._localSecretEnvelopeCredentialMigrationExecuted).toBe(false);
   });
 
   it('reads an LSE credential through the default local layer resolver', async () => {

@@ -2,7 +2,10 @@ import {
   aesGcmDecrypt,
   aesGcmEncrypt,
 } from '@onekeyhq/shared/src/appCrypto/modules/aesGcm';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import type {
@@ -112,14 +115,26 @@ async function getExistingAesGcmKey({
   keyStorage: ILocalSecretEnvelopeAesGcmKeyStorage;
   kind: ILocalSecretEnvelopeLayerKind;
 }): Promise<Buffer> {
-  const existingKeyHex = await keyStorage.getItem(keyRef);
-  if (!existingKeyHex) {
-    throw new OneKeyLocalError(
-      buildLayerErrorMessage({
+  let existingKeyHex: string | null;
+  try {
+    existingKeyHex = await keyStorage.getItem(keyRef);
+  } catch {
+    // Key storage (keychain / secure storage) transiently unavailable: surface
+    // a retryable signal instead of a generic/permanent failure.
+    throw new LocalSecretEnvelopeUnavailable({
+      message: buildLayerErrorMessage({
         kind,
         message: 'Local secret envelope wrapping key unavailable',
       }),
-    );
+    });
+  }
+  if (!existingKeyHex) {
+    throw new LocalSecretEnvelopeUnavailable({
+      message: buildLayerErrorMessage({
+        kind,
+        message: 'Local secret envelope wrapping key unavailable',
+      }),
+    });
   }
   return readAesGcmKey(existingKeyHex);
 }

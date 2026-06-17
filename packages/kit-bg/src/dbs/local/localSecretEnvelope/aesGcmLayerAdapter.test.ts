@@ -5,6 +5,8 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+
 import type {
   ILocalSecretEnvelopeAesGcmKeyStorage,
   ILocalSecretEnvelopeLayerCapabilities,
@@ -114,8 +116,11 @@ describe('buildLocalSecretEnvelopeAesGcmLayerAdapter', () => {
       expectedRecordId: 'imported--evm--address',
       resolveLayerAdapter: () => adapter,
     });
+    await expect(unwrapPromise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
     await expect(unwrapPromise).rejects.toThrow(
-      'Local secret envelope layer decrypt failed: kind=secure-storage, index=0',
+      'Local secret envelope wrapping key unavailable: kind=secure-storage',
     );
     await expect(unwrapPromise).rejects.not.toThrow(
       /test:lse:secure-storage:missing-key/,
