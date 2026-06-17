@@ -70,6 +70,26 @@ function buildServerSubmitPortfolio(
   };
 }
 
+function buildPortfolioAccountFromEventPayload(
+  eventPayload: IPortfolioSyncSettledPayload,
+): IPortfolioPayload['account'] {
+  const accountIdentifier =
+    eventPayload.indexedAccountIdentifier ||
+    eventPayload.indexedAccountId ||
+    eventPayload.accountAddress;
+
+  return {
+    addressMasked: accountUtils.shortenAddress({
+      address: accountIdentifier,
+    }),
+    label:
+      eventPayload.indexedAccountName ||
+      eventPayload.accountName ||
+      eventPayload.accountId ||
+      '',
+  };
+}
+
 export function buildPortfolioSyncArtifacts({
   currencyMap,
   displayCurrency,
@@ -85,12 +105,7 @@ export function buildPortfolioSyncArtifacts({
   timestamp: number;
 }): IPortfolioSyncArtifacts {
   const mockPortfolio = buildPortfolioPayload({
-    account: {
-      addressMasked: accountUtils.shortenAddress({
-        address: eventPayload.accountAddress,
-      }),
-      label: eventPayload.accountName || eventPayload.accountId || '',
-    },
+    account: buildPortfolioAccountFromEventPayload(eventPayload),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
     currencyMap,
     displayCurrency,

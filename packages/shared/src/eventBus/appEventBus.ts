@@ -283,6 +283,8 @@ export interface IAppEventBusPayload {
     aggregateTokenMap: Record<string, ITokenFiat>;
     deviceConnectId?: string;
     indexedAccountId?: string;
+    indexedAccountIdentifier?: string;
+    indexedAccountName?: string;
     networkId?: string;
     ownerAccountId?: string;
     ownerNetworkId?: string;

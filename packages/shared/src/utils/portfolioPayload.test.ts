@@ -162,6 +162,52 @@ describe('buildPortfolioPayload', () => {
     });
   });
 
+  test('keeps chain-native contract addresses when the native coin has one', () => {
+    const suiNative = buildToken({
+      $key: 'sui',
+      address: '0x2::sui::SUI',
+      isNative: true,
+      name: 'Sui',
+      networkId: 'sui--mainnet',
+      symbol: 'SUI',
+    });
+    const aptNative = buildToken({
+      $key: 'apt',
+      address: '0x1::aptos_coin::AptosCoin',
+      isNative: true,
+      name: 'Aptos',
+      networkId: 'aptos--1',
+      symbol: 'APT',
+    });
+
+    const payload = buildPortfolioPayload({
+      account: {
+        label: 'Account #1',
+        addressMasked: '0x12...ab',
+      },
+      aggregateTokenMap: {},
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      timestamp: 1_780_900_000,
+      tokenMap: {
+        apt: buildFiat({ fiatValue: '100', price: 100 }),
+        sui: buildFiat({ fiatValue: '99', price: 1 }),
+      },
+      tokens: [suiNative, aptNative],
+    });
+
+    expect(payload.tokens[0]).toMatchObject({
+      contractAddress: '0x2::sui::SUI',
+      isNative: true,
+      networkId: 'sui--mainnet',
+    });
+    expect(payload.tokens[1]).toMatchObject({
+      contractAddress: '0x1::aptos_coin::AptosCoin',
+      isNative: true,
+      networkId: 'aptos--1',
+    });
+  });
+
   test('keeps an aggregate token grouped and reads fiat basis from aggregateTokenMap', () => {
     const aggregate = buildToken({
       $key: 'aggregate_ETH_',

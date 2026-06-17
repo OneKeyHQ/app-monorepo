@@ -87,6 +87,8 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
         aggregateTokenMap: {},
         deviceConnectId: 'connect-1',
         indexedAccountId: 'hd-1--m/44',
+        indexedAccountIdentifier: '0x1234567890abcdef',
+        indexedAccountName: 'Account #1',
         networkId: 'all--networks',
         ownerAccountId: 'evm--1',
         ownerNetworkId: 'all--networks',
@@ -201,5 +203,46 @@ describe('serviceHardwarePortfolioSyncUtils', () => {
     expect(artifacts.mockArchiveBytes.byteLength).toBeGreaterThan(
       artifacts.mockPortfolioJsonBytes.byteLength,
     );
+  });
+
+  test('builds portfolio account identity from indexed account metadata', () => {
+    const payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled] =
+      {
+        accountAddress: 'AllNetworkAddress',
+        accountId: 'allnetwork--account',
+        accountName: 'AllNetwork Account',
+        aggregateTokenMap: {},
+        deviceConnectId: 'connect-1',
+        indexedAccountId: 'hd-1--m/44',
+        indexedAccountIdentifier: '0xindexedaccounthash',
+        indexedAccountName: 'Account #1',
+        networkId: 'all--networks',
+        ownerAccountId: 'evm--1',
+        ownerNetworkId: 'all--networks',
+        tokenMap: {
+          eth: buildFiat({ fiatValue: '100', price: 100 }),
+        },
+        tokens: [
+          buildToken({
+            $key: 'eth',
+            coingeckoId: 'ethereum',
+            networkId: 'evm--1',
+          }),
+        ],
+        walletId: 'hw-1',
+        walletType: 'hw',
+      };
+
+    const artifacts = buildPortfolioSyncArtifacts({
+      currencyMap,
+      displayCurrency: { id: 'usd', symbol: '$' },
+      eventPayload: payload,
+      timestamp: 1_780_900_000,
+    });
+
+    expect(artifacts.portfolio.account).toEqual({
+      addressMasked: '0xindexe...nthash',
+      label: 'Account #1',
+    });
   });
 });

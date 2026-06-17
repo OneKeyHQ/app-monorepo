@@ -61,6 +61,8 @@ type IConvertFiatStrictResult = {
   reason?: 'invalid-value' | 'missing-rate';
 };
 
+const PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS = new Set(['aptos', 'sui']);
+
 function isUsableRate(rate: BigNumber): boolean {
   return rate.isFinite() && !rate.isZero();
 }
@@ -135,6 +137,56 @@ function getTokenFiat({
   return tokenMap[token.$key];
 }
 
+function getNetworkImpl(networkId: string): string {
+  return networkId.split('--')[0] ?? '';
+}
+
+function shouldKeepNativeTokenContractAddress({
+  contractAddress,
+  networkId,
+}: {
+  contractAddress: string;
+  networkId: string;
+}): boolean {
+  return (
+    Boolean(contractAddress) &&
+    PORTFOLIO_NATIVE_TOKEN_CONTRACT_NETWORK_IMPLS.has(getNetworkImpl(networkId))
+  );
+}
+
+function getPortfolioTokenContractAddress({
+  isAllNetworks,
+  isNative,
+  networkId,
+  tokenAddress,
+}: {
+  isAllNetworks: boolean;
+  isNative: boolean;
+  networkId: string;
+  tokenAddress?: string;
+}): string {
+  if (isAllNetworks) {
+    return '';
+  }
+
+  const normalizedContractAddress = normalizePortfolioTokenContractAddress({
+    contractAddress: tokenAddress ?? '',
+    networkId,
+  });
+
+  if (
+    isNative &&
+    !shouldKeepNativeTokenContractAddress({
+      contractAddress: normalizedContractAddress,
+      networkId,
+    })
+  ) {
+    return '';
+  }
+
+  return normalizedContractAddress;
+}
+
 export function buildPortfolioPayload({
   account,
   aggregateTokenMap,
@@ -153,13 +205,12 @@ export function buildPortfolioPayload({
     const isNative = isAllNetworks ? false : Boolean(token.isNative);
     const networkId = isAllNetworks ? '' : (token.networkId ?? '');
     const symbol = token.commonSymbol || token.symbol;
-    const contractAddress =
-      isAllNetworks || isNative
-        ? ''
-        : normalizePortfolioTokenContractAddress({
-            contractAddress: token.address ?? '',
-            networkId,
-          });
+    const contractAddress = getPortfolioTokenContractAddress({
+      isAllNetworks,
+      isNative,
+      networkId,
+      tokenAddress: token.address,
+    });
     const fiat = getTokenFiat({ aggregateTokenMap, token, tokenMap });
     const sourceCurrency = fiat?.currency;
     const convertedFiat = convertFiatStrictToDisplayCurrency({
