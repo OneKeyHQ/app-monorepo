@@ -5,11 +5,7 @@ import type { ITokenDappType } from '../../types/token';
 
 export const TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED = true;
 
-const TOKEN_SELECTOR_WALLET_DAPP_NAMES = new Set([
-  'wallet',
-  'unknown',
-  'wallet/unknown',
-]);
+const TOKEN_SELECTOR_WALLET_DAPP_NAMES = new Set(['wallet', 'unknown']);
 
 type ITokenSelectorDappTokenLike = {
   dappName?: string | null;
