@@ -1,7 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { isTokenSelectorDappToken } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
-import { ETokenDappType } from '@onekeyhq/shared/types/token';
 import type { ITokenDappType } from '@onekeyhq/shared/types/token';
 
 export type ISwapKLineToken = ISwapToken & {
@@ -20,10 +20,7 @@ export function isKnownSwapKLineUnsupportedToken(token?: ISwapKLineToken) {
   if (!token) {
     return false;
   }
-  if (token.dappType === ETokenDappType.WalletToken) {
-    return false;
-  }
-  return Boolean(token.defiMarked || token.dappName?.trim() || token.dappType);
+  return isTokenSelectorDappToken(token);
 }
 
 export function getSwapKLineStableTokenAddress(
