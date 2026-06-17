@@ -111,11 +111,11 @@ async function waitForExtensionServiceWorker(context) {
   });
 }
 
-async function waitForBackgroundApi(worker) {
+async function waitForBackgroundApi(page) {
   const deadline = Date.now() + EXTENSION_TIMEOUT_MS;
   while (Date.now() < deadline) {
     // eslint-disable-next-line no-await-in-loop
-    const isReady = await worker
+    const isReady = await page
       .evaluate(() =>
         Boolean(
           globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
@@ -134,9 +134,9 @@ async function waitForBackgroundApi(worker) {
   throw new Error('Timed out waiting for extension backgroundApi serviceE2E');
 }
 
-async function runLocalSecretEnvelopeFlow(worker) {
-  await waitForBackgroundApi(worker);
-  const result = await worker.evaluate(
+async function runLocalSecretEnvelopeFlow(page) {
+  await waitForBackgroundApi(page);
+  const result = await page.evaluate(
     async ({ devOnlyPassword }) => {
       const serviceE2E =
         globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
@@ -176,7 +176,7 @@ async function runLocalSecretEnvelopeFlow(worker) {
   assert.equal(result.secureStorageDeletionBlocksUnwrap, false);
   assert.equal(result.layerDeletionBlocksUnwrap['indexeddb-cryptokey'], true);
 
-  const restoreResult = await worker.evaluate(
+  const restoreResult = await page.evaluate(
     async ({ devOnlyPassword }) => {
       const serviceE2E =
         globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
@@ -245,6 +245,13 @@ async function main() {
         `--load-extension=${extensionPath}`,
         '--no-sandbox',
       ],
+      // MV3 forbids `'unsafe-eval'` in the extension CSP, so Playwright's
+      // page.evaluate (which calls the page's `eval` to reconstruct the
+      // serialized function) is blocked by CSP. Bypass CSP enforcement at
+      // runtime so the self-test can be driven from the popup page. Paired with
+      // the E2E SES L0 override (getConfiguredSesHardenLevel) that keeps the
+      // native `eval` from being replaced by SES `'no-eval'`.
+      bypassCSP: true,
       executablePath,
       headless: process.env.EXT_E2E_HEADLESS !== 'false',
       ignoreDefaultArgs: [
@@ -275,8 +282,11 @@ async function main() {
       }
       throw error;
     }
-    const worker = await waitForExtensionServiceWorker(context);
-    await runLocalSecretEnvelopeFlow(worker);
+    // Ensure the background service worker has started (it hosts the real
+    // BackgroundApi the popup proxies into); the self-test itself runs from the
+    // popup page because Playwright's evaluate needs a CSP-bypassable context.
+    await waitForExtensionServiceWorker(context);
+    await runLocalSecretEnvelopeFlow(page);
   } catch (error) {
     if (page) {
       const screenshotPath = path.join(
