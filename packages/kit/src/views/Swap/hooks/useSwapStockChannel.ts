@@ -26,6 +26,13 @@ import type {
 import { ESwapSelectTokenSource } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  SWAP_STOCK_ANALYTICS_TOKEN_ROLE_PAY,
+  SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+} from '../utils/swapStockAnalytics';
+
+import {
   ESwapStockChannelAsyncStatus,
   ESwapStockChannelStage,
   ESwapStockTradeSide,
@@ -209,8 +216,8 @@ export function useSwapStockChannel({
       }
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
-        tokenRole: 'stockToken',
-        tokenListType: 'stock',
+        tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+        tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
       requestMarketActiveToken(token);
       selectStockSwapToken(token, { resetAmounts: true });
@@ -272,6 +279,11 @@ export function useSwapStockChannel({
     (token: IToken, manual = true) => {
       if (manual) {
         manualStockPayTokenKeyRef.current = getTokenIdentityKey(token);
+        defaultLogger.swap.selectToken.selectToken({
+          selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
+          tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_PAY,
+          tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT,
+        });
       }
       const nextPayToken = token as ISwapToken;
       setPayTokenState(nextPayToken);
@@ -305,8 +317,8 @@ export function useSwapStockChannel({
       requestedStockTokenKeyRef.current = getTokenIdentityKey(nextSwapToken);
       defaultLogger.swap.selectToken.selectToken({
         selectFrom: ESwapSelectTokenSource.NORMAL_SELECT,
-        tokenRole: 'stockToken',
-        tokenListType: 'stock',
+        tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+        tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
       });
       requestMarketActiveToken(nextSwapToken);
       selectStockSwapToken(nextSwapToken, { resetAmounts: true });

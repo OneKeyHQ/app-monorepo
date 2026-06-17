@@ -128,7 +128,10 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
-import { getStockTradeAnalyticsPayload } from '../utils/swapStockAnalytics';
+import {
+  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
+  getStockTradeAnalyticsPayload,
+} from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -1884,7 +1887,7 @@ export function useSwapBuildTx() {
         orderId: buildSwapRes?.orderId ?? '',
         orderType:
           buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
-            ? 'market'
+            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
             : undefined,
         ...getStockTradeAnalyticsPayload({
           protocol: buildSwapRes.result?.protocol,
@@ -2022,7 +2025,7 @@ export function useSwapBuildTx() {
             orderId: buildSwapRes?.orderId ?? '',
             orderType:
               data?.protocol === EProtocolOfExchange.STOCK
-                ? 'market'
+                ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
                 : undefined,
             ...getStockTradeAnalyticsPayload({
               protocol: data?.protocol,

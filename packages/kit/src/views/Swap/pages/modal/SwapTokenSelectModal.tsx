@@ -82,6 +82,8 @@ import SwapPopularTokenGroup from '../../components/SwapPopularTokenGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapTokenList } from '../../hooks/useSwapTokens';
 import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
   getSwapAnalyticsTokenListType,
   getSwapAnalyticsTokenRole,
 } from '../../utils/swapStockAnalytics';
@@ -356,12 +358,23 @@ const SwapTokenSelectPage = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSelectNetwork?.networkId]);
 
+  const searchAnalyticsOverride = useMemo(
+    () =>
+      isSwapStockSelectTarget
+        ? {
+            tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+            tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+          }
+        : undefined,
+    [isSwapStockSelectTarget],
+  );
   const { fetchLoading, currentTokens } = useSwapTokenList(
     type,
     currentSelectNetwork?.networkId,
     requestedSearchKeyword,
     swapTypeSwitch,
     requestLpToken,
+    searchAnalyticsOverride,
   );
   const alertIndex = useMemo(
     () =>

@@ -11,8 +11,30 @@ type IStockAnalyticsToken = Partial<ISwapTokenBase> | undefined;
 
 const STOCK_PAY_TOKEN_SYMBOLS = new Set(['USDC', 'USDT']);
 
+export const SWAP_STOCK_ANALYTICS_ORDER_TYPE = EProtocolOfExchange.STOCK;
+export const SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK = 'stock';
+export const SWAP_STOCK_ANALYTICS_TOKEN_ROLE_PAY = 'pay';
+export const SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK = 'stock';
+export const SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_DEFAULT = 'default';
+export const SWAP_STOCK_ANALYTICS_TRADE_SIDE_BUY = 'Buy';
+export const SWAP_STOCK_ANALYTICS_TRADE_SIDE_SELL = 'Sell';
+
 export function isStockPayToken(token?: IStockAnalyticsToken) {
   return STOCK_PAY_TOKEN_SYMBOLS.has(token?.symbol?.toUpperCase() ?? '');
+}
+
+function normalizeStockTradeSide(tradeSide?: string) {
+  if (!tradeSide) {
+    return undefined;
+  }
+  const normalizedTradeSide = tradeSide.toLowerCase();
+  if (normalizedTradeSide === 'buy') {
+    return SWAP_STOCK_ANALYTICS_TRADE_SIDE_BUY;
+  }
+  if (normalizedTradeSide === 'sell') {
+    return SWAP_STOCK_ANALYTICS_TRADE_SIDE_SELL;
+  }
+  return tradeSide;
 }
 
 export function getSwapAnalyticsTokenListType({
@@ -55,15 +77,18 @@ export function getStockTradeAnalyticsPayload({
 
   const fromIsPayToken = isStockPayToken(fromToken);
   const toIsPayToken = isStockPayToken(toToken);
-  let resolvedTradeSide = tradeSide;
+  let resolvedTradeSide = normalizeStockTradeSide(tradeSide);
   if (!resolvedTradeSide) {
     if (fromIsPayToken && !toIsPayToken) {
-      resolvedTradeSide = 'buy';
+      resolvedTradeSide = SWAP_STOCK_ANALYTICS_TRADE_SIDE_BUY;
     } else if (!fromIsPayToken && toIsPayToken) {
-      resolvedTradeSide = 'sell';
+      resolvedTradeSide = SWAP_STOCK_ANALYTICS_TRADE_SIDE_SELL;
     }
   }
-  const stockToken = resolvedTradeSide === 'sell' ? fromToken : toToken;
+  const stockToken =
+    resolvedTradeSide === SWAP_STOCK_ANALYTICS_TRADE_SIDE_SELL
+      ? fromToken
+      : toToken;
 
   return {
     tradeSide: resolvedTradeSide,
@@ -89,7 +114,7 @@ export function getStockTradeAlertAnalyticsPayload({
     alertType,
     alertLevel,
     tradeDisabled,
-    tradeSide,
+    tradeSide: normalizeStockTradeSide(tradeSide),
     stockTokenSymbol: stockToken?.symbol,
     stockTokenAddress: stockToken?.contractAddress,
     network: stockToken?.networkId,

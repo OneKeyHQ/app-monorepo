@@ -59,6 +59,10 @@ export function useSwapTokenList(
   keywords?: string,
   from?: ESwapTabSwitchType,
   lpToken?: boolean,
+  analyticsOverride?: {
+    tokenRole?: string;
+    tokenListType?: string;
+  },
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
@@ -418,7 +422,13 @@ export function useSwapTokenList(
     }
 
     const networkId = currentSelectNetwork?.networkId ?? '';
-    const key = `${keywords}__${networkId}__${selectTokenModalType}`;
+    const key = [
+      keywords,
+      networkId,
+      selectTokenModalType,
+      analyticsOverride?.tokenRole ?? '',
+      analyticsOverride?.tokenListType ?? '',
+    ].join('__');
 
     if (!searchLogStateRef.current || searchLogStateRef.current.key !== key) {
       searchLogStateRef.current = { key, phase: 'idle' };
@@ -452,8 +462,12 @@ export function useSwapTokenList(
           : (currentSelectNetwork?.name ?? networkId),
         direction: selectTokenModalType,
         from,
-        tokenRole: getSwapAnalyticsTokenRole(selectTokenModalType),
-        tokenListType: getSwapAnalyticsTokenListType({ from }),
+        tokenRole:
+          analyticsOverride?.tokenRole ??
+          getSwapAnalyticsTokenRole(selectTokenModalType),
+        tokenListType:
+          analyticsOverride?.tokenListType ??
+          getSwapAnalyticsTokenListType({ from }),
       });
 
       searchLogStateRef.current = { key, phase: 'done' };
@@ -464,6 +478,8 @@ export function useSwapTokenList(
     currentSelectNetwork?.name,
     currentSelectNetwork?.isAllNetworks,
     from,
+    analyticsOverride?.tokenListType,
+    analyticsOverride?.tokenRole,
     selectTokenModalType,
     swapTokenFetching,
   ]);

@@ -23,6 +23,10 @@ import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/c
 import type { IMarketCategoryItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/types';
 import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
+import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -149,8 +153,21 @@ function BaseMarketTokenSelectorContent({
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
-  const { searchLoading, searchTokenList } =
-    useSwapProTokenSearch(searchValueDebounce);
+  const searchAnalyticsOverride = useMemo(
+    () =>
+      isStockMode
+        ? {
+            tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+            tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+          }
+        : undefined,
+    [isStockMode],
+  );
+  const { searchLoading, searchTokenList } = useSwapProTokenSearch(
+    searchValueDebounce,
+    undefined,
+    searchAnalyticsOverride,
+  );
   const visibleSearchTokenList = useMemo(
     () =>
       isStockMode

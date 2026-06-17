@@ -20,6 +20,10 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapPro';
 import SwapProSearchTokenList from '@onekeyhq/kit/src/views/Swap/pages/components/SwapProSearchTokenList';
 import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
+import {
   EJotaiContextStoreNames,
   useMarketTokenSelectorConfigAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -81,9 +85,20 @@ function MobileTokenSelectorContent() {
 
   const [searchValue, setSearchValue] = useState('');
   const searchValueDebounce = useDebounce(searchValue, 500);
+  const searchAnalyticsOverride = useMemo(
+    () =>
+      isStockMode
+        ? {
+            tokenRole: SWAP_STOCK_ANALYTICS_TOKEN_ROLE_STOCK,
+            tokenListType: SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+          }
+        : undefined,
+    [isStockMode],
+  );
   const { searchLoading, searchTokenList } = useSwapProTokenSearch(
     searchValueDebounce,
     isStockMode ? undefined : selectedNetworkId,
+    searchAnalyticsOverride,
   );
   const liveTokenOverride = useLiveTokenOverride();
   const visibleSearchTokenList = useMemo(

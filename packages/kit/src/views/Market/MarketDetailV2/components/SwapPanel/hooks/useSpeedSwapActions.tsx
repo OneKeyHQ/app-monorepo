@@ -26,7 +26,10 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
-import { getStockTradeAnalyticsPayload } from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
+import {
+  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
+  getStockTradeAnalyticsPayload,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
   useInAppNotificationAtom,
@@ -1064,7 +1067,7 @@ export function useSpeedSwapActions(props: {
         createFrom: 'marketDex',
         orderType:
           buildRes.result?.protocol === EProtocolOfExchange.STOCK
-            ? 'market'
+            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
             : undefined,
         ...getStockTradeAnalyticsPayload({
           protocol: buildRes.result?.protocol,
