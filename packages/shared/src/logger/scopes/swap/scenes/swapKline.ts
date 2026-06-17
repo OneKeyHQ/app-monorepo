@@ -24,7 +24,6 @@ interface ISwapKlinePeriodChangeParams {
   fromPeriod: string;
   toPeriod: string;
   tokenSymbol: string;
-  network: string;
 }
 
 interface ISwapKlineLoadErrorParams {

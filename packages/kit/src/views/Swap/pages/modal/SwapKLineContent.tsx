@@ -789,8 +789,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         tokenSymbol: selectedToken.symbol,
         network: selectedToken.networkId,
         period: data.period,
-        fallbackChain: buildKLineFallbackChain(),
-        message: data.message,
+        fallbackChain:
+          data.status === 'empty' ? buildKLineFallbackChain() : undefined,
+        message: data.status === 'failed' ? data.message : undefined,
       });
     },
     [buildKLineFallbackChain, selectedToken, selectedTokenKey],
@@ -813,7 +814,6 @@ function useSwapKLineContentState(): ISwapKLineContentState {
         fromPeriod,
         toPeriod: data.toPeriod,
         tokenSymbol: selectedToken.symbol,
-        network: selectedToken.networkId,
       });
     },
     [selectedToken],
