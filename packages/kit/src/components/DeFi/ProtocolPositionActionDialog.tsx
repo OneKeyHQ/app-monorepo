@@ -706,22 +706,14 @@ function ProtocolPositionActionPreviewPanel({
 }
 
 function ProtocolPositionActionPercentControl({
-  label,
   percent,
   onChange,
 }: {
-  label: string;
   percent: number;
   onChange: (percent: number) => void;
 }) {
   return (
-    <YStack gap="$3">
-      <XStack alignItems="flex-end" justifyContent="space-between">
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {label}
-        </SizableText>
-        <SizableText size="$headingXl">{percent}%</SizableText>
-      </XStack>
+    <YStack gap="$2">
       <PerpsSlider
         value={percent}
         onChange={(value) => onChange(normalizeActionPercent(value))}
@@ -740,6 +732,108 @@ function ProtocolPositionActionPercentControl({
           100%
         </SizableText>
       </XStack>
+    </YStack>
+  );
+}
+
+function ProtocolPositionActionModelSection({
+  label,
+  assets,
+  currencySymbol,
+  priceUnavailableLabel,
+  emphasized,
+}: {
+  label: string;
+  assets: IProtocolPositionActionPreviewAsset[];
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+  emphasized?: boolean;
+}) {
+  const valueState = getPreviewAssetsValueState(assets);
+
+  return (
+    <YStack gap="$2">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <SizableText size="$bodySmMedium" color="$textSubdued">
+          {label}
+        </SizableText>
+        <ProtocolValueCell
+          value={valueState.value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={valueState.isUnavailable}
+          size={emphasized ? '$bodyLgMedium' : '$bodyMdMedium'}
+          textAlign="right"
+          numberOfLines={1}
+        />
+      </XStack>
+      <YStack gap="$1">
+        {assets.map((asset, index) => (
+          <ProtocolPositionActionPreviewRow
+            key={`${asset.asset.address}-${asset.symbol}-${index}`}
+            asset={asset}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+          />
+        ))}
+      </YStack>
+    </YStack>
+  );
+}
+
+function ProtocolPositionPercentageActionModel({
+  actionLabel,
+  percent,
+  availableLabel,
+  outputLabel,
+  availableAssets,
+  outputAssets,
+  currencySymbol,
+  priceUnavailableLabel,
+  onPercentChange,
+}: {
+  actionLabel: string;
+  percent: number;
+  availableLabel: string;
+  outputLabel: string;
+  availableAssets: IProtocolPositionActionPreviewAsset[];
+  outputAssets: IProtocolPositionActionPreviewAsset[];
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+  onPercentChange: (percent: number) => void;
+}) {
+  return (
+    <YStack gap="$5">
+      <YStack gap="$1.5">
+        <SizableText size="$heading2xl" color="$text">
+          {actionLabel} {percent}%
+        </SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {outputLabel}
+        </SizableText>
+      </YStack>
+
+      <ProtocolPositionActionPercentControl
+        percent={percent}
+        onChange={onPercentChange}
+      />
+
+      <YStack gap="$3" p="$4" borderRadius="$3" bg="$bgSubdued">
+        <ProtocolPositionActionModelSection
+          label={availableLabel}
+          assets={availableAssets}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+        />
+        <Divider />
+        <ProtocolPositionActionModelSection
+          label={outputLabel}
+          assets={outputAssets}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          emphasized
+        />
+      </YStack>
     </YStack>
   );
 }
@@ -825,6 +919,9 @@ function ProtocolPositionActionDialogContent({
     action.action === EDeFiPositionAction.Claim
       ? intl.formatMessage({ id: ETranslations.earn_claimable })
       : intl.formatMessage({ id: ETranslations.global_available });
+  const currentLabel = intl.formatMessage({
+    id: ETranslations.global_current,
+  });
   const outputLabel = isPercentAction
     ? intl.formatMessage({ id: ETranslations.perp_you_will_get })
     : actionLabel;
@@ -867,70 +964,86 @@ function ProtocolPositionActionDialogContent({
     }).catch(() => undefined);
   };
 
+  const assetSelector =
+    action.assets.length > 0 ? (
+      <YStack gap="$2">
+        {selectable ? (
+          <XStack alignItems="center" justifyContent="space-between">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.earn_positions })}
+            </SizableText>
+            <Button
+              testID="defi-position-action-toggle-all-assets"
+              size="small"
+              variant="tertiary"
+              onPress={handleToggleAll}
+              disabled={action.assets.length === 0}
+            >
+              {selectAllLabel}
+            </Button>
+          </XStack>
+        ) : null}
+        {action.assets.map((asset, index) => (
+          <ProtocolPositionActionAssetRow
+            key={`${asset.tokenAddress ?? asset.symbol}-${index}`}
+            action={action.action}
+            asset={asset}
+            index={index}
+            isSelected={selectedAssetIndexes.includes(index)}
+            selectable={selectable}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            onSelect={handleAssetSelect}
+          />
+        ))}
+      </YStack>
+    ) : null;
+
   return (
-    <YStack gap="$4">
+    <YStack gap={isPercentAction ? '$5' : '$4'}>
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {action.assets.length > 0 ? (
-        <YStack gap="$2">
-          {selectable ? (
-            <XStack alignItems="center" justifyContent="space-between">
-              <SizableText size="$bodySmMedium" color="$textSubdued">
-                Selected
-              </SizableText>
-              <Button
-                testID="defi-position-action-toggle-all-assets"
-                size="small"
-                variant="tertiary"
-                onPress={handleToggleAll}
-                disabled={action.assets.length === 0}
-              >
-                {selectAllLabel}
-              </Button>
-            </XStack>
-          ) : null}
-          {action.assets.map((asset, index) => (
-            <ProtocolPositionActionAssetRow
-              key={`${asset.tokenAddress ?? asset.symbol}-${index}`}
-              action={action.action}
-              asset={asset}
-              index={index}
-              isSelected={selectedAssetIndexes.includes(index)}
-              selectable={selectable}
+      {isPercentAction ? (
+        <>
+          {selectable ? assetSelector : null}
+          {selectedAssets.length > 0 ? (
+            <ProtocolPositionPercentageActionModel
+              actionLabel={actionLabel}
+              percent={actionPercent}
+              availableLabel={currentLabel}
+              outputLabel={outputLabel}
+              availableAssets={availablePreviewAssets}
+              outputAssets={outputPreviewAssets}
               currencySymbol={currencySymbol}
               priceUnavailableLabel={priceUnavailableLabel}
-              onSelect={handleAssetSelect}
-            />
-          ))}
-        </YStack>
-      ) : null}
-
-      {selectedAssets.length > 0 ? (
-        <>
-          <Divider />
-          <ProtocolPositionActionPreviewPanel
-            label={availableLabel}
-            assets={availablePreviewAssets}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-          />
-          {isPercentAction ? (
-            <ProtocolPositionActionPercentControl
-              label="Percentage"
-              percent={actionPercent}
-              onChange={setActionPercent}
+              onPercentChange={setActionPercent}
             />
           ) : null}
-          <ProtocolPositionActionPreviewPanel
-            label={outputLabel}
-            assets={outputPreviewAssets}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-          />
         </>
-      ) : null}
+      ) : (
+        <>
+          {assetSelector}
+          {selectedAssets.length > 0 ? (
+            <>
+              <Divider />
+              <ProtocolPositionActionPreviewPanel
+                label={availableLabel}
+                assets={availablePreviewAssets}
+                currencySymbol={currencySymbol}
+                priceUnavailableLabel={priceUnavailableLabel}
+              />
+              <ProtocolPositionActionPreviewPanel
+                label={outputLabel}
+                assets={outputPreviewAssets}
+                currencySymbol={currencySymbol}
+                priceUnavailableLabel={priceUnavailableLabel}
+              />
+            </>
+          ) : null}
+        </>
+      )}
 
       <Dialog.Footer
         showCancelButton={false}
