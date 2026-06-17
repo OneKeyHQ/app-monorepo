@@ -1,0 +1,95 @@
+diff --git a/node_modules/js-conflux-sdk/src/util/jsbi.js b/node_modules/js-conflux-sdk/src/util/jsbi.js
+index 64c7368..16cf96d 100644
+--- a/node_modules/js-conflux-sdk/src/util/jsbi.js
++++ b/node_modules/js-conflux-sdk/src/util/jsbi.js
+@@ -2,41 +2,55 @@
+  * support interface of [jsbi](https://github.com/GoogleChromeLabs/jsbi#readme)
+  * - for node.js using native BigInt as JSBI.BigInt
+  * - for browser using browserify to replace with jsbi
++ *
++ * OneKey patch: keep the JSBI operations on a self-contained module object
++ * instead of attaching them as own properties onto the native BigInt intrinsic.
++ * Under SES lockdown() the BigInt intrinsic is frozen AND any non-standard own
++ * properties are stripped as "unpermitted intrinsics", which left JSBI.BigInt
++ * undefined and crashed the CFX vault ("JSBI.BigInt is not a function", and a
++ * downstream "Cannot access 'Vault' before initialization" TDZ in minified
++ * builds). A plain module-owned object is never an intrinsic, so it survives
++ * lockdown. Behavior is otherwise identical to the upstream shim.
+  */
+ 
+ /* eslint-disable no-bitwise */
+-module.exports = BigInt;
+-module.exports.BigInt = BigInt;
+-
+-module.exports.toNumber = x => Number(x);
+-
+-module.exports.unaryMinus = x => -x;
+-module.exports.bitwiseNot = x => ~x;
+-
+-module.exports.exponentiate = (x, y) => x ** y;
+-module.exports.multiply = (x, y) => x * y;
+-module.exports.divide = (x, y) => x / y;
+-module.exports.remainder = (x, y) => x % y;
+-module.exports.add = (x, y) => x + y;
+-module.exports.subtract = (x, y) => x - y;
+-module.exports.leftShift = (x, y) => x << y;
+-module.exports.signedRightShift = (x, y) => x >> y;
+-
+-module.exports.lessThan = (x, y) => x < y;
+-module.exports.lessThanOrEqual = (x, y) => x <= y;
+-module.exports.greaterThan = (x, y) => x > y;
+-module.exports.greaterThanOrEqual = (x, y) => x >= y;
+-module.exports.equal = (x, y) => x === y;
+-module.exports.notEqual = (x, y) => x !== y;
+-
+-module.exports.bitwiseAnd = (x, y) => x & y;
+-module.exports.bitwiseXor = (x, y) => x ^ y;
+-module.exports.bitwiseOr = (x, y) => x | y;
+-
+-module.exports.ADD = (x, y) => x + y;
+-module.exports.LT = (x, y) => x < y;
+-module.exports.LE = (x, y) => x <= y;
+-module.exports.GT = (x, y) => x > y;
+-module.exports.GE = (x, y) => x >= y;
+-module.exports.EQ = (x, y) => x === y;
+-module.exports.NE = (x, y) => x !== y;
++const JSBI = function JSBI(value) {
++  return BigInt(value);
++};
++
++JSBI.BigInt = BigInt;
++
++JSBI.toNumber = x => Number(x);
++
++JSBI.unaryMinus = x => -x;
++JSBI.bitwiseNot = x => ~x;
++
++JSBI.exponentiate = (x, y) => x ** y;
++JSBI.multiply = (x, y) => x * y;
++JSBI.divide = (x, y) => x / y;
++JSBI.remainder = (x, y) => x % y;
++JSBI.add = (x, y) => x + y;
++JSBI.subtract = (x, y) => x - y;
++JSBI.leftShift = (x, y) => x << y;
++JSBI.signedRightShift = (x, y) => x >> y;
++
++JSBI.lessThan = (x, y) => x < y;
++JSBI.lessThanOrEqual = (x, y) => x <= y;
++JSBI.greaterThan = (x, y) => x > y;
++JSBI.greaterThanOrEqual = (x, y) => x >= y;
++JSBI.equal = (x, y) => x === y;
++JSBI.notEqual = (x, y) => x !== y;
++
++JSBI.bitwiseAnd = (x, y) => x & y;
++JSBI.bitwiseXor = (x, y) => x ^ y;
++JSBI.bitwiseOr = (x, y) => x | y;
++
++JSBI.ADD = (x, y) => x + y;
++JSBI.LT = (x, y) => x < y;
++JSBI.LE = (x, y) => x <= y;
++JSBI.GT = (x, y) => x > y;
++JSBI.GE = (x, y) => x >= y;
++JSBI.EQ = (x, y) => x === y;
++JSBI.NE = (x, y) => x !== y;
++
++module.exports = JSBI;

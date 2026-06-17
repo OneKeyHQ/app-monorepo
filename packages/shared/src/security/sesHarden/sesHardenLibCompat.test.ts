@@ -1,4 +1,4 @@
-// cspell:ignore lockdown
+// cspell:ignore lockdown jsbi JSBI unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
@@ -197,6 +197,40 @@ try {
     MODERATE_OPTIONS,
   );
   expect(out).toBe('OK:bar');
+});
+
+// --- js-conflux-sdk: the jsbi shim must be self-contained (patch-package) ----
+// Unlike axios/decimal.js (the "override mistake", fixed by 'severe'), the CFX
+// jsbi shim originally added its operations (BigInt, leftShift, ...) as OWN
+// properties directly onto the native BigInt intrinsic, plus
+// BigInt.prototype.toJSON. lockdown() REMOVES those as "unpermitted
+// intrinsics", so warm-up cannot save it (load order is irrelevant) and
+// 'severe' does not apply. patches/js-conflux-sdk+2.3.0.patch makes the shim
+// return a self-contained module object that never touches the BigInt
+// intrinsic, so it survives lockdown. Before the patch, requiring CONST.js
+// after lockdown threw "JSBI.BigInt is not a function".
+
+test('js-conflux-sdk jsbi shim works AFTER lockdown and never pollutes the BigInt intrinsic', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const JSBI = require('js-conflux-sdk/src/util/jsbi');
+  require('js-conflux-sdk/src/CONST.js'); // evaluates JSBI.leftShift(JSBI.BigInt(1), ...)
+  // The shim's operations live on the module object itself, never on the
+  // frozen BigInt intrinsic (so lockdown has nothing to strip).
+  const works =
+    typeof JSBI.BigInt === 'function' &&
+    JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(8)).toString() === '256';
+  const intrinsicUntouched =
+    typeof BigInt.leftShift === 'undefined' &&
+    typeof BigInt.BigInt === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
 });
 
 // --- bn.js / elliptic: NOT offenders (work fine post-lockdown) -------------
