@@ -47,8 +47,8 @@ import type { LayoutChangeEvent } from 'react-native';
 // (keychain / secure storage / IndexedDB CryptoKey) cannot decrypt the
 // verifyString. The password may be correct, so this is intentionally NOT
 // treated as a wrong-password attempt.
-const KEYCHAIN_KEY_UNAVAILABLE_MESSAGE =
-  'Keychain key is corrupted or unavailable. Please restart the app.';
+const SECURE_KEY_UNAVAILABLE_MESSAGE =
+  'Local secure key is corrupted or unavailable. Please restart the app.';
 
 interface IPasswordVerifyProps {
   onVerifyRes: (password: string) => void | Promise<void>;
@@ -358,7 +358,7 @@ const PasswordVerifyContainer = ({
         let message = error?.message;
         // A secure-storage / keychain outage is not a wrong password.
         if (isSecureStorageUnavailable) {
-          message = KEYCHAIN_KEY_UNAVAILABLE_MESSAGE;
+          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
         } else if (isCallbackError && message) {
           // Use the callback error message as-is
         } else if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
@@ -494,6 +494,19 @@ const PasswordVerifyContainer = ({
           error: e,
           className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
         });
+        // Only a genuine wrong-password error may drive the wrong-password
+        // protection counter / silent app reset. Any other failure (secure-key
+        // unavailable, callback failure, or an unexpected/system error such as
+        // a corrupted envelope) must never be counted as a password attempt.
+        const isGenuineWrongPassword =
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.WrongPassword,
+          }) ||
+          errorUtils.isErrorByClassName({
+            error: e,
+            className: EOneKeyErrorClassNames.IncorrectPassword,
+          });
         let message: string;
         if (isCallbackError) {
           message =
@@ -502,21 +515,14 @@ const PasswordVerifyContainer = ({
               id: ETranslations.global_unknown_error,
             });
         } else if (isSecureStorageUnavailable) {
-          message = KEYCHAIN_KEY_UNAVAILABLE_MESSAGE;
+          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
         } else {
           message = intl.formatMessage({
             id: ETranslations.auth_error_password_incorrect,
           });
         }
         let skipProtection = false;
-        // Skip password protection logic for callback errors in pageMode
-        // because password verification was successful, only the callback failed
-        if (
-          !isCallbackError &&
-          !isSecureStorageUnavailable &&
-          isLock &&
-          enablePasswordErrorProtection
-        ) {
+        if (isGenuineWrongPassword && isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
             setPasswordPersist((v) => ({

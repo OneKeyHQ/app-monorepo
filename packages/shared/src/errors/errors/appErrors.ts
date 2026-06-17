@@ -394,6 +394,9 @@ export class WrongPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.WrongPassword;
 }
 
 // Thrown when a local secret envelope (LSE) cannot be unwrapped because its
