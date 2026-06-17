@@ -201,14 +201,18 @@ try {
 
 // --- js-conflux-sdk: the jsbi shim must be self-contained (patch-package) ----
 // Unlike axios/decimal.js (the "override mistake", fixed by 'severe'), the CFX
-// jsbi shim originally added its operations (BigInt, leftShift, ...) as OWN
-// properties directly onto the native BigInt intrinsic, plus
-// BigInt.prototype.toJSON. lockdown() REMOVES those as "unpermitted
-// intrinsics", so warm-up cannot save it (load order is irrelevant) and
-// 'severe' does not apply. patches/js-conflux-sdk+2.3.0.patch makes the shim
-// return a self-contained module object that never touches the BigInt
-// intrinsic, so it survives lockdown. Before the patch, requiring CONST.js
-// after lockdown threw "JSBI.BigInt is not a function".
+// jsbi shim originally did `module.exports = BigInt`, so it added its
+// operations (BigInt, leftShift, ...) as OWN properties directly onto the
+// native BigInt intrinsic. And because that export WAS the BigInt intrinsic,
+// CONST.js' `JSBI.prototype.toJSON = ...` (jsbi.js never writes toJSON itself)
+// also landed on BigInt.prototype. lockdown() REMOVES the own operations as
+// "unpermitted intrinsics" (and freezes BigInt.prototype), so warm-up cannot
+// save it (load order is irrelevant) and 'severe' does not apply.
+// patches/js-conflux-sdk+2.3.0.patch makes the shim a self-contained module
+// object with its OWN prototype, so both the operations and CONST.js' toJSON
+// live off the BigInt intrinsic entirely and survive lockdown. Before the
+// patch, requiring CONST.js after lockdown threw "JSBI.BigInt is not a
+// function".
 
 test('js-conflux-sdk jsbi shim works AFTER lockdown and never pollutes the BigInt intrinsic', () => {
   const out = runUnderLockdown(`
