@@ -10,6 +10,7 @@ import {
   IconButton,
   Image,
   Page,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -352,27 +353,34 @@ function ChartSection({
   );
 }
 
+const MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT = 512;
+
 function MarketInfoDialogContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
   return (
-    <YStack px="$5" pb="$5" gap="$5">
-      {tooltip.data.description ? (
-        <EarnText text={tooltip.data.description} size="$bodyMd" />
-      ) : null}
-      {tooltip.data.items?.map((item, index) => (
-        <YStack key={`${item.title.text}-${index}`} gap="$1">
-          <EarnText
-            text={item.title}
-            size="$bodySm"
-            color={item.title.color ?? '$textSubdued'}
-          />
-          <EarnText
-            text={item.description}
-            size="$bodyMd"
-            color={item.description.color ?? '$text'}
-          />
-        </YStack>
-      ))}
-    </YStack>
+    <ScrollView
+      maxHeight={MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT}
+      nestedScrollEnabled
+    >
+      <YStack px="$5" pb="$5" gap="$5">
+        {tooltip.data.description ? (
+          <EarnText text={tooltip.data.description} size="$bodyMd" />
+        ) : null}
+        {tooltip.data.items?.map((item, index) => (
+          <YStack key={`${item.title.text}-${index}`} gap="$1">
+            <EarnText
+              text={item.title}
+              size="$bodySm"
+              color={item.title.color ?? '$textSubdued'}
+            />
+            <EarnText
+              text={item.description}
+              size="$bodyMd"
+              color={item.description.color ?? '$text'}
+            />
+          </YStack>
+        ))}
+      </YStack>
+    </ScrollView>
   );
 }
 
@@ -396,6 +404,7 @@ function GridSection({
 
     Dialog.show({
       title: marketInfoTooltip.data.title?.text ?? 'Market info',
+      disableDrag: true,
       contentContainerProps: {
         px: '$0',
         pb: '$0',
