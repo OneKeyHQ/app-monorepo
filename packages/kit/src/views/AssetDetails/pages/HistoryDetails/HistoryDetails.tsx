@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -82,8 +83,9 @@ function getTxStatusTextProps(
     status === EDecodedTxStatus.Pending ||
     status === EOnChainHistoryTxStatus.Pending
   ) {
+    // A broadcast on-chain tx is "confirming", not "pending" (OK-56372).
     return {
-      key: ETranslations.global_pending,
+      key: ETranslations.global_confirming,
       color: '$textCaution',
     };
   }
@@ -110,10 +112,91 @@ function getTxStatusTextProps(
     };
   }
 
+  // Unknown / not-yet-loaded status is treated as confirming (OK-56372).
   return {
-    key: ETranslations.global_pending,
+    key: ETranslations.global_confirming,
     color: '$textCaution',
   };
+}
+
+const TX_CONFIRM_SLOW_THRESHOLD_MS = 30 * 60 * 1000;
+const TX_CONFIRM_ETA_IMMINENT_SECONDS = 60;
+
+// Builds the confirming-state subtitle per OK-56372 §3 priority. Returns a
+// translation descriptor, or null when no subtitle applies. Only meaningful
+// while the tx is confirming (caller gates on isConfirming).
+function getTxConfirmSubtitle({
+  confirmationETASeconds,
+  confirmationETABlocks,
+  broadcastTimeMs,
+  nowMs,
+}: {
+  confirmationETASeconds: number | undefined;
+  confirmationETABlocks: number | undefined;
+  broadcastTimeMs: number | undefined;
+  nowMs: number;
+}): { id: ETranslations; values?: Record<string, string | number> } {
+  // Low-fee / long-tail tx stuck for a while: drop the (now-misleading) ETA
+  // and nudge the user to speed it up.
+  if (
+    broadcastTimeMs &&
+    nowMs - broadcastTimeMs > TX_CONFIRM_SLOW_THRESHOLD_MS
+  ) {
+    return { id: ETranslations.tx_confirm_slow__desc };
+  }
+
+  if (confirmationETASeconds && confirmationETASeconds > 0) {
+    if (confirmationETASeconds < TX_CONFIRM_ETA_IMMINENT_SECONDS) {
+      return { id: ETranslations.almost_confirmed };
+    }
+    return {
+      id: ETranslations.tx_confirm_eta_minutes__desc,
+      values: { minutes: Math.round(confirmationETASeconds / 60) },
+    };
+  }
+
+  if (confirmationETABlocks && confirmationETABlocks > 0) {
+    return {
+      id: ETranslations.tx_confirm_eta_blocks__desc,
+      values: { count: confirmationETABlocks },
+    };
+  }
+
+  // No ETA truth (EVM, or detail not yet loaded): never render an empty number.
+  return { id: ETranslations.tx_confirm_waiting__desc };
+}
+
+// Compact action button used in the confirming-state status row (OK-56372 §6).
+// Button locks the font size to its `size` variant with no override prop, so we
+// render custom text via `childrenAsText={false}` to get `$bodySmMedium`.
+function CompactReplaceButton({
+  variant = 'secondary',
+  children,
+  testID,
+  onPress,
+}: {
+  variant?: 'primary' | 'secondary';
+  children: string;
+  testID?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Button
+      testID={testID}
+      size="small"
+      variant={variant}
+      childrenAsText={false}
+      px="$3"
+      onPress={onPress}
+    >
+      <SizableText
+        size="$bodySmMedium"
+        color={variant === 'primary' ? '$textInverse' : '$text'}
+      >
+        {children}
+      </SizableText>
+    </Button>
+  );
 }
 
 export function AssetItem({
@@ -840,21 +923,21 @@ function HistoryDetails() {
     const renderCancelActions = () => (
       <XStack gap="$2">
         <SpeedUpAction
+          compact
           networkId={networkId}
           onSpeedUp={() =>
             handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
           }
         />
         {cancelTxEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-cancel-actions-btn"
-            size="small"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
             }
           >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </XStack>
     );
@@ -862,9 +945,8 @@ function HistoryDetails() {
     const renderSpeedUpCancelAction = () => (
       <>
         {speedUpCancelEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-speed-up-cancel-action-btn"
-            size="small"
             variant="primary"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
@@ -873,22 +955,21 @@ function HistoryDetails() {
             {intl.formatMessage({
               id: ETranslations.speed_up_cancellation,
             })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </>
     );
 
     const renderCheckSpeedUpState = () => (
-      <Button
+      <CompactReplaceButton
         testID="asset-details-render-check-speed-up-state-btn"
-        size="small"
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
       >
         {intl.formatMessage({
           id: ETranslations.tx_accelerate_order_inquiry_label,
         })}
-      </Button>
+      </CompactReplaceButton>
     );
 
     const renderReplaceButtons = () => {
@@ -897,7 +978,7 @@ function HistoryDetails() {
     };
 
     return (
-      <XStack ml="$5">
+      <XStack ml="$2">
         {renderReplaceButtons()}
         {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
       </XStack>
@@ -915,33 +996,60 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(
-      txDetails?.status ?? historyTx?.decodedTx.status,
-    );
+    const status = txDetails?.status ?? historyTx?.decodedTx.status;
+    const { key, color } = getTxStatusTextProps(status);
+    const isConfirming =
+      status === EDecodedTxStatus.Pending ||
+      status === EOnChainHistoryTxStatus.Pending;
+
+    const decodedTx = historyTx?.decodedTx;
+    const broadcastTimeMs = txDetails?.timestamp
+      ? txDetails.timestamp * 1000
+      : (decodedTx?.updatedAt ?? decodedTx?.createdAt);
+    const subtitle = isConfirming
+      ? getTxConfirmSubtitle({
+          confirmationETASeconds: txDetails?.confirmationETASeconds,
+          confirmationETABlocks: txDetails?.confirmationETABlocks,
+          broadcastTimeMs,
+          nowMs: Date.now(),
+        })
+      : null;
+
     return (
-      <XStack minHeight="$5" alignItems="center">
-        <SizableText size="$bodyMdMedium" color={color}>
-          {intl.formatMessage({ id: key })}
-        </SizableText>
-        {historyTx?.replacedType &&
-        txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
-          <Badge badgeSize="sm" badgeType="info" ml="$2">
-            {intl.formatMessage({
-              id:
-                historyTx?.replacedType === EReplaceTxType.SpeedUp
-                  ? ETranslations.global_sped_up
-                  : ETranslations.global_cancelling,
-            })}
-          </Badge>
+      <YStack gap="$1">
+        <XStack minHeight="$5" alignItems="center">
+          {isConfirming ? <Spinner size="small" mr="$2" /> : null}
+          <SizableText size="$bodyMdMedium" color={color}>
+            {intl.formatMessage({ id: key })}
+          </SizableText>
+          {historyTx?.replacedType &&
+          txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
+            <Badge badgeSize="sm" badgeType="info" ml="$2">
+              {intl.formatMessage({
+                id:
+                  historyTx?.replacedType === EReplaceTxType.SpeedUp
+                    ? ETranslations.global_sped_up
+                    : ETranslations.global_cancelling,
+              })}
+            </Badge>
+          ) : null}
+          {renderReplaceTxActions()}
+        </XStack>
+        {subtitle ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: subtitle.id }, subtitle.values)}
+          </SizableText>
         ) : null}
-        {renderReplaceTxActions()}
-      </XStack>
+      </YStack>
     );
   }, [
-    historyTx?.decodedTx.status,
+    historyTx?.decodedTx,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    txDetails?.timestamp,
+    txDetails?.confirmationETASeconds,
+    txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
   ]);
 
