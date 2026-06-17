@@ -176,10 +176,20 @@ export class LocalSecretEnvelopeService {
     }
   }
 
-  clearCapabilityCache(): void {
+  // Clear ONLY the cached credential-migration config (and bump the generation
+  // so an in-flight probe cannot write a stale config back). Crucially this does
+  // NOT reset the secureStorage capability-probe failure backoff: the read path
+  // uses this to rebuild a degraded/stale config (e.g. to pick up a now-available
+  // layer) while still respecting the probe's short failure TTL, so a genuine
+  // keychain outage does not trigger a fresh (up to 5s) probe on every LSE read.
+  clearCredentialMigrationConfigCache(): void {
     this.credentialMigrationConfigCacheGeneration += 1;
     this.credentialMigrationConfigCache = undefined;
     this.credentialMigrationConfigPromise = undefined;
+  }
+
+  clearCapabilityCache(): void {
+    this.clearCredentialMigrationConfigCache();
     resetSecureStorageLocalSecretEnvelopeProbeCache();
   }
 

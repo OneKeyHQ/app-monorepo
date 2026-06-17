@@ -997,9 +997,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   // declares its required layer kinds (wrappingLayers), so a transient
   // capability-probe failure (e.g. keychain busy / not yet first-unlocked at
   // cold start) that yields a degraded/empty config must NOT be treated as a
-  // permanent downgrade: re-probe once with a fresh capability detection before
-  // giving up, and surface a retryable LocalSecretEnvelopeUnavailable error
-  // rather than letting a single bad probe lock the whole session.
+  // permanent downgrade: rebuild the config once (invalidating a stale/degraded
+  // cached config, while still respecting the capability-probe failure backoff so
+  // a real outage does not re-probe on every read) before giving up, and surface
+  // a retryable LocalSecretEnvelopeUnavailable error rather than letting a single
+  // bad probe lock the whole session.
   async resolveLocalSecretEnvelopeLayerAdapterForEnvelopeOrThrow({
     envelope,
     resolveLayerAdapter,
@@ -1032,7 +1034,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     let resolver = await tryBuildResolver();
     if (!resolver) {
-      localSecretEnvelopeService.clearCapabilityCache();
+      localSecretEnvelopeService.clearCredentialMigrationConfigCache();
       resolver = await tryBuildResolver();
     }
     if (!resolver) {

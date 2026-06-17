@@ -290,6 +290,35 @@ describe('LocalSecretEnvelopeService platform composition', () => {
     ]);
   });
 
+  it('rebuilds credential migration config after clearing only the config cache', async () => {
+    let indexedDbCryptoKeyProbeCount = 0;
+    const service = new LocalSecretEnvelopeService({
+      buildIndexedDbCryptoKeyLayerAdapter: () =>
+        buildMockLayerAdapter('indexeddb-cryptokey'),
+      isIndexedDbCryptoKeyLayerAvailable: async () => {
+        indexedDbCryptoKeyProbeCount += 1;
+        return true;
+      },
+      platform: 'web',
+    });
+
+    const firstConfig = await service.buildCredentialMigrationConfig();
+    const cachedConfig = await service.buildCredentialMigrationConfig();
+    expect(firstConfig).toBe(cachedConfig);
+    expect(indexedDbCryptoKeyProbeCount).toBe(1);
+
+    // The read path clears ONLY the config cache (not the secureStorage probe
+    // failure backoff) to rebuild a degraded/stale config; the config is rebuilt
+    // on the next call.
+    service.clearCredentialMigrationConfigCache();
+    const config = await service.buildCredentialMigrationConfig();
+
+    expect(indexedDbCryptoKeyProbeCount).toBe(2);
+    expect(config?.layerAdapters.map((adapter) => adapter.kind)).toEqual([
+      'indexeddb-cryptokey',
+    ]);
+  });
+
   it('builds layer resolvers by persisted layer kind', () => {
     const indexedDbCryptoKeyAdapter = buildMockLayerAdapter(
       'indexeddb-cryptokey',
