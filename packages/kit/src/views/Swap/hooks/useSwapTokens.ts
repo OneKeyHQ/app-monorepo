@@ -6,7 +6,10 @@ import { debounce } from 'lodash';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -66,7 +69,9 @@ export function useSwapTokenList(
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const [lpTokenRequestLoading, setLpTokenRequestLoading] = useState(false);
+  const requestCurrency = currencyInfo.id;
   const latestLpTokenRef = useRef(lpToken);
   const searchLogStateRef = useRef<{
     key: string;
@@ -113,6 +118,7 @@ export function useSwapTokenList(
         accountNetworkId: findNetInfo.networkId,
         accountId: findNetInfo.accountId,
         lpToken,
+        currency: requestCurrency,
       };
     }
 
@@ -124,6 +130,7 @@ export function useSwapTokenList(
         accountNetworkId: swapAddressInfo?.networkId,
         accountId: swapAddressInfo?.accountInfo?.account?.id,
         lpToken,
+        currency: requestCurrency,
       };
     }
     return {
@@ -133,6 +140,7 @@ export function useSwapTokenList(
       accountNetworkId: findNetInfo?.networkId,
       accountId: findNetInfo?.accountId,
       lpToken,
+      currency: requestCurrency,
     };
   }, [
     currentNetworkId,
@@ -143,6 +151,7 @@ export function useSwapTokenList(
     keywords,
     currentSelectNetwork?.networkId,
     lpToken,
+    requestCurrency,
   ]);
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
@@ -196,9 +205,11 @@ export function useSwapTokenList(
           swapAddressInfo?.accountInfo?.dbAccount?.id ??
           'noAccountId',
         lpToken,
+        currency: requestCurrency,
       }),
     [
       lpToken,
+      requestCurrency,
       swapAddressInfo?.accountInfo?.indexedAccount?.id,
       swapAddressInfo?.accountInfo?.account?.id,
       swapAddressInfo?.accountInfo?.dbAccount?.id,
@@ -375,6 +386,7 @@ export function useSwapTokenList(
                       swapAddressInfo?.accountInfo?.dbAccount?.id)
                   : undefined,
                 lpToken,
+                requestCurrency,
               )
             : undefined,
           tokenListFetchAction(tokenFetchParams),
@@ -400,6 +412,7 @@ export function useSwapTokenList(
     tokenListFetchAction,
     keywords,
     lpToken,
+    requestCurrency,
   ]);
 
   useEffect(() => {

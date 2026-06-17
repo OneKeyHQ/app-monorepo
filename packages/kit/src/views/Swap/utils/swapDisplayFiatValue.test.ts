@@ -25,6 +25,17 @@ describe('getSwapTokenDisplayFiatValue', () => {
     ).toBe('6.776');
   });
 
+  it('converts a CNY-basis token price back into USD after currency switches', () => {
+    expect(
+      getSwapTokenDisplayFiatValue({
+        token: { price: '6.776', currency: 'cny' },
+        amount: '1',
+        targetCurrency: 'usd',
+        currencyMap,
+      }),
+    ).toBe('1');
+  });
+
   it('keeps untagged token prices in the selected currency basis', () => {
     expect(
       getSwapTokenDisplayFiatValue({
