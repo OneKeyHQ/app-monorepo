@@ -40,6 +40,15 @@ type IProtocolPositionActionButtonProps = {
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
   placement?: 'all' | 'balance' | 'rewards' | 'debt';
+  // The specific asset this button acts on. When set, the manage
+  // (Withdraw/Repay) action targets this asset's own reserve instead of the
+  // position's primary supplied asset, so each supplied/borrowed row gets a
+  // correctly-scoped button.
+  manageAsset?: IDeFiAsset;
+  // Resolved protocol actions (Withdraw/Claim/Remove) are position-level, so a
+  // per-asset caller renders them once (e.g. on the first asset) and sets this
+  // false on the rest to avoid repeating them under every row.
+  showResolvedActions?: boolean;
   visualVariant?: 'solid' | 'info';
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
   onSuccess?: (
@@ -167,15 +176,20 @@ function normalizeBorrowProvider(provider?: string) {
 function getAaveBorrowManageParams({
   protocol,
   position,
+  manageAsset,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
+  manageAsset?: IDeFiAsset;
 }): IBorrowManageParams | undefined {
   if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
     return undefined;
   }
 
   const primaryAsset = getPrimarySuppliedAsset(position);
+  // The asset this button acts on: the caller-scoped asset for per-asset
+  // Withdraw/Repay, otherwise the position's primary supplied asset.
+  const targetAsset = manageAsset ?? primaryAsset;
   const sources = getActionPositionSources(position);
   const provider =
     normalizeBorrowProvider(
@@ -195,19 +209,23 @@ function getAaveBorrowManageParams({
     'pool_address',
     'pool',
   ]);
-  const reserveAddress =
-    pickStringFromSources(sources, [
-      'reserveAddress',
-      'reserve_address',
-      'reserve',
-      'underlyingAddress',
-      'underlying_address',
-      'tokenAddress',
-      'token_address',
-    ]) ?? primaryAsset?.address;
-  const symbol =
-    pickStringFromSources([primaryAsset], ['symbol']) ??
-    pickStringFromSources(sources, ['symbol']);
+  // A scoped asset IS the reserve target, so its own address/symbol win; only
+  // the position-level fallback consults the source records.
+  const reserveAddress = manageAsset
+    ? manageAsset.address
+    : (pickStringFromSources(sources, [
+        'reserveAddress',
+        'reserve_address',
+        'reserve',
+        'underlyingAddress',
+        'underlying_address',
+        'tokenAddress',
+        'token_address',
+      ]) ?? primaryAsset?.address);
+  const symbol = manageAsset
+    ? manageAsset.symbol
+    : (pickStringFromSources([primaryAsset], ['symbol']) ??
+      pickStringFromSources(sources, ['symbol']));
   if (!provider || !marketAddress || !reserveAddress || !symbol) {
     return undefined;
   }
@@ -217,7 +235,7 @@ function getAaveBorrowManageParams({
     marketAddress,
     reserveAddress,
     symbol,
-    logoURI: primaryAsset?.meta?.logoUrl,
+    logoURI: targetAsset?.meta?.logoUrl,
     providerLogoURI: pickStringFromSources(sources, [
       'providerLogoURI',
       'providerLogoUrl',
@@ -335,6 +353,8 @@ const ProtocolPositionActionButton = memo(
     position,
     supportedActions,
     placement = 'all',
+    manageAsset,
+    showResolvedActions = true,
     visualVariant = 'solid',
     containerProps,
     onSuccess,
@@ -368,8 +388,8 @@ const ProtocolPositionActionButton = memo(
       [position, protocol.protocol],
     );
     const borrowManageParams = useMemo(
-      () => getAaveBorrowManageParams({ protocol, position }),
-      [position, protocol],
+      () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
+      [manageAsset, position, protocol],
     );
     const visibleActions = useMemo(() => {
       const actionsForPosition = hasAaveDebt
@@ -384,6 +404,9 @@ const ProtocolPositionActionButton = memo(
     const manageActionTypes = getManageActionTypesForPlacement(placement);
     const shouldShowManage =
       manageActionTypes.length > 0 && Boolean(borrowManageParams);
+    // Position-level resolved actions render once per position; a per-asset
+    // caller suppresses them on every row but the first.
+    const renderedActions = showResolvedActions ? visibleActions : [];
     const handleActionPress = useCallback(
       async (action: (typeof visibleActions)[number]) => {
         if (!accountId) {
@@ -454,7 +477,7 @@ const ProtocolPositionActionButton = memo(
 
     if (
       !isActionAccount ||
-      (visibleActions.length === 0 && !shouldShowManage)
+      (renderedActions.length === 0 && !shouldShowManage)
     ) {
       return null;
     }
@@ -472,7 +495,7 @@ const ProtocolPositionActionButton = memo(
         minWidth={0}
         {...containerProps}
       >
-        {visibleActions.map((action) => {
+        {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
           return (
             <Button

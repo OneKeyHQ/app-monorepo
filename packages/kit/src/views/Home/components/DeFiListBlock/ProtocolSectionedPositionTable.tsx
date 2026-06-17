@@ -170,7 +170,7 @@ const ProtocolSectionedPositionTable = memo(
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                     />
-                    {assetIndex === 0 && actionPlacement ? (
+                    {actionPlacement ? (
                       <ProtocolPositionActionButton
                         accountId={accountId}
                         indexedAccountId={indexedAccountId}
@@ -178,6 +178,8 @@ const ProtocolSectionedPositionTable = memo(
                         position={actionPosition}
                         supportedActions={supportedActions}
                         placement={actionPlacement}
+                        manageAsset={asset}
+                        showResolvedActions={assetIndex === 0}
                         visualVariant="info"
                         containerProps={{
                           mt: '$1',
