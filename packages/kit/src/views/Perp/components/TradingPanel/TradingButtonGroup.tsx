@@ -127,6 +127,33 @@ interface ITradingButtonGroupProps {
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
 }
 
+function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
+  const intl = useIntl();
+
+  return (
+    <YStack {...(!isMobile && { mt: '$4' })}>
+      <Button
+        testID="perp-ip-restricted-button"
+        size="medium"
+        disabled
+        childrenAsText={false}
+        borderRadius="$full"
+        variant="secondary"
+        disabledStyle={{ opacity: 1 }}
+        h={isMobile ? 46 : 44}
+        iconAfter="LockOutline"
+        iconColor="$iconSubdued"
+      >
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.trading_unavailable__action,
+          })}
+        </SizableText>
+      </Button>
+    </YStack>
+  );
+}
+
 interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
@@ -2184,6 +2211,7 @@ function TradingButtonGroupLive({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const liveHandleConfirmRef = useRef(noopHandleConfirm);
@@ -2193,6 +2221,10 @@ function TradingButtonGroupLive({
     [],
   );
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {
@@ -2276,8 +2308,13 @@ function TradingButtonGroupEmptySize({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {
