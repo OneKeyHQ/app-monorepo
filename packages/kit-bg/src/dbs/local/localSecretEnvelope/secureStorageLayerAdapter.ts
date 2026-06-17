@@ -13,9 +13,18 @@ import type {
   ILocalSecretEnvelopeLayerCapabilities,
 } from './types';
 
+// IMPORTANT: this key reaches the OS secure storage. The binding constraint is
+// expo-secure-store (native iOS + Android share the same JS check), whose key
+// must match ^[\w.-]+$ i.e. [A-Za-z0-9_.-]; a ":" makes it throw "Invalid key
+// provided to SecureStore", the probe swallows that error and returns false, so
+// the whole secure-storage layer silently disappears and LSE migration never
+// runs on native. Desktop (Electron safeStorage) stores this only as a plain
+// JSON object key (the OS keychain holds just safeStorage's master key), so it
+// has no charset limit. "_" / "-" / "." are therefore all safe everywhere; we
+// use "_" as the most unambiguous separator.
 export const DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF =
-  'onekey:lse:secure-storage:v1';
-const DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}:probe`;
+  'onekey_lse_secure_storage_v1';
+const DEFAULT_SECURE_STORAGE_LSE_PROBE_KEY_REF = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}_probe`;
 const DEFAULT_SECURE_STORAGE_LSE_PROBE_TIMEOUT_MS = 5000;
 const SECURE_STORAGE_LSE_FAILURE_CACHE_TTL_MS = 30_000;
 const SECURE_STORAGE_LSE_PROBE_RECORD_ID = 'secure-storage-probe';

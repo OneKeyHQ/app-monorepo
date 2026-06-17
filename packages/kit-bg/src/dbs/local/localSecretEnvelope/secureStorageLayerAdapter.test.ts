@@ -7,9 +7,41 @@ import {
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
 import {
+  DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
 } from './secureStorageLayerAdapter';
+
+// expo-secure-store (native OS secure storage) only accepts keys matching this
+// charset; a disallowed char (e.g. ":") makes it throw, the probe swallows the
+// error, and the whole secure-storage layer silently disappears on iOS/Android.
+const EXPO_SECURE_STORE_ALLOWED_KEY = /^[A-Za-z0-9._-]+$/;
+
+describe('secure-storage LSE keyRef charset (native compatibility)', () => {
+  it('global keyRef stays within expo-secure-store allowed charset', () => {
+    expect(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF).toMatch(
+      EXPO_SECURE_STORE_ALLOWED_KEY,
+    );
+  });
+
+  it('keyRef produced by prepareLayer stays within the allowed charset', async () => {
+    const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+      secureStorage: {
+        getSecureItem: async () => null,
+        removeSecureItem: async () => undefined,
+        setSecureItem: async () => undefined,
+        supportSecureStorage: async () => true,
+        supportSecureStorageWithoutInteraction: async () => true,
+      },
+    });
+    const layer = await adapter.prepareLayer({
+      dataType: 'credential',
+      layerIndex: 0,
+      recordId: 'hd-1',
+    });
+    expect(layer.keyRef).toMatch(EXPO_SECURE_STORE_ALLOWED_KEY);
+  });
+});
 
 type ISecureStorageForTest = Pick<
   ISecureStorage,
