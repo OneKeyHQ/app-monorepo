@@ -66,7 +66,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         const { template } = params.deriveInfo;
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
 
@@ -105,15 +105,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               dbDevice,
               'btc',
               (deviceId) =>
-                adapter.hw.btcGetPublicKey(
-                  dbDevice.connectId,
-                  deviceId,
-                  {
-                    path: accountPath,
-                    showOnDevice: params.isVerifyAddressAction ?? false,
-                  },
-                  ledgerCommonCallParamsForCreateScene(params),
-                ),
+                adapter.hw.btcGetPublicKey(dbDevice.connectId, deviceId, {
+                  path: accountPath,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                  ...ledgerCommonCallParamsForCreateScene(params),
+                }),
             ));
 
           if (!pubKeyResult.success) {
@@ -223,7 +219,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     let { psbtHex } = encodedTx;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -420,7 +416,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     }
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -526,7 +522,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const dbAccount = await this.vault.getAccount();
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -581,7 +577,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const { receiveAddressPath } = chainExtraParams ?? {};
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {

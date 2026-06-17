@@ -5,20 +5,29 @@ function interceptTimeout(
   const methodOld = global[method];
   console.log('interceptTimeout methodOld', methodOld.toString());
 
-  // @ts-ignore
-  global[method] = function (
-    fn: (...args: any[]) => any,
+  const interceptedTimer = function oneKeyTimerInterceptor(
+    fn: (...args: unknown[]) => unknown,
     timeout: number | undefined,
+    ...args: unknown[]
   ) {
     return methodOld(() => {
       if (global[checkProp]) {
         console.error(`interceptTimeout ERROR: ${method} is disabled`);
         return;
       }
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return fn();
+      return fn(...args);
     }, timeout);
   };
+
+  Reflect.defineProperty(interceptedTimer, '__onekeyTimerInterceptor__', {
+    configurable: false,
+    enumerable: false,
+    value: checkProp,
+    writable: false,
+  });
+
+  // @ts-ignore
+  global[method] = interceptedTimer;
 }
 
 function interceptTimerWithDisable() {
