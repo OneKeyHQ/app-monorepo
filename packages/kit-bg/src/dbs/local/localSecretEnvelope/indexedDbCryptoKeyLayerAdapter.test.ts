@@ -11,6 +11,8 @@ import {
 
 import { IDBFactory } from 'fake-indexeddb';
 
+import { LocalSecretEnvelopeUnavailable } from '@onekeyhq/shared/src/errors';
+
 function buildDeterministicRandomBytes(): (length: number) => Uint8Array {
   let offset = 1;
   return (length: number) => {
@@ -128,7 +130,7 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
     ).rejects.toThrow();
   });
 
-  it('fails after the IndexedDB CryptoKey is deleted', async () => {
+  it('throws retryable unavailable after the IndexedDB CryptoKey is deleted', async () => {
     const { adapter, dbName, indexedDBInstance } = buildAdapter();
     const envelope = await wrapLocalSecretEnvelopeV1({
       dataType: 'verify-string',
@@ -151,8 +153,15 @@ describe('buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter', () => {
       expectedRecordId: 'context-main',
       resolveLayerAdapter: () => adapter,
     });
+    // A missing CryptoKey must surface as a retryable LocalSecretEnvelopeUnavailable
+    // (not a generic decrypt failure): web/ext rely solely on this layer, and a
+    // generic error during unlock is treated as a wrong password and could trigger
+    // the wrong-password protection / silent app reset.
+    await expect(unwrapPromise).rejects.toBeInstanceOf(
+      LocalSecretEnvelopeUnavailable,
+    );
     await expect(unwrapPromise).rejects.toThrow(
-      'Local secret envelope layer decrypt failed: kind=indexeddb-cryptokey, index=0',
+      'Local secret envelope wrapping key unavailable: kind=indexeddb-cryptokey',
     );
     await expect(unwrapPromise).rejects.not.toThrow(
       /^test:lse:indexeddb-cryptokey:/,

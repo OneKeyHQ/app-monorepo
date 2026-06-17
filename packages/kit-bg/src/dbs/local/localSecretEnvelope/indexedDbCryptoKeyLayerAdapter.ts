@@ -1,4 +1,7 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalSecretEnvelopeUnavailable,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import type {
@@ -288,15 +291,30 @@ async function getExistingCryptoKey({
   indexedDBInstance?: IDBFactory | null;
   keyRef: string;
 }) {
-  const existingRecord = await readCryptoKeyRecord({
-    dbName,
-    indexedDBInstance,
-    keyRef,
-  });
+  let existingRecord: IIndexedDbCryptoKeyRecord | undefined;
+  try {
+    existingRecord = await readCryptoKeyRecord({
+      dbName,
+      indexedDBInstance,
+      keyRef,
+    });
+  } catch {
+    // IndexedDB transiently unavailable (storage pressure / private mode /
+    // db open or transaction rejected): surface a retryable signal instead of a
+    // generic failure, so a correct password is not misread as wrong and fed
+    // into the wrong-password protection / reset-app counter.
+    throw new LocalSecretEnvelopeUnavailable({
+      message: `Local secret envelope wrapping key unavailable: kind=${INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND}`,
+    });
+  }
   if (!existingRecord?.key) {
-    throw new OneKeyLocalError(
-      `Local secret envelope CryptoKey unavailable: kind=${INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND}`,
-    );
+    // Missing CryptoKey (record evicted / cleared) is also surfaced as a
+    // retryable unavailable error rather than a generic failure. web/ext rely
+    // solely on this layer, and a generic error here is treated by the unlock
+    // UI as a wrong password and could drive a silent app reset.
+    throw new LocalSecretEnvelopeUnavailable({
+      message: `Local secret envelope wrapping key unavailable: kind=${INDEXED_DB_CRYPTO_KEY_LSE_LAYER_KIND}`,
+    });
   }
   return existingRecord.key;
 }
