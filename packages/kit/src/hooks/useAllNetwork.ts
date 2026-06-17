@@ -24,6 +24,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import { promiseAllSettledSlidingWindow } from '@onekeyhq/shared/src/utils/promiseAllSettledSlidingWindow';
 import {
   PROMISE_CONCURRENCY_LIMIT,
   promiseAllSettledEnhanced,
@@ -35,6 +36,8 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
+import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
+import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
 // Native keeps a strict cap to avoid Hermes memory spikes.
@@ -43,6 +46,21 @@ const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
   platformEnv.isNative
     ? PROMISE_CONCURRENCY_LIMIT
     : Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
+
+// L4b: the token-list LIVE fan-out gets a dedicated, wider native cap so its
+// bounded waves drain faster. iOS has the memory headroom for 16; low-end
+// Android keeps the shared PROMISE_CONCURRENCY_LIMIT Hermes-OOM guard (#9986).
+// Web keeps the full uncapped fan-out. NEVER bump the shared
+// PROMISE_CONCURRENCY_LIMIT — it also gates history/market/search/staking/discovery.
+const TOKEN_LIST_FAN_OUT_CONCURRENCY_LIMIT_IOS = 16;
+const getTokenListFanOutConcurrencyLimit = (taskCount: number) => {
+  if (!platformEnv.isNative) {
+    return Math.max(taskCount, PROMISE_CONCURRENCY_LIMIT);
+  }
+  return platformEnv.isNativeIOS
+    ? TOKEN_LIST_FAN_OUT_CONCURRENCY_LIMIT_IOS
+    : PROMISE_CONCURRENCY_LIMIT;
+};
 // useRef not working as expected, so use a global object
 const currentRequestsUUID = { current: '' };
 
@@ -311,6 +329,10 @@ function useAllNetworkRequests<T>(params: {
     networkId?: string;
     hasCache: boolean;
   }) => Promise<void> | void;
+  // Fires once per network as its live fetch settles (only on the steady-state
+  // sliding-window branch). Lets the consumer paint progressively (L2) instead
+  // of waiting for the whole fan-out.
+  onRequestSettled?: (result: T) => void;
   revalidateOnFocus?: boolean;
 }) {
   type IAllNetworkRequestsRunConfig = {
@@ -338,6 +360,7 @@ function useAllNetworkRequests<T>(params: {
     onStarted,
     onFinished,
     onCacheChecked,
+    onRequestSettled,
     revalidateOnFocus = false,
   } = params;
   const allNetworkDataInit = useRef(false);
@@ -360,6 +383,11 @@ function useAllNetworkRequests<T>(params: {
   // inside the runner.
   const skipAccountsCacheRef = useRef(false);
   const ignoreDisabledRef = useRef(false);
+  // L5: relay `alwaysSetState` into the runner body (like skipAccountsCacheRef)
+  // so the redundant-run gate can exempt every explicit refresh.
+  // `lastRunSignatureRef` is the owner identity of the last run that proceeded.
+  const alwaysSetStateRef = useRef(false);
+  const lastRunSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     const onEnabledNetworksChanged = () => {
@@ -471,6 +499,33 @@ function useAllNetworkRequests<T>(params: {
       }
       if (!currentAccountId || !currentNetworkId || !currentWalletId) return;
       if (!isAllNetworks) return;
+
+      // L5: drop redundant same-owner re-fires (usePromiseResult dep-identity
+      // churn during/after a switch). Read+reset the relayed alwaysSetState
+      // here; with skipAccountsCache / ignoreDisabled it marks every explicit
+      // refresh as must-run, and owner/enabled-network changes reset
+      // `allNetworkDataInit` — so neither is ever skipped.
+      const alwaysSetStateForThisRun = alwaysSetStateRef.current;
+      alwaysSetStateRef.current = false;
+      const currentRunSignature = `${currentAccountId}|${currentNetworkId}|${currentWalletId}|${
+        isNFTRequests ? 1 : 0
+      }|${isDeFiRequests ? 1 : 0}`;
+      const isMustRun =
+        alwaysSetStateForThisRun ||
+        skipAccountsCacheRef.current ||
+        ignoreDisabledForThisRun;
+      if (
+        shouldSkipRedundantAllNetworkRun({
+          isMustRun,
+          allNetworkDataInit: allNetworkDataInit.current,
+          currentSignature: currentRunSignature,
+          lastSignature: lastRunSignatureRef.current,
+        })
+      ) {
+        return;
+      }
+      lastRunSignatureRef.current = currentRunSignature;
+
       runCountRef.current += 1;
       isFetching.current = true;
 
@@ -593,6 +648,10 @@ function useAllNetworkRequests<T>(params: {
           }
         }
 
+        // L3: networks whose local cache is non-empty (likely funded). Populated
+        // by the cache probe below, consumed to prioritize the live fan-out so
+        // the first concurrency wave fetches the user's real holdings first.
+        const cachePriorityNetworkIds = new Set<string>();
         if (!allNetworkDataInit.current) {
           let cacheHasData = false;
           try {
@@ -627,6 +686,17 @@ function useAllNetworkRequests<T>(params: {
               )
             ).filter(Boolean);
             perf.markEnd('allNetworkCacheRequests');
+
+            // `cachedData` is already filtered to non-null results — i.e. only
+            // networks that returned cached (non-empty) tokens. Remember them
+            // (L3) so the live fan-out fetches funded networks in the first wave.
+            cachedData.forEach((d) => {
+              const priorityNetworkId = (d as { networkId?: string } | null)
+                ?.networkId;
+              if (priorityNetworkId) {
+                cachePriorityNetworkIds.add(priorityNetworkId);
+              }
+            });
 
             if (cachedData && !isEmpty(cachedData)) {
               cacheHasData = true;
@@ -663,7 +733,10 @@ function useAllNetworkRequests<T>(params: {
         //   currentRequestsUUID.current,
         // );
         if (allNetworkDataInit.current) {
-          const allNetworks = accountsInfo;
+          const allNetworks = reorderNetworksByCachePriority(
+            accountsInfo,
+            cachePriorityNetworkIds,
+          );
           const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
             return () =>
@@ -676,12 +749,25 @@ function useAllNetworkRequests<T>(params: {
           });
 
           try {
+            // L4a: sliding-window executor (worker-pool) replaces the
+            // batch-barrier so a slow network no longer idles the rest of its
+            // wave — the next network starts the instant a slot frees.
+            // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
+            // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
             resp = (
-              await promiseAllSettledEnhanced(requestFactories, {
+              await promiseAllSettledSlidingWindow(requestFactories, {
                 continueOnError: true,
-                concurrency: getAllNetworkTaskConcurrencyLimit(
+                concurrency: getTokenListFanOutConcurrencyLimit(
                   requestFactories.length,
                 ),
+                // L2: hand each network's result to the consumer the instant it
+                // settles, so it can paint progressively instead of waiting for
+                // the whole fan-out.
+                onSettled: (settledResult) => {
+                  if (settledResult) {
+                    onRequestSettled?.(settledResult);
+                  }
+                },
               })
             ).filter(Boolean);
           } catch (e) {
@@ -834,6 +920,7 @@ function useAllNetworkRequests<T>(params: {
       allNetworkCacheRequests,
       allNetworkCacheData,
       allNetworkRequests,
+      onRequestSettled,
     ],
     {
       revalidateOnFocus,
@@ -864,6 +951,9 @@ function useAllNetworkRequests<T>(params: {
       }
       if (config?.skipAccountsCache) {
         skipAccountsCacheRef.current = true;
+      }
+      if (config?.alwaysSetState) {
+        alwaysSetStateRef.current = true;
       }
       if (config?.ignoreDisabled) {
         ignoreDisabledRef.current = true;
