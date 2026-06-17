@@ -563,10 +563,6 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
       });
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
@@ -605,7 +601,6 @@ function SideButtonInternal({
     side,
     spotTradeSymbol,
     intl,
-    perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
     shouldEnableTradingBeforeOrder,
   ]);
@@ -1749,10 +1744,6 @@ function EmptySizeSideButton({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
@@ -1788,7 +1779,6 @@ function EmptySizeSideButton({
     intl,
     isSpot,
     perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
     side,
     spotTradeSymbol,
   ]);

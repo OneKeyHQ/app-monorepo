@@ -1369,6 +1369,7 @@ function PerpTradingForm({
       !perpsAccountStatus.canTrade &&
       !perpsAccountStatus.accountNotSupport &&
       !perpsAccountStatus.canCreateAddress &&
+      !perpConfigCommon?.ipDisablePerp &&
       enableTradingMode.requiresExplicitEnableTrading,
     [
       displayReady.statusReady,
@@ -1377,6 +1378,7 @@ function PerpTradingForm({
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
       perpsAccountStatus.canTrade,
+      perpConfigCommon?.ipDisablePerp,
     ],
   );
   const shouldShowIpRestrictionNotice = useMemo(
