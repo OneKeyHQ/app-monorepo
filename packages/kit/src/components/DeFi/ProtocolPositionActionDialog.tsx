@@ -7,7 +7,6 @@ import {
   Button,
   Checkbox,
   Dialog,
-  Divider,
   SizableText,
   Stack,
   Toast,
@@ -17,7 +16,7 @@ import {
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Token } from '@onekeyhq/kit/src/components/Token';
+import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -39,6 +38,25 @@ import {
   ProtocolValueCell,
   isProtocolAssetValueUnavailable,
 } from './ProtocolValueCell';
+
+const DEFAULT_ACTION_PERCENT = 100;
+const PERCENTAGE_SLIDER_SEGMENTS = 4;
+const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+
+function normalizeActionPercent(percent?: number) {
+  if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
+  return Math.max(
+    0,
+    Math.min(100, Math.round(percent ?? DEFAULT_ACTION_PERCENT)),
+  );
+}
+
+function isPercentageAction(action: EDeFiPositionAction) {
+  return (
+    action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.RemoveLiquidity
+  );
+}
 
 function getActionLabel({
   action,
@@ -91,23 +109,13 @@ function getActionExtraLabel({
   return labels.length > 0 ? labels.join(' / ') : undefined;
 }
 
-const DEFAULT_ACTION_PERCENT = 100;
-const PERCENTAGE_SLIDER_SEGMENTS = 4;
-
 type IProtocolPositionActionPreviewAsset = {
   asset: IDeFiAsset;
   amount: string;
   symbol: string;
   value: number;
+  metaLabel?: string;
 };
-
-function normalizeActionPercent(percent?: number) {
-  if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
-  return Math.max(
-    0,
-    Math.min(100, Math.round(percent ?? DEFAULT_ACTION_PERCENT)),
-  );
-}
 
 function getPercentScale(percent?: number) {
   return new BigNumber(normalizeActionPercent(percent)).div(100);
@@ -124,7 +132,7 @@ function scaleValueByPercent(value: number, percent?: number) {
   return new BigNumber(value).multipliedBy(getPercentScale(percent)).toNumber();
 }
 
-function getPreviewSourceAssets({
+function getOutputPreviewSourceAssets({
   action,
   selectedAsset,
 }: {
@@ -150,26 +158,77 @@ function buildSelectedAssetPreviewAssets({
   percent?: number;
 }): IProtocolPositionActionPreviewAsset[] {
   const isPercentAction = isPercentageAction(action);
-  return getPreviewSourceAssets({ action, selectedAsset }).map((asset) => ({
-    asset,
-    amount: isPercentAction
-      ? scaleAmountByPercent(asset.amount, percent)
-      : asset.amount,
-    symbol: asset.symbol,
-    value: isPercentAction
-      ? scaleValueByPercent(asset.value, percent)
-      : asset.value,
-  }));
+  return getOutputPreviewSourceAssets({ action, selectedAsset }).map(
+    (asset) => ({
+      asset,
+      amount: isPercentAction
+        ? scaleAmountByPercent(asset.amount, percent)
+        : asset.amount,
+      symbol: asset.symbol,
+      value: isPercentAction
+        ? scaleValueByPercent(asset.value, percent)
+        : asset.value,
+    }),
+  );
+}
+
+function getPreviewAssetKey(asset: IProtocolPositionActionPreviewAsset) {
+  const address = asset.asset.address.trim().toLowerCase();
+  return address || asset.symbol.trim().toLowerCase();
+}
+
+function aggregatePreviewAssets(assets: IProtocolPositionActionPreviewAsset[]) {
+  const result: IProtocolPositionActionPreviewAsset[] = [];
+  const indexByKey = new Map<string, number>();
+
+  assets.forEach((asset) => {
+    const key = getPreviewAssetKey(asset);
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, result.length);
+      result.push({ ...asset, metaLabel: undefined });
+      return;
+    }
+
+    const existing = result[existingIndex];
+    const amount = new BigNumber(existing.amount).plus(asset.amount);
+    const value = existing.value + asset.value;
+    result[existingIndex] = {
+      ...existing,
+      amount: amount.isFinite() ? amount.toFixed() : existing.amount,
+      value,
+      asset: {
+        ...existing.asset,
+        amount: amount.isFinite() ? amount.toFixed() : existing.asset.amount,
+        value,
+      },
+    };
+  });
+
+  return result;
 }
 
 function getPreviewAssetsValueState(
   assets: IProtocolPositionActionPreviewAsset[],
 ) {
+  let value = 0;
+  let hasAvailableValue = false;
+  let hasUnavailableValue = false;
+
+  assets.forEach((item) => {
+    if (isProtocolAssetValueUnavailable(item.asset)) {
+      hasUnavailableValue = true;
+      return;
+    }
+
+    value += item.value;
+    hasAvailableValue = true;
+  });
+
   return {
-    value: assets.reduce((total, item) => total + item.value, 0),
-    isUnavailable:
-      assets.length > 0 &&
-      assets.every((item) => isProtocolAssetValueUnavailable(item.asset)),
+    value,
+    isUnavailable: !hasAvailableValue && hasUnavailableValue,
+    showPriceUnavailableTooltip: hasAvailableValue && hasUnavailableValue,
   };
 }
 
@@ -190,6 +249,42 @@ function getSelectedAssetDisplaySymbol({
       .join(' / ');
   }
   return selectedAsset.symbol;
+}
+
+function getSourceAssetMetaLabel({
+  action,
+  selectedAsset,
+}: {
+  action: EDeFiPositionAction;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+}) {
+  const extraLabel = getActionAssetExtraLabel(selectedAsset);
+  const underlyingLabel =
+    action === EDeFiPositionAction.RemoveLiquidity
+      ? getSelectedAssetDisplaySymbol({ action, selectedAsset })
+      : undefined;
+  const labels = [underlyingLabel, extraLabel].filter(
+    (label): label is string => Boolean(label),
+  );
+  return labels.length > 0 ? labels.join(' / ') : undefined;
+}
+
+function buildSelectedAssetSourcePreviewAssets({
+  action,
+  selectedAsset,
+}: {
+  action: EDeFiPositionAction;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+}): IProtocolPositionActionPreviewAsset[] {
+  return [
+    {
+      asset: selectedAsset.asset,
+      amount: selectedAsset.amount,
+      symbol: selectedAsset.symbol,
+      value: selectedAsset.asset.value,
+      metaLabel: getSourceAssetMetaLabel({ action, selectedAsset }),
+    },
+  ];
 }
 
 function ProtocolPositionActionAssetRow({
@@ -321,11 +416,40 @@ function getPositiveAmount(value?: string) {
   return amountBN.isFinite() && amountBN.gt(0) ? value : undefined;
 }
 
-function isPercentageAction(action: EDeFiPositionAction) {
-  return (
-    action === EDeFiPositionAction.Withdraw ||
-    action === EDeFiPositionAction.RemoveLiquidity
-  );
+function getActionSourceLabel({
+  action,
+  intl,
+}: {
+  action: EDeFiPositionAction;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  if (action === EDeFiPositionAction.Claim) {
+    return intl.formatMessage({ id: ETranslations.defi_claimable_rewards });
+  }
+  if (action === EDeFiPositionAction.ClaimWithdrawal) {
+    return intl.formatMessage({ id: ETranslations.defi_redeemable });
+  }
+  return intl.formatMessage({ id: ETranslations.global_current });
+}
+
+function getActionResultLabel({
+  action,
+  actionLabel,
+  intl,
+}: {
+  action: EDeFiPositionAction;
+  actionLabel: string;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  if (action === EDeFiPositionAction.Claim) {
+    return actionLabel;
+  }
+  if (isPercentageAction(action)) {
+    return intl.formatMessage({ id: ETranslations.earn_est_receive });
+  }
+  return intl.formatMessage({
+    id: ETranslations.redemption_btc_confirm_you_will_receive,
+  });
 }
 
 function isLidoProtocol(protocolId: string) {
@@ -407,9 +531,9 @@ function buildDeFiActionExtraParams({
   };
   // The DeFi build API now resolves Polygon withdrawals by groupId.
   // oxlint-disable-next-line @cspell/spellchecker
-  delete extraParams['unbondNonces'];
+  delete extraParams.unbondNonces;
   // oxlint-disable-next-line @cspell/spellchecker
-  delete extraParams['unbond_nonces'];
+  delete extraParams.unbond_nonces;
 
   if (action.action === EDeFiPositionAction.RemoveLiquidity) {
     const amount0Min = getPositiveAmount(extraParams.amount0Min);
@@ -611,228 +735,269 @@ function useProtocolPositionActionSubmit({
   );
 }
 
-function ProtocolPositionActionPreviewRow({
+function ProtocolPositionActionCurrentLine({
+  label,
+  action,
   asset,
+  selectedAsset,
   currencySymbol,
   priceUnavailableLabel,
 }: {
+  label: string;
+  action: EDeFiPositionAction;
   asset: IProtocolPositionActionPreviewAsset;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
   currencySymbol: string;
   priceUnavailableLabel: string;
 }) {
+  const isLiquidity =
+    action === EDeFiPositionAction.RemoveLiquidity &&
+    (selectedAsset.underlyingAssets?.length ?? 0) > 0;
+  const displaySymbol = getSelectedAssetDisplaySymbol({
+    action,
+    selectedAsset,
+  });
+  const underlyingTokens =
+    selectedAsset.underlyingAssets?.map((item) => ({
+      tokenImageUri: item.meta?.logoUrl,
+    })) ?? [];
   return (
-    <XStack alignItems="center" gap="$2.5" minHeight={36}>
-      <Token size="xs" tokenImageUri={asset.asset.meta?.logoUrl} bg="$bg" />
-      <XStack flex={1} minWidth={0} alignItems="center" gap="$1">
-        <NumberSizeableTextWrapper
-          hideValue
-          size="$bodyMdMedium"
-          formatter="balance"
-          numberOfLines={1}
-        >
-          {asset.amount}
-        </NumberSizeableTextWrapper>
-        <SizableText
-          size="$bodyMdMedium"
-          color="$text"
-          numberOfLines={1}
-          flexShrink={1}
-        >
-          {asset.symbol}
+    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+      <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+        {label}
+      </SizableText>
+      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+        {isLiquidity ? (
+          <>
+            <TokenGroup
+              tokens={underlyingTokens}
+              size="xs"
+              variant="overlapped"
+              wrapperStyle="border"
+              wrapperBorderColor="$bg"
+              flexShrink={0}
+            />
+            <SizableText
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              flexShrink={1}
+            >
+              {displaySymbol}
+            </SizableText>
+          </>
+        ) : (
+          <>
+            <Token
+              size="xs"
+              tokenImageUri={asset.asset.meta?.logoUrl}
+              bg="$bg"
+            />
+            <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$bodyMdMedium"
+                formatter="balance"
+                numberOfLines={1}
+              >
+                {asset.amount}
+              </NumberSizeableTextWrapper>
+              <SizableText
+                size="$bodyMdMedium"
+                color="$text"
+                numberOfLines={1}
+                flexShrink={1}
+              >
+                {asset.symbol}
+              </SizableText>
+            </XStack>
+          </>
+        )}
+        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+          ·
         </SizableText>
+        <ProtocolValueCell
+          value={asset.asset.value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+        />
       </XStack>
-      <ProtocolValueCell
-        value={asset.value}
-        currencySymbol={currencySymbol}
-        priceUnavailableLabel={priceUnavailableLabel}
-        isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
-        size="$bodySm"
-        color="$textSubdued"
-        textAlign="right"
-        numberOfLines={1}
-      />
     </XStack>
   );
 }
 
-function ProtocolPositionActionPreviewPanel({
-  label,
-  assets,
-  currencySymbol,
-  priceUnavailableLabel,
-}: {
-  label: string;
-  assets: IProtocolPositionActionPreviewAsset[];
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-}) {
-  const valueState = getPreviewAssetsValueState(assets);
-
-  return (
-    <YStack
-      gap="$2"
-      p="$3"
-      borderRadius="$2"
-      bg="$bgSubdued"
-      borderWidth="$px"
-      borderColor="$borderSubdued"
-    >
-      <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {label}
-        </SizableText>
-        <ProtocolValueCell
-          value={valueState.value}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          isUnavailable={valueState.isUnavailable}
-          size="$bodyMdMedium"
-          textAlign="right"
-          numberOfLines={1}
-        />
-      </XStack>
-      <YStack gap="$1">
-        {assets.map((asset, index) => (
-          <ProtocolPositionActionPreviewRow
-            key={`${asset.asset.address}-${asset.symbol}-${index}`}
-            asset={asset}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-          />
-        ))}
-      </YStack>
-    </YStack>
-  );
-}
-
-function ProtocolPositionActionPercentControl({
+function ProtocolPositionActionAmountHero({
   percent,
+  maxLabel,
   onChange,
 }: {
   percent: number;
+  maxLabel: string;
   onChange: (percent: number) => void;
 }) {
+  const normalizedPercent = normalizeActionPercent(percent);
   return (
-    <YStack gap="$2">
-      <PerpsSlider
-        value={percent}
-        onChange={(value) => onChange(normalizeActionPercent(value))}
-        min={0}
-        max={100}
-        segments={PERCENTAGE_SLIDER_SEGMENTS}
-        sliderHeight={4}
-        showBubble
-        snapTapToSegment
-      />
-      <XStack justifyContent="space-between">
-        <SizableText size="$bodySm" color="$textSubdued">
-          0%
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          100%
-        </SizableText>
-      </XStack>
+    <YStack gap="$4">
+      <SizableText
+        size="$heading5xl"
+        color="$text"
+        textAlign="center"
+        fontVariant={['tabular-nums']}
+      >
+        {`${normalizedPercent}%`}
+      </SizableText>
+      <YStack gap="$3">
+        <PerpsSlider
+          value={normalizedPercent}
+          onChange={(value) => onChange(normalizeActionPercent(value))}
+          min={0}
+          max={100}
+          segments={PERCENTAGE_SLIDER_SEGMENTS}
+          sliderHeight={6}
+          showBubble
+          snapTapToSegment
+        />
+        <XStack gap="$2">
+          {PERCENTAGE_PRESET_VALUES.map((presetPercent) => {
+            const selected = normalizedPercent === presetPercent;
+            const presetLabel =
+              presetPercent === 100 ? maxLabel : `${presetPercent}%`;
+            return (
+              <Button
+                key={presetPercent}
+                testID={`defi-position-action-percent-${presetPercent}`}
+                size="small"
+                variant="secondary"
+                flex={1}
+                bg={selected ? '$bgActive' : '$bgSubdued'}
+                borderColor={selected ? '$borderActive' : '$transparent'}
+                hoverStyle={{
+                  bg: selected ? '$bgActive' : '$bgStrong',
+                }}
+                pressStyle={{
+                  bg: selected ? '$bgActive' : '$bgStrong',
+                }}
+                onPress={() => onChange(presetPercent)}
+              >
+                {presetLabel}
+              </Button>
+            );
+          })}
+        </XStack>
+      </YStack>
     </YStack>
   );
 }
 
-function ProtocolPositionActionModelSection({
+function ProtocolPositionActionReceiveRow({
+  asset,
+  currencySymbol,
+  priceUnavailableLabel,
+  showValue,
+}: {
+  asset: IProtocolPositionActionPreviewAsset;
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+  showValue: boolean;
+}) {
+  return (
+    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+      <XStack alignItems="center" gap="$2.5" flexShrink={1} minWidth={0}>
+        <Token size="sm" tokenImageUri={asset.asset.meta?.logoUrl} bg="$bg" />
+        <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
+          <NumberSizeableTextWrapper
+            hideValue
+            size="$bodyLgMedium"
+            formatter="balance"
+            numberOfLines={1}
+          >
+            {asset.amount}
+          </NumberSizeableTextWrapper>
+          <SizableText
+            size="$bodyLgMedium"
+            color="$text"
+            numberOfLines={1}
+            flexShrink={1}
+          >
+            {asset.symbol}
+          </SizableText>
+        </XStack>
+      </XStack>
+      {showValue ? (
+        <ProtocolValueCell
+          value={asset.value}
+          currencySymbol={currencySymbol}
+          priceUnavailableLabel={priceUnavailableLabel}
+          isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
+          size="$bodyMd"
+          color="$textSubdued"
+          textAlign="right"
+          numberOfLines={1}
+        />
+      ) : null}
+    </XStack>
+  );
+}
+
+function ProtocolPositionActionReceive({
   label,
   assets,
   currencySymbol,
   priceUnavailableLabel,
-  emphasized,
+  estimated,
 }: {
   label: string;
   assets: IProtocolPositionActionPreviewAsset[];
   currencySymbol: string;
   priceUnavailableLabel: string;
-  emphasized?: boolean;
+  estimated: boolean;
 }) {
   const valueState = getPreviewAssetsValueState(assets);
-
+  const showPerRowValue = assets.length > 1;
   return (
-    <YStack gap="$2">
+    <YStack gap="$3">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        <SizableText size="$bodySmMedium" color="$textSubdued">
+        <SizableText
+          size="$bodyMdMedium"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
           {label}
         </SizableText>
-        <ProtocolValueCell
-          value={valueState.value}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          isUnavailable={valueState.isUnavailable}
-          size={emphasized ? '$bodyLgMedium' : '$bodyMdMedium'}
-          textAlign="right"
-          numberOfLines={1}
-        />
+        <XStack alignItems="center" gap="$1" flexShrink={0}>
+          {estimated ? (
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
+              ≈
+            </SizableText>
+          ) : null}
+          <ProtocolValueCell
+            value={valueState.value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            isUnavailable={valueState.isUnavailable}
+            showPriceUnavailableTooltip={valueState.showPriceUnavailableTooltip}
+            size="$headingMd"
+            color="$text"
+            textAlign="right"
+            numberOfLines={1}
+          />
+        </XStack>
       </XStack>
-      <YStack gap="$1">
+      <YStack gap="$2.5">
         {assets.map((asset, index) => (
-          <ProtocolPositionActionPreviewRow
+          <ProtocolPositionActionReceiveRow
             key={`${asset.asset.address}-${asset.symbol}-${index}`}
             asset={asset}
             currencySymbol={currencySymbol}
             priceUnavailableLabel={priceUnavailableLabel}
+            showValue={showPerRowValue}
           />
         ))}
-      </YStack>
-    </YStack>
-  );
-}
-
-function ProtocolPositionPercentageActionModel({
-  actionLabel,
-  percent,
-  availableLabel,
-  outputLabel,
-  availableAssets,
-  outputAssets,
-  currencySymbol,
-  priceUnavailableLabel,
-  onPercentChange,
-}: {
-  actionLabel: string;
-  percent: number;
-  availableLabel: string;
-  outputLabel: string;
-  availableAssets: IProtocolPositionActionPreviewAsset[];
-  outputAssets: IProtocolPositionActionPreviewAsset[];
-  currencySymbol: string;
-  priceUnavailableLabel: string;
-  onPercentChange: (percent: number) => void;
-}) {
-  return (
-    <YStack gap="$5">
-      <YStack gap="$1.5">
-        <SizableText size="$heading2xl" color="$text">
-          {actionLabel} {percent}%
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {outputLabel}
-        </SizableText>
-      </YStack>
-
-      <ProtocolPositionActionPercentControl
-        percent={percent}
-        onChange={onPercentChange}
-      />
-
-      <YStack gap="$3" p="$4" borderRadius="$3" bg="$bgSubdued">
-        <ProtocolPositionActionModelSection
-          label={availableLabel}
-          assets={availableAssets}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-        />
-        <Divider />
-        <ProtocolPositionActionModelSection
-          label={outputLabel}
-          assets={outputAssets}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          emphasized
-        />
       </YStack>
     </YStack>
   );
@@ -888,13 +1053,12 @@ function ProtocolPositionActionDialogContent({
     selectedAssets.length === 0 || (isPercentAction && !actionPercentBps);
   const selectable = action.assets.length > 1;
   const allSelected = selectedAssetIndexes.length === action.assets.length;
-  const availablePreviewAssets = useMemo(
+  const sourcePreviewAssets = useMemo(
     () =>
       selectedAssets.flatMap((selectedAsset) =>
-        buildSelectedAssetPreviewAssets({
+        buildSelectedAssetSourcePreviewAssets({
           action: action.action,
           selectedAsset,
-          percent: DEFAULT_ACTION_PERCENT,
         }),
       ),
     [action.action, selectedAssets],
@@ -910,21 +1074,28 @@ function ProtocolPositionActionDialogContent({
       ),
     [action.action, actionPercent, isPercentAction, selectedAssets],
   );
+  const aggregatedOutputPreviewAssets = useMemo(
+    () => aggregatePreviewAssets(outputPreviewAssets),
+    [outputPreviewAssets],
+  );
   const selectAllLabel = intl.formatMessage({
     id: allSelected
       ? ETranslations.global_deselect_all
       : ETranslations.global_select_all,
   });
-  const availableLabel =
-    action.action === EDeFiPositionAction.Claim
-      ? intl.formatMessage({ id: ETranslations.earn_claimable })
-      : intl.formatMessage({ id: ETranslations.global_available });
-  const currentLabel = intl.formatMessage({
-    id: ETranslations.global_current,
+  const sourceLabel = getActionSourceLabel({
+    action: action.action,
+    intl,
   });
-  const outputLabel = isPercentAction
-    ? intl.formatMessage({ id: ETranslations.perp_you_will_get })
-    : actionLabel;
+  const resultLabel = getActionResultLabel({
+    action: action.action,
+    actionLabel,
+    intl,
+  });
+  const maxLabel = intl.formatMessage({ id: ETranslations.global_max });
+  const receiveLabel = isPercentAction ? resultLabel : sourceLabel;
+  const currentSourceAsset = sourcePreviewAssets[0];
+  const currentSelectedAsset = selectedAssets[0];
 
   const handleAssetSelect = (index: number, selected: boolean) => {
     setSelectedAssetIndexes((prev) => {
@@ -1000,49 +1171,47 @@ function ProtocolPositionActionDialogContent({
     ) : null;
 
   return (
-    <YStack gap={isPercentAction ? '$5' : '$4'}>
+    <YStack gap="$5">
       <Dialog.Header>
         <Dialog.Title>{actionLabel}</Dialog.Title>
       </Dialog.Header>
 
-      {isPercentAction ? (
-        <>
-          {selectable ? assetSelector : null}
-          {selectedAssets.length > 0 ? (
-            <ProtocolPositionPercentageActionModel
-              actionLabel={actionLabel}
-              percent={actionPercent}
-              availableLabel={currentLabel}
-              outputLabel={outputLabel}
-              availableAssets={availablePreviewAssets}
-              outputAssets={outputPreviewAssets}
-              currencySymbol={currencySymbol}
-              priceUnavailableLabel={priceUnavailableLabel}
-              onPercentChange={setActionPercent}
-            />
+      {selectable ? assetSelector : null}
+      {selectedAssets.length > 0 ? (
+        <YStack gap="$6">
+          {isPercentAction ? (
+            <YStack gap="$5">
+              {!selectable && currentSourceAsset && currentSelectedAsset ? (
+                <ProtocolPositionActionCurrentLine
+                  label={sourceLabel}
+                  action={action.action}
+                  asset={currentSourceAsset}
+                  selectedAsset={currentSelectedAsset}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                />
+              ) : null}
+              <ProtocolPositionActionAmountHero
+                percent={actionPercent}
+                maxLabel={maxLabel}
+                onChange={setActionPercent}
+              />
+            </YStack>
           ) : null}
-        </>
+          <ProtocolPositionActionReceive
+            label={receiveLabel}
+            assets={aggregatedOutputPreviewAssets}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            estimated={isPercentAction}
+          />
+        </YStack>
       ) : (
-        <>
-          {assetSelector}
-          {selectedAssets.length > 0 ? (
-            <>
-              <Divider />
-              <ProtocolPositionActionPreviewPanel
-                label={availableLabel}
-                assets={availablePreviewAssets}
-                currencySymbol={currencySymbol}
-                priceUnavailableLabel={priceUnavailableLabel}
-              />
-              <ProtocolPositionActionPreviewPanel
-                label={outputLabel}
-                assets={outputPreviewAssets}
-                currencySymbol={currencySymbol}
-                priceUnavailableLabel={priceUnavailableLabel}
-              />
-            </>
-          ) : null}
-        </>
+        <YStack py="$6" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_no_data })}
+          </SizableText>
+        </YStack>
       )}
 
       <Dialog.Footer
