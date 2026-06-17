@@ -132,8 +132,10 @@ function BtcFindAddress() {
       }
       navigation.pop();
     } catch (error) {
+      // claimBtcFindAddress surfaces its own error toast; keep the user on the
+      // page (input intact) to retry instead of re-throwing into an unhandled
+      // rejection — Page.FooterActions does not await onConfirm.
       console.error(error);
-      throw error;
     } finally {
       setSubmitting(false);
     }
