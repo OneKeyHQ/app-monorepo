@@ -5,12 +5,18 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
   isUSMarketStatusStockTokenSource,
   shouldCheckSwapWarningUSMarketClosed,
 } from '@onekeyhq/kit/src/views/Swap/utils/usMarketStatusUtils';
 import { moveNetworkToFirst } from '@onekeyhq/kit/src/views/Swap/utils/utils';
-import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  settingsAtom,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventSourceMessageEvent } from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -34,8 +40,6 @@ import {
   swapBridgeDefaultTokenConfigs,
   swapBridgeDefaultTokenExtraConfigs,
   swapDefaultSetTokens,
-  swapRateDifferenceMax,
-  swapRateDifferenceMin,
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -46,6 +50,7 @@ import type {
   ISwapAlertState,
   ISwapLimitPriceInfo,
   ISwapNetwork,
+  ISwapPreSwapData,
   ISwapQuoteEvent,
   ISwapQuoteEventAutoSlippage,
   ISwapQuoteEventData,
@@ -63,7 +68,6 @@ import {
   ESwapLimitOrderMarketPriceUpdateInterval,
   ESwapProTradeType,
   ESwapQuoteKind,
-  ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -1450,9 +1454,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       } else if (quoteEventError) {
         set(swapQuoteEventErrorAtom(), undefined);
       }
-      let rateDifferenceRes:
-        | { value: string; unit: ESwapRateDifferenceUnit }
-        | undefined;
+      let rateDifferenceRes: ISwapPreSwapData['rateDifference'];
       // current quote result  current token  not match
       if (quoteResult && fromToken && toToken && !isCurrentQuoteResult) {
         set(swapAlertsAtom(), {
@@ -1653,42 +1655,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           (limitPriceUseRate?.rate &&
             quoteResult?.protocol === EProtocolOfExchange.LIMIT))
       ) {
-        const fromTokenPrice = new BigNumber(fromToken.price);
-        const toTokenPrice = new BigNumber(toToken.price);
-        if (!fromTokenPrice.isZero() && !toTokenPrice.isZero()) {
-          const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
-          let instantRate = quoteResult?.instantRate;
-          if (
-            quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
-            limitPriceUseRate.rate
-          ) {
-            instantRate = limitPriceUseRate.rate;
-          }
-          const quoteRateBN = new BigNumber(instantRate ?? 0);
-          const difference = quoteRateBN
-            .dividedBy(marketingRate)
-            .minus(1)
-            .multipliedBy(100);
-          if (difference.absoluteValue().gte(swapRateDifferenceMin)) {
-            let unit = ESwapRateDifferenceUnit.POSITIVE;
-            if (difference.isNegative()) {
-              if (difference.lte(swapRateDifferenceMax)) {
-                unit = ESwapRateDifferenceUnit.NEGATIVE;
-              } else {
-                unit = ESwapRateDifferenceUnit.DEFAULT;
-              }
-            }
-            rateDifferenceRes = {
-              value: `${difference.isPositive() ? '+' : ''}${numberFormat(
-                difference.toFixed(),
-                {
-                  formatter: 'priceChange',
-                },
-              )}`,
-              unit,
-            };
-          }
+        let instantRate = quoteResult?.instantRate;
+        if (
+          quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
+          limitPriceUseRate.rate
+        ) {
+          instantRate = limitPriceUseRate.rate;
         }
+        const [{ currencyMap }, { currencyInfo }] = await Promise.all([
+          currencyPersistAtom.get(),
+          settingsPersistAtom.get(),
+        ]);
+        rateDifferenceRes = buildSwapRateDifference({
+          fromTokenPrice: fromToken.price,
+          toTokenPrice: toToken.price,
+          fromTokenCurrency: fromToken.currency,
+          toTokenCurrency: toToken.currency,
+          defaultTokenCurrency: currencyInfo.id,
+          currencyMap,
+          instantRate,
+        });
       }
 
       const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
@@ -1978,6 +1964,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 accountId,
                 contractAddress: token.contractAddress,
                 direction: type,
+                currency: USD_CURRENCY_ID,
               });
             if (detailInfo?.[0]) {
               const balanceParsedBN = new BigNumber(
@@ -1992,12 +1979,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 balanceParsed?: string;
                 reservationValue?: string;
                 logoURI?: string;
+                currency?: string;
               } = {};
               if (detailInfo[0].price) {
                 condition.price = detailInfo[0].price;
               }
               if (detailInfo[0].fiatValue) {
                 condition.fiatValue = detailInfo[0].fiatValue;
+              }
+              if (condition.price || condition.fiatValue) {
+                condition.currency = USD_CURRENCY_ID;
               }
               if (detailInfo[0].balanceParsed) {
                 condition.balanceParsed = detailInfo[0].balanceParsed;

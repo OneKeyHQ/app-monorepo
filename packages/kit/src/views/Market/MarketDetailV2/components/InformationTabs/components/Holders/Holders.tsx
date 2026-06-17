@@ -23,9 +23,14 @@ import type { FlatListProps } from 'react-native';
 interface IHoldersProps {
   tokenAddress: string;
   networkId: string;
+  scrollEnabled?: boolean;
 }
 
-function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
+function HoldersBase({
+  tokenAddress,
+  networkId,
+  scrollEnabled = true,
+}: IHoldersProps) {
   const intl = useIntl();
   const { gtLg } = useMedia();
   const { holders, isRefreshing } = useMarketHolders({
@@ -55,6 +60,7 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   return (
     <Tabs.FlatList<IMarketTokenHolder>
       showsVerticalScrollIndicator={false}
+      scrollEnabled={scrollEnabled}
       data={holders}
       contentContainerStyle={{
         paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,

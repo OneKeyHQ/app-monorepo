@@ -72,6 +72,7 @@ interface IBaseTradingViewV2Props {
   accountAddress?: string;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
   forceEmptyKLineData?: boolean;
@@ -114,6 +115,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
     disabledFeatures,
     storageNamespace,
     forceEmptyKLineData,
@@ -153,6 +155,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
     forceEmptyKLineData,
     emptyKLineDataOnError,
     kLineDataFallback,
@@ -347,29 +350,38 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIndicatorsDialogOpenChange?.(false);
   }, [onIndicatorsDialogOpenChange]);
 
+  const resetInteractionOverlayOpen = useCallback(() => {
+    onInteractionOverlayOpenChange?.(false);
+  }, [onInteractionOverlayOpenChange]);
+
+  const resetInteractionLocks = useCallback(() => {
+    resetIndicatorsDialogOpen();
+    resetInteractionOverlayOpen();
+  }, [resetIndicatorsDialogOpen, resetInteractionOverlayOpen]);
+
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
-      resetIndicatorsDialogOpen();
+      resetInteractionLocks();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetIndicatorsDialogOpen],
+    [onLoadStart, resetInteractionLocks],
   );
 
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
-        resetIndicatorsDialogOpen();
+        resetInteractionLocks();
       }
       webRef.current = ref;
     },
-    [resetIndicatorsDialogOpen, webRef],
+    [resetInteractionLocks, webRef],
   );
 
   useEffect(() => {
     return () => {
-      resetIndicatorsDialogOpen();
+      resetInteractionLocks();
     };
-  }, [resetIndicatorsDialogOpen]);
+  }, [resetInteractionLocks]);
 
   const handleMockEmptyKLineBadgePress = useCallback(() => {
     setMockEmptyKLineBadgePositionIndex(
