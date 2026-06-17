@@ -25,6 +25,7 @@ import type {
   ESwapCrossChainStatus,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
+  ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
@@ -63,12 +64,15 @@ export function useSwapTokenList(
     tokenRole?: string;
     tokenListType?: string;
   },
+  supportNetworksOverride?: ISwapNetwork[],
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const swapSupportAllAccountsRef = useRef<IAllNetworkAccountInfo[]>([]);
   const [swapNetworks] = useSwapNetworksAtom();
-  const [swapSupportAllNetworks] = useSwapNetworksIncludeAllNetworkAtom();
+  const [swapSupportAllNetworksBase] = useSwapNetworksIncludeAllNetworkAtom();
+  const swapSupportAllNetworks =
+    supportNetworksOverride ?? swapSupportAllNetworksBase;
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
@@ -115,6 +119,7 @@ export function useSwapTokenList(
     });
     if (findNetInfo?.apiAddress) {
       return {
+        protocol: from,
         networkId: targetNetworkId,
         keywords,
         accountAddress: findNetInfo.apiAddress,
@@ -126,6 +131,7 @@ export function useSwapTokenList(
 
     if (shouldUseCurrentAccountAddress) {
       return {
+        protocol: from,
         networkId: targetNetworkId,
         keywords,
         accountAddress: swapAddressInfo?.address,
@@ -135,6 +141,7 @@ export function useSwapTokenList(
       };
     }
     return {
+      protocol: from,
       networkId: targetNetworkId,
       keywords,
       accountAddress: findNetInfo?.apiAddress,
@@ -144,6 +151,7 @@ export function useSwapTokenList(
     };
   }, [
     currentNetworkId,
+    from,
     swapAddressInfo.networkId,
     swapAddressInfo?.address,
     swapAddressInfo?.activeAccount?.network?.id,

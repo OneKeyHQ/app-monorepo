@@ -375,6 +375,7 @@ const SwapTokenSelectPage = ({
     swapTypeSwitch,
     requestLpToken,
     searchAnalyticsOverride,
+    swapNetworksIncludeAllNetwork,
   );
   const alertIndex = useMemo(
     () =>
