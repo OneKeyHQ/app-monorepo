@@ -12,7 +12,7 @@ import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import legacyIndexedDb from '../../migrations/indexedToBucketsMigration/legacyIndexedDb';
 import { migrateAccountBucketRecords } from '../../migrations/indexedToBucketsMigration/migrateRecordsFn';
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import { passwordAtom, settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import dbBackupTools from './dbBackupTools';
@@ -159,12 +159,59 @@ class ServiceDBBackup extends ServiceBase {
     }
   }
 
+  _backupDatabaseDailyPromise: Promise<void> | undefined;
+
   @backgroundMethod()
   async backupDatabaseDaily(): Promise<void> {
+    // Concurrency guard. The daily backup can be triggered concurrently from two
+    // places — the Home daily hook (NotificationRegisterDaily) and the
+    // pre-migration step in LocalDbBase.runPostPasswordVerifiedLazyUpgrade — so
+    // share a single in-flight run to avoid double-writing the backup bucket.
+    if (this._backupDatabaseDailyPromise) {
+      return this._backupDatabaseDailyPromise;
+    }
+    this._backupDatabaseDailyPromise = (async () => {
+      try {
+        await this._backupDatabaseDaily();
+      } finally {
+        this._backupDatabaseDailyPromise = undefined;
+      }
+    })();
+    return this._backupDatabaseDailyPromise;
+  }
+
+  async _backupDatabaseDaily(): Promise<void> {
     if (!this.canBackup()) {
       return;
     }
 
+    // Data-safety gate. The daily backup overwrites the previous backup bucket
+    // in place (migrateRecords uses put-by-id, see migrateRecordsFn.ts), so
+    // snapshotting a primary DB that the user cannot decrypt would replace the
+    // last good backup with unrecoverable data. Require ALL of:
+    //   1. the app is unlocked (the unlock flow completed successfully), and
+    //   2. a password is held in memory.
+    // If the user cannot unlock (e.g. a corrupt master credential), unLock stays
+    // false / no password is cached, so we skip the backup and preserve the
+    // previous good backup instead of overwriting it. The LSE migration runs
+    // this backup once BEFORE it mutates credentials (see
+    // LocalDbBase.runPostPasswordVerifiedLazyUpgrade) so a pre-LSE snapshot
+    // survives as a recovery net if the LSE upgrade is faulty; we never force a
+    // backup AFTER migration, which would overwrite that net. Each early return
+    // skips WITHOUT touching lastDBBackupTime, so a skipped attempt does not
+    // consume the 24h window and will be retried.
+    const { unLock } = await passwordAtom.get();
+    if (!unLock) {
+      return;
+    }
+    const hasCachedPassword =
+      await this.backgroundApi.servicePassword.hasCachedPassword();
+    if (!hasCachedPassword) {
+      return;
+    }
+
+    // At most once per 24h: the daily trigger fires on every Home focus, so this
+    // throttles repeated full backups (performance).
     const appStatus = await this.backgroundApi.simpleDb.appStatus.getRawData();
     if (
       appStatus?.lastDBBackupTime &&

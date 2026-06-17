@@ -885,6 +885,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   runPostPasswordVerifiedLazyUpgrade({ password }: { password: string }): void {
     void this.lazyUpgradeLocalPasswordEncryptedRecords({ password })
+      .then(async () => {
+        // Snapshot the current (pre-LSE) DB into the backup bucket BEFORE the
+        // LSE migration mutates credentials, so a faulty LSE upgrade still has
+        // an older recoverable backup to fall back to. Best-effort: a failed or
+        // unavailable backup (e.g. native, locked, within the 24h window) must
+        // never block the migration. backupDatabaseDaily has an in-flight guard
+        // and is 24h-gated, so this does not double-run with the Home daily hook.
+        try {
+          await this.backgroundApi.serviceDBBackup.backupDatabaseDaily();
+        } catch (error) {
+          console.error('preLocalSecretEnvelopeMigrationBackup error', error);
+        }
+      })
       .then(() => this.lazyMigrateLocalSecretEnvelopeCredentialsAfterUnlock())
       .catch((error) => {
         console.error('localPasswordPostUnlockLazyUpgrade error', error);
