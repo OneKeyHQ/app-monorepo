@@ -603,6 +603,9 @@ function buildResolvedAsset({
 
     return {
       asset,
+      underlyingAssets: sourcePosition?.assets.filter((item) =>
+        isPositiveAmount(item.amount),
+      ),
       amount: asset.amount,
       symbol: asset.symbol,
       tokenAddress: asset.address,

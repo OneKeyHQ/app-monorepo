@@ -122,7 +122,22 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       category: 'liquidity',
       groupId: '0x1111111111111111111111111111111111111111#123',
       name: 'Uniswap Position',
-      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+      assets: [
+        makeAsset({
+          symbol: 'ETH',
+          address: '0xeth',
+          amount: '0.5',
+          value: 1500,
+          price: 3000,
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc',
+          amount: '1500',
+          value: 1500,
+          price: 1,
+        }),
+      ],
     });
     const supportedActions: IDeFiSupportedProtocolAction[] = [
       {
@@ -150,6 +165,9 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.groupId).toBe(
       '0x1111111111111111111111111111111111111111#123',
     );
+    expect(
+      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
+    ).toEqual(['ETH', 'USDC']);
   });
 
   it('hides Uniswap removeLiquidity when tokenId metadata is missing', () => {
