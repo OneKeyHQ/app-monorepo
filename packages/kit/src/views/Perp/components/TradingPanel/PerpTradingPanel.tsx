@@ -13,6 +13,7 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsComputedAccountValueAtom,
   usePerpsCustomSettingsAtom,
   useTradingModeAtom,
@@ -159,6 +160,7 @@ const PerpTradingDisabledButtonMemo = memo(PerpTradingDisabledButton);
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [tradingMode] = useTradingModeAtom();
   const [isSubmitting] = useTradingLoadingAtom();
 
@@ -173,7 +175,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       }
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
-      {perpsAccountStatus.canTrade ? (
+      {perpsAccountStatus.canTrade || perpConfigCommon?.ipDisablePerp ? (
         <TradingButtonGroup isMobile={isMobile} />
       ) : (
         <PerpTradingDisabledButtonMemo />

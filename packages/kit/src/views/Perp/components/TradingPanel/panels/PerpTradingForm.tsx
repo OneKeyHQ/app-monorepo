@@ -37,6 +37,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -69,6 +70,7 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -268,6 +270,7 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
 
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
@@ -676,6 +679,11 @@ function PerpTradingForm({
   const handleDepositPress = useCallback(() => {
     void showDepositWithdrawModal('deposit');
   }, [showDepositWithdrawModal]);
+  const shouldShowIpRestrictionNotice = useMemo(
+    () => perpConfigCommon?.ipDisablePerp === true,
+    [perpConfigCommon?.ipDisablePerp],
+  );
+  const shouldHideMobileTpsl = isMobile && shouldShowIpRestrictionNotice;
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -1143,6 +1151,9 @@ function PerpTradingForm({
         </YStack>
       );
     }
+    if (shouldHideMobileTpsl) {
+      return null;
+    }
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
         <XStack alignItems="center" gap="$2">
@@ -1326,6 +1337,10 @@ function PerpTradingForm({
       pt={isMobile || isSpot ? '$0' : '$2.5'}
       flex={isSpot && isMobile ? 1 : undefined}
     >
+      {shouldShowIpRestrictionNotice ? (
+        <PerpIpRestrictionNotice isMobile={isMobile} isSpot={isSpot} />
+      ) : null}
+
       {isMobile ? (
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
