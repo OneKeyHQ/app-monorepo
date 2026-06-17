@@ -9,6 +9,8 @@ interface ISwapKlineOpenParams {
   network: string;
   fromTokenSymbol?: string;
   toTokenSymbol?: string;
+  initialPeriod?: string;
+  fallbackTriggered?: boolean;
 }
 
 interface ISwapKlineTokenSwitchParams {
@@ -16,6 +18,22 @@ interface ISwapKlineTokenSwitchParams {
   toSide: ESwapDirectionType;
   tokenSymbol: string;
   network: string;
+}
+
+interface ISwapKlinePeriodChangeParams {
+  fromPeriod: string;
+  toPeriod: string;
+  tokenSymbol: string;
+  network: string;
+}
+
+interface ISwapKlineLoadErrorParams {
+  status: 'empty' | 'failed';
+  tokenSymbol: string;
+  network: string;
+  period: string;
+  fallbackChain?: string;
+  message?: string;
 }
 
 export class SwapKlineScene extends BaseScene {
@@ -28,6 +46,18 @@ export class SwapKlineScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
   public swapKlineTokenSwitch(params: ISwapKlineTokenSwitchParams) {
+    return params;
+  }
+
+  @LogToServer({ level: 'info' })
+  @LogToLocal({ level: 'info' })
+  public swapKlinePeriodChange(params: ISwapKlinePeriodChangeParams) {
+    return params;
+  }
+
+  @LogToServer({ level: 'info' })
+  @LogToLocal({ level: 'info' })
+  public swapKlineLoadError(params: ISwapKlineLoadErrorParams) {
     return params;
   }
 }

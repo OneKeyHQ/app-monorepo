@@ -26,6 +26,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   type ITradingViewDisabledFeature,
+  type ITradingViewKLineDataReadyData,
+  type ITradingViewKLineLoadErrorData,
+  type ITradingViewKLinePeriodChangeData,
   type ITradingViewPriceUpdateData,
   TRADING_VIEW_DISABLED_FEATURES,
   TradingViewV2,
@@ -604,6 +607,9 @@ type ISwapKLineContentState = {
   tokenUsdFallbackPrice?: string;
   handlePrimaryKLineDataUnavailable: () => void;
   handleChartPriceUpdate: (data: ITradingViewPriceUpdateData) => void;
+  handleKLineDataReady: (data: ITradingViewKLineDataReadyData) => void;
+  handleKLineLoadError: (data: ITradingViewKLineLoadErrorData) => void;
+  handleKLinePeriodChange: (data: ITradingViewKLinePeriodChangeData) => void;
   handleSelectedSideChange: (side: ESwapDirectionType) => void;
 };
 
@@ -627,6 +633,9 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const [chartRealtimePrice, setChartRealtimePrice] =
     useState<ISwapKLineChartRealtimePrice>();
   const hasTrackedOpenRef = useRef(false);
+  const lastKLineUserPeriodRef = useRef<string | undefined>(undefined);
+  const reportedKLineLoadErrorKeysRef = useRef(new Set<string>());
+  const kLineFallbackChainRef = useRef<string[]>([]);
 
   const resolvedSelectedSide = useMemo(() => {
     if (selectedSide) {
@@ -686,22 +695,11 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     setChartRealtimePrice((prev) =>
       prev?.tokenKey === selectedTokenKey ? prev : undefined,
     );
+    hasTrackedOpenRef.current = false;
+    lastKLineUserPeriodRef.current = undefined;
+    reportedKLineLoadErrorKeysRef.current.clear();
+    kLineFallbackChainRef.current = [];
   }, [selectedTokenKey]);
-
-  useEffect(() => {
-    if (hasTrackedOpenRef.current || !selectedToken || !resolvedSelectedSide) {
-      return;
-    }
-
-    hasTrackedOpenRef.current = true;
-    defaultLogger.swap.swapKline.swapKlineOpen({
-      defaultSide: resolvedSelectedSide,
-      tokenSymbol: selectedToken.symbol,
-      network: selectedToken.networkId,
-      fromTokenSymbol: fromToken?.symbol,
-      toTokenSymbol: toToken?.symbol,
-    });
-  }, [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol]);
 
   const handleChartPriceUpdate = useCallback(
     (data: ITradingViewPriceUpdateData) => {
@@ -735,6 +733,89 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       });
     },
     [selectedToken, selectedTokenKey],
+  );
+
+  const buildKLineFallbackChain = useCallback(() => {
+    const chain = kLineFallbackChainRef.current.join(',');
+    return chain || undefined;
+  }, []);
+
+  const handleKLineDataReady = useCallback(
+    (data: ITradingViewKLineDataReadyData) => {
+      if (
+        hasTrackedOpenRef.current ||
+        !selectedToken ||
+        !resolvedSelectedSide
+      ) {
+        return;
+      }
+
+      hasTrackedOpenRef.current = true;
+      lastKLineUserPeriodRef.current = data.period;
+      defaultLogger.swap.swapKline.swapKlineOpen({
+        defaultSide: resolvedSelectedSide,
+        tokenSymbol: selectedToken.symbol,
+        network: selectedToken.networkId,
+        fromTokenSymbol: fromToken?.symbol,
+        toTokenSymbol: toToken?.symbol,
+        initialPeriod: data.period,
+        fallbackTriggered: kLineFallbackChainRef.current.length > 0,
+      });
+    },
+    [fromToken?.symbol, resolvedSelectedSide, selectedToken, toToken?.symbol],
+  );
+
+  const handleKLineLoadError = useCallback(
+    (data: ITradingViewKLineLoadErrorData) => {
+      if (!selectedToken) {
+        return;
+      }
+      const fallbackSegment = `${data.period}->${data.status}`;
+      if (
+        kLineFallbackChainRef.current[
+          kLineFallbackChainRef.current.length - 1
+        ] !== fallbackSegment
+      ) {
+        kLineFallbackChainRef.current.push(fallbackSegment);
+      }
+      const errorKey = `${selectedTokenKey}:${data.period}:${data.status}`;
+      if (reportedKLineLoadErrorKeysRef.current.has(errorKey)) {
+        return;
+      }
+      reportedKLineLoadErrorKeysRef.current.add(errorKey);
+      defaultLogger.swap.swapKline.swapKlineLoadError({
+        status: data.status,
+        tokenSymbol: selectedToken.symbol,
+        network: selectedToken.networkId,
+        period: data.period,
+        fallbackChain: buildKLineFallbackChain(),
+        message: data.message,
+      });
+    },
+    [buildKLineFallbackChain, selectedToken, selectedTokenKey],
+  );
+
+  const handleKLinePeriodChange = useCallback(
+    (data: ITradingViewKLinePeriodChangeData) => {
+      if (!selectedToken) {
+        return;
+      }
+      const fromPeriod =
+        data.fromPeriod === data.toPeriod
+          ? (lastKLineUserPeriodRef.current ?? data.fromPeriod)
+          : data.fromPeriod;
+      if (fromPeriod === data.toPeriod) {
+        return;
+      }
+      lastKLineUserPeriodRef.current = data.toPeriod;
+      defaultLogger.swap.swapKline.swapKlinePeriodChange({
+        fromPeriod,
+        toPeriod: data.toPeriod,
+        tokenSymbol: selectedToken.symbol,
+        network: selectedToken.networkId,
+      });
+    },
+    [selectedToken],
   );
 
   const handleSelectedSideChange = useCallback(
@@ -773,12 +854,18 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       tokenUsdFallbackPrice,
       handlePrimaryKLineDataUnavailable,
       handleChartPriceUpdate,
+      handleKLineDataReady,
+      handleKLineLoadError,
+      handleKLinePeriodChange,
       handleSelectedSideChange,
     }),
     [
       displayPrice,
       fromToken,
       handleChartPriceUpdate,
+      handleKLineDataReady,
+      handleKLineLoadError,
+      handleKLinePeriodChange,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       isResolvingSelectedToken,
@@ -1083,6 +1170,9 @@ function SwapKLineContentBody({
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         onPriceUpdate={state.handleChartPriceUpdate}
+        onKLineDataReady={state.handleKLineDataReady}
+        onKLineLoadError={state.handleKLineLoadError}
+        onKLinePeriodChange={state.handleKLinePeriodChange}
         w="100%"
         h="100%"
       />
