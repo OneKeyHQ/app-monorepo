@@ -109,9 +109,15 @@ const ProtocolCategoryGroup = memo(
                   ) : null}
                 </XStack>
                 <ProtocolSectionedPositionTable
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  protocol={protocol}
                   position={position}
+                  actionPosition={actionPosition}
                   currencySymbol={currencySymbol}
                   priceUnavailableLabel={priceUnavailableLabel}
+                  supportedActions={supportedActions}
+                  onActionSuccess={onActionSuccess}
                 />
                 <ProtocolPositionActionButton
                   accountId={accountId}
@@ -119,6 +125,8 @@ const ProtocolCategoryGroup = memo(
                   protocol={protocol}
                   position={actionPosition}
                   supportedActions={supportedActions}
+                  placement="manage"
+                  visualVariant="info"
                   containerProps={{ alignSelf: 'flex-end', mx: '$5' }}
                   onSuccess={onActionSuccess}
                 />

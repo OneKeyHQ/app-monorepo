@@ -10,7 +10,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
@@ -39,6 +39,8 @@ type IProtocolPositionActionButtonProps = {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol' | 'indexedAccountId'>;
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
+  placement?: 'all' | 'balance' | 'rewards' | 'manage';
+  visualVariant?: 'solid' | 'info';
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
@@ -236,6 +238,73 @@ function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
   ].join('-');
 }
 
+function isBalancePlacementAction(action: EDeFiPositionAction) {
+  return (
+    action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.ClaimWithdrawal ||
+    action === EDeFiPositionAction.RemoveLiquidity
+  );
+}
+
+function isRewardsPlacementAction(action: EDeFiPositionAction) {
+  return action === EDeFiPositionAction.Claim;
+}
+
+function isVisibleInPlacement({
+  action,
+  placement,
+}: {
+  action: EDeFiPositionAction;
+  placement: NonNullable<IProtocolPositionActionButtonProps['placement']>;
+}) {
+  if (placement === 'all') return true;
+  if (placement === 'balance') return isBalancePlacementAction(action);
+  if (placement === 'rewards') return isRewardsPlacementAction(action);
+  return false;
+}
+
+function shouldShowManageInPlacement(
+  placement: NonNullable<IProtocolPositionActionButtonProps['placement']>,
+) {
+  return placement === 'all' || placement === 'manage';
+}
+
+const INFO_OUTLINE_BUTTON_PROPS = {
+  variant: 'link',
+  childrenAsText: false,
+  px: '$1.5',
+  py: '$0.5',
+  borderRadius: '$2',
+  borderWidth: '$px',
+  borderColor: '$borderInfoSubdued',
+  bg: '$transparent',
+  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
+  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
+} as const;
+
+const SOLID_BUTTON_PROPS = {
+  variant: 'primary',
+} as const;
+
+function getActionButtonFrameProps(isInfo: boolean) {
+  return isInfo ? INFO_OUTLINE_BUTTON_PROPS : SOLID_BUTTON_PROPS;
+}
+
+function renderActionButtonLabel({
+  isInfo,
+  label,
+}: {
+  isInfo: boolean;
+  label: string;
+}) {
+  if (!isInfo) return label;
+  return (
+    <SizableText size="$bodySmMedium" color="$textInfo">
+      {label}
+    </SizableText>
+  );
+}
+
 const ProtocolPositionActionButton = memo(
   ({
     accountId,
@@ -243,6 +312,8 @@ const ProtocolPositionActionButton = memo(
     protocol,
     position,
     supportedActions,
+    placement = 'all',
+    visualVariant = 'solid',
     containerProps,
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
@@ -278,15 +349,18 @@ const ProtocolPositionActionButton = memo(
       () => getAaveBorrowManageParams({ protocol, position }),
       [position, protocol],
     );
-    const visibleActions = useMemo(
-      () =>
-        hasAaveDebt
-          ? actions.filter(
-              (action) => action.action !== EDeFiPositionAction.Withdraw,
-            )
-          : actions,
-      [actions, hasAaveDebt],
-    );
+    const visibleActions = useMemo(() => {
+      const actionsForPosition = hasAaveDebt
+        ? actions.filter(
+            (action) => action.action !== EDeFiPositionAction.Withdraw,
+          )
+        : actions;
+      return actionsForPosition.filter((action) =>
+        isVisibleInPlacement({ action: action.action, placement }),
+      );
+    }, [actions, hasAaveDebt, placement]);
+    const shouldShowManage =
+      shouldShowManageInPlacement(placement) && Boolean(borrowManageParams);
     const handleActionPress = useCallback(
       async (action: (typeof visibleActions)[number]) => {
         if (!accountId) {
@@ -354,16 +428,19 @@ const ProtocolPositionActionButton = memo(
 
     if (
       !isActionAccount ||
-      (visibleActions.length === 0 && !borrowManageParams)
+      (visibleActions.length === 0 && !shouldShowManage)
     ) {
       return null;
     }
 
+    const isInfo = visualVariant === 'info';
+    const actionButtonFrameProps = getActionButtonFrameProps(isInfo);
+
     return (
       <XStack
-        gap="$1.5"
+        gap={isInfo ? '$1' : '$1.5'}
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent={isInfo ? 'flex-start' : 'flex-end'}
         flexShrink={1}
         flexWrap="wrap"
         minWidth={0}
@@ -376,24 +453,30 @@ const ProtocolPositionActionButton = memo(
               key={actionKey}
               testID={`defi-position-action-${action.action}`}
               size="small"
-              variant="primary"
+              {...actionButtonFrameProps}
               disabled={Boolean(submittingActionKey)}
               loading={submittingActionKey === actionKey}
               onPress={() => void handleActionPress(action)}
             >
-              {getActionLabel({ action: action.action, intl })}
+              {renderActionButtonLabel({
+                isInfo,
+                label: getActionLabel({ action: action.action, intl }),
+              })}
             </Button>
           );
         })}
-        {borrowManageParams ? (
+        {shouldShowManage ? (
           <Button
             testID="defi-position-action-manage"
             size="small"
-            variant="primary"
+            {...actionButtonFrameProps}
             disabled={Boolean(submittingActionKey)}
             onPress={handleManagePress}
           >
-            {intl.formatMessage({ id: ETranslations.global_manage })}
+            {renderActionButtonLabel({
+              isInfo,
+              label: intl.formatMessage({ id: ETranslations.global_manage }),
+            })}
           </Button>
         ) : null}
       </XStack>

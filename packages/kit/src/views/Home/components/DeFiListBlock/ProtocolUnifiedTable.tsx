@@ -8,10 +8,11 @@ import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/com
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IDeFiAsset,
-  IDeFiProtocol,
-  IDeFiSupportedProtocolAction,
+import {
+  EDeFiAssetType,
+  type IDeFiAsset,
+  type IDeFiProtocol,
+  type IDeFiSupportedProtocolAction,
 } from '@onekeyhq/shared/types/defi';
 
 import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
@@ -64,6 +65,18 @@ const MAX_BALANCE_LINES = 3;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
+function isRewardAsset(asset: IProtocolUnifiedRow['primaryAssets'][number]) {
+  return asset.type === EDeFiAssetType.REWARD || asset.category === 'reward';
+}
+
+function isRewardsOnlyRow(row: IProtocolUnifiedRow) {
+  return (
+    row.rewardsExtraAssets.length === 0 &&
+    row.primaryAssets.length > 0 &&
+    row.primaryAssets.every(isRewardAsset)
+  );
+}
+
 type IProtocolUnifiedTableProps = {
   accountId?: string;
   indexedAccountId?: string;
@@ -93,7 +106,10 @@ const ProtocolUnifiedTable = memo(
     const intl = useIntl();
 
     const showRewardsColumn = useMemo(
-      () => rows.some((row) => row.rewardsExtraAssets.length > 0),
+      () =>
+        rows.some(
+          (row) => row.rewardsExtraAssets.length > 0 || isRewardsOnlyRow(row),
+        ),
       [rows],
     );
     const labels = useMemo(
@@ -183,12 +199,17 @@ const ProtocolUnifiedTable = memo(
             positionUsdState.hasAvailableValue &&
             positionUsdState.hasUnavailableValue;
           const isExpanded = expandedRows.has(row.rowKey);
-          const visibleBalanceAssets = isExpanded
+          const isPrimaryRewardsOnly = isRewardsOnlyRow(row);
+          const balanceAssets = isPrimaryRewardsOnly ? [] : row.primaryAssets;
+          const rewardsAssets = isPrimaryRewardsOnly
             ? row.primaryAssets
-            : topAssetsByValue(row.primaryAssets, MAX_BALANCE_LINES);
+            : row.rewardsExtraAssets;
+          const visibleBalanceAssets = isExpanded
+            ? balanceAssets
+            : topAssetsByValue(balanceAssets, MAX_BALANCE_LINES);
           const balanceOverflow = Math.max(
             0,
-            row.primaryAssets.length - MAX_BALANCE_LINES,
+            balanceAssets.length - MAX_BALANCE_LINES,
           );
           const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
@@ -199,9 +220,9 @@ const ProtocolUnifiedTable = memo(
             poolName: row.positionDisplay.text,
             poolFullName: row.positionDisplay.text,
             category: row.category,
-            assets: row.primaryAssets,
+            assets: balanceAssets,
             debts: [],
-            rewards: row.rewardsExtraAssets,
+            rewards: rewardsAssets,
             value: '0',
             sourcePositions: row.sourcePositions,
           };
@@ -292,15 +313,47 @@ const ProtocolUnifiedTable = memo(
                       />
                     </XStack>
                   ) : null}
+                  <ProtocolPositionActionButton
+                    accountId={accountId}
+                    indexedAccountId={indexedAccountId}
+                    protocol={protocol}
+                    position={actionPosition}
+                    supportedActions={supportedActions}
+                    placement="balance"
+                    visualVariant="info"
+                    containerProps={{
+                      mt: '$1',
+                      alignSelf: 'flex-start',
+                      justifyContent: 'flex-start',
+                    }}
+                    onSuccess={onActionSuccess}
+                  />
                 </YStack>
                 {showRewardsColumn ? (
                   <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
-                    {row.rewardsExtraAssets.length > 0 ? (
-                      <ProtocolRewardsCell
-                        rewards={row.rewardsExtraAssets}
-                        currencySymbol={currencySymbol}
-                        priceUnavailableLabel={priceUnavailableLabel}
-                      />
+                    {rewardsAssets.length > 0 ? (
+                      <>
+                        <ProtocolRewardsCell
+                          rewards={rewardsAssets}
+                          currencySymbol={currencySymbol}
+                          priceUnavailableLabel={priceUnavailableLabel}
+                        />
+                        <ProtocolPositionActionButton
+                          accountId={accountId}
+                          indexedAccountId={indexedAccountId}
+                          protocol={protocol}
+                          position={actionPosition}
+                          supportedActions={supportedActions}
+                          placement="rewards"
+                          visualVariant="info"
+                          containerProps={{
+                            mt: '$1',
+                            alignSelf: 'flex-start',
+                            justifyContent: 'flex-start',
+                          }}
+                          onSuccess={onActionSuccess}
+                        />
+                      </>
                     ) : null}
                   </Stack>
                 ) : null}
@@ -329,7 +382,9 @@ const ProtocolUnifiedTable = memo(
                     protocol={protocol}
                     position={actionPosition}
                     supportedActions={supportedActions}
-                    containerProps={{ mt: '$2' }}
+                    placement="manage"
+                    visualVariant="info"
+                    containerProps={{ mt: '$1', justifyContent: 'flex-end' }}
                     onSuccess={onActionSuccess}
                   />
                 </Stack>
