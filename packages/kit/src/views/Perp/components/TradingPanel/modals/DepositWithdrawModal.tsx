@@ -1863,13 +1863,8 @@ function DepositWithdrawContent({
     if (shouldShowBuyButton) {
       return intl.formatMessage({ id: ETranslations.global_add_money });
     }
-    return intl.formatMessage({
-      id:
-        selectedAction === 'deposit'
-          ? ETranslations.perp_trade_deposit
-          : ETranslations.perp_trade_withdraw,
-    });
-  }, [intl, selectedAction, shouldShowBuyButton]);
+    return buttonText;
+  }, [buttonText, intl, shouldShowBuyButton]);
 
   const withdrawFeeHintTrigger = useMemo(
     () => (
