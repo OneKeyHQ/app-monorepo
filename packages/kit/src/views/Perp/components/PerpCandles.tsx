@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { DebugRenderTracker, Stack } from '@onekeyhq/components';
+import { DebugRenderTracker, Stack, useMedia } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -23,7 +23,9 @@ export function PerpCandles({
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
-  const enablePerpsTradingUi = false;
+  const { gtMd } = useMedia();
+  // Chart order ticket + drag/cancel run on large desktop/web/ext screens only.
+  const enablePerpsTradingUi = gtMd && !platformEnv.isNative;
 
   const { displayPair, displayCoin } = useMemo(() => {
     if (
