@@ -1,7 +1,6 @@
 import { memo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import {
   type ILocalizedProtocolCategoryGroup,
@@ -118,17 +117,6 @@ const ProtocolCategoryGroup = memo(
                   priceUnavailableLabel={priceUnavailableLabel}
                   supportedActions={supportedActions}
                   onActionSuccess={onActionSuccess}
-                />
-                <ProtocolPositionActionButton
-                  accountId={accountId}
-                  indexedAccountId={indexedAccountId}
-                  protocol={protocol}
-                  position={actionPosition}
-                  supportedActions={supportedActions}
-                  placement="manage"
-                  visualVariant="info"
-                  containerProps={{ alignSelf: 'flex-end', mx: '$5' }}
-                  onSuccess={onActionSuccess}
                 />
               </YStack>
             );

@@ -39,7 +39,7 @@ type IProtocolPositionActionButtonProps = {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol' | 'indexedAccountId'>;
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
-  placement?: 'all' | 'balance' | 'rewards' | 'manage';
+  placement?: 'all' | 'balance' | 'rewards' | 'debt';
   visualVariant?: 'solid' | 'info';
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
   onSuccess?: (
@@ -263,10 +263,32 @@ function isVisibleInPlacement({
   return false;
 }
 
-function shouldShowManageInPlacement(
+// Manage actions sit under the asset they act on, like the other inline
+// actions: Withdraw with the supplied balance, Repay with the borrowed debt.
+function getManageActionTypesForPlacement(
   placement: NonNullable<IProtocolPositionActionButtonProps['placement']>,
-) {
-  return placement === 'all' || placement === 'manage';
+): EManagePositionType[] {
+  const types: EManagePositionType[] = [];
+  if (placement === 'all' || placement === 'balance') {
+    types.push(EManagePositionType.Withdraw);
+  }
+  if (placement === 'all' || placement === 'debt') {
+    types.push(EManagePositionType.Repay);
+  }
+  return types;
+}
+
+function getManageActionLabel({
+  type,
+  intl,
+}: {
+  type: EManagePositionType;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  if (type === EManagePositionType.Repay) {
+    return intl.formatMessage({ id: ETranslations.defi_repay });
+  }
+  return intl.formatMessage({ id: ETranslations.global_withdraw });
 }
 
 const INFO_OUTLINE_BUTTON_PROPS = {
@@ -359,8 +381,9 @@ const ProtocolPositionActionButton = memo(
         isVisibleInPlacement({ action: action.action, placement }),
       );
     }, [actions, hasAaveDebt, placement]);
+    const manageActionTypes = getManageActionTypesForPlacement(placement);
     const shouldShowManage =
-      shouldShowManageInPlacement(placement) && Boolean(borrowManageParams);
+      manageActionTypes.length > 0 && Boolean(borrowManageParams);
     const handleActionPress = useCallback(
       async (action: (typeof visibleActions)[number]) => {
         if (!accountId) {
@@ -403,28 +426,31 @@ const ProtocolPositionActionButton = memo(
       },
       [accountId, onSuccess, protocol.networkId, submitProtocolPositionAction],
     );
-    const handleManagePress = useCallback(() => {
-      if (!accountId || !borrowManageParams) return;
-      BorrowNavigation.pushToBorrowManagePosition(navigation, {
+    const handleManagePress = useCallback(
+      (type: EManagePositionType) => {
+        if (!accountId || !borrowManageParams) return;
+        BorrowNavigation.pushToBorrowManagePosition(navigation, {
+          accountId,
+          indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
+          networkId: protocol.networkId,
+          provider: borrowManageParams.provider,
+          marketAddress: borrowManageParams.marketAddress,
+          reserveAddress: borrowManageParams.reserveAddress,
+          symbol: borrowManageParams.symbol,
+          logoURI: borrowManageParams.logoURI,
+          providerLogoURI: borrowManageParams.providerLogoURI,
+          type,
+        });
+      },
+      [
         accountId,
-        indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
-        networkId: protocol.networkId,
-        provider: borrowManageParams.provider,
-        marketAddress: borrowManageParams.marketAddress,
-        reserveAddress: borrowManageParams.reserveAddress,
-        symbol: borrowManageParams.symbol,
-        logoURI: borrowManageParams.logoURI,
-        providerLogoURI: borrowManageParams.providerLogoURI,
-        type: EManagePositionType.Withdraw,
-      });
-    }, [
-      accountId,
-      borrowManageParams,
-      indexedAccountId,
-      navigation,
-      protocol.indexedAccountId,
-      protocol.networkId,
-    ]);
+        borrowManageParams,
+        indexedAccountId,
+        navigation,
+        protocol.indexedAccountId,
+        protocol.networkId,
+      ],
+    );
 
     if (
       !isActionAccount ||
@@ -465,20 +491,23 @@ const ProtocolPositionActionButton = memo(
             </Button>
           );
         })}
-        {shouldShowManage ? (
-          <Button
-            testID="defi-position-action-manage"
-            size="small"
-            {...actionButtonFrameProps}
-            disabled={Boolean(submittingActionKey)}
-            onPress={handleManagePress}
-          >
-            {renderActionButtonLabel({
-              isInfo,
-              label: intl.formatMessage({ id: ETranslations.global_manage }),
-            })}
-          </Button>
-        ) : null}
+        {shouldShowManage
+          ? manageActionTypes.map((manageType) => (
+              <Button
+                key={manageType}
+                testID={`defi-position-action-manage-${manageType}`}
+                size="small"
+                {...actionButtonFrameProps}
+                disabled={Boolean(submittingActionKey)}
+                onPress={() => handleManagePress(manageType)}
+              >
+                {renderActionButtonLabel({
+                  isInfo,
+                  label: getManageActionLabel({ type: manageType, intl }),
+                })}
+              </Button>
+            ))
+          : null}
       </XStack>
     );
   },

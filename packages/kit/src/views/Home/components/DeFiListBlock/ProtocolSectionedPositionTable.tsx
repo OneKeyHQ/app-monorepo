@@ -54,6 +54,7 @@ function getSectionActionPlacement(
 ) {
   if (assetType === 'rewards') return 'rewards';
   if (assetType === 'supplied' || assetType === 'other') return 'balance';
+  if (assetType === 'borrowed') return 'debt';
   return undefined;
 }
 

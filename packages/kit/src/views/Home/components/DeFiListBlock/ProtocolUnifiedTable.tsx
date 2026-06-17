@@ -376,17 +376,6 @@ const ProtocolUnifiedTable = memo(
                     numberOfLines={1}
                     fontVariant={TABULAR_NUMS}
                   />
-                  <ProtocolPositionActionButton
-                    accountId={accountId}
-                    indexedAccountId={indexedAccountId}
-                    protocol={protocol}
-                    position={actionPosition}
-                    supportedActions={supportedActions}
-                    placement="manage"
-                    visualVariant="info"
-                    containerProps={{ mt: '$1', justifyContent: 'flex-end' }}
-                    onSuccess={onActionSuccess}
-                  />
                 </Stack>
               </XStack>
             </YStack>
