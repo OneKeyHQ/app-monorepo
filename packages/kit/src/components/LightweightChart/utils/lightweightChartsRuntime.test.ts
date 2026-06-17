@@ -16,6 +16,9 @@ const { getLightweightChartsRuntimeScriptTag } = jest.requireActual<
 const { resolveSerializablePriceFormatterType } = jest.requireActual<
   typeof import('./priceFormatterType')
 >('./priceFormatterType');
+const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
+  typeof import('./priceFormatterType')
+>('./priceFormatterType');
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
   it('inlines the lightweight-charts runtime without remote script loading', () => {
@@ -70,5 +73,30 @@ describe('resolveSerializablePriceFormatterType', () => {
         priceFormatter: (value) => `$${value.toFixed(2)}`,
       }),
     ).toBe('usd');
+  });
+});
+
+describe('resolveSerializablePriceFormatterTickStep', () => {
+  it('does not force dotted area axis tick filtering by default', () => {
+    expect(
+      resolveSerializablePriceFormatterTickStep({
+        seriesType: 'dotted-area',
+      }),
+    ).toBeUndefined();
+  });
+
+  it('uses only caller-provided tick steps for dotted area charts', () => {
+    expect(
+      resolveSerializablePriceFormatterTickStep({
+        seriesType: 'dotted-area',
+        priceFormatterTickStep: 2,
+      }),
+    ).toBe(2);
+    expect(
+      resolveSerializablePriceFormatterTickStep({
+        seriesType: 'area',
+        priceFormatterTickStep: 2,
+      }),
+    ).toBeUndefined();
   });
 });

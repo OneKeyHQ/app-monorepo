@@ -5,7 +5,10 @@ import { useTheme } from '@tamagui/core';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
-import { resolveSerializablePriceFormatterType } from '../utils/priceFormatterType';
+import {
+  resolveSerializablePriceFormatterTickStep,
+  resolveSerializablePriceFormatterType,
+} from '../utils/priceFormatterType';
 
 import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -24,6 +27,7 @@ interface IUseChartConfigProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
+  priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
@@ -45,6 +49,7 @@ export function useChartConfig({
   showHorzGridLines = false,
   priceScaleMargins,
   priceFormatter,
+  priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
   baselineOptions,
@@ -57,8 +62,10 @@ export function useChartConfig({
     seriesType: resolvedSeriesType,
     priceFormatter,
   });
-  const priceFormatterTickStep =
-    resolvedSeriesType === 'dotted-area' ? 2 : undefined;
+  const priceFormatterTickStep = resolveSerializablePriceFormatterTickStep({
+    seriesType: resolvedSeriesType,
+    priceFormatterTickStep: priceFormatterTickStepProp,
+  });
 
   return useMemo(
     () => ({

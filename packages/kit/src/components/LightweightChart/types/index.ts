@@ -58,6 +58,7 @@ export interface ILightweightChartProps {
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
   priceFormatter?: (price: number) => string;
+  priceFormatterTickStep?: number;
   fontSize?: number;
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;

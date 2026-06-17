@@ -128,6 +128,7 @@ function LightweightChartReferenceCard() {
           showTimeScale={false}
           priceScaleMargins={{ top: 0.14, bottom: 0.08 }}
           priceFormatter={formatAxisPrice}
+          priceFormatterTickStep={2}
           fontSize={16}
         />
       </Stack>

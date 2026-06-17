@@ -33,3 +33,17 @@ export function resolveSerializablePriceFormatterType({
 
   return 'percent';
 }
+
+export function resolveSerializablePriceFormatterTickStep({
+  seriesType,
+  priceFormatterTickStep,
+}: {
+  seriesType: 'area' | 'baseline' | 'dotted-area';
+  priceFormatterTickStep?: number;
+}): number | undefined {
+  if (seriesType !== 'dotted-area') {
+    return undefined;
+  }
+
+  return priceFormatterTickStep;
+}
