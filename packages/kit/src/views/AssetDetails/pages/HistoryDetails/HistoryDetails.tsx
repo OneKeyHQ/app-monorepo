@@ -47,6 +47,7 @@ import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/as
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -558,6 +559,12 @@ function HistoryDetails() {
       alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       checkIsFocused,
+      // Seed the last-known detail synchronously on re-open so the confirming
+      // subtitle (ETA) renders immediately instead of flashing the "waiting"
+      // fallback before the request resolves (OK-56372).
+      swrKey: txid
+        ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
+        : undefined,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
