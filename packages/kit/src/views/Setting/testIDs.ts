@@ -44,6 +44,10 @@ export const SettingTestIDs = {
     'setting-local-secret-envelope-restore-self-test-button',
   localSecretEnvelopeRestoreSelfTestConfirm:
     'setting-local-secret-envelope-restore-self-test-confirm',
+  localSecretEnvelopeMigrationDiagnosticButton:
+    'setting-local-secret-envelope-migration-diagnostic-button',
+  localSecretEnvelopeMigrationDiagnosticConfirm:
+    'setting-local-secret-envelope-migration-diagnostic-confirm',
   localSecretEnvelopeSelfTestCopyRaw:
     'setting-local-secret-envelope-self-test-copy-raw',
 

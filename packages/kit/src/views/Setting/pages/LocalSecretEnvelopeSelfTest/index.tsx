@@ -39,7 +39,41 @@ export default function LocalSecretEnvelopeSelfTest() {
   >();
   const testKind = route.params?.testKind ?? 'debug';
   const isRestore = testKind === 'restore';
-  const title = isRestore ? 'LSE Restore Self-Test' : 'LSE Self-Test';
+  const isDiagnostic = testKind === 'diagnostic';
+  let title = 'LSE Self-Test';
+  if (isRestore) {
+    title = 'LSE Restore Self-Test';
+  } else if (isDiagnostic) {
+    title = 'LSE Migration Diagnostic';
+  }
+
+  let pageDescription =
+    'Non-destructive verification of LSE wrap/unwrap and per-layer key-deletion guards. Runs against the current platform configuration.';
+  if (isRestore) {
+    pageDescription =
+      'Non-destructive verification of restore/export guards for Cloud Backup and Prime Transfer. Runs against the current platform configuration.';
+  } else if (isDiagnostic) {
+    pageDescription =
+      'Read-only scan of existing credentials and the verify-string. Reports the encryption method and KDF iterations per record, tagged confirmed (exact) or inferred (default). For LSE records it peels only the device layer (never the password) to read the exact inner iterations. It never decrypts the secret or exposes ciphertext / plaintext. Runs against the current platform configuration.';
+  }
+
+  let runButtonTestID: string =
+    SettingTestIDs.localSecretEnvelopeSelfTestButton;
+  if (isRestore) {
+    runButtonTestID = SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton;
+  } else if (isDiagnostic) {
+    runButtonTestID =
+      SettingTestIDs.localSecretEnvelopeMigrationDiagnosticButton;
+  }
+
+  const getSummaryHeading = (passed: boolean) => {
+    if (isDiagnostic) {
+      return passed
+        ? 'No legacy / low-KDF records found'
+        : 'Found records needing upgrade';
+    }
+    return passed ? 'All checks passed' : 'Some checks failed';
+  };
 
   const { copyText } = useClipboard();
   const [isRunning, setIsRunning] = useState(false);
@@ -48,18 +82,34 @@ export default function LocalSecretEnvelopeSelfTest() {
   >();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
+  const hasResult = Boolean(report || errorMessage);
+  let runButtonLabel = hasResult ? 'Re-run test' : 'Run test';
+  if (isDiagnostic) {
+    runButtonLabel = hasResult ? 'Re-scan' : 'Run scan';
+  }
+
   const runTest = useCallback(
     async (params: IBackgroundMethodWithDevOnlyPassword) => {
       setIsRunning(true);
       setErrorMessage(undefined);
       try {
-        const result = isRestore
-          ? await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeRestoreSelfTest(
-              params,
-            )
-          : await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeDebugSelfTest(
+        let result: ILocalSecretEnvelopeE2ETestReport;
+        if (isDiagnostic) {
+          result =
+            await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeMigrationDiagnostic(
               params,
             );
+        } else if (isRestore) {
+          result =
+            await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeRestoreSelfTest(
+              params,
+            );
+        } else {
+          result =
+            await backgroundApiProxy.serviceE2E.runLocalSecretEnvelopeDebugSelfTest(
+              params,
+            );
+        }
         setReport(result);
       } catch (error) {
         setReport(undefined);
@@ -68,26 +118,36 @@ export default function LocalSecretEnvelopeSelfTest() {
         setIsRunning(false);
       }
     },
-    [isRestore],
+    [isDiagnostic, isRestore],
   );
 
   const handleRun = useCallback(() => {
+    let description =
+      'Creates temporary LSE records and keys, verifies unwrap and key deletion behavior, then cleans up test data.';
+    let confirmTestID: string =
+      SettingTestIDs.localSecretEnvelopeSelfTestConfirm;
+    if (isRestore) {
+      description =
+        'Creates a temporary imported credential LSE record, verifies local read, Cloud Backup export, and Prime Transfer export guards, then cleans up test data.';
+      confirmTestID = SettingTestIDs.localSecretEnvelopeRestoreSelfTestConfirm;
+    } else if (isDiagnostic) {
+      description =
+        'Read-only scan of existing credentials and the verify-string. Reports encryption method + KDF iterations (tagged confirmed / inferred) per record. For LSE records it peels only the device layer (never the password) to read the exact inner iterations. No secret, ciphertext, or plaintext is exposed.';
+      confirmTestID =
+        SettingTestIDs.localSecretEnvelopeMigrationDiagnosticConfirm;
+    }
     showDevOnlyPasswordDialog({
       title,
-      description: isRestore
-        ? 'Creates a temporary imported credential LSE record, verifies local read, Cloud Backup export, and Prime Transfer export guards, then cleans up test data.'
-        : 'Creates temporary LSE records and keys, verifies unwrap and key deletion behavior, then cleans up test data.',
+      description,
       confirmButtonProps: {
-        testID: isRestore
-          ? SettingTestIDs.localSecretEnvelopeRestoreSelfTestConfirm
-          : SettingTestIDs.localSecretEnvelopeSelfTestConfirm,
+        testID: confirmTestID,
         variant: 'primary',
       },
       onConfirm: async (params) => {
         await runTest(params);
       },
     });
-  }, [isRestore, runTest, title]);
+  }, [isDiagnostic, isRestore, runTest, title]);
 
   const groups = useMemo(() => {
     if (!report) {
@@ -115,9 +175,7 @@ export default function LocalSecretEnvelopeSelfTest() {
       <Page.Header title={title} />
       <YStack gap="$4" px="$5" py="$4">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {isRestore
-            ? 'Non-destructive verification of restore/export guards for Cloud Backup and Prime Transfer. Runs against the current platform configuration.'
-            : 'Non-destructive verification of LSE wrap/unwrap and per-layer key-deletion guards. Runs against the current platform configuration.'}
+          {pageDescription}
         </SizableText>
 
         <Button
@@ -125,13 +183,9 @@ export default function LocalSecretEnvelopeSelfTest() {
           loading={isRunning}
           disabled={isRunning}
           onPress={handleRun}
-          testID={
-            isRestore
-              ? SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton
-              : SettingTestIDs.localSecretEnvelopeSelfTestButton
-          }
+          testID={runButtonTestID}
         >
-          {report || errorMessage ? 'Re-run test' : 'Run test'}
+          {runButtonLabel}
         </Button>
 
         {errorMessage ? (
@@ -153,7 +207,7 @@ export default function LocalSecretEnvelopeSelfTest() {
                   {report.passed ? '✅' : '❌'}
                 </SizableText>
                 <SizableText size="$headingMd">
-                  {report.passed ? 'All checks passed' : 'Some checks failed'}
+                  {getSummaryHeading(report.passed)}
                 </SizableText>
               </XStack>
               <SizableText size="$bodyMd" color="$textSubdued">

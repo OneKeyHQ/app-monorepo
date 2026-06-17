@@ -493,6 +493,13 @@ const BaseDevSettingsSection = () => {
     );
   }, [navigation]);
 
+  const handleOpenLocalSecretEnvelopeMigrationDiagnostic = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'diagnostic' },
+    );
+  }, [navigation]);
+
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
       title: 'Referral bind guard will trigger in 10s.',
@@ -1053,6 +1060,19 @@ const BaseDevSettingsSection = () => {
                         }
                         searchKeywords="Local Secret Envelope LSE restore Cloud Backup Prime Transfer portable credential self-test"
                         onPress={handleOpenLocalSecretEnvelopeRestoreSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="SearchOutline"
+                        title="LSE Migration Diagnostic"
+                        subtitle="Read-only scan: encryption method + KDF iterations (confirmed/inferred) per record, no secret exposed"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeMigrationDiagnosticButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
+                        onPress={
+                          handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
                       />
 
                       <SectionPressItem

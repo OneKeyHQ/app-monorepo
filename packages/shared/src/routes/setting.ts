@@ -1,6 +1,9 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-export type ILocalSecretEnvelopeSelfTestKind = 'debug' | 'restore';
+export type ILocalSecretEnvelopeSelfTestKind =
+  | 'debug'
+  | 'restore'
+  | 'diagnostic';
 
 export enum EModalSettingRoutes {
   SettingListModal = 'SettingListModal',

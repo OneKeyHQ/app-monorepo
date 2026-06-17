@@ -9,7 +9,14 @@ import {
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
+  getSecretEncryptV2LocalTargetIterations,
+  readSecretEncryptPayloadMetadata,
 } from '@onekeyhq/core/src/secret';
+import { PBKDF2_LEGACY_NUM_OF_ITERATIONS } from '@onekeyhq/shared/src/appCrypto/consts';
+import {
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+} from '@onekeyhq/shared/src/appCrypto/modules/aesGcm';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,
@@ -27,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
@@ -35,9 +43,15 @@ import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import {
   buildLocalSecretEnvelopeLayerAdapterResolver,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
+  classifyLocalSecretEnvelopeMigrationCandidate,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
+  detectLocalSecretEnvelopeRuntimePlatform,
+  isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
   isLocalSecretEnvelopeString,
+  isSecureStorageLocalSecretEnvelopeLayerAvailable,
   parseLocalSecretEnvelopeV1,
+  resetSecureStorageLocalSecretEnvelopeProbeCache,
+  stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from '../dbs/local/localSecretEnvelope';
@@ -58,6 +72,7 @@ import { normalizePrimeTransferCredential } from './ServicePrimeTransfer/service
 
 import type {
   ILocalSecretEnvelopeLayerAdapter,
+  ILocalSecretEnvelopeLayerAdapterResolver,
   ILocalSecretEnvelopeLayerKind,
   ILocalSecretEnvelopeRuntimePlatform,
   ILocalSecretEnvelopeStrength,
@@ -169,6 +184,225 @@ function getLocalSecretEnvelopeE2EErrorMessage(error: unknown): string {
   return String(error);
 }
 
+type ILocalSecretEnvelopeDiagnosticCategory =
+  | 'lse'
+  | 'legacy-current'
+  | 'legacy-needs-upgrade'
+  | 'legacy-no-iterations'
+  | 'default'
+  | 'unknown';
+
+// Mask a record id (walletId / accountId) before surfacing it in the dev UI.
+// The id is the DB key, not the credential secret, but imported-account ids can
+// embed an address — so long ids are truncated to avoid showing it in full.
+function maskLocalSecretEnvelopeRecordId(id: string): string {
+  if (!id) {
+    return '(empty id)';
+  }
+  if (id.length <= 16) {
+    return id;
+  }
+  return `${id.slice(0, 8)}…${id.slice(-4)}`;
+}
+
+// Render a KDF iteration count with an explicit confidence tag, so the UI shows
+// whether the number is a 100%-certain value read from a real header
+// ("confirmed") or just a best-guess default we could not verify ("inferred").
+function formatKdfIterations({
+  confidence,
+  iterations,
+  kdf = 'PBKDF2-SHA256',
+}: {
+  confidence: 'confirmed' | 'inferred';
+  iterations: number;
+  kdf?: string;
+}): string {
+  return `${kdf} @ ${iterations} iterations [${
+    confidence === 'confirmed'
+      ? 'confirmed: exact value read from header'
+      : 'inferred: default, not stored in header'
+  }]`;
+}
+
+// Read the inner password-encrypted payload's KDF iteration count for an
+// LSE-wrapped record by peeling ONLY the device-bound layer(s). Unwrapping
+// returns the original inner value (e.g. `|RP|<v2-payload>`), which is STILL
+// password-encrypted — the user password is a deeper layer we never touch. We
+// parse only that inner value's plaintext V2 header for the iteration count and
+// discard the inner value; it is never returned, logged, or surfaced.
+async function readLocalSecretEnvelopeInnerKdf({
+  dataType,
+  envelopeString,
+  resolveLayerAdapter,
+}: {
+  dataType: 'credential' | 'verify-string';
+  envelopeString: string;
+  resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
+}): Promise<string> {
+  const targetIterations = getSecretEncryptV2LocalTargetIterations();
+  // No device-layer adapter available (e.g. keychain locked / wrong platform):
+  // fall back to the migration-gate guarantee that the inner KDF is at target.
+  if (!resolveLayerAdapter) {
+    return formatKdfIterations({
+      confidence: 'inferred',
+      iterations: targetIterations,
+    });
+  }
+  try {
+    const innerValue = await unwrapLocalSecretEnvelopeV1({
+      envelope: envelopeString,
+      expectedDataType: dataType,
+      resolveLayerAdapter,
+    });
+    const innerMeta = readSecretEncryptPayloadMetadata({
+      data: stripLocalSecretPrefix(innerValue),
+    });
+    if (innerMeta.format === 'v2' && typeof innerMeta.iterations === 'number') {
+      return formatKdfIterations({
+        confidence: 'confirmed',
+        iterations: innerMeta.iterations,
+        kdf: innerMeta.kdf,
+      });
+    }
+    if (innerMeta.format === 'legacy-gcm') {
+      return `legacy AES-GCM inner (pre-V2) · ${formatKdfIterations({
+        confidence: 'inferred',
+        iterations: PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+      })}`;
+    }
+    return `legacy/unknown inner container · ${formatKdfIterations({
+      confidence: 'inferred',
+      iterations: PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+    })}`;
+  } catch {
+    // Device key unavailable / biometric declined / adapter missing: keep the
+    // inferred target value rather than failing the whole scan.
+    return formatKdfIterations({
+      confidence: 'inferred',
+      iterations: targetIterations,
+    });
+  }
+}
+
+// Classify a single stored secret record by its ENCRYPTION CONTAINER, reporting
+// the encryption method and KDF iteration count. It NEVER exposes ciphertext or
+// plaintext, and NEVER decrypts the secret: for LSE records it peels only the
+// device-bound layer (not the password) to read the exact inner iterations.
+async function describeLocalSecretEnvelopeRecordEncryption({
+  dataType,
+  rawValue,
+  recordId,
+  resolveLayerAdapter,
+}: {
+  dataType: 'credential' | 'verify-string';
+  rawValue: string;
+  recordId: string;
+  resolveLayerAdapter?: ILocalSecretEnvelopeLayerAdapterResolver;
+}): Promise<{
+  category: ILocalSecretEnvelopeDiagnosticCategory;
+  detail: string;
+  status: ILocalSecretEnvelopeE2ECheckpointStatus;
+}> {
+  const targetIterations = getSecretEncryptV2LocalTargetIterations();
+
+  // Empty / default verify-string placeholder: nothing is encrypted yet.
+  if (dataType === 'verify-string' && rawValue === DEFAULT_VERIFY_STRING) {
+    return {
+      category: 'default',
+      detail: 'default verify-string placeholder · no secret stored · KDF n/a',
+      status: 'skipped',
+    };
+  }
+
+  // LSE-wrapped: surface the envelope's safe metadata (version / strength /
+  // layer kinds + algorithms) and the exact inner KDF iterations obtained by
+  // peeling only the device layer (see readLocalSecretEnvelopeInnerKdf).
+  if (isLocalSecretEnvelopeString(rawValue)) {
+    let envelope: ILocalSecretEnvelopeV1;
+    try {
+      envelope = parseLocalSecretEnvelopeV1(rawValue);
+    } catch (error) {
+      return {
+        category: 'unknown',
+        detail: `LSE-prefixed but could not be parsed: ${getLocalSecretEnvelopeE2EErrorMessage(
+          error,
+        )}`,
+        status: 'failed',
+      };
+    }
+    const layers = envelope.wrappingLayers
+      .map((layer) => `${layer.kind}/${layer.alg}`)
+      .join(' + ');
+    const innerKdf = await readLocalSecretEnvelopeInnerKdf({
+      dataType,
+      envelopeString: rawValue,
+      resolveLayerAdapter,
+    });
+    return {
+      category: 'lse',
+      detail: `LSE v${envelope.version} · strength=${envelope.strength} · layers=[${layers}] · inner ${innerKdf}`,
+      status: 'passed',
+    };
+  }
+
+  // Legacy (not LSE-wrapped): explain whether it WILL be migrated on the next
+  // unlock or is intentionally skipped — so a record that lingers as legacy
+  // (e.g. a keyless wallet whose credential has no |RP|/|PK| inner prefix) shows
+  // a concrete reason rather than looking like a stuck migration.
+  const candidate = classifyLocalSecretEnvelopeMigrationCandidate({
+    dataType,
+    recordId,
+    rawValue,
+  });
+  const migrationNote = candidate.canMigrate
+    ? 'migratable=yes (will wrap on next unlock)'
+    : `migratable=no (${candidate.reason})`;
+
+  // Read the inner container's plaintext header only.
+  const meta = readSecretEncryptPayloadMetadata({
+    data: stripLocalSecretPrefix(rawValue),
+  });
+
+  if (meta.format === 'v2' && typeof meta.iterations === 'number') {
+    const needsUpgrade = meta.iterations < targetIterations;
+    return {
+      category: needsUpgrade ? 'legacy-needs-upgrade' : 'legacy-current',
+      detail: `legacy ${
+        meta.cipher ?? 'AES-256-GCM'
+      } (V2, not LSE-wrapped) · ${formatKdfIterations({
+        confidence: 'confirmed',
+        iterations: meta.iterations,
+        kdf: meta.kdf,
+      })} (target ${targetIterations})${
+        needsUpgrade ? ' · NEEDS KDF UPGRADE' : ''
+      } · ${migrationNote}`,
+      status: needsUpgrade ? 'failed' : 'skipped',
+    };
+  }
+
+  if (meta.format === 'legacy-gcm') {
+    return {
+      category: 'legacy-no-iterations',
+      detail: `legacy AES-GCM (pre-V2) · ${formatKdfIterations({
+        confidence: 'inferred',
+        iterations: PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+      })} · NEEDS UPGRADE · ${migrationNote}`,
+      status: 'failed',
+    };
+  }
+
+  return {
+    category: 'unknown',
+    detail: `legacy CBC or unrecognized container (pre-V2) · ${formatKdfIterations(
+      {
+        confidence: 'inferred',
+        iterations: PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+      },
+    )} · NEEDS UPGRADE · ${migrationNote}`,
+    status: 'failed',
+  };
+}
+
 // Collects per-checkpoint pass/fail/skip results so the self-test can run to
 // the end and report every checkpoint, instead of throwing on first failure.
 function createLocalSecretEnvelopeE2EReporter() {
@@ -257,7 +491,9 @@ async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
   index: number;
   runId: string;
 }): Promise<boolean> {
-  const keyRef = `onekey:lse:e2e:secure-storage:${runId}:${index}`;
+  // Keep within expo-secure-store's allowed key charset [A-Za-z0-9_.-]: a ":"
+  // would make the native OS secure storage reject the key.
+  const keyRef = `onekey_lse_e2e_secure_storage_${runId}_${index}`;
   const recordId = `lse-e2e-secure-storage-${runId}-${index}`;
   const plaintext = '|PK|lse-e2e-secure-storage-portable-payload';
   const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
@@ -1455,6 +1691,296 @@ class ServiceE2E extends ServiceBase {
       }
       await this.resetLocalSecretEnvelopeE2ESelfTestState(params);
     }
+  }
+
+  // Dev-only, read-only, NON-destructive inventory of every locally stored
+  // secret record (all credentials + the context verify-string). For each
+  // record it reports the encryption method and KDF iteration count, tagged as
+  // "confirmed" (exact value read from a header) or "inferred" (a default we
+  // could not verify). For LSE records it peels ONLY the device-bound layer
+  // (never the user password) to read the exact inner iterations; the inner
+  // password-encrypted value is parsed for its header and discarded — never
+  // returned, logged, or surfaced. It never exposes ciphertext or plaintext and
+  // never decrypts the secret. Works on every platform (Realm native +
+  // IndexedDB ext/web/desktop) via the platform-agnostic localDb APIs.
+  @backgroundMethodForDev()
+  async runLocalSecretEnvelopeMigrationDiagnostic(
+    params: IBackgroundMethodWithDevOnlyPassword,
+  ): Promise<ILocalSecretEnvelopeE2ETestReport> {
+    checkDevOnlyPassword(params);
+    const reporter = createLocalSecretEnvelopeE2EReporter();
+    const testName = 'LSE Migration Diagnostic';
+    let runtimePlatform = 'unknown';
+
+    const categoryCounts: Partial<
+      Record<ILocalSecretEnvelopeDiagnosticCategory, number>
+    > = {};
+    const bumpCategory = (category: ILocalSecretEnvelopeDiagnosticCategory) => {
+      categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+    };
+    const reportRecord = (
+      group: string,
+      label: string,
+      result: Awaited<
+        ReturnType<typeof describeLocalSecretEnvelopeRecordEncryption>
+      >,
+    ) => {
+      bumpCategory(result.category);
+      if (result.status === 'passed') {
+        reporter.pass(group, label, result.detail);
+      } else if (result.status === 'failed') {
+        reporter.fail(group, label, result.detail);
+      } else {
+        reporter.skip(group, label, result.detail);
+      }
+    };
+
+    try {
+      // The runtime platform is detected directly (NOT taken from config):
+      // config is undefined whenever no layer is available, which would
+      // otherwise mislabel the platform as "unknown".
+      const detectedPlatform = detectLocalSecretEnvelopeRuntimePlatform();
+      runtimePlatform = detectedPlatform;
+
+      // --- Capability breakdown --------------------------------------------
+      // The layer availability probes swallow their own error (return false),
+      // so when config is empty we cannot tell WHY. Re-test each underlying
+      // primitive independently here and surface the exact failing step. All
+      // probe values below are throwaway test material, never real secrets.
+      reporter.skip(
+        'Capabilities',
+        'runtime platform',
+        `detected=${detectedPlatform}`,
+      );
+
+      // 1) secure random (used to generate layer keys + nonces)
+      try {
+        const randomFn = globalThis.crypto?.getRandomValues?.bind(
+          globalThis.crypto,
+        );
+        if (typeof randomFn !== 'function') {
+          throw new OneKeyLocalError(
+            'globalThis.crypto.getRandomValues is missing',
+          );
+        }
+        randomFn(new Uint8Array(12));
+        reporter.pass('Capabilities', 'crypto.getRandomValues', 'available');
+      } catch (error) {
+        reporter.fail(
+          'Capabilities',
+          'crypto.getRandomValues',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+
+      // 2) OS secure storage (expo-secure-store) write/read round-trip
+      // Mirror the real layer's key charset: expo-secure-store only accepts
+      // [A-Za-z0-9_.-], so use "_" separators (a ":" is rejected).
+      const secureStorageProbeKey = `onekey_lse_diagnostic_probe_${Date.now()}`;
+      try {
+        const supported =
+          secureStorageInstance.supportSecureStorageWithoutInteraction
+            ? await secureStorageInstance.supportSecureStorageWithoutInteraction()
+            : await secureStorageInstance.supportSecureStorage();
+        if (!supported) {
+          throw new OneKeyLocalError('supportSecureStorage returned false');
+        }
+        await secureStorageInstance.setSecureItem(
+          secureStorageProbeKey,
+          'diagnostic-probe',
+        );
+        const readBack = await secureStorageInstance.getSecureItem(
+          secureStorageProbeKey,
+        );
+        if (readBack !== 'diagnostic-probe') {
+          throw new OneKeyLocalError(
+            `round-trip mismatch (read ${
+              readBack === null ? 'null' : 'a different value'
+            })`,
+          );
+        }
+        reporter.pass(
+          'Capabilities',
+          'OS secure storage set/get',
+          'round-trip ok',
+        );
+      } catch (error) {
+        reporter.fail(
+          'Capabilities',
+          'OS secure storage set/get',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      } finally {
+        await secureStorageInstance
+          .removeSecureItem(secureStorageProbeKey)
+          .catch(() => undefined);
+      }
+
+      // 3) app AES-256-GCM encrypt/decrypt round-trip (the layer's cipher)
+      try {
+        const probeKey = Buffer.alloc(32, 7);
+        const probeNonce = Buffer.alloc(12, 3);
+        const probeAad = bufferUtils.utf8ToBytes('lse-diagnostic-aad');
+        const encrypted = await aesGcmEncrypt({
+          aad: probeAad,
+          data: bufferUtils.utf8ToBytes('lse-diagnostic-plaintext'),
+          key: probeKey,
+          nonce: probeNonce,
+        });
+        const decrypted = await aesGcmDecrypt({
+          aad: probeAad,
+          data: encrypted,
+          key: probeKey,
+          nonce: probeNonce,
+        });
+        if (bufferUtils.bytesToUtf8(decrypted) !== 'lse-diagnostic-plaintext') {
+          throw new OneKeyLocalError('round-trip mismatch');
+        }
+        reporter.pass(
+          'Capabilities',
+          'app AES-256-GCM cipher',
+          'round-trip ok',
+        );
+      } catch (error) {
+        reporter.fail(
+          'Capabilities',
+          'app AES-256-GCM cipher',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+
+      // 4) the real layer availability probes (booleans; their internal error
+      //    is swallowed, so the per-primitive steps above localize the cause).
+      //    Reset the failure cache first to force a fresh probe.
+      resetSecureStorageLocalSecretEnvelopeProbeCache();
+      try {
+        const secureAvailable =
+          await isSecureStorageLocalSecretEnvelopeLayerAvailable();
+        if (secureAvailable) {
+          reporter.pass(
+            'Capabilities',
+            'secure-storage layer probe',
+            'available',
+          );
+        } else {
+          reporter.fail(
+            'Capabilities',
+            'secure-storage layer probe',
+            'unavailable (probe returned false — see the failing step above)',
+          );
+        }
+      } catch (error) {
+        reporter.fail(
+          'Capabilities',
+          'secure-storage layer probe',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+      try {
+        const indexedDbCryptoKeyAvailable =
+          await isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable();
+        reporter.skip(
+          'Capabilities',
+          'indexeddb-cryptokey layer probe',
+          indexedDbCryptoKeyAvailable
+            ? 'available'
+            : 'unavailable (expected on native: no IndexedDB / WebCrypto)',
+        );
+      } catch (error) {
+        reporter.skip(
+          'Capabilities',
+          'indexeddb-cryptokey layer probe',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+      // ---------------------------------------------------------------------
+
+      const config =
+        await localDb.buildLocalSecretEnvelopeCredentialMigrationConfig();
+      reporter.skip(
+        'Runtime',
+        'Platform / configured layers',
+        `platform=${detectedPlatform} · layers=[${
+          (config?.layerAdapters ?? [])
+            .map((adapter) => adapter.kind)
+            .join(' + ') || '(none)'
+        }] · strength=${config?.strength ?? 'unavailable'}`,
+      );
+
+      // Resolver for peeling ONLY the device-bound layer of LSE records, so the
+      // exact inner KDF iteration count can be read. If the platform has no
+      // configured layers, LSE records fall back to the inferred target value.
+      const resolveLayerAdapter = config?.layerAdapters?.length
+        ? buildLocalSecretEnvelopeLayerAdapterResolver(config.layerAdapters)
+        : undefined;
+
+      // Context verify-string (lives in the Context store, not Credential).
+      try {
+        const context = await localDb.getContext();
+        reportRecord(
+          'Verify String',
+          'context verifyString',
+          await describeLocalSecretEnvelopeRecordEncryption({
+            dataType: 'verify-string',
+            rawValue: context.verifyString ?? '',
+            recordId: DB_MAIN_CONTEXT_ID,
+            resolveLayerAdapter,
+          }),
+        );
+      } catch (error) {
+        reporter.fail(
+          'Verify String',
+          'context verifyString',
+          getLocalSecretEnvelopeE2EErrorMessage(error),
+        );
+      }
+
+      // All credential records.
+      const credentials = await localDb.getAllCredentials();
+      reporter.skip(
+        'Credentials',
+        'total credential records',
+        `${credentials.length} record(s)`,
+      );
+      const sortedCredentials = [...credentials].toSorted((a, b) =>
+        natsort({ insensitive: true })(a.id, b.id),
+      );
+      for (const credential of sortedCredentials) {
+        reportRecord(
+          'Credentials',
+          maskLocalSecretEnvelopeRecordId(credential.id),
+          // eslint-disable-next-line no-await-in-loop
+          await describeLocalSecretEnvelopeRecordEncryption({
+            dataType: 'credential',
+            rawValue: credential.credential ?? '',
+            recordId: credential.id,
+            resolveLayerAdapter,
+          }),
+        );
+      }
+
+      // Guarantees passedCount > 0 so a clean scan reads as "completed", even
+      // when every record is skipped (e.g. fresh wallet, default verify-string).
+      reporter.pass(
+        'Summary',
+        'scan completed',
+        Object.entries(categoryCounts)
+          .map(([category, count]) => `${category}=${count}`)
+          .join(' · ') || 'no records found',
+      );
+    } catch (error) {
+      reporter.fail(
+        'Diagnostic',
+        'scan local secret records',
+        getLocalSecretEnvelopeE2EErrorMessage(error),
+      );
+    }
+
+    return reporter.toReport({
+      runtimePlatform,
+      testName,
+      summary: { categoryCounts },
+    });
   }
 
   @backgroundMethodForDev()
