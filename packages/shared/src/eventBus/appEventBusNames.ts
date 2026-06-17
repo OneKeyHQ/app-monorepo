@@ -146,6 +146,7 @@ export enum EAppEventBusNames {
   PerpSwitchActiveInstrument = 'PerpSwitchActiveInstrument',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
   BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
+  BtcFindAddressUpdated = 'BtcFindAddressUpdated',
   ClientLogUploadProgress = 'ClientLogUploadProgress',
   SwitchDiscoveryTabInNative = 'SwitchDiscoveryTabInNative',
   SwitchEarnMode = 'SwitchEarnMode',
