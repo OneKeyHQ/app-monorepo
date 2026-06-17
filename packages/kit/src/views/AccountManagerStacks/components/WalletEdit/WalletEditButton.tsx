@@ -47,6 +47,10 @@ import { BulkCopyAddressesButton } from './BulkCopyAddressesButton';
 import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { WalletBoundReferralCodeButton } from './WalletBoundReferralCodeButton';
+import {
+  shouldShowAddHiddenWalletButtonForWallet,
+  shouldShowDeviceManagementButtonForWallet,
+} from './WalletEditButtonUtils';
 import { WalletRemoveButton } from './WalletRemoveButton';
 
 function WalletEditButtonView({
@@ -76,11 +80,9 @@ function WalletEditButtonView({
     return isPrimeActive && user?.onekeyUserId;
   }, [isPrimeActive, user?.onekeyUserId]);
 
-  // True when the wallet is bound to a third-party hardware vendor (e.g. Ledger).
-  // Used to hide OneKey-specific entries that don't apply to non-OneKey devices:
-  // device management, referral code binding, add hidden wallet, and the
-  // "remove standard wallet" soft-remove flow (third-party wallets only expose
-  // the hard "remove device" action below).
+  // True when the wallet is bound to a third-party hardware vendor.
+  // Used only for entries that are still third-party-wide exclusions. Device
+  // management and hidden-wallet creation are gated by vendor capability below.
   const isThirdPartyVendorWallet = useMemo(() => {
     return Boolean(
       wallet?.associatedDeviceInfo?.vendor &&
@@ -89,22 +91,22 @@ function WalletEditButtonView({
   }, [wallet]);
 
   const showDeviceManagementButton = useMemo(() => {
-    if (isKeyless) return false;
-    if (isThirdPartyVendorWallet) return false;
-    return (
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
-    );
-  }, [wallet, isKeyless, isThirdPartyVendorWallet]);
+    return shouldShowDeviceManagementButtonForWallet({
+      isKeyless,
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+      isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+      vendor: wallet?.associatedDeviceInfo?.vendor,
+    });
+  }, [wallet, isKeyless]);
 
   const showAddHiddenWalletButton = useMemo(() => {
-    if (isKeyless) return false;
-    if (isThirdPartyVendorWallet) return false;
-    return (
-      !accountUtils.isHwHiddenWallet({ wallet }) &&
-      accountUtils.isHwOrQrWallet({ walletId: wallet?.id })
-    );
-  }, [wallet, isKeyless, isThirdPartyVendorWallet]);
+    return shouldShowAddHiddenWalletButtonForWallet({
+      isKeyless,
+      isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+      isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet?.id }),
+      vendor: wallet?.associatedDeviceInfo?.vendor,
+    });
+  }, [wallet, isKeyless]);
 
   const showRemoveWalletButton = useMemo(() => {
     // Keyless wallet can also be removed

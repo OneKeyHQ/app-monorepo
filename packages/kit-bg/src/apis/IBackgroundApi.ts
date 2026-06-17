@@ -82,6 +82,7 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
@@ -191,6 +192,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceFreshAddress: ServiceFreshAddress;
   serviceHardware: ServiceHardware;
   serviceHardwareUI: ServiceHardwareUI;
+  serviceThirdPartyHardware: ServiceThirdPartyHardware;
   serviceFirmwareUpdate: ServiceFirmwareUpdate;
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;

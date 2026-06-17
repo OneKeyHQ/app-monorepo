@@ -469,6 +469,18 @@ export type IHwAllNetworkPrepareAccountsItem =
       address?: string;
       path?: string;
       rootFingerprint?: number;
+      deviceIdentity?:
+        | {
+            vendor: 'ledger';
+            type: 'chainFingerprint';
+            chain: ChainForFingerprint;
+            value: string;
+          }
+        | {
+            vendor: 'trezor';
+            type: 'deviceId';
+            value: string;
+          };
       chainFingerprint?: string;
       chainFingerprintChain?: ChainForFingerprint;
 
@@ -612,6 +624,9 @@ export type IUtxoInfo = {
   address: string;
   path: string;
   blockTime?: number;
+  // btc find-address feature: UTXO of a user-claimed off-gap address,
+  // only used for coin-control display and gating, never balance aggregation
+  isCustomClaimed?: boolean;
   // Use for Cardano UTXO info
   txIndex?: number;
   amount?: IAdaAmount[];

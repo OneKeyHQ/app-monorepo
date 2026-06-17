@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core';
+import { ORPHAN_ELIGIBLE_ERROR_CODES } from '@onekeyfe/hwk-adapter-core/errors';
 import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEmpty, isEqual, isUndefined, omitBy } from 'lodash';
 
@@ -41,6 +41,7 @@ import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceE
 import {
   classifyThirdPartyHwCreateFailures,
   filterThirdPartyHwCreateFailureToasts,
+  shouldOfferLedgerCoreAppInstallForCreateFailures,
 } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
   EAppEventBusNames,
@@ -840,6 +841,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const customNetworks =
         networkId && deriveType ? [{ networkId, deriveType }] : undefined;
       let ledgerRequiredApps: ILedgerCoreAppName[] = [];
+      let hardwareVendor: EHardwareVendor | undefined;
       let result: {
         addedAccounts: {
           networkId: string;
@@ -861,7 +863,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await backgroundApiProxy.serviceAccount.getWalletDevice({
               walletId: wallet.id,
             });
-          if (device?.vendor === EHardwareVendor.ledger) {
+          hardwareVendor = device?.vendor;
+          if (hardwareVendor === EHardwareVendor.ledger) {
             ledgerRequiredApps =
               await backgroundApiProxy.serviceBatchCreateAccount.buildRequiredLedgerAppsForDefaultNetworkAccounts(
                 {
@@ -906,8 +909,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           let failedList = result?.failedAccounts || [];
           let isThirdPartyHw = false;
 
-          // 3rd-party HW: drop AppNotInstalled when any chain succeeded; offer
-          // in-app core-app install when zero succeeded (bare device).
+          // 3rd-party HW: drop AppNotInstalled when any chain succeeded.
+          // Only Ledger offers in-app core-app install when zero chains succeed.
           if (failedList.length > 0) {
             isThirdPartyHw =
               await backgroundApiProxy.serviceAccount.isThirdPartyHwByWalletId({
@@ -919,7 +922,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   addedCount: result.addedAccounts.length,
                   failedAccounts: failedList,
                 });
-              if (allAppNotInstalled && isAutoCreateMultiNetwork) {
+              if (
+                shouldOfferLedgerCoreAppInstallForCreateFailures({
+                  vendor: hardwareVendor,
+                  allAppNotInstalled,
+                  isAutoCreateMultiNetwork,
+                })
+              ) {
                 const ensureResult = await ensureLedgerCoreAppsReady({
                   walletId: wallet.id,
                   requiredApps: ledgerRequiredApps.length
