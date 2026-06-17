@@ -149,13 +149,21 @@ const SwapHistoryListModal = ({
     });
   }, [historyType, swapMarketTxHistoryList]);
 
-  const marketPendingHistoryCount = useMemo(
+  const swapMarketPendingHistoryCount = useMemo(
     () =>
       getSwapMarketPendingHistoryCount(
         swapHistoryPendingList,
-        marketListProtocol,
+        EProtocolOfExchange.SWAP,
       ),
-    [marketListProtocol, swapHistoryPendingList],
+    [swapHistoryPendingList],
+  );
+  const stockPendingHistoryCount = useMemo(
+    () =>
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.STOCK,
+      ),
+    [swapHistoryPendingList],
   );
   const limitPendingHistoryCount = useMemo(
     () =>
@@ -168,7 +176,10 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    marketPendingHistoryCount + limitPendingHistoryCount > 0;
+    swapMarketPendingHistoryCount +
+      stockPendingHistoryCount +
+      limitPendingHistoryCount >
+    0;
 
   const historyTypeTitle = useMemo(() => {
     if (historyType === EProtocolOfExchange.LIMIT) {
@@ -245,10 +256,10 @@ const SwapHistoryListModal = ({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
-        {renderHistoryTypeBadge(marketPendingHistoryCount)}
+        {renderHistoryTypeBadge(swapMarketPendingHistoryCount)}
       </XStack>
     ),
-    [intl, marketPendingHistoryCount, renderHistoryTypeBadge],
+    [intl, renderHistoryTypeBadge, swapMarketPendingHistoryCount],
   );
 
   const renderStockHistoryTypeLabel = useCallback(
@@ -259,9 +270,10 @@ const SwapHistoryListModal = ({
             id: ETranslations.perps_token_selector_stocks,
           })}
         </SizableText>
+        {renderHistoryTypeBadge(stockPendingHistoryCount)}
       </XStack>
     ),
-    [intl],
+    [intl, renderHistoryTypeBadge, stockPendingHistoryCount],
   );
 
   const renderLimitHistoryTypeLabel = useCallback(

@@ -335,6 +335,7 @@ export function useSwapStockChannel({
         stockTokenSnapshotRef.current ?? currentStockToken;
       const payTokenForSwitch = payTokenSnapshotRef.current ?? payToken;
       setTradeSide(nextTradeSide);
+      resetStockTradeAmounts();
       if (stockTokenForSwitch?.networkId) {
         requestMarketActiveToken(stockTokenForSwitch);
       }
@@ -348,6 +349,7 @@ export function useSwapStockChannel({
       currentStockToken,
       payToken,
       requestMarketActiveToken,
+      resetStockTradeAmounts,
       syncStockExecutionTokens,
       tradeSide,
     ],

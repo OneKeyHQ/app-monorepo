@@ -1965,7 +1965,7 @@ export function useSwapBuildTx() {
                   fromToken: data.fromTokenInfo,
                   toToken: data.toTokenInfo,
                   fromTokenAmount: data.fromAmount,
-                  slippagePercentage: data.slippage ?? 0,
+                  slippagePercentage: data.slippage ?? slippageItem.value,
                   receivingAddress: toUserAddress ?? '',
                   userAddress: fromUserAddress,
                   provider: data.info.provider,
@@ -2170,7 +2170,8 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash
+            buildSwapRes?.ctx?.oneInchFusionOrderHash ||
+            buildSwapRes.result.swapShouldSignedData
           ) {
             skipSendTransAction = true;
           }
@@ -2232,6 +2233,8 @@ export function useSwapBuildTx() {
             buildSwapRes?.ctx?.oneInchFusionOrderHash ??
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.changeHeroOrderId ??
+            buildSwapRes.orderId ??
+            buildSwapRes.result.quoteId ??
             '';
           setSwapSteps((prev) => ({
             ...prev,
