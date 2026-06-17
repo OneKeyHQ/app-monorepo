@@ -1407,7 +1407,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IFetchServerAccountDetailsParams,
   ): Promise<IFetchServerAccountDetailsResponse> {
     const queryParams = {
-      ...omit(params, ['accountId', 'signal']),
+      ...omit(params, ['accountId', 'signal', 'queryByAddressOnly']),
     };
 
     const client = await this.backgroundApi.serviceAccountProfile.getClient(

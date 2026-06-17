@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
+  ActionList,
   Badge,
   Divider,
   Empty,
@@ -20,7 +21,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IBtcFreshAddress } from '@onekeyhq/core/src/chains/btc/types';
+import type {
+  IBtcFindAddressItem,
+  IBtcFreshAddress,
+} from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IAccountDeriveInfo,
@@ -31,6 +35,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -43,6 +48,11 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  BtcFindAddressSection,
+  showBtcFindAddressDialog,
+} from '../components/BtcFindAddress';
+import { findAddressCopy } from '../components/btcFindAddressCopy';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -339,9 +349,15 @@ function BtcAddresses() {
 
   const effectiveAccountId = currentAccount?.id ?? accountId;
   const effectiveDeriveInfo = currentDeriveInfo;
-  const isHardwareAccount = accountUtils.isHwAccount({
-    accountId: effectiveAccountId,
-  });
+  // hw and qr accounts can both verify an arbitrary-path address on the
+  // device/offline screen (ReceiveToken supports both wallet kinds)
+  const isHardwareAccount =
+    accountUtils.isHwAccount({
+      accountId: effectiveAccountId,
+    }) ||
+    accountUtils.isQrAccount({
+      accountId: effectiveAccountId,
+    });
 
   const [activeTab, setActiveTab] = useState<ITabKey>('receive');
   const [receivePage, setReceivePage] = useState(1);
@@ -634,34 +650,118 @@ function BtcAddresses() {
     effectiveWalletId &&
     headerRightIndexedAccountId,
   );
+
+  const addressTypeLabel = useMemo(() => {
+    if (effectiveDeriveInfo?.labelKey) {
+      return intl.formatMessage({ id: effectiveDeriveInfo.labelKey });
+    }
+    return effectiveDeriveInfo?.label ?? '';
+  }, [effectiveDeriveInfo, intl]);
+
+  // find-address is only available for account types whose claimed
+  // addresses can be spent (hd) or verified on a device (hw/qr)
+  const showFindAddressEntry =
+    accountUtils.isHdAccount({ accountId: effectiveAccountId }) ||
+    accountUtils.isHwAccount({ accountId: effectiveAccountId }) ||
+    accountUtils.isQrAccount({ accountId: effectiveAccountId });
+
+  const onPressFindAddress = useCallback(() => {
+    const accountPath = currentAccount?.path ?? account?.path;
+    if (!accountPath) return;
+    defaultLogger.transaction.findAddress.findAddressOpened({ networkId });
+    showBtcFindAddressDialog({
+      accountId: effectiveAccountId,
+      networkId,
+      accountName: currentAccount?.name ?? account?.name ?? '',
+      accountPath,
+      addressTypeLabel,
+      deriveType: currentDeriveType ?? '',
+    });
+  }, [
+    account?.name,
+    account?.path,
+    addressTypeLabel,
+    currentAccount?.name,
+    currentAccount?.path,
+    currentDeriveType,
+    effectiveAccountId,
+    networkId,
+  ]);
+
+  const copyFindAddress = useCallback(
+    (item: IBtcFindAddressItem) => {
+      defaultLogger.transaction.findAddress.claimedAddressCopied({
+        networkId,
+      });
+      copyAddress({
+        key: item.relPath,
+        address: item.address,
+        displayAddress: item.address,
+        formattedReceived: '',
+        transfers: 0,
+        path: item.path,
+        name: item.address,
+      });
+    },
+    [copyAddress, networkId],
+  );
+
   const headerRight = useMemo(() => {
-    if (!showDeriveTypeSelector) return undefined;
+    if (!showDeriveTypeSelector && !showFindAddressEntry) return undefined;
     return (
-      <Stack pr="$5">
-        <AddressTypeSelector
-          placement="bottom-end"
-          walletId={effectiveWalletId ?? ''}
-          networkId={networkId}
-          indexedAccountId={headerRightIndexedAccountId}
-          activeDeriveType={currentDeriveType}
-          activeDeriveInfo={currentDeriveInfo}
-          onSelect={async (value) => {
-            if (value.account) {
-              setCurrentAccount(value.account);
-              setCurrentDeriveType(value.deriveType);
-              setCurrentDeriveInfo(value.deriveInfo);
+      <XStack pr="$5" alignItems="center" gap="$2">
+        {showDeriveTypeSelector ? (
+          <AddressTypeSelector
+            placement="bottom-end"
+            walletId={effectiveWalletId ?? ''}
+            networkId={networkId}
+            indexedAccountId={headerRightIndexedAccountId}
+            activeDeriveType={currentDeriveType}
+            activeDeriveInfo={currentDeriveInfo}
+            onSelect={async (value) => {
+              if (value.account) {
+                setCurrentAccount(value.account);
+                setCurrentDeriveType(value.deriveType);
+                setCurrentDeriveInfo(value.deriveInfo);
+              }
+            }}
+          />
+        ) : null}
+        {showFindAddressEntry ? (
+          <ActionList
+            title=""
+            renderTrigger={
+              <IconButton
+                testID={ReceiveTestIDs.BtcFindAddressEntry}
+                icon="DotVerSolid"
+                variant="tertiary"
+                iconSize="$5"
+              />
             }
-          }}
-        />
-      </Stack>
+            sections={[
+              {
+                items: [
+                  {
+                    icon: 'SearchOutline',
+                    label: findAddressCopy.entryLabel,
+                    onPress: onPressFindAddress,
+                  },
+                ],
+              },
+            ]}
+          />
+        ) : null}
+      </XStack>
     );
   }, [
     showDeriveTypeSelector,
+    showFindAddressEntry,
     effectiveWalletId,
     networkId,
     headerRightIndexedAccountId,
     currentDeriveType,
     currentDeriveInfo,
+    onPressFindAddress,
   ]);
 
   return (
@@ -685,6 +785,15 @@ function BtcAddresses() {
 
           {activeTab === 'receive' ? (
             <YStack flex={1} gap="$4">
+              {showFindAddressEntry ? (
+                <BtcFindAddressSection
+                  accountId={effectiveAccountId}
+                  networkId={networkId}
+                  decimals={decimals}
+                  symbol={symbol}
+                  onCopy={copyFindAddress}
+                />
+              ) : null}
               {nextReceiveRow ? (
                 <NextAddressRow
                   row={nextReceiveRow}
