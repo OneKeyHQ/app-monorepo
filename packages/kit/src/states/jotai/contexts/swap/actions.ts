@@ -589,116 +589,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
-  runQuote = contextAtomMethod(
-    async (
-      get,
-      set,
-      fromToken: ISwapToken,
-      toToken: ISwapToken,
-      slippagePercentage: number,
-      autoSlippage?: boolean,
-      address?: string,
-      accountId?: string,
-      loadingDelayEnable?: boolean,
-      blockNumber?: number,
-      kind?: ESwapQuoteKind,
-      fromTokenAmount?: string,
-      toTokenAmount?: string,
-      receivingAddress?: string,
-      incognito?: boolean,
-    ) => {
-      const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
-      if (shouldRefreshQuote) {
-        this.cleanQuoteInterval();
-        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-        return;
-      }
-      await backgroundApiProxy.serviceSwap.closeApproving();
-      set(swapQuoteEventErrorAtom(), undefined);
-      try {
-        if (!loadingDelayEnable) {
-          set(swapQuoteFetchingAtom(), true);
-        }
-        const protocol = get(swapTypeSwitchAtom());
-        const { swapIncognitoMode } = await settingsAtom.get();
-        const incognitoEnabled =
-          protocol === ESwapTabSwitchType.LIMIT
-            ? false
-            : (incognito ?? swapIncognitoMode);
-        const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
-        const limitPartiallyFillable = limitPartiallyFillableObj.value;
-        const expirationTime = get(swapLimitExpirationTimeAtom());
-        const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
-        const userMarketPriceRate = getSelectedPairLimitPriceRate({
-          protocol,
-          limitPriceUseRate: limitUserMarketPrice,
-          fromToken,
-          toToken,
-        });
-        const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
-          fromToken,
-          toToken,
-          fromTokenAmount,
-          toTokenAmount,
-          kind,
-          userAddress: address,
-          slippagePercentage,
-          autoSlippage,
-          blockNumber,
-          receivingAddress,
-          incognito: incognitoEnabled,
-          accountId,
-          protocol,
-          userMarketPriceRate,
-          ...(protocol === ESwapTabSwitchType.LIMIT
-            ? {
-                expirationTime: Number(expirationTime.value),
-                limitPartiallyFillable,
-              }
-            : {}),
-        });
-        const currentEventProviderKeys = res.map((quote) =>
-          buildSwapQuoteProviderKey(quote),
-        );
-        if (!loadingDelayEnable) {
-          set(swapQuoteFetchingAtom(), false);
-          set(swapQuoteListAtom(), res);
-          set(
-            swapQuoteCurrentEventProviderKeysAtom(),
-            currentEventProviderKeys,
-          );
-          set(swapQuoteCurrentEventReceivedCountAtom(), res.length);
-          set(swapQuoteEventCompletedAtom(), true);
-          set(swapQuoteEventTotalCountAtom(), {
-            count: res.length,
-          });
-        } else {
-          set(swapSilenceQuoteLoading(), true);
-          setTimeout(() => {
-            set(swapSilenceQuoteLoading(), false);
-            set(swapQuoteListAtom(), res);
-            set(
-              swapQuoteCurrentEventProviderKeysAtom(),
-              currentEventProviderKeys,
-            );
-            set(swapQuoteCurrentEventReceivedCountAtom(), res.length);
-            set(swapQuoteEventCompletedAtom(), true);
-            set(swapQuoteEventTotalCountAtom(), {
-              count: res.length,
-            });
-          }, 800);
-        }
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
-          set(swapQuoteFetchingAtom(), false);
-        }
-      } finally {
-        set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-      }
-    },
-  );
-
   quoteEventHandler = contextAtomMethod(
     (
       get,
@@ -1277,7 +1167,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       clearTimeout(this.quoteInterval);
       this.quoteInterval = undefined;
     }
-    void backgroundApiProxy.serviceSwap.cancelFetchQuotes();
   };
 
   closeQuoteEvent = () => {

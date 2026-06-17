@@ -2055,11 +2055,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     const meta = result[0];
     if (meta?.tokens && meta?.universe) {
       const tokens = meta.tokens;
+      // Look up by token `index`, not array position: newer tokens have an
+      // index beyond the array length, so positional access yields an empty
+      // baseName ("/USDC").
+      const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
       const universes: ISpotUniverse[] = meta.universe.map((item) => {
         const baseTokenIdx = item.tokens[0];
         const quoteTokenIdx = item.tokens[1];
-        const baseToken = tokens[baseTokenIdx];
-        const quoteToken = tokens[quoteTokenIdx];
+        const baseToken = tokenByIndex.get(baseTokenIdx);
+        const quoteToken = tokenByIndex.get(quoteTokenIdx);
         const baseName = baseToken?.name ?? '';
         const quoteName = quoteToken?.name ?? 'USDC';
         return {
