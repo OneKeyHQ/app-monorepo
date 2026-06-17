@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { buildLocalAggregateTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
@@ -262,6 +263,45 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
       return {
         ...rawData,
         tokenDetails: {},
+      };
+    });
+  }
+
+  // Drop per-account aggregate caches belonging to deleted accounts.
+  // `aggregateTokenMapV2` / `aggregateTokenListMap` keys are `${networkId}_${accountId}`;
+  // `tokenDetails` keys are bare accountIds. `validAccountIds` is the set of
+  // lowercased ids of all surviving accounts AND indexed accounts (the all-networks
+  // merge mode keys by indexedAccountId). Global config/aggregate maps are left
+  // untouched. Pure-cache cleanup. See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
+  async removeOrphanData({ validAccountIds }: { validAccountIds: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validIdSet = new Set(validAccountIds.map((o) => o.toLowerCase()));
+    const filterById = <V>(
+      map: Record<string, V> | undefined,
+    ): Record<string, V> => {
+      const result: Record<string, V> = {};
+      for (const [key, value] of Object.entries(map ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({ key, validOwners: validIdSet })
+        ) {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+    await this.setRawData((rawData) => {
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot, so
+      // a concurrent clearRawData is never undone by an `existing` fallback.
+      const base = rawData;
+      return {
+        ...base,
+        aggregateTokenMapV2: filterById(base?.aggregateTokenMapV2),
+        aggregateTokenListMap: filterById(base?.aggregateTokenListMap),
+        tokenDetails: filterById(base?.tokenDetails),
       };
     });
   }
