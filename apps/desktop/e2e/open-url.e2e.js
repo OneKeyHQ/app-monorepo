@@ -578,19 +578,21 @@ async function runLocalSecretEnvelopeFlow(page) {
     },
   );
 
+  assert.equal(restoreResult.passed, true);
   assert.equal(restoreResult.runtimePlatform, 'desktop');
-  assert.equal(restoreResult.rawCredentialIsLse, true);
-  assert.equal(restoreResult.credentialStrength, 'secure-storage-bound');
+  const restoreSummary = restoreResult.summary || {};
+  assert.equal(restoreSummary.rawCredentialIsLse, true);
+  assert.equal(restoreSummary.credentialStrength, 'secure-storage-bound');
   assertIncludesAll(
-    restoreResult.credentialLayerKinds,
+    restoreSummary.credentialLayerKinds,
     ['indexeddb-cryptokey', 'secure-storage'],
     'restore credential layers',
   );
-  assert.equal(restoreResult.innerCredentialPrefix, '|PK|');
-  assert.equal(restoreResult.backupPortableCredentialPrefix, '|PK|');
-  assert.equal(restoreResult.primeTransferPortableCredentialPrefix, '|PK|');
-  assert.equal(restoreResult.backupRejectsRawLocalSecretEnvelope, true);
-  assert.equal(restoreResult.primeTransferRejectsRawLocalSecretEnvelope, true);
+  assert.equal(restoreSummary.innerCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.backupPortableCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.primeTransferPortableCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.backupRejectsRawLocalSecretEnvelope, true);
+  assert.equal(restoreSummary.primeTransferRejectsRawLocalSecretEnvelope, true);
 
   log(
     `local secret envelope self-test passed (${result.credentialLayerKinds.join(
