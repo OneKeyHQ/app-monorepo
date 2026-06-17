@@ -22,7 +22,7 @@ Automates the complete PR creation workflow for OneKey app-monorepo changes.
 | 8 | Create PR | `gh pr create --base <base> --title "..." --body "..."` |
 | 9 | Update branch | `gh pr update-branch <number>` |
 | 10 | Enable auto-merge | `gh pr merge <number> --auto --squash` |
-| 11 | Update Jira issue | Update `1k-github-branch` and `1k-github-pr-url` fields |
+| 11 | Return PR URL | Share the PR URL with the user |
 
 ## Workflow
 
@@ -184,43 +184,7 @@ This is equivalent to clicking "Update branch" button on GitHub PR page.
 gh pr merge <PR_NUMBER> --auto --squash
 ```
 
-### 11. Update Jira Issue (if OK-{number} exists)
-
-If a Jira issue ID (`OK-{number}`) was found in the conversation or commit message, update the Jira issue with PR and branch information.
-
-**Prerequisites:**
-1. Check if Atlassian MCP tools are available using `ToolSearch`:
-   ```
-   ToolSearch({ query: "select:mcp__plugin_atlassian_atlassian__editJiraIssue" })
-   ```
-2. If the tool is not available (MCP disconnected), skip this step and notify the user to update Jira manually.
-
-**Jira Custom Field IDs:**
-- `customfield_10241` = `1k-github-branch` (branch name)
-- `customfield_10242` = `1k-github-pr-url` (PR URL)
-
-**Using Atlassian MCP tool:**
-
-```
-mcp__plugin_atlassian_atlassian__editJiraIssue({
-  cloudId: "onekeyhq.atlassian.net",
-  issueIdOrKey: "OK-{number}",
-  fields: {
-    "customfield_10241": "<branch-name>",
-    "customfield_10242": "<pr-url>"
-  }
-})
-```
-
-**Example:**
-```
-fields: {
-  "customfield_10241": "fix/ios-browser-tab-switcher-safe-area",
-  "customfield_10242": "https://github.com/OneKeyHQ/app-monorepo/pull/11219"
-}
-```
-
-### 12. Return PR URL
+### 11. Return PR URL
 
 Display PR URL to user and open in browser:
 ```bash
