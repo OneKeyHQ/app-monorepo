@@ -129,6 +129,7 @@ import { RichBlock } from '../RichBlock/RichBlock';
 
 import {
   type IAllNetworkSnapshotRound,
+  type IMergedAllNetworkSnapshot,
   buildMergedAllNetworkSnapshot,
 } from './buildMergedAllNetworkSnapshot';
 
@@ -1570,6 +1571,45 @@ function TokenListBlock({
     [],
   );
 
+  // Feed the BG view-model ONE coherent merged snapshot. `ingestRound` REPLACES
+  // the owner's slices each call, so `vm.lastStructure` compares full-vs-full and
+  // the structure frame reflects the whole current list. Shared verbatim by the
+  // progressive flush and the authoritative end-of-fan-out ingest — the only
+  // difference between the two is the `source` tag.
+  const ingestMergedSnapshot = useCallback(
+    (snapshot: IMergedAllNetworkSnapshot, source: string) => {
+      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
+        ownerKey: cellsIngestInputsRef.current.ownerKey,
+        orderedTokens: snapshot.orderedTokens,
+        smallBalanceTokens: snapshot.smallBalanceTokens,
+        tokenListMap: snapshot.mergeTokenListMap,
+        aggregateTokensMap: snapshot.aggregateTokenMap,
+        // The owned aggregate sub-token list map, carried onto the structure
+        // frame so the home cell-path leaves source the owned aggregate
+        // sub-token list from `listStructureAtom`.
+        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
+        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
+        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
+        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
+        homeDefaultTokenMap:
+          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
+        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
+        // Risky slice (design §R0 #5) — the coherent FULL risky set produced by
+        // the merge (post merge/dedup/sort). Carried so the BG VM can build the
+        // dedicated risky frame + merged raw list.
+        riskyTokens: snapshot.riskyTokens,
+        riskyMap: snapshot.riskyTokenListMap,
+        // SETTLED owner identity for the `getRawTokenList` switch skeleton.
+        accountId: account?.id,
+        networkId: network?.id,
+        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
+        // [TLNATIVE temp] ingest source tag (log-only).
+        source,
+      });
+    },
+    [account?.id, network?.id],
+  );
+
   // The shared flush of the unified pipeline. Materializes the LWW view
   // (∩ enabledKeys), resolves per-round merge-derive flags, and feeds the BG
   // view-model ONE coherent merged snapshot. Paint only — worth/overview side
@@ -1629,32 +1669,13 @@ function TokenListBlock({
       tln(
         `progPaint.flush source=${source} owner=${cellsIngestInputsRef.current.ownerKey} rounds=${rounds.length} ordered=${snapshot.orderedTokens.length} small=${snapshot.smallBalanceTokens.length} epoch=${epochAtFlushStart}`,
       );
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
-        accountId: account?.id,
-        networkId: network?.id,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-        // [TLNATIVE temp] ingest source tag (log-only).
-        source,
-      });
+      ingestMergedSnapshot(snapshot, source);
     },
     [
       account?.id,
       account?.createAtNetwork,
       network?.id,
+      ingestMergedSnapshot,
       resolveRoundsWithMergeFlag,
     ],
   );
@@ -1793,39 +1814,13 @@ function TokenListBlock({
     // view-model the COHERENT FULL merged snapshot `buildMergedAllNetworkSnapshot`
     // just produced — post merge/dedup ($key uniqBy) / sortTokensByFiatValue /
     // zero-balance re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
-    // incremental round. `ingestRound` REPLACES the owner's slices each call, so
-    // `vm.lastStructure` compares full-vs-full and the structure frame reflects
-    // the whole current list. The shared merge is the single source of truth,
-    // with no duplicated merge logic in the VM yet (design §3 defers that).
+    // incremental round. The shared `ingestMergedSnapshot` REPLACES the owner's
+    // slices each call, so `vm.lastStructure` compares full-vs-full and the
+    // structure frame reflects the whole current list. The shared merge is the
+    // single source of truth, with no duplicated merge logic in the VM yet
+    // (design §3 defers that).
     if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        // The owned aggregate sub-token list map, carried onto the structure
-        // frame so the home cell-path leaves source the owned aggregate
-        // sub-token list from `listStructureAtom`.
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        // Risky slice (design §R0 #5) — the coherent FULL risky set produced
-        // above (post merge/dedup/sort). Carried so the BG VM can build the
-        // dedicated risky frame + merged raw list.
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
-        // SETTLED owner identity for the `getRawTokenList` switch skeleton.
-        accountId: account?.id,
-        networkId: network?.id,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-        // [TLNATIVE temp] ingest source tag (log-only).
-        source: 'authoritative',
-      });
+      ingestMergedSnapshot(snapshot, 'authoritative');
     }
 
     // Authoritative full ingest done — cancel any trailing progressive flush so
@@ -1852,6 +1847,7 @@ function TokenListBlock({
     account?.createAtNetwork,
     account?.id,
     indexedAccount?.id,
+    ingestMergedSnapshot,
     mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
