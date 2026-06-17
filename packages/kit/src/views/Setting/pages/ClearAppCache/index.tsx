@@ -4,6 +4,7 @@ import {
   Checkbox,
   Dialog,
   Form,
+  Image,
   Page,
   Stack,
   Toast,
@@ -165,6 +166,17 @@ export default function ClearAppCache() {
         onConfirm={async (close) => {
           if (values) {
             await backgroundApiProxy.serviceSetting.clearCacheOnApp(values);
+            // The expo-image disk cache (token logos, NFT full-res images, dApp
+            // favicons, DeFi/market icons) is the largest on-disk contributor and
+            // is NOT cleared by clearCacheOnApp (which only clears DB/simpleDb).
+            // Purge the whole image cache here when the user clears Token & NFT
+            // data. Native-only effect; clearDiskCache is a no-op on web.
+            if (values.tokenAndNFT && platformEnv.isNative) {
+              await Promise.all([
+                Image.clearDiskCache(),
+                Image.clearMemoryCache(),
+              ]).catch(() => undefined);
+            }
             Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.global_success,
