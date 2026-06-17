@@ -225,10 +225,16 @@ try {
   // frozen BigInt intrinsic (so lockdown has nothing to strip).
   const works =
     typeof JSBI.BigInt === 'function' &&
-    JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(8)).toString() === '256';
+    JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(8)).toString() === '256' &&
+    // CONST.js' \`JSBI.prototype.toJSON = ...\` succeeded post-lockdown: it
+    // landed on the shim's OWN (unfrozen) prototype, not a frozen intrinsic.
+    typeof JSBI.prototype.toJSON === 'function';
   const intrinsicUntouched =
     typeof BigInt.leftShift === 'undefined' &&
-    typeof BigInt.BigInt === 'undefined';
+    typeof BigInt.BigInt === 'undefined' &&
+    // ...and crucially never reached the native BigInt intrinsic, so the
+    // intrinsic keeps no toJSON either (lockdown has nothing to strip).
+    typeof BigInt.prototype.toJSON === 'undefined';
   process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
 } catch (e) {
   process.stdout.write('ERR:' + e.message);
