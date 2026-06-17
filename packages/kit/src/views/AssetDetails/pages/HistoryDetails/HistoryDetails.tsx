@@ -70,6 +70,7 @@ import { getHistoryTxMeta } from '../../utils';
 
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 import { TxKYTRiskCheck } from './components/TxKYTRiskCheck';
+import { getTxConfirmSubtitle } from './txConfirmSubtitle';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -118,53 +119,6 @@ function getTxStatusTextProps(
     key: ETranslations.global_confirming,
     color: '$textCaution',
   };
-}
-
-const TX_CONFIRM_SLOW_THRESHOLD_MS = 30 * 60 * 1000;
-const TX_CONFIRM_ETA_IMMINENT_SECONDS = 60;
-
-// Builds the confirming-state subtitle per OK-56372 §3 priority. Returns a
-// translation descriptor, or null when no subtitle applies. Only meaningful
-// while the tx is confirming (caller gates on isConfirming).
-function getTxConfirmSubtitle({
-  confirmationETASeconds,
-  confirmationETABlocks,
-  broadcastTimeMs,
-  nowMs,
-}: {
-  confirmationETASeconds: number | undefined;
-  confirmationETABlocks: number | undefined;
-  broadcastTimeMs: number | undefined;
-  nowMs: number;
-}): { id: ETranslations; values?: Record<string, string | number> } {
-  // Low-fee / long-tail tx stuck for a while: drop the (now-misleading) ETA
-  // and nudge the user to speed it up.
-  if (
-    broadcastTimeMs &&
-    nowMs - broadcastTimeMs > TX_CONFIRM_SLOW_THRESHOLD_MS
-  ) {
-    return { id: ETranslations.tx_confirm_slow__desc };
-  }
-
-  if (confirmationETASeconds && confirmationETASeconds > 0) {
-    if (confirmationETASeconds < TX_CONFIRM_ETA_IMMINENT_SECONDS) {
-      return { id: ETranslations.almost_confirmed };
-    }
-    return {
-      id: ETranslations.tx_confirm_eta_minutes__desc,
-      values: { minutes: Math.round(confirmationETASeconds / 60) },
-    };
-  }
-
-  if (confirmationETABlocks && confirmationETABlocks > 0) {
-    return {
-      id: ETranslations.tx_confirm_eta_blocks__desc,
-      values: { count: confirmationETABlocks },
-    };
-  }
-
-  // No ETA truth (EVM, or detail not yet loaded): never render an empty number.
-  return { id: ETranslations.tx_confirm_waiting__desc };
 }
 
 // Compact action button used in the confirming-state status row (OK-56372 §6).
