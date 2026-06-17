@@ -392,6 +392,7 @@ function StockEstimatedReceive({
     canSelectReceiveToken,
     currencySymbol,
     isLoading,
+    isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
     receiveAmount,
@@ -406,6 +407,15 @@ function StockEstimatedReceive({
   });
   const receiveTokenSymbol = receiveToken?.symbol ?? '';
   const hasReceiveAmount = Boolean(receiveAmount && receiveTokenSymbol);
+  const shouldShowReceiveToken = Boolean(
+    hasReceiveAmount || (isSellSide && receiveTokenSymbol),
+  );
+  const labelText = intl.formatMessage({
+    id:
+      isSellSide && !hasReceiveAmount
+        ? ETranslations.promode_limit_sell_for
+        : ETranslations.private_send_estimated_received,
+  });
 
   return (
     <XStack
@@ -418,9 +428,7 @@ function StockEstimatedReceive({
       <XStack alignItems="center" gap="$1" flexShrink={0} h="$5">
         <Icon name="HandCoinsOutline" size="$4.5" color="$iconSubdued" />
         <SizableText size="$bodyMd" color="$text">
-          {intl.formatMessage({
-            id: ETranslations.private_send_estimated_received,
-          })}
+          {labelText}
         </SizableText>
       </XStack>
       <YStack flex={1} maxWidth={360} alignItems="flex-end" minWidth={0}>
@@ -431,7 +439,7 @@ function StockEstimatedReceive({
           </>
         ) : (
           <>
-            {hasReceiveAmount ? (
+            {shouldShowReceiveToken ? (
               <Popover
                 floatingPanelProps={{
                   width: 288,
@@ -468,15 +476,17 @@ function StockEstimatedReceive({
                       maxWidth="100%"
                       minWidth={0}
                     >
-                      <NumberSizeableText
-                        size="$bodyMdMedium"
-                        formatter="balance"
-                        numberOfLines={1}
-                        textAlign="right"
-                        flexShrink={0}
-                      >
-                        {receiveAmount}
-                      </NumberSizeableText>
+                      {hasReceiveAmount ? (
+                        <NumberSizeableText
+                          size="$bodyMdMedium"
+                          formatter="balance"
+                          numberOfLines={1}
+                          textAlign="right"
+                          flexShrink={0}
+                        >
+                          {receiveAmount}
+                        </NumberSizeableText>
+                      ) : null}
                       <SizableText
                         size="$bodyMdMedium"
                         color="$text"
@@ -501,6 +511,7 @@ function StockEstimatedReceive({
                     tokens={stockChannel.payTokens}
                     currentSelectToken={stockChannel.payToken}
                     disableNativeToken={stockChannel.disableNativePayToken}
+                    disableCurrentToken={false}
                     onTokenPress={onReceiveTokenPress}
                   />
                 }
@@ -550,7 +561,7 @@ function StockActionGate({
       case ESwapStockChannelStage.CheckingMarketStatus:
       case ESwapStockChannelStage.InitializingPayToken:
         return intl.formatMessage({
-          id: ETranslations.swap_page_button_fetching_quotes,
+          id: ETranslations.swap_page_button_enter_amount,
         });
       case ESwapStockChannelStage.MissingStock:
         return intl.formatMessage({
@@ -599,11 +610,13 @@ function StockPayTokenPopoverContent({
   tokens,
   currentSelectToken,
   disableNativeToken,
+  disableCurrentToken = true,
   onTokenPress,
 }: {
   tokens: IToken[];
   currentSelectToken?: ISwapToken;
   disableNativeToken?: boolean;
+  disableCurrentToken?: boolean;
   onTokenPress: (token: IToken) => void;
 }) {
   const { closePopover } = usePopoverContext();
@@ -616,7 +629,9 @@ function StockPayTokenPopoverContent({
       enabledNum={[0]}
     >
       <TokenList
-        currentSelectToken={currentSelectToken}
+        currentSelectToken={
+          disableCurrentToken ? currentSelectToken : undefined
+        }
         tokens={tokens}
         onTokenPress={(token) => {
           onTokenPress(token);

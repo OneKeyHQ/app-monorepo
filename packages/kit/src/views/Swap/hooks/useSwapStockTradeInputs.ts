@@ -311,6 +311,7 @@ export function useSwapStockEstimatedReceiveState({
     canSelectReceiveToken,
     currencySymbol,
     isLoading,
+    isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
     receiveAmount,
