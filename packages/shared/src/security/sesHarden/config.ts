@@ -1,4 +1,6 @@
 // cspell:ignore lockdown
+import { isExtensionRuntime } from './options';
+
 import type { ISesHardenLevel, ISesHardenRuntime } from './types';
 
 // Edit this file to switch SES harden level synchronously at bundle startup.
@@ -30,9 +32,7 @@ export const ONEKEY_SES_HARDEN_RUNTIME_LEVELS: Partial<
 // builds are unaffected. Non-extension runtimes (web/desktop) keep their
 // configured level under E2E because their CSP already permits eval.
 function isExtensionE2EBuild(runtime?: ISesHardenRuntime): boolean {
-  return (
-    process.env.E2E_MODE === 'true' && runtime?.startsWith('ext-') === true
-  );
+  return process.env.E2E_MODE === 'true' && isExtensionRuntime(runtime);
 }
 
 export function getConfiguredSesHardenLevel(

@@ -147,6 +147,7 @@ import {
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
   rewrapLocalSecretEnvelopeV1,
+  stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from './localSecretEnvelope';
@@ -606,14 +607,6 @@ function getLocalPasswordCredentialInnerPrefix(
     return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;
   }
   return undefined;
-}
-
-function stripLocalSecretPrefix(text: string): string {
-  const prefixEnd = text.indexOf('|', 1);
-  if (text.startsWith('|') && prefixEnd > 0) {
-    return text.slice(prefixEnd + 1);
-  }
-  return text;
 }
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {

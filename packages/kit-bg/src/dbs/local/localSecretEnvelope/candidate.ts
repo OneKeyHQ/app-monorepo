@@ -2,7 +2,10 @@ import { shouldUpgradeSecretEncryptPayload } from '@onekeyhq/core/src/secret';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { LOCAL_SECRET_ENVELOPE_INNER_PREFIX } from './consts';
+import {
+  LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
+  getLocalSecretEnvelopeInnerPrefix,
+} from './consts';
 import { isLocalSecretEnvelopeString, stripLocalSecretPrefix } from './parser';
 
 import type {
@@ -29,21 +32,6 @@ export type ILocalSecretEnvelopeCandidateResult =
       canMigrate: false;
       reason: ILocalSecretEnvelopeCandidateRejectReason;
     };
-
-function getLocalSecretEnvelopeInnerPrefix(
-  value: string,
-): ILocalSecretEnvelopeInnerPrefix | undefined {
-  if (value.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential)) {
-    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential;
-  }
-  if (value.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential)) {
-    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential;
-  }
-  if (value.startsWith(LOCAL_SECRET_ENVELOPE_INNER_PREFIX.verifyString)) {
-    return LOCAL_SECRET_ENVELOPE_INNER_PREFIX.verifyString;
-  }
-  return undefined;
-}
 
 function isCredentialRecordIdSupported({
   recordId,

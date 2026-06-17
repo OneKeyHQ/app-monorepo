@@ -157,13 +157,12 @@ function parseLayerCapabilities(
 
 function parseWrappingLayer(value: unknown): ILocalSecretEnvelopeLayer {
   invariant(isJsonRecord(value), 'Invalid local secret envelope layer');
+  const iv = readOptionalString(value, 'iv');
   return {
     kind: parseLayerKind(readString(value, 'kind')),
     keyRef: readString(value, 'keyRef'),
     alg: parseLayerAlg(readString(value, 'alg')),
-    ...(readOptionalString(value, 'iv')
-      ? { iv: readOptionalString(value, 'iv') }
-      : undefined),
+    ...(iv ? { iv } : undefined),
     capabilities: parseLayerCapabilities(value.capabilities),
   };
 }
