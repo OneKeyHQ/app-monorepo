@@ -11,7 +11,6 @@ import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useThrottledCallback } from 'use-debounce';
 
 import {
   IconButton,
@@ -382,26 +381,6 @@ function TokenListBlock({
       vaultSettings?.mergeDeriveAssetsEnabled,
     ],
   );
-
-  const tokenListRef = useRef<{
-    keys: string;
-    tokens: IAccountToken[];
-    map: { [key: string]: ITokenFiat };
-  }>({
-    keys: '',
-    tokens: [],
-    map: {},
-  });
-
-  const riskyTokenListRef = useRef<{
-    keys: string;
-    tokens: IAccountToken[];
-    map: { [key: string]: ITokenFiat };
-  }>({
-    keys: '',
-    tokens: [],
-    map: {},
-  });
 
   const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
     unblockedTokens: {},
@@ -970,16 +949,6 @@ function TokenListBlock({
     nonZeroInputs: cellsNonZeroInputs,
   };
 
-  const updateAllNetworkData = useThrottledCallback(() => {
-    tokenListRef.current.tokens = [];
-    tokenListRef.current.keys = '';
-    tokenListRef.current.map = {};
-
-    riskyTokenListRef.current.tokens = [];
-    riskyTokenListRef.current.keys = '';
-    riskyTokenListRef.current.map = {};
-  }, 1000);
-
   const handleAllNetworkRequests = useCallback(
     async ({
       accountId,
@@ -1180,42 +1149,15 @@ function TokenListBlock({
           return r;
         }
 
-        tokenListRef.current.tokens = tokenListRef.current.tokens.concat([
-          ...r.tokens.data,
-          ...r.smallBalanceTokens.data,
-        ]);
-
-        tokenListRef.current.keys = `${tokenListRef.current.keys}_${r.tokens.keys}`;
-
-        const mergedMap = {
-          ...r.tokens.map,
-          ...r.smallBalanceTokens.map,
-        };
-
-        tokenListRef.current.map = {
-          ...mergedMap,
-          ...tokenListRef.current.map,
-        };
-
-        riskyTokenListRef.current.tokens =
-          riskyTokenListRef.current.tokens.concat([...r.riskTokens.data]);
-
-        riskyTokenListRef.current.keys = `${riskyTokenListRef.current.keys}_${r.riskTokens.keys}`;
-
-        riskyTokenListRef.current.map = {
-          ...r.riskTokens.map,
-          ...riskyTokenListRef.current.map,
-        };
-
-        // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). The
-        // per-round all-network ingestRound was REMOVED here: this round's
+        // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). There is
+        // no per-round all-network ingestRound here: this round's
         // `r.tokens.data` is ONE incremental slice, NOT the coherent full list,
         // so feeding it would make the BG structure frame reflect a partial
-        // round. The all-network feed now happens ONCE, at the tail of the
-        // `allNetworksResult` consuming effect, after merge/dedup/sort/high-low
-        // split have produced the coherent full merged snapshot.
-
-        updateAllNetworkData();
+        // round. The progressive paint now flows through the LWW materialized
+        // view (`progressiveViewRef`): each settled round is ingested by key and
+        // the throttled flush materializes the merged snapshot. The authoritative
+        // feed still happens at the tail of the `allNetworksResult` consuming
+        // effect.
       }
 
       isAllNetworkManualRefresh.current = false;
@@ -1229,7 +1171,6 @@ function TokenListBlock({
       network?.id,
       updateAccountOverviewState,
       updateAccountWorth,
-      updateAllNetworkData,
       updateTokenListState,
       syncTokenFilterToOverview,
       walletTokenFilterParams,
@@ -1237,26 +1178,16 @@ function TokenListBlock({
   );
 
   const handleClearAllNetworkData = useCallback(() => {
-    // Cancel the pending throttled flush and discard its accumulation —
-    // otherwise a trailing `updateAllNetworkData` fires after this clear and
-    // merges the previous owner's tokens into the freshly stamped-empty list
-    // (the owner stamp written below would then claim that data is current).
-    updateAllNetworkData.cancel();
     // Drop any pending progressive paint for the owner being cleared and reset
     // the LWW materialized view so the next owner starts from an empty keyed
-    // cache.
+    // cache (otherwise a trailing flush would merge the previous owner's tokens
+    // into the freshly stamped-empty list).
     if (progressiveFlushTimerRef.current !== null) {
       clearTimeout(progressiveFlushTimerRef.current);
       progressiveFlushTimerRef.current = null;
     }
     progressiveViewRef.current.clear();
-    tokenListRef.current.tokens = [];
-    tokenListRef.current.keys = '';
-    tokenListRef.current.map = {};
-    riskyTokenListRef.current.tokens = [];
-    riskyTokenListRef.current.keys = '';
-    riskyTokenListRef.current.map = {};
-  }, [updateAllNetworkData]);
+  }, []);
 
   const handleAllNetworkRequestsFinished = useCallback(
     async ({
@@ -1434,7 +1365,7 @@ function TokenListBlock({
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
       // Refresh the shared cached aggregate raw data (consumed by the
-      // single-network aggregate-build path / `updateAllNetworkData`). The
+      // single-network aggregate-build path). The
       // legacy `allTokenList*` cache-hydrate that also lived here was deleted in
       // the tokenList cells §R2+R3 cutover — the cells slim cold cache + ingestRound
       // are now the single cache/paint authority — so the per-network token list

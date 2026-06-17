@@ -20,7 +20,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
@@ -74,9 +73,6 @@ const getTokenListFanOutConcurrencyLimit = (taskCount: number) => {
     ? TOKEN_LIST_FAN_OUT_CONCURRENCY_LIMIT_IOS
     : PROMISE_CONCURRENCY_LIMIT;
 };
-// useRef not working as expected, so use a global object
-const currentRequestsUUID = { current: '' };
-
 type IAllNetworkAccountsBaseCacheKey = string;
 type IAllNetworkAccountsBaseCacheEntry = {
   createdAt: number;
@@ -522,8 +518,6 @@ function useAllNetworkRequests<T>(params: {
 
       perfTokenListView.markStart('useAllNetworkRequestsRun');
 
-      const requestsUUID = generateUUID();
-
       if (effectiveDisabled) return;
       if (isFetching.current) {
         rerunAfterCurrentRef.current = true;
@@ -773,11 +767,6 @@ function useAllNetworkRequests<T>(params: {
           }
         }
 
-        currentRequestsUUID.current = requestsUUID;
-        // console.log(
-        //   'currentRequestsUUID set: =====>>>>>: ',
-        //   currentRequestsUUID.current,
-        // );
         if (allNetworkDataInit.current) {
           const allNetworks = reorderNetworksByCachePriority(
             accountsInfo,
@@ -893,37 +882,6 @@ function useAllNetworkRequests<T>(params: {
             // pass
           }
           resp = respTemp.length ? respTemp : null;
-
-          // // 处理顺序请求的网络
-          // await (async (uuid: string) => {
-          // for (const networkDataString of sequentialNetworks) {
-          //   console.log(
-          //     'currentRequestsUUID for: =====>>>>>: ',
-          //     currentRequestsUUID.current,
-          //     uuid,
-          //     networkDataString.networkId,
-          //     networkDataString.apiAddress,
-          //   );
-          //   if (
-          //     currentRequestsUUID.current &&
-          //     currentRequestsUUID.current !== uuid
-          //   ) {
-          //     break;
-          //   }
-          //   const { accountId, networkId } = networkDataString;
-          //   try {
-          //     await allNetworkRequests({
-          //       accountId,
-          //       networkId,
-          //       allNetworkDataInit: allNetworkDataInit.current,
-          //     });
-          //   } catch (e) {
-          //     console.error(e);
-          //     // pass
-          //   }
-          //   await waitAsync(interval);
-          // }
-          // })(requestsUUID);
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
