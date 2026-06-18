@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
-  SubtitleBadge,
+  SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -134,10 +134,10 @@ export const useColumnsDesktop = (
                 {record.maxLeverage ? (
                   <LeverageBadge leverage={record.maxLeverage} />
                 ) : null}
-                {record.perpsSubtitle ? (
-                  <SubtitleBadge subtitle={record.perpsSubtitle} />
-                ) : null}
               </XStack>
+              {record.perpsSubtitle ? (
+                <SubtitleText subtitle={record.perpsSubtitle} />
+              ) : null}
             </Stack>
           </XStack>
         ) : (
