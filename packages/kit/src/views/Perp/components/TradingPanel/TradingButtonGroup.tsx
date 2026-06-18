@@ -127,6 +127,33 @@ interface ITradingButtonGroupProps {
   enableTradingModeOverride?: IPerpsOrderPanelEnableTradingMode;
 }
 
+function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
+  const intl = useIntl();
+
+  return (
+    <YStack {...(!isMobile && { mt: '$4' })}>
+      <Button
+        testID="perp-ip-restricted-button"
+        size="medium"
+        disabled
+        childrenAsText={false}
+        borderRadius="$full"
+        variant="secondary"
+        disabledStyle={{ opacity: 1 }}
+        h={isMobile ? 46 : 44}
+        iconAfter="LockOutline"
+        iconColor="$iconSubdued"
+      >
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.trading_unavailable__action,
+          })}
+        </SizableText>
+      </Button>
+    </YStack>
+  );
+}
+
 interface ISideButtonProps {
   side: 'long' | 'short';
   isMobile: boolean;
@@ -536,10 +563,6 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.Perps_BBO_unavailable,
       });
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
@@ -578,7 +601,6 @@ function SideButtonInternal({
     side,
     spotTradeSymbol,
     intl,
-    perpConfigCommon?.ipDisablePerp,
     perpConfigCommon?.disablePerpActionPerp,
     shouldEnableTradingBeforeOrder,
   ]);
@@ -1722,10 +1744,6 @@ function EmptySizeSideButton({
   }, [activeTradeInstrument, isSpot]);
 
   const buttonText = useMemo(() => {
-    if (perpConfigCommon?.ipDisablePerp)
-      return intl.formatMessage({
-        id: ETranslations.perp_button_ip_restricted,
-      });
     if (perpConfigCommon?.disablePerpActionPerp)
       return intl.formatMessage({
         id: ETranslations.perp_button_disable_perp,
@@ -1761,7 +1779,6 @@ function EmptySizeSideButton({
     intl,
     isSpot,
     perpConfigCommon?.disablePerpActionPerp,
-    perpConfigCommon?.ipDisablePerp,
     side,
     spotTradeSymbol,
   ]);
@@ -2184,6 +2201,7 @@ function TradingButtonGroupLive({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const marketDataFreshness = usePerpsMarketDataFreshness();
   const liveHandleConfirmRef = useRef(noopHandleConfirm);
@@ -2193,6 +2211,10 @@ function TradingButtonGroupLive({
     [],
   );
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {
@@ -2276,8 +2298,13 @@ function TradingButtonGroupEmptySize({
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
   const [tradingMode] = useTradingModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
   const isSpot = tradingMode === 'spot';
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
 
   const renderSideButtons = () => {
     if (isSpot) {

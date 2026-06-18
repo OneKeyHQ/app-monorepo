@@ -270,12 +270,12 @@ function ManualInputContent() {
   const form = useForm<IManualInputFormValues>(MANUAL_INPUT_FORM_OPTIONS);
   const { control } = form;
   const addressValue = useFormWatch({ control, name: 'to' });
-  const { errors, isValid } = form.formState;
+  const { errors } = form.formState;
 
   const canProceed = useMemo(() => {
     if (Object.values(errors).length) return false;
-    return !addressValue.pending && !!addressValue.resolved && isValid;
-  }, [addressValue.pending, addressValue.resolved, errors, isValid]);
+    return !addressValue.pending && !!addressValue.resolved;
+  }, [addressValue.pending, addressValue.resolved, errors]);
 
   const handleNext = useCallback(() => {
     const resolved = form.getValues('to').resolved;

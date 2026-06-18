@@ -48,6 +48,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -96,6 +97,7 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import {
@@ -456,6 +458,7 @@ function PerpTradingForm({
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAbstractionMode] = usePerpsAbstractionModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [displayReady] = usePerpsAccountDisplayReadyAtom();
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
@@ -1366,6 +1369,7 @@ function PerpTradingForm({
       !perpsAccountStatus.canTrade &&
       !perpsAccountStatus.accountNotSupport &&
       !perpsAccountStatus.canCreateAddress &&
+      !perpConfigCommon?.ipDisablePerp &&
       enableTradingMode.requiresExplicitEnableTrading,
     [
       displayReady.statusReady,
@@ -1374,8 +1378,14 @@ function PerpTradingForm({
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
       perpsAccountStatus.canTrade,
+      perpConfigCommon?.ipDisablePerp,
     ],
   );
+  const shouldShowIpRestrictionNotice = useMemo(
+    () => perpConfigCommon?.ipDisablePerp === true,
+    [perpConfigCommon?.ipDisablePerp],
+  );
+  const shouldHideMobileTpsl = isMobile && shouldShowIpRestrictionNotice;
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -2624,52 +2634,54 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-        <XStack
-          width="100%"
-          alignItems="center"
-          justifyContent="space-between"
-          gap="$3"
-        >
-          <XStack alignItems="center" gap="$2">
-            <Checkbox
-              testID={PerpTestIDs.TpslCheckbox}
-              value={formData.hasTpsl}
-              onChange={handleTpslCheckboxChange}
-              disabled={isSubmitting}
-              containerProps={{
-                p: 0,
-                alignItems: 'center',
-                ...(!isMobile && { cursor: 'pointer' }),
-              }}
-              width={checkboxSizeVal}
-              height={checkboxSizeVal}
-              {...(isMobile && { p: '$0' })}
-            />
+        {shouldHideMobileTpsl ? null : (
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+          >
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID={PerpTestIDs.TpslCheckbox}
+                value={formData.hasTpsl}
+                onChange={handleTpslCheckboxChange}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
 
-            <XStack alignItems="center" pt="$0.5">
-              <DashText
-                size={isMobile ? '$bodySm' : '$bodyMd'}
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
-                tooltipTitle={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              </DashText>
+              <XStack alignItems="center" pt="$0.5">
+                <DashText
+                  size={isMobile ? '$bodySm' : '$bodyMd'}
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_tooltip,
+                  })}
+                  tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+                  tooltipTitle={intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              </XStack>
             </XStack>
+
+            {standardLimitTifSelector}
           </XStack>
+        )}
 
-          {standardLimitTifSelector}
-        </XStack>
-
-        {formData.hasTpsl ? (
+        {!shouldHideMobileTpsl && formData.hasTpsl ? (
           <YStack gap="$2">
             <TpSlFormInput
               type="tp"
@@ -2809,6 +2821,10 @@ function PerpTradingForm({
       pt={isMobile || isSpot ? '$0' : '$2.5'}
       flex={isSpot && isMobile ? 1 : undefined}
     >
+      {shouldShowIpRestrictionNotice ? (
+        <PerpIpRestrictionNotice isMobile={isMobile} isSpot={isSpot} />
+      ) : null}
+
       {isMobile ? (
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
