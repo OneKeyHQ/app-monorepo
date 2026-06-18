@@ -2,11 +2,9 @@ import { memo, useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, XStack, YStack } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 import { TxActionsListView } from '@onekeyhq/kit/src/components/TxActionListView';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { getHistoryTxDisplayStatus } from '@onekeyhq/shared/src/utils/historyUtils';
 import { ETxActionComponentType } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
@@ -16,19 +14,6 @@ import { useReplaceTx } from '../../hooks/useReplaceTx';
 
 import { SpeedUpAction } from './SpeedUpAction';
 import { TxHistoryListItemErrorBoundary } from './TxHistoryListItemErrorBoundary';
-
-// Highlight props for the pending-row wrapper. Reuse the shared ListItem
-// hover/press tokens so the wrapped block (main row + speed-up/cancel actions)
-// highlights exactly like a normal row, from a single source of truth. Press is
-// web/desktop only: a pressable wrapper on native would steal the touch
-// responder from list scrolling — the row keeps its own native Pressable
-// feedback there, and native has no hover. Built once at module load.
-const PENDING_ROW_HIGHLIGHT_STYLE = {
-  hoverStyle: listItemPressStyle.hoverStyle,
-  ...(platformEnv.isNative
-    ? undefined
-    : { pressStyle: listItemPressStyle.pressStyle }),
-};
 
 type IProps = {
   index: number;
@@ -128,16 +113,18 @@ function PendingTxActions({
     return canCancelTx ? renderCancelActions() : renderSpeedUpCancelAction();
   };
 
+  // Align the actions under the title. They render as a child of the same
+  // ListItem, whose content padding (px="$3") already insets them, so we only add
+  // the avatar column: its width (Token "$10" = 40, or compact "$8" = 32) plus the
+  // content row's "$3" gap (12). No icon means no avatar column, so no inset.
+  const avatarSize = compact ? 32 : 40;
+  const titleColumnInset = showIcon ? avatarSize + 12 : 0;
+
   return (
     <XStack
-      // Align the actions under the title. The inset is the row's own content
-      // padding (px="$3" = 12) plus, when an icon shows, the avatar (40 /
-      // compact 32) + gap (12). The wrapper's mx is a shared left origin for
-      // both the row and these actions, so it isn't part of this offset.
-      // eslint-disable-next-line no-nested-ternary
-      pl={showIcon ? (compact ? 56 : 64) : 12}
+      pl={titleColumnInset}
       testID="history-list-item-speed-up-and-cancel-buttons"
-      pb="$3"
+      pb="$1"
     >
       {renderReplaceButtons()}
       {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
@@ -166,58 +153,36 @@ function BaseTxHistoryListItem(props: IProps) {
   const displayStatus = getHistoryTxDisplayStatus(historyTx);
   const isPending = displayStatus === EDecodedTxStatus.Pending;
 
-  const listView = (
-    <TxActionsListView
-      hideValue={hideValue}
-      key={historyTx.id}
-      replaceType={historyTx.replacedType}
-      decodedTx={historyTx.decodedTx}
-      tableLayout={tableLayout}
-      showIcon={showIcon}
-      componentType={ETxActionComponentType.ListView}
-      componentProps={{
-        onPress: handlePress,
-        // Pending rows lift the hover/press highlight to the wrapper below so it
-        // spans the row + the speed-up/cancel actions. Drop this row's own inset
-        // (the wrapper owns it) and clear its hover/press bg so the translucent
-        // overlay isn't painted twice. onPress stays here, so the row remains the
-        // navigation target while the sibling action buttons don't open the
-        // detail. On native these are no-ops/fallbacks (see ListItem).
-        ...(isPending && {
-          mx: 0,
-          hoverStyle: undefined,
-          pressStyle: undefined,
-        }),
-      }}
-      displayStatus={displayStatus}
-      compact={compact}
-    />
-  );
-
+  // A pending row is just one ListItem in column layout: the token/balance row on
+  // top, and the speed-up/cancel actions below as its second child. Because they
+  // live in the same ListItem, navigation (onPress) and the press/hover highlight
+  // cover the row + actions as a single container automatically — no wrapper,
+  // state or platform branching needed. The action Buttons stop press propagation
+  // by default, so tapping them runs their action instead of navigating.
   return (
     <TxHistoryListItemErrorBoundary>
-      {isPending ? (
-        // Wrap the row + actions so hovering/pressing anywhere highlights the
-        // whole item as one continuous, rounded block. The wrapper owns the
-        // inset, radius and highlight; the row keeps onPress + its focus ring,
-        // and the action buttons keep their own hit areas.
-        <YStack
-          mx="$2"
-          borderRadius="$3"
-          borderCurve="continuous"
-          {...PENDING_ROW_HIGHLIGHT_STYLE}
-        >
-          {listView}
-          <PendingTxActions
-            historyTx={historyTx}
-            showIcon={showIcon}
-            compact={compact}
-            recomputeLayout={recomputeLayout}
-          />
-        </YStack>
-      ) : (
-        listView
-      )}
+      <TxActionsListView
+        hideValue={hideValue}
+        key={historyTx.id}
+        replaceType={historyTx.replacedType}
+        decodedTx={historyTx.decodedTx}
+        tableLayout={tableLayout}
+        showIcon={showIcon}
+        componentType={ETxActionComponentType.ListView}
+        componentProps={{
+          onPress: handlePress,
+          children: isPending ? (
+            <PendingTxActions
+              historyTx={historyTx}
+              showIcon={showIcon}
+              compact={compact}
+              recomputeLayout={recomputeLayout}
+            />
+          ) : undefined,
+        }}
+        displayStatus={displayStatus}
+        compact={compact}
+      />
     </TxHistoryListItemErrorBoundary>
   );
 }
