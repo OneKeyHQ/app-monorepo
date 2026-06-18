@@ -723,7 +723,7 @@ function StockAmountInput({
           tokenSymbol: inputToken?.symbol,
           testID: SwapTestIDs.maxButton,
         }}
-        maxAmountText="Max"
+        maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
           testID: SwapTestIDs.fromAmountInput,

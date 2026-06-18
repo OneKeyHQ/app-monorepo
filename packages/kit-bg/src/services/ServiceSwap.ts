@@ -3001,8 +3001,12 @@ export default class ServiceSwap extends ServiceBase {
       if (data?.code === 0 && data?.data?.length) {
         return data.data[0];
       }
+      if (data?.code !== 0 && data?.message) {
+        throw new OneKeyError(data.message);
+      }
     } catch (e) {
       console.error('fetchSpeedMarketQuote error', e);
+      throw e;
     }
     return undefined;
   }

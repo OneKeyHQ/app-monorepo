@@ -2,6 +2,7 @@ import type {
   IFetchBuildTxResponse,
   IFetchQuoteResult,
 } from '@onekeyhq/shared/types/swap/types';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildDefaultMarketSpeedCheckState,
@@ -150,6 +151,17 @@ describe('marketSwapBuildUtils', () => {
     expect(merged.result.gasLimit).toBe(45_678);
     expect(merged.result.minToAmount).toBe('950');
     expect(merged.result.routesData).toHaveLength(1);
+  });
+
+  it('hydrates missing protocol from the selected quote', () => {
+    const merged = mergeMarketBuildResultWithQuote({
+      buildRes: createBuildRes(),
+      quoteResult: createQuoteResult({
+        protocol: EProtocolOfExchange.STOCK,
+      }),
+    });
+
+    expect(merged.result.protocol).toBe(EProtocolOfExchange.STOCK);
   });
 
   it('does not overwrite build result fields that are already present', () => {

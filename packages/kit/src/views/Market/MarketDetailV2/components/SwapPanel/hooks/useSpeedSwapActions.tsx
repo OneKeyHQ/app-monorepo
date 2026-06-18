@@ -19,6 +19,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSelectedDeriveTypeAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { type ISwapReviewStepTexts } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { checkSwapLatestBalanceSufficient } from '@onekeyhq/kit/src/views/Swap/utils/swapBalanceUtils';
+import { buildSwapHistoryIdentity } from '@onekeyhq/kit/src/views/Swap/utils/swapHistoryIdentity';
 import type {
   ISwapReviewAdapter,
   ISwapReviewApproveBroadcastResult,
@@ -481,40 +482,25 @@ export function useSpeedSwapActions(props: {
       gasFeeInNative?: string;
     }) => {
       const txNetworkId = swapInfo.sender.token.networkId;
-      const buildCtx = swapInfo.swapBuildResData.ctx as
-        | {
-            cowSwapOrderId?: string;
-            oneInchFusionOrderHash?: string;
-            changeHeroOrderId?: string;
-          }
-        | undefined;
-      const serviceOrderId =
-        swapInfo.swapBuildResData.orderId ??
-        swapInfo.swapBuildResData.result?.quoteId;
-      const historyOrderId =
-        swapInfo.swapBuildResData.swftOrder?.orderId ??
-        (txHash
-          ? (buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId)
-          : (serviceOrderId ??
-            buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId));
+      const {
+        orderId: historyOrderId,
+        serviceOrderId,
+        useOrderId,
+      } = buildSwapHistoryIdentity({
+        buildRes: swapInfo.swapBuildResData,
+        protocol: swapInfo.protocol,
+        txId: txHash,
+        includeServiceOrderIdWithoutTx: true,
+      });
       const fromNetworkPreset = Object.values(presetNetworksMap).find(
         (item) => item.id === swapInfo.sender.token.networkId,
       );
       const toNetworkPreset = Object.values(presetNetworksMap).find(
         (item) => item.id === swapInfo.receiver.token.networkId,
       );
-      const useOrderId = Boolean(
-        (!txHash && historyOrderId) ||
-        buildCtx?.cowSwapOrderId ||
-        buildCtx?.oneInchFusionOrderHash,
-      );
-
       if (
         swapInfo.protocol === EProtocolOfExchange.SWAP ||
+        swapInfo.protocol === EProtocolOfExchange.STOCK ||
         swapInfo.swapBuildResData.result.isWrapped
       ) {
         const swapHistoryItem: ISwapTxHistory = {
@@ -837,12 +823,13 @@ export function useSpeedSwapActions(props: {
             ...(quoteResult.quoteId ? { orderId: quoteResult.quoteId } : {}),
             result: {
               ...quoteResult,
+              protocol: quoteResult.protocol ?? EProtocolOfExchange.STOCK,
               slippage: quoteResult.slippage ?? slippage,
             },
           };
 
           const swapInfo: ISwapTxInfo = {
-            protocol: EProtocolOfExchange.SWAP,
+            protocol: EProtocolOfExchange.STOCK,
             sender: {
               amount: quoteResult.fromAmount ?? amount,
               token: fromTokenFinal,
@@ -1821,6 +1808,7 @@ export function useSpeedSwapActions(props: {
           ...snapshot.quoteResult,
           ...freshQuoteResult,
           allowanceResult: snapshot.quoteResult.allowanceResult,
+          protocol: freshQuoteResult.protocol ?? snapshot.quoteResult.protocol,
           slippage:
             freshQuoteResult.slippage ??
             snapshot.quoteResult.slippage ??

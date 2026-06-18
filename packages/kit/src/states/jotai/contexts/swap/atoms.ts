@@ -168,6 +168,9 @@ export const {
   | undefined
 >(undefined);
 
+export const { atom: swapStockExecutionTokenSyncIdAtom } =
+  contextAtom<number>(0);
+
 export const {
   atom: swapSelectedTokensColdStartContextAtom,
   use: useSwapSelectedTokensColdStartContextAtom,

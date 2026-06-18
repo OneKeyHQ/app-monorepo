@@ -14,8 +14,10 @@ import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 import { useSwapActions } from './actions';
 import {
   ProviderJotaiContextSwap,
+  swapNetworks,
   swapSelectFromTokenAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
 } from './atoms';
 
@@ -34,6 +36,9 @@ const mockFetchSwapTokenDetails: jest.MockedFunction<
     params: IFetchSwapTokenDetailsParams,
   ) => Promise<{ balanceParsed?: string; price?: string; fiatValue?: string }[]>
 > = jest.fn();
+const mockSetSwapNetworksSortRawData: jest.MockedFunction<
+  (params: { data: unknown[] }) => Promise<void>
+> = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -41,6 +46,12 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceSwap: {
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
+    },
+    simpleDb: {
+      swapNetworksSort: {
+        setRawData: (params: { data: unknown[] }) =>
+          mockSetSwapNetworksSortRawData(params),
+      },
     },
   },
 }));
@@ -51,6 +62,34 @@ const ethToken: ISwapToken = {
   symbol: 'ETH',
   decimals: 18,
   isNative: true,
+};
+const usdcToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xusdc',
+  symbol: 'USDC',
+  decimals: 6,
+  isNative: false,
+};
+const usdtToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xusdt',
+  symbol: 'USDT',
+  decimals: 6,
+  isNative: false,
+};
+const stockTokenA: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xstock-a',
+  symbol: 'STOCKA',
+  decimals: 18,
+  isNative: false,
+};
+const appleStockToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '0xaapl',
+  symbol: 'AAPL',
+  decimals: 18,
+  isNative: false,
 };
 const evmAccount: INetworkAccount = {
   id: 'hd-1--m/44/60/0/0/0',
@@ -95,6 +134,22 @@ const fromAddressInfo: ISwapAddressInfo = {
 function createWrapper() {
   const store = createStore();
   store.set(swapSelectFromTokenAtom(), ethToken);
+  store.set(swapNetworks(), [
+    {
+      networkId: 'evm--1',
+      name: 'Ethereum',
+      symbol: 'ETH',
+      logoURI: '',
+      shortcode: 'eth',
+    },
+    {
+      networkId: 'evm--56',
+      name: 'BNB Smart Chain',
+      symbol: 'BNB',
+      logoURI: '',
+      shortcode: 'bsc',
+    },
+  ]);
 
   return function Wrapper({ children }: { children?: ReactNode }) {
     return (
@@ -108,6 +163,7 @@ function createWrapper() {
 describe('useSwapActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
   });
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
@@ -154,5 +210,61 @@ describe('useSwapActions', () => {
     expect(result.current.fromToken?.price).toBe('3000');
     expect(result.current.fromToken?.currency).toBe('usd');
     expect(result.current.balance).toBe('1.23');
+  });
+
+  it('keeps the latest Stock execution token sync when network sorting resolves out of order', async () => {
+    let resolveFirstSort: (() => void) | undefined;
+    mockSetSwapNetworksSortRawData
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstSort = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+        const [fromToken] = useSwapSelectFromTokenAtom();
+        const [toToken] = useSwapSelectToTokenAtom();
+
+        return {
+          actions,
+          fromToken,
+          toToken,
+        };
+      },
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await act(async () => {
+      const firstSync = result.current.actions.selectStockExecutionTokens({
+        fromToken: usdcToken,
+        toToken: stockTokenA,
+        syncId: 1,
+      });
+      await Promise.resolve();
+
+      await result.current.actions.selectStockExecutionTokens({
+        fromToken: usdtToken,
+        toToken: appleStockToken,
+        syncId: 2,
+      });
+
+      resolveFirstSort?.();
+      await firstSync;
+    });
+
+    expect(result.current.fromToken).toMatchObject({
+      symbol: 'USDT',
+      contractAddress: '0xusdt',
+    });
+    expect(result.current.toToken).toMatchObject({
+      symbol: 'AAPL',
+      contractAddress: '0xaapl',
+    });
   });
 });

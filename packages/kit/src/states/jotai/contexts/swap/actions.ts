@@ -125,6 +125,7 @@ import {
   swapSilenceQuoteLoading,
   swapSpeedQuoteFetchingAtom,
   swapSpeedQuoteResultAtom,
+  swapStockExecutionTokenSyncIdAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
@@ -166,6 +167,14 @@ function getSelectedPairLimitPriceRate({
     });
 
   return isSelectedPair ? limitPriceUseRate.rate : undefined;
+}
+
+function getStockQuoteErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  const message = (error as { message?: unknown } | undefined)?.message;
+  return typeof message === 'string' && message ? message : undefined;
 }
 
 function isQuoteResultSelectedTokenPair({
@@ -545,6 +554,48 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       await this.syncNetworksSort.call(set, token.networkId);
       set(swapSelectToTokenAtom(), token);
+    },
+  );
+
+  selectStockExecutionTokens = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        fromToken,
+        toToken,
+        syncId,
+      }: {
+        fromToken?: ISwapToken;
+        toToken?: ISwapToken;
+        syncId: number;
+      },
+    ) => {
+      set(swapStockExecutionTokenSyncIdAtom(), syncId);
+
+      const networkIds = Array.from(
+        new Set(
+          [fromToken?.networkId, toToken?.networkId].filter(
+            (networkId): networkId is string => !!networkId,
+          ),
+        ),
+      );
+      for (const networkId of networkIds) {
+        await this.syncNetworksSort.call(set, networkId);
+        if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
+          return;
+        }
+      }
+
+      if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
+        return;
+      }
+      if (fromToken) {
+        set(swapSelectFromTokenAtom(), fromToken);
+      }
+      if (toToken) {
+        set(swapSelectToTokenAtom(), toToken);
+      }
     },
   );
 
@@ -1064,13 +1115,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           });
         }
         this.reconcileManualSelectQuoteProviders.call(set);
-      } catch {
+      } catch (error) {
         if (requestId === this.stockMarketQuoteRequestId) {
+          const message = getStockQuoteErrorMessage(error);
           set(swapQuoteListAtom(), []);
           set(swapQuoteCurrentEventProviderKeysAtom(), []);
           set(swapQuoteCurrentEventReceivedCountAtom(), 0);
           set(swapQuoteEventCompletedAtom(), true);
           set(swapQuoteEventTotalCountAtom(), { count: 0 });
+          if (message) {
+            set(swapQuoteEventErrorAtom(), {
+              message,
+              fromToken,
+              toToken,
+              isStock: true,
+            });
+            set(swapAlertsAtom(), {
+              states: [
+                {
+                  message,
+                  alertLevel: ESwapAlertLevel.ERROR,
+                },
+              ],
+              quoteId: '',
+            });
+          }
         }
       } finally {
         if (requestId === this.stockMarketQuoteRequestId) {
@@ -2830,6 +2899,7 @@ export const useSwapActions = () => {
   const actions = createActions();
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
+  const selectStockExecutionTokens = actions.selectStockExecutionTokens.use();
   const alternationToken = actions.alternationToken.use();
   const syncNetworksSort = actions.syncNetworksSort.use();
   const catchSwapTokensMap = actions.catchSwapTokensMap.use();
@@ -2863,6 +2933,7 @@ export const useSwapActions = () => {
     selectFromToken,
     quoteAction,
     selectToToken,
+    selectStockExecutionTokens,
     alternationToken,
     syncNetworksSort,
     catchSwapTokensMap,

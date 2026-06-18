@@ -52,6 +52,13 @@ export {
   ESwapStockTradeSide,
 } from './swapStockChannelUtils';
 
+let stockExecutionTokenSyncSerial = 0;
+
+function nextStockExecutionTokenSyncId() {
+  stockExecutionTokenSyncSerial += 1;
+  return stockExecutionTokenSyncSerial;
+}
+
 export function useSwapStockChannel({
   marketPresetToken,
   disableNativePayToken,
@@ -65,7 +72,7 @@ export function useSwapStockChannel({
   const [toToken] = useSwapSelectToTokenAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const { selectFromToken, selectToToken } = useSwapActions().current;
+  const { selectStockExecutionTokens } = useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
   const [tradeSide, setTradeSide] = useState(ESwapStockTradeSide.Buy);
   const [stockTokenState, setStockTokenState] = useState<
@@ -154,14 +161,13 @@ export function useSwapStockChannel({
       const nextToToken =
         nextTradeSide === ESwapStockTradeSide.Buy ? stockToken : nextPayToken;
 
-      if (nextFromToken) {
-        await selectFromToken(nextFromToken, true, true, true);
-      }
-      if (nextToToken) {
-        await selectToToken(nextToToken, true, true);
-      }
+      await selectStockExecutionTokens({
+        fromToken: nextFromToken,
+        toToken: nextToToken,
+        syncId: nextStockExecutionTokenSyncId(),
+      });
     },
-    [currentStockToken, payToken, selectFromToken, selectToToken, tradeSide],
+    [currentStockToken, payToken, selectStockExecutionTokens, tradeSide],
   );
 
   useEffect(() => {
