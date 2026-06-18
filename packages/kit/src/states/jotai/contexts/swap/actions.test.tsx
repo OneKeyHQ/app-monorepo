@@ -2,20 +2,32 @@
 
 import type { ReactNode } from 'react';
 
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createStore } from 'jotai';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapQuoteKind,
+  ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapActions } from './actions';
 import {
   ProviderJotaiContextSwap,
+  swapFromTokenAmountAtom,
   swapNetworks,
+  swapQuoteActionLockAtom,
   swapSelectFromTokenAtom,
+  swapSelectToTokenAtom,
+  swapStockExecutionTokenSyncIdAtom,
+  swapStockExecutionTokensAtom,
+  swapTypeSwitchAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -36,6 +48,12 @@ const mockFetchSwapTokenDetails: jest.MockedFunction<
     params: IFetchSwapTokenDetailsParams,
   ) => Promise<{ balanceParsed?: string; price?: string; fiatValue?: string }[]>
 > = jest.fn();
+const mockFetchQuotesEvents: jest.MockedFunction<
+  (params: unknown) => Promise<void>
+> = jest.fn();
+const mockCloseApproving: jest.MockedFunction<() => Promise<void>> = jest.fn();
+const mockCancelFetchQuoteEvents: jest.MockedFunction<() => Promise<void>> =
+  jest.fn();
 const mockSetSwapNetworksSortRawData: jest.MockedFunction<
   (params: { data: unknown[] }) => Promise<void>
 > = jest.fn();
@@ -46,6 +64,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceSwap: {
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
         mockFetchSwapTokenDetails(params),
+      fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
+      closeApproving: () => mockCloseApproving(),
+      cancelFetchQuoteEvents: () => mockCancelFetchQuoteEvents(),
     },
     simpleDb: {
       swapNetworksSort: {
@@ -131,7 +152,9 @@ const fromAddressInfo: ISwapAddressInfo = {
   isAddressInfoReady: true,
 };
 
-function createWrapper() {
+function createWrapperWithStore(
+  setup?: (store: ReturnType<typeof createStore>) => void,
+) {
   const store = createStore();
   store.set(swapSelectFromTokenAtom(), ethToken);
   store.set(swapNetworks(), [
@@ -150,20 +173,33 @@ function createWrapper() {
       shortcode: 'bsc',
     },
   ]);
+  setup?.(store);
 
-  return function Wrapper({ children }: { children?: ReactNode }) {
+  function Wrapper({ children }: { children?: ReactNode }) {
     return (
       <ProviderJotaiContextSwap store={store}>
         {children}
       </ProviderJotaiContextSwap>
     );
-  };
+  }
+
+  return { store, Wrapper };
+}
+
+function createWrapper(
+  setup?: (store: ReturnType<typeof createStore>) => void,
+) {
+  return createWrapperWithStore(setup).Wrapper;
 }
 
 describe('useSwapActions', () => {
   beforeEach(() => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
     jest.clearAllMocks();
     mockSetSwapNetworksSortRawData.mockResolvedValue(undefined);
+    mockCloseApproving.mockResolvedValue(undefined);
+    mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
+    mockFetchQuotesEvents.mockResolvedValue(undefined);
   });
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
@@ -266,5 +302,126 @@ describe('useSwapActions', () => {
       symbol: 'AAPL',
       contractAddress: '0xaapl',
     });
+  });
+
+  it('blocks Stock quote before Stock execution tokens own the selected pair', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: createWrapper((store) => {
+          store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+          store.set(swapSelectFromTokenAtom(), ethToken);
+          store.set(swapSelectToTokenAtom(), usdcToken);
+          store.set(swapFromTokenAmountAtom(), { value: '1', isInput: true });
+        }),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+  });
+
+  it('runs Stock quote events after Stock execution tokens own the selected pair', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), stockTokenA);
+      storeInstance.set(swapStockExecutionTokenSyncIdAtom(), 1);
+      storeInstance.set(swapStockExecutionTokensAtom(), {
+        syncId: 1,
+        fromToken: usdcToken,
+        toToken: stockTokenA,
+      });
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.STOCK);
+    expect(store.get(swapSelectFromTokenAtom())).toBe(usdcToken);
+    expect(store.get(swapSelectToTokenAtom())).toBe(stockTokenA);
+    expect(store.get(swapStockExecutionTokenSyncIdAtom())).toBe(1);
+    expect(store.get(swapStockExecutionTokensAtom())).toEqual({
+      syncId: 1,
+      fromToken: usdcToken,
+      toToken: stockTokenA,
+    });
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '1',
+      isInput: true,
+    });
+
+    await act(async () => {
+      await result.current.actions.quoteAction(
+        { key: ESwapSlippageSegmentKey.AUTO, value: 0.5 },
+        '0xabc',
+        evmAccount.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
+      );
+    });
+
+    expect(store.get(swapQuoteActionLockAtom())).toEqual(
+      expect.objectContaining({
+        accountId: evmAccount.id,
+        actionLock: true,
+        address: '0xabc',
+        fromToken: usdcToken,
+        fromTokenAmount: '1',
+        kind: ESwapQuoteKind.SELL,
+        toToken: stockTokenA,
+        toTokenAmount: '',
+        type: ESwapTabSwitchType.STOCK,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: evmAccount.id,
+          autoSlippage: true,
+          fromToken: usdcToken,
+          fromTokenAmount: '1',
+          incognito: false,
+          protocol: ESwapTabSwitchType.STOCK,
+          slippagePercentage: 0.5,
+          toToken: stockTokenA,
+          userAddress: '0xabc',
+        }),
+      ),
+    );
   });
 });

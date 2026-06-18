@@ -177,6 +177,27 @@ describe('swap cold-start selected token context', () => {
     ).toBe(true);
   });
 
+  it('does not match ordinary selected-token context when entering Stock', () => {
+    const activeAccount = buildActiveAccount();
+
+    expect(
+      isSwapSelectedTokensColdStartContextMatched({
+        cachedContext: buildSwapSelectedTokensColdStartContext({
+          activeAccount,
+          networkId: 'evm--56',
+          swapType: ESwapTabSwitchType.SWAP,
+          now: 1,
+        }),
+        currentContext: buildSwapSelectedTokensColdStartContext({
+          activeAccount,
+          networkId: 'evm--56',
+          swapType: ESwapTabSwitchType.STOCK,
+          now: 2,
+        }),
+      }),
+    ).toBe(false);
+  });
+
   it('invalidates when the network changes', () => {
     const activeAccount = buildActiveAccount();
 

@@ -145,6 +145,14 @@ export function isSwapSelectedTokensColdStartContextMatched({
     return false;
   }
 
+  if (
+    (cachedContext.swapType === ESwapTabSwitchType.STOCK ||
+      currentContext.swapType === ESwapTabSwitchType.STOCK) &&
+    cachedContext.swapType !== currentContext.swapType
+  ) {
+    return false;
+  }
+
   return (
     cachedContext.accountKey === currentContext.accountKey &&
     cachedContext.networkId === currentContext.networkId

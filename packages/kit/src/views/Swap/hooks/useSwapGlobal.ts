@@ -179,7 +179,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const [selectedTokensColdStartContext, setSelectedTokensColdStartContext] =
@@ -787,6 +787,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       });
     }
     if (isStockDefaultTokenFlow) {
+      if (
+        selectedTokensColdStartContextRef.current?.swapType !==
+        ESwapTabSwitchType.STOCK
+      ) {
+        if (fromTokenRef.current) {
+          setSwapFromToken(undefined);
+        }
+        if (toTokenRef.current) {
+          setToToken(undefined);
+        }
+        if (selectedTokensColdStartContextRef.current) {
+          setSelectedTokensColdStartContext(undefined);
+        }
+        if (
+          fromTokenAmountRef.current.value ||
+          fromTokenAmountRef.current.isInput
+        ) {
+          setFromTokenAmount({ value: '', isInput: false });
+        }
+        if (
+          toTokenAmountRef.current.value ||
+          toTokenAmountRef.current.isInput
+        ) {
+          setToTokenAmount({ value: '', isInput: false });
+        }
+      }
       markInitialSelectedTokensSynced();
       return;
     }
@@ -1141,6 +1167,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     fromTokenAmount.isInput,
     fromTokenAmount.value,
     setFromTokenAmount,
+    setSelectedTokensColdStartContext,
+    setToTokenAmount,
     syncNetworksSort,
     checkSupportTokenSwapType,
     swapTypeSwitch,

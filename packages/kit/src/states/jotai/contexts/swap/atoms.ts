@@ -171,6 +171,15 @@ export const {
 export const { atom: swapStockExecutionTokenSyncIdAtom } =
   contextAtom<number>(0);
 
+export const { atom: swapStockExecutionTokensAtom } = contextAtom<
+  | {
+      syncId: number;
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
 export const {
   atom: swapSelectedTokensColdStartContextAtom,
   use: useSwapSelectedTokensColdStartContextAtom,
