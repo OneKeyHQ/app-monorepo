@@ -9,6 +9,8 @@ import {
 
 import {
   filterSwapMarketHistoryItems,
+  getSwapMarketPendingHistoryCount,
+  getSwapMarketPendingHistoryKey,
   isSwapMarketHistoryItem,
 } from './swapMarketHistory';
 
@@ -41,6 +43,7 @@ function createHistoryItem(protocol: EProtocolOfExchange): ISwapTxHistory {
     txInfo: {
       sender: '0xsender',
       receiver: '0xreceiver',
+      txId: `${protocol}-tx`,
     },
     date: {
       created: Date.now(),
@@ -70,7 +73,7 @@ describe('swapMarketHistory', () => {
     ).toBe(false);
   });
 
-  it('filters stock and swap market history by protocol', () => {
+  it('keeps stock history in the swap market history bucket', () => {
     const stockHistory = createHistoryItem(EProtocolOfExchange.STOCK);
     const swapHistory = createHistoryItem(EProtocolOfExchange.SWAP);
     const histories = [stockHistory, swapHistory];
@@ -86,6 +89,24 @@ describe('swapMarketHistory', () => {
         items: histories,
         protocol: EProtocolOfExchange.SWAP,
       }),
-    ).toEqual([swapHistory]);
+    ).toEqual([stockHistory, swapHistory]);
+    expect(
+      filterSwapMarketHistoryItems({
+        items: histories,
+      }),
+    ).toEqual([stockHistory, swapHistory]);
+  });
+
+  it('counts stock pending history in the swap market pending bucket', () => {
+    const stockHistory = createHistoryItem(EProtocolOfExchange.STOCK);
+    const swapHistory = createHistoryItem(EProtocolOfExchange.SWAP);
+    const histories = [stockHistory, swapHistory];
+
+    expect(
+      getSwapMarketPendingHistoryCount(histories, EProtocolOfExchange.SWAP),
+    ).toBe(2);
+    expect(
+      getSwapMarketPendingHistoryKey(histories, EProtocolOfExchange.SWAP),
+    ).toBe('Stock-tx:pending|Swap-tx:pending');
   });
 });

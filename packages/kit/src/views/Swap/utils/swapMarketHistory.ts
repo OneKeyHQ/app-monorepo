@@ -29,7 +29,7 @@ function matchSwapMarketHistoryProtocol({
   if (protocol === EProtocolOfExchange.STOCK) {
     return item.protocol === EProtocolOfExchange.STOCK;
   }
-  return item.protocol !== EProtocolOfExchange.STOCK;
+  return true;
 }
 
 export function filterSwapMarketHistoryItems({

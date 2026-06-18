@@ -176,11 +176,7 @@ const SwapHistoryListModal = ({
   }, [historyType, intl]);
 
   const cleanExcludeProtocols = useMemo(
-    () => [
-      EProtocolOfExchange.STOCK,
-      EProtocolOfExchange.LIMIT,
-      EProtocolOfExchange.PRIVATE_SEND,
-    ],
+    () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],
     [],
   );
 
