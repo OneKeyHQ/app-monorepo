@@ -64,24 +64,18 @@ const SwapHistoryListModal = ({
     >();
   const { type } = route.params;
   const initialHistoryType =
-    type === EProtocolOfExchange.LIMIT || type === EProtocolOfExchange.STOCK
-      ? type
-      : EProtocolOfExchange.SWAP;
+    type === EProtocolOfExchange.LIMIT ? type : EProtocolOfExchange.SWAP;
   const [historyType, setHistoryType] =
     useState<EProtocolOfExchange>(initialHistoryType);
-  const marketListProtocol =
-    historyType === EProtocolOfExchange.STOCK
-      ? EProtocolOfExchange.STOCK
-      : EProtocolOfExchange.SWAP;
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const marketPendingKey = useMemo(
     () =>
       getSwapMarketPendingHistoryKey(
         swapHistoryPendingList,
-        marketListProtocol,
+        EProtocolOfExchange.SWAP,
       ),
-    [marketListProtocol, swapHistoryPendingList],
+    [swapHistoryPendingList],
   );
 
   useEffect(() => {
@@ -101,9 +95,9 @@ const SwapHistoryListModal = ({
     () =>
       filterSwapMarketHistoryItems({
         items: swapTxHistoryList ?? [],
-        protocol: marketListProtocol,
+        protocol: EProtocolOfExchange.SWAP,
       }),
-    [marketListProtocol, swapTxHistoryList],
+    [swapTxHistoryList],
   );
 
   // Default fee percentage for savings calculation (0.3%)
@@ -157,14 +151,6 @@ const SwapHistoryListModal = ({
       ),
     [swapHistoryPendingList],
   );
-  const stockPendingHistoryCount = useMemo(
-    () =>
-      getSwapMarketPendingHistoryCount(
-        swapHistoryPendingList,
-        EProtocolOfExchange.STOCK,
-      ),
-    [swapHistoryPendingList],
-  );
   const limitPendingHistoryCount = useMemo(
     () =>
       swapLimitOrders.filter(
@@ -176,10 +162,7 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    swapMarketPendingHistoryCount +
-      stockPendingHistoryCount +
-      limitPendingHistoryCount >
-    0;
+    swapMarketPendingHistoryCount + limitPendingHistoryCount > 0;
 
   const historyTypeTitle = useMemo(() => {
     if (historyType === EProtocolOfExchange.LIMIT) {
@@ -187,30 +170,19 @@ const SwapHistoryListModal = ({
         id: ETranslations.swap_page_limit_dialog_title,
       });
     }
-    if (historyType === EProtocolOfExchange.STOCK) {
-      return intl.formatMessage({
-        id: ETranslations.perps_token_selector_stocks,
-      });
-    }
     return intl.formatMessage({
       id: ETranslations.perp_trade_market,
     });
   }, [historyType, intl]);
 
-  const cleanExcludeProtocols = useMemo(() => {
-    if (historyType === EProtocolOfExchange.STOCK) {
-      return [
-        EProtocolOfExchange.SWAP,
-        EProtocolOfExchange.LIMIT,
-        EProtocolOfExchange.PRIVATE_SEND,
-      ];
-    }
-    return [
+  const cleanExcludeProtocols = useMemo(
+    () => [
       EProtocolOfExchange.STOCK,
       EProtocolOfExchange.LIMIT,
       EProtocolOfExchange.PRIVATE_SEND,
-    ];
-  }, [historyType]);
+    ],
+    [],
+  );
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
     if (count <= 0) {
@@ -240,10 +212,6 @@ const SwapHistoryListModal = ({
     setHistoryType(EProtocolOfExchange.SWAP);
   }, []);
 
-  const handleSelectStockHistoryType = useCallback(() => {
-    setHistoryType(EProtocolOfExchange.STOCK);
-  }, []);
-
   const handleSelectLimitHistoryType = useCallback(() => {
     setHistoryType(EProtocolOfExchange.LIMIT);
   }, []);
@@ -262,20 +230,6 @@ const SwapHistoryListModal = ({
     [intl, renderHistoryTypeBadge, swapMarketPendingHistoryCount],
   );
 
-  const renderStockHistoryTypeLabel = useCallback(
-    () => (
-      <XStack alignItems="center" gap="$2" flex={1}>
-        <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
-          {intl.formatMessage({
-            id: ETranslations.perps_token_selector_stocks,
-          })}
-        </SizableText>
-        {renderHistoryTypeBadge(stockPendingHistoryCount)}
-      </XStack>
-    ),
-    [intl, renderHistoryTypeBadge, stockPendingHistoryCount],
-  );
-
   const renderLimitHistoryTypeLabel = useCallback(
     () => (
       <XStack alignItems="center" gap="$2" flex={1}>
@@ -292,17 +246,6 @@ const SwapHistoryListModal = ({
 
   const historyTypeItems = useMemo(
     () => [
-      {
-        label: intl.formatMessage({
-          id: ETranslations.perps_token_selector_stocks,
-        }),
-        renderLabel: renderStockHistoryTypeLabel,
-        extra:
-          historyType === EProtocolOfExchange.STOCK ? (
-            <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
-          ) : undefined,
-        onPress: handleSelectStockHistoryType,
-      },
       {
         label: intl.formatMessage({
           id: ETranslations.perp_trade_market,
@@ -328,12 +271,10 @@ const SwapHistoryListModal = ({
     ],
     [
       handleSelectLimitHistoryType,
-      handleSelectStockHistoryType,
       handleSelectSwapHistoryType,
       historyType,
       intl,
       renderLimitHistoryTypeLabel,
-      renderStockHistoryTypeLabel,
       renderSwapHistoryTypeLabel,
     ],
   );
@@ -674,10 +615,7 @@ const SwapHistoryListModal = ({
     <Page>
       <Page.Header
         headerRight={
-          historyType === EProtocolOfExchange.LIMIT ||
-          historyType === EProtocolOfExchange.STOCK
-            ? undefined
-            : deleteButton
+          historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
         }
         headerTitleAlign={gtMd ? 'left' : 'center'}
         headerTitle={headerSelectType}
@@ -685,7 +623,7 @@ const SwapHistoryListModal = ({
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList protocol={marketListProtocol} />
+          <SwapMarketHistoryList protocol={EProtocolOfExchange.SWAP} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />

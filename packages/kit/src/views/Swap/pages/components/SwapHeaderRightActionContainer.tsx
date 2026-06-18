@@ -585,9 +585,6 @@ const SwapHeaderRightActionContainer = ({
       ? EJotaiContextStoreNames.swapModal
       : EJotaiContextStoreNames.swap;
   const historyProtocolType = useMemo(() => {
-    if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-      return EProtocolOfExchange.STOCK;
-    }
     if (
       swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
       (platformEnv.isNative && swapProTradeType === ESwapProTradeType.MARKET)

@@ -146,6 +146,11 @@ const STOCK_CHART_GREEN_A9_COLORS: Record<'light' | 'dark', string> = {
   light: primitiveLight.greenA.greenA9,
   dark: primitiveDark.greenDarkA.greenA9,
 };
+const STOCK_CHART_LIGHT_BG = '#F6F7F8';
+const STOCK_CHART_LIGHT_TITLE_COLOR = '#202124';
+const STOCK_CHART_LIGHT_PERIOD_COLOR = '#6B7280';
+const STOCK_CHART_VISIBLE_HEIGHT = 174;
+const STOCK_CHART_RENDER_HEIGHT = 200;
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
   const pointsByTime = new Map<number, number>();
@@ -990,17 +995,32 @@ function StockPriceChart({
   isNative,
   networkId,
   tokenAddress,
+  tokenSymbol,
 }: {
   isNative?: boolean;
   networkId?: string;
   tokenAddress?: string;
+  tokenSymbol?: string;
 }) {
+  const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [range, setRange] = useState<IStockChartRange>('1D');
   const chartLineColor = useMemo(() => {
     const variant = themeVariant === 'dark' ? 'dark' : 'light';
     return STOCK_CHART_GREEN_A9_COLORS[variant];
   }, [themeVariant]);
+  const isDarkTheme = themeVariant === 'dark';
+  const chartCardBg = isDarkTheme ? '$bgSubdued' : STOCK_CHART_LIGHT_BG;
+  const chartTitleColor = isDarkTheme ? '$text' : STOCK_CHART_LIGHT_TITLE_COLOR;
+  const chartPeriodColor = isDarkTheme
+    ? '$textSubdued'
+    : STOCK_CHART_LIGHT_PERIOD_COLOR;
+  const chartTitle = useMemo(() => {
+    const chartLabel = intl.formatMessage({
+      id: ETranslations.market_chart,
+    });
+    return tokenSymbol ? `${tokenSymbol} ${chartLabel}` : chartLabel;
+  }, [intl, tokenSymbol]);
   const activeRange = useMemo(
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
@@ -1065,49 +1085,63 @@ function StockPriceChart({
     chartContent = <Skeleton w="100%" h="100%" />;
   } else if (chartData.length > 0) {
     chartContent = (
-      <LightweightChart
-        data={chartData}
-        height={220}
-        lineColor={chartLineColor}
-        topColor="transparent"
-        bottomColor="transparent"
-        lineWidth={2}
-        showPriceScale
-        priceFormatter={priceFormatter}
-        fontSize={11}
-      />
+      <Stack h={STOCK_CHART_VISIBLE_HEIGHT} overflow="hidden" w="100%">
+        <LightweightChart
+          data={chartData}
+          height={STOCK_CHART_RENDER_HEIGHT}
+          lineColor={chartLineColor}
+          topColor="transparent"
+          bottomColor="transparent"
+          lineWidth={2}
+          showHorzGridLines
+          priceFormatter={priceFormatter}
+          fontSize={11}
+        />
+      </Stack>
     );
   }
 
   return (
-    <YStack h={274} borderRadius="$4" bg="$bgSubdued" overflow="hidden">
-      <XStack px="$3" pt="$3" gap="$1.5">
-        {STOCK_CHART_RANGE_ITEMS.map((item) => {
-          const active = item.label === range;
-          return (
-            <XStack
-              key={item.label}
-              h="$7"
-              px="$2.5"
-              borderRadius="$2"
-              alignItems="center"
-              justifyContent="center"
-              bg={active ? '$bgActive' : '$transparent'}
-              userSelect="none"
-              cursor="pointer"
-              onPress={() => setRange(item.label)}
-            >
-              <SizableText
-                size="$bodySmMedium"
-                color={active ? '$text' : '$textSubdued'}
+    <YStack h={274} borderRadius="$4" bg={chartCardBg} overflow="hidden">
+      <XStack
+        h={60}
+        pl="$5"
+        pr={30}
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+      >
+        <SizableText
+          size="$bodyLgMedium"
+          color={chartTitleColor}
+          numberOfLines={1}
+          w={180}
+          flexShrink={1}
+        >
+          {chartTitle}
+        </SizableText>
+        <XStack w={156} alignItems="center" justifyContent="space-between">
+          {STOCK_CHART_RANGE_ITEMS.map((item) => {
+            return (
+              <XStack
+                key={item.label}
+                h="$5"
+                minWidth="$5"
+                alignItems="center"
+                justifyContent="center"
+                userSelect="none"
+                cursor="pointer"
+                onPress={() => setRange(item.label)}
               >
-                {item.label}
-              </SizableText>
-            </XStack>
-          );
-        })}
+                <SizableText size="$bodySmMedium" color={chartPeriodColor}>
+                  {item.label}
+                </SizableText>
+              </XStack>
+            );
+          })}
+        </XStack>
       </XStack>
-      <Stack flex={1} minHeight={0} px="$2" pb="$2">
+      <Stack flex={1} minHeight={0} px="$5" pt="$2" pb="$4">
         {chartContent}
       </Stack>
     </YStack>
@@ -1199,12 +1233,13 @@ function StockMarketContextPanel({
     >
       <StockMarketTokenHeader storeName={storeName} />
 
-      <Stack mt="$6" mb="$2.5">
+      <Stack mt="$6" mb="$2.5" mx="$-px">
         {chartReady ? (
           <StockPriceChart
             tokenAddress={tokenAddress ?? ''}
             networkId={networkId ?? ''}
             isNative={isNative}
+            tokenSymbol={tokenDetail?.symbol}
           />
         ) : (
           <Skeleton w="100%" h={274} />
@@ -1257,7 +1292,7 @@ function SwapStockDesktopContent({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type: EProtocolOfExchange.STOCK,
+        type: EProtocolOfExchange.SWAP,
         storeName,
       },
     });
