@@ -20,6 +20,7 @@ import type {
 
 import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import {
+  ACTION_BUTTON_CONTAINER_PROPS,
   BALANCE_FLEX_WITHOUT_REWARDS,
   POSITION_COLUMN_WIDTH,
   PROTOCOL_TABLE_COLUMN_GAP,
@@ -181,11 +182,7 @@ const ProtocolSectionedPositionTable = memo(
                         manageAsset={asset}
                         showResolvedActions={assetIndex === 0}
                         visualVariant="info"
-                        containerProps={{
-                          mt: '$1',
-                          alignSelf: 'flex-start',
-                          justifyContent: 'flex-start',
-                        }}
+                        containerProps={ACTION_BUTTON_CONTAINER_PROPS}
                         onSuccess={onActionSuccess}
                       />
                     ) : null}

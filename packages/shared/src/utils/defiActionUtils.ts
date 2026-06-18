@@ -505,6 +505,19 @@ function getSupportedAssetCategory(
   return supportedAction.assetCategory;
 }
 
+function isSupportedByCurrentActionUi(
+  supportedAction: IDeFiSupportedProtocolAction,
+) {
+  if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
+    // Gated off in the App: the resolution/preview plumbing below exists, but
+    // the build service must guarantee a server-enforced min-out before we
+    // expose liquidity removal as a safe signing flow. Re-enable here once the
+    // backend contract is confirmed.
+    return false;
+  }
+  return true;
+}
+
 function getCandidateAssets({
   position,
   supportedAction,
@@ -644,6 +657,7 @@ function resolveDeFiPositionActions({
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
+      isSupportedByCurrentActionUi(supportedAction) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 
@@ -692,6 +706,7 @@ export {
   DEFI_ACTION_MAX_PERCENT,
   DEFI_ACTION_MIN_PERCENT,
   buildDeFiActionBps,
+  normalizeCategoryForAction,
   normalizeDeFiActionPercent,
   resolveDeFiPositionActions,
 };

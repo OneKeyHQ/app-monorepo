@@ -8,6 +8,7 @@ import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/com
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { normalizeCategoryForAction } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import {
   EDeFiAssetType,
   type IDeFiAsset,
@@ -65,8 +66,21 @@ const MAX_BALANCE_LINES = 3;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
+// Stable identity for the inline action-button container styling so the
+// memo()'d ProtocolPositionActionButton isn't re-created on every parent
+// render (the tables now mount one per asset row). Shared with the sectioned
+// table to keep both call sites identical.
+export const ACTION_BUTTON_CONTAINER_PROPS = {
+  mt: '$1',
+  alignSelf: 'flex-start',
+  justifyContent: 'flex-start',
+} as const;
+
 function isRewardAsset(asset: IProtocolUnifiedRow['primaryAssets'][number]) {
-  return asset.type === EDeFiAssetType.REWARD || asset.category === 'reward';
+  return (
+    asset.type === EDeFiAssetType.REWARD ||
+    normalizeCategoryForAction(asset.category) === 'reward'
+  );
 }
 
 function isRewardsOnlyRow(row: IProtocolUnifiedRow) {
@@ -143,6 +157,34 @@ const ProtocolUnifiedTable = memo(
       });
     }, []);
 
+    // Row-intrinsic derivations hoisted out of the render map and memoized on
+    // `rows`, so toggling one row's expansion doesn't rebuild every row's
+    // actionPosition — which would bust the memo()'d action buttons and re-run
+    // action resolution across the whole table.
+    const rowsDerived = useMemo(
+      () =>
+        rows.map((row) => {
+          const isPrimaryRewardsOnly = isRewardsOnlyRow(row);
+          const balanceAssets = isPrimaryRewardsOnly ? [] : row.primaryAssets;
+          const rewardsAssets = isPrimaryRewardsOnly
+            ? row.primaryAssets
+            : row.rewardsExtraAssets;
+          const actionPosition = {
+            groupId: row.groupId,
+            poolName: row.positionDisplay.text,
+            poolFullName: row.positionDisplay.text,
+            category: row.category,
+            assets: balanceAssets,
+            debts: [],
+            rewards: rewardsAssets,
+            value: '0',
+            sourcePositions: row.sourcePositions,
+          };
+          return { balanceAssets, rewardsAssets, actionPosition };
+        }),
+      [rows],
+    );
+
     const balanceFlex = showRewardsColumn
       ? BALANCE_FLEX_WITH_REWARDS
       : BALANCE_FLEX_WITHOUT_REWARDS;
@@ -199,11 +241,8 @@ const ProtocolUnifiedTable = memo(
             positionUsdState.hasAvailableValue &&
             positionUsdState.hasUnavailableValue;
           const isExpanded = expandedRows.has(row.rowKey);
-          const isPrimaryRewardsOnly = isRewardsOnlyRow(row);
-          const balanceAssets = isPrimaryRewardsOnly ? [] : row.primaryAssets;
-          const rewardsAssets = isPrimaryRewardsOnly
-            ? row.primaryAssets
-            : row.rewardsExtraAssets;
+          const { balanceAssets, rewardsAssets, actionPosition } =
+            rowsDerived[rowIndex];
           const visibleBalanceAssets = isExpanded
             ? balanceAssets
             : topAssetsByValue(balanceAssets, MAX_BALANCE_LINES);
@@ -214,18 +253,6 @@ const ProtocolUnifiedTable = memo(
           const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
-
-          const actionPosition = {
-            groupId: row.groupId,
-            poolName: row.positionDisplay.text,
-            poolFullName: row.positionDisplay.text,
-            category: row.category,
-            assets: balanceAssets,
-            debts: [],
-            rewards: rewardsAssets,
-            value: '0',
-            sourcePositions: row.sourcePositions,
-          };
 
           return (
             <YStack key={row.rowKey} mx="$5" mt={rowIndex === 0 ? '$0' : '$3'}>
@@ -321,11 +348,7 @@ const ProtocolUnifiedTable = memo(
                     supportedActions={supportedActions}
                     placement="balance"
                     visualVariant="info"
-                    containerProps={{
-                      mt: '$1',
-                      alignSelf: 'flex-start',
-                      justifyContent: 'flex-start',
-                    }}
+                    containerProps={ACTION_BUTTON_CONTAINER_PROPS}
                     onSuccess={onActionSuccess}
                   />
                 </YStack>
@@ -346,11 +369,7 @@ const ProtocolUnifiedTable = memo(
                           supportedActions={supportedActions}
                           placement="rewards"
                           visualVariant="info"
-                          containerProps={{
-                            mt: '$1',
-                            alignSelf: 'flex-start',
-                            justifyContent: 'flex-start',
-                          }}
+                          containerProps={ACTION_BUTTON_CONTAINER_PROPS}
                           onSuccess={onActionSuccess}
                         />
                       </>

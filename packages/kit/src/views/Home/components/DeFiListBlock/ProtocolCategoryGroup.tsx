@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
@@ -70,13 +70,24 @@ const ProtocolCategoryGroup = memo(
     supportedActions,
     onActionSuccess,
   }: IProtocolCategoryGroupProps) => {
+    // Memoize the per-position action models so a re-render for an unrelated
+    // prop (currency, callbacks) doesn't hand the memo()'d sectioned table a
+    // fresh `position` object and force it to re-render + re-resolve actions.
+    const sectionedActionPositions = useMemo(
+      () =>
+        group.kind === 'sectioned'
+          ? group.positions.map((position) => buildActionPosition(position))
+          : [],
+      [group],
+    );
+
     if (group.kind === 'sectioned') {
       return (
         <YStack gap="$4">
-          {group.positions.map((position) => {
+          {group.positions.map((position, index) => {
             const positionDisplayName =
               getProtocolPositionDisplayName(position);
-            const actionPosition = buildActionPosition(position);
+            const actionPosition = sectionedActionPositions[index];
 
             return (
               <YStack key={position.positionKey} gap="$2">

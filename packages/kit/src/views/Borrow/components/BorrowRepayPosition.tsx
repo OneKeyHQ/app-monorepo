@@ -85,7 +85,10 @@ export type IRepayWithCollateralConfirmParams = {
   routeKey?: string;
   collateralAmount?: string;
   collateralAsset: IRepayCollateralAsset;
-  needsSetupLut?: boolean;
+  // Required: the repay tx's LUT-setup decision is driven entirely by this
+  // value (the form's effectiveNeedsSetupLut). Keeping it required prevents a
+  // future caller from silently omitting it and skipping required setup.
+  needsSetupLut: boolean;
   onSetupReadyForRepay?: () => void;
 };
 

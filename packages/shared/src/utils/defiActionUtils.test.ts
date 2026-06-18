@@ -115,7 +115,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
-  it('resolves Uniswap removeLiquidity when tokenId metadata is available', () => {
+  it('gates Uniswap removeLiquidity off even when tokenId metadata is available', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -158,16 +158,11 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].action).toBe(EDeFiPositionAction.RemoveLiquidity);
-    expect(actions[0].assets).toHaveLength(1);
-    expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
-    expect(actions[0].assets[0].extraParams?.groupId).toBe(
-      '0x1111111111111111111111111111111111111111#123',
-    );
-    expect(
-      actions[0].assets[0].underlyingAssets?.map((asset) => asset.symbol),
-    ).toEqual(['ETH', 'USDC']);
+    // RemoveLiquidity is gated off in the app (isSupportedByCurrentActionUi)
+    // until the build service guarantees a server-enforced min-out. The
+    // resolution metadata above (tokenId / underlyingAssets) stays exercised so
+    // re-enabling only flips the gate, not this setup.
+    expect(actions).toHaveLength(0);
   });
 
   it('hides Uniswap removeLiquidity when tokenId metadata is missing', () => {
@@ -232,7 +227,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('resolves grouped Uniswap removeLiquidity assets separately', () => {
+  it('gates grouped Uniswap removeLiquidity off', () => {
     const firstSourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -272,10 +267,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].assets).toHaveLength(2);
-    expect(actions[0].assets[0].extraParams?.tokenId).toBe('123');
-    expect(actions[0].assets[1].extraParams?.tokenId).toBe('456');
+    expect(actions).toHaveLength(0);
   });
 
   it('resolves Polygon claimWithdrawal with pool and group metadata', () => {

@@ -209,10 +209,22 @@ function getAaveBorrowManageParams({
     'pool_address',
     'pool',
   ]);
-  // A scoped asset IS the reserve target, so its own address/symbol win; only
-  // the position-level fallback consults the source records.
+  // A scoped asset IS the reserve target, so its own address/symbol win. We
+  // still prefer an explicit reserve/underlying field off the asset's own
+  // record when present, falling back to its address — this guards against a
+  // provider that ever emits a wrapper (aToken/variableDebtToken) in `.address`
+  // instead of the underlying reserve.
   const reserveAddress = manageAsset
-    ? manageAsset.address
+    ? (pickStringFromSources(
+        [manageAsset],
+        [
+          'reserveAddress',
+          'reserve_address',
+          'reserve',
+          'underlyingAddress',
+          'underlying_address',
+        ],
+      ) ?? manageAsset.address)
     : (pickStringFromSources(sources, [
         'reserveAddress',
         'reserve_address',
