@@ -23,14 +23,20 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
-import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import openUrlUtils, {
   openFiatCryptoUrl,
   openUrlExternal,
   openUrlInDiscovery,
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -123,7 +129,7 @@ function ReceiveSelectorContent() {
   const networkId = route.params?.networkId ?? network?.id;
   const walletId = route.params?.walletId ?? wallet?.id;
   const indexedAccountId = route.params?.indexedAccountId ?? indexedAccount?.id;
-  const { token, onClose } = route.params ?? {};
+  const { token, onClose, showSwapEntry } = route.params ?? {};
 
   const navigation = useAppNavigation();
 
@@ -186,6 +192,30 @@ function ReceiveSelectorContent() {
     },
     [token, isSupported, url],
   );
+
+  const handleSwapOnPress = useCallback(() => {
+    if (!token || !token.networkId) {
+      return;
+    }
+
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: token.networkId,
+        importToToken: {
+          networkId: token.networkId,
+          contractAddress: token.address,
+          symbol: token.symbol,
+          decimals: token.decimals,
+          name: token.name,
+          logoURI: token.logoURI,
+          isNative: token.isNative,
+        },
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.PERP,
+      },
+    });
+  }, [navigation, token]);
 
   const handleBinancePress = useCallback(async () => {
     try {
@@ -359,11 +389,21 @@ function ReceiveSelectorContent() {
   useEffect(() => () => void onClose?.(), [onClose]);
 
   return (
-    <Page testID={ReceiveTestIDs.ReceiveSelectorPage}>
+    <Page
+      testID={ReceiveTestIDs.ReceiveSelectorPage}
+      scrollEnabled={!!showSwapEntry}
+      scrollProps={
+        showSwapEntry
+          ? {
+              keyboardShouldPersistTaps: 'handled',
+            }
+          : undefined
+      }
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body>
+      <Page.Body pb={showSwapEntry ? '$5' : undefined}>
         <YStack gap="$5" px="$5" pt="$px">
           {showBuyAction ? (
             <WalletActionBuy
@@ -470,6 +510,24 @@ function ReceiveSelectorContent() {
               />
             )}
           />
+          {showSwapEntry && token?.networkId ? (
+            <ReceiveOptions
+              icon="SwitchHorOutline"
+              title={intl.formatMessage({ id: ETranslations.global_trade })}
+              subtitle={intl.formatMessage(
+                {
+                  id: ETranslations.receive_trade_to_token_on_network__desc,
+                },
+                {
+                  token: token.symbol,
+                  network:
+                    networkUtils.getLocalNetworkInfo(token.networkId)?.name ??
+                    '',
+                },
+              )}
+              onPress={handleSwapOnPress}
+            />
+          ) : null}
           <YStack
             testID={ReceiveTestIDs.ExchangeList}
             bg="$neutral2"
