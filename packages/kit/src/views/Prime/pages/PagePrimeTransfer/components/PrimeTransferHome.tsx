@@ -83,9 +83,6 @@ export function PrimeTransferHome({
     if (isBotWalletExport) {
       return 'Export Bot Wallet';
     }
-    if (transferType === EPrimeTransferDataType.keylessWallet) {
-      return 'Transfer Keyless Wallet';
-    }
     return intl.formatMessage({
       id: ETranslations.transfer_establish_connection,
     });
@@ -98,8 +95,7 @@ export function PrimeTransferHome({
       {isBotWalletExport ? null : <PrimeTransferServerStatusBar />}
 
       <Stack px="$4" gap="$5" mt="$2">
-        {transferType === EPrimeTransferDataType.keylessWallet ||
-        isBotWalletExport ? null : (
+        {isBotWalletExport ? null : (
           <SegmentControl
             fullWidth
             value={value}

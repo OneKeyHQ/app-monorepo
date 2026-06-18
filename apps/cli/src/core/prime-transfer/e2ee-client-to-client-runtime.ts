@@ -281,7 +281,6 @@ function clearTransferData(transferData: unknown): void {
   transferData.privateData.credentials = undefined;
   transferData.privateData.decryptedCredentials = undefined;
   transferData.privateData.decryptedCredentialsHex = undefined;
-  transferData.privateData.deviceKeyPack = undefined;
 }
 
 export function createE2EEClientToClientRuntime({
@@ -386,9 +385,9 @@ export function createE2EEClientToClientRuntime({
       }
     },
 
-    async getTransferType(): Promise<{ transferType: 'keylessWallet' }> {
+    async getTransferType(): Promise<{ transferType: 'allWallet' }> {
       assertSessionIsActive();
-      return { transferType: 'keylessWallet' };
+      return { transferType: 'allWallet' };
     },
 
     async changeTransferDirection({

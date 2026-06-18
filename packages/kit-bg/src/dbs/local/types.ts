@@ -197,12 +197,6 @@ export type IDBCreateHDWalletParams = {
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
 };
-export type IDBCreateKeylessWalletParams = {
-  password: string;
-  packSetId: string;
-  name?: string;
-  avatar?: IAvatarInfo;
-};
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
   device: Omit<SearchDevice, 'commType'>;

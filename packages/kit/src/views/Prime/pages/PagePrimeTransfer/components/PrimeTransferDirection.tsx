@@ -160,9 +160,6 @@ export function PrimeTransferDirection({
   botWalletId?: string;
   transferType?: EPrimeTransferDataType;
 }) {
-  const [isKeylessWalletTransfer, setIsKeylessWalletTransfer] = useState(
-    transferType === EPrimeTransferDataType.keylessWallet,
-  );
   const isBotWalletExport = !!botWalletId;
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -171,35 +168,14 @@ export function PrimeTransferDirection({
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
 
-  // Set self transfer type for client-to-client API (receiver side)
+  // Reset self transfer type when this screen unmounts.
   useEffect(() => {
-    void (async () => {
-      const remoteTransferType =
-        await backgroundApiProxy.servicePrimeTransfer.getRemoteTransferType();
-      const isRemoteKeylessWallet =
-        remoteTransferType?.transferType ===
-        EPrimeTransferDataType.keylessWallet;
-      if (
-        isRemoteKeylessWallet ||
-        transferType === EPrimeTransferDataType.keylessWallet
-      ) {
-        setIsKeylessWalletTransfer(true);
-        await backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
-          transferType: EPrimeTransferDataType.keylessWallet,
-        });
-        await backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-        setTimeout(() => {
-          void backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-        }, 2000);
-      }
-    })();
-
     return () => {
       void backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
         transferType: undefined,
       });
     };
-  }, [transferType]);
+  }, []);
 
   const getRoomUsers = useCallback(async () => {
     let result: IE2EESocketUserInfo[] = [];
@@ -443,54 +419,22 @@ export function PrimeTransferDirection({
         isClosedBySendData.current = true;
         void dialogRef.current?.close();
 
-        // Check if remote device is in keylessWallet mode (sender queries receiver)
-
-        // Handle keylessWallet transfer - either local or remote is in keylessWallet mode
-        // Bot wallet export uses buildTransferData with scoped walletIds, not deviceKeyPack
-        if (isKeylessWalletTransfer && !isBotWalletExport) {
-          const deviceKeyPack =
-            await backgroundApiProxy.serviceKeylessWallet.getKeylessDevicePackSafe();
-          if (!deviceKeyPack) {
-            Toast.error({
-              title: 'No DeviceKeyPack to transfer',
-            });
-            throw new OneKeyLocalError('No DeviceKeyPack to transfer');
-          }
-          // Send deviceKeyPack as transfer data
-          const keylessTransferData: IPrimeTransferData = {
-            privateData: {
-              credentials: undefined,
-              importedAccounts: {},
-              watchingAccounts: {},
-              wallets: {},
-              deviceKeyPack,
-            },
-            publicData: undefined,
-            isEmptyData: false,
-            isWatchingOnly: true, // Skip password verification
-            appVersion: '',
-          };
-          await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
-            transferData: keylessTransferData,
+        const transferData =
+          await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
+            walletIds: botWalletId ? [botWalletId] : undefined,
           });
-        } else {
-          const transferData =
-            await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
-              walletIds: botWalletId ? [botWalletId] : undefined,
-            });
-          if (transferData?.isEmptyData) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.transfer_no_data,
-              }),
-            });
-            throw new OneKeyLocalError('No data to transfer');
-          }
-          await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
-            transferData,
-            allowCliImportableCredentials,
+        if (transferData?.isEmptyData) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.transfer_no_data,
+            }),
           });
+          throw new OneKeyLocalError('No data to transfer');
         }
+        await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
+          transferData,
+          allowCliImportableCredentials,
+        });
 
         setWaitingAlertVisible(true);
         // resolve();
@@ -528,7 +472,6 @@ export function PrimeTransferDirection({
       intl,
       directionUserInfo?.toUser?.appPlatformName,
       exitTransferFlow,
-      isKeylessWalletTransfer,
       isBotWalletExport,
       botWalletId,
       allowCliImportableCredentials,
@@ -639,12 +582,6 @@ export function PrimeTransferDirection({
       isClosedBySendData.current = true;
       void dialogRef.current?.close();
 
-      // Handle keylessWallet transfer - show deviceKeyPack in debug dialog
-      if (isKeylessWalletTransfer) {
-        exitTransferFlow(600, { skipCloseOnboardingPages: true });
-        return;
-      }
-
       const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
         directionUserInfo,
         transferData: data.data,
@@ -655,12 +592,7 @@ export function PrimeTransferDirection({
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferDataReceived, fn);
     };
-  }, [
-    directionUserInfo,
-    navigation,
-    isKeylessWalletTransfer,
-    exitTransferFlow,
-  ]);
+  }, [directionUserInfo, navigation]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -689,35 +621,17 @@ export function PrimeTransferDirection({
             testID="prime-result-btn"
             onPress={() => {
               void (async () => {
-                const result =
-                  await backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-                Dialog.debugMessage({
-                  debugMessage: result,
-                  title: 'Fix Direction Result',
-                });
-              })();
-            }}
-          >
-            Fix Direction (Keyless)
-          </Button>
-          <Button
-            testID="prime-result-btn"
-            onPress={() => {
-              void (async () => {
                 await changeDirection();
               })();
             }}
           >
             Change Direction
           </Button>
-          <SizableText>
-            isKeylessWalletTransfer={isKeylessWalletTransfer.toString()}
-          </SizableText>
         </>
       );
     }
     return <></>;
-  }, [getRoomUsers, changeDirection, isKeylessWalletTransfer]);
+  }, [getRoomUsers, changeDirection]);
 
   return (
     <>
@@ -757,7 +671,7 @@ export function PrimeTransferDirection({
             px="$5"
             color="$iconSubdued"
             variant="tertiary"
-            disabled={isKeylessWalletTransfer || isBotWalletExport}
+            disabled={isBotWalletExport}
             onPress={changeDirection}
           />
         </XStack>
@@ -794,23 +708,3 @@ export function PrimeTransferDirection({
   );
 }
 
-/* Only show "I don't have a Keyless Wallet" for creation flow */
-/* - default: other data transfer, not related to Keyless Wallet */
-/* - createKeylessWallet: creating Keyless Wallet, user might not have one */
-/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */
-/* 
-      {transferType === EPrimeTransferDataType.keylessWallet ? (
-        <Page.Footer>
-          <YStack p="$5">
-            <Button variant="tertiary" size="small" childrenAsText={false}>
-              <XStack gap="$2" alignItems="center">
-                <SizableText color="$textInteractive" size="$bodyMdMedium">
-                  I don't have a Keyless Wallet
-                </SizableText>
-                <Icon name="OpenOutline" color="$textInteractive" size="$4" />
-              </XStack>
-            </Button>
-          </YStack>
-        </Page.Footer>
-      ) : null}
-*/

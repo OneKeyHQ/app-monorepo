@@ -190,7 +190,6 @@ function FinalizeWalletSetupPage({
   const createdWalletRef = useRef<IDBWallet | undefined>(undefined);
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
-  const keylessPackSetId = route?.params?.keylessPackSetId;
   const deviceData = route?.params?.deviceData;
   const ledgerTabValue = route?.params?.tabValue;
   const isFirmwareVerified = route?.params?.isFirmwareVerified;
@@ -566,8 +565,6 @@ function FinalizeWalletSetupPage({
         if (createdWallet) {
           createdWalletRef.current = createdWallet;
         }
-      } else if (keylessPackSetId && !created.current) {
-        created.current = true;
       }
       setIsWalletCreationReadyForReferralCheck(true);
     } catch (error) {
@@ -590,7 +587,6 @@ function FinalizeWalletSetupPage({
     mnemonic,
     deviceData,
     isFirmwareVerified,
-    keylessPackSetId,
     mnemonicType,
     actions,
     isWalletBackedUp,

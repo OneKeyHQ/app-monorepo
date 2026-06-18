@@ -54,7 +54,6 @@ export enum EGalleryRoutes {
   ComponentPerp = 'component-Perp',
   ComponentCloudBackup = 'component-CloudBackup',
   ComponentCloudSync = 'component-CloudSync',
-  ComponentKeylessWallet = 'component-KeylessWallet',
   ComponentPopover = 'component-Popover',
   ComponentPortal = 'component-Portal',
   ComponentProgress = 'component-Progress',

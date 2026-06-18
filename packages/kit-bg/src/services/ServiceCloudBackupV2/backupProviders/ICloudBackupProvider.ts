@@ -13,7 +13,6 @@ import type {
   IBackupDataPasswordVerify,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
-  ICloudBackupKeylessWalletPayload,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import {
   IncorrectPassword,
@@ -35,13 +34,8 @@ import type { IOneKeyBackupProvider } from './IOneKeyBackupProvider';
 
 const CLOUDKIT_RECORD_TYPE = 'OneKeyBackupV2';
 const CLOUDKIT_RECORD_ID_PREFIX = 'onekey_backup_v2_item';
-const CLOUDKIT_KEYLESS_WALLET_RECORD_ID_PREFIX = 'onekey_keyless_wallet_';
 const CLOUDKIT_BACKUP_PASSWORD_VERIFY_RECORD_ID =
   'onekey_backup_v2____backup_password_verify';
-
-function buildKeylessWalletRecordID(packSetId: string): string {
-  return `${CLOUDKIT_KEYLESS_WALLET_RECORD_ID_PREFIX}${packSetId}`;
-}
 
 const ICLOUD_KEYCHAIN_KEY = 'com.onekey.backup_v2.encryption.key';
 const ICLOUD_KEYCHAIN_LABEL = 'OneKey Wallet Backup V2 Key (DO NOT DELETE)';
@@ -302,67 +296,6 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
       recordID,
       content,
       meta: meta || '',
-    };
-  }
-
-  async backupKeylessWalletData(
-    payload: ICloudBackupKeylessWalletPayload,
-  ): Promise<{ recordID: string; content: string; meta: string }> {
-    const recordID = buildKeylessWalletRecordID(payload.cloudKeyPack.packSetId);
-    const content = stringUtils.stableStringify(payload);
-    await appleCloudKitStorage.saveRecord({
-      recordType: CLOUDKIT_RECORD_TYPE,
-      recordID,
-      data: content,
-      meta: '',
-    });
-    return {
-      recordID,
-      content,
-      meta: '',
-    };
-  }
-
-  async downloadKeylessWalletData({ recordID }: { recordID: string }): Promise<{
-    payload: ICloudBackupKeylessWalletPayload;
-    content: string;
-  } | null> {
-    await this.checkAvailability();
-    const record = await appleCloudKitStorage.fetchRecord({
-      recordID,
-      recordType: CLOUDKIT_RECORD_TYPE,
-    });
-    if (!record?.data) {
-      return null;
-    }
-    try {
-      return {
-        payload: JSON.parse(record.data) as ICloudBackupKeylessWalletPayload,
-        content: record.data,
-      };
-    } catch (_error) {
-      console.error('Failed to download keyless wallet data:', _error);
-      return null;
-    }
-  }
-
-  async getKeylessWalletBackupRecordID({
-    packSetId,
-  }: {
-    packSetId: string;
-  }): Promise<{ recordID: string; packSetId: string } | null> {
-    await this.checkAvailability();
-    const recordID = buildKeylessWalletRecordID(packSetId);
-    const record = await appleCloudKitStorage.fetchRecord({
-      recordID,
-      recordType: CLOUDKIT_RECORD_TYPE,
-    });
-    if (!record?.data) {
-      return null;
-    }
-    return {
-      recordID,
-      packSetId,
     };
   }
 
