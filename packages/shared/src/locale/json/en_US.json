@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "Insufficient margin",
   "perp_invalid_scale_order__msg": "Invalid scale order",
   "perp_ip_restriction__title": "Not available in your region",
-  "perp_ip_restriction_perp__desc": "New perpetual orders are unavailable in your region. You can still view markets, close positions, cancel orders, and transfer funds out.",
+  "perp_ip_restriction_perp__desc": "Trading is unavailable in your current network region. You can still view markets, close positions, cancel orders, and transfer funds out.",
   "perp_ip_restriction_spot__desc": "New spot orders are unavailable in your region. You can still view markets, cancel orders, and transfer funds out.",
   "perp_market_info_24h_high__title": "24h high",
   "perp_market_info_24h_high_tooltip__desc": "Highest price over the past 24 hours.",

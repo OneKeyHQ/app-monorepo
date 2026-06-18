@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "Margin tidak cukup",
   "perp_invalid_scale_order__msg": "Pesanan skala tidak valid",
   "perp_ip_restriction__title": "Tidak tersedia di wilayah Anda",
-  "perp_ip_restriction_perp__desc": "Order perpetual baru tidak tersedia di wilayah Anda. Anda masih dapat melihat pasar, menutup posisi, membatalkan order, dan mentransfer dana keluar.",
+  "perp_ip_restriction_perp__desc": "Trading tidak tersedia di wilayah jaringan Anda saat ini. Anda masih dapat melihat pasar, menutup posisi, membatalkan order, dan mentransfer dana keluar.",
   "perp_ip_restriction_spot__desc": "Order spot baru tidak tersedia di wilayah Anda. Anda masih dapat melihat pasar, membatalkan order, dan mentransfer dana keluar.",
   "perp_market_info_24h_high__title": "24h tinggi",
   "perp_market_info_24h_high_tooltip__desc": "Harga tertinggi dalam 24 jam terakhir.",
