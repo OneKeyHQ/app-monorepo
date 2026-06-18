@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "保證金不足",
   "perp_invalid_scale_order__msg": "分段委託無效",
   "perp_ip_restriction__title": "目前所在地區不可用",
-  "perp_ip_restriction_perp__desc": "目前所在地區無法新開永續訂單。你仍可查看市場、平倉、撤單，並將資金轉出。",
+  "perp_ip_restriction_perp__desc": "根據您目前網路所在地區的限制，暫時無法使用交易功能。您仍可查看市場、平倉、撤單，並將資金轉出。",
   "perp_ip_restriction_spot__desc": "目前所在地區無法新開現貨訂單。你仍可查看市場、撤單，並將資金轉出。",
   "perp_market_info_24h_high__title": "24h 最高價",
   "perp_market_info_24h_high_tooltip__desc": "過去24小時的最高價格。",
