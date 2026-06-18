@@ -15,7 +15,7 @@ import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
 // CJK locales render dates in "年/月/日"-style, so use the localized long date
 // format (e.g. 2024年6月19日) to keep the day unit; other locales keep the
 // "MMM d, yyyy" presentation.
-const CJK_DATE_LOCALES = ['zh-CN', 'zh-HK', 'zh-TW', 'ja-JP', 'ko-KR'];
+const CJK_DATE_LOCALES = new Set(['zh-CN', 'zh-HK', 'zh-TW', 'ja-JP', 'ko-KR']);
 
 export function formatRiskCheckDate(
   seconds: number,
@@ -24,7 +24,7 @@ export function formatRiskCheckDate(
   if (!seconds) {
     return '-';
   }
-  const datePart = CJK_DATE_LOCALES.includes(appLocale.getLocale())
+  const datePart = CJK_DATE_LOCALES.has(appLocale.getLocale())
     ? 'PPP'
     : 'MMM d, yyyy';
   return formatDate(new Date(seconds * 1000), {
