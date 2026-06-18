@@ -201,6 +201,7 @@ type ISendAmountAutoSizeInputProps = {
   onChange?: (value: string) => void;
   reversible?: boolean;
   tokenSymbol?: string;
+  inlineTextAlignMode?: 'auto' | 'center';
   inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
     loading?: boolean;
   };
@@ -226,6 +227,7 @@ function SendAutoSizeAmountInputComponent(
     value: controlledValue,
     valueProps,
     tokenSymbol,
+    inlineTextAlignMode,
     extraContent,
     onLayout,
     ...rest
@@ -411,6 +413,7 @@ function SendAutoSizeAmountInputComponent(
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
+      inlineTextAlignMode={inlineTextAlignMode}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}

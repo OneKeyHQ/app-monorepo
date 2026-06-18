@@ -177,6 +177,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       fontSize,
       minFontSize,
       availableInlineWidth,
+      inlineTextAlignMode = 'auto',
       currencyLabel,
       inlineTokenSymbol,
       inlinePrefixGapPx,
@@ -319,7 +320,9 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     }
 
     let desktopInlineRowOffsetPx = 0;
-    if (desktopAmountTextAlign === 'right') {
+    if (inlineTextAlignMode === 'center') {
+      desktopInlineRowOffsetPx = 0;
+    } else if (desktopAmountTextAlign === 'right') {
       desktopInlineRowOffsetPx = Math.round(-inlineInputSlackPx / 2);
     } else if (desktopAmountTextAlign === 'left') {
       desktopInlineRowOffsetPx = Math.round(inlineInputSlackPx / 2);

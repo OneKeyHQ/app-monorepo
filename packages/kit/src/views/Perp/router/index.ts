@@ -48,6 +48,10 @@ const MobileDepositWithdrawModal = LazyLoadPage(
   () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
 );
 
+const MobileDepositSelectTokenModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/DepositSelectTokenModal'),
+);
+
 const PerpsInviteeRewardModal = LazyLoadPage(
   () => import('../components/InviteeReward/InviteeRewardModal'),
 );
@@ -81,6 +85,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
@@ -120,6 +128,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
