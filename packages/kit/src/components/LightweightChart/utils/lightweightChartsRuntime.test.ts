@@ -21,6 +21,30 @@ const { resolveSerializablePriceFormatterTickStep } = jest.requireActual<
 >('./priceFormatterType');
 
 describe('getLightweightChartsRuntimeScriptTag', () => {
+  it('loads the standalone runtime only when building the script tag', () => {
+    jest.isolateModules(() => {
+      const getLightweightChartsStandaloneScript = jest.fn(
+        () => 'window.LightweightCharts = {}; </script>',
+      );
+      jest.doMock('./lightweightChartsRuntimeSource', () => ({
+        getLightweightChartsStandaloneScript,
+      }));
+
+      const runtime = jest.requireActual<
+        typeof import('./lightweightChartsRuntime')
+      >('./lightweightChartsRuntime');
+
+      expect(getLightweightChartsStandaloneScript).not.toHaveBeenCalled();
+
+      const scriptTag = runtime.getLightweightChartsRuntimeScriptTag();
+
+      expect(getLightweightChartsStandaloneScript).toHaveBeenCalledTimes(1);
+      expect(scriptTag).toContain('window.LightweightCharts');
+      expect(scriptTag).toContain('<\\/script>');
+      jest.dontMock('./lightweightChartsRuntimeSource');
+    });
+  });
+
   it('inlines the lightweight-charts runtime without remote script loading', () => {
     const scriptTag = getLightweightChartsRuntimeScriptTag();
 

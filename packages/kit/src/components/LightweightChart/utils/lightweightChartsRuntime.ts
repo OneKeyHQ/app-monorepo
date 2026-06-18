@@ -1,13 +1,17 @@
-// @ts-expect-error text-js module imported as string by babel-plugin-inline-import / esbuild
-import lightweightChartsStandaloneScript from './lightweightChartsStandalone.text-js';
+type ILightweightChartsRuntimeSource =
+  typeof import('./lightweightChartsRuntimeSource');
 
-const LIGHTWEIGHT_CHARTS_STANDALONE_SCRIPT = String(
-  lightweightChartsStandaloneScript,
-);
-
-const SAFE_LIGHTWEIGHT_CHARTS_STANDALONE_SCRIPT =
-  LIGHTWEIGHT_CHARTS_STANDALONE_SCRIPT.replace(/<\/script/gi, '<\\/script');
+function loadLightweightChartsStandaloneScript(): string {
+  // Delay the large raw string until a native WebView HTML payload is built.
+  const { getLightweightChartsStandaloneScript } =
+    require('./lightweightChartsRuntimeSource') as ILightweightChartsRuntimeSource;
+  return getLightweightChartsStandaloneScript();
+}
 
 export function getLightweightChartsRuntimeScriptTag(): string {
-  return `<script>${SAFE_LIGHTWEIGHT_CHARTS_STANDALONE_SCRIPT}</script>`;
+  const safeScript = loadLightweightChartsStandaloneScript().replace(
+    /<\/script/gi,
+    '<\\/script',
+  );
+  return `<script>${safeScript}</script>`;
 }
