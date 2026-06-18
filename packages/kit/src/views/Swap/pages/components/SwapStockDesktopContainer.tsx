@@ -140,6 +140,7 @@ const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
+const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
   const pointsByTime = new Map<number, number>();
@@ -1081,10 +1082,14 @@ function StockPriceChart({
         data={chartData}
         height={STOCK_CHART_VISIBLE_HEIGHT}
         lineColor={chartLineColor}
-        lineWidth={2}
+        lineWidth={1}
+        secondaryLineData={chartData}
+        secondaryLineColor={chartLineColor}
+        secondaryLineWidth={2}
         seriesType="dotted-area"
         showHorzGridLines
         showTimeScale={false}
+        priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
         priceFormatter={priceFormatter}
         fontSize={11}
       />
