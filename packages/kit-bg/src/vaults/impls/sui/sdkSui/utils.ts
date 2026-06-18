@@ -8,7 +8,7 @@ import type { OneKeySuiClient } from './ClientSui';
 import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui/client';
+} from '@mysten/sui/jsonRpc';
 
 export function normalizeSuiCoinType(coinType: string): string {
   if (coinType !== SUI_TYPE_ARG) {

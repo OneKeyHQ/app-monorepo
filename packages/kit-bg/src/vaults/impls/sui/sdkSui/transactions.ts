@@ -12,7 +12,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { normalizeSuiCoinType } from './utils';
 
 import type { OneKeySuiClient } from './ClientSui';
-import type { BalanceChange, CoinStruct } from '@mysten/sui/client';
+import type { BalanceChange, CoinStruct } from '@mysten/sui/jsonRpc';
 
 export enum ESuiTransactionType {
   ContractInteraction = 'ContractInteraction',
