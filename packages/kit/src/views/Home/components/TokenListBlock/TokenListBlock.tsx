@@ -102,7 +102,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import { LwwMaterializedView } from '@onekeyhq/shared/src/utils/lwwMaterializedView';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildTokenSelectorDappTokenFilterParams,
@@ -127,11 +126,7 @@ import type {
 
 import { RichBlock } from '../RichBlock/RichBlock';
 
-import {
-  type IAllNetworkSnapshotRound,
-  type IMergedAllNetworkSnapshot,
-  buildMergedAllNetworkSnapshot,
-} from './buildMergedAllNetworkSnapshot';
+import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -146,39 +141,7 @@ const networkIdsMap = getNetworkIdsMap();
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
 
-// L2: coalesce progressive all-network ingests into at most one paint per this
-// window, so a 20+ network fan-out yields a few frames (not one per network).
-const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
-
-// [TLNATIVE temp] native log for the all-network cold-owner load optimization
-// (main runtime). No-op off-native.
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
-
-/**
- * One entry in the all-network LWW-Map materialized view. It is a
- * `buildMergedAllNetworkSnapshot` round (the merge consumes only those fields,
- * and the live `IAllNetworkTokenListResp` is structurally a superset of it),
- * plus the active owner at the time the round was produced (for the per-paint
- * owner guard) and an `origin` discriminator: a `'cache'` floor seed (already
- * derive-merged → `mergeDeriveAssets:false`) vs a `'live'` result (raw → its
- * network's real merge-derive flag, resolved per distinct networkId at flush).
- */
-type IProgressiveRound = IAllNetworkSnapshotRound & {
-  ownerAccountId?: string;
-  ownerNetworkId?: string;
-  origin: 'cache' | 'live';
-};
 
 type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
   tokenSelectorFilterMode: ITokenSelectorFilterMode;
@@ -262,35 +225,30 @@ function TokenListBlock({
       customTokens?: ICustomTokenItem[];
     };
   }>({ ownerKey: '', nonZeroInputs: {} });
-  // One unified all-network pipeline built on an LWW-Map materialized view
-  // (SWR floor + IVM-style per-key full-overwrite, intersection-evict). It
-  // folds three previously-separate paths into one keyed cache:
-  //  - L1 cache seed  -> `seedFloor` (origin 'cache'), painted immediately;
-  //  - L2 progressive -> `ingest` per settled network (origin 'live'), throttled;
-  //  - authoritative  -> `materialize` ∩ enabledKeys at end-of-fan-out.
-  // Keyed by `accountUtils.buildAccountValueKey({accountId, networkId})`.
-  const progressiveViewRef = useRef(
-    new LwwMaterializedView<IProgressiveRound>(),
-  );
-  // The authoritative enabled (accountId, networkId) key set for the current
-  // run — `materialize(enabledKeys)` intersects against it so removed/disabled
-  // networks evict (tombstone-free) while still-enabled-but-unsettled networks
-  // keep their cache floor (I2). Populated from the run's `accountsInfo`.
-  const enabledKeysRef = useRef<Set<string>>(new Set());
-  const progressiveFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  // Indirection so the earlier-declared `handleAllNetworkCacheData` can drive
-  // the shared flush (declared after it) without a hook-ordering / stale-dep
-  // cycle. Assigned once `flushProgressiveView` exists below.
-  const flushProgressiveViewRef = useRef<
-    ((source: string) => Promise<void>) | undefined
-  >(undefined);
-  // H1: bumped by every authoritative end-of-fan-out ingest. A progressive
-  // flush captures it at start and aborts its own ingest if it advanced during
-  // the flush's await — so a late flush can never overwrite the authoritative
-  // full list with a stale prefix snapshot.
-  const progressivePaintEpochRef = useRef(0);
+  // The all-network LWW orchestration pipeline (design §2 收口 facade): owns the
+  // FloorView (LwwMaterializedView, SWR floor + IVM full-overwrite +
+  // intersection-evict + generation guard) + the merge + the `ingestRound` feed.
+  // The render-state writes (worth/overview/tokenListState) stay in this
+  // component; the handlers below call the facade for the LWW work (design §2.7).
+  const pipeline = useTokenListReactivePipeline({
+    ownerAccountId: account?.id,
+    ownerNetworkId: network?.id,
+    ownerCreateAtNetwork: account?.createAtNetwork,
+    cellsIngestInputsRef,
+    enabled: ENABLE_BG_TOKEN_VIEW_MODEL,
+  });
+  // Destructure the stable facade callbacks (each a useCallback in the facade) so
+  // the handlers below dep on the bare names. Depending on `pipeline` (a fresh
+  // object each render) would churn handler identities and re-fire the
+  // useAllNetworkRequests fan-out every render (§2.7-P0h).
+  const {
+    reset: resetPipeline,
+    seedAndFlushCache,
+    setEnabledKeys: setPipelineEnabledKeys,
+    ingestLiveRound,
+    buildAuthoritativeSnapshot,
+    commitAuthoritativeIngest,
+  } = pipeline;
   const [tokenSelectorFilter, setTokenSelectorFilter] =
     useTokenSelectorFilterPersistAtom();
   const isDeFiEnabled = useIsDeFiEnabled(network?.id);
@@ -1179,16 +1137,10 @@ function TokenListBlock({
   );
 
   const handleClearAllNetworkData = useCallback(() => {
-    // Drop any pending progressive paint for the owner being cleared and reset
-    // the LWW materialized view so the next owner starts from an empty keyed
-    // cache (otherwise a trailing flush would merge the previous owner's tokens
-    // into the freshly stamped-empty list).
-    if (progressiveFlushTimerRef.current !== null) {
-      clearTimeout(progressiveFlushTimerRef.current);
-      progressiveFlushTimerRef.current = null;
-    }
-    progressiveViewRef.current.clear();
-  }, []);
+    // Reset the LWW view + drop a pending flush (design §2 facade). Does NOT bump
+    // the epoch — that asymmetry is reserved for the authoritative commit (P1-g).
+    resetPipeline();
+  }, [resetPipeline]);
 
   const handleAllNetworkRequestsFinished = useCallback(
     async ({
@@ -1423,58 +1375,18 @@ function TokenListBlock({
           });
         }
 
-        // L1 (SWR floor) folded into the unified pipeline. Seed each
-        // per-network LOCAL-cache slice as a FLOOR entry in the LWW
-        // materialized view (origin 'cache' → already derive-merged, so
-        // `mergeDeriveAssets:false`). A later live result for the same key
-        // overwrites the floor (full-overwrite); a still-unsettled key keeps
-        // its floor (I2). Then flush IMMEDIATELY (no throttle) so a VM-cold but
-        // disk-warm owner paints the full cache instantly. Owner-guarded +
-        // home store only (the flush re-checks the owner).
-        if (
-          ENABLE_BG_TOKEN_VIEW_MODEL &&
-          accountId === account?.id &&
-          networkId === network?.id
-        ) {
-          for (const item of data) {
-            progressiveViewRef.current.seedFloor(
-              accountUtils.buildAccountValueKey({
-                accountId: item.accountId,
-                networkId: item.networkId,
-              }),
-              {
-                networkId: item.networkId,
-                accountId: item.accountId,
-                tokens: {
-                  data: item.tokenList,
-                  keys: item.tokenList.map((t) => t.$key).join(','),
-                  map: item.tokenListMap,
-                },
-                smallBalanceTokens: {
-                  data: item.smallBalanceTokenList,
-                  keys: item.smallBalanceTokenList.map((t) => t.$key).join(','),
-                  map: item.tokenListMap,
-                },
-                riskTokens: {
-                  data: item.riskyTokenList,
-                  keys: item.riskyTokenList.map((t) => t.$key).join(','),
-                  map: item.tokenListMap,
-                },
-                ownerAccountId: account?.id,
-                ownerNetworkId: network?.id,
-                origin: 'cache',
-                // Cached per-network lists are already derive-merged — never
-                // re-merge on the cache floor round.
-                mergeDeriveAssets: false,
-              },
-              generation,
-            );
-          }
-          // Paint the cache floor immediately (the flush itself has no
-          // throttle; only the per-network settle path schedules via the
-          // throttle timer).
-          await flushProgressiveViewRef.current?.('cacheSeed');
-        }
+        // L1 (SWR floor) folded into the unified pipeline: seed each per-network
+        // LOCAL-cache slice as a FLOOR entry then flush IMMEDIATELY so a VM-cold
+        // but disk-warm owner paints the full cache instantly. The facade
+        // owner-guards (round owner vs current owner) + the flush re-checks the
+        // owner. P0-a: `updateTokenListState` below still runs AFTER this await
+        // and inside the `hasAnyCache` guard.
+        await seedAndFlushCache({
+          data,
+          accountId,
+          networkId,
+          generation,
+        });
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkCacheData');
         updateTokenListState({
@@ -1490,7 +1402,7 @@ function TokenListBlock({
       account?.id,
       indexedAccount?.id,
       mergeDeriveAddressData,
-      network?.id,
+      seedAndFlushCache,
       setOverviewTokenCacheState,
       syncTokenFilterToOverview,
       updateAccountOverviewState,
@@ -1511,207 +1423,22 @@ function TokenListBlock({
         visibleCount: uniqBy(allAccounts, 'networkId').length,
       });
       // The authoritative enabled-key set for this run's materialized view
-      // (∩-evict). `accounts` is the run's `accountsInfo` (enabled networks
-      // with an account); a network dropped from it evicts its entry, a network
-      // still present but unsettled keeps its cache floor (I2).
-      enabledKeysRef.current = new Set(
-        accounts.map((a) =>
-          accountUtils.buildAccountValueKey({
-            accountId: a.accountId,
-            networkId: a.networkId,
-          }),
-        ),
-      );
+      // (∩-evict): `accounts` is the run's `accountsInfo` (enabled networks with
+      // an account); a network dropped from it evicts, a still-present-unsettled
+      // network keeps its cache floor (I2).
+      setPipelineEnabledKeys(accounts);
       setAllNetworkAccounts(accounts);
     },
-    [updateAllNetworksState],
+    [setPipelineEnabledKeys, updateAllNetworksState],
   );
 
-  // Resolve each distinct LIVE round's `mergeDeriveAssetsEnabled` once (cache
-  // rounds carry their own `mergeDeriveAssets:false`, so they are skipped). The
-  // result is a per-round flag array aligned to `rounds`, with cache rounds
-  // left as-is and live rounds stamped with their network's real flag —
-  // required because a cache and a live round for the SAME networkId can coexist
-  // during a partial-settle window and must NOT share one per-networkId lookup.
-  const resolveRoundsWithMergeFlag = useCallback(
-    async (rounds: IProgressiveRound[]): Promise<IProgressiveRound[]> => {
-      const liveNetworkIds = Array.from(
-        new Set(
-          rounds
-            .filter((r) => r.origin === 'live')
-            .map((r) => r.networkId)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      );
-      const liveMergeFlagByNetworkId: Record<string, boolean> = {};
-      await Promise.all(
-        liveNetworkIds.map(async (networkId) => {
-          try {
-            liveMergeFlagByNetworkId[networkId] = !!(
-              await backgroundApiProxy.serviceNetwork.getVaultSettings({
-                networkId,
-              })
-            ).mergeDeriveAssetsEnabled;
-          } catch (_e) {
-            liveMergeFlagByNetworkId[networkId] = false;
-          }
-        }),
-      );
-      return rounds.map((r) =>
-        r.origin === 'cache'
-          ? r
-          : {
-              ...r,
-              mergeDeriveAssets: r.networkId
-                ? liveMergeFlagByNetworkId[r.networkId]
-                : false,
-            },
-      );
-    },
-    [],
-  );
-
-  // Feed the BG view-model ONE coherent merged snapshot. `ingestRound` REPLACES
-  // the owner's slices each call, so `vm.lastStructure` compares full-vs-full and
-  // the structure frame reflects the whole current list. Shared verbatim by the
-  // progressive flush and the authoritative end-of-fan-out ingest — the only
-  // difference between the two is the `source` tag.
-  const ingestMergedSnapshot = useCallback(
-    (snapshot: IMergedAllNetworkSnapshot, source: string) => {
-      void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: cellsIngestInputsRef.current.ownerKey,
-        orderedTokens: snapshot.orderedTokens,
-        smallBalanceTokens: snapshot.smallBalanceTokens,
-        tokenListMap: snapshot.mergeTokenListMap,
-        aggregateTokensMap: snapshot.aggregateTokenMap,
-        // The owned aggregate sub-token list map, carried onto the structure
-        // frame so the home cell-path leaves source the owned aggregate
-        // sub-token list from `listStructureAtom`.
-        ownedAggregateTokenListMap: snapshot.aggregateTokenListMap,
-        smallBalanceFiatValue: snapshot.smallBalanceFiatValue,
-        storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
-        keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        // Risky slice (design §R0 #5) — the coherent FULL risky set produced by
-        // the merge (post merge/dedup/sort). Carried so the BG VM can build the
-        // dedicated risky frame + merged raw list.
-        riskyTokens: snapshot.riskyTokens,
-        riskyMap: snapshot.riskyTokenListMap,
-        // SETTLED owner identity for the `getRawTokenList` switch skeleton.
-        accountId: account?.id,
-        networkId: network?.id,
-        rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
-        // [TLNATIVE temp] ingest source tag (log-only).
-        source,
-      });
-    },
-    [account?.id, network?.id],
-  );
-
-  // The shared flush of the unified pipeline. Materializes the LWW view
-  // (∩ enabledKeys), resolves per-round merge-derive flags, and feeds the BG
-  // view-model ONE coherent merged snapshot. Paint only — worth/overview side
-  // effects stay in the authoritative path. `immediate` skips the throttle
-  // (used by the cache seed so a cold owner paints instantly).
-  const flushProgressiveView = useCallback(
-    async (source: string) => {
-      if (progressiveFlushTimerRef.current !== null) {
-        clearTimeout(progressiveFlushTimerRef.current);
-        progressiveFlushTimerRef.current = null;
-      }
-      const epochAtFlushStart = progressivePaintEpochRef.current;
-      const rounds = progressiveViewRef.current.materialize(
-        enabledKeysRef.current,
-      );
-      if (!rounds.length || !ENABLE_BG_TOKEN_VIEW_MODEL) {
-        return;
-      }
-      // Owner guard — every materialized round carries the owner it was
-      // produced for (cache + live both). A switch mid-stream must never stamp
-      // the previous owner's tokens.
-      if (
-        rounds[0].ownerAccountId !== account?.id ||
-        rounds[0].ownerNetworkId !== network?.id
-      ) {
-        tln(`progPaint.flush SKIP owner-mismatch source=${source}`);
-        return;
-      }
-      const roundsWithFlag = await resolveRoundsWithMergeFlag(rounds);
-      // Re-check owner AND epoch after the await — either may have advanced
-      // while resolving vault settings.
-      if (
-        rounds[0].ownerAccountId !== account?.id ||
-        rounds[0].ownerNetworkId !== network?.id
-      ) {
-        tln(
-          `progPaint.flush SKIP owner-mismatch (post-await) source=${source}`,
-        );
-        return;
-      }
-      // H1: if the authoritative end-of-fan-out ingest landed while we were
-      // resolving vault settings, ingesting now would overwrite the full list
-      // with this flush's stale prefix snapshot. Skip — the authoritative frame
-      // (higher generation) is the truth.
-      if (progressivePaintEpochRef.current !== epochAtFlushStart) {
-        tln(
-          `progPaint.flush SKIP epoch-superseded ${epochAtFlushStart}->${progressivePaintEpochRef.current} source=${source}`,
-        );
-        return;
-      }
-      const snapshot = buildMergedAllNetworkSnapshot({
-        rounds: roundsWithFlag,
-        mergeDeriveAssetsByNetworkId: {},
-        accountId: account?.id,
-        createAtNetwork: account?.createAtNetwork,
-      });
-      tln(
-        `progPaint.flush source=${source} owner=${cellsIngestInputsRef.current.ownerKey} rounds=${rounds.length} ordered=${snapshot.orderedTokens.length} small=${snapshot.smallBalanceTokens.length} epoch=${epochAtFlushStart}`,
-      );
-      ingestMergedSnapshot(snapshot, source);
-    },
-    [
-      account?.id,
-      account?.createAtNetwork,
-      network?.id,
-      ingestMergedSnapshot,
-      resolveRoundsWithMergeFlag,
-    ],
-  );
-
-  flushProgressiveViewRef.current = flushProgressiveView;
-
+  // L2: LWW-ingest a settled live round + schedule a throttled flush — owner
+  // guard + ingest + throttle all live in the facade now (design §2).
   const handleAllNetworkRequestSettled = useCallback(
     (result: IAllNetworkTokenListResp, generation: number) => {
-      if (!result) {
-        return;
-      }
-      // Owner guard — never ingest another owner's settled round.
-      if (
-        result.ownerAccountId !== account?.id ||
-        result.ownerNetworkId !== network?.id
-      ) {
-        return;
-      }
-      // L2: LWW ingest of this network's settled LIVE round (origin 'live' →
-      // full-overwrite of its key, superseding any cache floor). The generation
-      // guard inside `ingest` rejects a stale earlier run (I1).
-      progressiveViewRef.current.ingest(
-        accountUtils.buildAccountValueKey({
-          accountId: result.accountId ?? '',
-          networkId: result.networkId ?? '',
-        }),
-        { ...result, origin: 'live' },
-        generation,
-      );
-      if (progressiveFlushTimerRef.current === null) {
-        progressiveFlushTimerRef.current = setTimeout(() => {
-          void flushProgressiveView('progPaint');
-        }, PROGRESSIVE_PAINT_THROTTLE_MS);
-      }
+      ingestLiveRound(result, generation);
     },
-    [account?.id, network?.id, flushProgressiveView],
+    [ingestLiveRound],
   );
 
   const {
@@ -1732,7 +1459,6 @@ function TokenListBlock({
     onFinished: handleAllNetworkRequestsFinished,
     onCacheChecked: handleAllNetworkCacheChecked,
     onRequestSettled: handleAllNetworkRequestSettled,
-    interval: 200,
     shouldAlwaysFetch,
   });
 
@@ -1767,24 +1493,12 @@ function TokenListBlock({
     const shouldSyncTokenFilterToOverview =
       allNetworksResult[0].syncTokenFilterToOverview;
 
-    // Build the authoritative snapshot THROUGH the LWW materialized view rather
-    // than directly from `allNetworksResult` (correction ④). Intersecting with
-    // `enabledKeys` means: failed-but-still-enabled networks keep their cache
-    // floor (I2) instead of vanishing, and removed/disabled networks evict
-    // (∩-evict, tombstone-free). The per-round merge-derive flag is resolved the
-    // same way the progressive flush does it (cache rounds keep
-    // `mergeDeriveAssets:false`, live rounds get their network's real flag).
-    const viewRounds = progressiveViewRef.current.materialize(
-      enabledKeysRef.current,
-    );
-    const roundsWithFlag = await resolveRoundsWithMergeFlag(viewRounds);
-
-    const snapshot = buildMergedAllNetworkSnapshot({
-      rounds: roundsWithFlag,
-      mergeDeriveAssetsByNetworkId: {},
-      accountId: account?.id,
-      createAtNetwork: account?.createAtNetwork,
-    });
+    // Build the authoritative snapshot THROUGH the LWW materialized view (facade,
+    // design §2): ∩ enabledKeys so failed-but-still-enabled networks keep their
+    // cache floor (I2) while removed/disabled networks evict; per-round
+    // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
+    // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
+    const snapshot = await buildAuthoritativeSnapshot();
 
     if (shouldSyncTokenFilterToOverview) {
       void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
@@ -1810,48 +1524,25 @@ function TokenListBlock({
       });
     }
 
-    // TokenList cells Phase-2 BG cutover (design §5 PR-2 step 1). Feed the BG
-    // view-model the COHERENT FULL merged snapshot `buildMergedAllNetworkSnapshot`
-    // just produced — post merge/dedup ($key uniqBy) / sortTokensByFiatValue /
-    // zero-balance re-sort / high-low split (TOKEN_LIST_HIGH_VALUE_MAX) — NOT an
-    // incremental round. The shared `ingestMergedSnapshot` REPLACES the owner's
-    // slices each call, so `vm.lastStructure` compares full-vs-full and the
-    // structure frame reflects the whole current list. The shared merge is the
-    // single source of truth, with no duplicated merge logic in the VM yet
-    // (design §3 defers that).
-    if (ENABLE_BG_TOKEN_VIEW_MODEL) {
-      ingestMergedSnapshot(snapshot, 'authoritative');
-    }
-
-    // Authoritative full ingest done — cancel any trailing progressive flush so
-    // it can't re-ingest superseded data, then reset the LWW materialized view
-    // (the next run re-seeds/ingests from scratch). H1: bump the epoch so any
-    // flush already past its timer (which this clearTimeout can't cancel) aborts
-    // its ingest after its await instead of overwriting this authoritative full
-    // list with a stale prefix.
-    if (progressiveFlushTimerRef.current !== null) {
-      clearTimeout(progressiveFlushTimerRef.current);
-      progressiveFlushTimerRef.current = null;
-    }
-    progressivePaintEpochRef.current += 1;
-    progressiveViewRef.current.clear();
-    tln(
-      `authoritative owner=${cellsIngestInputsRef.current.ownerKey} ordered=${snapshot.orderedTokens.length} small=${snapshot.smallBalanceTokens.length} epoch=${progressivePaintEpochRef.current}`,
-    );
+    // Authoritative ingest + reset (facade, design §2): ingest the FULL merged
+    // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
+    // cancel any trailing progressive flush, bump the epoch (P1-g) so a flush
+    // already past its timer aborts after its await instead of overwriting this
+    // authoritative full list, and clear the view for the next run.
+    commitAuthoritativeIngest(snapshot);
 
     updateTokenListState({
       initialized: true,
       isRefreshing: false,
     });
   }, [
-    account?.createAtNetwork,
     account?.id,
     indexedAccount?.id,
-    ingestMergedSnapshot,
     mergeDeriveAddressData,
     allNetworksResult,
     network?.id,
-    resolveRoundsWithMergeFlag,
+    buildAuthoritativeSnapshot,
+    commitAuthoritativeIngest,
     updateAccountWorth,
     updateTokenListState,
   ]);

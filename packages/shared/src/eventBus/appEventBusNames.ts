@@ -61,7 +61,6 @@ export enum EAppEventBusNames {
   EstimateTxFeeRetry = 'estimateTxFeeRetry',
   GasAccountSubmitRetryScheduled = 'gasAccountSubmitRetryScheduled',
   GasAccountSubmitRetryCleared = 'gasAccountSubmitRetryCleared',
-  TokenListUpdate = 'TokenListUpdate',
   // TokenList cells Phase-2 BG frame transport (D2=A hybrid push + PULL). The two
   // events are kept separate so the structure (low-frequency, generation-guard)
   // and valuation (per-tick, version-gap) channels can be guarded independently.

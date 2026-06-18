@@ -1,26 +1,26 @@
 /**
- * TokenList cells — Phase-2 BG ServiceTokenViewModel (design §3, §4, D2=A).
+ * TokenList cells — Phase-2 BG ServiceTokenViewModel (design §3, §4, §4A).
  *
  * Owns the FRAME PRODUCTION in the BG heap. For each fetch round the home
  * refresh flow hands it the already-settled slices via `ingestRound`; the
  * service builds the two wire frames with the pure `buildFrames` (reused from
- * the relocated cellsPure trio — kit-bg internal, no React/native/jotai), keeps
- * the per-owner `prev` refs + monotonic version counters, and PUSHES the frames
- * over the two new appEventBus events. `getTokenListFrames` is the authoritative
- * PULL backstop the UI shell uses on mount / owner switch / generation gap.
+ * the relocated cellsPure trio — kit-bg internal, no React/native/jotai), and
+ * delegates per-owner version/cache/MRU/pull-blob bookkeeping to the generic
+ * `FrameChannelHost` kernel (`@onekeyhq/shared/src/frameChannel`). The service
+ * keeps ONLY the domain logic: `buildFrames`, the `riskyChanged` gate, and the
+ * per-owner `prev` diff-state — and the `prev`/raw blobs live INSIDE the host's
+ * owner slot (as pull-blobs) so they evict atomically with the owner (no
+ * separate domain map that could desync from the MRU).
+ *
+ * Role: this is the "TokenListFrameEngine" — the authoritative bg frame source.
  *
  * SYNCHRONOUS INVARIANT (design §7 risk, MEMORY bg-runtime-nexttick-dead):
  *   - `buildFrames` + the BigNumber summation it relies on are synchronous.
- *   - The whole frame-production path here (ingestRound → buildFrames → emit)
- *     MUST stay synchronous: NO await / nextTick / microtask. BG nextTick is
- *     dead on v6.3.0 Android, so any async hop would silently hang the VM.
- *
- * CUT-OVER COMPLETE (design §5 step 2): this service is the authoritative frame
- * source. The home refresh flow feeds it every settled round via `ingestRound`
- * (guarded by the always-on `ENABLE_BG_TOKEN_VIEW_MODEL` kill-switch in
- * `TokenListBlock`), and the UI consumes the pushed/pulled frames through
- * `useTokenListCellsProducer` + `useHomeTokenListSnapshot`. The legacy aggregate
- * atoms are deleted.
+ *   - The whole frame-production path here (ingestRound → buildFrames →
+ *     host.pushFrame → appEventBus.emit) MUST stay synchronous: NO await /
+ *     nextTick / microtask. BG nextTick is dead on v6.3.0 Android, so any async
+ *     hop would silently hang the VM. REVIEW CHECKLIST: do not introduce an
+ *     await/microtask anywhere on the ingestRound → emit path.
  */
 import {
   backgroundClass,
@@ -30,6 +30,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { FrameChannelHost } from '@onekeyhq/shared/src/frameChannel';
 import { flattenAggregateTokensMap } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IAccountToken,
@@ -72,47 +74,23 @@ function tln(msg: string): void {
 }
 
 /**
- * One owner's BG view-model state. Mirrors the UI producer's `prev` refs
- * (`lastStructure` / `lastScalar` / `lastMetaByKey`) plus the monotonic version
- * counters and the most-recently-built full frames (the PULL backstop).
+ * The three wire-frame payloads, keyed by FrameChannel kind. Sourced from the
+ * appEventBus payload registration so they stay in sync with the bus contract.
  */
-interface IOwnerVM {
-  ownerKey: string;
-  /** the structure half of `IBuildFramesPrev` (ids/membership/owner/gen). */
+type ITokenFramePayloads = {
+  structure: IAppEventBusPayload[EAppEventBusNames.TokenListStructureFrame];
+  valuation: IAppEventBusPayload[EAppEventBusNames.TokenListValuationFrame];
+  risky: IAppEventBusPayload[EAppEventBusNames.TokenListRiskyFrame];
+};
+
+/** The per-owner diff `prev` the domain feeds `buildFrames` (a pull-blob). */
+interface IDomainPrev {
   lastStructure: IBuildFramesPrev['structure'];
-  /** previously-applied smallBalanceFiatValue scalar. */
   lastScalar: string;
-  /** previously-applied meta by `$key`, for meta-change detection. */
   lastMetaByKey: Record<ITokenKey, IToken | undefined>;
-  /** monotonic; equals the last emitted structure `generation`. */
-  structureVersion: number;
-  /** monotonic; bumped on EVERY emit (structure or pure valuation tick). */
-  valuationVersion: number;
-  /** last full structure snapshot emitted for this owner (PULL backstop). */
-  lastStructureSnapshot: IStructureSnapshot | undefined;
-  /** last full valuation frame emitted for this owner (PULL backstop). */
-  lastValuationFrame: IValuationFrame | undefined;
-  /**
-   * monotonic risky-frame version, INDEPENDENT of structure/valuation. Bumped
-   * only when the risky change-gate fires (membership OR a per-`$key` balance
-   * change), NOT on a pure price tick. Owner-switch resets it to -1.
-   */
-  riskyVersion: number;
-  /** last full risky snapshot emitted for this owner (PULL backstop + gate). */
-  lastRisky: IRiskySnapshot | undefined;
-  /**
-   * Most-recently-ingested RAW slices for this owner (the `getRawTokenList` /
-   * `getAllTokenListMap` PULL source). REPLACED (not concatenated) each round.
-   * Kept separate from the frames so the large raw list is PULL-only and never
-   * pushed over appEventBus (design §4 "推小拉大").
-   */
-  lastRaw: IRawTokenListData;
 }
 
-/**
- * The risky snapshot kept on the owner VM (PULL backstop) and compared by the
- * synchronous change-gate. The list + map are the full current risky set.
- */
+/** The minimal previously-emitted risky shape the change-gate compares against. */
 interface IRiskySnapshot {
   riskyTokens: IAccountToken[];
   riskyMap: Record<ITokenKey, ITokenFiat>;
@@ -123,7 +101,7 @@ interface IRiskySnapshot {
  * owner identity the switch skeleton needs (design §R0 #3, red-team C-F1: the
  * `allTokenList.accountId/networkId` is the PREVIOUS settled owner, deliberately
  * lagging the scoped current owner; it must survive verbatim so `ownerMismatch`
- * keeps firing).
+ * keeps firing). Stored as the owner's `raw` pull-blob (PULL-only, never pushed).
  */
 interface IRawTokenListData {
   /** `[...orderedTokens, ...smallBalanceTokens, ...riskyTokens]`. */
@@ -230,6 +208,35 @@ export interface IRawTokenListPullResult {
   networkId: string | undefined;
 }
 
+/**
+ * MRU cap on resident owners. Bounds BG heap growth across owner switches; 8 is
+ * comfortably above the count of stores a single session paints concurrently
+ * (home + urlAccount + a transient switch target).
+ */
+const OWNER_VM_CAP = 8;
+/** pull-blob key for the per-owner diff `prev`. */
+const PREV_BLOB_KEY = 'prev';
+/** pull-blob key for the per-owner merged raw list. */
+const RAW_BLOB_KEY = 'raw';
+
+/** A fresh diff `prev` (generation starts at -1, like the UI producer). */
+function freshPrev(): IDomainPrev {
+  return {
+    lastStructure: {
+      orderedIds: [],
+      smallBalanceIds: [],
+      nonZeroIds: [],
+      fundedIds: [],
+      aggMembership: {},
+      ownerKey: '',
+      generation: -1,
+      ownedAggregateTokenListMap: {},
+    },
+    lastScalar: '0',
+    lastMetaByKey: {},
+  };
+}
+
 @backgroundClass()
 class ServiceTokenViewModel extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -237,89 +244,42 @@ class ServiceTokenViewModel extends ServiceBase {
   }
 
   /**
-   * Per-owner view-model state. Lives in the BG heap; never persisted.
-   * Insertion-ordered as a MRU: `ingestRound` re-inserts the touched owner at
-   * the tail, and a size overflow evicts the head (least-recently ingested) so
-   * the map cannot grow unbounded across owner switches (design §5 PR-2 step 4).
-   * Eviction is BG-memory only — a PULL for an evicted owner returns the empty
-   * (-1) result and the UI shell falls back to skeleton until the next round
-   * re-creates the owner VM.
+   * The generic frame-channel kernel. Owns per-(owner, kind) versions, the
+   * last-payload cache (PULL backstop), the per-owner pull-blobs (`prev` + raw),
+   * and the MRU eviction. `emit` is wired to the real bus here; the loose cast is
+   * the single boundary cast (the kernel stays generic + appEventBus-agnostic).
    */
-  private vmByOwner: Map<string, IOwnerVM> = new Map();
-
-  /**
-   * MRU cap on `vmByOwner`. Bounds BG heap growth across owner switches; 8 is
-   * comfortably above the count of stores a single session paints concurrently
-   * (home + urlAccount + a transient switch target).
-   */
-  private static readonly OWNER_VM_CAP = 8;
-
-  /**
-   * Get-or-create the owner VM and mark it most-recently-used (re-insert at the
-   * Map tail). After a create, evict the LRU (head) owner(s) past the cap.
-   */
-  private touchOwnerVM(ownerKey: string): IOwnerVM {
-    let vm = this.vmByOwner.get(ownerKey);
-    if (vm) {
-      // Re-insert at the tail so this owner becomes MRU.
-      this.vmByOwner.delete(ownerKey);
-      this.vmByOwner.set(ownerKey, vm);
-      return vm;
-    }
-    vm = this.createOwnerVM(ownerKey);
-    this.vmByOwner.set(ownerKey, vm);
-    // Evict LRU owners (Map iteration order = insertion order = LRU-first).
-    while (this.vmByOwner.size > ServiceTokenViewModel.OWNER_VM_CAP) {
-      const lruKey = this.vmByOwner.keys().next().value;
-      if (lruKey === undefined || lruKey === ownerKey) {
-        break;
-      }
-      this.vmByOwner.delete(lruKey);
-    }
-    return vm;
-  }
-
-  /** A fresh, empty owner VM (generation starts at -1, like the UI producer). */
-  private createOwnerVM(ownerKey: string): IOwnerVM {
-    return {
-      ownerKey,
-      lastStructure: {
-        orderedIds: [],
-        smallBalanceIds: [],
-        nonZeroIds: [],
-        fundedIds: [],
-        aggMembership: {},
-        ownerKey: '',
-        generation: -1,
-        ownedAggregateTokenListMap: {},
+  private readonly frames = new FrameChannelHost<ITokenFramePayloads>({
+    ownerCap: OWNER_VM_CAP,
+    kinds: {
+      structure: {
+        eventName: EAppEventBusNames.TokenListStructureFrame,
+        versionMode: 'domain',
       },
-      lastScalar: '0',
-      lastMetaByKey: {},
-      structureVersion: -1,
-      valuationVersion: -1,
-      lastStructureSnapshot: undefined,
-      lastValuationFrame: undefined,
-      riskyVersion: -1,
-      lastRisky: undefined,
-      lastRaw: {
-        tokens: [],
-        keys: '',
-        accountId: undefined,
-        networkId: undefined,
-        tokenListMap: {},
-        aggregateTokensMap: {},
+      valuation: {
+        eventName: EAppEventBusNames.TokenListValuationFrame,
+        versionMode: 'increment',
       },
-    };
-  }
+      risky: {
+        eventName: EAppEventBusNames.TokenListRiskyFrame,
+        versionMode: 'increment',
+      },
+    },
+    emit: (eventName, payload) => {
+      (appEventBus.emit as (t: string, p: unknown) => boolean)(
+        eventName,
+        payload,
+      );
+    },
+  });
 
   /**
    * Ingest ONE fetch round for an owner: build the two frames via the pure
-   * `buildFrames`, update the `prev` refs on a structural change, bump the
-   * monotonic version counters, then PUSH the frames over appEventBus.
+   * `buildFrames`, push them through the host (structure first, then valuation,
+   * then the gated risky), and store the diff `prev` + raw list as pull-blobs.
    *
-   * SYNCHRONOUS body: no await/nextTick/microtask anywhere in this method (the
-   * `async`/`Promise<void>` is only the @backgroundMethod RPC contract so the UI
-   * can feed the BG VM across the runtime boundary — the body runs synchronously
+   * SYNCHRONOUS body: no await/nextTick/microtask anywhere (the `async`/`Promise`
+   * is only the @backgroundMethod RPC contract; the body runs synchronously
    * before any microtask; the UI calls it fire-and-forget).
    */
   @backgroundMethod()
@@ -348,12 +308,16 @@ class ServiceTokenViewModel extends ServiceBase {
       return;
     }
 
-    // Get-or-create + mark MRU + evict LRU past the cap. `ingestRound` REPLACES
-    // (not concats) the owner's slices each round: `buildFrames` takes the full
-    // current input and `vm.lastStructure` compares full-vs-full, so a coherent
-    // merged snapshot fed by the UI (design §5 PR-2 step 1) yields a structure
-    // frame that reflects the whole current list, not one incremental round.
-    const vm = this.touchOwnerVM(ownerKey);
+    // Mark MRU + ensure the owner slot exists. `ingestRound` REPLACES (not
+    // concats) the owner's slices each round: `buildFrames` takes the full
+    // current input and the `prev` blob compares full-vs-full, so a coherent
+    // merged snapshot fed by the UI yields a structure frame that reflects the
+    // whole current list, not one incremental round.
+    this.frames.touchOwner(ownerKey);
+
+    const prevBlob =
+      this.frames.getPullBlob<IDomainPrev>(ownerKey, PREV_BLOB_KEY) ??
+      freshPrev();
 
     const input: IBuildFramesInput = {
       orderedTokens,
@@ -370,134 +334,90 @@ class ServiceTokenViewModel extends ServiceBase {
     };
 
     const prev: IBuildFramesPrev = {
-      structure: vm.lastStructure,
-      smallBalanceFiatValue: vm.lastScalar,
-      metaByKey: vm.lastMetaByKey,
+      structure: prevBlob.lastStructure,
+      smallBalanceFiatValue: prevBlob.lastScalar,
+      metaByKey: prevBlob.lastMetaByKey,
     };
 
     const { structure, valuation } = buildFrames(input, prev);
 
-    // Valuation is emitted on EVERY round (the full current fiat map is
-    // idempotent + self-healing). Bump the valuation version each time.
-    vm.valuationVersion += 1;
-    vm.lastValuationFrame = valuation;
-
+    // Structure FIRST (preserve the legacy emit order), then valuation.
     if (structure) {
-      // Structural change — advance the prev refs so the next round compares
-      // against what we just emitted, and record the monotonic structure
-      // version (== the structure's own generation).
-      vm.lastStructure = {
-        orderedIds: structure.orderedIds,
-        smallBalanceIds: structure.smallBalanceIds,
-        nonZeroIds: structure.nonZeroIds,
-        fundedIds: structure.fundedIds,
-        aggMembership: structure.aggMembership,
-        ownerKey: structure.ownerKey,
-        generation: structure.generation,
-        ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
-      };
-      vm.lastScalar = structure.smallBalanceFiatValue;
-      vm.lastMetaByKey = metaByKeyFromTokens([
-        ...orderedTokens,
-        ...smallBalanceTokens,
-      ]);
-      vm.structureVersion = structure.generation;
-      vm.lastStructureSnapshot = structure;
-
-      appEventBus.emit(EAppEventBusNames.TokenListStructureFrame, {
+      // Structural change — push the frame (version == the structure's own
+      // generation, domain-supplied) and advance the diff `prev` blob so the
+      // next round compares against what we just emitted.
+      this.frames.pushFrame(
+        'structure',
         ownerKey,
-        structureVersion: vm.structureVersion,
-        structure,
-      });
+        (version) => ({ ownerKey, structureVersion: version, structure }),
+        { version: structure.generation },
+      );
+      this.frames.setPullBlob(ownerKey, PREV_BLOB_KEY, {
+        lastStructure: {
+          orderedIds: structure.orderedIds,
+          smallBalanceIds: structure.smallBalanceIds,
+          nonZeroIds: structure.nonZeroIds,
+          fundedIds: structure.fundedIds,
+          aggMembership: structure.aggMembership,
+          ownerKey: structure.ownerKey,
+          generation: structure.generation,
+          ownedAggregateTokenListMap: structure.ownedAggregateTokenListMap,
+        },
+        lastScalar: structure.smallBalanceFiatValue,
+        lastMetaByKey: metaByKeyFromTokens([
+          ...orderedTokens,
+          ...smallBalanceTokens,
+        ]),
+      } satisfies IDomainPrev);
     }
 
-    appEventBus.emit(EAppEventBusNames.TokenListValuationFrame, {
+    // Valuation is emitted on EVERY round (the full current fiat map is
+    // idempotent + self-healing); the increment kind bumps its version each time.
+    this.frames.pushFrame('valuation', ownerKey, (version) => ({
       ownerKey,
-      valuationVersion: vm.valuationVersion,
+      valuationVersion: version,
       valuation,
-    });
+    }));
 
+    const framesNow = this.frames.getFrames(ownerKey);
     tln(
       `bg.emit owner=${ownerKey} structEmit=${!!structure} structVer=${
-        vm.structureVersion
+        framesNow.structure.version
       } ordered=${structure ? structure.orderedIds.length : -1} valVer=${
-        vm.valuationVersion
+        framesNow.valuation.version
       } valChanged=${
         Object.keys(valuation.changedFiatById).length
       } src=${source ?? ''}`,
     );
-    // [TLNATIVE temp] list the ORDERED tokens that have NO fiat in the feed
-    // (in orderedTokens but $key absent from tokenListMap) — these render a row
-    // but show "-". Pinpoints the upstream feed gap (e.g. zero-balance default
-    // tokens added without price).
-    {
-      const noFiat = orderedTokens.filter(
-        (t) => !t.isAggregateToken && !tokenListMap[t.$key],
-      );
-      tln(
-        `bg.noFiat owner=${ownerKey} ordTokens=${
-          orderedTokens.length
-        } mapKeys=${Object.keys(tokenListMap).length} noFiat=${
-          noFiat.length
-        } :: ${noFiat
-          .slice(0, 14)
-          .map(
-            (t) =>
-              `${t.symbol ?? '?'}|nat=${t.isNative ? 1 : 0}|${t.networkId}`,
-          )
-          .join(' , ')}`,
-      );
-      // per-token classification for the reported "-" symbols: where is their
-      // fiat (normal map / agg map / valuation channels) — or is it nowhere?
-      const watch = new Set(['JupSOL', 'TRX', 'BNB', 'SOL', 'USDf', 'VIRTUAL']);
-      for (const t of orderedTokens) {
-        if (watch.has(t.symbol ?? '')) {
-          tln(
-            `bg.watch ${t.symbol} key=${t.$key} agg=${
-              t.isAggregateToken ? 1 : 0
-            } inMap=${!!tokenListMap[t.$key]} inAggMap=${!!aggregateTokensMap[
-              t.$key
-            ]} inChanged=${!!valuation.changedFiatById[t.$key]} inAggChanged=${!!valuation
-              .changedAggFiat[t.$key]}`,
-          );
-        }
-      }
-    }
 
     // --- raw token list (PULL-only source) ---------------------------------
     // REPLACE (not concat) the owner's raw slices each round: the merged list is
     // [...orderedTokens, ...smallBalanceTokens, ...riskyTokens] (mirrors the
-    // legacy `allTokenListAtom` write `[...mergedTokens, ...riskyTokens]`), kept
-    // for the `getRawTokenList` PULL together with the SETTLED owner identity
-    // the switch skeleton compares against (red-team C-F1). Never pushed.
-    vm.lastRaw = {
+    // legacy `allTokenListAtom` write), kept for the `getRawTokenList` PULL
+    // together with the SETTLED owner identity (red-team C-F1). Never pushed.
+    this.frames.setPullBlob(ownerKey, RAW_BLOB_KEY, {
       tokens: [...orderedTokens, ...smallBalanceTokens, ...riskyTokens],
       keys: rawKeys,
       accountId,
       networkId,
       tokenListMap,
       aggregateTokensMap,
-    };
+    } satisfies IRawTokenListData);
 
     // --- risky frame (design §R0 #2) ---------------------------------------
-    // SYNCHRONOUS change-gate: emit a FULL idempotent risky snapshot only when
-    // the risky set changes by membership ($key set) OR by a per-`$key` BALANCE
-    // change (red-team C-F4: footer filters `riskyMap[$key].balance>0`, so a
-    // balance crossing 0 on an existing risky token must re-emit even though
-    // membership is unchanged). A pure price tick (same $keys + same balances)
-    // does NOT emit. The comparison is a sync shallowEqual (NO awaited hash —
-    // red-team R-#1: an async hop would break the synchronous BG invariant and
-    // silently hang on v6.3.0 Android).
-    if (this.riskyChanged(vm.lastRisky, riskyTokens, riskyMap)) {
-      vm.riskyVersion += 1;
-      vm.lastRisky = { riskyTokens, riskyMap };
-      appEventBus.emit(EAppEventBusNames.TokenListRiskyFrame, {
+    // SYNCHRONOUS change-gate over the PREVIOUSLY-pushed risky payload (read back
+    // from the host cache): emit a FULL idempotent risky snapshot only when the
+    // risky set changes by membership ($key set) OR by a per-`$key` BALANCE
+    // change (red-team C-F4). A pure price tick does NOT emit.
+    const prevRisky = framesNow.risky.payload;
+    if (this.riskyChanged(prevRisky, riskyTokens, riskyMap)) {
+      this.frames.pushFrame('risky', ownerKey, (version) => ({
         ownerKey,
-        riskyVersion: vm.riskyVersion,
+        riskyVersion: version,
         riskyTokens,
         riskyMap,
         storeData,
-      });
+      }));
     }
   }
 
@@ -506,8 +426,6 @@ class ServiceTokenViewModel extends ServiceBase {
    * true when the risky set differs from the previously-emitted snapshot by
    * either its `$key` membership OR any per-`$key` balance. A pure price-only
    * move (same $keys + same balances) returns false so no risky frame is emitted.
-   * Mirrors the style of `buildFrames`'s `aggMembershipEqual` — all in-memory,
-   * no await / hash.
    */
   private riskyChanged(
     prev: IRiskySnapshot | undefined,
@@ -540,10 +458,10 @@ class ServiceTokenViewModel extends ServiceBase {
   }
 
   /**
-   * PULL backstop (design §4, D2=A). Returns the current full structure
-   * snapshot + full valuation frame for the owner, with their monotonic
-   * versions. Returns an empty (undefined frames, -1 versions) result when the
-   * owner is unknown so the UI shell can no-op the apply.
+   * PULL backstop (design §4). Returns the current full structure snapshot +
+   * full valuation frame for the owner, with their monotonic versions. Returns
+   * an empty (undefined frames, -1 versions) result when the owner is unknown so
+   * the UI shell can no-op the apply.
    */
   @backgroundMethod()
   async getTokenListFrames({
@@ -551,45 +469,31 @@ class ServiceTokenViewModel extends ServiceBase {
   }: {
     ownerKey: string;
   }): Promise<ITokenListFramesPullResult> {
-    const vm = this.vmByOwner.get(ownerKey);
-    if (!vm) {
-      return {
-        ownerKey,
-        structureVersion: -1,
-        valuationVersion: -1,
-        structure: undefined,
-        valuation: undefined,
-        riskyVersion: -1,
-        riskyTokens: [],
-        riskyMap: {},
-        storeData: undefined,
-      };
-    }
+    const frames = this.frames.getFrames(ownerKey);
+    const structureP = frames.structure.payload;
+    const valuationP = frames.valuation.payload;
+    const riskyP = frames.risky.payload;
     return {
       ownerKey,
-      structureVersion: vm.structureVersion,
-      valuationVersion: vm.valuationVersion,
-      structure: vm.lastStructureSnapshot,
-      valuation: vm.lastValuationFrame,
-      riskyVersion: vm.riskyVersion,
-      riskyTokens: vm.lastRisky?.riskyTokens ?? [],
-      riskyMap: vm.lastRisky?.riskyMap ?? {},
+      structureVersion: frames.structure.version,
+      valuationVersion: frames.valuation.version,
+      structure: structureP?.structure,
+      valuation: valuationP?.valuation,
+      riskyVersion: frames.risky.version,
+      riskyTokens: riskyP?.riskyTokens ?? [],
+      riskyMap: riskyP?.riskyMap ?? {},
       // The risky frame apply needs the owner's storeData for the identity check;
       // the structure/valuation snapshots already carry it, so reuse whichever is
       // present (both are stamped for the same owner).
       storeData:
-        vm.lastStructureSnapshot?.storeData ?? vm.lastValuationFrame?.storeData,
+        structureP?.structure.storeData ?? valuationP?.valuation.storeData,
     };
   }
 
   /**
-   * PULL-only raw token list (design §R0 #3, "推小拉大": the largest payload is
-   * NEVER pushed). Returns the owner's merged-with-risky raw list AND the SETTLED
-   * owner identity (accountId/networkId/keys) the switch skeleton compares
-   * against the scoped current owner (red-team C-F1: this lags on purpose so
-   * `ownerMismatch` keeps firing on owner switch). Returns an empty list +
-   * undefined identity for an unknown / evicted owner so the caller can fall
-   * back to skeleton.
+   * PULL-only raw token list (design §R0 #3, "推小拉大"). Returns the owner's
+   * merged-with-risky raw list AND the SETTLED owner identity. Returns an empty
+   * list + undefined identity for an unknown / evicted owner.
    */
   @backgroundMethod()
   async getRawTokenList({
@@ -597,8 +501,11 @@ class ServiceTokenViewModel extends ServiceBase {
   }: {
     ownerKey: string;
   }): Promise<IRawTokenListPullResult> {
-    const vm = this.vmByOwner.get(ownerKey);
-    if (!vm) {
+    const raw = this.frames.getPullBlob<IRawTokenListData>(
+      ownerKey,
+      RAW_BLOB_KEY,
+    );
+    if (!raw) {
       return {
         ownerKey,
         tokens: [],
@@ -609,23 +516,18 @@ class ServiceTokenViewModel extends ServiceBase {
     }
     return {
       ownerKey,
-      tokens: vm.lastRaw.tokens,
-      keys: vm.lastRaw.keys,
-      accountId: vm.lastRaw.accountId,
-      networkId: vm.lastRaw.networkId,
+      tokens: raw.tokens,
+      keys: raw.keys,
+      accountId: raw.accountId,
+      networkId: raw.networkId,
     };
   }
 
   /**
    * PULL the FULL fiat map for an owner (design §R0 #4). Composed SYNCHRONOUSLY
    * as `{ ...tokenListMap, ...riskyMap, ...flatten(aggregateTokensMap) }` —
-   * mirroring the legacy `allTokenListMapAtom` write. The flatten reuses the
-   * existing pure `flattenAggregateTokensMap` (BigNumber-only, no await). Note:
-   * this map keys aggregates by their AGGREGATE `$key` (summed across networks);
-   * the per-network sub-token `$key` fiat is carried in `tokenListMap`/`riskyMap`
-   * (red-team C-F2 / completeness-#9: `checkIsOnlyOneTokenHasBalance` reads per-network
-   * sub-token `$key`, which lives in `tokenListMap`, NOT in the flattened agg).
-   * Returns an empty map for an unknown / evicted owner.
+   * mirroring the legacy `allTokenListMapAtom` write. Returns an empty map for an
+   * unknown / evicted owner.
    */
   @backgroundMethod()
   async getAllTokenListMap({
@@ -633,17 +535,19 @@ class ServiceTokenViewModel extends ServiceBase {
   }: {
     ownerKey: string;
   }): Promise<Record<ITokenKey, ITokenFiat>> {
-    const vm = this.vmByOwner.get(ownerKey);
-    if (!vm) {
+    const raw = this.frames.getPullBlob<IRawTokenListData>(
+      ownerKey,
+      RAW_BLOB_KEY,
+    );
+    if (!raw) {
       return {};
     }
-    const { tokenListMap, aggregateTokensMap } = vm.lastRaw;
     const riskyMap: Record<ITokenKey, ITokenFiat> =
-      vm.lastRisky?.riskyMap ?? {};
+      this.frames.getFrames(ownerKey).risky.payload?.riskyMap ?? {};
     return {
-      ...tokenListMap,
+      ...raw.tokenListMap,
       ...riskyMap,
-      ...flattenAggregateTokensMap(aggregateTokensMap),
+      ...flattenAggregateTokensMap(raw.aggregateTokensMap),
     };
   }
 }
