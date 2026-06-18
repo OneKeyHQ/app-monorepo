@@ -17,5 +17,16 @@
       "#12089"
     ],
     "notes": "Redesign perps deposit/withdraw flow (#12069); update perps referral landing copy (#12083); fix perps spot pair display name and mobile list scroll freeze (#12066); correct swap fiat conversion (#12084); release swap and DeFi fixes (#12057); stabilize wallet cold start token list cache (#12047); add wallet low balance analytics (#12050); isolate TradingView menu scroll on iOS (#12046); hide delisted (TRASH) networks and remove Joystream from preset list (#12075); prevent Kaspa KRC20 commit/reveal storage mass overflow (#12060); enable referral address save after first selection (#12089)"
+  },
+  {
+    "seq": 2,
+    "commit": "a83fbd8c5ddfccccb7d95320af33e83da8c1c93e",
+    "date": "2026-06-18T07:28:40Z",
+    "prs": [
+      "#12090",
+      "#12097",
+      "#12099"
+    ],
+    "notes": "Support Pendle market info tooltip (#12090); correct swap fiat basis after currency switch (#12097); update perp IP restriction trading panel UI (#12099)"
   }
 ]
