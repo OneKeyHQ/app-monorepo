@@ -19,6 +19,10 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
@@ -79,6 +83,7 @@ function useStockInputTokenBalance({
   token?: ISwapToken;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
+  const [refreshKey, setRefreshKey] = useState(0);
   const tokenScope = getStockInputTokenIdentityKey(token);
   const hasActiveAccount = Boolean(
     activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
@@ -139,7 +144,7 @@ function useStockInputTokenBalance({
     : null;
   const balanceScope = `${tokenScope}:${networkAccountReady ? 'ready' : 'pending'}:${
     networkAccount?.id ?? ''
-  }:${networkAccount?.address ?? ''}`;
+  }:${networkAccount?.address ?? ''}:${refreshKey}`;
   const shouldWaitForNetworkAccount =
     shouldFetchNetworkAccount && !networkAccountReady;
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
@@ -182,6 +187,36 @@ function useStockInputTokenBalance({
       watchLoading: enabled,
     },
   );
+
+  useEffect(() => {
+    if (!enabled || !token?.networkId) {
+      return;
+    }
+    const handleSwapHistoryStatusUpdate = ({
+      fromToken,
+      toToken,
+    }: {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }) => {
+      if (
+        equalTokenNoCaseSensitive({ token1: fromToken, token2: token }) ||
+        equalTokenNoCaseSensitive({ token1: toToken, token2: token })
+      ) {
+        setRefreshKey((value) => value + 1);
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.SwapTxHistoryStatusUpdate,
+      handleSwapHistoryStatusUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        handleSwapHistoryStatusUpdate,
+      );
+    };
+  }, [enabled, token]);
 
   const balanceReady =
     detailState.scope === balanceScope && detailState.balance !== undefined;
