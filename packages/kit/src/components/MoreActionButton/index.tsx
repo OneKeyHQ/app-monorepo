@@ -28,6 +28,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  glassBarItem,
   rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
@@ -262,30 +263,35 @@ function MoreActionContentHeader({
     }
   }, []);
 
-  // iOS 26 page-level usage: render via the native UINavigationBar so
-  // the back chevron + right items get the system Liquid Glass material
-  // and the SF Symbols (headphones, qrcode.viewfinder) replace the
-  // small custom IconButton SVGs. The body of MoreActionContentPage
-  // continues to render the rest of the page below the bar.
+  // iOS 26 page-level usage: render via the native UINavigationBar so the
+  // back chevron + right items get the system Liquid Glass material. Each
+  // right item is a OneKey SVG IconButton (custom subview) so the glyphs
+  // match the brand; iOS 26 wraps each in its own system glass capsule, and
+  // the GlassHeaderProvider lets the inner IconButton drop its self-drawn
+  // background/press. The body of MoreActionContentPage continues to render
+  // the rest of the page below the bar.
   const buildNativeRightItems = useCallback(
     () => [
-      {
-        type: 'button' as const,
-        label: intl.formatMessage({ id: ETranslations.settings_contact_us }),
-        icon: { type: 'sfSymbol' as const, name: 'headphones' as const },
-        onPress: handleCustomerSupport,
-      },
-      {
-        type: 'button' as const,
-        label: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-        icon: {
-          type: 'sfSymbol' as const,
-          name: 'qrcode.viewfinder' as const,
-        },
-        onPress: () => {
-          void handleScan();
-        },
-      },
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.settings_contact_us,
+          })}
+          icon="HelpSupportOutline"
+          onPress={handleCustomerSupport}
+        />,
+      ),
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.scan_scan_qr_code,
+          })}
+          icon="ScanOutline"
+          onPress={() => {
+            void handleScan();
+          }}
+        />,
+      ),
     ],
     [intl, handleCustomerSupport, handleScan],
   );

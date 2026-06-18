@@ -9,6 +9,7 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
+import { useInGlassHeader } from '../../primitives/Button/GlassHeaderContext';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { Tooltip } from '../Tooltip';
@@ -79,6 +80,9 @@ export function IconButton(props: IIconButtonProps) {
 
   const { onPress, onLongPress } = useSharedPress(rest);
 
+  const inGlassHeader = useInGlassHeader();
+  const resolvedIconColor = iconProps?.color ?? iconColor;
+
   const onKeyDown = useCallback((event: GestureResponderEvent) => {
     event.preventDefault();
   }, []);
@@ -98,6 +102,20 @@ export function IconButton(props: IIconButtonProps) {
         })}
         {...sharedFrameStyles}
         {...rest}
+        // Inside an iOS 26 Liquid Glass header, the system bar-button
+        // capsule owns the container shape and the press/hover feedback.
+        // Strip our own background/press styles so they don't double up,
+        // and reset the tertiary negative margin so the icon sits at the
+        // capsule's true center. Only ever applies to buttons actually
+        // injected into the native glass bar (see GlassHeaderContext).
+        {...(inGlassHeader && {
+          m: 0,
+          bg: '$transparent',
+          borderColor: '$transparent',
+          hoverStyle: undefined,
+          pressStyle: undefined,
+          focusVisibleStyle: undefined,
+        })}
         onPress={onPress}
         onLongPress={onLongPress}
       >
@@ -107,14 +125,23 @@ export function IconButton(props: IIconButtonProps) {
               m: '$0.5',
             })}
           >
-            <Spinner color={iconColor} size="small" />
+            <Spinner color={inGlassHeader ? '$text' : iconColor} size="small" />
           </Stack>
         ) : (
           <Icon
-            color={iconColor}
             name={icon}
             size={iconSize || (size === 'small' ? '$5' : '$6')}
             {...iconProps}
+            // In a glass header the subdued default looks washed out on the
+            // capsule, so raise it to high-contrast text color. Placed after
+            // {...iconProps} so it wins over a caller-set `$iconSubdued` (e.g.
+            // the address-security shield). Semantic colors set by the caller
+            // (success/critical/…) are preserved.
+            color={
+              inGlassHeader && resolvedIconColor === '$iconSubdued'
+                ? '$text'
+                : resolvedIconColor
+            }
           />
         )}
       </ButtonFrame>
@@ -126,12 +153,14 @@ export function IconButton(props: IIconButtonProps) {
       iconColor,
       iconProps,
       iconSize,
+      inGlassHeader,
       loading,
       negativeMargin,
       onKeyDown,
       onLongPress,
       onPress,
       p,
+      resolvedIconColor,
       rest,
       sharedFrameStyles,
       size,

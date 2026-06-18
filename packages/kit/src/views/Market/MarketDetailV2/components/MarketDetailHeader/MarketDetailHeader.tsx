@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 
 import {
+  HeaderIconButton,
   Icon,
   InteractiveIcon,
   NavBackButton,
@@ -8,6 +9,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  glassBarItem,
   useClipboard,
   useIsOverlayPage,
   useMedia,
@@ -135,13 +137,12 @@ export function MarketDetailHeader() {
     ],
   );
 
-  // Drive native UIBarButtonItem-rendered SF Symbol buttons from the
-  // parent's React state. MarketDetailHeader is rendered inside the
-  // MarketWatchListProviderMirrorV2 so useStarV2Checked has access to
-  // the watchlist store; we only pass the resulting checked flag and
-  // onPress handler down to native via unstable_headerRightItems —
-  // there's no React subtree under the bar items, so no additional
-  // Mirror wrap is needed.
+  // The native bar buttons render OneKey SVG icon buttons (custom items)
+  // driven by the parent's React state. MarketDetailHeader is rendered
+  // inside MarketWatchListProviderMirrorV2 so useStarV2Checked has access to
+  // the watchlist store; the checked flag + onPress are captured here and
+  // passed into the bar-item elements as plain props, so those elements
+  // don't consume the watchlist store directly and need no Mirror wrap.
   const { checked: starChecked, onPress: onStarPress } = useStarV2Checked({
     chainId: networkId ?? '',
     contractAddress: tokenDetail?.address ?? '',
@@ -170,24 +171,15 @@ export function MarketDetailHeader() {
 
   const buildNativeHeaderRightItems = useCallback(
     () => [
-      {
-        type: 'button' as const,
-        label: 'Watchlist',
-        icon: {
-          type: 'sfSymbol' as const,
-          name: starChecked ? ('star.fill' as const) : ('star' as const),
-        },
-        onPress: handleStarNative,
-      },
-      {
-        type: 'button' as const,
-        label: 'Share',
-        icon: {
-          type: 'sfSymbol' as const,
-          name: 'square.and.arrow.up' as const,
-        },
-        onPress: handleShareNative,
-      },
+      glassBarItem(
+        <HeaderIconButton
+          icon={starChecked ? 'StarSolid' : 'StarOutline'}
+          onPress={handleStarNative}
+        />,
+      ),
+      glassBarItem(
+        <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
+      ),
     ],
     [starChecked, handleStarNative, handleShareNative],
   );
@@ -199,17 +191,7 @@ export function MarketDetailHeader() {
   // only pop the current stack and would render no entry at all when
   // state.index === 0.
   const buildNativeHeaderLeftItems = useCallback(
-    () => [
-      {
-        type: 'button' as const,
-        label: 'Back',
-        icon: {
-          type: 'sfSymbol' as const,
-          name: 'chevron.left' as const,
-        },
-        onPress: handleBackPress,
-      },
-    ],
+    () => [glassBarItem(<NavBackButton onPress={handleBackPress} />)],
     [handleBackPress],
   );
 

@@ -4,9 +4,10 @@ import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
 import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { glassBarItem } from '../../../primitives/Button/GlassHeaderContext';
 import { hasNativeHeaderView } from '../Navigator/CommonConfig';
 
-import HeaderBackButton from './HeaderBackButton';
+import HeaderBackButton, { NavCloseButton } from './HeaderBackButton';
 import HeaderView from './HeaderView';
 
 import type {
@@ -84,13 +85,15 @@ export function makeHeaderScreenOptions({
         };
       } else if ((isModelScreen || isOnboardingScreen) && !isRootScreen) {
         headerLeftOptions = {
+          // Render OneKey's own close icon (a React subview) instead of a
+          // native SF Symbol so the glyph matches the brand. iOS 26 wraps
+          // this custom view in the system glass capsule, and the
+          // GlassHeaderProvider lets the inner IconButton drop its own
+          // background/press so it doesn't double up on the glass.
           unstable_headerLeftItems: () => [
-            {
-              type: 'button' as const,
-              label: 'Close',
-              icon: { type: 'sfSymbol' as const, name: 'xmark' },
-              onPress: () => currentNavigation?.goBack?.(),
-            },
+            glassBarItem(
+              <NavCloseButton onPress={() => currentNavigation?.goBack?.()} />,
+            ),
           ],
         };
       } else {

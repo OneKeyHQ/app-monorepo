@@ -939,6 +939,7 @@ function TokenSelector() {
         }
         headerSearchBarOptions={headerSearchBarOptions}
         headerRight={headerRight}
+        headerRightNoGlass
       />
       <Page.Body>
         <TokenListView

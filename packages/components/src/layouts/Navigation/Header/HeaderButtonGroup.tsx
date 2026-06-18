@@ -1,10 +1,10 @@
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { XStack } from '../../../primitives';
+import { XStack, useInGlassHeader } from '../../../primitives';
 
 export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
   const { children, ...rest } = props;
+  const inGlassHeader = useInGlassHeader();
 
   return (
     <XStack
@@ -15,8 +15,10 @@ export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
       // children produced a 36x44 frame; the glass container then padded
       // it horizontally and rendered as a wide pill instead of a circle.
       // Forcing a 44x44 square frame keeps the container circular and
-      // aligned to the bar's vertical center.
-      {...(platformEnv.isNativeIOS26Plus && {
+      // aligned to the bar's vertical center. Gate on the in-glass context
+      // (not isNativeIOS26Plus) so in-page headers like the Home tab — which
+      // are not inside the native glass bar — keep their natural spacing.
+      {...(inGlassHeader && {
         height: 44,
         minWidth: 44,
         justifyContent: 'center',

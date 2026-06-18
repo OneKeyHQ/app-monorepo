@@ -420,6 +420,7 @@ function ApprovalList() {
             : intl.formatMessage({ id: ETranslations.global_approval_list })
         }
         headerRight={renderHeaderRight}
+        headerRightNoGlass
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({ id: ETranslations.global_search }),
           onSearchTextChange: handleSearchTextChange,
