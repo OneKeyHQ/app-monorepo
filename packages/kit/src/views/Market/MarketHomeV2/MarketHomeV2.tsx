@@ -57,8 +57,10 @@ const useMarketHomeLayoutProps = () => {
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-  const [{ selectedSpotCategory, spotCategoryToSelect }, setMarketSelectedTab] =
-    useMarketSelectedTabAtom();
+  const [
+    { tab: selectedMarketTab, selectedSpotCategory, spotCategoryToSelect },
+    setMarketSelectedTab,
+  ] = useMarketSelectedTabAtom();
 
   // Track market entry analytics
   useMarketHomePageEnterAnalytics();
@@ -116,6 +118,15 @@ const useMarketHomeLayoutProps = () => {
       },
     ];
   }, [apiSpotCategories, intl]);
+
+  const spotCategoryToRestore = spotCategoryToSelect ?? selectedSpotCategory;
+  const shouldWaitForSpotCategoryReady = Boolean(
+    selectedMarketTab === 'trending' &&
+    spotCategoryToRestore &&
+    spotCategoryToRestore !== 'trending' &&
+    isMarketBasicConfigLoading !== false &&
+    !apiSpotCategories.some((item) => item.type === spotCategoryToRestore),
+  );
 
   useEffect(() => {
     if (!selectedSpotCategory || spotCategoryToSelect) {
@@ -233,15 +244,21 @@ const useMarketHomeLayoutProps = () => {
     () => ({
       md,
       layoutProps,
+      shouldWaitForSpotCategoryReady,
     }),
-    [md, layoutProps],
+    [md, layoutProps, shouldWaitForSpotCategoryReady],
   );
 };
 
 function BaseMarketHomeLayout() {
-  const { md, layoutProps } = useMarketHomeLayoutProps();
+  const { md, layoutProps, shouldWaitForSpotCategoryReady } =
+    useMarketHomeLayoutProps();
   const isFocused = useRouteIsFocused();
   useRefreshWatchListV2OnFocus(isFocused);
+
+  if (shouldWaitForSpotCategoryReady) {
+    return <LazyPageContainer>{null}</LazyPageContainer>;
+  }
 
   return (
     <LazyPageContainer>
@@ -298,8 +315,12 @@ function BaseMarketHomeWithProvider({
   tabsRef?: React.RefObject<ITabContainerRef | null>;
   nestedPager?: boolean;
 }) {
-  const { layoutProps } = useMarketHomeLayoutProps();
+  const { layoutProps, shouldWaitForSpotCategoryReady } =
+    useMarketHomeLayoutProps();
   useRefreshWatchListV2OnFocus(isFocused);
+  if (shouldWaitForSpotCategoryReady) {
+    return null;
+  }
   // In nested outer pagers (Discovery: Market/Earn/Browser), keep Market mounted
   // and let Freeze control inactive-page performance. Unmounting here causes
   // visible flashes when the outer pager finishes settling.
