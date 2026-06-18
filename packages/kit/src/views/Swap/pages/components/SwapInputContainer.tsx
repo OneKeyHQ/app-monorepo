@@ -28,6 +28,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -50,6 +51,7 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapColdStartDisplayTokens } from '../../hooks/useSwapColdStartDisplayTokens';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
@@ -150,19 +152,18 @@ const SwapInputContainer = ({
     type: direction,
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const [alerts] = useSwapAlertsAtom();
   const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
-    if (!token?.price) return '0.0';
-    const tokenPriceBN = new BigNumber(token.price ?? 0);
-    const tokenFiatValueBN = new BigNumber(amountValue ?? 0).multipliedBy(
-      tokenPriceBN,
-    );
-    return tokenFiatValueBN.isNaN()
-      ? '0.0'
-      : tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed();
-  }, [amountValue, token?.price]);
+    return getSwapTokenDisplayFiatValue({
+      token,
+      amount: amountValue ?? '',
+      targetCurrency: settingsPersistAtom.currencyInfo.id,
+      currencyMap,
+    });
+  }, [amountValue, currencyMap, settingsPersistAtom.currencyInfo.id, token]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();

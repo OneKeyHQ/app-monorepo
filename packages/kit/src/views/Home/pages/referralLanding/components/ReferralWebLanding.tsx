@@ -33,7 +33,8 @@ const LOTTIE_ASPECT_RATIO = 786 / 446;
 const VARIANT_COPY = {
   perps: {
     heroTitleId: ETranslations.referral_web_landing_title_perps,
-    heroSubtitleId: ETranslations.referral_web_landing_subtitle_perps,
+    heroSubtitleId:
+      ETranslations.referral_web_landing_perps_trading_cashback__title,
     step3TitleId: ETranslations.referral_web_landing_step3_perps_title,
     step3CtaId: ETranslations.referral_web_landing_step3_perps_cta,
     step3Illustration: 'BlockPercentage' satisfies IIllustrationName,
@@ -88,6 +89,14 @@ const PERPS_BENEFITS: {
     titleId: ETranslations.referral_web_landing_perps_self_custody__title,
     descriptionId: ETranslations.referral_web_landing_perps_self_custody__desc,
   },
+];
+
+const PERPS_MOBILE_HIGHLIGHTS: ETranslations[] = [
+  ETranslations.referral_web_landing_perps_mobile_all_asset__title,
+  ETranslations.referral_web_landing_perps_mobile_backed__title,
+  ETranslations.referral_web_landing_perps_mobile_wallet_native__title,
+  ETranslations.referral_web_landing_perps_mobile_global_markets__title,
+  ETranslations.referral_web_landing_perps_mobile_self_custody__title,
 ];
 
 const buildAccentChunks = (
@@ -458,6 +467,33 @@ function Step3Trade({
   );
 }
 
+function PerpsMobileHighlights() {
+  const intl = useIntl();
+  return (
+    <XStack
+      gap="$2"
+      rowGap="$1.5"
+      flexWrap="wrap"
+      justifyContent="center"
+      px="$0.5"
+      $gtMd={{ display: 'none' }}
+    >
+      {PERPS_MOBILE_HIGHLIGHTS.map((titleId) => (
+        <XStack key={titleId} alignItems="center" gap="$1">
+          <Icon
+            name="Checkmark1SmallOutline"
+            size="$3.5"
+            color="$iconSuccess"
+          />
+          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+            {intl.formatMessage({ id: titleId })}
+          </SizableText>
+        </XStack>
+      ))}
+    </XStack>
+  );
+}
+
 function PerpsBenefitIcon({ name }: { name: IKeyOfIcons }) {
   return (
     <Stack
@@ -605,6 +641,7 @@ export function ReferralWebLanding({
         >
           <ReferralHero variant={variant} discount={inviteeDiscount} />
           <YStack gap="$5" $gtMd={{ flexBasis: 0, flexGrow: 55, pt: '$16' }}>
+            {variant === 'perps' ? <PerpsMobileHighlights /> : null}
             <Step1Download
               onDownload={onDownload}
               onScrollToBind={onScrollToBind}
