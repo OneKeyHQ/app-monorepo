@@ -12,10 +12,13 @@ import {
 } from '@onekeyhq/components';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
-import { LEVEL_BADGE_TYPE, LEVEL_TITLE } from './RiskCheckShared';
+import {
+  LEVEL_BADGE_TYPE,
+  LEVEL_TITLE,
+  formatRiskCheckDate,
+} from './RiskCheckShared';
 
 export function RecentCheckItem({
   item,
@@ -64,9 +67,7 @@ export function RecentCheckItem({
           </Badge.Text>
         </Badge>
         <SizableText size="$bodySm" color="$textSubdued">
-          {formatDate(new Date(item.checkedAt * 1000), {
-            formatTemplate: 'MMM d, yyyy HH:mm',
-          })}
+          {formatRiskCheckDate(item.checkedAt, { withTime: true })}
         </SizableText>
       </YStack>
       {onDelete ? (

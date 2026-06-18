@@ -17,17 +17,9 @@ import {
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { IAddressRiskCheckDetails } from '@onekeyhq/shared/types/addressRiskCheck';
 
-function formatActiveDate(seconds: number) {
-  if (!seconds) {
-    return '-';
-  }
-  return formatDate(new Date(seconds * 1000), {
-    formatTemplate: 'MMM d, yyyy',
-  });
-}
+import { formatRiskCheckDate } from './RiskCheckShared';
 
 function SectionHeader({ title, extra }: { title: string; extra?: string }) {
   return (
@@ -145,14 +137,14 @@ function AddressActivityBlock({
             label={intl.formatMessage({
               id: ETranslations.address_risk_check_first_active__title,
             })}
-            value={formatActiveDate(activity.firstActiveAt)}
+            value={formatRiskCheckDate(activity.firstActiveAt)}
           />
           <ActivityCell
             icon="CalendarOutline"
             label={intl.formatMessage({
               id: ETranslations.address_risk_check_last_active__title,
             })}
-            value={formatActiveDate(activity.lastActiveAt)}
+            value={formatRiskCheckDate(activity.lastActiveAt)}
           />
         </XStack>
         <Divider />
