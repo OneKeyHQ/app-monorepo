@@ -8,7 +8,6 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Button,
   Divider,
-  Empty,
   Icon,
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
@@ -35,6 +34,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -45,9 +46,6 @@ import {
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
-import { PortfolioSkeleton } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PortfolioSkeleton';
-import { usePortfolioData } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import { useNetworkAccount } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/hooks/useNetworkAccount';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
@@ -63,10 +61,6 @@ import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -75,6 +69,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
+import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
@@ -83,9 +78,11 @@ import {
   type IFetchQuoteResult,
   type IMarketPresetTokenContext,
   type ISwapAlertState,
+  type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelStage,
   ESwapStockTradeSide,
@@ -116,6 +113,7 @@ interface ISwapStockDesktopContainerProps {
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
+  supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
@@ -792,7 +790,7 @@ function StockTradeTicket({
   compact,
 }: Omit<
   ISwapStockDesktopContainerProps,
-  'headerContent' | 'marketPresetToken' | 'storeName'
+  'headerContent' | 'marketPresetToken' | 'storeName' | 'supportNetworksList'
 > & {
   stockChannel: IUseSwapStockChannelReturn;
   tradeSide: ESwapStockTradeSide;
@@ -1135,102 +1133,35 @@ function StockPriceChart({
   );
 }
 
-type IStockPositionToken = ISwapToken & {
-  stock?: unknown;
-};
-
 function StockMobilePositionsSection({
   onTokenPress,
+  supportNetworksList,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
+  supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
 }) {
   const intl = useIntl();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const scopedPortfolioTokenAddress = swapProEnableCurrentSymbol
-    ? (tokenAddress ?? '')
-    : '';
-  const effectiveNetworkLogoUri = useNetworkLogoUri({
-    logoUri: undefined,
-    networkId,
-  });
-  const { accountAddress, xpub } = useNetworkAccount(networkId ?? '');
-  const { portfolioData, isRefreshing } = usePortfolioData({
-    tokenAddress: scopedPortfolioTokenAddress,
-    networkId: networkId ?? '',
-    accountAddress,
-    xpub,
-  });
-  const displayPortfolioData = useMemo(() => {
-    if (!scopedPortfolioTokenAddress) {
-      return portfolioData;
+  const [swapFromToken] = useSwapSelectFromTokenAtom();
+  const [swapToToken] = useSwapSelectToTokenAtom();
+  const { cachedPositionTokenList, hasCachedPositionTokenList } =
+    useSwapProSupportNetworksTokenList(supportNetworksList);
+  const filterToken = useMemo(() => {
+    if (!swapProEnableCurrentSymbol) {
+      return undefined;
     }
-    const currentTokenAddress = scopedPortfolioTokenAddress.toLowerCase();
-    return portfolioData.filter(
-      (item) => item.tokenAddress.toLowerCase() === currentTokenAddress,
+    return [swapFromToken, swapToToken].filter(
+      (token): token is ISwapToken => !!token,
     );
-  }, [portfolioData, scopedPortfolioTokenAddress]);
-  const displayPortfolioRows = useMemo(() => {
-    const currentTokenAddress = tokenAddress?.toLowerCase();
-    return displayPortfolioData.map((item) => {
-      const isCurrentToken =
-        !!currentTokenAddress &&
-        item.tokenAddress.toLowerCase() === currentTokenAddress;
-      const token: IStockPositionToken = {
-        networkId: networkId ?? '',
-        contractAddress: item.tokenAddress,
-        symbol: item.symbol,
-        decimals: 0,
-        accountAddress: item.accountAddress,
-        balanceParsed: item.amount,
-        fiatValue: item.totalPrice,
-        price: item.tokenPrice,
-        logoURI: isCurrentToken ? tokenDetail?.logoUrl : undefined,
-        networkLogoURI: effectiveNetworkLogoUri,
-        stock: isCurrentToken ? tokenDetail?.stock : undefined,
-      };
-      return { token, pnl: item.pnl };
-    });
-  }, [
-    displayPortfolioData,
-    effectiveNetworkLogoUri,
-    networkId,
-    tokenAddress,
-    tokenDetail?.logoUrl,
-    tokenDetail?.stock,
-  ]);
+  }, [swapFromToken, swapProEnableCurrentSymbol, swapToToken]);
   const handlePositionPress = useCallback(
     (token: ISwapToken) => {
-      if ((token as IStockPositionToken).stock) {
-        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, token);
-        return;
-      }
       void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
       onTokenPress?.(token);
     },
     [onTokenPress, setSwapTypeSwitch],
   );
-  let positionsContent: ReactNode;
-  if (isRefreshing && portfolioData.length === 0) {
-    positionsContent = <PortfolioSkeleton />;
-  } else if (displayPortfolioRows.length > 0) {
-    positionsContent = (
-      <SwapProPositionsList
-        positionRows={displayPortfolioRows}
-        onTokenPress={handlePositionPress}
-      />
-    );
-  } else {
-    positionsContent = (
-      <Empty
-        description={intl.formatMessage({
-          id: ETranslations.dexmarket_details_nodata,
-        })}
-        pt="$16"
-      />
-    );
-  }
 
   return (
     <YStack mt="$2">
@@ -1259,7 +1190,14 @@ function StockMobilePositionsSection({
       <YStack>
         <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
       </YStack>
-      <YStack minHeight={180}>{positionsContent}</YStack>
+      <YStack minHeight={180}>
+        <SwapProPositionsList
+          onTokenPress={handlePositionPress}
+          filterToken={filterToken}
+          cachedTokenList={cachedPositionTokenList}
+          hasCachedTokenList={hasCachedPositionTokenList}
+        />
+      </YStack>
     </YStack>
   );
 }
@@ -1554,7 +1492,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           compact
         />
         <YStack mt="$2">
-          <StockMobilePositionsSection onTokenPress={props.onTokenPress} />
+          <StockMobilePositionsSection
+            onTokenPress={props.onTokenPress}
+            supportNetworksList={props.supportNetworksList}
+          />
         </YStack>
       </YStack>
     </Keyboard.AwareScrollView>

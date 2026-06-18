@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
@@ -9,12 +7,6 @@ import {
   useSwapProSupportNetworksTokenListLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type {
-  IMarketAccountPortfolioPnl,
-  IMarketStockInfo,
-} from '@onekeyhq/shared/types/marketV2';
 import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
@@ -29,19 +21,7 @@ interface ISwapProPositionsListProps {
   filterToken?: ISwapToken[];
   cachedTokenList?: ISwapToken[];
   hasCachedTokenList?: boolean;
-  positionRows?: {
-    token: ISwapToken;
-    pnl?: IMarketAccountPortfolioPnl;
-  }[];
-  isPressable?: boolean;
-  showChevron?: boolean;
 }
-
-type IPositionTokenWithMarketMeta = ISwapToken & {
-  stock?: IMarketStockInfo;
-};
-
-const EMPTY_POSITION_TOKEN_LIST: ISwapToken[] = [];
 
 const SwapProPositionsList = ({
   onTokenPress,
@@ -49,9 +29,6 @@ const SwapProPositionsList = ({
   filterToken,
   cachedTokenList,
   hasCachedTokenList,
-  positionRows,
-  isPressable,
-  showChevron,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const [swapProSupportNetworksTokenListLoading] =
@@ -68,51 +45,9 @@ const SwapProPositionsList = ({
     shouldUseCachedTokenList ? cachedTokenList : undefined,
   );
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const shouldUsePositionRows = !!positionRows;
-  const pnlMap = useSwapProPositionsPnl(
-    shouldUsePositionRows ? EMPTY_POSITION_TOKEN_LIST : finallyTokenList,
-  );
-  const finalPositionRows = useMemo(() => {
-    if (positionRows) {
-      return positionRows.map(({ token, pnl }) => {
-        const matchedToken = swapProSupportNetworksTokenList.find((item) =>
-          equalTokenNoCaseSensitive({ token1: item, token2: token }),
-        ) as IPositionTokenWithMarketMeta | undefined;
-        const currentToken = token as IPositionTokenWithMarketMeta;
-        const localNetwork = networkUtils.getLocalNetworkInfo(token.networkId);
-        const isNativeSymbol =
-          !!localNetwork?.symbol && localNetwork.symbol === token.symbol;
-        const logoURI =
-          token.logoURI ??
-          matchedToken?.logoURI ??
-          (matchedToken?.isNative || token.isNative || isNativeSymbol
-            ? localNetwork?.logoURI
-            : undefined);
-        return {
-          token: {
-            ...matchedToken,
-            ...token,
-            isNative: token.isNative ?? matchedToken?.isNative,
-            logoURI,
-            networkLogoURI:
-              token.networkLogoURI ?? matchedToken?.networkLogoURI,
-            stock: currentToken.stock ?? matchedToken?.stock,
-          },
-          pnl,
-        };
-      });
-    }
-    return finallyTokenList.map((token) => ({
-      token,
-      pnl: pnlMap.get(`${token.networkId}-${token.contractAddress}`),
-    }));
-  }, [finallyTokenList, pnlMap, positionRows, swapProSupportNetworksTokenList]);
+  const pnlMap = useSwapProPositionsPnl(finallyTokenList);
 
-  if (
-    !shouldUsePositionRows &&
-    swapProSupportNetworksTokenListLoading &&
-    !shouldUseCachedTokenList
-  ) {
+  if (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) {
     return (
       <YStack gap="$2" p="$2">
         <XStack>
@@ -128,17 +63,13 @@ const SwapProPositionsList = ({
   return (
     <YStack>
       <SwapProPositionListHeader />
-      {finalPositionRows.length > 0 ? (
-        finalPositionRows.map(({ token, pnl }) => (
+      {finallyTokenList.length > 0 ? (
+        finallyTokenList.map((item) => (
           <SwapProPositionItem
-            key={`${token.accountAddress ?? ''}-${token.networkId}-${
-              token.contractAddress
-            }`}
-            token={token}
+            key={`${item.networkId}-${item.contractAddress}`}
+            token={item}
             onPress={onTokenPress}
-            pnl={pnl}
-            isPressable={isPressable}
-            showChevron={showChevron}
+            pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
           />
         ))
       ) : (
@@ -147,9 +78,7 @@ const SwapProPositionsList = ({
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       )}
-      {shouldUsePositionRows ||
-      SwapProCurrentSymbolEnable ||
-      !onSearchClick ? undefined : (
+      {SwapProCurrentSymbolEnable || !onSearchClick ? undefined : (
         <SwapProPositionListFooter onSearchClick={onSearchClick} />
       )}
     </YStack>

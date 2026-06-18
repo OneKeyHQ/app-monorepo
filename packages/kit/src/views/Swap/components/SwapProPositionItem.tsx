@@ -23,8 +23,6 @@ interface ISwapProPositionItemProps {
   token: ISwapToken;
   onPress: (token: ISwapToken) => void;
   disabled?: boolean;
-  isPressable?: boolean;
-  showChevron?: boolean;
   props?: IStackProps;
   pnl?: IMarketAccountPortfolioPnl;
 }
@@ -33,8 +31,6 @@ const SwapProPositionItem = ({
   token,
   onPress,
   disabled,
-  isPressable = true,
-  showChevron = true,
   props,
   pnl,
 }: ISwapProPositionItemProps) => {
@@ -52,10 +48,10 @@ const SwapProPositionItem = ({
   }, [token.networkLogoURI, token.networkId]);
 
   const handlePress = useCallback(() => {
-    if (isPressable && !disabled) {
+    if (!disabled) {
       onPress(token);
     }
-  }, [disabled, isPressable, onPress, token]);
+  }, [disabled, onPress, token]);
 
   const pnlDisplay = useMemo(() => {
     if (!pnl?.isPnlSupported) return null;
@@ -93,7 +89,7 @@ const SwapProPositionItem = ({
       userSelect="none"
       onPress={handlePress}
       {...(disabled && { opacity: 0.5 })}
-      {...(isPressable && !disabled && listItemPressStyle)}
+      {...(!disabled && listItemPressStyle)}
       {...props}
     >
       <XStack alignItems="center" gap="$2" flexGrow={1} flexBasis={0}>
@@ -105,9 +101,7 @@ const SwapProPositionItem = ({
         <YStack>
           <XStack alignItems="center" gap="$0.5">
             <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-            {showChevron ? (
-              <Icon name="ChevronRightSmallOutline" size="$5" />
-            ) : null}
+            <Icon name="ChevronRightSmallOutline" size="$5" />
           </XStack>
           <NumberSizeableText
             size="$bodyMd"
