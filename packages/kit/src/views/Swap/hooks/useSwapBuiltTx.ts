@@ -128,6 +128,10 @@ import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
+import {
+  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
+  getStockTradeAnalyticsPayload,
+} from '../utils/swapStockAnalytics';
 import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -1881,6 +1885,15 @@ export function useSwapBuildTx() {
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
         orderId: buildSwapRes?.orderId ?? '',
+        orderType:
+          buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
+            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+            : undefined,
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildSwapRes.result?.protocol,
+          fromToken: buildSwapRes.result?.fromTokenInfo,
+          toToken: buildSwapRes.result?.toTokenInfo,
+        }),
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1951,12 +1964,15 @@ export function useSwapBuildTx() {
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage: slippageItem.value,
+            slippagePercentage:
+              data.protocol === EProtocolOfExchange.STOCK
+                ? (data.slippage ?? slippageItem.value)
+                : slippageItem.value,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
-            provider: data?.info.provider,
+            provider: data.info.provider,
             accountId: fromAccountId ?? '',
-            quoteResultCtx: data?.quoteResultCtx,
+            quoteResultCtx: data.quoteResultCtx,
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
@@ -1994,6 +2010,15 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
             orderId: buildSwapRes?.orderId ?? '',
+            orderType:
+              data?.protocol === EProtocolOfExchange.STOCK
+                ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+                : undefined,
+            ...getStockTradeAnalyticsPayload({
+              protocol: data?.protocol,
+              fromToken: data?.fromTokenInfo,
+              toToken: data?.toTokenInfo,
+            }),
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -2132,7 +2157,8 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash
+            buildSwapRes?.ctx?.oneInchFusionOrderHash ||
+            buildSwapRes.result.swapShouldSignedData
           ) {
             skipSendTransAction = true;
           }
@@ -2157,7 +2183,10 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
-            protocol: buildSwapRes.result.protocol ?? EProtocolOfExchange.SWAP,
+            protocol:
+              buildSwapRes.result.protocol ??
+              data.protocol ??
+              EProtocolOfExchange.SWAP,
             sender: {
               amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
               token: currentFromToken ?? buildSwapRes.result.fromTokenInfo,
@@ -2191,6 +2220,8 @@ export function useSwapBuildTx() {
             buildSwapRes?.ctx?.oneInchFusionOrderHash ??
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.changeHeroOrderId ??
+            buildSwapRes.orderId ??
+            buildSwapRes.result.quoteId ??
             '';
           setSwapSteps((prev) => ({
             ...prev,

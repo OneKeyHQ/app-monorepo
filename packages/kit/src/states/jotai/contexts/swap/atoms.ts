@@ -70,6 +70,9 @@ export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  eventId?: string;
 };
 
 // swap mev config
@@ -101,6 +104,9 @@ export const {
   networks = networks.filter((net) => {
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
+    }
+    if (swapType === ESwapTabSwitchType.STOCK) {
+      return net.supportStock;
     }
     return net.supportSingleSwap || net.supportCrossChainSwap;
   });
@@ -162,6 +168,18 @@ export const {
   | undefined
 >(undefined);
 
+export const { atom: swapStockExecutionTokenSyncIdAtom } =
+  contextAtom<number>(0);
+
+export const { atom: swapStockExecutionTokensAtom } = contextAtom<
+  | {
+      syncId: number;
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
 export const {
   atom: swapSelectedTokensColdStartContextAtom,
   use: useSwapSelectedTokensColdStartContextAtom,
@@ -170,6 +188,18 @@ export const {
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
 });
+
+export const {
+  atom: swapStockPayTokenPreferenceAtom,
+  use: useSwapStockPayTokenPreferenceAtom,
+} = contextAtom<Record<string, string>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenPreferenceAtom,
+  },
+);
 
 export const {
   atom: swapInitialSelectedTokensSyncedAtom,
