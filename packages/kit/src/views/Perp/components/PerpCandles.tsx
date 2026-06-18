@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { DebugRenderTracker, Stack, useMedia } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
@@ -26,8 +26,11 @@ export function PerpCandles({
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
   const { gtMd } = useMedia();
-  // Chart order ticket + drag/cancel run on large desktop/web/ext screens only.
-  const enablePerpsTradingUi = gtMd && !platformEnv.isNative;
+  // Large desktop/web/ext only. Frozen at mount: Perp.tsx mounts the desktop vs
+  // mobile layout by this same gtMd condition, so crossing the breakpoint
+  // remounts this tree rather than toggling here. Freezing keeps the value out
+  // of the WebView URL memo so a window resize never churns the chart src.
+  const [enablePerpsTradingUi] = useState(() => gtMd && !platformEnv.isNative);
 
   const { displayPair, displayCoin } = useMemo(() => {
     if (
