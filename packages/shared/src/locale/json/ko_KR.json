@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "증거금 부족",
   "perp_invalid_scale_order__msg": "유효하지 않은 스케일 주문",
   "perp_ip_restriction__title": "해당 지역에서는 이용할 수 없습니다",
-  "perp_ip_restriction_perp__desc": "해당 지역에서는 신규 무기한 주문을 이용할 수 없습니다. 그래도 마켓 조회, 포지션 종료, 주문 취소 및 자금 출금은 계속할 수 있습니다.",
+  "perp_ip_restriction_perp__desc": "현재 네트워크 지역에서는 거래를 이용할 수 없습니다. 그래도 마켓 조회, 포지션 종료, 주문 취소 및 자금 출금은 계속할 수 있습니다.",
   "perp_ip_restriction_spot__desc": "해당 지역에서는 신규 현물 주문을 이용할 수 없습니다. 그래도 마켓 조회, 주문 취소 및 자금 출금은 계속할 수 있습니다.",
   "perp_market_info_24h_high__title": "24h 최고",
   "perp_market_info_24h_high_tooltip__desc": "지난 24시간 최고 가격.",

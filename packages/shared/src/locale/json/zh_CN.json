@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "保证金不足",
   "perp_invalid_scale_order__msg": "分段委托无效",
   "perp_ip_restriction__title": "当前地区不可用",
-  "perp_ip_restriction_perp__desc": "当前地区无法新开永续订单。你仍可查看市场、平仓、撤单，并将资金转出。",
+  "perp_ip_restriction_perp__desc": "由于您当前网络所在地区的限制，暂无法使用交易功能。您仍可查看市场、平仓、撤单，并将资金转出。",
   "perp_ip_restriction_spot__desc": "当前地区无法新开现货订单。你仍可查看市场、撤单，并将资金转出。",
   "perp_market_info_24h_high__title": "24h 最高价",
   "perp_market_info_24h_high_tooltip__desc": "过去 24 小时的最高价格。",

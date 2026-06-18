@@ -26,7 +26,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
@@ -35,6 +34,8 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { SwapTestIDs } from '../../testIDs';
+import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+
 const SwapPendingHistoryListComponent = ({
   pageType,
 }: {
@@ -56,19 +57,31 @@ const SwapPendingHistoryListComponent = ({
     [swapHistoryPendingList],
   );
   const listData = useMemo(() => {
-    const pendingData = filterSwapHistoryPendingList(
-      swapHistoryPendingList,
-    ).filter(
+    const swapPendingItems = filterSwapMarketHistoryItems({
+      items: filterSwapHistoryPendingList(swapHistoryPendingList),
+      protocol: EProtocolOfExchange.SWAP,
+    });
+    const pendingData = swapPendingItems.filter(
       (item) =>
-        !isPrivateSendSwapHistoryItem(item) &&
-        (item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING),
+        item.status === ESwapTxHistoryStatus.PENDING ||
+        item.status === ESwapTxHistoryStatus.CANCELING,
     );
     return pendingData;
   }, [swapHistoryPendingList]);
+  const filteredSwapTxHistoryList = useMemo(
+    () =>
+      swapTxHistoryList?.length
+        ? filterSwapMarketHistoryItems({
+            items: swapTxHistoryList,
+            protocol: EProtocolOfExchange.SWAP,
+          })
+        : undefined,
+    [swapTxHistoryList],
+  );
   const txHistoryListForDetail = useMemo(
-    () => (swapTxHistoryList?.length ? swapTxHistoryList : listData),
-    [listData, swapTxHistoryList],
+    () =>
+      filteredSwapTxHistoryList?.length ? filteredSwapTxHistoryList : listData,
+    [filteredSwapTxHistoryList, listData],
   );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (

@@ -27,10 +27,18 @@ export class CreateOrderScene extends BaseScene {
     fromAddress,
     toAddress,
     orderId,
+    orderType,
+    tradeSide,
+    stockTokenSymbol,
+    stockTokenAddress,
   }: {
     status: ESwapEventAPIStatus;
     message?: string;
     swapType: string;
+    orderType?: string;
+    tradeSide?: string;
+    stockTokenSymbol?: string;
+    stockTokenAddress?: string;
     slippage: string;
     router?: string;
     quoteToTokenAmount?: string;
@@ -60,6 +68,10 @@ export class CreateOrderScene extends BaseScene {
       message,
       isFirstTime,
       swapType,
+      orderType,
+      tradeSide,
+      stockTokenSymbol,
+      stockTokenAddress,
       sourceChain,
       receivedChain,
       sourceTokenSymbol,

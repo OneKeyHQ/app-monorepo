@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "Margine insufficiente",
   "perp_invalid_scale_order__msg": "Ordine scalare non valido",
   "perp_ip_restriction__title": "Non disponibile nella tua area geografica",
-  "perp_ip_restriction_perp__desc": "I nuovi ordini perpetui non sono disponibili nella tua area geografica. Puoi comunque visualizzare i mercati, chiudere posizioni, annullare ordini e trasferire fuori i fondi.",
+  "perp_ip_restriction_perp__desc": "Il trading non è disponibile nella tua attuale area di rete. Puoi comunque visualizzare i mercati, chiudere posizioni, annullare ordini e trasferire fuori i fondi.",
   "perp_ip_restriction_spot__desc": "I nuovi ordini spot non sono disponibili nella tua area geografica. Puoi comunque visualizzare i mercati, annullare ordini e trasferire fuori i fondi.",
   "perp_market_info_24h_high__title": "24h alto",
   "perp_market_info_24h_high_tooltip__desc": "Prezzo più alto nelle ultime 24 ore.",
