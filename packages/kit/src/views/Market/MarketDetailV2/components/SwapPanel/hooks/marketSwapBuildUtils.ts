@@ -101,9 +101,5 @@ export function mergeMarketBuildResultWithQuote({
     nextBuildRes.result.minToAmount = quoteResult.minToAmount;
   }
 
-  if (!nextBuildRes.result?.protocol && quoteResult?.protocol) {
-    nextBuildRes.result.protocol = quoteResult.protocol;
-  }
-
   return nextBuildRes;
 }
