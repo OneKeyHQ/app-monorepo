@@ -8,8 +8,8 @@ export type IAddressRiskCheckNetwork = {
 };
 
 // Response of POST /prime/v1/kyt/address-risk/check (MistTrack risk_score).
-// `reasons[]` reuses the KYT risk factor shape; the server returns already
-// human-readable display text for category/entity/exposureType.
+// `reasons[]` reuses the KYT risk factor shape; known category keys are
+// localized on the client.
 export type IAddressRiskCheckResult = {
   networkId: string;
   address: string;

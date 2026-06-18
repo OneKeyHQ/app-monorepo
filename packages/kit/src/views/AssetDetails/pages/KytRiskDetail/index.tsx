@@ -19,6 +19,7 @@ import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
 import { RECEIVE_RISK_MONITORING_HELP_LINK } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
@@ -160,7 +161,9 @@ function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
       overflow="hidden"
     >
       <XStack px="$4" py="$2.5" bg="$bgSubdued">
-        <SizableText size="$bodyMdMedium">{factor.category}</SizableText>
+        <SizableText size="$bodyMdMedium">
+          {formatKytRiskFactorCategory({ category: factor.category, intl })}
+        </SizableText>
       </XStack>
       {rows.map((row) => (
         <YStack key={row.label}>

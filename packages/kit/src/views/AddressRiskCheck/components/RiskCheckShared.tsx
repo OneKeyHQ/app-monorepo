@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import type { ColorTokens } from '@onekeyhq/components';
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { IBadgeType } from '@onekeyhq/components/src/content/Badge';
+import { formatKytRiskFactorCategory } from '@onekeyhq/kit/src/utils/kytRiskFactorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
@@ -119,7 +120,9 @@ export function RiskFactorCard({ factor }: { factor: IKytRiskFactor }) {
       overflow="hidden"
     >
       <XStack px="$4" py="$2.5" bg="$bgSubdued">
-        <SizableText size="$bodyMdMedium">{factor.category}</SizableText>
+        <SizableText size="$bodyMdMedium">
+          {formatKytRiskFactorCategory({ category: factor.category, intl })}
+        </SizableText>
       </XStack>
       {rows.map((row) => (
         <YStack key={row.label}>
