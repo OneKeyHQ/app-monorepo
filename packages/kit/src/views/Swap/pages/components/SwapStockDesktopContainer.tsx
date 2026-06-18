@@ -34,6 +34,7 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProEnableCurrentSymbolAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
@@ -83,6 +84,7 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
   ESwapStockChannelStage,
   ESwapStockTradeSide,
@@ -96,6 +98,7 @@ import { SwapTestIDs } from '../../testIDs';
 import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory';
 
 import SwapActionsState from './SwapActionsState';
+import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapQuoteResult from './SwapQuoteResult';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
@@ -1159,6 +1162,7 @@ function StockPriceChart({
 
 function StockMobilePositionsSection() {
   const intl = useIntl();
+  const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const { tokenAddress, networkId } = useTokenDetail();
   const { accountAddress, xpub } = useNetworkAccount(networkId ?? '');
   const { portfolioData, isRefreshing } = usePortfolioData({
@@ -1167,13 +1171,21 @@ function StockMobilePositionsSection() {
     accountAddress,
     xpub,
   });
+  const displayPortfolioData = useMemo(() => {
+    if (!swapProEnableCurrentSymbol || !tokenAddress) {
+      return portfolioData;
+    }
+    return portfolioData.filter(
+      (item) => item.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+    );
+  }, [portfolioData, swapProEnableCurrentSymbol, tokenAddress]);
   let positionsContent: ReactNode;
-  if (isRefreshing && portfolioData.length === 0) {
+  if (isRefreshing && displayPortfolioData.length === 0) {
     positionsContent = <PortfolioSkeleton />;
-  } else if (portfolioData.length > 0) {
+  } else if (displayPortfolioData.length > 0) {
     positionsContent = (
       <YStack>
-        {portfolioData.map((item) => (
+        {displayPortfolioData.map((item) => (
           <PortfolioItemSmall
             key={`${item.accountAddress}-${item.tokenAddress}`}
             item={item}
@@ -1195,25 +1207,24 @@ function StockMobilePositionsSection() {
   return (
     <YStack mx="$-5" mt="$2">
       <XStack
-        px="$5"
-        h="$10"
-        alignItems="flex-end"
-        borderBottomWidth="$px"
+        mx="$5"
+        bg="$bgApp"
+        borderBottomWidth="$0.5"
         borderBottomColor="$borderSubdued"
+        justifyContent="space-between"
+        alignItems="center"
       >
-        <YStack
-          h="$10"
-          justifyContent="center"
-          borderBottomWidth={2}
-          borderBottomColor="$borderActive"
-        >
-          <SizableText size="$bodyMdMedium" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.dexmarket_details_myposition,
-            })}
-          </SizableText>
-        </YStack>
+        <XStack gap="$5" bg="$bgApp">
+          <TabBarItem
+            name={ETabName.Positions}
+            isFocused
+            onPress={() => undefined}
+          />
+        </XStack>
       </XStack>
+      <YStack px="$5">
+        <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
+      </YStack>
       <PortfolioHeaderSmall />
       <YStack minHeight={180}>{positionsContent}</YStack>
     </YStack>
@@ -1235,10 +1246,20 @@ function StockMarketContextPanel({
       flexShrink={0}
       minHeight={623}
       p="$6"
-      borderWidth="$px"
+      borderWidth={1}
       borderColor="$borderSubdued"
-      borderRadius="$5"
+      borderRadius="$6"
       bg="$bgApp"
+      elevationAndroid="$1"
+      $platform-web={{
+        boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+      }}
+      style={{
+        shadowColor: 'rgba(0, 0, 0, 0.08)',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      }}
     >
       <StockMarketTokenHeader storeName={storeName} />
 
@@ -1342,10 +1363,20 @@ function SwapStockDesktopContent({
             flexShrink={0}
             minHeight={466}
             p="$6"
-            borderWidth="$px"
+            borderWidth={1}
             borderColor="$borderSubdued"
-            borderRadius="$5"
+            borderRadius="$6"
             bg="$bgApp"
+            elevationAndroid="$1"
+            $platform-web={{
+              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+            }}
+            style={{
+              shadowColor: 'rgba(0, 0, 0, 0.08)',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 1,
+              shadowRadius: 24,
+            }}
             gap="$5"
           >
             <XStack alignItems="center" justifyContent="space-between">
