@@ -1,24 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
+  ActionList,
   Badge,
   Dialog,
+  Icon,
   IconButton,
-  Input,
   SizableText,
   Spinner,
-  Toast,
   XStack,
   YStack,
-  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IBtcFindAddressItem } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { BTC_FIND_ADDRESS_MAX_INDEX } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -31,186 +28,41 @@ import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { ReceiveTestIDs } from '../testIDs';
 
-import { findAddressCopy } from './btcFindAddressCopy';
-
-function parseIndexText(indexText: string): number | undefined {
-  if (!/^\d+$/.test(indexText)) {
-    return undefined;
-  }
-  const index = Number(indexText);
-  if (
-    !Number.isSafeInteger(index) ||
-    index < 0 ||
-    index > BTC_FIND_ADDRESS_MAX_INDEX
-  ) {
-    return undefined;
-  }
-  return index;
-}
-
-function FindAddressDialogContent({
-  accountId,
-  networkId,
-  accountName,
-  accountPath,
-  addressTypeLabel,
-  deriveType,
+// Shared BTC address cell: mono address text + decorative copy icon. The copy
+// itself fires from the enclosing row's onPress, so the icon is just an
+// affordance. Used by the receive address table, the next-address row and the
+// manually-recovered rows so the three stay visually in sync.
+export function BtcAddressText({
+  displayAddress,
+  address,
+  copyTestID,
 }: {
-  accountId: string;
-  networkId: string;
-  accountName: string;
-  accountPath: string;
-  addressTypeLabel: string;
-  deriveType: string;
+  displayAddress: string;
+  address?: string;
+  copyTestID: string;
 }) {
-  const intl = useIntl();
-  const dialogInstance = useDialogInstance();
-  const [indexText, setIndexText] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const parsedIndex = useMemo(() => parseIndexText(indexText), [indexText]);
-  const showInvalidHint = indexText.length > 0 && parsedIndex === undefined;
-  const pathPreview = `${accountPath}/0/${
-    parsedIndex === undefined ? 'N' : parsedIndex
-  }`;
-
-  const onConfirm = useCallback(async () => {
-    if (parsedIndex === undefined || submitting) {
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const { item, alreadyDiscovered } =
-        await backgroundApiProxy.serviceFreshAddress.claimBtcFindAddress({
-          accountId,
-          networkId,
-          index: parsedIndex,
-        });
-      if (alreadyDiscovered) {
-        Toast.message({
-          title: findAddressCopy.alreadyDiscovered,
-        });
-      } else {
-        defaultLogger.transaction.findAddress.findAddressClaimed({
-          networkId,
-          deriveType,
-        });
-        Toast.success({
-          title: `${findAddressCopy.addedToast} · ${findAddressCopy.indexBadge(
-            item.index,
-          )}`,
-        });
-      }
-      await dialogInstance.close();
-    } catch (error) {
-      console.error(error);
-      throw error;
-    } finally {
-      setSubmitting(false);
-    }
-  }, [
-    accountId,
-    networkId,
-    deriveType,
-    parsedIndex,
-    submitting,
-    dialogInstance,
-  ]);
-
-  const renderReadonlyRow = (label: string, value: string) => (
-    <XStack justifyContent="space-between" alignItems="center" gap="$3">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {label}
-      </SizableText>
+  return (
+    <>
       <SizableText
         size="$bodyMd"
         color="$text"
         numberOfLines={1}
         flexShrink={1}
+        fontFamily="$monoRegular"
+        opacity={0.9}
       >
-        {value}
+        {displayAddress}
       </SizableText>
-    </XStack>
-  );
-
-  return (
-    <YStack gap="$4">
-      <Alert
-        type="warning"
-        icon="ErrorOutline"
-        title={findAddressCopy.warningTitle}
-        description={findAddressCopy.warningDesc}
-      />
-      {renderReadonlyRow(
-        findAddressCopy.accountLabel,
-        `${accountName} (${accountPath})`,
-      )}
-      {renderReadonlyRow(findAddressCopy.addressTypeLabel, addressTypeLabel)}
-      <YStack gap="$1.5">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {findAddressCopy.indexLabel}
-        </SizableText>
-        <Input
-          autoFocus
-          testID={ReceiveTestIDs.BtcFindAddressIndexInput}
-          size="large"
-          $gtMd={{ size: 'medium' }}
-          keyboardType="number-pad"
-          inputMode="numeric"
-          value={indexText}
-          placeholder="0"
-          onChangeText={(text) => setIndexText(text.trim())}
-          error={showInvalidHint}
+      {address ? (
+        <Icon
+          testID={copyTestID}
+          name="Copy3Outline"
+          size="$4"
+          color="$iconSubdued"
         />
-        {showInvalidHint ? (
-          <SizableText size="$bodySm" color="$textCritical">
-            {findAddressCopy.invalidIndex}
-          </SizableText>
-        ) : null}
-      </YStack>
-      {renderReadonlyRow(findAddressCopy.pathPreviewLabel, pathPreview)}
-      <Dialog.Footer
-        onConfirm={onConfirm}
-        onConfirmText={findAddressCopy.confirmText}
-        onCancelText={intl.formatMessage({ id: ETranslations.global_cancel })}
-        confirmButtonProps={{
-          disabled: parsedIndex === undefined,
-          loading: submitting,
-        }}
-      />
-    </YStack>
+      ) : null}
+    </>
   );
-}
-
-export function showBtcFindAddressDialog({
-  accountId,
-  networkId,
-  accountName,
-  accountPath,
-  addressTypeLabel,
-  deriveType,
-}: {
-  accountId: string;
-  networkId: string;
-  accountName: string;
-  accountPath: string;
-  addressTypeLabel: string;
-  deriveType: string;
-}) {
-  Dialog.show({
-    title: findAddressCopy.dialogTitle,
-    renderContent: (
-      <FindAddressDialogContent
-        accountId={accountId}
-        networkId={networkId}
-        accountName={accountName}
-        accountPath={accountPath}
-        addressTypeLabel={addressTypeLabel}
-        deriveType={deriveType}
-      />
-    ),
-    showFooter: false,
-  });
 }
 
 function FindAddressBalance({
@@ -301,8 +153,12 @@ function FindAddressRow({
     Dialog.show({
       icon: 'DeleteOutline',
       tone: 'destructive',
-      title: findAddressCopy.removeConfirmTitle,
-      description: findAddressCopy.removeConfirmDesc,
+      title: intl.formatMessage({
+        id: ETranslations.find_address_remove__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.find_address_remove__desc,
+      }),
       onConfirmText: intl.formatMessage({ id: ETranslations.global_remove }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
       onConfirm: async () => {
@@ -320,22 +176,29 @@ function FindAddressRow({
 
   return (
     <XStack
-      mx="$4"
+      mx="$2"
       px="$3"
       py="$2.5"
+      minHeight={44}
       gap="$2"
       alignItems="center"
       borderRadius="$3"
+      userSelect="none"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
+      $gtMd={{ py: '$2', minHeight: 40 }}
       onPress={() => onCopy(item)}
     >
-      <Badge badgeType="default" badgeSize="sm">
-        <Badge.Text>{findAddressCopy.indexBadge(item.index)}</Badge.Text>
-      </Badge>
-      <SizableText size="$bodyMd" color="$text" numberOfLines={1} flex={1}>
-        {displayAddress}
-      </SizableText>
+      <XStack flex={1} minWidth={0} alignItems="center" gap="$1.5">
+        <BtcAddressText
+          displayAddress={displayAddress}
+          address={item.address}
+          copyTestID={ReceiveTestIDs.BtcFindAddressCopyButton}
+        />
+        <Badge badgeType="default" badgeSize="sm">
+          <Badge.Text>{`#${item.index}`}</Badge.Text>
+        </Badge>
+      </XStack>
       <FindAddressBalance
         accountId={accountId}
         networkId={networkId}
@@ -343,25 +206,24 @@ function FindAddressRow({
         decimals={decimals}
         symbol={symbol}
       />
-      <IconButton
-        testID={ReceiveTestIDs.BtcFindAddressCopyButton}
-        variant="tertiary"
-        size="small"
-        icon="Copy3Outline"
-        onPress={(e) => {
-          e?.stopPropagation?.();
-          onCopy(item);
-        }}
-      />
-      <IconButton
-        testID={ReceiveTestIDs.BtcFindAddressRemoveButton}
-        variant="tertiary"
-        size="small"
-        icon="DeleteOutline"
-        onPress={(e) => {
-          e?.stopPropagation?.();
-          onRemove();
-        }}
+      <ActionList
+        title=""
+        renderTrigger={
+          <IconButton
+            testID={ReceiveTestIDs.BtcFindAddressRemoveButton}
+            variant="tertiary"
+            size="small"
+            icon="DotHorOutline"
+          />
+        }
+        items={[
+          {
+            icon: 'DeleteOutline',
+            label: intl.formatMessage({ id: ETranslations.global_remove }),
+            destructive: true,
+            onPress: onRemove,
+          },
+        ]}
       />
     </XStack>
   );
@@ -380,6 +242,7 @@ export function BtcFindAddressSection({
   symbol: string;
   onCopy: (item: IBtcFindAddressItem) => void;
 }) {
+  const intl = useIntl();
   const { result: items, run: refresh } = usePromiseResult(
     async () => {
       if (!accountId || !networkId) return [];
@@ -396,7 +259,7 @@ export function BtcFindAddressSection({
       }
     },
     [accountId, networkId],
-    { initResult: [] },
+    { initResult: [], revalidateOnFocus: true },
   );
 
   useEffect(() => {
@@ -416,31 +279,32 @@ export function BtcFindAddressSection({
   }
 
   return (
-    <YStack gap="$2">
+    <YStack>
       <YStack px="$5" gap="$1">
-        <SizableText
-          size="$bodySmMedium"
-          color="$textSubdued"
-          textTransform="uppercase"
-          letterSpacing={0.6}
-        >
-          {`${findAddressCopy.sectionTitle} · ${items.length}`}
+        <SizableText size="$headingSm" color="$text">
+          {`${intl.formatMessage({
+            id: ETranslations.find_address_recovered_section__title,
+          })} (${items.length})`}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          {findAddressCopy.sectionDesc}
+          {intl.formatMessage({
+            id: ETranslations.find_address_recovered_section__desc,
+          })}
         </SizableText>
       </YStack>
-      {items.map((item) => (
-        <FindAddressRow
-          key={item.relPath}
-          item={item}
-          accountId={accountId}
-          networkId={networkId}
-          decimals={decimals}
-          symbol={symbol}
-          onCopy={onCopy}
-        />
-      ))}
+      <YStack>
+        {items.map((item) => (
+          <FindAddressRow
+            key={item.relPath}
+            item={item}
+            accountId={accountId}
+            networkId={networkId}
+            decimals={decimals}
+            symbol={symbol}
+            onCopy={onCopy}
+          />
+        ))}
+      </YStack>
     </YStack>
   );
 }
