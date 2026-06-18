@@ -20,7 +20,7 @@ import { SortableListView } from '../../layouts/SortableListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 import { useTabsContext } from '../Tabs/context';
-import { useTabNameContext } from '../Tabs/TabNameContext';
+import { useTabNameContextSafe } from '../Tabs/TabNameContext';
 
 import { Column, MemoHeaderColumn } from './components';
 
@@ -337,7 +337,7 @@ function BasicTable<T>({
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
-  const currentTabName = useTabNameContext();
+  const currentTabName = useTabNameContextSafe();
   const { requestRemeasure, scrollTabElementsRef } = useTabsContext();
 
   const dataSource = useMemo(() => {

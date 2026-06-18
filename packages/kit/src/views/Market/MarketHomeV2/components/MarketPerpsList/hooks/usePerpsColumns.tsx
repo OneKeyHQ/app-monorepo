@@ -16,7 +16,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { MarketPerpsStarV2 } from '@onekeyhq/kit/src/views/Market/components/MarketStarV2';
 import {
   LeverageBadge,
-  SubtitleBadge,
+  SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -74,10 +74,10 @@ export function usePerpsColumnsDesktop(): ITableColumn<IMarketPerpsToken>[] {
                     {record.displayName}
                   </SizableText>
                   <LeverageBadge leverage={record.maxLeverage} />
-                  {record.subtitle ? (
-                    <SubtitleBadge subtitle={record.subtitle} />
-                  ) : null}
                 </XStack>
+                {record.subtitle ? (
+                  <SubtitleText subtitle={record.subtitle} />
+                ) : null}
               </Stack>
             </XStack>
           ),
@@ -274,15 +274,20 @@ export function usePerpsColumnsMobile(): ITableColumn<IMarketPerpsToken>[] {
                 </SizableText>
                 <LeverageBadge leverage={record.maxLeverage} />
               </XStack>
-              <NumberSizeableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-                formatter="marketCap"
-                userSelect="none"
-              >
-                {record.volume24h ?? '0'}
-              </NumberSizeableText>
+              <XStack alignItems="center" gap="$1" minWidth={0}>
+                {record.subtitle ? (
+                  <SubtitleText subtitle={record.subtitle} />
+                ) : null}
+                <NumberSizeableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                  formatter="marketCap"
+                  userSelect="none"
+                >
+                  {record.volume24h ?? '0'}
+                </NumberSizeableText>
+              </XStack>
             </YStack>
           </XStack>
         ),
