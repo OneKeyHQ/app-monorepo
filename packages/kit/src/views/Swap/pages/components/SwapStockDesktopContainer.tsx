@@ -1087,7 +1087,6 @@ function StockPriceChart({
         secondaryLineColor={chartLineColor}
         secondaryLineWidth={2}
         seriesType="dotted-area"
-        showHorzGridLines
         showTimeScale={false}
         priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
         priceFormatter={priceFormatter}
