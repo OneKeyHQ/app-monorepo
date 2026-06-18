@@ -82,6 +82,9 @@ interface IOrderConfirmContentProps {
   // this instead of the global tradingFormAtom; submit bypasses useOrderConfirm.
   formDataOverride?: ITradingFormData;
   priceOverride?: string;
+  // Coin the override ticket was built for; submit aborts if the live active
+  // instrument no longer matches (active-asset switch between press and confirm).
+  expectedCoin?: string;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }
@@ -112,6 +115,7 @@ function OrderConfirmContent({
   enableTradingAccountKey,
   formDataOverride,
   priceOverride,
+  expectedCoin,
   onConfirmSuccess,
 }: IOrderConfirmContentProps) {
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
@@ -419,6 +423,16 @@ function OrderConfirmContent({
       });
       return;
     }
+    // Active asset may have switched between pressing buy/sell and confirming;
+    // never submit the snapshot ticket against a different live coin.
+    if (expectedCoin && activeInstrument.coin !== expectedCoin) {
+      Toast.error({
+        title: 'Order Failed',
+        message: 'Market changed. Please reopen the order ticket.',
+      });
+      closeDialog();
+      return;
+    }
     setIsOverrideSubmitting(true);
     try {
       await hyperliquidActions.current.submitOrder({
@@ -436,7 +450,9 @@ function OrderConfirmContent({
     }
   }, [
     activeInstrument.assetId,
+    activeInstrument.coin,
     closeDialog,
+    expectedCoin,
     formDataOverride,
     hyperliquidActions,
     onConfirmSuccess,
@@ -862,6 +878,7 @@ export function showOrderConfirmDialog({
   enableTradingAccountKey,
   formData,
   price,
+  expectedCoin,
   onConfirmSuccess,
 }: {
   overrideSide?: 'long' | 'short';
@@ -874,6 +891,8 @@ export function showOrderConfirmDialog({
   // displays and submits this instead of the global tradingFormAtom.
   formData?: ITradingFormData;
   price?: string;
+  // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
+  expectedCoin?: string;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
 }) {
@@ -893,6 +912,7 @@ export function showOrderConfirmDialog({
             enableTradingAccountKey={enableTradingAccountKey}
             formDataOverride={formData}
             priceOverride={price}
+            expectedCoin={expectedCoin}
             onConfirmSuccess={onConfirmSuccess}
           />
         </PerpsProviderMirror>

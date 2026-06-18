@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { type IntlShape, useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import {
   DashText,
   Dialog,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -37,9 +38,12 @@ import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
+import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import { PERP_TRADE_BUTTON_COLORS } from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
@@ -81,6 +85,17 @@ export function LimitOrderForm({
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
+  const marketDataFreshness = usePerpsMarketDataFreshness();
+
+  // The form reads the live active asset, but `symbol` is the coin snapshotted
+  // when the ticket opened. A programmatic active-asset switch (chart
+  // SYMBOL_CHANGE, navigation, background refresh) the modal can't block would
+  // otherwise let us submit against the wrong coin, so close on any drift.
+  useEffect(() => {
+    if (activeAsset?.coin && activeAsset.coin !== symbol) {
+      onClose();
+    }
+  }, [activeAsset?.coin, symbol, onClose]);
 
   // All form state is local; this never writes tradingFormAtom (the main panel's).
   const [side, setSide] = useState<ITradeSide>('long');
@@ -330,7 +345,27 @@ export function LimitOrderForm({
 
   const handlePlace = useCallback(
     (pressedSide: ITradeSide) => {
+      // Abort if the active coin drifted from the snapshot — the form computes
+      // off the live asset, so a stale ticket must not submit against it.
+      if (!activeAsset?.coin || activeAsset.coin !== symbol) {
+        onClose();
+        return;
+      }
+
       setSide(pressedSide);
+
+      // Same blocks as the main panel (validateOrderPanelState): the order
+      // ticket holds independent state, so it must enforce them itself instead
+      // of bypassing straight to submitOrder.
+      if (shouldBlockPerpsTradingForMarketData(marketDataFreshness)) {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.perp_offline }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
 
       const orderPrice = resolvePriceForSide(pressedSide);
       if (orderPrice.error || !orderPrice.isValid || orderPrice.price.lte(0)) {
@@ -352,6 +387,42 @@ export function LimitOrderForm({
         setInlineError(
           intl.formatMessage({
             id: ETranslations.perp_trade_amount_place_holder,
+          }),
+        );
+        return;
+      }
+
+      const orderValueBN = computedSizeBN.multipliedBy(resolvedPriceBN);
+      if (
+        shouldApplyMinimumOrderGuard({
+          isSpot: false,
+          orderMode: 'standard',
+          orderType: 'limit',
+          hasBboPriceMode: Boolean(bboPriceMode),
+        }) &&
+        orderValueBN.gt(0) &&
+        orderValueBN.lt(10)
+      ) {
+        setInlineError(
+          intl.formatMessage(
+            { id: ETranslations.perp_size_least },
+            { amount: '$10' },
+          ),
+        );
+        return;
+      }
+
+      const available = activeAssetData?.availableToTrade;
+      const sideAvailableBN = new BigNumber(
+        (pressedSide === 'long' ? available?.[0] : available?.[1]) ?? 0,
+      );
+      const marginRequiredForOrderBN = orderValueBN.dividedBy(
+        leverage > 0 ? leverage : 1,
+      );
+      if (marginRequiredForOrderBN.gt(sideAvailableBN)) {
+        setInlineError(
+          intl.formatMessage({
+            id: ETranslations.perp_insufficient_margin__title,
           }),
         );
         return;
@@ -400,22 +471,27 @@ export function LimitOrderForm({
         overrideSide: pressedSide,
         formData: builtFormData,
         price: resolvedPrice,
+        expectedCoin: symbol,
         intl,
         onConfirmSuccess: onClose,
       });
     },
     [
+      activeAsset?.coin,
+      activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
       hasTpsl,
       intl,
       leverage,
       limitTif,
+      marketDataFreshness,
       onClose,
       reduceOnly,
       resolvePriceForSide,
       slType,
       slValue,
+      symbol,
       szDecimals,
       tpType,
       tpValue,
@@ -628,8 +704,9 @@ export function LimitOrderForm({
   );
 }
 
-// symbol/price are snapshotted at open and the modal blocks the page behind it,
-// so a later active-asset switch cannot submit a stale ticket against another coin.
+// symbol/price are snapshotted at open; LimitOrderForm closes and the confirm
+// step re-asserts the live coin still matches, so a later active-asset switch
+// cannot submit a stale ticket against another coin.
 export function showLimitOrderDialog({
   symbol,
   price,
