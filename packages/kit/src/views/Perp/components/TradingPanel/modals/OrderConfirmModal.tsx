@@ -418,17 +418,18 @@ function OrderConfirmContent({
     }
     if (activeInstrument.assetId === undefined) {
       Toast.error({
-        title: 'Order Failed',
-        message: 'Token information not available',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_info_not_found__msg,
+        }),
       });
       return;
     }
     // Active asset may have switched between pressing buy/sell and confirming;
-    // never submit the snapshot ticket against a different live coin.
+    // never submit the snapshot ticket against a different live coin. Mirrors
+    // the keyless string submitOrder itself throws (actions.ts) — no i18n key.
     if (expectedCoin && activeInstrument.coin !== expectedCoin) {
       Toast.error({
-        title: 'Order Failed',
-        message: 'Market changed. Please reopen the order ticket.',
+        title: 'Trading market changed. Please review and submit again.',
       });
       closeDialog();
       return;
@@ -455,6 +456,7 @@ function OrderConfirmContent({
     expectedCoin,
     formDataOverride,
     hyperliquidActions,
+    intl,
     onConfirmSuccess,
     priceOverride,
   ]);
