@@ -7,6 +7,9 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -17,6 +20,7 @@ interface IUseTradingViewV2WebSocketProps {
   enabled?: boolean;
   chartType?: string;
   currency?: string;
+  symbol?: string;
 }
 
 interface IMarketPriceUpdatePayload {
@@ -62,6 +66,16 @@ function normalizeMarketWsKLineInterval(interval: string | undefined): string {
   }
 }
 
+function isMarketTokenKLineResponse(
+  data: unknown,
+): data is IMarketTokenKLineResponse {
+  return (
+    Boolean(data) &&
+    typeof data === 'object' &&
+    Array.isArray((data as { points?: unknown }).points)
+  );
+}
+
 export function useTradingViewV2WebSocket({
   networkId,
   tokenAddress,
@@ -69,6 +83,7 @@ export function useTradingViewV2WebSocket({
   enabled = true,
   chartType = '1m',
   currency = 'usd',
+  symbol,
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
   const wsChartType = normalizeMarketWsKLineInterval(chartType);
@@ -142,10 +157,12 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      const receivedData = payload.data as IWsPriceData;
+      const receivedData = payload.data as
+        | IWsPriceData
+        | IMarketTokenKLineResponse;
       if (
         receivedData &&
-        !('points' in receivedData) &&
+        !isMarketTokenKLineResponse(receivedData) &&
         receivedData.type &&
         normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
       ) {
@@ -164,8 +181,8 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      const dataForWebView =
-        receivedData && 'points' in receivedData
+      const dataForWebView: IMarketTokenKLineResponse =
+        isMarketTokenKLineResponse(receivedData)
           ? receivedData
           : {
               points: [
@@ -186,6 +203,13 @@ export function useTradingViewV2WebSocket({
           kLineData: dataForWebView,
           timestamp: now,
         },
+      });
+      sendVolumeVisibilityUpdate({
+        allowHide: false,
+        kLineData: dataForWebView,
+        source: 'realtime',
+        symbol,
+        webRef,
       });
 
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
@@ -219,5 +243,6 @@ export function useTradingViewV2WebSocket({
     webRef,
     enabled,
     wsChartType,
+    symbol,
   ]);
 }

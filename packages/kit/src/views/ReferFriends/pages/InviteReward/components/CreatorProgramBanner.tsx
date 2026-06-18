@@ -18,10 +18,6 @@ export function formatCreatorProgramLocale(locale: string) {
   return locale.replace(/-/g, '_');
 }
 
-export function shouldShowCreatorProgramBanner(locale: string) {
-  return !locale.replace(/_/g, '-').toLowerCase().startsWith('zh');
-}
-
 export function CreatorProgramBanner({
   onLayout,
 }: {
@@ -41,10 +37,6 @@ export function CreatorProgramBanner({
       openUrlExternal(CREATOR_PROGRAM_URL);
     }
   }, [locale, title]);
-
-  if (!shouldShowCreatorProgramBanner(intl.locale)) {
-    return null;
-  }
 
   return (
     <>
