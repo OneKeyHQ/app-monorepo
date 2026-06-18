@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page, useMedia } from '@onekeyhq/components';
 import type { ITabContainerRef } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -8,6 +10,7 @@ import {
   useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { debugLandingLog } from '@onekeyhq/shared/src/performance/init';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -44,6 +47,7 @@ function useRefreshWatchListV2OnFocus(isFocused: boolean) {
 }
 
 const useMarketHomeLayoutProps = () => {
+  const intl = useIntl();
   const { md } = useMedia();
 
   // Load market basic config using the new hook
@@ -53,7 +57,7 @@ const useMarketHomeLayoutProps = () => {
     isLoading: isMarketBasicConfigLoading,
   } = useMarketBasicConfig();
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
-  const [{ spotCategoryToSelect }, setMarketSelectedTab] =
+  const [{ selectedSpotCategory, spotCategoryToSelect }, setMarketSelectedTab] =
     useMarketSelectedTabAtom();
 
   // Track market entry analytics
@@ -85,7 +89,9 @@ const useMarketHomeLayoutProps = () => {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('1h');
 
-  const [selectedCategory, setSelectedCategory] = useState('trending');
+  const [selectedCategory, setSelectedCategory] = useState(
+    selectedSpotCategory || 'trending',
+  );
 
   const categories: IMarketCategoryItem[] = useMemo(() => {
     if (apiSpotCategories.length > 0) {
@@ -104,10 +110,51 @@ const useMarketHomeLayoutProps = () => {
 
     // Fallback before API responds
     return [
-      { id: 'trending', name: 'Trending' },
-      { id: 'x_mentioned', name: 'X Mentioned' },
+      {
+        id: 'trending',
+        name: intl.formatMessage({ id: ETranslations.dexmarket_trending }),
+      },
     ];
-  }, [apiSpotCategories]);
+  }, [apiSpotCategories, intl]);
+
+  useEffect(() => {
+    if (!selectedSpotCategory || spotCategoryToSelect) {
+      return;
+    }
+
+    const hasSelectedCategory = categories.some(
+      (item) => item.id === selectedSpotCategory,
+    );
+    if (hasSelectedCategory) {
+      if (selectedCategory !== selectedSpotCategory) {
+        setSelectedCategory(selectedSpotCategory);
+      }
+      return;
+    }
+
+    if (isMarketBasicConfigLoading === false) {
+      const nextSelectedCategory = categories[0]?.id ?? 'trending';
+      if (selectedCategory !== nextSelectedCategory) {
+        setSelectedCategory(nextSelectedCategory);
+      }
+      setMarketSelectedTab((prev) => {
+        if (prev.selectedSpotCategory !== selectedSpotCategory) {
+          return prev;
+        }
+        return {
+          ...prev,
+          selectedSpotCategory: undefined,
+        };
+      });
+    }
+  }, [
+    categories,
+    isMarketBasicConfigLoading,
+    selectedCategory,
+    selectedSpotCategory,
+    setMarketSelectedTab,
+    spotCategoryToSelect,
+  ]);
 
   useEffect(() => {
     if (!spotCategoryToSelect) {
@@ -124,6 +171,10 @@ const useMarketHomeLayoutProps = () => {
 
       setMarketSelectedTab((prev) => ({
         ...prev,
+        selectedSpotCategory:
+          prev.selectedSpotCategory === spotCategoryToSelect
+            ? undefined
+            : prev.selectedSpotCategory,
         spotCategoryToSelect: undefined,
       }));
       return;
@@ -133,6 +184,7 @@ const useMarketHomeLayoutProps = () => {
     setMarketSelectedTab((prev) => ({
       ...prev,
       tab: 'trending',
+      selectedSpotCategory: spotCategoryToSelect,
       spotCategoryToSelect: undefined,
     }));
   }, [
