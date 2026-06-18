@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useTheme } from '@tamagui/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
@@ -22,10 +23,6 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
-import {
-  dark as primitiveDark,
-  light as primitiveLight,
-} from '@onekeyhq/components/colors';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -34,7 +31,6 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapFromTokenAmountAtom,
   useSwapToTokenAmountAtom,
@@ -142,15 +138,7 @@ const STOCK_CHART_RANGE_ITEMS: {
   { label: '1M', interval: '4H', seconds: 30 * 24 * 60 * 60 },
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
-const STOCK_CHART_GREEN_A9_COLORS: Record<'light' | 'dark', string> = {
-  light: primitiveLight.greenA.greenA9,
-  dark: primitiveDark.greenDarkA.greenA9,
-};
-const STOCK_CHART_LIGHT_BG = '#F6F7F8';
-const STOCK_CHART_LIGHT_TITLE_COLOR = '#202124';
-const STOCK_CHART_LIGHT_PERIOD_COLOR = '#6B7280';
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
-const STOCK_CHART_RENDER_HEIGHT = 200;
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
   const pointsByTime = new Map<number, number>();
@@ -1003,18 +991,9 @@ function StockPriceChart({
   tokenSymbol?: string;
 }) {
   const intl = useIntl();
-  const themeVariant = useThemeVariant();
+  const theme = useTheme();
   const [range, setRange] = useState<IStockChartRange>('1D');
-  const chartLineColor = useMemo(() => {
-    const variant = themeVariant === 'dark' ? 'dark' : 'light';
-    return STOCK_CHART_GREEN_A9_COLORS[variant];
-  }, [themeVariant]);
-  const isDarkTheme = themeVariant === 'dark';
-  const chartCardBg = isDarkTheme ? '$bgSubdued' : STOCK_CHART_LIGHT_BG;
-  const chartTitleColor = isDarkTheme ? '$text' : STOCK_CHART_LIGHT_TITLE_COLOR;
-  const chartPeriodColor = isDarkTheme
-    ? '$textSubdued'
-    : STOCK_CHART_LIGHT_PERIOD_COLOR;
+  const chartLineColor = theme.textSuccess.val;
   const chartTitle = useMemo(() => {
     const chartLabel = intl.formatMessage({
       id: ETranslations.market_chart,
@@ -1085,24 +1064,22 @@ function StockPriceChart({
     chartContent = <Skeleton w="100%" h="100%" />;
   } else if (chartData.length > 0) {
     chartContent = (
-      <Stack h={STOCK_CHART_VISIBLE_HEIGHT} overflow="hidden" w="100%">
-        <LightweightChart
-          data={chartData}
-          height={STOCK_CHART_RENDER_HEIGHT}
-          lineColor={chartLineColor}
-          topColor="transparent"
-          bottomColor="transparent"
-          lineWidth={2}
-          showHorzGridLines
-          priceFormatter={priceFormatter}
-          fontSize={11}
-        />
-      </Stack>
+      <LightweightChart
+        data={chartData}
+        height={STOCK_CHART_VISIBLE_HEIGHT}
+        lineColor={chartLineColor}
+        lineWidth={2}
+        seriesType="dotted-area"
+        showHorzGridLines
+        showTimeScale={false}
+        priceFormatter={priceFormatter}
+        fontSize={11}
+      />
     );
   }
 
   return (
-    <YStack h={274} borderRadius="$4" bg={chartCardBg} overflow="hidden">
+    <YStack h={274} borderRadius="$4" bg="$bgSubdued" overflow="hidden">
       <XStack
         h={60}
         pl="$5"
@@ -1113,7 +1090,7 @@ function StockPriceChart({
       >
         <SizableText
           size="$bodyLgMedium"
-          color={chartTitleColor}
+          color="$text"
           numberOfLines={1}
           w={180}
           flexShrink={1}
@@ -1133,7 +1110,7 @@ function StockPriceChart({
                 cursor="pointer"
                 onPress={() => setRange(item.label)}
               >
-                <SizableText size="$bodySmMedium" color={chartPeriodColor}>
+                <SizableText size="$bodySmMedium" color="$textSubdued">
                   {item.label}
                 </SizableText>
               </XStack>
