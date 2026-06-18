@@ -1073,9 +1073,6 @@ function StockPriceChart({
         bottomColor="transparent"
         lineWidth={2}
         showPriceScale
-        showDottedArea
-        dottedAreaColor={chartLineColor}
-        dottedAreaOpacity={0.36}
         priceFormatter={priceFormatter}
         fontSize={11}
       />
