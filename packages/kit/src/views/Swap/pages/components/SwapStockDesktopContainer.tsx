@@ -58,8 +58,6 @@ import {
   formatPercentValue,
   formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
-import SwapProPositionItem from '@onekeyhq/kit/src/views/Swap/components/SwapProPositionItem';
-import SwapProPositionListHeader from '@onekeyhq/kit/src/views/Swap/components/SwapProPositionListHeader';
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -96,6 +94,7 @@ import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory'
 
 import SwapActionsState from './SwapActionsState';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
+import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
@@ -1174,7 +1173,7 @@ function StockMobilePositionsSection() {
         logoURI: isCurrentToken ? tokenDetail?.logoUrl : undefined,
         networkLogoURI: effectiveNetworkLogoUri,
       };
-      return { item, token };
+      return { token, pnl: item.pnl };
     });
   }, [
     displayPortfolioData,
@@ -1192,19 +1191,12 @@ function StockMobilePositionsSection() {
     positionsContent = <PortfolioSkeleton />;
   } else if (displayPortfolioRows.length > 0) {
     positionsContent = (
-      <YStack>
-        <SwapProPositionListHeader />
-        {displayPortfolioRows.map(({ item, token }) => (
-          <SwapProPositionItem
-            key={`${item.accountAddress}-${item.tokenAddress}`}
-            token={token}
-            pnl={item.pnl}
-            onPress={handlePositionPress}
-            isPressable={false}
-            showChevron={false}
-          />
-        ))}
-      </YStack>
+      <SwapProPositionsList
+        positionRows={displayPortfolioRows}
+        onTokenPress={handlePositionPress}
+        isPressable={false}
+        showChevron={false}
+      />
     );
   } else {
     positionsContent = (
@@ -1218,9 +1210,8 @@ function StockMobilePositionsSection() {
   }
 
   return (
-    <YStack mx="$-5" mt="$2">
+    <YStack mt="$2">
       <XStack
-        mx="$5"
         bg="$bgApp"
         borderBottomWidth="$0.5"
         borderBottomColor="$borderSubdued"
@@ -1242,7 +1233,7 @@ function StockMobilePositionsSection() {
           </XStack>
         </XStack>
       </XStack>
-      <YStack px="$5">
+      <YStack>
         <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
       </YStack>
       <YStack minHeight={180}>{positionsContent}</YStack>
