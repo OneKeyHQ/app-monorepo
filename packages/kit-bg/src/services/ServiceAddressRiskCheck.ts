@@ -40,7 +40,17 @@ class ServiceAddressRiskCheck extends ServiceBase {
 
   @backgroundMethod()
   async apiGetSupportedNetworks(): Promise<IAddressRiskCheckNetwork[]> {
-    return this.getSupportedNetworks();
+    const list = await this.getSupportedNetworks();
+    // memoizee never caches a rejected promise, so a failed request already
+    // re-fetches on retry. But a 200 that returns an empty list (e.g. transient
+    // server misconfiguration) WOULD be cached for the full maxAge, which would
+    // make the input page's empty-list retry (reloadSupportedNetworks) keep
+    // hitting the cached empty result. Drop the cache entry on empty so the next
+    // call re-fetches instead.
+    if (!list.length) {
+      void this.getSupportedNetworks.clear();
+    }
+    return list;
   }
 
   // POST /prime/v1/kyt/address-risk/check — main risk score result (图5).
