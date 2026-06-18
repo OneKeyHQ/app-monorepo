@@ -1,4 +1,4 @@
-// cspell:ignore lockdown Lockdown
+// cspell:ignore lockdown Lockdown jsbi unpermitted
 
 import { OneKeyLocalError } from '../../errors';
 
@@ -392,6 +392,12 @@ function defaultLoadSes(): void {
 // bn.js / elliptic are NOT offenders (their inherits() chains keep a writable
 // own constructor). Behavior is locked down by sesHardenLibCompat.test.ts. Add
 // new offenders here as the patch-warning monitor surfaces their `culprit`.
+//
+// NOTE: a library that mutates a STANDARD intrinsic (adds non-standard own
+// properties to BigInt/Number/etc.) cannot be fixed by warm-up: lockdown()
+// REMOVES unpermitted intrinsics, so the additions are stripped regardless of
+// load order. js-conflux-sdk's jsbi shim hit exactly this; it is fixed by
+// making the shim self-contained instead (patches/js-conflux-sdk+2.3.0.patch).
 function defaultWarmUpBeforeLockdown(): void {
   // Each warm-up is independent: a failure/absence of one must not skip the
   // others, so they get their own try/catch instead of sharing one.
