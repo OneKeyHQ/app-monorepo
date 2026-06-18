@@ -36,6 +36,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
   useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import {
@@ -62,6 +63,10 @@ import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -74,6 +79,7 @@ import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapLimitOrderStatus,
+  ESwapTabSwitchType,
   type IFetchQuoteResult,
   type IMarketPresetTokenContext,
   type ISwapAlertState,
@@ -109,6 +115,7 @@ interface ISwapStockDesktopContainerProps {
   marketPresetToken?: IMarketPresetTokenContext;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
+  onTokenPress?: (token: ISwapToken) => void;
   fetchLoading: boolean;
   onSelectPercentageStage: (stage: number) => void;
   onBalanceMaxPress: () => void;
@@ -1128,9 +1135,18 @@ function StockPriceChart({
   );
 }
 
-function StockMobilePositionsSection() {
+type IStockPositionToken = ISwapToken & {
+  stock?: unknown;
+};
+
+function StockMobilePositionsSection({
+  onTokenPress,
+}: {
+  onTokenPress?: (token: ISwapToken) => void;
+}) {
   const intl = useIntl();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
+  const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const scopedPortfolioTokenAddress = swapProEnableCurrentSymbol
     ? (tokenAddress ?? '')
@@ -1161,7 +1177,7 @@ function StockMobilePositionsSection() {
       const isCurrentToken =
         !!currentTokenAddress &&
         item.tokenAddress.toLowerCase() === currentTokenAddress;
-      const token: ISwapToken = {
+      const token: IStockPositionToken = {
         networkId: networkId ?? '',
         contractAddress: item.tokenAddress,
         symbol: item.symbol,
@@ -1172,6 +1188,7 @@ function StockMobilePositionsSection() {
         price: item.tokenPrice,
         logoURI: isCurrentToken ? tokenDetail?.logoUrl : undefined,
         networkLogoURI: effectiveNetworkLogoUri,
+        stock: isCurrentToken ? tokenDetail?.stock : undefined,
       };
       return { token, pnl: item.pnl };
     });
@@ -1181,10 +1198,18 @@ function StockMobilePositionsSection() {
     networkId,
     tokenAddress,
     tokenDetail?.logoUrl,
+    tokenDetail?.stock,
   ]);
   const handlePositionPress = useCallback(
-    (_token: ISwapToken) => undefined,
-    [],
+    (token: ISwapToken) => {
+      if ((token as IStockPositionToken).stock) {
+        appEventBus.emit(EAppEventBusNames.SwapStockTokenSelected, token);
+        return;
+      }
+      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
+      onTokenPress?.(token);
+    },
+    [onTokenPress, setSwapTypeSwitch],
   );
   let positionsContent: ReactNode;
   if (isRefreshing && portfolioData.length === 0) {
@@ -1194,8 +1219,6 @@ function StockMobilePositionsSection() {
       <SwapProPositionsList
         positionRows={displayPortfolioRows}
         onTokenPress={handlePositionPress}
-        isPressable={false}
-        showChevron={false}
       />
     );
   } else {
@@ -1531,7 +1554,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           compact
         />
         <YStack mt="$2">
-          <StockMobilePositionsSection />
+          <StockMobilePositionsSection onTokenPress={props.onTokenPress} />
         </YStack>
       </YStack>
     </Keyboard.AwareScrollView>
