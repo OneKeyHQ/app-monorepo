@@ -1488,3 +1488,6 @@ symbolicated
 ivar
 RCTJS
 retryably
+
+# @mysten/sui 2.x package name
+mysten
