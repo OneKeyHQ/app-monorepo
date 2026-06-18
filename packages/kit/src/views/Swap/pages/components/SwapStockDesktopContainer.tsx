@@ -46,10 +46,6 @@ import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { PortfolioSkeleton } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/components/PortfolioSkeleton';
 import { usePortfolioData } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
-import {
-  PortfolioHeaderSmall,
-  PortfolioItemSmall,
-} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/components/Portfolio/layout';
 import { useNetworkAccount } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/InformationTabs/hooks/useNetworkAccount';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
@@ -62,6 +58,8 @@ import {
   formatPercentValue,
   formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
+import SwapProPositionItem from '@onekeyhq/kit/src/views/Swap/components/SwapProPositionItem';
+import SwapProPositionListHeader from '@onekeyhq/kit/src/views/Swap/components/SwapProPositionListHeader';
 import {
   type EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -1134,10 +1132,14 @@ function StockPriceChart({
 function StockMobilePositionsSection() {
   const intl = useIntl();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
-  const { tokenAddress, networkId } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const scopedPortfolioTokenAddress = swapProEnableCurrentSymbol
     ? (tokenAddress ?? '')
     : '';
+  const effectiveNetworkLogoUri = useNetworkLogoUri({
+    logoUri: undefined,
+    networkId,
+  });
   const { accountAddress, xpub } = useNetworkAccount(networkId ?? '');
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress: scopedPortfolioTokenAddress,
@@ -1154,16 +1156,52 @@ function StockMobilePositionsSection() {
       (item) => item.tokenAddress.toLowerCase() === currentTokenAddress,
     );
   }, [portfolioData, scopedPortfolioTokenAddress]);
+  const displayPortfolioRows = useMemo(() => {
+    const currentTokenAddress = tokenAddress?.toLowerCase();
+    return displayPortfolioData.map((item) => {
+      const isCurrentToken =
+        !!currentTokenAddress &&
+        item.tokenAddress.toLowerCase() === currentTokenAddress;
+      const token: ISwapToken = {
+        networkId: networkId ?? '',
+        contractAddress: item.tokenAddress,
+        symbol: item.symbol,
+        decimals: 0,
+        accountAddress: item.accountAddress,
+        balanceParsed: item.amount,
+        fiatValue: item.totalPrice,
+        price: item.tokenPrice,
+        logoURI: isCurrentToken ? tokenDetail?.logoUrl : undefined,
+        networkLogoURI: effectiveNetworkLogoUri,
+      };
+      return { item, token };
+    });
+  }, [
+    displayPortfolioData,
+    effectiveNetworkLogoUri,
+    networkId,
+    tokenAddress,
+    tokenDetail?.logoUrl,
+  ]);
+  const handlePositionPress = useCallback(
+    (_token: ISwapToken) => undefined,
+    [],
+  );
   let positionsContent: ReactNode;
   if (isRefreshing && portfolioData.length === 0) {
     positionsContent = <PortfolioSkeleton />;
-  } else if (displayPortfolioData.length > 0) {
+  } else if (displayPortfolioRows.length > 0) {
     positionsContent = (
       <YStack>
-        {displayPortfolioData.map((item) => (
-          <PortfolioItemSmall
+        <SwapProPositionListHeader />
+        {displayPortfolioRows.map(({ item, token }) => (
+          <SwapProPositionItem
             key={`${item.accountAddress}-${item.tokenAddress}`}
-            item={item}
+            token={token}
+            pnl={item.pnl}
+            onPress={handlePositionPress}
+            isPressable={false}
+            showChevron={false}
           />
         ))}
       </YStack>
@@ -1207,7 +1245,6 @@ function StockMobilePositionsSection() {
       <YStack px="$5">
         <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
       </YStack>
-      <PortfolioHeaderSmall />
       <YStack minHeight={180}>{positionsContent}</YStack>
     </YStack>
   );
