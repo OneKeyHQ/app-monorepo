@@ -2044,6 +2044,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       isFirstFetch?: boolean,
       allNetAccountId?: string,
       lpToken?: boolean,
+      currency?: string,
     ) => {
       const protocol = get(swapTypeSwitchAtom());
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
@@ -2055,6 +2056,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         isAllNetworkFetchAccountTokens: true,
         protocol,
         lpToken,
+        currency,
       });
       if (result?.length) {
         if (isFirstFetch && allNetAccountId) {
@@ -2113,6 +2115,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       indexedAccountId?: string,
       otherWalletTypeAccountId?: string,
       lpToken?: boolean,
+      currency?: string,
     ) => {
       const swapAllNetworkActionLock = get(swapAllNetworkActionLockAtom());
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
@@ -2136,6 +2139,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const tokenListCacheKey = buildSwapAllNetworkTokenListCacheKey({
         accountId: accountIdKey,
         lpToken,
+        currency,
       });
       if (swapAllNetworkActionLock[tokenListCacheKey]) {
         return;
@@ -2170,6 +2174,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               !currentSwapAllNetworkTokenList,
               tokenListCacheKey,
               lpToken,
+              currency,
             );
         });
 
