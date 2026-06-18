@@ -9899,7 +9899,7 @@ __metadata:
     jotai: "npm:^2.5.0"
     js-md5: "npm:^0.8.3"
     juicebox-sdk: "npm:^0.3.4"
-    lightweight-charts: "npm:^3.8.0"
+    lightweight-charts: "npm:5.2.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
     memoizee: "npm:^0.4.15"
@@ -10134,7 +10134,7 @@ __metadata:
     date-fns: "npm:2.30.0"
     expo-camera: "npm:16.1.10"
     fuse.js: "npm:^7.0.0"
-    lightweight-charts: "npm:^3.8.0"
+    lightweight-charts: "npm:5.2.0"
     mime: "npm:^3.0.0"
     react-async-hook: "npm:^4.0.0"
     react-freeze: "npm:^1.0.3"
@@ -30432,10 +30432,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fancy-canvas@npm:0.2.2":
-  version: 0.2.2
-  resolution: "fancy-canvas@npm:0.2.2"
-  checksum: 10/aa6ca42609e544b771a1b7285a6686283fde96b56f0c42db2e9880adab3c300cb2992d0ecd5eb2b1595f5933cbfba7cd1bd97ef44fc4a18c0e3fca7d3d24ce06
+"fancy-canvas@npm:2.1.0":
+  version: 2.1.0
+  resolution: "fancy-canvas@npm:2.1.0"
+  checksum: 10/b23f666446b0a77054f047e282a4186444d65482d97824ebfbd7ae2bf5b41700de1f449226d6b4a6161eddd6dbb1fd75c4f815d92ee49d59e0654a2d4a63451a
   languageName: node
   linkType: hard
 
@@ -35870,12 +35870,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lightweight-charts@npm:^3.8.0":
-  version: 3.8.0
-  resolution: "lightweight-charts@npm:3.8.0"
+"lightweight-charts@npm:5.2.0":
+  version: 5.2.0
+  resolution: "lightweight-charts@npm:5.2.0"
   dependencies:
-    fancy-canvas: "npm:0.2.2"
-  checksum: 10/d67d728d640ebf6ce3a915255fe1ee4e66f4915ea1047b71d1009a8ea23cbb5002199dcafcdabcfbfde125c5eb4c01e32156da3b2250a9e06d8491b348ac67a5
+    fancy-canvas: "npm:2.1.0"
+  checksum: 10/108d0142e408cc1cf4d249dfbe913e0eb4dfe3ebf38fe550e514c6b9970fbf93431fb1799b570b2da6a4f51b6b223ffba5fc29b1855fece93d819b79b763b2d6
   languageName: node
   linkType: hard
 

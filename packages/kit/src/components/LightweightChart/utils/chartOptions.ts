@@ -13,6 +13,7 @@ export function createChartOptions(
   showPriceScale = false,
   fontSize?: number,
   priceScaleMargins?: { top: number; bottom: number },
+  showTimeScale = true,
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -20,6 +21,7 @@ export function createChartOptions(
       textColor: theme.textSubduedColor,
       fontSize: fontSize ?? 12,
       fontFamily: CHART_FONT_FAMILY,
+      attributionLogo: false,
     },
     crosshair: {
       mode: 1, // CrosshairMode.Normal
@@ -34,6 +36,7 @@ export function createChartOptions(
       },
     },
     timeScale: {
+      visible: showTimeScale,
       borderVisible: false,
       timeVisible: true,
       secondsVisible: false,
