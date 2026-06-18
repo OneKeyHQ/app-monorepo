@@ -9,7 +9,7 @@
     "date-fns": "2.30.0",
     "expo-camera": "16.1.10",
     "fuse.js": "^7.0.0",
-    "lightweight-charts": "^3.8.0",
+    "lightweight-charts": "5.2.0",
     "mime": "^3.0.0",
     "react-async-hook": "^4.0.0",
     "react-freeze": "^1.0.3",
