@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "証拠金が不足しています",
   "perp_invalid_scale_order__msg": "無効なスケール注文",
   "perp_ip_restriction__title": "お住まいの地域では利用できません",
-  "perp_ip_restriction_perp__desc": "お住まいの地域では新規の無期限注文は利用できません。引き続き、マーケットの閲覧、ポジションのクローズ、注文のキャンセル、資金の出金は可能です。",
+  "perp_ip_restriction_perp__desc": "現在のネットワーク地域では取引をご利用いただけません。引き続き、マーケットの閲覧、ポジションのクローズ、注文のキャンセル、資金の出金は可能です。",
   "perp_ip_restriction_spot__desc": "お住まいの地域では新規のスポット注文は利用できません。引き続き、マーケットの閲覧、注文のキャンセル、資金の出金は可能です。",
   "perp_market_info_24h_high__title": "24h 高値",
   "perp_market_info_24h_high_tooltip__desc": "過去24時間の最高価格。",

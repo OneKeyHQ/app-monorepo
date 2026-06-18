@@ -3242,7 +3242,7 @@
   "perp_insufficient_margin__title": "Unzureichende Marge",
   "perp_invalid_scale_order__msg": "Ungültige Skalenreihenfolge",
   "perp_ip_restriction__title": "In deiner Region nicht verfügbar",
-  "perp_ip_restriction_perp__desc": "Neue Perpetual-Orders sind in deiner Region nicht verfügbar. Du kannst weiterhin Märkte ansehen, Positionen schließen, Orders stornieren und Gelder auszahlen.",
+  "perp_ip_restriction_perp__desc": "Der Handel ist in Ihrer aktuellen Netzwerkregion nicht verfügbar. Sie können weiterhin Märkte ansehen, Positionen schließen, Orders stornieren und Gelder auszahlen.",
   "perp_ip_restriction_spot__desc": "Neue Spot-Orders sind in deiner Region nicht verfügbar. Du kannst weiterhin Märkte ansehen, Orders stornieren und Gelder auszahlen.",
   "perp_market_info_24h_high__title": "24h hoch",
   "perp_market_info_24h_high_tooltip__desc": "Höchster Preis der letzten 24 Stunden.",
