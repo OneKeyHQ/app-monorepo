@@ -84,7 +84,6 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { ETabName, TabBarItem } from '../../../Perp/layouts/PerpMobileLayout';
 import {
   ESwapStockChannelStage,
   ESwapStockTradeSide,
@@ -1136,23 +1135,27 @@ function StockMobilePositionsSection() {
   const intl = useIntl();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const { tokenAddress, networkId } = useTokenDetail();
+  const scopedPortfolioTokenAddress = swapProEnableCurrentSymbol
+    ? (tokenAddress ?? '')
+    : '';
   const { accountAddress, xpub } = useNetworkAccount(networkId ?? '');
   const { portfolioData, isRefreshing } = usePortfolioData({
-    tokenAddress: tokenAddress ?? '',
+    tokenAddress: scopedPortfolioTokenAddress,
     networkId: networkId ?? '',
     accountAddress,
     xpub,
   });
   const displayPortfolioData = useMemo(() => {
-    if (!swapProEnableCurrentSymbol || !tokenAddress) {
+    if (!scopedPortfolioTokenAddress) {
       return portfolioData;
     }
+    const currentTokenAddress = scopedPortfolioTokenAddress.toLowerCase();
     return portfolioData.filter(
-      (item) => item.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+      (item) => item.tokenAddress.toLowerCase() === currentTokenAddress,
     );
-  }, [portfolioData, swapProEnableCurrentSymbol, tokenAddress]);
+  }, [portfolioData, scopedPortfolioTokenAddress]);
   let positionsContent: ReactNode;
-  if (isRefreshing && displayPortfolioData.length === 0) {
+  if (isRefreshing && portfolioData.length === 0) {
     positionsContent = <PortfolioSkeleton />;
   } else if (displayPortfolioData.length > 0) {
     positionsContent = (
@@ -1187,11 +1190,18 @@ function StockMobilePositionsSection() {
         alignItems="center"
       >
         <XStack gap="$5" bg="$bgApp">
-          <TabBarItem
-            name={ETabName.Positions}
-            isFocused
-            onPress={() => undefined}
-          />
+          <XStack
+            py="$2"
+            borderBottomWidth="$0.5"
+            borderBottomColor="$borderActive"
+            mb={-2}
+          >
+            <SizableText size="$bodyMdMedium" pr="$0.5">
+              {intl.formatMessage({
+                id: ETranslations.dexmarket_details_myposition,
+              })}
+            </SizableText>
+          </XStack>
         </XStack>
       </XStack>
       <YStack px="$5">
