@@ -563,6 +563,7 @@ const SwapHeaderRightActionContainer = ({
     return null;
   }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
+  const resolvedIconColor = iconColor ?? '$icon';
   const resolvedButtonSize = compact ? 'small' : 'medium';
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
@@ -673,7 +674,7 @@ const SwapHeaderRightActionContainer = ({
           icon="TradingViewCandlesOutline"
           onPress={onOpenSwapKLineModal}
           disabled={isKLineDisabled}
-          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
           size={resolvedButtonSize}
         />
       ) : null}
@@ -701,7 +702,7 @@ const SwapHeaderRightActionContainer = ({
           <Icon
             name="SliderHorOutline"
             size={resolvedIconSize}
-            color={iconColor ?? '$icon'}
+            color={resolvedIconColor}
           />
         </XStack>
       ) : (
@@ -709,7 +710,7 @@ const SwapHeaderRightActionContainer = ({
           testID={SwapTestIDs.settingsButton}
           icon="SliderHorOutline"
           onPress={onOpenSwapSettings}
-          iconProps={{ size: resolvedIconSize, color: iconColor }}
+          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
           size={resolvedButtonSize}
         />
       )}
@@ -747,7 +748,7 @@ const SwapHeaderRightActionContainer = ({
         <HeaderIconButton
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
-          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
           size={resolvedButtonSize}
         />
       )}
