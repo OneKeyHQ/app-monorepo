@@ -246,7 +246,7 @@
     "text-encoding": "^0.7.0",
     "timeout-signal": "^2.0.0",
     "tonweb": "^0.0.66",
-    "ua-parser-js": "^2.0.4",
+    "ua-parser-js": "^2.0.10",
     "use-suspender": "^2.0.0-beta.0",
     "validator": "13.15.23",
     "viem": "2.37.6",
