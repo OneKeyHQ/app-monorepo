@@ -57,7 +57,15 @@ export function LegacyUniversalSearchInput({
     >
       <SearchBar
         size={size === 'medium' ? 'medium' : 'small'}
-        containerProps={{ h: size === 'medium' ? 40 : 32 }}
+        // The search input is shorter (36 for medium / 28 for small) than
+        // this fixed container height, and the left search icon is centered
+        // to the container. Without alignItems the input is pinned to the
+        // top of the container, so its text/icon look vertically off-center
+        // relative to that left icon. Centering reconciles them.
+        containerProps={{
+          h: size === 'medium' ? 40 : 32,
+          alignItems: 'center',
+        }}
         py="$2"
         key="searchInput"
         placeholder={intl.formatMessage({
