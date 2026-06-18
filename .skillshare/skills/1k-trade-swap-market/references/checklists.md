@@ -55,10 +55,14 @@ Complete this drill before wiring a stock-like protocol:
 - Is the asset model token-like, stock-like, or provider synthetic?
 - What account signs, and what account or venue settles?
 - What happens when the market is closed, partially filled, canceled, or expired?
+- Which owner gates market-open state: stock channel state from token/detail data, quote error metadata, or a server order-status response?
 - Who owns cold-start token restoration: shared Swap cache, Stock provider, or a route preset?
 - Which fields are commission, spread, settlement fee, or network gas?
+- If the quote returns an order/sign payload instead of a normal tx, which path builds the order and prevents fallthrough to ordinary send?
+- If quote/build omits slippage, which user-selected or provider default value is the explicit fallback?
 - Does review need risk, market-hours, or delayed-settlement copy?
 - Does history display order lifecycle rather than on-chain confirmation?
+- Are Market and Stock pending counts, filters, and list keys separated so one channel cannot badge or render the other channel's rows?
 - Can token selectors, quote result rows, and history rows handle non-token identity without leaking token assumptions?
 - Can local history survive app restart and then reconcile against broker/provider order status?
 
@@ -86,3 +90,4 @@ Complete this drill before wiring a stock-like protocol:
 - For each issue, name the state owner and failing transition.
 - Distinguish code blockers from validation gaps.
 - Propose the smallest App-side change that preserves the canonical flow.
+- Before patching a Stock/order review flag, check whether the behavior is already owned by a channel state, service adapter, backend DTO, generated workflow, or pending/history filter.
