@@ -61,6 +61,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       iconText?: string;
+      hideIcon?: boolean;
+      tokenSymbol?: string;
       testID?: string;
     };
     balanceHelperProps?: {
@@ -72,6 +74,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenSymbol?: string;
       selectedNetworkName?: string;
       isCustomNetwork?: boolean;
+      showNetworkIconBorder?: boolean;
       loading?: boolean;
       disabled?: boolean;
       popover?: ITokenSelectorPopoverProps;
@@ -204,6 +207,7 @@ export function AmountInput({
       selectedTokenSymbol,
       selectedNetworkName,
       isCustomNetwork,
+      showNetworkIconBorder = true,
       loading,
       disabled,
       onPress,
@@ -276,10 +280,10 @@ export function AmountInput({
               position="absolute"
               right="$-1"
               bottom="$-1"
-              p="$0.5"
+              p={showNetworkIconBorder ? '$0.5' : '$0'}
               borderRadius="$full"
               flexShrink={1}
-              bg="$bgApp"
+              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
             >
               <Image
                 size="$3"
@@ -304,10 +308,10 @@ export function AmountInput({
               position="absolute"
               right="$-1"
               bottom="$-1"
-              p="$0.5"
+              p={showNetworkIconBorder ? '$0.5' : '$0'}
               borderRadius="$full"
               flexShrink={1}
-              bg="$bgApp"
+              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
             >
               <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
             </Stack>
@@ -358,6 +362,18 @@ export function AmountInput({
       );
     }
     if (balanceProps.value) {
+      let balanceLeadingElement: ReactElement | null = null;
+      if (balanceProps.iconText) {
+        balanceLeadingElement = (
+          <SizableText color="$textSubdued" size="$bodySm" mr="$1">
+            {balanceProps.iconText}
+          </SizableText>
+        );
+      } else if (!balanceProps.hideIcon) {
+        balanceLeadingElement = (
+          <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
+        );
+      }
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -381,13 +397,7 @@ export function AmountInput({
             mr: '$-2',
           })}
         >
-          {balanceProps.iconText ? (
-            <SizableText color="$textSubdued" size="$bodySm" mr="$1">
-              {balanceProps.iconText}
-            </SizableText>
-          ) : (
-            <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
-          )}
+          {balanceLeadingElement}
           <>
             <NumberSizeableText
               size="$bodySm"
@@ -397,6 +407,11 @@ export function AmountInput({
               {balanceProps.value ?? 0}
             </NumberSizeableText>
           </>
+          {balanceProps.tokenSymbol ? (
+            <SizableText pl="$1" size="$bodySm" color="$textSubdued">
+              {balanceProps.tokenSymbol}
+            </SizableText>
+          ) : null}
           {enableMaxAmount ? (
             <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
               {maxAmountText ??

@@ -69,4 +69,15 @@ describe('SwapTokenSelectModal.utils', () => {
       }),
     ).toEqual(['onekeyall--0', 'evm--137']);
   });
+
+  it('keeps Stock To selection on the source network only', () => {
+    expect(
+      buildSwapTokenSelectorDisableNetworks({
+        type: ESwapDirectionType.TO,
+        swapTypeSwitch: ESwapTabSwitchType.STOCK,
+        fromToken,
+        swapNetworksIncludeAllNetwork,
+      }),
+    ).toEqual(['onekeyall--0', 'evm--137']);
+  });
 });

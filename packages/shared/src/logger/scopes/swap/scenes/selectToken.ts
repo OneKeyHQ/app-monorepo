@@ -6,9 +6,19 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class SelectTokenScene extends BaseScene {
   @LogToServer({ level: 'info' })
   @LogToLocal({ level: 'info' })
-  public selectToken({ selectFrom }: { selectFrom: ESwapSelectTokenSource }) {
+  public selectToken({
+    selectFrom,
+    tokenRole,
+    tokenListType,
+  }: {
+    selectFrom: ESwapSelectTokenSource;
+    tokenRole?: string;
+    tokenListType?: string;
+  }) {
     return {
       selectFrom,
+      tokenRole,
+      tokenListType,
     };
   }
 }

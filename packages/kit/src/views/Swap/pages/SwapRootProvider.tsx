@@ -7,6 +7,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ProviderJotaiContextSwap,
@@ -171,6 +172,10 @@ function SwapColdStartCacheSync() {
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
         })
       ) {
+        if (swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK) {
+          markInitialSelectedTokensSynced();
+          return;
+        }
         if (
           !setDefaultSelectedTokensFromHomeAccount(eventPayload.selectedAccount)
         ) {
