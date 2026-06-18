@@ -220,6 +220,7 @@ export interface IFetchTokensParams {
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   lpToken?: boolean;
+  currency?: string;
 }
 
 export interface IFetchTokenListParams {
