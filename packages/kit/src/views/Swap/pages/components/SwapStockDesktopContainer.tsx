@@ -61,7 +61,10 @@ import {
   formatPercentValue,
   formatRatioValue,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
-import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type EJotaiContextStoreNames,
+  useInAppNotificationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -73,6 +76,7 @@ import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapLimitOrderStatus,
   type IFetchQuoteResult,
   type IMarketPresetTokenContext,
   type ISwapAlertState,
@@ -89,6 +93,7 @@ import {
   useSwapStockEstimatedReceiveState,
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
+import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory';
 
 import SwapActionsState from './SwapActionsState';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -1267,7 +1272,28 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
+  const [{ swapHistoryPendingList, swapLimitOrders }] =
+    useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
+  const swapMarketPendingHistoryCount = useMemo(
+    () =>
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
+    [swapHistoryPendingList],
+  );
+  const limitPendingHistoryCount = useMemo(
+    () =>
+      swapLimitOrders.filter(
+        (item) =>
+          item.status === ESwapLimitOrderStatus.OPEN ||
+          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+      ).length,
+    [swapLimitOrders],
+  );
+  const historyBadgeCount =
+    swapMarketPendingHistoryCount + limitPendingHistoryCount;
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -1318,13 +1344,44 @@ function SwapStockDesktopContent({
                   id: ETranslations.perps_token_selector_stocks,
                 })}
               </SizableText>
-              <IconButton
-                testID="swap-stock-history-button"
-                icon="ClockTimeHistoryOutline"
-                size="small"
-                variant="tertiary"
-                onPress={onOpenHistoryListModal}
-              />
+              {historyBadgeCount > 0 ? (
+                <Stack
+                  testID="swap-stock-history-button"
+                  w="$5"
+                  h="$5"
+                  userSelect="none"
+                  borderRadius="$full"
+                  borderColor="$icon"
+                  borderWidth={1.2}
+                  alignItems="center"
+                  justifyContent="center"
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                  focusVisibleStyle={{
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: 0,
+                  }}
+                  onPress={onOpenHistoryListModal}
+                >
+                  <SizableText color="$text" size="$bodySm">
+                    {`${historyBadgeCount}`}
+                  </SizableText>
+                </Stack>
+              ) : (
+                <IconButton
+                  testID="swap-stock-history-button"
+                  icon="ClockTimeHistoryOutline"
+                  size="small"
+                  variant="tertiary"
+                  onPress={onOpenHistoryListModal}
+                />
+              )}
             </XStack>
             <StockTradeTicket
               onSelectToken={onSelectToken}
