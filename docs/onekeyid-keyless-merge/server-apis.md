@@ -2,16 +2,112 @@
 
 本文件从 [plan.md](./plan.md) 拆出，集中列出本迁移涉及的新增、调整、下线和废弃服务器接口。迁移文档中的流程章节只保留接口名称和流程引用；接口输入、响应状态、幂等和安全要求以本文为准。
 
+- [wiki](https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/1813118977/Keyless+OneKeyID)
+- [白板演示](https://excalidraw.com/#room=570f2c223db540999445,yITr8xL0fc-QqPEilHGakA)
+
+## 三个主流程
+
+### 流程 1：API-01 新客户端 OAuth 登录 / upsert
+
+场景：用户没有 legacy email session proof，直接通过 Google / Apple 在新客户端建立 OneKeyID 登录态。可能是新用户，也可能是已有 OAuth binding 登录，或同 verified email 命中 legacy / email claim 后自动绑定。
+
+```text
+用户点击 Google / Apple
+        |
+        v
+POST /prime/v1/account/oauth/login
+        |
+        +--> 已有 active OAuth binding ---------------> 返回 active OneKeyID session
+        |
+        +--> 同 verified email 命中 legacy email / oauth email claim ---> 自动绑定，返回相同 email 的 OneKeyID session
+        |
+        +--> 没有命中 -------------------------------> 创建 OAuth OneKeyID，返回 session
+```
+
+边界：
+
+- API-01 不接收 legacy email token / legacy session proof。
+- API-01 不进入 merge 流程。
+- API-01 不创建 / 恢复 Keyless wallet，也不要求 PIN。
+
+### 流程 2：API-03 旧版本客户端升级，已登录 legacy email account 绑定一个 OAuth identity 登录
+
+场景：用户在旧版本已经登录 legacy Email Account，升级到新版本后需要绑定 OAuth 登录凭证。新版本客户端不再提供 legacy Email 普通登录入口；这里依赖 `legacyOneKeyIdAuthToken` + OAuth token 两份 proof。
+
+```text
+已经登录 legacy email OneKeyID
+        |
+        v
+用户点击 Upgrade with Google / Apple
+        |
+        v
+POST /prime/v1/account/identities/oauth/bind
+  body: legacyOneKeyIdAuthToken + OAuth token
+        |
+        +--> OAuth identity 已绑定当前 legacy OneKeyID --> 幂等返回成功
+        |
+        +--> OAuth identity 未绑定任何 OneKeyID -------> 绑定到当前 legacy OneKeyID
+        |      （同 email / 不同 email / private relay / 无 verified email 均可）
+        |
+        +--> OAuth identity 已绑定其他 OneKeyID -------> 返回错误（API-03 不抢绑、不合并）
+```
+
+边界：
+
+- API-03 必须有已登录的 legacy email OneKeyID session。
+- API-03 要求两份 token 都有效，且 legacyOneKeyIdAuthToken 必须对应 active legacy email OneKeyID；不要求 OAuth email 与 legacy email 相同。
+- API-03 只有在 OAuth identity 已绑定其他 OneKeyID 时返回业务错误；后续处理不能在 API-03 内完成。
+- API-03 不创建新的 OneKeyID。
+- API-03 不合并两个 OneKeyID account。
+
+### 流程 3：已登录新版 OAuth account 合并到旧版 legacy email account 下，原 OAuth account 归档
+
+场景：用户已经通过新客户端登录 OAuth OneKeyID，后来发现自己曾经有一个 legacy Email Account。用户希望后续用当前 OAuth 登录回 legacy account；完成后 source OAuth OneKeyID 作为登录主体停用并归档，source active OAuth bindings 改指向 legacy target。后续这些 OAuth identities 登录时直接进入 target legacy OneKeyID；source account data 不迁移到 target，source 只保留为 merged archive。
+
+```text
+已经登录 OAuth OneKeyID（source）
+        |
+        v
+用户选择 Merge existing OneKeyID
+        |
+        v
+API-04 /merge/prepare
+        |
+        v
+API-09 /general/emailOTP
+        |
+        v
+API-05 /merge/verify-target
+        |
+        v
+用户确认 source -> target merge
+        |
+        v
+API-06 /merge/confirm
+        |
+        +--> source OAuth OneKeyID 标记为 merged archive
+        |
+        +--> source active OAuth bindings retarget 到 target legacy OneKeyID
+        |
+        +--> 返回 target legacy OneKeyID session
+```
+
+边界：
+
+- API-04 到 API-06 只处理已登录 OAuth source -> legacy email target。
+- 旧的 manual_merge_required / pending_oauth_bind 路径已删除。
+- source account data 不迁移；source 只保留为 merged archive。
+
 ## 场景总览
 
 本文件先按业务场景概览主要接口。最容易混淆的是 API-01、API-03、API-04 到 API-06：它们都可能处理 OAuth identity 和 legacy email OneKeyID，但业务 intent 不同；API-09 是显式合并流程里的独立发码接口，API-10 / API-11 是旧 Email + OTP 能力收口，API-12 到 API-14 是 Keyless auth share OTP legacy 删除。
 
 | 场景 | 接口 | 入口 | 结果 |
 | --- | --- | --- | --- |
-| OAuth 登录 / upsert | 🆕 API-01 `POST /prime/v1/account/oauth/login` | 用户用 Google / Apple 登录。 | 登录已绑定 OAuth identity 的 OneKeyID；或按 verified email 自动绑定到 legacy email OneKeyID / active email claim owner；或创建新的 OAuth OneKeyID；必要时返回 `manual_merge_required`。 |
+| OAuth 登录 / upsert | 🆕 API-01 `POST /prime/v1/account/oauth/login` | 用户用 Google / Apple 登录。 | 登录已绑定 OAuth identity 的 OneKeyID；或按 verified email 自动绑定到 legacy email OneKeyID / active email claim owner；或创建新的 OAuth OneKeyID。API-01 只返回普通登录完成态，不接收 legacy session token，也不进入合并流程。 |
 | 当前 OneKeyID profile 查询 | 🆕 API-02 `GET /prime/v1/account/profile` | 当前已有 OneKeyID session，客户端需要刷新 account / identities 聚合信息。 | 返回当前 session 对应的 active OneKeyID profile；response 只包含 `onekeyAccount`，字段结构复用共享 `IOneKeyIdAccount`。 |
-| 当前 legacy email OneKeyID 升级到 OAuth 登录方式 | 🆕 API-03 `POST /prime/v1/account/identities/oauth/bind` | 当前设备已经持有 legacy email OneKeyID session，用户主动点击 `Upgrade with Google` / `Upgrade with Apple`；典型来源是升级前遗留登录态或兼容期内保留的 legacy session。 | 把新的 OAuth identity 绑定到该 legacy email OneKeyID，使该账号后续使用 OAuth 登录。这里没有第二个 OneKeyID account 参与，不做 account merge；如果 OAuth identity 已绑定到另一个 OneKeyID，必须返回错误。没有 legacy session 的用户不能走 API-03，应先 OAuth 登录，再通过 API-04 到 API-06 合并 legacy target。 |
-| 显式确认 target 后绑定 / 合并 OAuth source | 🆕 API-04 到 API-06 `/merge/prepare` -> `/merge/verify-target` -> `/merge/confirm`，中间通过 🔄 API-09 `/general/emailOTP` 发 legacy Email OTP | 入口 1：API-01 返回 `manual_merge_required` 后继续走 `pending_oauth_bind`。入口 2：当前已登录 OAuth OneKeyID，用户主动 `Merge existing OneKeyID`，走 `merged_source`。 | API-04 只准备并返回 `otpPurposeToken`；API-09 负责发送 `MergeExistingOneKeyId` 场景 OTP；API-05 验证 target；API-06 执行。`pending_oauth_bind` 没有 source OneKeyID，只把已验证但未绑定的 OAuth identity 绑定到 legacy Email OTP 验证后的 target。`merged_source` 才是两个 OneKeyID account 合并：source OAuth OneKeyID 标记为 `merged` archive，并把 source active OAuth bindings retarget 到 target legacy email OneKeyID。 |
+| 当前 legacy email OneKeyID 升级到 OAuth 登录方式 | 🆕 API-03 `POST /prime/v1/account/identities/oauth/bind` | 当前设备已经持有 legacy email OneKeyID session，用户主动点击 `Upgrade with Google` / `Upgrade with Apple`；典型来源是升级前遗留登录态或兼容期内保留的 legacy session。 | 把新的 OAuth identity 绑定到该 legacy email OneKeyID，使该账号后续使用 OAuth 登录。这里没有第二个 OneKeyID account 参与，不做 account merge；不要求 OAuth email 与 legacy email 相同；如果 OAuth identity 已绑定到另一个 OneKeyID，必须返回错误。没有 legacy session 的用户不能走 API-03，应先 OAuth 登录；如果登录后确实需要把 OAuth OneKeyID 合并到 legacy target，再通过 API-04 到 API-06。 |
+| 显式确认 target 后合并 OAuth source | 🆕 API-04 到 API-06 `/merge/prepare` -> `/merge/verify-target` -> `/merge/confirm`，中间通过 🔄 API-09 `/general/emailOTP` 发 legacy Email OTP | 当前已登录 OAuth OneKeyID，用户主动 `Merge existing OneKeyID`。 | API-04 只准备并返回 `otpPurposeToken`；API-09 负责发送 `MergeExistingOneKeyId` 场景 OTP；API-05 验证 target；API-06 执行。该流程只处理已有 OAuth OneKeyID source 合并到 legacy email target：source OAuth OneKeyID 标记为 `merged` archive，并把 source active OAuth bindings retarget 到 target legacy email OneKeyID。 |
 | ~合并历史 / source 详情只读查询~ | ⏸️ API-07 `/merge/history`、⏸️ API-08 `/merge/source/:sourceOneKeyId` | 后续可选能力，非 MVP 必需。 | MVP 阶段不开发客户端公开接口，也不做用户侧 `Merged accounts` / `Previous accounts` 页面；只要求服务端保留 merge relation、source archive 和审计日志，供客服 / 风控通过内部后台、SQL 或 admin tool 查询。 |
 | 旧 Email + OTP 发码 / 确认收口 | ⛔ API-10 `GET /api/prime/send-email-verification-code`、⛔ API-11 `POST /api/prime/login` | 旧客户端发送并提交 Email OTP；新版本客户端不应把 Email + OTP 作为登录入口，也不应调用 API-11 建立登录态。 | 只服务已有 legacy email OneKeyID 的旧客户端登录 / 找回兼容；不再支持普通主登录入口和新 email 注册。API-10 对新 email 请求保持中性响应且不能创建账号；API-11 对 `isRegister = true` 或明确的新 email 创建请求返回 `legacy_register_disabled`，但 `isRegister = false` 未命中 legacy account 时仍必须防枚举。旧客户端遇到新 email 登录 / 注册诉求时，应提示升级 App 并改走 Google / Apple。 |
 | Keyless auth share OTP legacy 删除 | 🗑️ API-12 `/user/getKeylessAuthShare`、🗑️ API-13 `/user/createKeylessAuthShare`、🗑️ API-14 `/user/resetKeylessAuthShare` | 已确认不属于 OneKeyID / Keyless 统一登录迁移的用户路径。 | 单纯删除，不迁移、不替换、不保留兼容入口；对应 wrapper 和 UI 入口同步删除。 |
@@ -32,8 +128,7 @@
 
 ```ts
 type IOneKeyIdOAuthFlowStatus =
-  | 'success'
-  | 'manual_merge_required';
+  | 'success';
 
 type IOneKeyIdAccountStatus =
   | 'active'
@@ -53,8 +148,7 @@ type IOneKeyIdOAuthEmailType =
   | 'missing_or_unverified';
 
 // 服务端 response 中的 OAuth binding result 目前只返回 bound。
-// pending / conflict 只允许作为客户端本地 IOneKeyIdOAuthBindingLocalInfo.bindingStatus
-// 的缓存状态出现，不作为服务端 oauthIdentityBinding 响应状态返回。
+// 冲突 / 异常场景一律通过 terminal error code 表达。
 type IOneKeyIdOAuthBindingStatus =
   | 'bound';
 
@@ -62,9 +156,8 @@ type IOneKeyIdOAuthBindReason =
   | 'existing_oauth_binding'
   | 'legacy_email_auto_bind'
   | 'email_claim_auto_bind'
-  | 'new_oauth_account_created'
   | 'legacy_session_authorized_bind'
-  | 'manual_merge_confirmed_bind'
+  | 'new_oauth_account_created'
   | 'merged_source_retarget';
 
 type IOneKeyIdIdentity = {
@@ -96,9 +189,11 @@ type IOneKeyIdIdentity = {
   //   此状态下 oauthEmail 和 normalizedEmail 必须有值。
   // - apple_private_relay：oauthProvider = apple 且 verified email domain 命中服务端配置的 relay domain list。
   //   当前按独立账户处理，不自动合并到真实 legacy email；
-  //   如果本地有 legacy OneKeyID auth token 信号，返回 manual_merge_required。
+  //   如果用户当前已登录 legacy email OneKeyID 并明确要升级该账号，
+  //   API-03 可以用 legacy session + OAuth token 双 proof 主动绑定。
   // - missing_or_unverified：OAuth provider 没有返回 verified email，或 email 未验证。
-  //   可以创建 OAuth-only OneKeyID，但不能创建 email claim，也不能参与同 email 自动绑定；
+  //   可以创建 OAuth-only OneKeyID；也可以在 API-03 双 proof 下主动绑定到当前 legacy target。
+  //   但不能创建 email claim，也不能参与同 email 自动绑定；
   //   只有此状态下 oauthEmail 和 normalizedEmail 才允许为空。
   oauthEmailType?: IOneKeyIdOAuthEmailType;
 
@@ -183,8 +278,7 @@ type IOneKeyIdAccount = {
 type IOneKeyIdOAuthBindingResult = {
   // OAuth identity 绑定状态。
   // bound：当前 OAuth identity 已经有 active binding，或本次请求已经完成自动绑定 / 新建账号绑定。
-  // 需要用户继续 manual merge 的场景通过 API-01 status = manual_merge_required 表达，
-  // 冲突 / 异常场景通过 terminal error code 表达，不能把 pending / conflict
+  // 冲突 / 异常场景通过 terminal error code 表达，不能把 conflict
   // 混入含 boundOneKeyUserId 的服务端 binding result。
   bindingStatus: IOneKeyIdOAuthBindingStatus;
 
@@ -201,11 +295,11 @@ type IOneKeyIdOAuthBindingResult = {
   //   返回相同 verified normalizedEmail，就通过 email claim 自动绑定到同一个 OneKeyID。
   //   这里不是客户端直接比较两个 OAuth 账号，而是服务端通过 normalizedEmail
   //   的唯一 email claim 做归属判断。legacy_email identity 直接命中时优先返回 legacy_email_auto_bind。
+  // - legacy_session_authorized_bind：API-03 中 legacyOneKeyIdAuthToken + OAuth token
+  //   两份 proof 同时验证通过后，用户主动授权把未绑定到其他 OneKeyID 的 OAuth identity
+  //   绑定到当前 legacy email OneKeyID；OAuth email 可以与 legacy email 不同，也可以是
+  //   Apple private relay，或没有 verified email。
   // - new_oauth_account_created：没有命中任何 legacy / email claim，创建新的 OAuth OneKeyID。
-  // - legacy_session_authorized_bind：API-03 中 legacyOneKeyIdAuthToken
-  //   对应的 legacy email OneKeyID 与本次 OAuth credential 同时验证通过后绑定。
-  // - manual_merge_confirmed_bind：API-06 中 pending_oauth_bind 路径，
-  //   用户通过 legacy Email OTP 显式确认 target 后完成 OAuth identity 绑定。
   // - merged_source_retarget：API-06 中 merged_source 路径，
   //   OAuth identity 从 source OAuth OneKeyID retarget 到 target legacy email OneKeyID。
   bindReason: IOneKeyIdOAuthBindReason;
@@ -223,47 +317,15 @@ type IOneKeyIdSessionCredential = {
   refreshToken: string;
 };
 
-// 显式账号合并流程的 source 类型完整枚举。
-// 注意：这是合并流程里的 source type 枚举全集；
-// API-01 返回 manualMerge 时，实际只允许 pending_oauth_bind。
-// 不要把 sourceType 当作登录接口 status；登录接口的状态是 manual_merge_required。
-type IOneKeyIdMergeSourceType =
-  // pending OAuth 绑定。服务端还没有创建 OAuth source OneKeyID，
-  // source 只是当前已验证 OAuth identity。
-  // API-01 manualMerge.sourceType 只会返回该值。
-  // 后续 API-04 到 API-06 继续使用该 source type；
-  // API-06 成功后落库的 relationType 也使用同名值。
-  | 'pending_oauth_bind'
-  // 已存在 OAuth source OneKeyID。用户已经用 OAuth 创建并登录了新的 OneKeyID，
-  // 后续从 Merge existing OneKeyID 入口主动合并到 legacy email OneKeyID。
-  // 该值不会从 API-01 manualMerge.sourceType 返回；
-  // 它只用于已登录 OAuth OneKeyID 发起的 API-04 到 API-06 source path，
-  // API-06 成功后落库的 relationType 记录为 merged_source。
-  | 'merged_source';
-
 type IOneKeyIdMergeConfirmStatus =
   | 'merged'
   | 'processing'
   | 'failed'
   | 'support_required';
 
-type IOneKeyIdMergeSourceProof = {
-  // pending_oauth_bind 路径使用。
-  // 来自 API-01 manualMerge.sourceOauthHandle。
-  sourceOauthHandle?: string;
-
-  // merged_source 路径使用。
-  // 当前已登录 OAuth OneKeyID 的 OneKeyID session access token。
-  // 不能传 legacy email target 的 OneKeyID token。
-  sourceOneKeyIdAuthToken?: string;
-};
-
 type IOneKeyIdMergeSourcePreview = {
-  sourceType: IOneKeyIdMergeSourceType;
-
-  // 仅 sourceType = merged_source 时返回。
   // 表示将被合并并标记为 merged source 的 OAuth OneKeyID。
-  sourceOneKeyUserId?: string;
+  sourceOneKeyUserId: string;
 
   // 本次准备绑定 / 转移到 legacy email target 的 OAuth identity。
   // merged_source 路径下，该字段代表当前 source proof 对应的 OAuth identity；
@@ -274,10 +336,8 @@ type IOneKeyIdMergeSourcePreview = {
 
 type IOneKeyIdMergeExecution = {
   mergeRequestId: string;
-  sourceType: IOneKeyIdMergeSourceType;
 
-  // 仅 sourceType = merged_source 时返回。
-  sourceOneKeyUserId?: string;
+  sourceOneKeyUserId: string;
 
   targetOneKeyUserId: string;
   status: IOneKeyIdMergeConfirmStatus;
@@ -286,43 +346,25 @@ type IOneKeyIdMergeExecution = {
   mergedAt?: string;
 };
 
-type IOneKeyIdManualMerge = {
-  // API-01 只会返回 sourceType = pending_oauth_bind。
-  // merged_source 场景由已登录 OAuth OneKeyID 主动发起 API-04 到 API-06。
-  sourceType: IOneKeyIdMergeSourceType;
-
-  // 加密签名短期 token，客户端只当作 opaque string 保存和回传。
-  // token 内容至少包含 oauthIdentityId、oauthProvider、oauthSubject、normalizedEmail?、iat、exp。
-  // 建议有效期约 15 分钟。
-  // 服务端不持久化 pending merge 状态；sourceOauthHandle 只服务
-  // /merge/prepare 和 /merge/verify-target 的前置流程。
-  // 最终 /merge/confirm 仍必须重新提交并校验当前 OAuth credential。
-  sourceOauthHandle: string;
-
-  // 需要手动合并的原因：
-  // - oauth_email_mismatch：OAuth verified email 与本地 legacy OneKeyID auth token 对应账号不一致。
-  // - apple_private_relay：Apple private relay 不能自动合并到真实 legacy email。
-  // - missing_or_unverified_email：OAuth credential 没有可用于自动绑定的 verified email。
-  // - local_legacy_session：客户端提交了 legacyOneKeyIdAuthToken，
-  //   且服务端验证该 token 对应 active legacy OneKeyID；
-  //   但不能仅凭该信号直接绑定，必须走显式 merge。
-  reason:
-    | 'oauth_email_mismatch'
-    | 'apple_private_relay'
-    | 'missing_or_unverified_email'
-    | 'local_legacy_session';
-
-  // sourceOauthHandle 的过期时间，ISO 8601 字符串。
-  // 过期后客户端必须重新发起 OAuth 登录，拿新的 sourceOauthHandle。
-  expiresAt: string;
-};
 ```
+
+---------------------------------------------------------
+
+## 通用安全要求：敏感字段处理
+
+本文中所有 auth token、OAuth token、OTP purpose token、merge confirm token 和 session token 都必须按敏感凭证处理，包括但不限于 `token`、`legacyOneKeyIdAuthToken`、`sourceOneKeyIdAuthToken`、`otpPurposeToken`、`mergeConfirmToken`、`onekeySession.accessToken` 和 `onekeySession.refreshToken`。
+
+- 客户端、服务端、网关、埋点、错误上报、审计日志和客服工具都不能记录上述字段原文；日志中只允许记录 redacted 值、短 hash、token id / jti、过期时间、scene、source / target account id 等非敏感诊断信息。
+- 服务端错误响应不能回显这些字段原文，也不能把它们放入 `message`、`data` 或 support message。需要诊断时返回稳定错误码和可审计 request id。
+- 持久化 `otpPurposeToken` / `mergeConfirmToken` 的解析结果时，只保存业务所需的最小摘要；opaque token 原文只应短期保存在客户端内存或安全存储中，并受过期时间约束。
+- `onekeySession.refreshToken`、OAuth refresh token、Keyless credential refresh token 不能进入普通日志、埋点、截图、客服导出或 crash breadcrumb。需要确认 token 归属时，使用服务端校验结果或不可逆 hash。
+- API-04 到 API-06 的审计记录必须保留 source / target、状态、错误码和重试 / 幂等信息，但不能保存 Email OTP code、OAuth access token、OneKeyID session token 或 merge proof token 原文。
 
 ---------------------------------------------------------
 
 ## API-01 🆕 `POST /prime/v1/account/oauth/login`
 
-接口性质：**新增接口**。它不是对旧 `POST /prime/v1/user/login` 的原地修改；旧接口仍可在兼容期内服务旧 OneKeyID 登录态刷新。新统一登录路径必须调用本接口，让服务端在同一个 upsert 入口里完成 OAuth identity 校验、OneKeyID 登录 / 创建、legacy email 自动绑定，以及必要时返回 pending merge state。
+接口性质：**新增接口**。它不是对旧 `POST /prime/v1/user/login` 的原地修改；旧接口仍可在兼容期内服务旧 OneKeyID 登录态刷新。新统一登录路径必须调用本接口，让服务端在同一个 upsert 入口里完成 OAuth identity 校验、OneKeyID 登录 / 创建，以及 verified email 命中 legacy email OneKeyID / active email claim owner 时的自动绑定。
 
 ### Request
 
@@ -345,37 +387,6 @@ type IOneKeyIdOAuthLoginRequest = {
   // OAuth subject、verified email、email verified 状态，再生成稳定 oauthIdentityId = hashId。
   // 客户端不再单独传 oauthProvider、idToken、authorizationCode 或 refreshToken。
   token: string;
-
-  // 可选：客户端本地旧 OneKeyID Supabase session 中当前有效的 accessToken。
-  // 旧 OneKeyID 登录态本身是 accessToken + refreshToken，由 Supabase SDK 管理刷新；
-  // 本接口只提交当前 accessToken 作为 legacy 账号信号，不提交 refreshToken。
-  // 读代码入口：先看现有 OneKeyID 登录态如何把当前 accessToken 传给 Prime。
-  // - packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx
-  //   - apiLogin({ accessToken }) 调用旧 POST /prime/v1/user/login。
-  //   - 旧接口 body 为空，通过 header X-Onekey-Request-Token: accessToken 传递登录 token。
-  //   - apiLogin 成功后 simpleDb.prime.saveAuthToken(accessToken) 保存该 token。
-  //   - simpleDb.prime.getAuthToken() 读取当前 OneKeyID auth token
-  // - packages/kit-bg/src/services/ServiceOneKeyID/ServiceOneKeyID.ts
-  //   - loginWithAccessToken({ accessToken }) -> servicePrime.apiLogin({ accessToken })
-  // - packages/kit-bg/src/services/ServiceBase.ts
-  //   - getOneKeyIdClient() 会从 simpleDb.prime.getAuthToken() 读取 token，
-  //     并写入 header X-Onekey-Request-Token。
-  // 新字段命名为 legacyOneKeyIdAuthToken，是为了和上面的 Keyless Supabase token 区分；
-  // 它的值是旧 OneKeyID Supabase session 当前 accessToken，不是完整 session pair。
-  // 服务端必须自行校验 token 的签名、过期时间、撤销状态和账号状态，
-  // 并从 token / session 中提取 onekeyUserId、legacy email、账号是否 active 等上下文。
-  // 客户端不能上报 hasLocalLegacyOneKeyIdSession、hasLocalLegacyLoginCredential
-  // 或 currentOneKeyUserId 这类可伪造字段。
-  // 该 token 只作为防止账户分叉的信号，不是直接绑定 proof：
-  // 当 OAuth identity 无法通过同 email 自动绑定，但服务端验证到本地确实有 legacy
-  // OneKeyID 登录态时，应返回 manual_merge_required，而不是直接创建新的 OneKeyID。
-  // 即使该 token 验证通过，服务端也不能直接把 OAuth identity 绑定到该 legacy
-  // OneKeyID；最终显式合并仍必须经过 /merge/prepare、/merge/verify-target、
-  // /merge/confirm，并要求当前 OAuth credential + legacy Email OTP。
-  // 如果用户意图是“当前已登录 legacy email OneKeyID，主动升级到 Google / Apple OAuth 登录方式”，
-  // 必须调用 API-03；不能通过本登录接口传两个 token 来表达主动升级。
-  // 如果该 token 缺失、过期、被撤销或无法校验，服务端不能把它当作 legacy 账号信号。
-  legacyOneKeyIdAuthToken?: string;
 };
 ```
 
@@ -386,26 +397,16 @@ type IOneKeyIdOAuthLoginRequest = {
 ```ts
 type IOneKeyIdOAuthLoginResponse = {
   // 本接口固定返回同一个 response shape。
-  // 这里的 status 是 2xx 成功响应内的 workflow status，不是错误码。
-  // 需要给客户端继续处理的数据必须放在 response data 里；项目通用 error path
-  // 只按 code / message 处理，不依赖 extra data。因此 manual_merge_required 不能放到 terminal error。
-  // 字段枚举使用上面的通用 workflow status 全集。
-  // API-01 实际返回 success / manual_merge_required。
-  // status = success 时，onekeySession、onekeyAccount、oauthIdentityBinding 必须有值，manualMerge 必须不返回。
-  // status = manual_merge_required 时，manualMerge 必须有值，
-  // onekeySession、onekeyAccount、oauthIdentityBinding 必须不返回。
+  // API-01 2xx response 实际只返回 success。
   // success：本次 OAuth 登录已经得到 active OneKeyID session。
-  // manual_merge_required：本次 OAuth credential 合法，服务端已经产出继续合并所需的 sourceOauthHandle。
   status: IOneKeyIdOAuthFlowStatus;
 
   // 本次提交的 OAuth token 解析出的 identity 摘要。
   // 这里实际返回 IOneKeyIdIdentity 中 identityType = oauth 的 variant。
-  // 无论 status 是 success 还是 manual_merge_required 都必须返回。
   // 客户端用 oauthIdentityId 写入 / 读取 OAuthIdentityCredentialStorage。
   oauthIdentity: IOneKeyIdIdentity;
 
   // 新 OneKeyID Supabase Auth session。
-  // 仅 status = success 时有值；manual_merge_required 时必须不返回。
   // 兼容说明：旧 OneKeyID 登录态也是 Supabase session pair，
   // refresh 由 Supabase SDK 管理；现有 Prime 接口调用时只取当前 accessToken
   // 放到 X-Onekey-Request-Token。
@@ -417,36 +418,18 @@ type IOneKeyIdOAuthLoginResponse = {
   //   refresh_token: onekeySession.refreshToken,
   // });
   // 后续 accessToken 刷新继续交给 Supabase SDK 的 autoRefreshToken / refreshSession 能力。
-  onekeySession?: IOneKeyIdSessionCredential;
+  onekeySession: IOneKeyIdSessionCredential;
 
   // 当前登录成功后的 active OneKeyID。
-  // 仅 status = success 时有值；manual_merge_required 时必须不返回。
-  onekeyAccount?: IOneKeyIdAccount;
+  onekeyAccount: IOneKeyIdAccount;
 
   // OAuth identity 的绑定结果。
-  // 仅 status = success 时有值；manual_merge_required 时必须不返回。
-  // API-01 success payload 中 bindingStatus 实际只返回 bound；
-  // bindReason 实际不返回 legacy_session_authorized_bind。
-  oauthIdentityBinding?: IOneKeyIdOAuthBindingResult;
-
-  // 手动合并上下文。
-  // 仅 status = manual_merge_required 时有值；success 时必须不返回。
-  // 对本登录接口而言，进入 manual_merge_required 的前提是：
-  // - 当前 OAuth token 合法；
-  // - 当前 OAuth identity 尚未绑定 active OneKeyID；
-  // - 不能通过 real verified email 静默绑定到 legacy email 或 active email claim；
-  // - 客户端提交了 legacyOneKeyIdAuthToken，且服务端验证它对应一个 active legacy OneKeyID。
-  // 如果没有提交 legacyOneKeyIdAuthToken，或 token 过期 / 被撤销 / 无法校验，
-  // 本接口不能返回 manual_merge_required：要么继续创建 / 登录 OAuth OneKeyID，
-  // 要么返回 oauth_credential_invalid / support_required 等终止类错误。
-  // 另外，用户已经登录 OAuth 新 OneKeyID 后主动从 Merge existing OneKeyID 入口合并旧账号，
-  // 是另一条显式合并路径，不由本字段触发。
-  manualMerge?: IOneKeyIdManualMerge;
+  // API-01 success payload 中 bindingStatus 实际只返回 bound。
+  oauthIdentityBinding: IOneKeyIdOAuthBindingResult;
 };
 
 type IOneKeyIdOAuthLoginErrorCode =
   // 终止类错误码：本次 /account/oauth/login 不能继续产出可用 session，
-  // 也不能产出可继续执行的 manualMerge 前置态。
   // 客户端不能按 IOneKeyIdOAuthLoginResponse 解析 data。
   // OAuth binding 指向的 OneKeyID 已是 merged，说明 binding retarget 不完整。
   // 服务端拒绝签发普通 session，并触发对账修复。
@@ -458,7 +441,7 @@ type IOneKeyIdOAuthLoginErrorCode =
   | 'account_merged_reauth_required'
   // 历史数据存在无法自动判定的问题，例如同一个 legacy email 命中多个 active OneKeyID，
   // 或 email claim 迁移不完整。
-  // 本方案暂不引入单独的账号锁定状态。登录、OAuth 自动绑定、manual merge、Email OTP
+  // 本方案暂不引入单独的账号锁定状态。登录、OAuth 自动绑定、显式合并、Email OTP
   // 等在线业务流程遇到需要人工处理的异常时，统一返回 support_required。
   // 客户端处理：
   // - 不创建新的 OneKeyID，不进入普通登录态，也不自动选择某个 target。
@@ -475,7 +458,6 @@ type IOneKeyIdOAuthLoginErrorCode =
 终止类错误通过业务错误码返回，不作为 `IOneKeyIdOAuthLoginResponse.status` 返回：
 
 - 具体错误码含义见上面的 `IOneKeyIdOAuthLoginErrorCode` 注释。
-- `manual_merge_required` 不属于这里的终止类错误；它是 2xx workflow status，因为客户端需要从 response data 读取 `manualMerge.sourceOauthHandle` / `reason` / `expiresAt` 后继续合并流程，不能依赖 error path 的 extra data。
 
 ### Examples
 
@@ -528,34 +510,36 @@ type IOneKeyIdProfileResponse = {
 
 接口性质：**新增接口**。用于当前已经登录的 legacy email OneKeyID 用户，在 Account Security / Login methods 之类的主动入口里，把当前 legacy email OneKeyID 升级到 Google / Apple OAuth 登录方式。
 
-这个接口**完成的是升级到 OAuth 登录方式，不是绑定 legacy email，也不是合并两个 OneKeyID account**。target legacy email OneKeyID 必须由 request body 里的 `legacyOneKeyIdAuthToken` 明确指定。服务端必须同时校验两份 proof：request body 里的 OAuth token 和 legacy email OneKeyID token；两者都合法时，才允许把 OAuth identity 绑定到该 legacy email OneKeyID。
+这个接口**完成的是已登录 legacy email OneKeyID 主动绑定一个 OAuth identity 作为登录方式，不是绑定 legacy email，也不是合并两个 OneKeyID account**。target legacy email OneKeyID 必须由 request body 里的 `legacyOneKeyIdAuthToken` 明确指定。服务端必须同时校验两份 proof：request body 里的 OAuth token 和 legacy email OneKeyID token；两者都合法，且 OAuth identity 没有绑定到其他 OneKeyID 时，就允许把 OAuth identity 绑定到该 legacy email OneKeyID。
+
+API-03 不要求 OAuth email 与 legacy email 相同。不同 email、Apple private relay、没有 verified email 的 OAuth identity，都可以在用户同时持有 `legacyOneKeyIdAuthToken` 和 OAuth token 的前提下绑定到当前 legacy email OneKeyID。没有 verified email 的 OAuth identity 绑定成功后不创建 email claim。
 
 它解决的问题是：老 Email + OTP 用户主动把当前 legacy email OneKeyID 升级到 Google / Apple OAuth 登录方式，避免后续继续依赖 legacy Email + OTP。target legacy email OneKeyID 一律来自 request body 里的 `legacyOneKeyIdAuthToken`，不能从 `X-Onekey-Request-Token` 或其他隐式登录态推断。
 
-新版本客户端不提供 legacy Email + OTP 登录入口，因此没有当前 legacy email OneKeyID session 的用户不能直接走 API-03。此类用户应先通过 Google / Apple 调用 API-01 登录 / 创建 OAuth OneKeyID，再通过 API-04 到 API-06 用 legacy Email OTP 显式确认 target legacy email OneKeyID 并完成合并。
+新版本客户端不提供 legacy Email + OTP 登录入口，因此没有当前 legacy email OneKeyID session 的用户不能直接走 API-03。此类用户应先通过 Google / Apple 调用 API-01 登录 / 创建 OAuth OneKeyID；如果登录后确实需要把该 OAuth OneKeyID 合并到 legacy email OneKeyID，再通过 API-04 到 API-06 用 legacy Email OTP 显式确认 target 并完成合并。
 
-它不参与普通登录流程，也不是 API-01 `manual_merge_required` 的后续接口。API-01 已经负责登录时的 OAuth identity 校验、自动绑定、创建 OneKeyID 和 pending merge 判断；API-03 只处理“用户已经有一个明确的当前 legacy email OneKeyID token，现在要把这个 legacy email OneKeyID 升级到 OAuth 登录方式”的主动升级场景。
+它不参与普通登录流程。API-01 已经负责登录时的 OAuth identity 校验、自动绑定和创建 OneKeyID；API-03 只处理“用户已经有一个明确的当前 legacy email OneKeyID token，现在要把这个 legacy email OneKeyID 升级到 OAuth 登录方式”的主动升级场景。
 
 ### 与 API-01 的边界
 
-API-01 和 API-03 都会校验 OAuth token，也都可能接收 `legacyOneKeyIdAuthToken`，因此服务端内部可以复用同一套 OAuth credential 校验、OAuth identity 解析、OAuth binding 查询 / 写入、email claim 冲突检查和 OneKeyID account 状态校验能力。
+API-01 和 API-03 都会校验 OAuth token，因此服务端内部可以复用同一套 OAuth credential 校验、OAuth identity 解析、OAuth binding 查询 / 写入、email claim upsert 和 OneKeyID account 状态校验能力。但只有 API-03 接收 `legacyOneKeyIdAuthToken`。
 
-但它们不应合并成一个公开接口。两个接口的 request body 看起来相近，业务 intent 不同；如果合并，服务端必须根据同样的两个 token 猜测用户是在“登录 / 创建 / upsert OneKeyID”，还是在“把指定 legacy email OneKeyID 升级到 OAuth 登录方式”，容易造成错误绑定或错误登录。
+但它们不应合并成一个公开接口。两个接口的业务 intent 不同：API-01 是普通 OAuth 登录 / 创建 / upsert；API-03 是把指定 legacy email OneKeyID 升级到 OAuth 登录方式。如果合并，服务端必须猜测用户是在登录还是在绑定指定 legacy target，容易造成错误绑定或错误登录。
 
 | 场景 / 规则 | API-01 `POST /account/oauth/login` | API-03 `POST /account/identities/oauth/bind` |
 | --- | --- | --- |
 | 接口 intent | OAuth 登录 / 创建 / upsert OneKeyID。 | 已登录 legacy email OneKeyID 后，主动升级到 Google / Apple OAuth 登录方式。 |
-| `legacyOneKeyIdAuthToken` 语义 | 可选防分叉信号；不是直接绑定 proof。 | 必填 target proof；明确指定要绑定到哪个 legacy email OneKeyID。 |
-| 是否可以创建新 OneKeyID | 可以。没有可自动绑定目标且没有可验证 legacy token 时，可以创建 OAuth OneKeyID。 | 不可以。只能绑定到 `legacyOneKeyIdAuthToken` 对应的 active legacy email OneKeyID。 |
+| `legacyOneKeyIdAuthToken` 语义 | 不接收。 | 必填 target proof；明确指定要绑定到哪个 legacy email OneKeyID。 |
+| 是否可以创建新 OneKeyID | 可以。没有可自动绑定目标时，可以创建 OAuth OneKeyID。 | 不可以。只能绑定到 `legacyOneKeyIdAuthToken` 对应的 active legacy email OneKeyID。 |
 | OAuth identity 已绑定 OneKeyID A | 正常登录 OneKeyID A；如果 A 已 merged，则返回 `account_merged_reauth_required` / `support_required`。 | 如果 target 不是 A，必须返回 `oauth_identity_bound_to_another_account`；不能登录 A，也不能直接转移 binding。 |
-| 跨 email / Apple private relay / missing verified email，且提交了合法 legacy token | 返回 `manual_merge_required`，进入 API-04 到 API-06 的显式合并流程；不能直接绑定。 | 两个 token 都验证通过且没有 binding / email claim 冲突时，可以直接绑定到该 legacy email OneKeyID；不要求 legacy Email OTP。 |
+| 跨 email / Apple private relay / missing verified email | 普通登录路径：没有 verified email 可自动归属时创建 OAuth-only OneKeyID；不读取 legacy target proof。 | 可以处理。用户同时持有 target legacy token 和 OAuth token，且该 OAuth identity 未绑定到其他 OneKeyID 时，直接绑定到 target legacy email OneKeyID；missing verified email 不创建 email claim。 |
 | response session | `success` 时返回新的 `onekeySession`，客户端进入 OneKeyID 登录态。 | 不返回新的 `onekeySession`；客户端已经持有 target legacy email OneKeyID session，本接口只返回绑定后的 `onekeyAccount` 和 `oauthIdentityBinding`。 |
-| legacy Email OTP | 本接口不接收 OTP；需要显式合并时，后续 API-04 到 API-06 使用 legacy Email OTP。 | 不需要 legacy Email OTP；`legacyOneKeyIdAuthToken` 已经是当前 target proof。 |
+| legacy Email OTP | 本接口不接收 OTP。用户已登录 OAuth OneKeyID 后主动合并 legacy target 时，后续 API-04 到 API-06 使用 legacy Email OTP。 | 不需要 legacy Email OTP；`legacyOneKeyIdAuthToken` 已经是当前 target proof。 |
 
 典型使用场景：
 
 - 主场景：当前已登录的是 legacy email OneKeyID，用户主动点击 `Upgrade with Google` / `Upgrade with Apple`，把这个 legacy email OneKeyID 升级到 OAuth 登录方式。
-- 迁移场景：当前已登录的是 legacy email OneKeyID，用户在 Keyless create / restore / upgrade 前，需要先把当前 Google / Apple OAuth identity 归属到这个 legacy email OneKeyID。
+- 迁移场景：当前已登录的是 legacy email OneKeyID，用户在 Keyless create / restore / upgrade 前，需要先把 Google / Apple OAuth identity 归属到这个 legacy email OneKeyID；OAuth email 可以相同，也可以不同、Apple private relay 或缺少 verified email。
 - 幂等场景：当前 OAuth identity 已经绑定到 `legacyOneKeyIdAuthToken` 对应的 legacy email OneKeyID，服务端幂等返回成功。
 
 不是本接口处理的场景：
@@ -564,21 +548,22 @@ API-01 和 API-03 都会校验 OAuth token，也都可能接收 `legacyOneKeyIdA
 - 不给 OAuth-only OneKeyID 提供显式入口去添加另一个 Google / Apple OAuth provider；即使另一个 provider 返回相同 verified email，也不走 API-03。
 - 不处理未登录用户的 Google / Apple 普通登录；该场景走 API-01。
 - 不处理 OAuth 新账号合并到 legacy 账号的显式合并流程；该场景走 API-04 到 API-06，最终由 API-06 `/merge/confirm` 改写 OAuth binding。
-- 不处理“某个 OAuth identity 已经绑定到 OneKeyID A，现在要转移到 legacy email OneKeyID B”的场景。API-03 必须返回 `oauth_identity_bound_to_another_account`，不能直接转移；该场景属于显式账号合并，最终由 API-06 执行 binding retarget。
+- 不处理“某个 OAuth identity 已经绑定到 OneKeyID A，现在要转移到 legacy email OneKeyID B”的场景。API-03 必须返回 `oauth_identity_bound_to_another_account`，不能直接转移、不能登录 A，也不能在本接口内继续 merge；后续产品引导不属于 API-03 契约。
 
 绑定规则：
 
 - `legacyOneKeyIdAuthToken` 对应的 target OneKeyID 必须是 legacy email OneKeyID，且必须有 `legacy_email` identity。`legacyOneKeyIdAuthToken` 已经是 target proof；本接口不再要求 legacy Email OTP。
-- 同 email 绑定、跨 email 绑定、Apple private relay、无 verified email OAuth identity 都使用同一套 proof：`legacyOneKeyIdAuthToken` + OAuth token。
+- OAuth token 必须解析出稳定 OAuth identity。服务端不能依赖客户端上报 email，也不能只用本地缓存判断 binding。
+- OAuth identity 未绑定到任何 OneKeyID 时，可以绑定到 `legacyOneKeyIdAuthToken` 对应的 target legacy email OneKeyID；OAuth email 不需要等于 target legacy email，Apple private relay 和 missing / unverified email 也允许绑定。
+- 如果 OAuth identity 有 verified email，服务端可以在同一事务内为该 OAuth email 创建或更新 active email claim 到 target；如果没有 verified email，则只写 OAuth binding，不创建 email claim。
 - `legacyOneKeyIdAuthToken` 对应的 target OneKeyID 不是 legacy email OneKeyID（例如 OAuth-only 账号）时，本接口不提供绑定能力。客户端不应该展示入口；服务端如果收到请求，返回终止类错误 `oauth_bind_requires_legacy_email`。
-- 如果当前 OAuth identity 已经绑定到另一个 active OneKeyID，本接口不能转移 binding，必须返回 `oauth_identity_bound_to_another_account`，提示客户端走显式账号合并或支持流程。
-- 如果当前 OAuth verified email 的 active email claim owner 不是 `legacyOneKeyIdAuthToken` 对应的 legacy email OneKeyID，本接口不能覆盖该 claim，必须返回 `oauth_email_claim_conflict`，提示客户端走显式账号合并或支持流程。
+- 如果当前 OAuth identity 已经绑定到另一个 active OneKeyID，本接口不能转移 binding，必须返回 `oauth_identity_bound_to_another_account`；客户端应提示该 OAuth identity 已被其他 OneKeyID 使用，并停止本次 API-03 绑定，不能在 API-03 内自动发起登录、转移或合并。
 
 本接口不写入本地 Keyless wallet 关系，也不建立 OneKeyID 到 `keylessWalletId` 的服务端归属关系。
 
 ### Request
 
-字段集合与 API-01 request 相同，都是通过 POST body 提交 `token` 和 `legacyOneKeyIdAuthToken`。差异是：API-01 的 `legacyOneKeyIdAuthToken` 是可选防分叉信号；API-03 的 `legacyOneKeyIdAuthToken` 是必填 target proof，用来明确指定要绑定到哪个 legacy email OneKeyID。
+API-03 通过 POST body 提交 OAuth `token` 和 `legacyOneKeyIdAuthToken`。其中 `legacyOneKeyIdAuthToken` 是必填 target proof，用来明确指定要绑定到哪个 legacy email OneKeyID；API-01 不接收该字段。
 
 ```ts
 type IOneKeyIdOAuthBindRequest = {
@@ -588,9 +573,8 @@ type IOneKeyIdOAuthBindRequest = {
   token: string;
 
   // 当前已登录 legacy email OneKeyID Supabase session 的 accessToken。
-  // 字段名与 API-01 `IOneKeyIdOAuthLoginRequest.legacyOneKeyIdAuthToken` 保持一致，
-  // 用来和上面的 OAuth token 明确区分。
-  // 但 API-01 中该字段是可选防分叉信号；API-03 中该字段是必填 target proof。
+  // 字段名用来和上面的 OAuth token 明确区分。
+  // API-03 中该字段是必填 target proof。
   // 服务端必须校验 token 签名、过期时间、撤销状态和账号状态，
   // 并确认它对应 active 且拥有 legacy_email identity 的 legacy email OneKeyID。
   // 如果 token 缺失、过期、被撤销或无法校验，返回 401 / onekey_session_invalid。
@@ -613,7 +597,6 @@ type IOneKeyIdOAuthBindResponse = {
   // 这里的 status 是 2xx 成功响应内的 workflow status，不是错误码。
   // 字段枚举使用上方共享 workflow status 全集。
   // API-03 的 2xx response 实际只返回 success；
-  // manual_merge_required 是 API-01 使用的 workflow status，本接口不返回。
   // status = success 时，oauthIdentityBinding 必须有值。
   // success：当前 OAuth identity 已经绑定到 legacyOneKeyIdAuthToken 对应的 legacy email OneKeyID。
   status: Extract<IOneKeyIdOAuthFlowStatus, 'success'>;
@@ -654,12 +637,8 @@ type IOneKeyIdOAuthBindErrorCode =
   | 'oauth_credential_invalid'
   // 当前 OAuth identity 已绑定到另一个 active OneKeyID。
   // API-03 不能把它强行绑定或转移到 legacyOneKeyIdAuthToken 对应的 legacy email OneKeyID。
-  // 如果用户要把 OAuth identity 从 OneKeyID A 转移到 legacy email OneKeyID B，
-  // 必须走 API-04 / API-05 / API-06 的显式账号合并流程，最终由 API-06 改写 binding。
+  // API-03 只返回错误；不能在本接口内抢占、转移或合并该 binding。
   | 'oauth_identity_bound_to_another_account'
-  // 当前 OAuth verified email 的 active email claim owner 不是 legacyOneKeyIdAuthToken 对应的 legacy email OneKeyID。
-  // 服务端不能覆盖该 claim；客户端应进入显式账号合并或客服流程。
-  | 'oauth_email_claim_conflict'
   // legacyOneKeyIdAuthToken 对应的 target OneKeyID 不是 legacy email OneKeyID，
   // 或没有 legacy_email identity。
   // API-03 只服务 legacy email OneKeyID 升级到 OAuth 登录方式；
@@ -683,42 +662,40 @@ API-03 示例已拆分到 [api-03-oauth-bind-examples.md](./api-03-oauth-bind-ex
 
 ## 显式账号合并流程入口：API-04 到 API-06
 
-API-04 / API-05 / API-06 是同一个显式账号合并流程的三个阶段：prepare -> verify target -> confirm。该流程有两个入口场景：
+API-04 / API-05 / API-06 是同一个显式账号合并流程的三个阶段：prepare -> verify target -> confirm。该流程只处理一个入口场景：
 
-严格来说，只有 `merged_source` 路径是两个 OneKeyID account 的显式合并：source 是当前已登录 OAuth OneKeyID，target 是用户通过 legacy Email OTP 验证的 legacy email OneKeyID。`pending_oauth_bind` 路径还没有 source OneKeyID，它只是把 API-01 已验证但尚未绑定的 OAuth identity，在 target legacy email OneKeyID 完成 OTP 验证后绑定到该 target；为了复用 target 验证、确认页和幂等执行能力，也走 API-04 到 API-06。
+用户已经登录 OAuth OneKeyID 后，从低曝光入口主动 `Merge existing OneKeyID`，把当前 OAuth OneKeyID 合并到用户通过 legacy Email OTP 验证的 legacy email OneKeyID。source 是当前已登录 OAuth OneKeyID，target 是用户验证过的 legacy email OneKeyID。API-06 成功后，source OAuth OneKeyID 标记为 `merged` source archive，并把 source active OAuth bindings retarget 到 target legacy email OneKeyID。
 
-| 入口场景 | source proof | sourceType / relationType | API-06 行为 |
-| --- | --- | --- | --- |
-| API-01 返回 `manual_merge_required` 后继续合并 | API-01 返回的 `manualMerge.sourceOauthHandle`，并在最终 confirm 时重新提交当前 OAuth credential | `pending_oauth_bind` | 不创建 source OneKeyID；重新校验 confirm 时提交的 OAuth credential，并确认它与确认页绑定的 canonical source 一致后，直接绑定到 target legacy email OneKeyID。 |
-| 用户已登录 OAuth OneKeyID 后，从低曝光入口主动 `Merge existing OneKeyID` | 当前 OAuth OneKeyID session，并在最终 confirm 时重新提交当前 OAuth credential | `merged_source` | 把当前 OAuth OneKeyID 标记为 `merged` source archive，并把 source active OAuth bindings retarget 到 target legacy email OneKeyID。 |
+| 入口场景 | source proof | API-06 行为 |
+| --- | --- | --- |
+| 用户已登录 OAuth OneKeyID 后，从低曝光入口主动 `Merge existing OneKeyID` | 当前 OAuth OneKeyID session，并在最终 confirm 时重新提交当前 OAuth credential | 把当前 OAuth OneKeyID 标记为 `merged` source archive，并把 source active OAuth bindings retarget 到 target legacy email OneKeyID。 |
 
-两条入口都会要求用户通过 legacy Email OTP 验证 target legacy email OneKeyID。API-04 / API-05 阶段不持久化 pending merge 状态；真正执行只发生在 API-06，并且 API-06 必须重新校验 source proof，避免用户在确认前切换 OAuth credential、session 过期或 source 状态变化。
+该入口要求用户通过 legacy Email OTP 验证 target legacy email OneKeyID。API-05 验证 OTP 后只生成 `mergeRequestId` 和 `mergeConfirmToken`，并返回 source / target 摘要供客户端展示确认页；它不执行绑定或合并。API-04 / API-05 阶段不持久化 merge execution record；真正执行只发生在 API-06，并且 API-06 必须重新校验 source proof，避免用户在确认前切换 OAuth credential、session 过期或 source 状态变化。
 
-该流程不是 API-03 的后续。API-03 是“当前已登录 legacy email OneKeyID，主动升级到 OAuth 登录方式”，没有第二个 OneKeyID account 参与，也不会把任何 OneKeyID 标记为 `merged`；API-04 到 API-06 是“需要用户用 legacy Email OTP 显式确认 target，再把 OAuth source 绑定 / 合并到该 target”。
+该流程不是 API-03 的后续。API-03 是“当前已登录 legacy email OneKeyID，主动升级到 OAuth 登录方式”，没有第二个 OneKeyID account 参与，也不会把任何 OneKeyID 标记为 `merged`；API-04 到 API-06 是“当前已登录 OAuth OneKeyID，用户用 legacy Email OTP 显式确认 target，再把 OAuth source 合并到该 target”。
 
-在 `merged_source` 路径下，source OneKeyID 不应成为 orphan account。服务端必须把 source 标记为 `merged`，写入 merge relation / archive，retarget source 下 active OAuth bindings，并 revoke source 旧 session；后续这些 source OAuth identities 登录时直接命中 retarget 后的 binding，返回 target legacy email OneKeyID。在 `pending_oauth_bind` 路径下，本来就没有 source OneKeyID，因此也不存在 orphan source account。
+source OneKeyID 不应成为 orphan account。服务端必须把 source 标记为 `merged`，写入 merge relation / archive，retarget source 下 active OAuth bindings，并 revoke source 旧 session；后续这些 source OAuth identities 登录时直接命中 retarget 后的 binding，返回 target legacy email OneKeyID。
 
 ---------------------------------------------------------
 
 ## API-04 🆕 `POST /prime/v1/account/merge/prepare`
 
-接口性质：**新增接口**。用于显式账号合并前的预检查和 OTP purpose 签发。它只确认本次 source proof 形式合法、target legacy email 格式合法，并按 source + target 做节流和防枚举控制；它不发送 OTP，也不创建 merge request。
+接口性质：**新增接口**。用于显式账号合并前的预检查和 OTP purpose 签发。它确认本次 source proof 形式合法，并按 source + target 做节流和防枚举控制；它不发送 OTP，也不创建 merge request。
 
 ### Request
 
 ```ts
-type IOneKeyIdMergePrepareRequest = IOneKeyIdMergeSourceProof & {
+type IOneKeyIdMergePrepareRequest = {
+  // 当前已登录 OAuth OneKeyID 的 OneKeyID session access token。
+  // 不能传 legacy email target 的 OneKeyID token。
+  sourceOneKeyIdAuthToken: string;
+
   // 用户输入的 target legacy email。
-  // 这是用户希望绑定 / 合并到的 legacy email OneKeyID。
-  // 服务端必须规范化后写入 otpPurposeToken，但在 OTP 验证前不能返回 target 是否存在。
   targetLegacyEmail: string;
 };
 ```
 
-`sourceOauthHandle` 和 `sourceOneKeyIdAuthToken` 必须二选一：
-
-- `sourceOauthHandle`：用于 API-01 返回 `manual_merge_required` 后的 `pending_oauth_bind` 路径。它不是 OneKeyID session token，只是服务端签名的短期 source proof。
-- `sourceOneKeyIdAuthToken`：用于当前已登录 OAuth OneKeyID 主动合并 legacy email target 的 `merged_source` 路径。它必须是当前 OAuth source OneKeyID 的 access token，不能传 target legacy email OneKeyID token。
+`sourceOneKeyIdAuthToken` 必须是当前 OAuth source OneKeyID 的 access token，不能传 target legacy email OneKeyID token；请求必须同时提交用户输入的 `targetLegacyEmail`。
 
 ### Response
 
@@ -735,7 +712,8 @@ type IOneKeyIdMergePrepareResponse = {
   // 客户端只当作 opaque string 保存和回传，不能解析。
   otpPurposeToken: string;
 
-  // 对用户输入 targetLegacyEmail 做脱敏后的展示值。
+  // target legacy email 的脱敏展示值。
+  // 来自用户输入的 targetLegacyEmail。
   // 该字段不能证明 target legacy email OneKeyID 存在。
   targetLegacyDisplayEmail: string;
 
@@ -745,9 +723,9 @@ type IOneKeyIdMergePrepareResponse = {
 };
 
 type IOneKeyIdMergePrepareErrorCode =
-  // sourceOauthHandle 缺失 / 过期 / 验签失败，或 sourceOneKeyIdAuthToken 缺失 / 过期 / 撤销 / 不是 active OAuth OneKeyID。
+  // sourceOneKeyIdAuthToken 缺失 / 过期 / 撤销 / 不是 active OAuth OneKeyID。
   | 'merge_source_invalid'
-  // targetLegacyEmail 格式非法或无法规范化。
+  // targetLegacyEmail 缺失、格式非法或无法规范化。
   | 'merge_target_email_invalid'
   // 按 source、target email、设备、IP 等维度触发合并预检查限频。
   | 'merge_prepare_rate_limited'
@@ -760,26 +738,29 @@ type IOneKeyIdMergePrepareErrorCode =
 ### 业务规则
 
 - API-04 不发送 OTP。客户端拿到 `otpPurposeToken` 后，调用 API-09 `POST /prime/v1/general/emailOTP`，传 `scene = 'MergeExistingOneKeyId'` 和 `otpPurposeToken` 发送 legacy Email OTP，并保存 API-09 返回的 `uuid`。
-- API-04 不持久化 pending merge request。服务端只签发短期 `otpPurposeToken`，避免用户反复输入 target email 时产生无意义的执行记录。
+- API-04 必须规范化用户输入的 `targetLegacyEmail`，并把它写入 `otpPurposeToken`；在 OTP 验证前不能返回 target 是否存在。
+- API-04 不持久化 merge request。服务端只签发短期 `otpPurposeToken`，避免用户反复输入 target email 或重复进入流程时产生无意义的执行记录。
 - 在 legacy Email OTP 完成前，API-04 不能返回 target 是否存在、target `onekeyUserId`、target account 摘要或 OAuth identity 摘要，避免账号枚举。
-- 如果 source 是 `sourceOneKeyIdAuthToken`，服务端只能确认它是 active OAuth OneKeyID source；不能把它当成 target legacy email OneKeyID proof。
+- 服务端只能确认 `sourceOneKeyIdAuthToken` 是 active OAuth OneKeyID source；不能把它当成 target legacy email OneKeyID proof。
 
 ---------------------------------------------------------
 
 ## API-05 🆕 `POST /prime/v1/account/merge/verify-target`
 
-接口性质：**新增接口**。用于用户输入 legacy Email OTP 后确认 target legacy email OneKeyID，并生成短期 final confirm proof。API-05 仍不执行绑定 / 合并，也不持久化 pending merge request。
+接口性质：**新增接口**。用于用户输入 legacy Email OTP 后确认 target legacy email OneKeyID，并生成短期 merge confirm proof。API-05 仍不执行绑定 / 合并，也不持久化 merge request。
 
 ### Request
 
-API-05 的 source proof 和 `targetLegacyEmail` 与 API-04 一致；在此基础上增加 API-09 返回的 OTP `uuid` 和用户输入的 OTP code。
+API-05 的 source proof 与 API-04 一致；在此基础上增加 API-09 返回的 OTP `uuid` 和用户输入的 OTP code。target legacy email 从 API-04 写入的 `otpPurposeToken` 解析，客户端不再重复提交 `targetLegacyEmail`。
 
 ```ts
-type IOneKeyIdMergeVerifyTargetRequest = IOneKeyIdMergeSourceProof & {
-  // 与 API-04 请求中的 targetLegacyEmail 必须一致。
-  targetLegacyEmail: string;
+type IOneKeyIdMergeVerifyTargetRequest = {
+  // 当前已登录 OAuth OneKeyID 的 OneKeyID session access token。
+  // 不能传 legacy email target 的 OneKeyID token。
+  sourceOneKeyIdAuthToken: string;
 
   // API-04 返回的 otpPurposeToken。
+  // token 内已经签入 targetLegacyEmail 的规范化结果。
   otpPurposeToken: string;
 
   // API-09 发送 MergeExistingOneKeyId OTP 后返回的 uuid。
@@ -809,19 +790,19 @@ type IOneKeyIdMergeVerifyTargetResponse = {
   // 它不是 secret，也不是授权凭证；不能作为用户恢复登录路径。
   mergeRequestId: string;
 
-  // 加密签名的短期 final confirm proof。
+  // 加密签名的短期 merge confirm proof。
   // 内容至少包含 mergeRequestId、targetOneKeyUserId、target legacy email / normalized email、
-  // sourceType、canonical source、iat、exp。
+  // canonical source、iat、exp。
   // 客户端只当作 opaque string 保存和回传。
-  finalConfirmHandle: string;
+  mergeConfirmToken: string;
 
-  // finalConfirmHandle 过期时间，ISO 8601 字符串。
+  // mergeConfirmToken 过期时间，ISO 8601 字符串。
   // 过期后如果 API-06 还没有创建 execution record，客户端必须重新调用 API-05。
   expiresAt: string;
 };
 
 type IOneKeyIdMergeVerifyTargetErrorCode =
-  // source proof 无效，含 sourceOauthHandle 过期 / 验签失败，或 sourceOneKeyIdAuthToken 无效。
+  // sourceOneKeyIdAuthToken 无效。
   | 'merge_source_invalid'
   // OTP uuid / code 不匹配。
   | 'merge_otp_invalid'
@@ -838,9 +819,9 @@ type IOneKeyIdMergeVerifyTargetErrorCode =
 ### 业务规则
 
 - API-05 必须重新校验 source proof，不能只相信 API-04 的 `otpPurposeToken`。
+- API-05 从 `otpPurposeToken` 解析 target normalized email，不再要求客户端重复提交 `targetLegacyEmail`。
 - OTP 通过后，服务端可以返回 target legacy email OneKeyID 摘要和当前 source identity 摘要，用于客户端确认页展示。
-- `verify-target` 阶段返回的 source 摘要用于确认页展示，并且必须和 API-06 的 canonical source 保持一致。API-06 需要重新校验当前 OAuth credential，但不能把用户在确认页后切换出的另一个 OAuth identity 合并到已确认 target；如果 confirm token 解析出的 identity 与 `finalConfirmHandle` / source proof 中的 canonical source 不一致，返回 `oauth_credential_mismatch`，客户端必须重新走 API-05。
-- 如果是 `pending_oauth_bind`，确认页必须明确：还没有 source OneKeyID，不会迁移 source OneKeyID 数据；API-06 成功后只会把与确认页 canonical source 一致的 OAuth identity 绑定到 target legacy email OneKeyID。
+- `verify-target` 阶段返回的 source 摘要用于确认页展示，并且必须和 API-06 的 canonical source 保持一致。API-06 需要重新校验当前 OAuth credential，但不能把用户在确认页后切换出的另一个 OAuth identity 合并到已确认 target；如果 confirm token 解析出的 identity 与 `mergeConfirmToken` / source proof 中的 canonical source 不一致，返回 `oauth_credential_mismatch`，客户端必须重新走 API-05。
 - 任何基于 `mergeRequestId` 的执行期状态返回，都必须先校验 source proof、target session，或客服 / 风控 scoped auth；校验失败统一返回 404 / not found，不暴露 record 是否存在或状态。
 
 ---------------------------------------------------------
@@ -849,29 +830,32 @@ type IOneKeyIdMergeVerifyTargetErrorCode =
 
 接口性质：**新增接口**。用于用户在确认页点击确认后的最终绑定 / 合并执行。API-06 是 API-04 到 API-06 流程中唯一会写入 merge execution record、修改 OAuth binding、签发 target OneKeyID session 的接口。
 
+API-06 独立出来的主要原因是给用户一次二次确认机会：API-05 验证 legacy Email OTP 后只生成 `mergeRequestId` 和 `mergeConfirmToken`，并返回 source / target 摘要供客户端展示确认页；用户在确认页明确看到将要绑定 / 合并的 OAuth identity 和 target legacy email OneKeyID 后，再点击确认触发 API-06 的不可逆执行。客户端不能在 API-05 OTP 验证成功后自动执行绑定 / 合并。
+
 ### Request
 
 ```ts
-type IOneKeyIdMergeConfirmRequest = IOneKeyIdMergeSourceProof & {
+type IOneKeyIdMergeConfirmRequest = {
+  // 当前已登录 OAuth OneKeyID 的 OneKeyID session access token。
+  // 不能传 legacy email target 的 OneKeyID token。
+  sourceOneKeyIdAuthToken: string;
+
   // API-05 返回的 mergeRequestId。
   // 用作本次执行期幂等 key。
   mergeRequestId: string;
 
-  // API-05 返回的 finalConfirmHandle。
-  finalConfirmHandle: string;
+  // API-05 返回的 mergeConfirmToken。
+  mergeConfirmToken: string;
 
   // 当前 OAuth credential 的 Supabase access token。
   // 命名与 API-01 保持一致。
-  // 服务端必须重新校验 token，并确认解析出的 OAuth identity 与 finalConfirmHandle
+  // 服务端必须重新校验 token，并确认解析出的 OAuth identity 与 mergeConfirmToken
   // 和 source proof 中绑定的 canonical source 一致。
   token: string;
 };
 ```
 
-`sourceOauthHandle` 和 `sourceOneKeyIdAuthToken` 仍然必须二选一：
-
-- `pending_oauth_bind`：提交 `sourceOauthHandle + token`。API-06 不创建 source OneKeyID，只把与 `sourceOauthHandle` / `finalConfirmHandle` canonical source 一致的 OAuth identity 绑定到 target legacy email OneKeyID。
-- `merged_source`：提交 `sourceOneKeyIdAuthToken + token`。API-06 必须确认 `sourceOneKeyIdAuthToken` 对应当前 active OAuth OneKeyID，且 `token` 解析出的 OAuth identity 属于该 source，并与 `finalConfirmHandle` canonical source 一致；随后把 source OneKeyID 标记为 `merged`，并把 source 下 active OAuth bindings retarget 到 target legacy email OneKeyID。
+API-06 必须确认 `sourceOneKeyIdAuthToken` 对应当前 active OAuth OneKeyID，且 `token` 解析出的 OAuth identity 属于该 source，并与 `mergeConfirmToken` canonical source 一致；随后把 source OneKeyID 标记为 `merged`，并把 source 下 active OAuth bindings retarget 到 target legacy email OneKeyID。
 
 ### Response
 
@@ -882,9 +866,6 @@ type IOneKeyIdMergeConfirmResponse = {
   // failed：执行失败且已落库失败记录，客户端不要自动重试。
   // support_required：服务端无法自动判定，需要客服 / 风控介入。
   status: IOneKeyIdMergeConfirmStatus;
-
-  // 本次执行的 source 类型。
-  sourceType: IOneKeyIdMergeSourceType;
 
   // 执行记录摘要。
   // 字段结构与共享类型 IOneKeyIdMergeExecution 完全一致；
@@ -908,7 +889,7 @@ type IOneKeyIdMergeConfirmResponse = {
   // status = merged 时返回。
   // 描述本次 confirm 时提交的 OAuth identity 绑定结果。
   // API-06 success payload 中 bindingStatus 实际只返回 bound；
-  // bindReason 实际只返回 manual_merge_confirmed_bind / merged_source_retarget。
+  // bindReason 实际只返回 merged_source_retarget。
   oauthIdentityBinding?: IOneKeyIdOAuthBindingResult;
 
   // status = processing 时可返回。
@@ -922,7 +903,7 @@ type IOneKeyIdMergeConfirmErrorCode =
   // mergeRequestId 不存在，或请求方没有权限感知该 execution record。
   // 为避免枚举，source proof 校验失败也可以统一返回该错误或 404 / not found。
   | 'merge_request_not_found'
-  // finalConfirmHandle 已过期，且还没有 execution record。
+  // mergeConfirmToken 已过期，且还没有 execution record。
   | 'merge_confirm_expired'
   // source proof 无效，或 sourceOneKeyIdAuthToken 不是 active OAuth OneKeyID。
   | 'merge_source_invalid'
@@ -941,16 +922,15 @@ type IOneKeyIdMergeConfirmErrorCode =
 
 ### 业务规则
 
-- API-06 必须重新校验 `finalConfirmHandle`、source proof 和当前 OAuth `token`。`finalConfirmHandle` 必须绑定 API-05 确认页展示的 sourceType 与 canonical source；如果用户在 API-05 后切换 OAuth credential，服务端必须返回 `oauth_credential_mismatch`，不能把新的 OAuth identity 合并到用户已经确认的 target。
-- 服务端按 `mergeRequestId` 幂等执行。若 execution record 已存在，授权通过后按 record 当前状态返回，不要求 `finalConfirmHandle` 仍未过期；若 record 不存在，必须验签并确认 `finalConfirmHandle` 未过期，才能创建 execution record。
-- 除了 `mergeRequestId` 唯一约束，API-06 还必须按 canonical source 建立 source-level execution lock。canonical source key 为 `oauthProvider + oauthSubject`（`pending_oauth_bind`）或 `sourceOneKeyUserId`（`merged_source`）。同一 source 已有未完成 `processing` relation 时，返回 `source_merge_in_progress`，不能创建第二条执行记录。
+- API-06 必须重新校验 `mergeConfirmToken`、source proof 和当前 OAuth `token`。`mergeConfirmToken` 必须绑定 API-05 确认页展示的 canonical source；如果用户在 API-05 后切换 OAuth credential，服务端必须返回 `oauth_credential_mismatch`，不能把新的 OAuth identity 合并到用户已经确认的 target。
+- 服务端按 `mergeRequestId` 幂等执行。若 execution record 已存在，授权通过后按 record 当前状态返回，不要求 `mergeConfirmToken` 仍未过期；若 record 不存在，必须验签并确认 `mergeConfirmToken` 未过期，才能创建 execution record。
+- 除了 `mergeRequestId` 唯一约束，API-06 还必须按 canonical source 建立 source-level execution lock。canonical source key 为 `sourceOneKeyUserId`。同一 source 已有未完成 `processing` relation 时，返回 `source_merge_in_progress`，不能创建第二条执行记录。
 - 如果执行失败或需要客服介入，必须在主合并事务外或独立审计事务中把 execution record 更新为 `failed` / `support_required`，保留结构化失败记录。不能只依赖接口日志。
 - 同一个 `mergeRequestId` 的短期重试：授权通过后，若状态已是 `merged`，直接返回 target OneKeyID；若状态是未超时的 `processing`，返回 `processing` 和 `retryAfterSeconds`；若状态是 `failed` 或 `support_required`，返回对应状态和处理指引，不重复执行。
 - 如果客户端没有收到 confirm 响应，或后续遇到 source session 失效 / `account_merged_reauth_required`，客户端不要依赖 `mergeRequestId` 找回登录态。必须清理本地 OneKeyID token / `primePersistAtom`，回到登录界面，让用户手动重新发起 Google / Apple 登录。用户手动登录后，如果合并已完成，服务端根据 OAuth binding 当前归属直接签发 target session。
-- 如果 `finalConfirmHandle` 已过期且还没有 execution record，不能开始新的合并执行；服务端返回 `merge_confirm_expired`，客户端必须重新走 API-05 获取新的 `mergeRequestId` 和 `finalConfirmHandle`。
+- 如果 `mergeConfirmToken` 已过期且还没有 execution record，不能开始新的合并执行；服务端返回 `merge_confirm_expired`，客户端必须重新走 API-05 获取新的 `mergeRequestId` 和 `mergeConfirmToken`。
 - 如果 `processing` 已超时，服务端必须先做状态对账：OAuth binding 是否已指向 target、source `status`、target merge relation、identity retarget 子表。确认已经完成则更新为 `merged` 并返回成功；确认尚未执行才允许重新锁定并继续执行；无法判断时更新为 `support_required`。
 - `merged_source` 路径下，source OneKeyID 不迁移业务数据到 target。合并成功后，source OneKeyID 标记为 `merged` archive，source 下 active OAuth bindings retarget 到 target，source session 被撤销；后续这些 OAuth identities 登录时直接命中 retarget 后的 target legacy email OneKeyID。API-06 response 中的 `oauthIdentityBinding` 只描述本次 confirm 时提交的 OAuth identity；其他被 retarget 的 OAuth identities 通过 `onekeyAccount.identities` 体现。
-- `pending_oauth_bind` 路径下，不创建 source OneKeyID。确认后直接把 confirm 时提交的 OAuth identity 绑定到 target legacy email OneKeyID；如果该 OAuth identity 有 verified email，还要在同一事务内为该 OAuth email 创建或迁移 active email claim 到 target。
 
 ### Examples
 
@@ -985,11 +965,11 @@ API-04 到 API-06 示例已拆分到 [api-04-05-06-09-onekeyid-merge-examples.md
 
 当前客户端 wrapper 参考与改造要求：
 
-- [ServicePrime.sendEmailOTP](/Users/admin/workspace/app-monorepo/.worktrees/prague13/packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx:914)：当前 request body 只有 `{ scene }`。
-- [EPrimeEmailOTPScene](/Users/admin/workspace/app-monorepo/.worktrees/prague13/packages/shared/src/consts/primeConsts.ts:32)：当前已有 `UpdateReabteWithdrawAddress`、`DeleteAccount` 两个 scene。
+- [ServicePrime.sendEmailOTP](../../packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx#L914)：当前 request body 只有 `{ scene }`。
+- [EPrimeEmailOTPScene](../../packages/shared/src/consts/primeConsts.ts#L32)：当前已有 `UpdateReabteWithdrawAddress`、`DeleteAccount` 两个 scene。
 - 当前 response data 是 `{ resendAt: number; uuid: string }`。
 - wrapper 需要从 `sendEmailOTP(scene)` 改成 `sendEmailOTP(params: { scene; otpPurposeToken? })` 或等价结构，确保 `scene = MergeExistingOneKeyId` 时可以把 API-04 返回的 `otpPurposeToken` 放入 request body。
-- 当前 wrapper 使用 `getOneKeyIdClient`；该 client 只在本地存在 OneKeyID auth token 时附加 `X-Onekey-Request-Token`。`MergeExistingOneKeyId` 的 `pending_oauth_bind` 路径没有 OneKeyID session，因此客户端 wrapper 不能强制要求本地 OneKeyID auth token，服务端也不能强制依赖 header auth；本 scene 必须以有效 `otpPurposeToken` 作为业务 proof。旧 scene 仍按现有鉴权语义保持兼容。
+- 当前 wrapper 使用 `getOneKeyIdClient`；该 client 只在本地存在 OneKeyID auth token 时附加 `X-Onekey-Request-Token`。`MergeExistingOneKeyId` scene 的业务 proof 必须来自有效 `otpPurposeToken`，服务端不能只依赖 header auth 推断 target；旧 scene 仍按现有鉴权语义保持兼容。
 
 ### Request
 
@@ -1050,7 +1030,7 @@ API-09 的 `MergeExistingOneKeyId` 示例与 API-04 到 API-06 示例放在同�
 ## API-10 ⛔ `GET /api/prime/send-email-verification-code`
 
 - 当前旧 Email + OTP 登录 / 注册流程使用的发码接口。
-- 当前客户端 wrapper 参考 [ServicePrime.apiSendEmailVerificationCode](/Users/admin/workspace/app-monorepo/.worktrees/prague13/packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx:573)：GET query params 为 `{ email: string; verifyUUID: string }`，当前声明的 server response data 为 `{ success: boolean }`。
+- 当前客户端 wrapper 参考 [ServicePrime.apiSendEmailVerificationCode](../../packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx#L573)：GET query params 为 `{ email: string; verifyUUID: string }`，当前声明的 server response data 为 `{ success: boolean }`。
 - 迁移后只允许用于旧客户端对已有 legacy email OneKeyID 的登录 / 找回兼容。
 - 新版本客户端不应该把 Email + OTP 作为登录入口，也不应该依赖本接口发码；新统一登录主入口只能走 Google / Apple OAuth 登录和 API-01。
 - 不作为普通主登录入口的发码接口，不支持探测或创建新 email 账户。
@@ -1064,7 +1044,7 @@ API-09 的 `MergeExistingOneKeyId` 示例与 API-04 到 API-06 示例放在同�
 ## API-11 ⛔ `POST /api/prime/login`
 
 - 当前旧 Email + OTP 登录 / 注册流程使用的确认接口。
-- 当前客户端 wrapper 参考 [ServicePrime.apiPrimeLogin](/Users/admin/workspace/app-monorepo/.worktrees/prague13/packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx:601)：POST body 为 `{ email: string; password: string; emailCode: string; verifyUUID: string; isRegister: boolean }`，当前声明的 server response data 为 `{ success: boolean }`。
+- 当前客户端 wrapper 参考 [ServicePrime.apiPrimeLogin](../../packages/kit-bg/src/services/ServicePrime/ServicePrime.tsx#L601)：POST body 为 `{ email: string; password: string; emailCode: string; verifyUUID: string; isRegister: boolean }`，当前声明的 server response data 为 `{ success: boolean }`。
 - 本接口只作为旧客户端兼容接口保留；新版本客户端不应该调用本接口建立登录态，也不应该展示 Email + OTP 普通登录入口。
 - `isRegister = false` 的 legacy email 登录 / 找回能力只保留给旧客户端上的已有 active legacy email OneKeyID。
 - `isRegister = true` 或明确的新 email 注册 / 创建 OneKeyID 请求一律拒绝并返回 `legacy_register_disabled`。

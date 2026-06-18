@@ -118,7 +118,7 @@ Response:
 }
 ```
 
-## API-03 / Example 03. OAuth email 与 legacy email OneKeyID email 不同，body 双 token 授权绑定成功
+## API-03 / Example 03. OAuth email 与 legacy email OneKeyID email 不同，双 token 授权绑定成功
 
 Request Body:
 
@@ -176,7 +176,9 @@ Response:
 }
 ```
 
-## API-03 / Example 04. Apple private relay OAuth identity，body 双 token 授权绑定成功
+客户端处理：用户已经同时持有 `legacyOneKeyIdAuthToken` 和 OAuth token，服务端确认该 OAuth identity 未绑定到其他 OneKeyID 后直接绑定到当前 legacy email OneKeyID。不要求 OAuth email 与 legacy email 相同。
+
+## API-03 / Example 04. Apple private relay OAuth identity，双 token 授权绑定成功
 
 Request Body:
 
@@ -236,6 +238,8 @@ Response:
 }
 ```
 
+客户端处理：Apple private relay 也可以在 API-03 双 token proof 下绑定到当前 legacy email OneKeyID。没有 verified email 的 OAuth identity 同理可以绑定；区别是服务端只写 OAuth binding，不创建 email claim。
+
 ## API-03 / Example 05. OAuth identity 已绑定到另一个 OneKeyID，返回错误
 
 Request Body:
@@ -260,4 +264,4 @@ Response:
 }
 ```
 
-客户端处理：不能把该 OAuth identity 通过 API-03 强行绑定或转移到 `legacyOneKeyIdAuthToken` 对应的 legacy email OneKeyID。如果用户要把这个 OAuth identity 从 OneKeyID A 转移到 legacy email OneKeyID B，必须走 API-04 / API-05 / API-06 的显式账号合并流程，最终由 API-06 `/merge/confirm` 改写 binding；也可以提示用户切换账号或联系支持。
+客户端处理：不能把该 OAuth identity 通过 API-03 强行绑定或转移到 `legacyOneKeyIdAuthToken` 对应的 legacy email OneKeyID。API-03 只返回 `oauth_identity_bound_to_another_account`；客户端应提示该 OAuth identity 已被其他 OneKeyID 使用，并停止本次绑定。不能在 API-03 内自动登录其他 OneKeyID、转移 binding 或继续 merge。
