@@ -875,68 +875,65 @@ function TokenListViewCmp(props: IProps) {
   // immediately instead of being hidden by the plainMode `if (showSkeleton)`
   // early-return until the network round lands. PR-7/PR-3 branch rationale is
   // documented inline in that function.
-  const showSkeleton = useMemo(
-    () => {
-      const decision = computeShowTokenListSkeleton({
-        showActiveAccountTokenList: !!showActiveAccountTokenList,
-        activeAccountTokenListInitialized:
-          activeAccountTokenListState.initialized,
-        activeAccountTokenListIsRefreshing:
-          activeAccountTokenListState.isRefreshing,
-        isTokenSelector: !!isTokenSelector,
-        searchAll: !!searchAll,
-        tokenSelectorSearchKeyLength: tokenSelectorSearchKey.length,
-        searchKeyLengthThreshold:
-          searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH,
-        tokenSelectorSearchTokenListSearchKey:
-          tokenSelectorSearchTokenList.searchKey ?? '',
-        tokenSelectorSearchKey,
-        filteredTokensLength: filteredTokens.length,
-        ownerMismatch,
-        tokenSelectorInitialized: !!tokenSelectorInitialized,
-        tokenSelectorSearchTokenStateIsSearching:
-          tokenSelectorSearchTokenState.isSearching,
-        searchTokenStateIsSearching: searchTokenState.isSearching,
-        tokenListInitialized: tokenListState.initialized,
-        tokenListIsRefreshing: tokenListState.isRefreshing,
-        displayCount,
-      });
-      tln(
-        `ui.skeleton show=${decision ? 1 : 0} home=${
-          showActiveAccountTokenList ? 1 : 0
-        } seam=${isHomeProjectionPath ? 1 : 0} tlInit=${
-          tokenListState.initialized ? 1 : 0
-        } tlRefresh=${
-          tokenListState.isRefreshing ? 1 : 0
-        } displayCount=${displayCount} ownerMismatch=${
-          ownerMismatch ? 1 : 0
-        } owner=${listStructure.ownerKey} gen=${listStructure.generation}`,
-      );
-      return decision;
-    },
-    [
-      ownerMismatch,
-      isTokenSelector,
-      tokenSelectorInitialized,
-      searchAll,
+  const showSkeleton = useMemo(() => {
+    const decision = computeShowTokenListSkeleton({
+      showActiveAccountTokenList: !!showActiveAccountTokenList,
+      activeAccountTokenListInitialized:
+        activeAccountTokenListState.initialized,
+      activeAccountTokenListIsRefreshing:
+        activeAccountTokenListState.isRefreshing,
+      isTokenSelector: !!isTokenSelector,
+      searchAll: !!searchAll,
+      tokenSelectorSearchKeyLength: tokenSelectorSearchKey.length,
+      searchKeyLengthThreshold:
+        searchKeyLengthThreshold ?? SEARCH_KEY_MIN_LENGTH,
+      tokenSelectorSearchTokenListSearchKey:
+        tokenSelectorSearchTokenList.searchKey ?? '',
       tokenSelectorSearchKey,
-      tokenSelectorSearchTokenList.searchKey,
-      searchKeyLengthThreshold,
-      filteredTokens.length,
-      tokenSelectorSearchTokenState.isSearching,
-      searchTokenState.isSearching,
-      tokenListState.initialized,
-      tokenListState.isRefreshing,
-      activeAccountTokenListState.initialized,
-      activeAccountTokenListState.isRefreshing,
-      showActiveAccountTokenList,
+      filteredTokensLength: filteredTokens.length,
+      ownerMismatch,
+      tokenSelectorInitialized: !!tokenSelectorInitialized,
+      tokenSelectorSearchTokenStateIsSearching:
+        tokenSelectorSearchTokenState.isSearching,
+      searchTokenStateIsSearching: searchTokenState.isSearching,
+      tokenListInitialized: tokenListState.initialized,
+      tokenListIsRefreshing: tokenListState.isRefreshing,
       displayCount,
-      // [TLNATIVE temp] keep the logged owner/gen fresh (log-only deps).
-      isHomeProjectionPath,
-      listStructure.ownerKey,
-      listStructure.generation,
-    ],
-  );
+    });
+    tln(
+      `ui.skeleton show=${decision ? 1 : 0} home=${
+        showActiveAccountTokenList ? 1 : 0
+      } seam=${isHomeProjectionPath ? 1 : 0} tlInit=${
+        tokenListState.initialized ? 1 : 0
+      } tlRefresh=${
+        tokenListState.isRefreshing ? 1 : 0
+      } displayCount=${displayCount} ownerMismatch=${
+        ownerMismatch ? 1 : 0
+      } owner=${listStructure.ownerKey} gen=${listStructure.generation}`,
+    );
+    return decision;
+  }, [
+    ownerMismatch,
+    isTokenSelector,
+    tokenSelectorInitialized,
+    searchAll,
+    tokenSelectorSearchKey,
+    tokenSelectorSearchTokenList.searchKey,
+    searchKeyLengthThreshold,
+    filteredTokens.length,
+    tokenSelectorSearchTokenState.isSearching,
+    searchTokenState.isSearching,
+    tokenListState.initialized,
+    tokenListState.isRefreshing,
+    activeAccountTokenListState.initialized,
+    activeAccountTokenListState.isRefreshing,
+    showActiveAccountTokenList,
+    displayCount,
+    // [TLNATIVE temp] keep the logged owner/gen fresh (log-only deps).
+    isHomeProjectionPath,
+    listStructure.ownerKey,
+    listStructure.generation,
+  ]);
 
   useEffect(() => {
     if (showSkeleton) {
