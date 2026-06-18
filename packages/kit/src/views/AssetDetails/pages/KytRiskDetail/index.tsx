@@ -28,6 +28,7 @@ import type {
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
@@ -205,11 +206,21 @@ function KytRiskDetail() {
 
   const hasMoreFactors = riskDetail.factors.length > 1;
 
+  // Only trust HTTPS report links from the backend — defense in depth against a
+  // tampered/compromised response opening a deep link or phishing page.
+  const canViewReport = useMemo(
+    () =>
+      Boolean(riskDetail.reportUrl) &&
+      uriUtils.parseUrl(riskDetail.reportUrl ?? '')?.urlSchema === 'https',
+    [riskDetail.reportUrl],
+  );
+
   const handleViewReport = useCallback(() => {
-    if (riskDetail.reportUrl) {
-      openUrlExternal(riskDetail.reportUrl);
+    if (!canViewReport || !riskDetail.reportUrl) {
+      return;
     }
-  }, [riskDetail.reportUrl]);
+    openUrlExternal(riskDetail.reportUrl);
+  }, [canViewReport, riskDetail.reportUrl]);
 
   const headerRight = useCallback(
     () => (
@@ -389,7 +400,7 @@ function KytRiskDetail() {
           ) : null}
         </ScrollView>
       </Page.Body>
-      {riskDetail.reportUrl ? (
+      {canViewReport ? (
         <Page.Footer>
           <YStack
             px="$5"
