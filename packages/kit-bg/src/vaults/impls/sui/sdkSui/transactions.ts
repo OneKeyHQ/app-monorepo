@@ -1,5 +1,5 @@
-import { Transaction } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
 import {
@@ -13,6 +13,7 @@ import { normalizeSuiCoinType } from './utils';
 
 import type { OneKeySuiClient } from './ClientSui';
 import type { BalanceChange, CoinStruct } from '@mysten/sui/jsonRpc';
+import type { TransactionObjectArgument } from '@mysten/sui/transactions';
 
 export enum ESuiTransactionType {
   ContractInteraction = 'ContractInteraction',
@@ -85,21 +86,15 @@ async function createTokenTransaction({
   maxSendNativeToken?: boolean;
 }) {
   const tx = new Transaction();
-  const allCoins = await getAllCoinsByCoinType({
-    client,
-    address: sender,
+  tx.setSender(sender);
+
+  // totalBalance includes both coin objects and address balances
+  const { totalBalance, fundsInAddressBalance } = await client.getBalance({
+    owner: sender,
     coinType,
   });
 
-  const totalBalance = allCoins.reduce(
-    (sum, coin) => sum.plus(coin.balance),
-    new BigNumber(0),
-  );
-
-  if (
-    totalBalance.lt(amount) ||
-    (totalBalance.isZero() && allCoins.length === 0)
-  ) {
+  if (new BigNumber(totalBalance).lt(amount)) {
     throw new OneKeyInternalError({
       key: ETranslations.earn_insufficient_balance,
     });
@@ -107,7 +102,52 @@ async function createTokenTransaction({
 
   // Max send native token
   if (maxSendNativeToken && coinType === SUI_TYPE_ARG) {
-    tx.transferObjects([tx.gas], recipient);
+    const allCoins = await getAllCoinsByCoinType({
+      client,
+      address: sender,
+      coinType,
+    });
+
+    // No coin objects: pay gas from the address balance (gasMode addressBalance).
+    // We must NOT reference tx.gas here — using it forces the SDK to require a
+    // gas coin (usesGasCoin=true). With no tx.gas, the resolver leaves the gas
+    // payment empty and withdraws gas from the address balance automatically.
+    if (allCoins.length === 0) {
+      const addressBalanceOnly = new BigNumber(fundsInAddressBalance ?? '0');
+      if (addressBalanceOnly.lte(0)) {
+        throw new OneKeyInternalError({
+          key: ETranslations.earn_insufficient_balance,
+        });
+      }
+      // `amount` is the max-send amount (already balance - fee). Withdraw it and
+      // send it out; the gas budget is withdrawn from the remaining balance.
+      const [withdrawn] = tx.moveCall({
+        target: '0x2::coin::redeem_funds',
+        typeArguments: [coinType],
+        arguments: [
+          tx.withdrawal({
+            amount: new BigNumber(amount).toFixed(0),
+            type: coinType,
+          }),
+        ],
+      });
+      tx.transferObjects([withdrawn], recipient);
+      return tx;
+    }
+
+    const transferred: TransactionObjectArgument[] = [tx.gas];
+    const addressBalance = new BigNumber(fundsInAddressBalance ?? '0');
+    if (addressBalance.gt(0)) {
+      const [withdrawn] = tx.moveCall({
+        target: '0x2::coin::redeem_funds',
+        typeArguments: [coinType],
+        arguments: [
+          tx.withdrawal({ amount: addressBalance.toFixed(), type: coinType }),
+        ],
+      });
+      transferred.push(withdrawn);
+    }
+    tx.transferObjects(transferred, recipient);
     tx.setGasPayment(
       allCoins
         .filter(
@@ -124,40 +164,55 @@ async function createTokenTransaction({
 
     return tx;
   }
-  // Native token
-  if (coinType === SUI_TYPE_ARG) {
-    const coin = tx.splitCoins(tx.gas, [amount]);
-    tx.transferObjects([coin], recipient);
-  } else {
-    // Token transfer
-    const [primaryCoin, ...mergeCoins] = allCoins.filter(
-      (coin) =>
-        normalizeSuiCoinType(coin.coinType) === normalizeSuiCoinType(coinType),
-    );
-    const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-    if (mergeCoins.length) {
-      tx.mergeCoins(
-        primaryCoinInput,
-        mergeCoins.map((coin) => tx.object(coin.coinObjectId)),
-      );
-    }
-    const coin = tx.splitCoins(primaryCoinInput, [amount]);
-    tx.transferObjects([coin], recipient);
-  }
+
+  // coinWithBalance resolves from coin objects and address balances at build time
+  const coin = tx.add(
+    coinWithBalance({
+      type: coinType,
+      balance: BigInt(amount),
+    }),
+  );
+  tx.transferObjects([coin], recipient);
   return tx;
+}
+
+// 0x2::{coin,balance}::send_funds (deposit) and redeem_funds (withdraw) operate
+// on address balances and are part of plain transfers, not contract interactions.
+function isAddressBalanceCall(moveCall: {
+  package: string;
+  module: string;
+  function: string;
+}) {
+  return (
+    normalizeSuiAddress(moveCall.package) === normalizeSuiAddress('0x2') &&
+    (moveCall.module === 'coin' || moveCall.module === 'balance') &&
+    (moveCall.function === 'redeem_funds' || moveCall.function === 'send_funds')
+  );
 }
 
 function analyzeTransactionType(tx: Transaction) {
   const commands = tx.getData().commands;
-  const hasMoveCall = commands.some((cmd) => cmd.$kind === 'MoveCall');
-  if (hasMoveCall) {
+  const moveCalls = commands.filter(
+    (cmd) => cmd.$kind === 'MoveCall' && cmd.MoveCall,
+  );
+
+  // Any move call that is NOT an address-balance op makes this a contract call.
+  const hasContractMoveCall = moveCalls.some(
+    (cmd) => cmd.MoveCall && !isAddressBalanceCall(cmd.MoveCall),
+  );
+  if (hasContractMoveCall) {
     return ESuiTransactionType.ContractInteraction;
   }
 
-  const transferCommands = commands.filter(
+  // send_funds deposits have no TransferObjects command, so treat any
+  // address-balance op as a transfer too (not just TransferObjects).
+  const hasAddressBalanceCall = moveCalls.some(
+    (cmd) => cmd.MoveCall && isAddressBalanceCall(cmd.MoveCall),
+  );
+  const hasTransferCommand = commands.some(
     (cmd) => cmd.$kind === 'TransferObjects',
   );
-  if (transferCommands.length) {
+  if (hasAddressBalanceCall || hasTransferCommand) {
     return ESuiTransactionType.TokenTransfer;
   }
   return ESuiTransactionType.Unknown;
