@@ -38,10 +38,11 @@ const ChartViewAdapter: FC<IChartViewAdapterProps> = ({
     let cancelled = false;
     let cleanup: (() => void) | undefined;
 
-    void getChartLib().then(({ createChart }) => {
+    void getChartLib().then(({ AreaSeries, createChart }) => {
       if (cancelled || !chartContainerRef.current) return;
       const { chart, handleResize } = createChartDom(
         createChart,
+        AreaSeries,
         chartContainerRef.current,
         onHover,
         height,
