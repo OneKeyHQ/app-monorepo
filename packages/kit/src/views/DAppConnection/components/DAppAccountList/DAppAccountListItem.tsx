@@ -483,7 +483,9 @@ function DAppAccountListStandAloneItemReadonly({
           accountId,
           networkId,
         }),
-        serviceNetwork.getNetwork({
+        // Use getNetworkSafe so a delisted networkId resolves to undefined
+        // instead of throwing and blanking the whole account row.
+        serviceNetwork.getNetworkSafe({
           networkId,
         }),
         serviceAccount.getWallet({

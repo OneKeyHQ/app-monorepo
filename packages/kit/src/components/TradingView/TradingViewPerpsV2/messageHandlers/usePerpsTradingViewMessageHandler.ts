@@ -33,6 +33,8 @@ import {
 } from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
+import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
+
 import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
@@ -57,6 +59,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderDraftCreate,
   onOrderPriceUpdate,
   onTouchScroll,
+  onInteractionOverlayOpenChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
@@ -67,6 +70,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
   onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
@@ -393,6 +397,13 @@ export function usePerpsTradingViewMessageHandler({
           }
           break;
         }
+        case 'tradingview_interactionOverlay': {
+          const isOpen = getPerpsInteractionOverlayOpenState(messageData.data);
+          if (typeof isOpen === 'boolean') {
+            onInteractionOverlayOpenChange?.(isOpen);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -406,6 +417,7 @@ export function usePerpsTradingViewMessageHandler({
       onOrderDraftCreate,
       onOrderPriceUpdate,
       onTouchScroll,
+      onInteractionOverlayOpenChange,
       setLayoutState,
     ],
   );

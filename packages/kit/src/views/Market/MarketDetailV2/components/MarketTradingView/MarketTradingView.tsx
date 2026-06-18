@@ -72,6 +72,7 @@ interface IMarketTradingViewProps {
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }
 
 export const MarketTradingView = memo(
@@ -85,6 +86,7 @@ export const MarketTradingView = memo(
     onTouchScroll,
     onIndicatorsDialogOpenChange,
     disabledFeatures,
+    onInteractionOverlayOpenChange,
   }: IMarketTradingViewProps) => {
     const { accountAddress } = useNetworkAccountAddress(networkId);
     const tokenDetailActions = useTokenDetailActions();
@@ -133,6 +135,7 @@ export const MarketTradingView = memo(
         onTouchScroll={onTouchScroll}
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         disabledFeatures={disabledFeatures}
+        onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onPriceUpdate={handlePriceUpdate}
       />
     );
