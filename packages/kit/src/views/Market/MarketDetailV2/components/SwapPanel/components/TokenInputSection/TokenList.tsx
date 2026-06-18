@@ -24,12 +24,15 @@ type IEnhancedToken = IToken & {
 };
 
 interface ITokenListProps {
-  tokens?: IToken[];
+  tokens?: IEnhancedToken[];
   onTokenPress?: (token: IToken) => void;
   onTradePress: () => void;
   disabledOnSwitchToTrade?: boolean;
   currentSelectToken?: ISwapToken;
   disableNativeToken?: boolean;
+  disableInternalTokenDetailFetch?: boolean;
+  tokenDetailsLoading?: boolean;
+  sortTokensByValue?: boolean;
 }
 
 export function TokenList({
@@ -39,14 +42,19 @@ export function TokenList({
   disabledOnSwitchToTrade,
   currentSelectToken,
   disableNativeToken,
+  disableInternalTokenDetailFetch,
+  tokenDetailsLoading,
+  sortTokensByValue = true,
 }: ITokenListProps) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const currencySymbol = '$';
   const currentNetworkId = tokens[0]?.networkId;
+  const shouldFetchTokenDetails = !disableInternalTokenDetailFetch;
 
   // get network account
   const networkAccount = usePromiseResult(async () => {
     if (
+      !shouldFetchTokenDetails ||
       (!activeAccount?.indexedAccount?.id && !activeAccount?.account?.id) ||
       !currentNetworkId
     ) {
@@ -68,11 +76,15 @@ export function TokenList({
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
     currentNetworkId,
+    shouldFetchTokenDetails,
   ]);
 
   // fetch token details
   const tokensWithDetails = usePromiseResult(
     async (): Promise<IEnhancedToken[]> => {
+      if (!shouldFetchTokenDetails) {
+        return tokens;
+      }
       if (!tokens.length || !networkAccount.result) {
         return tokens.map((token) => ({
           ...token,
@@ -117,26 +129,32 @@ export function TokenList({
       });
       return Promise.all(promises);
     },
-    [tokens, networkAccount.result, currencySymbol],
-    { watchLoading: true },
+    [tokens, networkAccount.result, currencySymbol, shouldFetchTokenDetails],
+    { watchLoading: shouldFetchTokenDetails },
   );
 
   const displayTokens = useMemo(() => {
-    return tokens
-      .map((token) => {
-        const tokenWithDetail = tokensWithDetails?.result?.find(
-          (detailToken) =>
-            detailToken.networkId === token.networkId &&
-            detailToken.contractAddress === token.contractAddress,
-        );
-        return { ...token, ...tokenWithDetail };
-      })
-      .toSorted((a, b) => {
-        const valueA = parseFloat(a.valueProps?.value || '0');
-        const valueB = parseFloat(b.valueProps?.value || '0');
-        return valueB - valueA;
-      });
-  }, [tokensWithDetails?.result, tokens]);
+    const mergedTokens = tokens.map((token) => {
+      const tokenWithDetail = tokensWithDetails?.result?.find(
+        (detailToken) =>
+          detailToken.networkId === token.networkId &&
+          detailToken.contractAddress === token.contractAddress,
+      );
+      return { ...token, ...tokenWithDetail };
+    });
+    if (!sortTokensByValue) {
+      return mergedTokens;
+    }
+    return mergedTokens.toSorted((a, b) => {
+      const valueA = parseFloat(a.valueProps?.value || '0');
+      const valueB = parseFloat(b.valueProps?.value || '0');
+      return valueB - valueA;
+    });
+  }, [sortTokensByValue, tokensWithDetails?.result, tokens]);
+
+  const isTokenDetailsLoading =
+    tokenDetailsLoading ??
+    (!disableInternalTokenDetailFetch && tokensWithDetails.isLoading);
 
   return (
     <YStack gap="$1">
@@ -156,7 +174,7 @@ export function TokenList({
           };
           return (
             <TokenListItem
-              isLoading={tokensWithDetails.isLoading}
+              isLoading={isTokenDetailsLoading}
               key={`${token.networkId}-${token.contractAddress}`}
               tokenImageSrc={token.logoURI}
               networkImageSrc={token.networkImageSrc}

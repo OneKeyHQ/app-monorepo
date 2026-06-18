@@ -39,6 +39,7 @@ import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVChartOrderIntentPayload,
   ITVChartReadyPayload,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
@@ -58,6 +59,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderCancel,
   onOrderDraftCreate,
   onOrderPriceUpdate,
+  onChartOrderIntent,
   onTouchScroll,
   onInteractionOverlayOpenChange,
 }: {
@@ -69,6 +71,7 @@ export function usePerpsTradingViewMessageHandler({
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
   onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
+  onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
@@ -376,6 +379,9 @@ export function usePerpsTradingViewMessageHandler({
         case PERPS_TV_MESSAGE_METHODS.ORDER_DRAFT_CREATE:
           onOrderDraftCreate?.(messageData.data as ITVOrderDraftCreatePayload);
           break;
+        case PERPS_TV_MESSAGE_METHODS.CHART_ORDER_INTENT:
+          onChartOrderIntent?.(messageData.data as ITVChartOrderIntentPayload);
+          break;
         case PERPS_TV_MESSAGE_METHODS.ORDER_PRICE_UPDATE:
           onOrderPriceUpdate?.(messageData.data as ITVOrderPriceUpdatePayload);
           break;
@@ -416,6 +422,7 @@ export function usePerpsTradingViewMessageHandler({
       onOrderCancel,
       onOrderDraftCreate,
       onOrderPriceUpdate,
+      onChartOrderIntent,
       onTouchScroll,
       onInteractionOverlayOpenChange,
       setLayoutState,

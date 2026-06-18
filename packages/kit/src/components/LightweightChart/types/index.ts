@@ -40,6 +40,7 @@ export interface ILightweightChartConfig {
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
   showTimeScale?: boolean;
 }
 
@@ -63,6 +64,7 @@ export interface ILightweightChartProps {
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
   showTimeScale?: boolean;
   onHover?: (data: {
     time?: number;

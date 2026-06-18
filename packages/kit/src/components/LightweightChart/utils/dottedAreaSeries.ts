@@ -194,11 +194,13 @@ export function createDottedAreaSeriesOptions({
   theme,
   lineWidth,
   showLastValue,
+  showLastPointMarker,
   priceFormatter,
 }: {
   theme: ILightweightChartTheme;
   lineWidth?: number;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
   priceFormatter?: (price: number) => string;
 }): SeriesPartialOptions<IDottedAreaSeriesOptions> {
   return {
@@ -209,7 +211,7 @@ export function createDottedAreaSeriesOptions({
     patternOpacity: 0.28,
     patternRadius: 0.9,
     patternSpacing: 10,
-    showLastPointMarker: true,
+    showLastPointMarker: showLastPointMarker ?? true,
     lastPointMarkerColor: theme.lineColor,
     lastPointMarkerRadius: 5.5,
     lastValueVisible: !!showLastValue,
