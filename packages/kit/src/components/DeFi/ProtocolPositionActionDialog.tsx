@@ -762,11 +762,11 @@ function ProtocolPositionActionCurrentLine({
       tokenImageUri: item.meta?.logoUrl,
     })) ?? [];
   return (
-    <XStack alignItems="center" justifyContent="space-between" gap="$3">
+    <XStack alignItems="center" gap="$3">
       <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
         {label}
       </SizableText>
-      <XStack alignItems="center" gap="$1.5" flexShrink={1} minWidth={0}>
+      <XStack flex={1} alignItems="center" gap="$2" minWidth={0}>
         {isLiquidity ? (
           <>
             <TokenGroup
@@ -813,24 +813,132 @@ function ProtocolPositionActionCurrentLine({
             </XStack>
           </>
         )}
-        <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-          ·
-        </SizableText>
-        <ProtocolValueCell
-          value={asset.asset.value}
-          currencySymbol={currencySymbol}
-          priceUnavailableLabel={priceUnavailableLabel}
-          isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
-          size="$bodyMd"
-          color="$textSubdued"
+      </XStack>
+      <ProtocolValueCell
+        value={asset.asset.value}
+        currencySymbol={currencySymbol}
+        priceUnavailableLabel={priceUnavailableLabel}
+        isUnavailable={isProtocolAssetValueUnavailable(asset.asset)}
+        size="$bodyMdMedium"
+        color="$text"
+        textAlign="right"
+        numberOfLines={1}
+      />
+    </XStack>
+  );
+}
+
+function ProtocolPositionActionReceiveAmountRow({
+  asset,
+}: {
+  asset: IProtocolPositionActionPreviewAsset;
+}) {
+  return (
+    <XStack alignItems="center" gap="$2" minWidth={0}>
+      <Token size="xs" tokenImageUri={asset.asset.meta?.logoUrl} bg="$bg" />
+      <XStack alignItems="center" gap="$1" flexShrink={1} minWidth={0}>
+        <NumberSizeableTextWrapper
+          hideValue
+          size="$bodyLgMedium"
+          formatter="balance"
           numberOfLines={1}
-        />
+        >
+          {asset.amount}
+        </NumberSizeableTextWrapper>
+        <SizableText
+          size="$bodyLgMedium"
+          color="$text"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {asset.symbol}
+        </SizableText>
       </XStack>
     </XStack>
   );
 }
 
-function ProtocolPositionActionAmountHero({
+// The received token amounts under the value hero. A single token sits inline
+// and centered; multiple tokens (LP) stack into a left-aligned list — one
+// amount per line, icons aligned — which scans far better than amounts floating
+// side by side and scales cleanly past two tokens.
+function ProtocolPositionActionReceiveAmount({
+  assets,
+}: {
+  assets: IProtocolPositionActionPreviewAsset[];
+}) {
+  if (assets.length === 0) return null;
+  if (assets.length === 1) {
+    return <ProtocolPositionActionReceiveAmountRow asset={assets[0]} />;
+  }
+  return (
+    <YStack alignItems="flex-start" gap="$2.5">
+      {assets.map((asset, index) => (
+        <ProtocolPositionActionReceiveAmountRow
+          key={`${asset.asset.address}-${asset.symbol}-${index}`}
+          asset={asset}
+        />
+      ))}
+    </YStack>
+  );
+}
+
+function ProtocolPositionActionReceiveHero({
+  label,
+  value,
+  isUnavailable,
+  showPriceUnavailableTooltip,
+  estimated,
+  assets,
+  currencySymbol,
+  priceUnavailableLabel,
+}: {
+  label: string;
+  value: number;
+  isUnavailable: boolean;
+  showPriceUnavailableTooltip: boolean;
+  estimated: boolean;
+  assets: IProtocolPositionActionPreviewAsset[];
+  currencySymbol: string;
+  priceUnavailableLabel: string;
+}) {
+  return (
+    <YStack gap="$3" alignItems="center">
+      <YStack gap="$1.5" alignItems="center">
+        <SizableText size="$bodyMdMedium" color="$textSubdued">
+          {label}
+        </SizableText>
+        <XStack
+          alignItems="center"
+          justifyContent="center"
+          gap="$1"
+          minWidth={0}
+        >
+          {estimated ? (
+            <SizableText size="$headingXl" color="$textSubdued">
+              ≈
+            </SizableText>
+          ) : null}
+          <ProtocolValueCell
+            value={value}
+            currencySymbol={currencySymbol}
+            priceUnavailableLabel={priceUnavailableLabel}
+            isUnavailable={isUnavailable}
+            showPriceUnavailableTooltip={showPriceUnavailableTooltip}
+            size="$heading4xl"
+            color="$text"
+            textAlign="center"
+            numberOfLines={1}
+            fontVariant={['tabular-nums']}
+          />
+        </XStack>
+      </YStack>
+      <ProtocolPositionActionReceiveAmount assets={assets} />
+    </YStack>
+  );
+}
+
+function ProtocolPositionActionPercentSlider({
   percent,
   maxLabel,
   onChange,
@@ -841,54 +949,57 @@ function ProtocolPositionActionAmountHero({
 }) {
   const normalizedPercent = normalizeActionPercent(percent);
   return (
-    <YStack gap="$4">
-      <SizableText
-        size="$heading5xl"
-        color="$text"
-        textAlign="center"
-        fontVariant={['tabular-nums']}
-      >
-        {`${normalizedPercent}%`}
-      </SizableText>
-      <YStack gap="$3">
-        <PerpsSlider
-          value={normalizedPercent}
-          onChange={(value) => onChange(normalizeActionPercent(value))}
-          min={0}
-          max={100}
-          segments={PERCENTAGE_SLIDER_SEGMENTS}
-          sliderHeight={6}
-          showBubble
-          snapTapToSegment
-        />
-        <XStack gap="$2">
-          {PERCENTAGE_PRESET_VALUES.map((presetPercent) => {
-            const selected = normalizedPercent === presetPercent;
-            const presetLabel =
-              presetPercent === 100 ? maxLabel : `${presetPercent}%`;
-            return (
-              <Button
-                key={presetPercent}
-                testID={`defi-position-action-percent-${presetPercent}`}
-                size="small"
-                variant="secondary"
-                flex={1}
-                bg={selected ? '$bgActive' : '$bgSubdued'}
-                borderColor={selected ? '$borderActive' : '$transparent'}
-                hoverStyle={{
-                  bg: selected ? '$bgActive' : '$bgStrong',
-                }}
-                pressStyle={{
-                  bg: selected ? '$bgActive' : '$bgStrong',
-                }}
-                onPress={() => onChange(presetPercent)}
-              >
-                {presetLabel}
-              </Button>
-            );
-          })}
-        </XStack>
-      </YStack>
+    <YStack gap="$3">
+      <XStack alignItems="center" gap="$3">
+        <Stack flex={1} minWidth={0}>
+          <PerpsSlider
+            value={normalizedPercent}
+            onChange={(value) => onChange(normalizeActionPercent(value))}
+            min={0}
+            max={100}
+            segments={PERCENTAGE_SLIDER_SEGMENTS}
+            sliderHeight={6}
+            snapTapToSegment
+          />
+        </Stack>
+        <SizableText
+          size="$headingLg"
+          color="$text"
+          textAlign="right"
+          minWidth={48}
+          flexShrink={0}
+          fontVariant={['tabular-nums']}
+        >
+          {`${normalizedPercent}%`}
+        </SizableText>
+      </XStack>
+      <XStack gap="$2">
+        {PERCENTAGE_PRESET_VALUES.map((presetPercent) => {
+          const selected = normalizedPercent === presetPercent;
+          const presetLabel =
+            presetPercent === 100 ? maxLabel : `${presetPercent}%`;
+          return (
+            <Button
+              key={presetPercent}
+              testID={`defi-position-action-percent-${presetPercent}`}
+              size="small"
+              variant="secondary"
+              flex={1}
+              bg={selected ? '$bgActive' : '$bgSubdued'}
+              borderColor={selected ? '$borderActive' : '$transparent'}
+              hoverStyle={{
+                bg: selected ? '$bgActive' : '$bgStrong',
+              }}
+              pressStyle={{
+                bg: selected ? '$bgActive' : '$bgStrong',
+              }}
+              onPress={() => onChange(presetPercent)}
+            >
+              {presetLabel}
+            </Button>
+          );
+        })}
+      </XStack>
     </YStack>
   );
 }
@@ -1078,6 +1189,10 @@ function ProtocolPositionActionDialogContent({
     () => aggregatePreviewAssets(outputPreviewAssets),
     [outputPreviewAssets],
   );
+  const outputValueState = useMemo(
+    () => getPreviewAssetsValueState(aggregatedOutputPreviewAssets),
+    [aggregatedOutputPreviewAssets],
+  );
   const selectAllLabel = intl.formatMessage({
     id: allSelected
       ? ETranslations.global_deselect_all
@@ -1191,20 +1306,35 @@ function ProtocolPositionActionDialogContent({
                   priceUnavailableLabel={priceUnavailableLabel}
                 />
               ) : null}
-              <ProtocolPositionActionAmountHero
-                percent={actionPercent}
-                maxLabel={maxLabel}
-                onChange={setActionPercent}
-              />
+              <YStack gap="$4">
+                <ProtocolPositionActionReceiveHero
+                  label={resultLabel}
+                  value={outputValueState.value}
+                  isUnavailable={outputValueState.isUnavailable}
+                  showPriceUnavailableTooltip={
+                    outputValueState.showPriceUnavailableTooltip
+                  }
+                  estimated
+                  assets={aggregatedOutputPreviewAssets}
+                  currencySymbol={currencySymbol}
+                  priceUnavailableLabel={priceUnavailableLabel}
+                />
+                <ProtocolPositionActionPercentSlider
+                  percent={actionPercent}
+                  maxLabel={maxLabel}
+                  onChange={setActionPercent}
+                />
+              </YStack>
             </YStack>
-          ) : null}
-          <ProtocolPositionActionReceive
-            label={receiveLabel}
-            assets={aggregatedOutputPreviewAssets}
-            currencySymbol={currencySymbol}
-            priceUnavailableLabel={priceUnavailableLabel}
-            estimated={isPercentAction}
-          />
+          ) : (
+            <ProtocolPositionActionReceive
+              label={receiveLabel}
+              assets={aggregatedOutputPreviewAssets}
+              currencySymbol={currencySymbol}
+              priceUnavailableLabel={priceUnavailableLabel}
+              estimated={isPercentAction}
+            />
+          )}
         </YStack>
       ) : (
         <YStack py="$6" alignItems="center">
