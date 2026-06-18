@@ -445,6 +445,11 @@ function TxActionCommonListView(
     riskyLevel,
     kytRiskLevel,
     compact,
+    // Extra content rendered below the row, inside the same (column-layout)
+    // ListItem — used by the history list to keep a pending tx's speed-up/cancel
+    // actions in the same pressable container as the row, so navigation and the
+    // press/hover highlight cover both.
+    children: bottomContent,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -571,6 +576,7 @@ function TxActionCommonListView(
           currencySymbol={currencySymbol}
         />
       </XStack>
+      {bottomContent}
     </ListItem>
   );
 }

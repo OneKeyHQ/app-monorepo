@@ -21,6 +21,7 @@ export enum EModalReceiveRoutes {
   ReceiveSelectAggregateToken = 'ReceiveSelectAggregateToken',
   ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
   BtcAddresses = 'BtcAddresses',
+  BtcFindAddress = 'BtcFindAddress',
   BtcCoins = 'BtcCoins',
   BuyModal = 'Buy',
   DeriveTypesAddress = 'DeriveTypesAddress',
@@ -69,6 +70,14 @@ export type IModalReceiveParamList = {
     accountId: string;
     deriveInfo: IAccountDeriveInfo | undefined;
     walletId: string;
+  };
+  [EModalReceiveRoutes.BtcFindAddress]: {
+    accountId: string;
+    networkId: string;
+    accountName: string;
+    accountPath: string;
+    addressTypeLabel: string;
+    deriveType: string;
   };
   [EModalReceiveRoutes.BtcCoins]: {
     networkId: string;
