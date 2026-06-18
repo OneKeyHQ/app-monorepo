@@ -124,6 +124,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
+import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
   shouldEmitSwapHistoryBalanceUpdate,
@@ -2083,10 +2084,7 @@ export default class ServiceSwap extends ServiceBase {
       isPrivateSendHistory,
     });
     return this.fetchTxState({
-      txId:
-        currentSwapTxHistory.txInfo.txId ??
-        currentSwapTxHistory.txInfo.orderId ??
-        '',
+      txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??

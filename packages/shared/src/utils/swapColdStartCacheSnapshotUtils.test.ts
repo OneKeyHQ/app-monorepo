@@ -216,6 +216,36 @@ describe('swapColdStartCacheSnapshotUtils', () => {
     ).toBe(ESwapTabSwitchType.STOCK);
   });
 
+  it('drops cached stock context when the visible cold-start tab is no longer stock', () => {
+    const snapshot = buildSwapSnapshot({
+      contextNetworkId: 'evm--56',
+      activeNetworkId: 'evm--56',
+      contextSwapType: ESwapTabSwitchType.STOCK,
+      snapshotSwapType: ESwapTabSwitchType.SWAP,
+      fromTokenNetworkId: 'evm--56',
+      toTokenNetworkId: 'evm--56',
+    });
+
+    normalizeSwapColdStartCacheSnapshot(snapshot);
+
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
+        )
+      ],
+    ).toBeUndefined();
+    expect(
+      snapshot[
+        buildSnapshotKey(
+          swapScope,
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+        )
+      ],
+    ).toBeUndefined();
+  });
+
   it('keeps all-network cache when from token is on a concrete chain', () => {
     // Regression for the all-network mismatch: the cached context network is the
     // `onekeyall--*` sentinel while the from token is a concrete chain, so an
