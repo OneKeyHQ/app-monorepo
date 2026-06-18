@@ -1959,37 +1959,24 @@ export function useSwapBuildTx() {
               },
             }));
           }
-          buildSwapRes =
-            data.protocol === EProtocolOfExchange.STOCK
-              ? await backgroundApiProxy.serviceSwap.fetchBuildSpeedSwapTx({
-                  fromToken: data.fromTokenInfo,
-                  toToken: data.toTokenInfo,
-                  fromTokenAmount: data.fromAmount,
-                  slippagePercentage: data.slippage ?? slippageItem.value,
-                  receivingAddress: toUserAddress ?? '',
-                  userAddress: fromUserAddress,
-                  provider: data.info.provider,
-                  accountId: fromAccountId ?? '',
-                  quoteResultCtx: data.quoteResultCtx,
-                  protocol: EProtocolOfExchange.STOCK,
-                  kind: data.kind ?? ESwapQuoteKind.SELL,
-                })
-              : await backgroundApiProxy.serviceSwap.fetchBuildTx({
-                  fromToken: data.fromTokenInfo,
-                  toToken: data.toTokenInfo,
-                  toTokenAmount: data.toAmount,
-                  fromTokenAmount: data.fromAmount,
-                  slippagePercentage: slippageItem.value,
-                  receivingAddress: toUserAddress ?? '',
-                  userAddress: fromUserAddress,
-                  provider: data.info.provider,
-                  accountId: fromAccountId ?? '',
-                  quoteResultCtx: data.quoteResultCtx,
-                  protocol: data.protocol ?? EProtocolOfExchange.SWAP,
-                  kind: data.kind ?? ESwapQuoteKind.SELL,
-                  walletType:
-                    swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
-                });
+          buildSwapRes = await backgroundApiProxy.serviceSwap.fetchBuildTx({
+            fromToken: data.fromTokenInfo,
+            toToken: data.toTokenInfo,
+            toTokenAmount: data.toAmount,
+            fromTokenAmount: data.fromAmount,
+            slippagePercentage:
+              data.protocol === EProtocolOfExchange.STOCK
+                ? (data.slippage ?? slippageItem.value)
+                : slippageItem.value,
+            receivingAddress: toUserAddress ?? '',
+            userAddress: fromUserAddress,
+            provider: data.info.provider,
+            accountId: fromAccountId ?? '',
+            quoteResultCtx: data.quoteResultCtx,
+            protocol: data.protocol ?? EProtocolOfExchange.SWAP,
+            kind: data.kind ?? ESwapQuoteKind.SELL,
+            walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
+          });
         } catch (e: any) {
           if (!skipLoading) {
             setSwapSteps((prev) => ({
