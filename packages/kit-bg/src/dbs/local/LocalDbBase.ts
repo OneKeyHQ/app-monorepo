@@ -162,6 +162,7 @@ import type {
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
+  IDBUtxoAccount,
   IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
@@ -6287,6 +6288,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.xpubSegwit = xpubSegwit;
             }
           }
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateAccountFindAddresses({
+    accountId,
+    addedFindAddresses,
+    removedRelPaths,
+  }: {
+    accountId: string;
+    addedFindAddresses?: Record<string, string>; // { "0/100": "address" }
+    removedRelPaths?: string[];
+  }) {
+    const account = (await this.getAccount({
+      accountId,
+    })) as IDBUtxoAccount | undefined;
+    if (!account || account.type !== EDBAccountType.UTXO) {
+      throw new OneKeyLocalError(
+        'updateAccountFindAddresses ERROR: utxo account not found',
+      );
+    }
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater: (item) => {
+          const utxoItem = item as IDBUtxoAccount;
+          // merge on the in-transaction value (not a pre-read snapshot) so
+          // concurrent claim/unclaim/cleanup writers cannot drop each
+          // other's updates. under realm the field is a live Dictionary,
+          // copy it to a plain object before mutating
+          const currentRaw = utxoItem.findAddresses as
+            | (Record<string, string> & {
+                toJSON?: () => Record<string, string>;
+              })
+            | undefined;
+          const findAddresses: Record<string, string> =
+            currentRaw?.toJSON?.() ?? { ...currentRaw };
+          if (addedFindAddresses) {
+            Object.assign(findAddresses, addedFindAddresses);
+          }
+          removedRelPaths?.forEach((relPath) => {
+            delete findAddresses[relPath];
+          });
+          utxoItem.findAddresses = findAddresses;
           return item;
         },
       });

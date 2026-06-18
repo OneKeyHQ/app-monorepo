@@ -40,7 +40,6 @@ import { useNavigateToRewardHistory } from '../RewardDistributionHistory/hooks/u
 import {
   CreatorProgramBanner,
   formatCreatorProgramLocale,
-  shouldShowCreatorProgramBanner,
 } from './components/CreatorProgramBanner';
 import { ReferralListButton } from './components/ReferralListButton';
 
@@ -143,17 +142,11 @@ function InviteRewardPage() {
     () => formatCreatorProgramLocale(intl.locale),
     [intl.locale],
   );
-  const showCreatorProgramBanner = useMemo(
-    () => shouldShowCreatorProgramBanner(intl.locale),
-    [intl.locale],
-  );
-
   const trackCreatorProgramBannerViewIfVisible = useCallback(() => {
     const layout = creatorProgramBannerLayoutRef.current;
     const viewportHeight = scrollViewportHeightRef.current;
 
     if (
-      !showCreatorProgramBanner ||
       didTrackCreatorProgramBannerViewRef.current ||
       !layout ||
       !viewportHeight
@@ -172,7 +165,7 @@ function InviteRewardPage() {
         locale: creatorProgramLocale,
       });
     }
-  }, [creatorProgramLocale, showCreatorProgramBanner]);
+  }, [creatorProgramLocale]);
 
   const handleScrollViewLayout = useCallback(
     (event: LayoutChangeEvent) => {

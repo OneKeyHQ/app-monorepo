@@ -120,6 +120,13 @@ copyFile(
   './packages/kit/src/components/WebView/translateInject.text-js',
 );
 
+// Copy lightweight-charts standalone runtime to .text-js so native chart
+// WebViews can import the runtime as a raw string without committing it.
+copyFile(
+  './node_modules/lightweight-charts/dist/lightweight-charts.standalone.production.js',
+  './packages/kit/src/components/LightweightChart/utils/lightweightChartsStandalone.text-js',
+);
+
 // Build and copy web-embed
 const webEmbedScript = path.join(__dirname, 'web-embed.js');
 execSync(`node "${webEmbedScript}"`, { stdio: 'inherit' });

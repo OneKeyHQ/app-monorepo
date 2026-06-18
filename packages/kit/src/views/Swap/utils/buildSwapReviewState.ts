@@ -1,4 +1,5 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
   ESwapTabSwitchType,
   IFetchQuoteResult,
@@ -218,6 +219,8 @@ export type IBuildSwapReviewStateInput = {
   supportPreBuild: boolean;
   slippage?: number;
   rateDifference?: ISwapPreSwapData['rateDifference'];
+  defaultTokenCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
   texts: ISwapReviewStepTexts;
 };
 
@@ -235,6 +238,8 @@ export function buildSwapReviewState({
   supportPreBuild,
   slippage,
   rateDifference,
+  defaultTokenCurrency,
+  currencyMap,
   texts,
 }: IBuildSwapReviewStateInput): {
   batchTransferType: ESwapBatchTransferType;
@@ -266,6 +271,10 @@ export function buildSwapReviewState({
     buildSwapRateDifference({
       fromTokenPrice: fromToken?.price,
       toTokenPrice: toToken?.price,
+      fromTokenCurrency: fromToken?.currency,
+      toTokenCurrency: toToken?.currency,
+      defaultTokenCurrency,
+      currencyMap,
       instantRate: quoteResult?.instantRate,
     });
 

@@ -16,9 +16,11 @@ import {
 export function PerpCandles({
   collapseChartExpandSignal,
   onTouchScroll,
+  onInteractionOverlayOpenChange,
 }: {
   collapseChartExpandSignal?: number;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
@@ -55,6 +57,7 @@ export function PerpCandles({
           collapseChartExpandSignal={collapseChartExpandSignal}
           w="100%"
           onTouchScroll={onTouchScroll}
+          onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         />
       ) : null}
     </Stack>

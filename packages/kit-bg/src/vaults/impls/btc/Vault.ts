@@ -104,6 +104,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
+import { buildBtcSendUtxoPool, buildUtxoKey } from './sdkBtc/findAddressUtils';
 
 import type { IDBUtxoAccount } from '../../../dbs/local/types';
 import type { IKeyringMap } from '../../base/VaultBase';
@@ -114,6 +115,7 @@ import type {
   IBuildEncodedTxParams,
   IBuildUnsignedTxParams,
   ITransferInfo,
+  IUtxoInfo,
   IValidateGeneralInputParams,
 } from '../../types';
 
@@ -608,6 +610,7 @@ export default class VaultBtc extends VaultBase {
     }
     // Clear the UTXO cache to ensure fresh UTXOs are fetched
     this._collectUTXOsInfoByApiWithCache.clear();
+    this._collectClaimedUtxosWithCache.clear();
     const encodedTx = await this._buildEncodedTxFromBatchTransfer({
       transfersInfo: unsignedTx.transfersInfo,
       specifiedFeeRate,
@@ -984,6 +987,18 @@ export default class VaultBtc extends VaultBase {
     const totalUtxoCount = utxosInfo.length;
 
     const hasSelectedUtxos = selectedUtxoKeys && selectedUtxoKeys.length > 0;
+    // btc find-address feature: claimed off-gap UTXOs are not part of the
+    // gap-scanned pool, merge them in ONLY when the user explicitly made a
+    // coin-control selection, the selection filter below then decides what
+    // gets spent. Sends without a selection never see claimed UTXOs.
+    const { utxoList: claimedUtxos } = hasSelectedUtxos
+      ? await this._collectClaimedUtxosInfo()
+      : { utxoList: [] as IUtxoInfo[] };
+    utxosInfo = buildBtcSendUtxoPool({
+      poolUtxos: utxosInfo,
+      claimedUtxos,
+      selectedUtxoKeys,
+    });
     if (hasSelectedUtxos) {
       const selectedKeysSet = new Set(selectedUtxoKeys);
       utxosInfo = utxosInfo.filter((utxo) => {
@@ -999,11 +1014,16 @@ export default class VaultBtc extends VaultBase {
         });
       }
 
+      // never log claimed (find-address) outpoints: a txid:vout resolves
+      // on-chain back to the user's hidden address
+      const claimedUtxoKeys = new Set(claimedUtxos.map(buildUtxoKey));
       defaultLogger.transaction.send.coinControlSelected({
         network: network.id,
         selectedUtxoCount: utxosInfo.length,
         totalUtxoCount,
-        selectedUtxoKeys,
+        selectedUtxoKeys: selectedUtxoKeys.filter(
+          (key) => !claimedUtxoKeys.has(key),
+        ),
       });
     }
 
@@ -1337,6 +1357,85 @@ export default class VaultBtc extends VaultBase {
     return this._collectUTXOsInfoByApiWithCache(withCheckInscription);
   }
 
+  // btc find-address feature: claimed off-gap addresses are never returned
+  // by the xpub gap scan, query them one address at a time and stamp the
+  // locally known path. Kept outside _collectUTXOsInfoByApiWithCache so the
+  // normal send pool never contains them implicitly.
+  _collectClaimedUtxosWithCache = memoizee(
+    async (withCheckInscription: boolean) => {
+      const dbAccount = (await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId: this.accountId,
+      })) as IDBUtxoAccount;
+      const findAddresses = dbAccount.findAddresses || {};
+      const entries = Object.entries(findAddresses);
+      const utxoList: IUtxoInfo[] = [];
+      const frozenUtxoList: IUtxoInfo[] = [];
+      if (!entries.length) {
+        return { utxoList, frozenUtxoList };
+      }
+      await Promise.all(
+        entries.map(async ([relPath, address]) => {
+          try {
+            const resp =
+              await this.backgroundApi.serviceAccountProfile.fetchAccountDetails(
+                {
+                  networkId: this.networkId,
+                  accountId: this.accountId,
+                  accountAddress: address,
+                  queryByAddressOnly: true,
+                  withUTXOList: true,
+                  withFrozenBalance: true,
+                  withCheckInscription,
+                  withUTXOBlockTime: true,
+                },
+              );
+            const path = `${dbAccount.path}/${relPath}`;
+            const stamp = (utxo: IUtxoInfo): IUtxoInfo => ({
+              ...utxo,
+              address,
+              path,
+              isCustomClaimed: true,
+            });
+            resp.utxoList?.forEach((utxo) => utxoList.push(stamp(utxo)));
+            resp.frozenUtxoList?.forEach((utxo) =>
+              frozenUtxoList.push(stamp(utxo)),
+            );
+          } catch (e) {
+            // non-fatal: a failed single-address query only makes this
+            // claimed UTXO temporarily unavailable for coin control. log
+            // the message only: the raw error carries the request config
+            // and would write the claimed address into local logs
+            console.error(
+              'collectClaimedUtxos ERROR:',
+              (e as Error | undefined)?.message,
+            );
+          }
+        }),
+      );
+      return { utxoList, frozenUtxoList };
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  async _collectClaimedUtxosInfo() {
+    const inscriptionProtection =
+      await this.backgroundApi.serviceSetting.getInscriptionProtection();
+    const checkInscriptionProtectionEnabled =
+      await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && inscriptionProtection;
+    return this._collectClaimedUtxosWithCache(withCheckInscription);
+  }
+
   async _getRelPathsToAddressByApi({
     addresses, // addresses in tx.inputs
     account,
@@ -1374,6 +1473,24 @@ export default class VaultBtc extends VaultBase {
           relPath,
           fullPath,
         };
+      }
+    }
+
+    // btc find-address feature: claimed off-gap addresses are never in the
+    // gap-scanned utxo pool above, resolve their paths from findAddresses
+    const findAddresses = (account as unknown as IDBUtxoAccount).findAddresses;
+    if (findAddresses) {
+      for (const [relPath, claimedAddress] of Object.entries(findAddresses)) {
+        if (addresses.includes(claimedAddress)) {
+          const fullPath = [account.path, relPath].join('/');
+          if (!pathToAddresses[fullPath]) {
+            pathToAddresses[fullPath] = {
+              address: claimedAddress,
+              relPath,
+              fullPath,
+            };
+          }
+        }
       }
     }
 

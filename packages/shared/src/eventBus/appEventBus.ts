@@ -343,6 +343,10 @@ export interface IAppEventBusPayload {
     fromToken?: ISwapToken;
     toToken?: ISwapToken;
   };
+  // De-facto "network list changed, refresh" signal. Emitted not only when a
+  // custom network is added/removed, but also after a server-network sync that
+  // changes the set (e.g. a network delisted to TRASH). All network selectors
+  // listen to it to re-pull their network list.
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -492,6 +496,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
+  [EAppEventBusNames.BtcFindAddressUpdated]: undefined;
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
     progressPercent?: number;
