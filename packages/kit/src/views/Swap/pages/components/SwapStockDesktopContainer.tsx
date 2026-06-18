@@ -146,6 +146,7 @@ const STOCK_CHART_RANGE_ITEMS: {
 ];
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
 const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
   const pointsByTime = new Map<number, number>();
@@ -352,11 +353,12 @@ function StockTradeSideSwitch({
     [onChange],
   );
   return (
-    <XStack w={141}>
+    <XStack w={STOCK_TRADE_SIDE_SWITCH_WIDTH}>
       <TradeTypeSelector
         value={tradeType}
         onChange={handleChange}
         size="small"
+        preventTextWrap
         buyTestID={SwapTestIDs.stockBuyTab}
         sellTestID={SwapTestIDs.stockSellTab}
       />
@@ -1092,6 +1094,7 @@ function StockPriceChart({
         secondaryLineColor={chartLineColor}
         secondaryLineWidth={2}
         seriesType="dotted-area"
+        showLastPointMarker={false}
         showTimeScale={false}
         priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
         priceFormatter={priceFormatter}

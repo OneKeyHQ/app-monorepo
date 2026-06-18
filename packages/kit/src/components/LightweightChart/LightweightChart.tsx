@@ -68,6 +68,7 @@ export function LightweightChart({
   seriesType,
   baselineOptions,
   showLastValue,
+  showLastPointMarker,
   showTimeScale,
   onHover,
 }: ILightweightChartProps) {
@@ -94,6 +95,7 @@ export function LightweightChart({
     seriesType,
     baselineOptions,
     showLastValue,
+    showLastPointMarker,
     showTimeScale,
   });
 
@@ -146,6 +148,7 @@ export function LightweightChart({
               theme: chartConfig.theme,
               lineWidth: chartConfig.lineWidth,
               showLastValue,
+              showLastPointMarker: chartConfig.showLastPointMarker,
               priceFormatter: chartConfig.priceFormatter,
             }),
           );

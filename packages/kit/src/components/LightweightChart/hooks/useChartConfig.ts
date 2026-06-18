@@ -32,6 +32,7 @@ interface IUseChartConfigProps {
   seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
   showTimeScale?: boolean;
 }
 
@@ -54,6 +55,7 @@ export function useChartConfig({
   seriesType,
   baselineOptions,
   showLastValue,
+  showLastPointMarker,
   showTimeScale = true,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
@@ -102,6 +104,7 @@ export function useChartConfig({
       seriesType: resolvedSeriesType,
       baselineOptions,
       showLastValue,
+      showLastPointMarker,
       showTimeScale,
     }),
     [
@@ -126,6 +129,7 @@ export function useChartConfig({
       resolvedSeriesType,
       baselineOptions,
       showLastValue,
+      showLastPointMarker,
       showTimeScale,
     ],
   );

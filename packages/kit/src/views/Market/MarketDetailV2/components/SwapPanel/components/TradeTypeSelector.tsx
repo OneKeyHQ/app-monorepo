@@ -4,6 +4,7 @@ import {
   Button,
   type IButtonProps,
   SegmentControl,
+  SizableText,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,6 +38,11 @@ export interface ITradeTypeSelectorProps {
   size?: IButtonProps['size'];
   buyTestID?: string;
   sellTestID?: string;
+  preventTextWrap?: boolean;
+}
+
+function getButtonTextSize(size: IButtonProps['size']) {
+  return size === 'small' ? '$bodyMdMedium' : '$bodyLgMedium';
 }
 
 export function TradeTypeSelector({
@@ -45,6 +51,7 @@ export function TradeTypeSelector({
   size,
   buyTestID,
   sellTestID,
+  preventTextWrap,
 }: ITradeTypeSelectorProps) {
   const intl = useIntl();
   const { gtMd } = useMedia();
@@ -52,6 +59,19 @@ export function TradeTypeSelector({
   const isSellActive = value === 'sell';
 
   const buttonSize = size ?? (gtMd ? 'small' : 'medium');
+  const renderButtonText = (text: string, color: IButtonProps['color']) =>
+    preventTextWrap ? (
+      <SizableText
+        size={getButtonTextSize(buttonSize)}
+        color={color}
+        textAlign="center"
+        numberOfLines={1}
+      >
+        {text}
+      </SizableText>
+    ) : (
+      text
+    );
 
   const options = [
     {
@@ -66,8 +86,12 @@ export function TradeTypeSelector({
           bg={isBuyActive ? '$bgSuccessStrong' : '$transparent'}
           color={isBuyActive ? '$textOnColor' : '$textSubdued'}
           size={buttonSize}
+          childrenAsText={!preventTextWrap}
         >
-          {intl.formatMessage({ id: ETranslations.global_buy })}
+          {renderButtonText(
+            intl.formatMessage({ id: ETranslations.global_buy }),
+            isBuyActive ? '$textOnColor' : '$textSubdued',
+          )}
         </Button>
       ),
     },
@@ -83,8 +107,12 @@ export function TradeTypeSelector({
           color={isSellActive ? '$textOnColor' : '$textSubdued'}
           size={buttonSize}
           {...getButtonInteractiveStyleProps(isSellActive)}
+          childrenAsText={!preventTextWrap}
         >
-          {intl.formatMessage({ id: ETranslations.global_sell })}
+          {renderButtonText(
+            intl.formatMessage({ id: ETranslations.global_sell }),
+            isSellActive ? '$textOnColor' : '$textSubdued',
+          )}
         </Button>
       ),
     },
