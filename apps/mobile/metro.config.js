@@ -156,6 +156,19 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       filePath: hyperliquidSigningPath,
     };
   }
+  const {
+    resolveMystenSuiSubpathExport,
+  } = require('./metroSuiSubpathResolver');
+  const mystenSuiSubpath = resolveMystenSuiSubpathExport(
+    moduleName,
+    monorepoRoot,
+  );
+  if (mystenSuiSubpath) {
+    return {
+      type: 'sourceFile',
+      filePath: mystenSuiSubpath,
+    };
+  }
   // Strip Developer/Gallery from production union builds
   if (
     (process.env.UNION_BUILD === 'true' ||

@@ -29,7 +29,7 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
+import type { SuiTransactionBlockResponse } from '@mysten/sui/jsonRpc';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()

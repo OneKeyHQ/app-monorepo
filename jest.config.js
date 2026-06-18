@@ -69,10 +69,11 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
+      // @mysten/* and its nested @noble/@scure 2.x deps ship ESM-only since @mysten/sui 2.x
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten|@noble|@scure)/)',
     ],
     transform: {
-      '^.+\\.[jt]sx?$': [
+      '^.+\\.m?[jt]sx?$': [
         '@swc/jest',
         {
           jsc: {

@@ -1488,3 +1488,7 @@ symbolicated
 ivar
 RCTJS
 retryably
+
+# @mysten/sui 2.x ESM-only deps
+mysten
+scure
