@@ -11,6 +11,7 @@ import { StockTokenCheckScene } from './scenes/stockTokenCheck';
 import { StockTradeAlertScene } from './scenes/stockTradeAlert';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
 import { SwapKlineScene } from './scenes/swapKline';
+import { SwapOrderLongPendingWarningScene } from './scenes/swapOrderLongPendingWarning';
 import { SwapQuoteScene } from './scenes/swapQuote';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
@@ -58,4 +59,9 @@ export class SwapScope extends BaseScope {
   stockTradeAlert = this.createScene('stockTradeAlert', StockTradeAlertScene);
 
   valueDropTip = this.createScene('valueDropTip', ValueDropTipScene);
+
+  swapOrderLongPendingWarning = this.createScene(
+    'swapOrderLongPendingWarning',
+    SwapOrderLongPendingWarningScene,
+  );
 }

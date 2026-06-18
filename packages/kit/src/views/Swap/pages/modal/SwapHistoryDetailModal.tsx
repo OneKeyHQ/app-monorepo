@@ -1,4 +1,11 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -8,6 +15,7 @@ import Svg, { Line } from 'react-native-svg';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
   Dialog,
   Divider,
@@ -42,6 +50,10 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  getSwapHistoryLongPendingWarningDelayMs,
+  shouldShowSwapHistoryLongPendingWarning,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -842,6 +854,7 @@ const SwapHistoryDetailModal = () => {
   );
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
+  const longPendingWarningLoggedKeysRef = useRef(new Set<string>());
   useEffect(() => {
     if (!swapTxHistoryList?.length) return;
     const routeTxHistory = txHistoryList?.find(
@@ -900,6 +913,61 @@ const SwapHistoryDetailModal = () => {
       ),
     [txHistoryListState, txHistoryOrderId],
   );
+  const [longPendingWarningNow, setLongPendingWarningNow] = useState(() =>
+    Date.now(),
+  );
+  const shouldShowLongPendingWarning = useMemo(
+    () =>
+      shouldShowSwapHistoryLongPendingWarning({
+        item: txHistory,
+        now: longPendingWarningNow,
+      }),
+    [longPendingWarningNow, txHistory],
+  );
+  useEffect(() => {
+    const now = Date.now();
+    const delayMs = getSwapHistoryLongPendingWarningDelayMs({
+      item: txHistory,
+      now,
+    });
+    if (delayMs === undefined) {
+      return undefined;
+    }
+    setLongPendingWarningNow(now);
+    if (delayMs === 0) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      setLongPendingWarningNow(Date.now());
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [txHistory]);
+  useEffect(() => {
+    if (!shouldShowLongPendingWarning || !txHistory) {
+      return;
+    }
+    const logKey = [
+      txHistory.date.created,
+      txHistory.status,
+      txHistory.swapInfo.provider.provider,
+    ].join(':');
+    if (longPendingWarningLoggedKeysRef.current.has(logKey)) {
+      return;
+    }
+    longPendingWarningLoggedKeysRef.current.add(logKey);
+    defaultLogger.swap.swapOrderLongPendingWarning.swapOrderLongPendingWarning({
+      pendingMinutes: Math.floor(
+        Math.max(longPendingWarningNow - txHistory.date.created, 0) /
+          (60 * 1000),
+      ),
+      protocol: txHistory.protocol ?? EProtocolOfExchange.SWAP,
+      receivedChain: txHistory.baseInfo.toToken.networkId,
+      sourceChain: txHistory.baseInfo.fromToken.networkId,
+      status: txHistory.status,
+      swapProvider: txHistory.swapInfo.provider.provider,
+      swapProviderName: txHistory.swapInfo.provider.providerName,
+    });
+  }, [longPendingWarningNow, shouldShowLongPendingWarning, txHistory]);
   const isPrivateSendHistory = useMemo(
     () => isPrivateSendSwapTxHistory(txHistory),
     [txHistory],
@@ -1254,6 +1322,23 @@ const SwapHistoryDetailModal = () => {
     );
   }, [formatDate, txHistory?.date]);
 
+  const renderSwapLongPendingWarning = useCallback(() => {
+    if (!shouldShowLongPendingWarning) {
+      return null;
+    }
+    return (
+      <Stack flex={1} flexBasis="100%" p="$2.5">
+        <Alert
+          type="warning"
+          icon="HourglassOutline"
+          title={intl.formatMessage({
+            id: ETranslations.trade_taking_longer_than_usual,
+          })}
+        />
+      </Stack>
+    );
+  }, [intl, shouldShowLongPendingWarning]);
+
   const renderSwapProvider = useCallback(
     () => (
       <XStack alignItems="center" gap="$1">
@@ -1451,6 +1536,7 @@ const SwapHistoryDetailModal = () => {
               renderContent={renderSwapDate()}
               compactAll
             />
+            {renderSwapLongPendingWarning()}
             {txHistory?.crossChainStatus ? (
               <InfoItem
                 label={intl.formatMessage({
@@ -1580,6 +1666,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapAssetsChange,
     renderSwapCrossChainStatus,
     renderSwapDate,
+    renderSwapLongPendingWarning,
     renderSwapOrderStatus,
     renderSwapProvider,
     shouldRenderOrderId,
