@@ -10,6 +10,7 @@ import { SelectTokenScene } from './scenes/selectToken';
 import { StockTokenCheckScene } from './scenes/stockTokenCheck';
 import { SwapEstimateFeeScene } from './scenes/swapEstimateFee';
 import { SwapKlineScene } from './scenes/swapKline';
+import { SwapOrderLongPendingWarningScene } from './scenes/swapOrderLongPendingWarning';
 import { SwapQuoteScene } from './scenes/swapQuote';
 import { SwapSendTxScene } from './scenes/swapSendTx';
 import { TokenSelectorSearchScene } from './scenes/tokenSelectorSearch';
@@ -49,4 +50,9 @@ export class SwapScope extends BaseScope {
   swapSendTx = this.createScene('swapSendTx', SwapSendTxScene);
 
   valueDropTip = this.createScene('valueDropTip', ValueDropTipScene);
+
+  swapOrderLongPendingWarning = this.createScene(
+    'swapOrderLongPendingWarning',
+    SwapOrderLongPendingWarningScene,
+  );
 }

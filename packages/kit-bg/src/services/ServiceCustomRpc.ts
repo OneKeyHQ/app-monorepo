@@ -541,11 +541,30 @@ class ServiceCustomRpc extends ServiceBase {
 
     const serverNetworks = resp.data.data;
     const presetNetworkIds = Object.values(getNetworkIdsMap());
-    // filter preset networks
+    // Persist ALL non-preset server networks, INCLUDING delisted (TRASH) ones,
+    // keeping their `status`. The backend marks a network as delisted by flipping
+    // its `status` to TRASH while still returning the entry (it does NOT drop it from
+    // the list). If we filtered TRASH out here, a network that was cached while
+    // LISTED and later delisted would keep its stale LISTED snapshot in the DB
+    // forever. Instead we store the real status and let the read/merge layer
+    // (ServiceNetwork.getAllNetworks) filter TRASH out.
     const usedNetworks = serverNetworks.filter(
-      (n) =>
-        !presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.LISTED,
+      (n) => !presetNetworkIds.includes(n.id),
     );
+
+    // Snapshot the previous server-network set so the refresh event below is only
+    // fanned out when the set actually changed (id added/removed or status
+    // flipped), instead of on every hourly fetch.
+    const { networks: prevServerNetworks } =
+      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    const serverNetworkSignature = (list: IServerNetwork[]) =>
+      list
+        .map((n) => `${n.id}:${n.status}`)
+        .toSorted()
+        .join(',');
+    const serverNetworkListChanged =
+      serverNetworkSignature(prevServerNetworks ?? []) !==
+      serverNetworkSignature(usedNetworks);
 
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
       networkInfos: usedNetworks,
@@ -564,6 +583,16 @@ class ServiceCustomRpc extends ServiceBase {
 
     // If the server network is updated, clear the getAllNetworks cache
     await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
+
+    // Notify network-list views to refresh in place, but only when the set
+    // actually changed. A delisted (TRASH) network is dropped by the read/merge
+    // layer only AFTER this fetch persists its new status, so without this signal
+    // an already-rendered selector keeps showing the stale entry until reopened.
+    // We reuse AddedCustomNetwork, the de-facto "network list changed, refresh"
+    // signal every network selector already listens to.
+    if (serverNetworkListChanged) {
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }
 
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;

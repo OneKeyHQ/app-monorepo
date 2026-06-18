@@ -36,6 +36,7 @@ export type IModalReceiveParamList = {
         walletId: string;
         indexedAccountId: string | undefined;
         token: IToken;
+        showSwapEntry?: boolean;
         onClose?: () => void;
       }
     | undefined;
