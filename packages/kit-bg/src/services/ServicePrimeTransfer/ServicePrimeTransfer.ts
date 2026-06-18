@@ -1732,10 +1732,18 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
+    // Always collect credentials scoped to the payload we actually built
+    // (privateBackupData), for BOTH full and scoped transfers. dumpCredentials()
+    // reads every credential in the DB, including wallets that
+    // filterTransferWallets() excluded from the payload (keyless / default bot
+    // wallets). If one of those out-of-scope credentials were transiently
+    // LSE-unavailable it would land in unavailableCredentialIds and then wrongly
+    // abort a cloud backup, or surface an out-of-scope "skipped item" in the
+    // transfer confirmation, even though it was never part of this transfer.
+    // Scoping keeps unavailableCredentialIds limited to credentials that
+    // actually enter the payload.
     const { credentials: builtCredentials, unavailableCredentialIds } =
-      walletIds?.length
-        ? await this.buildScopedTransferCredentials({ privateBackupData })
-        : await serviceAccount.dumpCredentials();
+      await this.buildScopedTransferCredentials({ privateBackupData });
     privateBackupData.credentials = builtCredentials;
 
     // Resolve labels for skipped credentials and prune the orphaned
