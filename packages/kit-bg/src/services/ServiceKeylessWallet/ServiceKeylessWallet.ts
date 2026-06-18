@@ -2,6 +2,7 @@ import { Semaphore } from 'async-mutex';
 import { isEqual } from 'lodash';
 
 import {
+  decryptRevealableSeed,
   decryptStringAsync,
   generateMnemonic,
   revealEntropyToMnemonic,
@@ -44,8 +45,6 @@ import type {
 } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import keylessWalletUtils from '@onekeyhq/shared/src/keylessWallet/keylessWalletUtils';
 import shamirUtils from '@onekeyhq/shared/src/keylessWallet/shamirUtils';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingV2OneKeyIDLoginMode } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -60,7 +59,6 @@ import localDb from '../../dbs/local/localDb';
 import {
   keylessBackendShareV2MigrationPersistAtom,
   keylessPinConfirmStatusAtom,
-  primePersistAtom,
 } from '../../states/jotai/atoms';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
@@ -68,12 +66,10 @@ import {
   encryptStringAsyncWithFormat,
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
-import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import { KeylessPassiveMigrationNetworkError } from './keylessPassiveMigrationErrors';
 import keylessMnemonicPasswordStorage from './utils/keylessMnemonicPasswordStorage';
 import keylessRefreshTokenStorage from './utils/keylessRefreshTokenStorage';
-import keylessSyncCredentialStorage from './utils/keylessSyncCredentialStorage';
 
 import type { JuiceboxClient } from './utils/JuiceboxClient';
 import type {

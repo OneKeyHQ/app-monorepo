@@ -38,11 +38,7 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { buildPrimeTransferVerificationCode } from '@onekeyhq/shared/src/utils/primeTransferVerificationCode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  EPrimeTransferDataType,
-  type IE2EESocketUserInfo,
-  type IPrimeTransferData,
-} from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 
@@ -154,11 +150,9 @@ export function WaitingTransferCompleteAlert() {
 export function PrimeTransferDirection({
   remotePairingCode,
   botWalletId,
-  transferType,
 }: {
   remotePairingCode: string;
   botWalletId?: string;
-  transferType?: EPrimeTransferDataType;
 }) {
   const isBotWalletExport = !!botWalletId;
   const intl = useIntl();
@@ -472,7 +466,6 @@ export function PrimeTransferDirection({
       intl,
       directionUserInfo?.toUser?.appPlatformName,
       exitTransferFlow,
-      isBotWalletExport,
       botWalletId,
       allowCliImportableCredentials,
     ],
@@ -707,4 +700,3 @@ export function PrimeTransferDirection({
     </>
   );
 }
-

@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPrimeTransferDataType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
@@ -35,7 +34,6 @@ export function PrimeTransferHome({
   autoConnect,
   autoConnectCustomServer,
   defaultTab,
-  transferType,
   botWalletId,
 }: {
   remotePairingCode: string;
@@ -43,7 +41,6 @@ export function PrimeTransferHome({
   autoConnect?: boolean;
   autoConnectCustomServer?: string;
   defaultTab?: 'qr-code' | 'enter-link';
-  transferType?: EPrimeTransferDataType;
   botWalletId?: string;
 }) {
   const intl = useIntl();
