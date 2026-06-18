@@ -1,4 +1,4 @@
-// cspell:ignore lockdown
+// cspell:ignore lockdown jsbi JSBI unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
@@ -197,6 +197,50 @@ try {
     MODERATE_OPTIONS,
   );
   expect(out).toBe('OK:bar');
+});
+
+// --- js-conflux-sdk: the jsbi shim must be self-contained (patch-package) ----
+// Unlike axios/decimal.js (the "override mistake", fixed by 'severe'), the CFX
+// jsbi shim originally did `module.exports = BigInt`, so it added its
+// operations (BigInt, leftShift, ...) as OWN properties directly onto the
+// native BigInt intrinsic. And because that export WAS the BigInt intrinsic,
+// CONST.js' `JSBI.prototype.toJSON = ...` (jsbi.js never writes toJSON itself)
+// also landed on BigInt.prototype. lockdown() REMOVES the own operations as
+// "unpermitted intrinsics" (and freezes BigInt.prototype), so warm-up cannot
+// save it (load order is irrelevant) and 'severe' does not apply.
+// patches/js-conflux-sdk+2.3.0.patch makes the shim a self-contained module
+// object with its OWN prototype, so both the operations and CONST.js' toJSON
+// live off the BigInt intrinsic entirely and survive lockdown. Before the
+// patch, requiring CONST.js after lockdown threw "JSBI.BigInt is not a
+// function".
+
+test('js-conflux-sdk jsbi shim works AFTER lockdown and never pollutes the BigInt intrinsic', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const JSBI = require('js-conflux-sdk/src/util/jsbi');
+  require('js-conflux-sdk/src/CONST.js'); // evaluates JSBI.leftShift(JSBI.BigInt(1), ...)
+  // The shim's operations live on the module object itself, never on the
+  // frozen BigInt intrinsic (so lockdown has nothing to strip).
+  const works =
+    typeof JSBI.BigInt === 'function' &&
+    JSBI.leftShift(JSBI.BigInt(1), JSBI.BigInt(8)).toString() === '256' &&
+    // CONST.js' \`JSBI.prototype.toJSON = ...\` succeeded post-lockdown: it
+    // landed on the shim's OWN (unfrozen) prototype, not a frozen intrinsic.
+    typeof JSBI.prototype.toJSON === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.leftShift === 'undefined' &&
+    typeof BigInt.BigInt === 'undefined' &&
+    // ...and crucially never reached the native BigInt intrinsic, so the
+    // intrinsic keeps no toJSON either (lockdown has nothing to strip).
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
 });
 
 // --- bn.js / elliptic: NOT offenders (work fine post-lockdown) -------------
