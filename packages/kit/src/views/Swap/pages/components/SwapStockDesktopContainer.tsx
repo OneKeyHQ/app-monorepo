@@ -15,6 +15,7 @@ import {
   Keyboard,
   NumberSizeableText,
   Popover,
+  SegmentControl,
   SizableText,
   Skeleton,
   Stack,
@@ -994,6 +995,18 @@ function StockPriceChart({
   const theme = useTheme();
   const [range, setRange] = useState<IStockChartRange>('1D');
   const chartLineColor = theme.textSuccess.val;
+  const rangeOptions = useMemo(
+    () =>
+      STOCK_CHART_RANGE_ITEMS.map((item) => ({
+        label: item.label,
+        value: item.label,
+        testID: `swap-stock-chart-range-${item.label}`,
+      })),
+    [],
+  );
+  const handleRangeChange = useCallback((value: string | number) => {
+    setRange(value as IStockChartRange);
+  }, []);
   const chartTitle = useMemo(() => {
     const chartLabel = intl.formatMessage({
       id: ETranslations.market_chart,
@@ -1097,26 +1110,26 @@ function StockPriceChart({
         >
           {chartTitle}
         </SizableText>
-        <XStack w={156} alignItems="center" justifyContent="space-between">
-          {STOCK_CHART_RANGE_ITEMS.map((item) => {
-            return (
-              <XStack
-                key={item.label}
-                h="$5"
-                minWidth="$5"
-                alignItems="center"
-                justifyContent="center"
-                userSelect="none"
-                cursor="pointer"
-                onPress={() => setRange(item.label)}
-              >
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {item.label}
-                </SizableText>
-              </XStack>
-            );
-          })}
-        </XStack>
+        <SegmentControl
+          w={156}
+          h="$5"
+          fullWidth
+          value={range}
+          options={rangeOptions}
+          onChange={handleRangeChange}
+          slotBackgroundColor="$transparent"
+          activeBackgroundColor="$transparent"
+          activeTextColor="$text"
+          inactiveTextColor="$textSubdued"
+          segmentControlItemStyleProps={{
+            h: '$5',
+            minWidth: '$5',
+            py: '$0',
+            px: '$0',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
       </XStack>
       <Stack flex={1} minHeight={0} px="$5" pt="$2" pb="$4">
         {chartContent}
