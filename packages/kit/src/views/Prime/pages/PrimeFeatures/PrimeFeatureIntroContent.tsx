@@ -435,6 +435,7 @@ const PrimeFeatureMedia = memo(
     return null;
   },
 );
+PrimeFeatureMedia.displayName = 'PrimeFeatureMedia';
 
 export function PrimeFeatureIntroContent({
   selectedFeature,

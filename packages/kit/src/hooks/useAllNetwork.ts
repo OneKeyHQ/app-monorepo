@@ -35,8 +35,8 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
-import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
 import { makeColdRequestFactory } from './makeColdRequestFactory';
+import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
@@ -871,8 +871,9 @@ function useAllNetworkRequests<T>(params: {
                 ),
             });
           try {
-            const factories =
-              Array.from(accountsInfoBackendIndexed).map(makeColdFactory);
+            const factories = Array.from(accountsInfoBackendIndexed).map(
+              makeColdFactory,
+            );
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
@@ -888,8 +889,9 @@ function useAllNetworkRequests<T>(params: {
           }
 
           try {
-            const factories =
-              Array.from(accountsInfoBackendNotIndexed).map(makeColdFactory);
+            const factories = Array.from(accountsInfoBackendNotIndexed).map(
+              makeColdFactory,
+            );
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,

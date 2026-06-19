@@ -1494,3 +1494,20 @@ unpair
 
 # TokenList native temp debug log tag (home token-list repro)
 TLNATIVE
+
+# TokenList SLC / cells refactor vocabulary + token symbols
+allnet
+coldpath
+concats
+CRDT
+desync
+fanout
+ified
+KHYPE
+ONLYUSDH
+reprojected
+tokenlist
+UBTC
+undefineds
+unparseable
+unsub

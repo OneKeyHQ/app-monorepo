@@ -7,8 +7,8 @@
  * token list is stuck on the skeleton forever.
  */
 import {
-  makeColdRequestFactory,
   type IColdRequestNetworkInfo,
+  makeColdRequestFactory,
 } from './makeColdRequestFactory';
 
 type IRound = { networkId: string; tokens: number };
@@ -146,6 +146,6 @@ describe('makeColdRequestFactory', () => {
     const fedNetworks = onRequestSettled.mock.calls.map(
       ([r]) => (r as IRound).networkId,
     );
-    expect(fedNetworks.sort()).toEqual(['btc--0', 'evm--1', 'sol--101']);
+    expect(fedNetworks.toSorted()).toEqual(['btc--0', 'evm--1', 'sol--101']);
   });
 });
