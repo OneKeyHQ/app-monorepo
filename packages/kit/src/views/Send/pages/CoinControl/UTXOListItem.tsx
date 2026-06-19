@@ -62,6 +62,8 @@ type IUtxoListItemProps = {
   readOnly?: boolean;
   isChange?: boolean;
   changeLabel?: string;
+  isClaimed?: boolean;
+  claimedLabel?: string;
 };
 
 const UTXOListItemInner = ({
@@ -75,6 +77,8 @@ const UTXOListItemInner = ({
   readOnly,
   isChange,
   changeLabel,
+  isClaimed,
+  claimedLabel,
 }: IUtxoListItemProps) => {
   const handlePress = useCallback(() => {
     if (readOnly || !onToggle) return;
@@ -102,6 +106,7 @@ const UTXOListItemInner = ({
       py="$1"
       gap={readOnly ? '$2' : '$3'}
       ai="center"
+      userSelect="none"
       onPress={readOnly ? undefined : handlePress}
       {...(readOnly
         ? {}
@@ -143,10 +148,27 @@ const UTXOListItemInner = ({
           <SizableText size="$bodyMd" color="$text">
             {shortenedAddress}
           </SizableText>
+          {/* gtMd: claimed badge sits to the right of the address */}
+          {isClaimed && claimedLabel ? (
+            <Badge badgeType="default" badgeSize="sm" $md={{ display: 'none' }}>
+              <Badge.Text>{claimedLabel}</Badge.Text>
+            </Badge>
+          ) : null}
         </XStack>
         <SizableText size="$bodySm" color="$textSubdued">
           {formattedInfo}
         </SizableText>
+        {/* mobile: not enough width, drop the claimed badge below the date */}
+        {isClaimed && claimedLabel ? (
+          <Badge
+            badgeType="default"
+            badgeSize="sm"
+            mt="$1"
+            $gtMd={{ display: 'none' }}
+          >
+            <Badge.Text>{claimedLabel}</Badge.Text>
+          </Badge>
+        ) : null}
       </YStack>
     </XStack>
   );

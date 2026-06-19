@@ -105,6 +105,10 @@ export type IOnChainHistoryTx = {
   label: string;
   confirmations?: number;
   block?: number;
+  // Estimated time/blocks until the next confirmation. BTC-family only;
+  // EVM and most other chains return 0 (no ETA truth). See OK-56372.
+  confirmationETASeconds?: number;
+  confirmationETABlocks?: number;
   inputs?: IOnChainHistoryTxUTXOInput[];
   outputs?: IOnChainHistoryTxUTXOOutput[];
 

@@ -286,3 +286,11 @@ export interface IBtcFreshAddressStructure {
     unused: IBtcFreshAddress[];
   };
 }
+
+// btc find-address feature: user-claimed off-gap receive address
+export interface IBtcFindAddressItem {
+  index: number; // address_index N of the receive branch (0/N)
+  relPath: string; // "0/N"
+  path: string; // full path, e.g. m/84'/0'/0'/0/N
+  address: string;
+}

@@ -618,55 +618,100 @@ export function CommonTableListView<T>({
   ]);
 
   if (isMobile) {
-    const ListContent = (
-      <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
-        <ListComponent
-          onLayout={(event) => handleMobileTraceLayout('list', event)}
-          onContentSizeChange={handleMobileContentSizeChange}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            shouldUseTabsList && onPullToRefresh ? (
-              <PullToRefresh onRefresh={onPullToRefresh} />
-            ) : undefined
-          }
-          windowSize={
-            platformEnv.isNativeAndroid && shouldUseTabsList ? 3 : undefined
-          }
-          scrollEnabled={shouldUseTabsList || !disableListScroll}
-          data={paginatedData}
-          keyExtractor={keyExtractor}
-          ListHeaderComponent={ListHeaderComponent}
-          ListFooterComponent={
-            enablePagination &&
-            currentListPage &&
-            totalPages > 1 &&
-            !paginationToBottom ? (
-              <PaginationFooter
-                isMobile={isMobile}
-                currentPage={currentListPage ?? 1}
-                totalPages={totalPages}
-                onPreviousPage={handlePreviousPage}
-                onNextPage={handleNextPage}
-                onPageChange={handlePageChange}
-                headerBgColor={headerBgColor}
-                headerTextColor={headerTextColor}
-                borderColor={borderColor}
-              />
-            ) : null
-          }
-          renderItem={({ item, index }) => {
-            return renderRow(item, index, 'full');
-          }}
-          ListEmptyComponent={
-            effectiveListLoading ? <TradesHistoryLoadingView /> : emptyComponent
-          }
-          contentContainerStyle={{
-            flexGrow: paginatedData.length === 0 ? 1 : undefined,
-            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-          }}
+    const paginationFooter =
+      enablePagination &&
+      currentListPage &&
+      totalPages > 1 &&
+      !paginationToBottom ? (
+        <PaginationFooter
+          isMobile={isMobile}
+          currentPage={currentListPage ?? 1}
+          totalPages={totalPages}
+          onPreviousPage={handlePreviousPage}
+          onNextPage={handleNextPage}
+          onPageChange={handlePageChange}
+          headerBgColor={headerBgColor}
+          headerTextColor={headerTextColor}
+          borderColor={borderColor}
         />
-      </DebugRenderTracker>
-    );
+      ) : null;
+
+    // OK-56055: a FlashList with scrollEnabled=false nested inside the outer page
+    // ScrollView (PerpMobileLayout) cannot extend its virtualization window via
+    // the parent scroll, so on iOS it intermittently renders only the first rows
+    // with a large blank gap and becomes unscrollable until a re-measure (e.g. a
+    // tab switch). These embedded lists are short and defer scrolling to the
+    // parent, so render their rows inline (non-virtualized). Lists that own their
+    // scroll (e.g. the trades-history modal, scrollEnabled=true) keep FlashList.
+    const renderRowsInline = !shouldUseTabsList && Boolean(disableListScroll);
+
+    let ListContent: ReactElement;
+    if (renderRowsInline) {
+      let inlineRows: ReactElement | ReactElement[];
+      if (paginatedData.length === 0) {
+        inlineRows = effectiveListLoading ? (
+          <TradesHistoryLoadingView />
+        ) : (
+          emptyComponent
+        );
+      } else {
+        inlineRows = paginatedData.map((item, index) => (
+          <Fragment key={keyExtractor?.(item, index) ?? String(index)}>
+            {renderRow(item, index, 'full')}
+          </Fragment>
+        ));
+      }
+      ListContent = (
+        <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
+          <YStack
+            onLayout={(event) => handleMobileTraceLayout('list', event)}
+            flexGrow={paginatedData.length === 0 ? 1 : undefined}
+            paddingBottom={enablePagination && totalPages > 1 ? 0 : 16}
+          >
+            {ListHeaderComponent}
+            {inlineRows}
+            {paginationFooter}
+          </YStack>
+        </DebugRenderTracker>
+      );
+    } else {
+      ListContent = (
+        <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
+          <ListComponent
+            onLayout={(event) => handleMobileTraceLayout('list', event)}
+            onContentSizeChange={handleMobileContentSizeChange}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              shouldUseTabsList && onPullToRefresh ? (
+                <PullToRefresh onRefresh={onPullToRefresh} />
+              ) : undefined
+            }
+            windowSize={
+              platformEnv.isNativeAndroid && shouldUseTabsList ? 3 : undefined
+            }
+            scrollEnabled={shouldUseTabsList || !disableListScroll}
+            data={paginatedData}
+            keyExtractor={keyExtractor}
+            ListHeaderComponent={ListHeaderComponent}
+            ListFooterComponent={paginationFooter}
+            renderItem={({ item, index }) => {
+              return renderRow(item, index, 'full');
+            }}
+            ListEmptyComponent={
+              effectiveListLoading ? (
+                <TradesHistoryLoadingView />
+              ) : (
+                emptyComponent
+              )
+            }
+            contentContainerStyle={{
+              flexGrow: paginatedData.length === 0 ? 1 : undefined,
+              paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+            }}
+          />
+        </DebugRenderTracker>
+      );
+    }
 
     // Wrap with shadow overlay for native platforms
     const ListWithShadow = (

@@ -39,6 +39,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED,
   buildTokenSelectorDappTokenFilterParams,
+  filterTokenSelectorTokensByDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import {
@@ -75,6 +76,11 @@ type ISelectorTokenListRequestContext = {
   useSelectorFilteredTokenList: boolean;
   showActiveAccountTokenList: boolean;
 };
+
+type ITokenSelectorSearchFilterContext =
+  | 'all-token'
+  | 'wallet-token'
+  | 'dapp-token';
 
 type ITokenSelectorHeaderRightProps = {
   showDeFiTokenSwitch?: boolean;
@@ -235,6 +241,13 @@ function TokenSelector() {
   const showLpTokensOnly = showTokenSelectorFilter
     ? tokenSelectorFilter.sendTokenShowLpTokensOnly
     : false;
+  let tokenSelectorSearchFilterContext: ITokenSelectorSearchFilterContext =
+    'all-token';
+  if (showTokenSelectorFilter) {
+    tokenSelectorSearchFilterContext = showLpTokensOnly
+      ? 'dapp-token'
+      : 'wallet-token';
+  }
   const [scopedActiveTokenList, setScopedActiveTokenList] =
     useState<IScopedActiveTokenList>({
       tokens: [],
@@ -255,8 +268,9 @@ function TokenSelector() {
   const [searchTokenList, setSearchTokenList] = useState<{
     tokens: IAccountToken[];
     searchKey: string;
-  }>({ tokens: [], searchKey: '' });
-  const latestSearchKeywordsRef = useRef('');
+    filterContext: ITokenSelectorSearchFilterContext;
+  }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
+  const latestSearchRequestContextRef = useRef('');
 
   // PR-3 (tokenList cells full-delete): the selector self-fetches its displayed
   // list + fiat map + owned-aggregate map and threads them as props into
@@ -626,9 +640,26 @@ function TokenSelector() {
 
   const searchTokensBySearchKey = useCallback(
     async (keywords: string) => {
-      latestSearchKeywordsRef.current = keywords;
-      const isLatest = () => latestSearchKeywordsRef.current === keywords;
+      const requestContext = [
+        accountId ?? '',
+        networkId ?? '',
+        tokenSelectorSearchFilterContext,
+        keywords,
+      ].join('__');
+      latestSearchRequestContextRef.current = requestContext;
+      const isLatest = () =>
+        latestSearchRequestContextRef.current === requestContext;
       setSearchTokenState({ isSearching: true });
+      setSearchTokenList((prev) =>
+        prev.searchKey === keywords &&
+        prev.filterContext === tokenSelectorSearchFilterContext
+          ? prev
+          : {
+              tokens: [],
+              searchKey: '',
+              filterContext: tokenSelectorSearchFilterContext,
+            },
+      );
       await backgroundApiProxy.serviceToken.abortSearchTokens();
       try {
         let result = await backgroundApiProxy.serviceToken.searchTokens({
@@ -642,8 +673,18 @@ function TokenSelector() {
               tokens: result,
             });
         }
+        if (showTokenSelectorFilter) {
+          result = filterTokenSelectorTokensByDappTokenFilterParams({
+            tokens: result,
+            tokenSelectorFilterParams,
+          });
+        }
         if (isLatest()) {
-          setSearchTokenList({ tokens: result, searchKey: keywords });
+          setSearchTokenList({
+            tokens: result,
+            searchKey: keywords,
+            filterContext: tokenSelectorSearchFilterContext,
+          });
         }
       } catch (e) {
         if (isLatest()) {
@@ -652,7 +693,11 @@ function TokenSelector() {
           // updating searchKey here a failed search would leave the token
           // selector stuck on the skeleton forever with no self-recovery
           // until the user edits the query.
-          setSearchTokenList({ tokens: [], searchKey: keywords });
+          setSearchTokenList({
+            tokens: [],
+            searchKey: keywords,
+            filterContext: tokenSelectorSearchFilterContext,
+          });
           console.log(e);
         }
       } finally {
@@ -661,7 +706,15 @@ function TokenSelector() {
         }
       }
     },
-    [accountId, isSelectorAllNetworks, networkId, showLpTokensOnly],
+    [
+      accountId,
+      isSelectorAllNetworks,
+      networkId,
+      showLpTokensOnly,
+      showTokenSelectorFilter,
+      tokenSelectorFilterParams,
+      tokenSelectorSearchFilterContext,
+    ],
   );
 
   const showActiveAccountTokenList = useMemo(() => {
@@ -1027,12 +1080,21 @@ function TokenSelector() {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
     } else {
-      latestSearchKeywordsRef.current = '';
+      latestSearchRequestContextRef.current = '';
       setSearchTokenState({ isSearching: false });
-      setSearchTokenList({ tokens: [], searchKey: '' });
+      setSearchTokenList({
+        tokens: [],
+        searchKey: '',
+        filterContext: tokenSelectorSearchFilterContext,
+      });
       void backgroundApiProxy.serviceToken.abortSearchTokens();
     }
-  }, [searchAll, searchKey, searchTokensBySearchKey]);
+  }, [
+    searchAll,
+    searchKey,
+    searchTokensBySearchKey,
+    tokenSelectorSearchFilterContext,
+  ]);
 
   return (
     <Page

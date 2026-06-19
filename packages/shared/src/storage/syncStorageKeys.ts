@@ -16,6 +16,7 @@ export enum EAppSyncStorageKeys {
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
+  onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
   // TokenList cells one-time cold-start cleanup version flag (spec §7). A
   // monotonically-increasing integer compared against

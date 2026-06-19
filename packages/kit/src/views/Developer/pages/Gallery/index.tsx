@@ -130,6 +130,10 @@ const LinearGradientGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LinearGradient'),
 );
+const LightweightChartStyleGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/LightweightChartStyle'),
+);
 const ListItemGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/ListItem'),
@@ -686,6 +690,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentLinearGradientGallery,
     component: LinearGradientGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentLightweightChartStyle,
+    component: LightweightChartStyleGallery,
   },
   {
     name: EGalleryRoutes.ComponentAccountModel,

@@ -5,6 +5,7 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   overviewDeFiDataStateAtom: 'ctx:overviewDeFiDataStateAtom',
   walletTopBannersAtom: 'ctx:walletTopBannersAtom',
   selectedAccountsAtom: 'ctx:selectedAccountsAtom',
+  accountSelectorUpdateMetaAtom: 'ctx:accountSelectorUpdateMetaAtom',
   accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',
   activeAccountsAtom: 'ctx:activeAccountsAtom',
   renderedTokenListCacheAtom: 'ctx:renderedTokenListCacheAtom',
@@ -25,6 +26,7 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   swapSelectToTokenAtom: 'ctx:swapSelectToTokenAtom',
   swapSelectedTokensColdStartContextAtom:
     'ctx:swapSelectedTokensColdStartContextAtom',
+  swapStockPayTokenPreferenceAtom: 'ctx:swapStockPayTokenPreferenceAtom',
   swapProPositionsCacheAtom: 'ctx:swapProPositionsCacheAtom',
 } as const;
 
