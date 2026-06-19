@@ -127,7 +127,6 @@ import type {
 
 import { RichBlock } from '../RichBlock/RichBlock';
 
-import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 import {
   WALLET_ASSET_STATUS_BASIS,
   WALLET_ASSET_STATUS_ELIGIBLE_WALLET_TYPES,
@@ -141,6 +140,7 @@ import {
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
 } from './assetStatusAnalytics';
+import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
 
 const networkIdsMap = getNetworkIdsMap();
 

@@ -1491,3 +1491,6 @@ ivar
 RCTJS
 retryably
 unpair
+
+# TokenList native temp debug log tag (home token-list repro)
+TLNATIVE
