@@ -36,6 +36,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { perfTokenListView } from '../components/TokenListView/perfTokenListView';
 
 import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority';
+import { makeColdRequestFactory } from './makeColdRequestFactory';
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
@@ -517,6 +518,9 @@ function useAllNetworkRequests<T>(params: {
 
       if (effectiveDisabled) return;
       if (isFetching.current) {
+        tln(
+          `allnet.run DEFER inflight owner=${currentAccountId}__${currentNetworkId}`,
+        );
         rerunAfterCurrentRef.current = true;
         return;
       }
@@ -618,6 +622,11 @@ function useAllNetworkRequests<T>(params: {
           ? backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap()
           : undefined;
 
+        tln(
+          `allnet.acctResolve start skipCache=${
+            skipAccountsCacheForThisRun ? 1 : 0
+          } isDeFi=${isDeFiRequests ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
+        );
         const baseResult = await accountsTask;
         const deFiEnabledNetworksMap = deFiEnabledNetworksMapTask
           ? await deFiEnabledNetworksMapTask
@@ -671,6 +680,18 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length === 0) {
           setIsEmptyAccount(true);
         }
+
+        // [TLNATIVE temp] the GO->fanout gap resolution: how many accounts the
+        // fan-out got, split by backend-indexed vs not, and whether the WARM
+        // (cache-seeded) gate at L767 is on. warmGate=0 here means this run takes
+        // the COLD `else` path (L826) which emits NO settle/fanout logs.
+        tln(
+          `allnet.acctResolve done n=${accountsInfo?.length ?? 0} bIdx=${
+            accountsInfoBackendIndexed?.length ?? 0
+          } bNotIdx=${accountsInfoBackendNotIndexed?.length ?? 0} all=${
+            allAccountsInfo?.length ?? 0
+          } warmGate=${allNetworkDataInit.current ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
+        );
 
         if (onStartedTask) {
           await onStartedTask;
@@ -824,20 +845,34 @@ function useAllNetworkRequests<T>(params: {
             abortAllNetworkRequests?.();
           }
         } else {
+          // [TLNATIVE temp] COLD path (cache empty): the freshly-created-account
+          // case. Emits no settle/fanout — log entry + result so #6 is visible.
+          tln(
+            `allnet.coldpath bIdx=${accountsInfoBackendIndexed?.length ?? 0} bNotIdx=${
+              accountsInfoBackendNotIndexed?.length ?? 0
+            } owner=${currentAccountId}__${currentNetworkId}`,
+          );
           const respTemp: Array<T> = [];
+          // Fix A: the COLD path must feed the progressive-paint pipeline the
+          // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
+          // has no `onSettled`, so each factory calls `onRequestSettled` itself
+          // when it resolves (see `makeColdRequestFactory` for the full rationale
+          // + the placeholder filter — extracted there so it is unit-tested).
+          const makeColdFactory = (networkDataString: IAllNetworkAccountInfo) =>
+            makeColdRequestFactory<T>({
+              networkInfo: networkDataString,
+              allNetworkRequests,
+              onRequestSettled,
+              runGeneration,
+              getAllNetworkDataInit: () => allNetworkDataInit.current,
+              onFed: (networkId) =>
+                tln(
+                  `allnet.coldSettle net=${networkId} owner=${currentAccountId}__${currentNetworkId}`,
+                ),
+            });
           try {
-            const factories = Array.from(accountsInfoBackendIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
-            );
+            const factories =
+              Array.from(accountsInfoBackendIndexed).map(makeColdFactory);
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
@@ -853,18 +888,8 @@ function useAllNetworkRequests<T>(params: {
           }
 
           try {
-            const factories = Array.from(accountsInfoBackendNotIndexed).map(
-              (networkDataString) => {
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                const { accountId, networkId, apiAddress } = networkDataString;
-                return () =>
-                  allNetworkRequests({
-                    accountId,
-                    networkId,
-                    allNetworkDataInit: allNetworkDataInit.current,
-                  });
-              },
-            );
+            const factories =
+              Array.from(accountsInfoBackendNotIndexed).map(makeColdFactory);
             const r = (
               await promiseAllSettledEnhanced(factories, {
                 continueOnError: true,
@@ -879,11 +904,21 @@ function useAllNetworkRequests<T>(params: {
             // pass
           }
           resp = respTemp.length ? respTemp : null;
+          tln(
+            `allnet.coldpath done resp=${
+              resp?.length ?? 'null'
+            } owner=${currentAccountId}__${currentNetworkId}`,
+          );
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
         }
 
+        tln(
+          `allnet.run RETURN resp=${resp?.length ?? 'null'} warm=${
+            allNetworkDataInit.current ? 1 : 0
+          } owner=${currentAccountId}__${currentNetworkId}`,
+        );
         return resp;
       } finally {
         isFetching.current = false;
