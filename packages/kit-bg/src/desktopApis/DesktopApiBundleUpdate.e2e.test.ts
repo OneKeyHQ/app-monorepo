@@ -67,7 +67,7 @@ jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
 }));
 
 describe('DesktopApiBundleUpdate — concurrent download e2e', () => {
-  jest.setTimeout(30000);
+  jest.setTimeout(30_000);
   const TOTAL = 4 * 1024 * 1024; // 4 MiB → 8 × 512 KiB segments
   let content: Buffer;
   let expectedSha: string;

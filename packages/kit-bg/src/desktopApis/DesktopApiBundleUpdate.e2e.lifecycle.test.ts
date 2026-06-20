@@ -298,7 +298,10 @@ describe('DesktopApiBundleUpdate — concurrent download lifecycle e2e', () => {
 // re-implementing any production logic.
 async function waitFor(
   cond: () => boolean,
-  { timeoutMs = 5000, intervalMs = 10 }: { timeoutMs?: number; intervalMs?: number } = {},
+  {
+    timeoutMs = 5000,
+    intervalMs = 10,
+  }: { timeoutMs?: number; intervalMs?: number } = {},
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   // eslint-disable-next-line no-await-in-loop

@@ -139,7 +139,8 @@ export function makeApi(opts?: {
   stallTimeoutMs?: number;
 }): DesktopApiAppBundleUpdate {
   // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
-  const Mod = require('../DesktopApiBundleUpdate').default as typeof DesktopApiAppBundleUpdate;
+  const Mod = require('../DesktopApiBundleUpdate')
+    .default as typeof DesktopApiAppBundleUpdate;
   return new Mod({ desktopApi: {} as any, ...opts });
 }
 
@@ -210,13 +211,39 @@ export function seedResumeState(opts: {
 export type IFaultMode =
   // Map a Range request to a non-206 status for a number of times.
   | { kind: 'status200'; target?: IRangeTarget; times?: number }
-  | { kind: 'status429ThenOk'; target?: IRangeTarget; times?: number; retryAfter?: string }
-  | { kind: 'status5xx'; target?: IRangeTarget; status?: number; times?: number; retryAfter?: string }
+  | {
+      kind: 'status429ThenOk';
+      target?: IRangeTarget;
+      times?: number;
+      retryAfter?: string;
+    }
+  | {
+      kind: 'status5xx';
+      target?: IRangeTarget;
+      status?: number;
+      times?: number;
+      retryAfter?: string;
+    }
   | { kind: 'status404'; target?: IRangeTarget; times?: number }
   // Body-shape faults on a 206 response.
-  | { kind: 'dropAfterBytesForRange'; target?: IRangeTarget; bytes: number; times?: number }
-  | { kind: 'shortBody'; target?: IRangeTarget; missingTail: number; times?: number }
-  | { kind: 'overLongBody'; target?: IRangeTarget; extra: number; times?: number }
+  | {
+      kind: 'dropAfterBytesForRange';
+      target?: IRangeTarget;
+      bytes: number;
+      times?: number;
+    }
+  | {
+      kind: 'shortBody';
+      target?: IRangeTarget;
+      missingTail: number;
+      times?: number;
+    }
+  | {
+      kind: 'overLongBody';
+      target?: IRangeTarget;
+      extra: number;
+      times?: number;
+    }
   | { kind: 'wrongBytes'; target?: IRangeTarget; times?: number }
   // Content-Range / Content-Type faults on a 206 response.
   | { kind: 'misalignedContentRange'; target?: IRangeTarget; times?: number }
@@ -343,9 +370,7 @@ export function startFaultServer(
 
     // Decide whether the active fault applies to THIS request.
     const active =
-      mode &&
-      remaining > 0 &&
-      rangeMatchesTarget(mode.target, start, end)
+      mode && remaining > 0 && rangeMatchesTarget(mode.target, start, end)
         ? mode
         : null;
     if (active) remaining -= 1;
@@ -410,7 +435,8 @@ export function startFaultServer(
       case 'multipartByteranges': {
         // multipart/byteranges body is rejected by validateSegmentContentRange.
         res.writeHead(206, {
-          'Content-Type': 'multipart/byteranges; boundary=THIS_STRING_SEPARATES',
+          'Content-Type':
+            'multipart/byteranges; boundary=THIS_STRING_SEPARATES',
           'Content-Range': contentRange,
           'Accept-Ranges': 'bytes',
           ETag: etag,

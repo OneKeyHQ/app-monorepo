@@ -70,7 +70,7 @@ jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
 }));
 
 describe('DesktopApiBundleUpdate — concurrent download integrity e2e', () => {
-  jest.setTimeout(30000);
+  jest.setTimeout(30_000);
   const TOTAL = 4 * 1024 * 1024; // 4 MiB → 8 × 512 KiB segments
   let content: Buffer;
   let expectedSha: string;
@@ -124,9 +124,9 @@ describe('DesktopApiBundleUpdate — concurrent download integrity e2e', () => {
       // partial/manifest are gone (fallback wiped the unusable bytes).
       expect(fs.existsSync(finalPathFor(bundleVersion))).toBe(false);
       expect(fs.existsSync(partialPathFor(bundleVersion))).toBe(false);
-      expect(fs.existsSync(`${partialPathFor(bundleVersion)}.progress.json`)).toBe(
-        false,
-      );
+      expect(
+        fs.existsSync(`${partialPathFor(bundleVersion)}.progress.json`),
+      ).toBe(false);
     } finally {
       await srv.close();
     }
@@ -262,7 +262,7 @@ describe('DesktopApiBundleUpdate — concurrent download integrity e2e', () => {
 
       // Bounded: a single call returned/threw well under the test timeout — it
       // did not spin re-downloading forever.
-      expect(elapsed).toBeLessThan(20000);
+      expect(elapsed).toBeLessThan(20_000);
       // The bad assembly was discarded (no corrupt final file promoted).
       expect(fs.existsSync(finalPathFor(bundleVersion))).toBe(false);
     } finally {

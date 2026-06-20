@@ -764,9 +764,9 @@ describe('runDownloadWithRetry', () => {
     expect(
       isSingleStreamFallbackFailure(new Error('fallback download error')),
     ).toBe(true);
-    expect(
-      isSingleStreamFallbackFailure({ code: 'FALLBACK_FAILED' }),
-    ).toBe(true);
+    expect(isSingleStreamFallbackFailure({ code: 'FALLBACK_FAILED' })).toBe(
+      true,
+    );
     expect(
       isSingleStreamFallbackFailure({ code: 'SINGLE_STREAM_FAILED' }),
     ).toBe(true);

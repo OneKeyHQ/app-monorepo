@@ -10,6 +10,10 @@
 // backoff timer are mocked so this runs in milliseconds and never resolves the
 // `@onekeyhq/components` package (keeps it independent of the RN component harness).
 
+import { DownloadGaveUpError, runDownloadWithRetry } from './updateRetry';
+
+import type { IDownloadRetryOptions } from './updateRetry';
+
 jest.mock('@onekeyhq/components/src/hooks/useNetInfo', () => ({
   globalNetInfo: {
     currentState: () => ({ isInternetReachable: true }),
@@ -23,13 +27,6 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { app: { appUpdate: { log: () => {} } } },
 }));
-
-import {
-  DownloadGaveUpError,
-  runDownloadWithRetry,
-} from './updateRetry';
-
-import type { IDownloadRetryOptions } from './updateRetry';
 
 // A transient (recoverable) failure: not an unrecoverable code, so the loop
 // retries it up to DOWNLOAD_RETRY_MAX_ATTEMPTS.

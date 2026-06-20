@@ -182,7 +182,7 @@ function seedSingleStreamPartial(opts: {
 }
 
 describe('DesktopApiBundleUpdate — single-stream download e2e', () => {
-  jest.setTimeout(30000);
+  jest.setTimeout(30_000);
 
   // The single-stream method only routes through the SHA-verifying https path
   // for a real https server, which a self-signed cert would otherwise reject.
