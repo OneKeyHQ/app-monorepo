@@ -1,3 +1,4 @@
+// cspell:ignore OCDS
 import semver from 'semver';
 
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
@@ -36,6 +37,8 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import type { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -73,6 +76,49 @@ const failedRecoveryRetryCount = new Map<string, number>();
 const MAX_FAILED_RECOVERY_RETRY = 3;
 const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
 const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
+
+// ---------------------------------------------------------------------------
+// OCDS v1.1 §5.11 — cross-restart download attempt budget + wall-clock deadline
+// ---------------------------------------------------------------------------
+// The in-memory retry loop (updateRetry.ts) bounds attempts WITHIN a single
+// invocation. §5.11 additionally requires a bound that PERSISTS across process
+// restarts, so a permanently-failing object cannot re-spend the full budget on
+// every launch and loop forever (conformance scenario #9). We persist a small
+// counter keyed by the target version to durable MMKV (syncStorage). When the
+// attempt count OR an overall wall-clock deadline (since the first attempt) is
+// exhausted, the download reaches a definitive terminal "gave up" outcome.
+//
+// Persistence is keyed by the target version so a NEW bundle/app release starts
+// with a fresh budget — we never carry a stale give-up into a fresh release.
+//
+// Stored in the onekey-app-setting MMKV instance (syncStorage). The key string
+// is local to this service; the enum cast keeps the typed wrapper happy without
+// editing the shared key enum.
+const DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY =
+  'onekey_app_update_download_attempt_budget';
+// Persisted give-up threshold. Distinct from updateRetry's in-memory
+// per-invocation cap: this counts total attempts across relaunches.
+const DOWNLOAD_PERSISTED_MAX_ATTEMPTS = 8;
+// Overall wall-clock deadline measured from the first persisted attempt for a
+// given target. Once exceeded the download is terminal even if attempts remain.
+const DOWNLOAD_WALL_CLOCK_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 h
+
+interface IDownloadAttemptBudgetRecord {
+  targetKey: string;
+  attemptCount: number;
+  firstAttemptAt: number;
+}
+
+export interface IDownloadAttemptBudgetResult {
+  targetKey: string;
+  attemptCount: number;
+  firstAttemptAt: number;
+  // True once the persisted attempt count or the wall-clock deadline is
+  // exhausted: the caller must stop retrying and surface a terminal outcome.
+  givenUp: boolean;
+  // Populated when givenUp: which bound tripped, for the terminal reason.
+  reason?: 'maxAttempts' | 'deadline';
+}
 
 // Exposed for tests only — clears volatile retry counters.
 export function resetFailedRecoveryRetryCount() {
@@ -793,6 +839,151 @@ class ServiceAppUpdate extends ServiceBase {
     this.startFailedRecoveryTimer();
   }
 
+  // -------------------------------------------------------------------------
+  // OCDS v1.1 §5.11 — persisted cross-restart attempt budget + wall-clock
+  // deadline. See the constants block at the top of this file.
+  // -------------------------------------------------------------------------
+
+  // The typed syncStorage wrapper keys on EAppSyncStorageKeys; the budget uses
+  // a service-local key string, so cast at the single read/write boundary.
+  private get downloadAttemptBudgetStorageKey(): EAppSyncStorageKeys {
+    return DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY as EAppSyncStorageKeys;
+  }
+
+  private readDownloadAttemptBudget():
+    | IDownloadAttemptBudgetRecord
+    | undefined {
+    return appStorage.syncStorage.getObject<IDownloadAttemptBudgetRecord>(
+      this.downloadAttemptBudgetStorageKey,
+    );
+  }
+
+  private writeDownloadAttemptBudget(record: IDownloadAttemptBudgetRecord) {
+    appStorage.syncStorage.setObject(
+      this.downloadAttemptBudgetStorageKey,
+      record,
+    );
+  }
+
+  private evaluateDownloadBudget(
+    record: IDownloadAttemptBudgetRecord,
+  ): IDownloadAttemptBudgetResult {
+    const now = Date.now();
+    const deadlineExceeded =
+      record.firstAttemptAt > 0 &&
+      now - record.firstAttemptAt >= DOWNLOAD_WALL_CLOCK_DEADLINE_MS;
+    const attemptsExceeded =
+      record.attemptCount >= DOWNLOAD_PERSISTED_MAX_ATTEMPTS;
+    // Attempt-budget exhaustion is reported first so the terminal reason is
+    // stable; both bounds mean "give up" regardless of which tripped.
+    if (attemptsExceeded) {
+      return {
+        targetKey: record.targetKey,
+        attemptCount: record.attemptCount,
+        firstAttemptAt: record.firstAttemptAt,
+        givenUp: true,
+        reason: 'maxAttempts',
+      };
+    }
+    if (deadlineExceeded) {
+      return {
+        targetKey: record.targetKey,
+        attemptCount: record.attemptCount,
+        firstAttemptAt: record.firstAttemptAt,
+        givenUp: true,
+        reason: 'deadline',
+      };
+    }
+    return {
+      targetKey: record.targetKey,
+      attemptCount: record.attemptCount,
+      firstAttemptAt: record.firstAttemptAt,
+      givenUp: false,
+    };
+  }
+
+  /**
+   * Read the persisted budget for `targetKey` WITHOUT mutating it. The caller
+   * checks `givenUp` on entry (before starting a download) so a target that
+   * already exhausted its budget on a prior launch is terminal immediately and
+   * never re-spends the in-memory retry budget (OCDS §5.11, scenario #9).
+   *
+   * A record belonging to a DIFFERENT target version is treated as absent: a
+   * new release starts fresh, never inheriting a stale give-up.
+   */
+  @backgroundMethod()
+  public async getDownloadAttemptBudget(params: {
+    targetKey: string;
+  }): Promise<IDownloadAttemptBudgetResult> {
+    const { targetKey } = params;
+    const existing = this.readDownloadAttemptBudget();
+    if (!existing || existing.targetKey !== targetKey) {
+      return {
+        targetKey,
+        attemptCount: 0,
+        firstAttemptAt: 0,
+        givenUp: false,
+      };
+    }
+    return this.evaluateDownloadBudget(existing);
+  }
+
+  /**
+   * Increment and persist the attempt counter for `targetKey`, then return the
+   * post-increment budget state. Called once per download attempt. The first
+   * attempt for a target stamps `firstAttemptAt` (the wall-clock deadline
+   * anchor). A record for a different target version is reset rather than
+   * carried forward.
+   */
+  @backgroundMethod()
+  public async recordDownloadAttempt(params: {
+    targetKey: string;
+  }): Promise<IDownloadAttemptBudgetResult> {
+    const { targetKey } = params;
+    const now = Date.now();
+    const existing = this.readDownloadAttemptBudget();
+    const base: IDownloadAttemptBudgetRecord =
+      existing && existing.targetKey === targetKey
+        ? existing
+        : { targetKey, attemptCount: 0, firstAttemptAt: 0 };
+    const next: IDownloadAttemptBudgetRecord = {
+      targetKey,
+      attemptCount: base.attemptCount + 1,
+      firstAttemptAt: base.firstAttemptAt > 0 ? base.firstAttemptAt : now,
+    };
+    this.writeDownloadAttemptBudget(next);
+    const result = this.evaluateDownloadBudget(next);
+    if (result.givenUp) {
+      defaultLogger.app.appUpdate.log(
+        `recordDownloadAttempt: budget exhausted target=${targetKey} attempts=${next.attemptCount} reason=${
+          result.reason ?? ''
+        }`,
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Clear the persisted attempt budget. Called on a successful download or
+   * when a new target version supersedes the prior one, so the give-up state
+   * never outlives the target it was recorded for.
+   */
+  @backgroundMethod()
+  public async resetDownloadAttemptBudget(params?: {
+    targetKey?: string;
+  }): Promise<void> {
+    const targetKey = params?.targetKey;
+    if (targetKey) {
+      const existing = this.readDownloadAttemptBudget();
+      // Only clear when the persisted record matches the target being reset,
+      // so an unrelated in-flight target's budget is left intact.
+      if (existing && existing.targetKey !== targetKey) {
+        return;
+      }
+    }
+    appStorage.syncStorage.delete(this.downloadAttemptBudgetStorageKey);
+  }
+
   @backgroundMethod()
   public async updateDownloadedEvent(downloadedEvent: IUpdateDownloadedEvent) {
     await appUpdatePersistAtom.set((prev) => ({
@@ -833,6 +1024,58 @@ class ServiceAppUpdate extends ServiceBase {
   public async getUpdateInfo() {
     const appInfo = await appUpdatePersistAtom.get();
     return appInfo;
+  }
+
+  /**
+   * OCDS v1.1 §4 / §5.11 — fetch a fresh signed download URL after a
+   * permanent-this-URL (401/403) failure. The download retry loop calls this
+   * ONCE (bounded) when it sees 401/403: re-fetching the release info re-signs
+   * the URL, so a retry against the refreshed URL can succeed where the dead
+   * one could not. Re-reads the (possibly updated) downloadedEvent and returns
+   * the new URLs so the caller can rebuild its download params.
+   *
+   * Returns `{ refreshed: false }` when no fresh URL could be obtained (so the
+   * caller treats the 401/403 as terminal rather than looping).
+   */
+  @backgroundMethod()
+  public async refreshDownloadUrlForRetry(): Promise<{
+    refreshed: boolean;
+    downloadUrl?: string;
+    jsBundleDownloadUrl?: string;
+  }> {
+    const before = await appUpdatePersistAtom.get();
+    const beforeUrl = before.downloadUrl;
+    const beforeBundleUrl = before.jsBundle?.downloadUrl;
+    try {
+      // Re-fetch release info; this re-signs the download URL(s) server-side
+      // and writes them back into the persist atom.
+      await this.fetchAppUpdateInfo(false);
+    } catch (e) {
+      defaultLogger.app.appUpdate.log(
+        `refreshDownloadUrlForRetry: fetchAppUpdateInfo failed: ${
+          (e as Error)?.message ?? ''
+        }`,
+      );
+      return { refreshed: false };
+    }
+    const after = await appUpdatePersistAtom.get();
+    const downloadUrl = after.downloadUrl;
+    const jsBundleDownloadUrl = after.jsBundle?.downloadUrl;
+    // "Refreshed" means we actually have a usable HTTPS URL now AND it changed
+    // from the dead one (a re-signed URL differs in its query token).
+    const appUrlRefreshed =
+      !!downloadUrl &&
+      downloadUrl.startsWith('https://') &&
+      downloadUrl !== beforeUrl;
+    const bundleUrlRefreshed =
+      !!jsBundleDownloadUrl &&
+      jsBundleDownloadUrl.startsWith('https://') &&
+      jsBundleDownloadUrl !== beforeBundleUrl;
+    return {
+      refreshed: appUrlRefreshed || bundleUrlRefreshed,
+      downloadUrl,
+      jsBundleDownloadUrl,
+    };
   }
 
   // DEV ONLY: seed the app-update atom into an arbitrary scenario so QA can
