@@ -126,6 +126,23 @@ export const {
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom,
 });
 
+export const {
+  atom: accountSelectorStorageInitDoneAtom,
+  use: useAccountSelectorStorageInitDoneAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: accountSelectorActiveAccountInitDoneAtom,
+  use: useAccountSelectorActiveAccountInitDoneAtom,
+} = contextAtom<Partial<{ [num: number]: boolean }>>({});
+
+export function useIsAccountSelectorActiveAccountInitDone(
+  num: number,
+): boolean {
+  const [initDone] = useAccountSelectorActiveAccountInitDoneAtom();
+  return !!initDone?.[num];
+}
+
 export type IAccountSelectorAvailableNetworks = {
   networkIds?: string[];
   defaultNetworkId?: string;

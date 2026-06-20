@@ -85,9 +85,12 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
+import { shouldKeepCurrentActiveAccountForIncompleteSelection } from './activeAccountInitGuard';
 import {
+  accountSelectorActiveAccountInitDoneAtom,
   accountSelectorContextDataAtom,
   accountSelectorEditModeAtom,
+  accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorSyncLoadingAtom,
   accountSelectorUpdateMetaAtom,
@@ -503,6 +506,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
+        const currentActiveAccount =
+          get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
+        const markActiveAccountInitDone = () => {
+          if (get(accountSelectorStorageInitDoneAtom())) {
+            set(accountSelectorActiveAccountInitDoneAtom(), {
+              ...get(accountSelectorActiveAccountInitDoneAtom()),
+              [num]: true,
+            });
+          }
+        };
+        if (
+          shouldKeepCurrentActiveAccountForIncompleteSelection({
+            storageInitDone: get(accountSelectorStorageInitDoneAtom()),
+            selectedAccount,
+            activeAccount: currentActiveAccount,
+          })
+        ) {
+          markActiveAccountInitDone();
+          return currentActiveAccount;
+        }
         let activeAccount: IAccountSelectorActiveAccountInfo | undefined;
         try {
           ({ activeAccount } =
@@ -522,11 +545,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   selectedAccount,
         //   activeAccount,
         // });
+        const currentSelectedAccount =
+          this.getSelectedAccount.call(set, { num }) ||
+          defaultSelectedAccount();
+        if (
+          !isEqual(
+            omitBy(currentSelectedAccount, isUndefined),
+            omitBy(selectedAccount, isUndefined),
+          )
+        ) {
+          return currentActiveAccount;
+        }
         const newActiveAccounts = {
           ...get(activeAccountsAtom()),
           [num]: activeAccount,
         };
         set(activeAccountsAtom(), newActiveAccounts);
+        markActiveAccountInitDone();
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
       }),
@@ -2123,6 +2158,8 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         sceneUrl?: string;
       },
     ) => {
+      set(accountSelectorStorageInitDoneAtom(), () => false);
+      set(accountSelectorActiveAccountInitDoneAtom(), {});
       const { serviceAccountSelector } = backgroundApiProxy;
       let selectedAccountsMapInDB:
         | IAccountSelectorSelectedAccountsMap
@@ -2225,6 +2262,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ...recentSelectionCache.updateMeta,
         }));
         set(accountSelectorStorageReadyAtom(), () => true);
+        set(accountSelectorStorageInitDoneAtom(), () => true);
         Object.entries(recentSelectionCache.selectedAccountsMap).forEach(
           ([num, selectedAccount]) => {
             if (
@@ -2257,6 +2295,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         })
       ) {
         set(accountSelectorStorageReadyAtom(), () => true);
+        set(accountSelectorStorageInitDoneAtom(), () => true);
         return;
       }
 
@@ -2279,6 +2318,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         );
       }
       set(accountSelectorStorageReadyAtom(), () => true);
+      set(accountSelectorStorageInitDoneAtom(), () => true);
     },
   );
 
