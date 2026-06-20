@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -76,6 +77,46 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   headerContent?: ReactNode;
 }
 
+const DESKTOP_SWAP_TITLE_TRANSITION =
+  'color 180ms ease, font-size 180ms ease, opacity 180ms ease';
+
+function SwapTitleText({
+  children,
+  isActive,
+  shouldUseDesktopLayoutTitleState,
+  inactiveOpacity = 0.8,
+}: {
+  children: ReactNode;
+  isActive: boolean;
+  shouldUseDesktopLayoutTitleState: boolean;
+  inactiveOpacity?: number;
+}) {
+  const shouldUseInactiveDesktopLayoutStyle =
+    shouldUseDesktopLayoutTitleState && !isActive;
+  let titleOpacity: number | undefined;
+
+  if (shouldUseDesktopLayoutTitleState) {
+    titleOpacity = isActive ? 1 : inactiveOpacity;
+  }
+
+  return (
+    <SizableText
+      size={shouldUseInactiveDesktopLayoutStyle ? '$headingMd' : '$headingLg'}
+      color={isActive ? '$text' : '$textSubdued'}
+      opacity={titleOpacity}
+      $platform-web={
+        shouldUseDesktopLayoutTitleState
+          ? {
+              transition: DESKTOP_SWAP_TITLE_TRANSITION,
+            }
+          : undefined
+      }
+    >
+      {children}
+    </SizableText>
+  );
+}
+
 const SwapOldSwapBridgeLimitContainer = ({
   pageType,
   storeName,
@@ -119,23 +160,31 @@ const SwapOldSwapBridgeLimitContainer = ({
   const isEffectiveBridge =
     effectiveSwapType === ESwapTabSwitchType.BRIDGE &&
     swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+  const shouldUseDesktopLayoutTitleState = Boolean(
+    platformEnv.isDesktop || platformEnv.isWeb,
+  );
+
   let swapTitleContent = (
     <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
-      <SizableText
-        size="$headingLg"
-        color={isEffectiveBridge ? '$textSubdued' : '$text'}
+      <SwapTitleText
+        isActive={!isEffectiveBridge}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
       >
         {swapLabel}
-      </SizableText>
-      <SizableText size="$headingLg" color="$textSubdued">
+      </SwapTitleText>
+      <SwapTitleText
+        isActive={false}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
+        inactiveOpacity={0.72}
+      >
         &
-      </SizableText>
-      <SizableText
-        size="$headingLg"
-        color={isEffectiveBridge ? '$text' : '$textSubdued'}
+      </SwapTitleText>
+      <SwapTitleText
+        isActive={isEffectiveBridge}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
       >
         {bridgeLabel}
-      </SizableText>
+      </SwapTitleText>
     </XStack>
   );
   if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
