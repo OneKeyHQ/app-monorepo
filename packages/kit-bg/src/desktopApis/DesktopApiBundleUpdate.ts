@@ -282,6 +282,11 @@ class DesktopApiAppBundleUpdate {
 
   isDownloading = false;
 
+  // OCDS §5.4 stall (no-progress) watchdog timeout. Injectable so tests can
+  // exercise the stall path without a 60s wait; defaults to the production
+  // BUNDLE_STALL_TIMEOUT_MS.
+  private stallTimeoutMs: number = BUNDLE_STALL_TIMEOUT_MS;
+
   // OCDS §5.8 per-destination single-flight. Keyed on the destination zip path:
   // a second download() for the same dest JOINS the in-flight run (returns the
   // same promise) rather than co-writing the same artifacts; different-dest
@@ -305,9 +310,18 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+  constructor({
+    desktopApi,
+    stallTimeoutMs,
+  }: {
+    desktopApi: IDesktopApi;
+    stallTimeoutMs?: number;
+  }) {
     this.desktopApi = desktopApi;
     this.cancelCurrentDownload = () => {};
+    if (typeof stallTimeoutMs === 'number') {
+      this.stallTimeoutMs = stallTimeoutMs;
+    }
   }
 
   getMainWindow(): BrowserWindow | undefined {
@@ -780,7 +794,7 @@ class DesktopApiAppBundleUpdate {
               }
               unregisterRequest(req);
               reject(new OneKeyLocalError('Segment stalled (no progress)'));
-            }, BUNDLE_STALL_TIMEOUT_MS);
+            }, this.stallTimeoutMs);
           };
           armStall();
           response.on('data', (chunk: Buffer) => {
