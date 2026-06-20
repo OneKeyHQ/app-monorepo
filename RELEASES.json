@@ -28,5 +28,14 @@
       "#12099"
     ],
     "notes": "Support Pendle market info tooltip (#12090); correct swap fiat basis after currency switch (#12097); update perp IP restriction trading panel UI (#12099)"
+  },
+  {
+    "seq": 3,
+    "commit": "297aabc48eab69ee071f7e88bab118c9370ead3d",
+    "date": "2026-06-19T05:48:54Z",
+    "prs": [
+      "#12114"
+    ],
+    "notes": "Dedupe perps IP redetect request (#12114)"
   }
 ]
