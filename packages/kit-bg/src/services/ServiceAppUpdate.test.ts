@@ -2403,6 +2403,60 @@ describe('ServiceAppUpdate state transitions', () => {
       },
     );
 
+    // OCDS §5.11 end-to-end: a download that GAVE UP (persisted attempt budget
+    // exhausted → DownloadGaveUpError → downloadPackageFailed) must NOT suppress
+    // a future update. When a newer version arrives, the failed status recovers
+    // to notify (the user is re-prompted) AND the new target starts a fresh
+    // budget. This pins the guarantee that the give-up reuses the recoverable
+    // downloadPackageFailed status, not a special terminal state, and that a
+    // stale per-target give-up never blocks a newer version's download.
+    test('a prior give-up does not suppress a NEWER version: failed→notify + fresh budget for the new target', async () => {
+      const OLD_KEY = `${ATTEMPTED_VERSION}:appShell`;
+      const NEW_KEY = `${NEWER_VERSION}:appShell`;
+
+      // (a) Reproduce the give-up's persisted effects for the OLD target:
+      //     exhaust the per-target attempt budget (8 recorded attempts)…
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await service.recordDownloadAttempt({ targetKey: OLD_KEY });
+      }
+      expect(
+        (await service.getDownloadAttemptBudget({ targetKey: OLD_KEY }))
+          .givenUp,
+      ).toBe(true);
+      //     …and the downloadPackageFailed status the give-up surfaces
+      //     (useDownloadPackage calls downloadPackageFailed on DownloadGaveUpError).
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: ATTEMPTED_VERSION,
+        errorText: ETranslations.update_network_exception_check_connection,
+        updateAt: 0,
+      });
+
+      // (b) A newer version becomes available on the next check.
+      mockLatestInfo({
+        version: NEWER_VERSION,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      // (c) The user IS re-notified — the prior give-up did not block it.
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.latestVersion).toBe(NEWER_VERSION);
+      expect(atomValue.errorText).toBeUndefined();
+
+      // (d) The newer target starts with a FRESH budget; the stale give-up for
+      //     the old target never blocks the new version's download.
+      const newBudget = await service.getDownloadAttemptBudget({
+        targetKey: NEW_KEY,
+      });
+      expect(newBudget.givenUp).toBe(false);
+      expect(newBudget.attemptCount).toBe(0);
+    });
+
     test('resets failed status to notify when server has newer jsBundle version', async () => {
       resetAtom({
         status: EAppUpdateStatus.downloadPackageFailed,
