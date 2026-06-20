@@ -1,5 +1,7 @@
 import type { IDesktopApiGlobal } from '@onekeyhq/shared/types/desktopApiPlatformInfo';
 
+import { getProcessStartAt } from './getProcessStartAt';
+
 // Avoid `electron-is-dev` here — it accesses `electron.app` which is
 // undefined in the preload/renderer process and would crash at load time.
 // esbuild already defines process.env.NODE_ENV at build time, so this is
@@ -51,6 +53,7 @@ export const buildDesktopApiGlobal = (): IDesktopApiGlobal => ({
   channel: getChannel(),
   deskChannel: process.env.DESK_CHANNEL || '',
   isMas: Boolean(process.mas),
+  processStartAt: getProcessStartAt(),
   isDev,
 });
 
