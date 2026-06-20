@@ -1183,6 +1183,7 @@ function StockPriceChart({
           secondaryLineWidth={2}
           seriesType="dotted-area"
           showLastPointMarker={false}
+          showPriceScale
           showTimeScale={false}
           priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
           priceFormatter={priceFormatter}
