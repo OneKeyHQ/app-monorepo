@@ -69,6 +69,7 @@ import { EmptyToken } from '../Empty/EmptyToken';
 import { ListLoading } from '../Loading';
 
 import { computeShowTokenListSkeleton } from './computeShowTokenListSkeleton';
+import { computeTokenListOwnerMismatch } from './computeTokenListOwnerMismatch';
 import { perfTokenListView } from './perfTokenListView';
 import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
@@ -278,6 +279,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    mergeDeriveAddressData,
     searchKeyLengthThreshold,
     plainMode,
     limit,
@@ -414,29 +416,33 @@ function TokenListViewCmp(props: IProps) {
   // own `refresh*`, NOT on this flag; on home the cells + `listStructure`
   // generation govern (see `homeProjectedIds`). Kept for the non-home skeleton
   // gate below.
-  // Parse the SETTLED owner identity off the lagging structure ownerKey. The
-  // networkId never contains the `__` separator, so split on the LAST `__`.
-  const settledOwner = useMemo(() => {
-    const key = listStructure.ownerKey;
-    if (!key) {
-      return { accountId: undefined, networkId: undefined };
-    }
-    const sep = key.lastIndexOf('__');
-    if (sep < 0) {
-      return { accountId: undefined, networkId: undefined };
-    }
-    return {
-      accountId: key.slice(0, sep),
-      networkId: key.slice(sep + 2),
-    };
-  }, [listStructure.ownerKey]);
-  const ownerMismatch =
-    !!accountId &&
-    !!networkId &&
-    !!settledOwner.accountId &&
-    !!settledOwner.networkId &&
-    (settledOwner.accountId !== accountId ||
-      settledOwner.networkId !== networkId);
+  // Compare the SETTLED structure ownerKey (lagging, stamped by the cells
+  // producer) against the scoped current owner — but NORMALIZED the SAME way the
+  // producer stamps it. The producer's key is
+  // `${getTokenListOwnerCacheAccountId(...)}__${networkId}` (merge-derive owners
+  // are keyed by `indexedAccountId`, not the raw derive `accountId`). Re-parsing
+  // and comparing the raw scoped `accountId` here would diverge from that stamp
+  // on merge-derive accounts (BTC/LTC) — the raw derive path never equals the
+  // stamped `indexedAccountId`, so the mismatch would latch TRUE forever and the
+  // home list would skeleton permanently (only ever hit on merge-derive owners;
+  // EVM collapses to the same string). See `computeTokenListOwnerMismatch`.
+  const ownerMismatch = useMemo(
+    () =>
+      computeTokenListOwnerMismatch({
+        accountId,
+        networkId,
+        indexedAccountId,
+        mergeDeriveAddressData,
+        settledOwnerKey: listStructure.ownerKey,
+      }),
+    [
+      accountId,
+      networkId,
+      indexedAccountId,
+      mergeDeriveAddressData,
+      listStructure.ownerKey,
+    ],
+  );
 
   const tokens = useMemo(() => {
     // PR-7: on the HOME cell path order/membership/rows come from
