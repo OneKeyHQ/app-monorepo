@@ -78,15 +78,15 @@ const FAILED_RECOVERY_FREEZE_MS = 24 * 60 * 60 * 1000; // 24 h
 const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
 
 // ---------------------------------------------------------------------------
-// OCDS v1.1 §5.11 — cross-restart download attempt budget + wall-clock deadline
+// OCDS v1.1 §5.11 — cross-restart download attempt budget
 // ---------------------------------------------------------------------------
 // The in-memory retry loop (updateRetry.ts) bounds attempts WITHIN a single
 // invocation. §5.11 additionally requires a bound that PERSISTS across process
 // restarts, so a permanently-failing object cannot re-spend the full budget on
 // every launch and loop forever (conformance scenario #9). We persist a small
 // counter keyed by the target version to durable MMKV (syncStorage). When the
-// attempt count OR an overall wall-clock deadline (since the first attempt) is
-// exhausted, the download reaches a definitive terminal "gave up" outcome.
+// attempt count is exhausted, the download reaches a definitive terminal "gave
+// up" outcome.
 //
 // Persistence is keyed by the target version so a NEW bundle/app release starts
 // with a fresh budget — we never carry a stale give-up into a fresh release.
@@ -97,11 +97,10 @@ const FAILED_RECOVERY_IGNORE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 d
 const DOWNLOAD_ATTEMPT_BUDGET_STORAGE_KEY =
   'onekey_app_update_download_attempt_budget';
 // Persisted give-up threshold. Distinct from updateRetry's in-memory
-// per-invocation cap: this counts total attempts across relaunches.
+// per-invocation cap: this counts total attempts across relaunches. There is
+// intentionally NO wall-clock deadline — idle time (app closed) must not
+// abandon a still-resumable partial; see evaluateDownloadBudget.
 const DOWNLOAD_PERSISTED_MAX_ATTEMPTS = 8;
-// Overall wall-clock deadline measured from the first persisted attempt for a
-// given target. Once exceeded the download is terminal even if attempts remain.
-const DOWNLOAD_WALL_CLOCK_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 h
 
 interface IDownloadAttemptBudgetRecord {
   targetKey: string;
@@ -113,11 +112,11 @@ export interface IDownloadAttemptBudgetResult {
   targetKey: string;
   attemptCount: number;
   firstAttemptAt: number;
-  // True once the persisted attempt count or the wall-clock deadline is
-  // exhausted: the caller must stop retrying and surface a terminal outcome.
+  // True once the persisted attempt count is exhausted: the caller must stop
+  // retrying and surface a terminal outcome.
   givenUp: boolean;
-  // Populated when givenUp: which bound tripped, for the terminal reason.
-  reason?: 'maxAttempts' | 'deadline';
+  // Populated when givenUp, for the terminal reason.
+  reason?: 'maxAttempts';
 }
 
 // Exposed for tests only — clears volatile retry counters.
@@ -840,8 +839,8 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   // -------------------------------------------------------------------------
-  // OCDS v1.1 §5.11 — persisted cross-restart attempt budget + wall-clock
-  // deadline. See the constants block at the top of this file.
+  // OCDS v1.1 §5.11 — persisted cross-restart attempt budget. See the
+  // constants block at the top of this file.
   // -------------------------------------------------------------------------
 
   // The typed syncStorage wrapper keys on EAppSyncStorageKeys; the budget uses
@@ -868,37 +867,21 @@ class ServiceAppUpdate extends ServiceBase {
   private evaluateDownloadBudget(
     record: IDownloadAttemptBudgetRecord,
   ): IDownloadAttemptBudgetResult {
-    const now = Date.now();
-    const deadlineExceeded =
-      record.firstAttemptAt > 0 &&
-      now - record.firstAttemptAt >= DOWNLOAD_WALL_CLOCK_DEADLINE_MS;
+    // Give up purely on the persisted attempt count. We deliberately do NOT
+    // impose a wall-clock deadline: it would be calendar time measured from the
+    // first attempt, so a user who downloaded part of an update and reopened the
+    // app days later would be denied the (still valid) resume — idle time must
+    // not count against a resumable download. Attempts only ever accrue on real
+    // failures, so the count alone bounds a permanently-failing target without
+    // punishing legitimate idle gaps. `firstAttemptAt` is retained for telemetry.
     const attemptsExceeded =
       record.attemptCount >= DOWNLOAD_PERSISTED_MAX_ATTEMPTS;
-    // Attempt-budget exhaustion is reported first so the terminal reason is
-    // stable; both bounds mean "give up" regardless of which tripped.
-    if (attemptsExceeded) {
-      return {
-        targetKey: record.targetKey,
-        attemptCount: record.attemptCount,
-        firstAttemptAt: record.firstAttemptAt,
-        givenUp: true,
-        reason: 'maxAttempts',
-      };
-    }
-    if (deadlineExceeded) {
-      return {
-        targetKey: record.targetKey,
-        attemptCount: record.attemptCount,
-        firstAttemptAt: record.firstAttemptAt,
-        givenUp: true,
-        reason: 'deadline',
-      };
-    }
     return {
       targetKey: record.targetKey,
       attemptCount: record.attemptCount,
       firstAttemptAt: record.firstAttemptAt,
-      givenUp: false,
+      givenUp: attemptsExceeded,
+      reason: attemptsExceeded ? 'maxAttempts' : undefined,
     };
   }
 
@@ -931,9 +914,9 @@ class ServiceAppUpdate extends ServiceBase {
   /**
    * Increment and persist the attempt counter for `targetKey`, then return the
    * post-increment budget state. Called once per download attempt. The first
-   * attempt for a target stamps `firstAttemptAt` (the wall-clock deadline
-   * anchor). A record for a different target version is reset rather than
-   * carried forward.
+   * attempt for a target stamps `firstAttemptAt` (retained for telemetry only;
+   * there is no wall-clock deadline). A record for a different target version is
+   * reset rather than carried forward.
    */
   @backgroundMethod()
   public async recordDownloadAttempt(params: {

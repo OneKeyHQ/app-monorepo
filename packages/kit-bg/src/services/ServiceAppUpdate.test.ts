@@ -43,8 +43,7 @@ let pendingInstallTaskValue: any;
 // so the cross-relaunch budget test below actually exercises persistence rather
 // than the single-slot pending-install fallback. Backed by a module-level Map
 // so values survive across createService() calls (= simulated relaunches).
-const DOWNLOAD_ATTEMPT_BUDGET_KEY =
-  'onekey_app_update_download_attempt_budget';
+const DOWNLOAD_ATTEMPT_BUDGET_KEY = 'onekey_app_update_download_attempt_budget';
 const syncStorageBackingMap = new Map<string, any>();
 function resetSyncStorageBackingMap() {
   syncStorageBackingMap.clear();
@@ -3888,24 +3887,28 @@ describe('computeUpdateTargetKey consistency', () => {
       expect(aAfter.givenUp).toBe(false);
     });
 
-    test('the wall-clock deadline trips even if attempts remain', async () => {
+    test('a long idle gap does NOT give up — only the attempt count matters (resume-friendly)', async () => {
       const now = 1_000_000_000_000;
       jest.setSystemTime(now);
-      // First attempt stamps firstAttemptAt = now.
-      const first = await service.recordDownloadAttempt({
+      // A couple of failed attempts, then the user closes the app.
+      await service.recordDownloadAttempt({ targetKey: TARGET_A });
+      const second = await service.recordDownloadAttempt({
         targetKey: TARGET_A,
       });
-      expect(first.attemptCount).toBe(1);
-      expect(first.givenUp).toBe(false);
+      expect(second.attemptCount).toBe(2);
+      expect(second.givenUp).toBe(false);
 
-      // Jump past the 24h deadline (attempts still well under the cap).
-      jest.setSystemTime(now + 24 * 60 * 60 * 1000 + 1);
+      // Reopen 30 days later — far past the old 24h wall-clock deadline. Idle
+      // (app-closed) time must NOT abandon a still-resumable partial: with the
+      // attempt count under the cap the budget is NOT given up, so the download
+      // can resume. (There is intentionally no wall-clock deadline.)
+      jest.setSystemTime(now + 30 * 24 * 60 * 60 * 1000);
       const relaunch = createService();
-      const afterDeadline = await relaunch.getDownloadAttemptBudget({
+      const entry = await relaunch.getDownloadAttemptBudget({
         targetKey: TARGET_A,
       });
-      expect(afterDeadline.givenUp).toBe(true);
-      expect(afterDeadline.reason).toBe('deadline');
+      expect(entry.givenUp).toBe(false);
+      expect(entry.attemptCount).toBe(2);
     });
 
     test('resetDownloadAttemptBudget clears the persisted give-up (success path)', async () => {
