@@ -91,7 +91,7 @@ export class PushProviderJPush extends PushProviderBase {
           result,
           registerID,
         );
-        defaultLogger.notification.jpush.registerRid(registerID);
+        defaultLogger.notification.jpush.registerRidToLocal(registerID);
         this.eventEmitter.emit(EPushProviderEventNames.jpush_connected, {
           jpushId: registerID,
         });
