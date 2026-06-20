@@ -1201,6 +1201,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           storeName={storeName}
           marketPresetToken={marketPresetTokenContext}
           onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
           onBalanceMaxPress={onBalanceMaxPress}
@@ -1230,6 +1232,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           storeName={storeName}
           marketPresetToken={marketPresetTokenContext}
           onSelectToken={onSelectToken}
+          onTokenPress={onTokenPress}
+          supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
           fetchLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
           onBalanceMaxPress={onBalanceMaxPress}
