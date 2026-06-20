@@ -3931,6 +3931,7 @@ export enum ETranslations {
   redemption_status_pending = 'redemption.status_pending',
   redemption_status_success = 'redemption.status_success',
   redemption_success_title = 'redemption.success_title',
+  redetect__action = 'redetect__action',
   referral_web_landing_app_not_detected = 'referral.web_landing_app_not_detected',
   referral_web_landing_step1_already_have_wallet = 'referral.web_landing_step1_already_have_wallet',
   referral_web_landing_step1_appstore = 'referral.web_landing_step1_appstore',
