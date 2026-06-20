@@ -152,6 +152,7 @@ const STOCK_CHART_VISIBLE_HEIGHT = 174;
 const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
+const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
 
 type IStockChartHoverData = {
   time: number;
@@ -863,10 +864,8 @@ function StockMarketHeaderSkeleton() {
 
 function StockMarketTokenHeader({
   storeName,
-  compact,
 }: {
   storeName: EJotaiContextStoreNames;
-  compact?: boolean;
 }) {
   const { tokenDetail, networkId } = useTokenDetail();
   const navigation = useAppNavigation();
@@ -899,13 +898,12 @@ function StockMarketTokenHeader({
       alignItems="center"
       justifyContent="space-between"
       h="$13"
-      w={compact ? '100%' : 466}
+      w="100%"
       gap="$3"
     >
       <XStack
-        maxWidth={300}
+        flex={1}
         minWidth={0}
-        flexShrink={1}
         gap="$2.5"
         alignItems="center"
         cursor="pointer"
@@ -926,7 +924,7 @@ function StockMarketTokenHeader({
           bg="$transparent"
           fallbackIcon="CryptoCoinOutline"
         />
-        <YStack w={160} minWidth={0} flexShrink={1}>
+        <YStack flex={1} minWidth={0}>
           <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%">
             <SizableText
               size="$headingSm"
@@ -961,10 +959,12 @@ function StockMarketTokenHeader({
           </XStack>
         </YStack>
       </XStack>
-      <YStack alignItems="flex-end" w="$20" flexShrink={0}>
+      <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
         <BaseMarketTokenPrice
           size="$bodyLg"
           color="$text"
+          numberOfLines={1}
+          textAlign="right"
           price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
           tokenName={tokenDetail.name}
           tokenSymbol={tokenDetail.symbol}
@@ -1321,8 +1321,8 @@ function StockMarketContextPanel({
   return (
     <YStack
       testID={SwapTestIDs.stockMarketPanel}
-      w={526}
-      flexShrink={0}
+      width="100%"
+      minWidth={0}
       minHeight={623}
       p="$6"
       borderWidth={1}
@@ -1429,99 +1429,103 @@ function SwapStockDesktopContent({
   }, [navigation, storeName]);
 
   return (
-    <YStack width="100%" alignItems="center" pt="$5" pb="$5">
-      <YStack width="100%" maxWidth={960} gap="$7">
+    <YStack width="100%" alignItems="center" pb="$5">
+      <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
         {headerContent ? (
-          <XStack h="$14" alignItems="center" justifyContent="center">
+          <YStack pt="$8" pb="$4">
             {headerContent}
-          </XStack>
-        ) : null}
-        <XStack width="100%" gap="$6" alignItems="flex-start">
-          <YStack
-            w={410}
-            flexShrink={0}
-            minHeight={466}
-            p="$6"
-            borderWidth={1}
-            borderColor="$borderSubdued"
-            borderRadius="$6"
-            bg="$bgApp"
-            elevationAndroid="$1"
-            $platform-web={{
-              boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-            }}
-            style={{
-              shadowColor: 'rgba(0, 0, 0, 0.08)',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: 1,
-              shadowRadius: 24,
-            }}
-            gap="$5"
-          >
-            <XStack alignItems="center" justifyContent="space-between">
-              <SizableText size="$headingLg" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.perps_token_selector_stocks,
-                })}
-              </SizableText>
-              {historyBadgeCount > 0 ? (
-                <Stack
-                  testID="swap-stock-history-button"
-                  w="$5"
-                  h="$5"
-                  userSelect="none"
-                  borderRadius="$full"
-                  borderColor="$icon"
-                  borderWidth={1.2}
-                  alignItems="center"
-                  justifyContent="center"
-                  hoverStyle={{
-                    bg: '$bgHover',
-                  }}
-                  pressStyle={{
-                    bg: '$bgActive',
-                  }}
-                  focusVisibleStyle={{
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: 0,
-                  }}
-                  onPress={onOpenHistoryListModal}
-                >
-                  <SizableText color="$text" size="$bodySm">
-                    {`${historyBadgeCount}`}
-                  </SizableText>
-                </Stack>
-              ) : (
-                <IconButton
-                  testID="swap-stock-history-button"
-                  icon="ClockTimeHistoryOutline"
-                  size="small"
-                  variant="tertiary"
-                  onPress={onOpenHistoryListModal}
-                />
-              )}
-            </XStack>
-            <StockTradeTicket
-              onSelectToken={onSelectToken}
-              fetchLoading={fetchLoading}
-              onSelectPercentageStage={onSelectPercentageStage}
-              onBalanceMaxPress={onBalanceMaxPress}
-              onPreSwap={onPreSwap}
-              onToAnotherAddressModal={onToAnotherAddressModal}
-              onOpenProviderList={onOpenProviderList}
-              refreshAction={refreshAction}
-              quoteResult={quoteResult}
-              quoteLoading={quoteLoading}
-              quoteEventFetching={quoteEventFetching}
-              alerts={alerts}
-              stockChannel={stockChannel}
-              tradeSide={stockChannel.tradeSide}
-              onTradeSideChange={handleTradeSideChange}
-            />
           </YStack>
-          <StockMarketContextPanel storeName={storeName} />
+        ) : null}
+        <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
+          <YStack p="$5" flexBasis="50%" minWidth={0}>
+            <YStack
+              width="100%"
+              minWidth={0}
+              minHeight={466}
+              p="$6"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              borderRadius="$6"
+              bg="$bgApp"
+              elevationAndroid="$1"
+              $platform-web={{
+                boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+              }}
+              style={{
+                shadowColor: 'rgba(0, 0, 0, 0.08)',
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 1,
+                shadowRadius: 24,
+              }}
+              gap="$5"
+            >
+              <XStack alignItems="center" justifyContent="space-between">
+                <SizableText size="$headingLg" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.perps_token_selector_stocks,
+                  })}
+                </SizableText>
+                {historyBadgeCount > 0 ? (
+                  <Stack
+                    testID="swap-stock-history-button"
+                    w="$5"
+                    h="$5"
+                    userSelect="none"
+                    borderRadius="$full"
+                    borderColor="$icon"
+                    borderWidth={1.2}
+                    alignItems="center"
+                    justifyContent="center"
+                    hoverStyle={{
+                      bg: '$bgHover',
+                    }}
+                    pressStyle={{
+                      bg: '$bgActive',
+                    }}
+                    focusVisibleStyle={{
+                      outlineColor: '$focusRing',
+                      outlineWidth: 2,
+                      outlineStyle: 'solid',
+                      outlineOffset: 0,
+                    }}
+                    onPress={onOpenHistoryListModal}
+                  >
+                    <SizableText color="$text" size="$bodySm">
+                      {`${historyBadgeCount}`}
+                    </SizableText>
+                  </Stack>
+                ) : (
+                  <IconButton
+                    testID="swap-stock-history-button"
+                    icon="ClockTimeHistoryOutline"
+                    size="small"
+                    variant="tertiary"
+                    onPress={onOpenHistoryListModal}
+                  />
+                )}
+              </XStack>
+              <StockTradeTicket
+                onSelectToken={onSelectToken}
+                fetchLoading={fetchLoading}
+                onSelectPercentageStage={onSelectPercentageStage}
+                onBalanceMaxPress={onBalanceMaxPress}
+                onPreSwap={onPreSwap}
+                onToAnotherAddressModal={onToAnotherAddressModal}
+                onOpenProviderList={onOpenProviderList}
+                refreshAction={refreshAction}
+                quoteResult={quoteResult}
+                quoteLoading={quoteLoading}
+                quoteEventFetching={quoteEventFetching}
+                alerts={alerts}
+                stockChannel={stockChannel}
+                tradeSide={stockChannel.tradeSide}
+                onTradeSideChange={handleTradeSideChange}
+              />
+            </YStack>
+          </YStack>
+          <YStack p="$5" flexBasis="50%" minWidth={0}>
+            <StockMarketContextPanel storeName={storeName} />
+          </YStack>
         </XStack>
       </YStack>
     </YStack>
@@ -1580,7 +1584,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader storeName={props.storeName} compact />
+        <StockMarketTokenHeader storeName={props.storeName} />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
