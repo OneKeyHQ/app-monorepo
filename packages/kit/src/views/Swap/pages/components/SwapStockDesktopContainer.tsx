@@ -145,7 +145,8 @@ const STOCK_CHART_RANGE_ITEMS: {
   { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
 ];
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
-const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
+const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.18, bottom: 0.1 } as const;
+const STOCK_CHART_TOOLTIP_WIDTH = 148;
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 
 function normalizeStockChartData(points?: { t: number; c: number }[]) {
@@ -1009,6 +1010,13 @@ function StockPriceChart({
   const intl = useIntl();
   const theme = useTheme();
   const [range, setRange] = useState<IStockChartRange>('1D');
+  const [hoverData, setHoverData] = useState<{
+    time: number;
+    price: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const chartLineColor = theme.textSuccess.val;
   const rangeOptions = useMemo(
     () =>
@@ -1020,8 +1028,34 @@ function StockPriceChart({
     [],
   );
   const handleRangeChange = useCallback((value: string | number) => {
+    setHoverData(null);
     setRange(value as IStockChartRange);
   }, []);
+  const handleChartHover = useCallback(
+    ({
+      time,
+      price,
+      x,
+      y,
+    }: {
+      time?: number;
+      price?: number;
+      x?: number;
+      y?: number;
+    }) => {
+      if (
+        time !== undefined &&
+        price !== undefined &&
+        x !== undefined &&
+        y !== undefined
+      ) {
+        setHoverData({ time, price, x, y });
+      } else {
+        setHoverData(null);
+      }
+    },
+    [],
+  );
   const chartTitle = useMemo(() => {
     const chartLabel = intl.formatMessage({
       id: ETranslations.market_chart,
@@ -1080,6 +1114,47 @@ function StockPriceChart({
       }),
     [],
   );
+  const tooltipPosition = useMemo(() => {
+    if (!hoverData || !containerWidth) return null;
+    const offset = 10;
+    const edge = 8;
+    const isLeft = hoverData.x < containerWidth / 2;
+    const translateX = isLeft ? 0 : -STOCK_CHART_TOOLTIP_WIDTH;
+    const desired = isLeft ? hoverData.x + offset : hoverData.x - offset;
+    const maxLeft = Math.max(
+      edge,
+      containerWidth - STOCK_CHART_TOOLTIP_WIDTH - edge,
+    );
+    const clamped = Math.min(Math.max(desired + translateX, edge), maxLeft);
+    return {
+      left: clamped - translateX,
+      translateX,
+      top: Math.min(
+        Math.max(8, hoverData.y - 64),
+        Math.max(8, STOCK_CHART_VISIBLE_HEIGHT - 72),
+      ),
+    };
+  }, [hoverData, containerWidth]);
+  const formatHoverDate = useCallback(
+    (timestamp: number) =>
+      intl.formatDate(
+        new Date(timestamp * 1000),
+        range === '1Y'
+          ? {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+            }
+          : {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            },
+      ),
+    [intl, range],
+  );
 
   let chartContent: ReactNode = (
     <YStack flex={1} alignItems="center" justifyContent="center">
@@ -1102,7 +1177,10 @@ function StockPriceChart({
         secondaryLineWidth={2}
         seriesType="dotted-area"
         showLastPointMarker={false}
-        showTimeScale={false}
+        showPriceScale
+        showHorzGridLines
+        showTimeScale
+        onHover={handleChartHover}
         priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
         priceFormatter={priceFormatter}
         fontSize={11}
@@ -1151,7 +1229,50 @@ function StockPriceChart({
         />
       </XStack>
       <Stack flex={1} minHeight={0} px="$5" pt="$2" pb="$4">
-        {chartContent}
+        <YStack
+          flex={1}
+          minHeight={0}
+          position="relative"
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width;
+            if (width !== containerWidth) {
+              setContainerWidth(width);
+            }
+          }}
+        >
+          {hoverData && tooltipPosition ? (
+            <YStack
+              position="absolute"
+              top={tooltipPosition.top}
+              left={tooltipPosition.left}
+              transform={[{ translateX: tooltipPosition.translateX }]}
+              bg="$bg"
+              borderRadius="$2"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              px="$3"
+              py="$2"
+              zIndex={100}
+              pointerEvents="none"
+              width={STOCK_CHART_TOOLTIP_WIDTH}
+            >
+              <YStack gap="$1">
+                <SizableText size="$bodyXs" color="$textDisabled">
+                  {formatHoverDate(hoverData.time)}
+                </SizableText>
+                <XStack justifyContent="space-between" alignItems="center">
+                  <SizableText size="$bodyXs" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.global_price })}
+                  </SizableText>
+                  <SizableText size="$bodySmMedium" color="$text">
+                    {priceFormatter(hoverData.price)}
+                  </SizableText>
+                </XStack>
+              </YStack>
+            </YStack>
+          ) : null}
+          {chartContent}
+        </YStack>
       </Stack>
     </YStack>
   );
