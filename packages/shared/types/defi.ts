@@ -236,6 +236,7 @@ export type IDeFiActionTxConfirmInfo = {
 
 export type IResolvedDeFiPositionActionAsset = {
   asset: IDeFiAsset;
+  underlyingAssets?: IDeFiAsset[];
   tokenAddress?: string;
   amount: string;
   symbol: string;

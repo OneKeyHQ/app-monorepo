@@ -155,6 +155,56 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       category: 'liquidity',
       groupId: '0x1111111111111111111111111111111111111111#123',
       name: 'Uniswap Position',
+      assets: [
+        makeAsset({
+          symbol: 'ETH',
+          address: '0xeth',
+          amount: '0.5',
+          value: 1500,
+          price: 3000,
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc',
+          amount: '1500',
+          value: 1500,
+          price: 1,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v3',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v3',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    // RemoveLiquidity is gated off in the app (isSupportedByCurrentActionUi)
+    // until the build service guarantees a server-enforced min-out. The
+    // resolution metadata above (tokenId / underlyingAssets) stays exercised so
+    // re-enabling only flips the gate, not this setup.
+    expect(actions).toHaveLength(0);
+  });
+
+  it('hides Uniswap removeLiquidity when tokenId metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: 'uniswap-v3-position',
+      name: 'Uniswap Position',
       assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
     });
     const supportedActions: IDeFiSupportedProtocolAction[] = [
@@ -179,7 +229,38 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('hides grouped Uniswap removeLiquidity assets until the action is safe to expose', () => {
+  it('hides Uniswap V4 removeLiquidity when currency metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v4',
+      protocolName: 'Uniswap V4',
+      category: 'liquidity',
+      groupId: '0x1111111111111111111111111111111111111111#123',
+      name: 'Uniswap Position',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v4',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v4',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('gates grouped Uniswap removeLiquidity off', () => {
     const firstSourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',

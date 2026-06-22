@@ -521,8 +521,10 @@ function isSupportedByCurrentActionUi(
   supportedAction: IDeFiSupportedProtocolAction,
 ) {
   if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
-    // Requires a min-receive quote/display contract before the App can expose
-    // this as a safe signing flow.
+    // Gated off in the App: the resolution/preview plumbing below exists, but
+    // the build service must guarantee a server-enforced min-out before we
+    // expose liquidity removal as a safe signing flow. Re-enable here once the
+    // backend contract is confirmed.
     return false;
   }
   return true;
@@ -630,6 +632,9 @@ function buildResolvedAsset({
 
     return {
       asset,
+      underlyingAssets: sourcePosition?.assets.filter((item) =>
+        isPositiveAmount(item.amount),
+      ),
       amount: asset.amount,
       symbol: asset.symbol,
       tokenAddress: asset.address,
@@ -717,6 +722,7 @@ export {
   DEFI_ACTION_MAX_PERCENT,
   DEFI_ACTION_MIN_PERCENT,
   buildDeFiActionBps,
+  normalizeCategoryForAction,
   normalizeDeFiActionPercent,
   resolveDeFiPositionActions,
 };

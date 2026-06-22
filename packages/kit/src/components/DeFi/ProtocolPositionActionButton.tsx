@@ -10,7 +10,7 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
@@ -39,6 +39,17 @@ type IProtocolPositionActionButtonProps = {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol' | 'indexedAccountId'>;
   position: IDeFiProtocol['positions'][number];
   supportedActions: IDeFiSupportedProtocolAction[];
+  placement?: 'all' | 'balance' | 'rewards' | 'debt';
+  // The specific asset this button acts on. When set, the manage
+  // (Withdraw/Repay) action targets this asset's own reserve instead of the
+  // position's primary supplied asset, so each supplied/borrowed row gets a
+  // correctly-scoped button.
+  manageAsset?: IDeFiAsset;
+  // Resolved protocol actions (Withdraw/Claim/Remove) are position-level, so a
+  // per-asset caller renders them once (e.g. on the first asset) and sets this
+  // false on the rest to avoid repeating them under every row.
+  showResolvedActions?: boolean;
+  visualVariant?: 'solid' | 'info';
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
@@ -165,15 +176,20 @@ function normalizeBorrowProvider(provider?: string) {
 function getAaveBorrowManageParams({
   protocol,
   position,
+  manageAsset,
 }: {
   protocol: Pick<IDeFiProtocol, 'networkId' | 'protocol'>;
   position: IDeFiProtocol['positions'][number];
+  manageAsset?: IDeFiAsset;
 }): IBorrowManageParams | undefined {
   if (!isAaveProtocol(protocol.protocol) || !hasDebt(position)) {
     return undefined;
   }
 
   const primaryAsset = getPrimarySuppliedAsset(position);
+  // The asset this button acts on: the caller-scoped asset for per-asset
+  // Withdraw/Repay, otherwise the position's primary supplied asset.
+  const targetAsset = manageAsset ?? primaryAsset;
   const sources = getActionPositionSources(position);
   const provider =
     normalizeBorrowProvider(
@@ -193,19 +209,35 @@ function getAaveBorrowManageParams({
     'pool_address',
     'pool',
   ]);
-  const reserveAddress =
-    pickStringFromSources(sources, [
-      'reserveAddress',
-      'reserve_address',
-      'reserve',
-      'underlyingAddress',
-      'underlying_address',
-      'tokenAddress',
-      'token_address',
-    ]) ?? primaryAsset?.address;
-  const symbol =
-    pickStringFromSources([primaryAsset], ['symbol']) ??
-    pickStringFromSources(sources, ['symbol']);
+  // A scoped asset IS the reserve target, so its own address/symbol win. We
+  // still prefer an explicit reserve/underlying field off the asset's own
+  // record when present, falling back to its address — this guards against a
+  // provider that ever emits a wrapper (aToken/variableDebtToken) in `.address`
+  // instead of the underlying reserve.
+  const reserveAddress = manageAsset
+    ? (pickStringFromSources(
+        [manageAsset],
+        [
+          'reserveAddress',
+          'reserve_address',
+          'reserve',
+          'underlyingAddress',
+          'underlying_address',
+        ],
+      ) ?? manageAsset.address)
+    : (pickStringFromSources(sources, [
+        'reserveAddress',
+        'reserve_address',
+        'reserve',
+        'underlyingAddress',
+        'underlying_address',
+        'tokenAddress',
+        'token_address',
+      ]) ?? primaryAsset?.address);
+  const symbol = manageAsset
+    ? manageAsset.symbol
+    : (pickStringFromSources([primaryAsset], ['symbol']) ??
+      pickStringFromSources(sources, ['symbol']));
   if (!provider || !marketAddress || !reserveAddress || !symbol) {
     return undefined;
   }
@@ -215,7 +247,7 @@ function getAaveBorrowManageParams({
     marketAddress,
     reserveAddress,
     symbol,
-    logoURI: primaryAsset?.meta?.logoUrl,
+    logoURI: targetAsset?.meta?.logoUrl,
     providerLogoURI: pickStringFromSources(sources, [
       'providerLogoURI',
       'providerLogoUrl',
@@ -236,6 +268,95 @@ function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
   ].join('-');
 }
 
+function isBalancePlacementAction(action: EDeFiPositionAction) {
+  return (
+    action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.ClaimWithdrawal ||
+    action === EDeFiPositionAction.RemoveLiquidity
+  );
+}
+
+function isRewardsPlacementAction(action: EDeFiPositionAction) {
+  return action === EDeFiPositionAction.Claim;
+}
+
+function isVisibleInPlacement({
+  action,
+  placement,
+}: {
+  action: EDeFiPositionAction;
+  placement: NonNullable<IProtocolPositionActionButtonProps['placement']>;
+}) {
+  if (placement === 'all') return true;
+  if (placement === 'balance') return isBalancePlacementAction(action);
+  if (placement === 'rewards') return isRewardsPlacementAction(action);
+  return false;
+}
+
+// Manage actions sit under the asset they act on, like the other inline
+// actions: Withdraw with the supplied balance, Repay with the borrowed debt.
+function getManageActionTypesForPlacement(
+  placement: NonNullable<IProtocolPositionActionButtonProps['placement']>,
+): EManagePositionType[] {
+  const types: EManagePositionType[] = [];
+  if (placement === 'all' || placement === 'balance') {
+    types.push(EManagePositionType.Withdraw);
+  }
+  if (placement === 'all' || placement === 'debt') {
+    types.push(EManagePositionType.Repay);
+  }
+  return types;
+}
+
+function getManageActionLabel({
+  type,
+  intl,
+}: {
+  type: EManagePositionType;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  if (type === EManagePositionType.Repay) {
+    return intl.formatMessage({ id: ETranslations.defi_repay });
+  }
+  return intl.formatMessage({ id: ETranslations.global_withdraw });
+}
+
+const INFO_OUTLINE_BUTTON_PROPS = {
+  variant: 'link',
+  childrenAsText: false,
+  px: '$1.5',
+  py: '$0.5',
+  borderRadius: '$2',
+  borderWidth: '$px',
+  borderColor: '$borderInfoSubdued',
+  bg: '$transparent',
+  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
+  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
+} as const;
+
+const SOLID_BUTTON_PROPS = {
+  variant: 'primary',
+} as const;
+
+function getActionButtonFrameProps(isInfo: boolean) {
+  return isInfo ? INFO_OUTLINE_BUTTON_PROPS : SOLID_BUTTON_PROPS;
+}
+
+function renderActionButtonLabel({
+  isInfo,
+  label,
+}: {
+  isInfo: boolean;
+  label: string;
+}) {
+  if (!isInfo) return label;
+  return (
+    <SizableText size="$bodySmMedium" color="$textInfo">
+      {label}
+    </SizableText>
+  );
+}
+
 const ProtocolPositionActionButton = memo(
   ({
     accountId,
@@ -243,6 +364,10 @@ const ProtocolPositionActionButton = memo(
     protocol,
     position,
     supportedActions,
+    placement = 'all',
+    manageAsset,
+    showResolvedActions = true,
+    visualVariant = 'solid',
     containerProps,
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
@@ -275,18 +400,25 @@ const ProtocolPositionActionButton = memo(
       [position, protocol.protocol],
     );
     const borrowManageParams = useMemo(
-      () => getAaveBorrowManageParams({ protocol, position }),
-      [position, protocol],
+      () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
+      [manageAsset, position, protocol],
     );
-    const visibleActions = useMemo(
-      () =>
-        hasAaveDebt
-          ? actions.filter(
-              (action) => action.action !== EDeFiPositionAction.Withdraw,
-            )
-          : actions,
-      [actions, hasAaveDebt],
-    );
+    const visibleActions = useMemo(() => {
+      const actionsForPosition = hasAaveDebt
+        ? actions.filter(
+            (action) => action.action !== EDeFiPositionAction.Withdraw,
+          )
+        : actions;
+      return actionsForPosition.filter((action) =>
+        isVisibleInPlacement({ action: action.action, placement }),
+      );
+    }, [actions, hasAaveDebt, placement]);
+    const manageActionTypes = getManageActionTypesForPlacement(placement);
+    const shouldShowManage =
+      manageActionTypes.length > 0 && Boolean(borrowManageParams);
+    // Position-level resolved actions render once per position; a per-asset
+    // caller suppresses them on every row but the first.
+    const renderedActions = showResolvedActions ? visibleActions : [];
     const handleActionPress = useCallback(
       async (action: (typeof visibleActions)[number]) => {
         if (!accountId) {
@@ -329,73 +461,88 @@ const ProtocolPositionActionButton = memo(
       },
       [accountId, onSuccess, protocol.networkId, submitProtocolPositionAction],
     );
-    const handleManagePress = useCallback(() => {
-      if (!accountId || !borrowManageParams) return;
-      BorrowNavigation.pushToBorrowManagePosition(navigation, {
+    const handleManagePress = useCallback(
+      (type: EManagePositionType) => {
+        if (!accountId || !borrowManageParams) return;
+        BorrowNavigation.pushToBorrowManagePosition(navigation, {
+          accountId,
+          indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
+          networkId: protocol.networkId,
+          provider: borrowManageParams.provider,
+          marketAddress: borrowManageParams.marketAddress,
+          reserveAddress: borrowManageParams.reserveAddress,
+          symbol: borrowManageParams.symbol,
+          logoURI: borrowManageParams.logoURI,
+          providerLogoURI: borrowManageParams.providerLogoURI,
+          type,
+        });
+      },
+      [
         accountId,
-        indexedAccountId: protocol.indexedAccountId ?? indexedAccountId,
-        networkId: protocol.networkId,
-        provider: borrowManageParams.provider,
-        marketAddress: borrowManageParams.marketAddress,
-        reserveAddress: borrowManageParams.reserveAddress,
-        symbol: borrowManageParams.symbol,
-        logoURI: borrowManageParams.logoURI,
-        providerLogoURI: borrowManageParams.providerLogoURI,
-        type: EManagePositionType.Withdraw,
-      });
-    }, [
-      accountId,
-      borrowManageParams,
-      indexedAccountId,
-      navigation,
-      protocol.indexedAccountId,
-      protocol.networkId,
-    ]);
+        borrowManageParams,
+        indexedAccountId,
+        navigation,
+        protocol.indexedAccountId,
+        protocol.networkId,
+      ],
+    );
 
     if (
       !isActionAccount ||
-      (visibleActions.length === 0 && !borrowManageParams)
+      (renderedActions.length === 0 && !shouldShowManage)
     ) {
       return null;
     }
 
+    const isInfo = visualVariant === 'info';
+    const actionButtonFrameProps = getActionButtonFrameProps(isInfo);
+
     return (
       <XStack
-        gap="$1.5"
+        gap={isInfo ? '$1' : '$1.5'}
         alignItems="center"
-        justifyContent="flex-end"
+        justifyContent={isInfo ? 'flex-start' : 'flex-end'}
         flexShrink={1}
         flexWrap="wrap"
         minWidth={0}
         {...containerProps}
       >
-        {visibleActions.map((action) => {
+        {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
           return (
             <Button
               key={actionKey}
               testID={`defi-position-action-${action.action}`}
               size="small"
-              variant="primary"
+              {...actionButtonFrameProps}
               disabled={Boolean(submittingActionKey)}
               loading={submittingActionKey === actionKey}
               onPress={() => void handleActionPress(action)}
             >
-              {getActionLabel({ action: action.action, intl })}
+              {renderActionButtonLabel({
+                isInfo,
+                label: getActionLabel({ action: action.action, intl }),
+              })}
             </Button>
           );
         })}
-        {borrowManageParams ? (
-          <Button
-            testID="defi-position-action-manage"
-            size="small"
-            variant="primary"
-            disabled={Boolean(submittingActionKey)}
-            onPress={handleManagePress}
-          >
-            {intl.formatMessage({ id: ETranslations.global_manage })}
-          </Button>
-        ) : null}
+        {shouldShowManage
+          ? manageActionTypes.map((manageType) => (
+              <Button
+                key={manageType}
+                testID={`defi-position-action-manage-${manageType}`}
+                size="small"
+                {...actionButtonFrameProps}
+                disabled={Boolean(submittingActionKey)}
+                onPress={() => handleManagePress(manageType)}
+              >
+                {renderActionButtonLabel({
+                  isInfo,
+                  label: getManageActionLabel({ type: manageType, intl }),
+                })}
+              </Button>
+            ))
+          : null}
       </XStack>
     );
   },
