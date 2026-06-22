@@ -476,7 +476,7 @@ const SwapTokenSelectPage = ({
         response.list.forEach((token, index) => {
           const requestKey =
             stockMetadataRequest.tokenAddressEntries[index]?.[0];
-          if (requestKey && token.stock) {
+          if (requestKey && token?.stock) {
             metadataMap[requestKey] = token.stock;
           }
         });
