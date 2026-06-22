@@ -43,12 +43,12 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
-import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import {
   useConfirmHyperliquidTerms,
   useRequestEnableTradingWithDepositFallback,
 } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
+import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
