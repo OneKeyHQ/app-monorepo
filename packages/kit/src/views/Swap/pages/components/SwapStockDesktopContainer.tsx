@@ -34,6 +34,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useSwapFromTokenAmountAtom,
   useSwapProEnableCurrentSymbolAtom,
+  useSwapQuoteEventErrorAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
@@ -67,6 +68,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
@@ -82,6 +84,7 @@ import {
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelStage,
@@ -94,11 +97,11 @@ import {
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
 import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory';
+import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
-import SwapQuoteResult from './SwapQuoteResult';
 import {
   type IStockChartRange,
   STOCK_CHART_DEFAULT_RANGE,
@@ -253,7 +256,9 @@ function buildStockMarketDataRows({
       label: intl.formatMessage({
         id: ETranslations.dexmarket_stock_turnover_rate,
       }),
-      value: formatPercentValue(assetAnalysis?.turnoverRate),
+      value: assetAnalysis?.turnoverRate
+        ? `${formatMarketCapValue(assetAnalysis.turnoverRate)}%`
+        : '--',
     },
     {
       label: intl.formatMessage({
@@ -391,6 +396,40 @@ function StockEstimatedReceive({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const intl = useIntl();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  const shouldHideQuoteResult = useMemo(() => {
+    const hasStockQuoteControl = Boolean(
+      getStockQuoteTradeControl({
+        quoteResult,
+        fromTokenAmount: fromTokenAmount.value,
+        fromTokenSymbol: stockChannel.fromToken?.symbol,
+        intl,
+      }),
+    );
+    const fromTokenMatchesQuoteError = equalTokenNoCaseSensitive({
+      token1: quoteEventError?.fromToken,
+      token2: stockChannel.fromToken,
+    });
+    const toTokenMatchesQuoteError = equalTokenNoCaseSensitive({
+      token1: quoteEventError?.toToken,
+      token2: stockChannel.toToken,
+    });
+    const isCurrentStockQuoteEventError =
+      Boolean(quoteEventError?.isStock) &&
+      Boolean(stockChannel.fromToken) &&
+      Boolean(stockChannel.toToken) &&
+      fromTokenMatchesQuoteError &&
+      toTokenMatchesQuoteError;
+    return hasStockQuoteControl || isCurrentStockQuoteEventError;
+  }, [
+    fromTokenAmount.value,
+    intl,
+    quoteEventError,
+    quoteResult,
+    stockChannel.fromToken,
+    stockChannel.toToken,
+  ]);
   const {
     canSelectReceiveToken,
     currencySymbol,
@@ -398,11 +437,13 @@ function StockEstimatedReceive({
     isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
+    rateDifference,
     receiveAmount,
     receiveFiatValue,
     receiveToken,
     setIsReceiveTokenPopoverOpen,
   } = useSwapStockEstimatedReceiveState({
+    forceHideQuote: shouldHideQuoteResult,
     quoteEventFetching,
     quoteLoading,
     quoteResult,
@@ -465,6 +506,11 @@ function StockEstimatedReceive({
         >
           {receiveTokenSymbol}
         </SizableText>
+        <SwapRateDifferenceText
+          loading={isLoading}
+          rateDifference={rateDifference}
+          size="$bodyMd"
+        />
       </XStack>
       {canSelectReceiveToken ? (
         <Icon
@@ -689,16 +735,11 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 
 function StockAmountInput({
   fetchLoading,
-  onBalanceMaxPress,
-  stockChannel,
-}: Pick<
-  ISwapStockDesktopContainerProps,
-  'fetchLoading' | 'onBalanceMaxPress'
-> & {
-  stockChannel: IUseSwapStockChannelReturn;
+  amountInputState,
+}: Pick<ISwapStockDesktopContainerProps, 'fetchLoading'> & {
+  amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
 }) {
   const intl = useIntl();
-  const amountInputState = useSwapStockAmountInputState({ stockChannel });
   const {
     amountFiatValue,
     balanceLoading,
@@ -710,6 +751,7 @@ function StockAmountInput({
     inputValue,
     isBuySide,
     onAmountChange,
+    onBalanceMaxPress,
     payToken,
     payTokenOptionsLoading,
     payTokens,
@@ -788,12 +830,8 @@ function StockAmountInput({
 
 function StockTradeTicket({
   fetchLoading,
-  onSelectPercentageStage,
-  onBalanceMaxPress,
   onPreSwap,
   onToAnotherAddressModal,
-  onOpenProviderList,
-  refreshAction,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
@@ -811,13 +849,13 @@ function StockTradeTicket({
   onTradeSideChange: (value: ESwapStockTradeSide) => void;
   compact?: boolean;
 }) {
+  const amountInputState = useSwapStockAmountInputState({ stockChannel });
   return (
     <YStack gap={compact ? '$3' : '$4'}>
       <StockTradeSideSwitch value={tradeSide} onChange={onTradeSideChange} />
       <StockAmountInput
         fetchLoading={fetchLoading}
-        onBalanceMaxPress={onBalanceMaxPress}
-        stockChannel={stockChannel}
+        amountInputState={amountInputState}
       />
       <StockEstimatedReceive
         quoteResult={quoteResult}
@@ -829,7 +867,7 @@ function StockTradeTicket({
         stockChannel={stockChannel}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
-        onSelectPercentageStage={onSelectPercentageStage}
+        onSelectPercentageStage={amountInputState.onSelectPercentageStage}
       />
       <SwapStockTradeAlert
         alerts={alerts}
@@ -838,13 +876,6 @@ function StockTradeTicket({
         quoteResult={quoteResult}
         stockChannel={stockChannel}
       />
-      {stockChannel.readyForQuote ? (
-        <SwapQuoteResult
-          refreshAction={refreshAction}
-          onOpenProviderList={onOpenProviderList}
-          quoteResult={quoteResult}
-        />
-      ) : null}
     </YStack>
   );
 }

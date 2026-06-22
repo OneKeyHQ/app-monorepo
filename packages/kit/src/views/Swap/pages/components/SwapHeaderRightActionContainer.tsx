@@ -647,6 +647,8 @@ const SwapHeaderRightActionContainer = ({
   }, [showHeaderSlippageValue, slippageItem.key, slippageItem.value]);
   const resolvedIconSize = iconSize ?? (compact ? 24 : 20);
   const resolvedButtonSize = compact ? 'small' : 'medium';
+  const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  const isStockModal = pageType === EPageType.modal && isStockType;
   const onOpenHistoryListModal = useCallback(() => {
     dismissKeyboard();
     navigation.pushModal(EModalRoutes.SwapModal, {
@@ -659,10 +661,10 @@ const SwapHeaderRightActionContainer = ({
   }, [historyProtocolType, navigation, swapStoreName]);
 
   const showKLineButton =
-    swapTypeSwitch === ESwapTabSwitchType.SWAP ||
-    swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
-  const isStockType = swapTypeSwitch === ESwapTabSwitchType.STOCK;
+    !isStockModal &&
+    (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+      (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro));
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
@@ -766,45 +768,49 @@ const SwapHeaderRightActionContainer = ({
     );
   }
 
+  let settingsButton: ReactNode = null;
+  if (!isStockModal) {
+    settingsButton = slippageTitle ? (
+      <XStack
+        testID={SwapTestIDs.settingsButton}
+        onPress={onOpenSwapSettings}
+        borderRadius="$3"
+        bg="$bgSubdued"
+        cursor="pointer"
+        px={compact ? '$1.5' : '$2'}
+        py="$1"
+        gap={compact ? '$0.5' : '$1'}
+        alignItems="center"
+        justifyContent="center"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+      >
+        {slippageTitle}
+        <Icon
+          name="SliderHorOutline"
+          size={resolvedIconSize}
+          color={iconColor ?? '$icon'}
+        />
+      </XStack>
+    ) : (
+      <HeaderIconButton
+        testID={SwapTestIDs.settingsButton}
+        icon="SliderHorOutline"
+        onPress={onOpenSwapSettings}
+        iconProps={{ size: resolvedIconSize, color: iconColor }}
+        size={resolvedButtonSize}
+      />
+    );
+  }
+
   return (
     <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
       {kLineButton}
-
-      {slippageTitle ? (
-        <XStack
-          testID={SwapTestIDs.settingsButton}
-          onPress={onOpenSwapSettings}
-          borderRadius="$3"
-          bg="$bgSubdued"
-          cursor="pointer"
-          px={compact ? '$1.5' : '$2'}
-          py="$1"
-          gap={compact ? '$0.5' : '$1'}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-        >
-          {slippageTitle}
-          <Icon
-            name="SliderHorOutline"
-            size={resolvedIconSize}
-            color={iconColor ?? '$icon'}
-          />
-        </XStack>
-      ) : (
-        <HeaderIconButton
-          testID={SwapTestIDs.settingsButton}
-          icon="SliderHorOutline"
-          onPress={onOpenSwapSettings}
-          iconProps={{ size: resolvedIconSize, color: iconColor }}
-          size={resolvedButtonSize}
-        />
-      )}
+      {settingsButton}
 
       {historyBadgeCount > 0 ? (
         <Stack
