@@ -39,6 +39,7 @@ const LimitOrderCard = ({
   onCancel,
   hiddenHoverBg = false,
   cancelLoading = false,
+  testID,
 }: {
   item: IFetchLimitOrderRes;
   hiddenCreateTime?: boolean;
@@ -48,6 +49,7 @@ const LimitOrderCard = ({
   onCancel?: () => void;
   cancelLoading?: boolean;
   hiddenHoverBg?: boolean;
+  testID?: string;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
@@ -355,6 +357,7 @@ const LimitOrderCard = ({
 
   return (
     <YStack
+      testID={testID}
       flex={1}
       userSelect="none"
       {...(!hiddenHoverBg && {

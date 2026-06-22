@@ -2,10 +2,9 @@ import BigNumber from 'bignumber.js';
 
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
-type ILimitOrderDisplayAmountInput = Pick<
-  IFetchLimitOrderRes,
-  'executedBuyAmount' | 'toAmount'
-> & {
+type ILimitOrderDisplayAmountInput = {
+  executedBuyAmount?: IFetchLimitOrderRes['executedBuyAmount'];
+  toAmount?: IFetchLimitOrderRes['toAmount'];
   toTokenInfo?: Pick<IFetchLimitOrderRes['toTokenInfo'], 'decimals'>;
 };
 

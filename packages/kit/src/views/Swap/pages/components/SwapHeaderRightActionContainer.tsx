@@ -814,6 +814,7 @@ const SwapHeaderRightActionContainer = ({
 
       {historyBadgeCount > 0 ? (
         <Stack
+          testID={SwapTestIDs.historyButton}
           m={compact ? '$0' : '$0.5'}
           w="$5"
           h="$5"
@@ -843,6 +844,7 @@ const SwapHeaderRightActionContainer = ({
         </Stack>
       ) : (
         <HeaderIconButton
+          testID={SwapTestIDs.historyButton}
           icon="ClockTimeHistoryOutline"
           onPress={onOpenHistoryListModal}
           iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}

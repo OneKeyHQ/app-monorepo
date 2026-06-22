@@ -50,6 +50,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { getLimitOrderDisplayToAmount } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -89,8 +90,16 @@ const LimitOrderDetailModal = () => {
       toAmount: new BigNumber(orderItemState?.toAmount ?? '0').shiftedBy(
         -(orderItemState?.toTokenInfo?.decimals ?? 0),
       ),
+      displayToAmount: getLimitOrderDisplayToAmount({
+        executedBuyAmount: orderItemState?.executedBuyAmount,
+        toAmount: orderItemState?.toAmount,
+        toTokenInfo: {
+          decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      orderItemState?.executedBuyAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
       orderItemState?.toAmount,
@@ -135,7 +144,7 @@ const LimitOrderDetailModal = () => {
       price: orderItemState?.toTokenInfo?.price ?? '0',
     };
     const fromAmount = decimalsAmount.fromAmount.toFixed();
-    const toAmount = decimalsAmount.toAmount.toFixed();
+    const toAmount = decimalsAmount.displayToAmount.toFixed();
     return (
       <>
         <AssetItem
@@ -167,8 +176,8 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
+    decimalsAmount.displayToAmount,
     decimalsAmount.fromAmount,
-    decimalsAmount.toAmount,
     orderItemState?.fromTokenInfo.isNative,
     orderItemState?.fromTokenInfo.logoURI,
     orderItemState?.fromTokenInfo.name,
