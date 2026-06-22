@@ -155,19 +155,6 @@ const networkIdsMap = getNetworkIdsMap();
  */
 const ENABLE_BG_TOKEN_VIEW_MODEL = true;
 
-// [TLNATIVE temp] native log for the all-network owner-switch -> initialized
-// lifecycle (main runtime, producer side). No-op off-device.
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 type ITokenSelectorFilterMode = 'wallet-token' | 'lp-dapp-token';
 
 type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
@@ -681,7 +668,6 @@ function TokenListBlock({
             accountId: account?.id,
             networkId: network?.id,
             rawKeys: r.allTokens?.keys ?? '',
-            // [TLNATIVE temp] ingest source tag (log-only).
             source: 'single',
           });
         }
@@ -1490,9 +1476,7 @@ function TokenListBlock({
   });
 
   const updateAllNetworksTokenList = useCallback(async () => {
-    const liveOwner = `${account?.id ?? 'none'}__${network?.id ?? 'none'}`;
     if (!allNetworksResult?.length) {
-      tln(`prod.authIngest DROP no-result liveOwner=${liveOwner}`);
       return;
     }
     const resultTokenSelectorFilterMode =
@@ -1505,11 +1489,6 @@ function TokenListBlock({
       resultTokenSelectorFilterMode !== 'wallet-token' ||
       hasMixedTokenSelectorFilterResult
     ) {
-      tln(
-        `prod.authIngest DROP filter-mode mode=${resultTokenSelectorFilterMode} mixed=${
-          hasMixedTokenSelectorFilterResult ? 1 : 0
-        } liveOwner=${liveOwner}`,
-      );
       return;
     }
     // This callback's identity changes on owner switch, re-firing the
@@ -1522,9 +1501,6 @@ function TokenListBlock({
       allNetworksResult[0].ownerAccountId !== account?.id ||
       allNetworksResult[0].ownerNetworkId !== network?.id
     ) {
-      tln(
-        `prod.authIngest DROP owner-mismatch resultOwner=${allNetworksResult[0].ownerAccountId}__${allNetworksResult[0].ownerNetworkId} liveOwner=${liveOwner}`,
-      );
       return;
     }
     const shouldSyncTokenFilterToOverview =
@@ -1683,9 +1659,6 @@ function TokenListBlock({
     // authoritative full list, and clear the view for the next run.
     commitAuthoritativeIngest(snapshot);
 
-    tln(
-      `prod.authIngest OK initialized=true liveOwner=${liveOwner} ordered=${snapshot.orderedTokens.length} small=${snapshot.smallBalanceTokens.length}`,
-    );
     updateTokenListState({
       initialized: true,
       isRefreshing: false,
@@ -1745,9 +1718,6 @@ function TokenListBlock({
 
       if (networkId === networkIdsMap.onekeyall) {
         perfTokenListView.markStart('tokenListRefreshing_1');
-        tln(
-          `prod.initAllNet skeleton-start initialized=false owner=${account?.id ?? 'none'}__${networkId}`,
-        );
         updateTokenListState({
           initialized: false,
           isRefreshing: true,
@@ -2387,7 +2357,6 @@ function TokenListBlock({
   useEffect(() => {
     if (isEmptyAccount) {
       perfTokenListView.markEnd('tokenListRefreshing_emptyAccount');
-      tln(`prod.empty completion initialized=true isEmptyAccount=1`);
       updateTokenListState({
         initialized: true,
         isRefreshing: false,

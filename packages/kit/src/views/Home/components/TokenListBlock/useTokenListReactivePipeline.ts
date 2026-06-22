@@ -52,18 +52,6 @@ import {
 // window, so a 20+ network fan-out yields a few frames (not one per network).
 export const PROGRESSIVE_PAINT_THROTTLE_MS = 350;
 
-// [TLNATIVE temp] native log for the all-network cold-owner load (main runtime).
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 /**
  * One entry in the all-network LWW-Map materialized view: a
  * `buildMergedAllNetworkSnapshot` round plus the active owner at production time
@@ -252,7 +240,6 @@ export function useTokenListReactivePipeline(
         rounds[0].ownerAccountId !== ownerAccountId ||
         rounds[0].ownerNetworkId !== ownerNetworkId
       ) {
-        tln(`progPaint.flush SKIP owner-mismatch source=${source}`);
         return;
       }
       const roundsWithFlag = await resolveRoundsWithMergeFlag(rounds);
@@ -260,15 +247,9 @@ export function useTokenListReactivePipeline(
         rounds[0].ownerAccountId !== ownerAccountId ||
         rounds[0].ownerNetworkId !== ownerNetworkId
       ) {
-        tln(
-          `progPaint.flush SKIP owner-mismatch (post-await) source=${source}`,
-        );
         return;
       }
       if (progressivePaintEpochRef.current !== epochAtFlushStart) {
-        tln(
-          `progPaint.flush SKIP epoch-superseded ${epochAtFlushStart}->${progressivePaintEpochRef.current} source=${source}`,
-        );
         return;
       }
       const snapshot = buildMergedAllNetworkSnapshot({
@@ -382,12 +363,18 @@ export function useTokenListReactivePipeline(
         generation,
       );
       if (progressiveFlushTimerRef.current === null) {
+        // P1-e indirection (NOT the captured `flushProgressiveView`): on a rapid
+        // owner switch the timer must fire the LATEST flush so its owner guard
+        // compares the deferred rounds against the CURRENT owner and skips a
+        // stale ingest — even when the consumer's `reset()` is delayed past the
+        // throttle window. Capturing the closure would re-run the old owner's
+        // flush (old owner == old rounds → guard passes → wasted BG ingest).
         progressiveFlushTimerRef.current = setTimeout(() => {
-          void flushProgressiveView('progPaint');
+          void flushProgressiveViewRef.current?.('progPaint');
         }, PROGRESSIVE_PAINT_THROTTLE_MS);
       }
     },
-    [ownerAccountId, ownerNetworkId, flushProgressiveView],
+    [ownerAccountId, ownerNetworkId],
   );
 
   const buildAuthoritativeSnapshot =

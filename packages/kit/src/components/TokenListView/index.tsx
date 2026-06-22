@@ -84,22 +84,6 @@ import type {
   IScopedActiveTokenListState,
 } from '../TokenSelectorFilter/utils';
 
-// [TLNATIVE temp] native log for the SYMPTOM end of the home token-list chain
-// (main runtime, view side): the skeleton decision + the projection that feeds
-// `displayCount`. Both calls live inside `useMemo` factories, so they only fire
-// when an input actually changes (transition-deduped, not per-render). No-op
-// off-device.
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 // Stable module-level empty defaults so the PR-3 selector branches don't hand a
 // fresh `{}` to `useMemo` deps every render (would defeat memoization).
 const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
@@ -714,9 +698,6 @@ function TokenListViewCmp(props: IProps) {
       (listStructure.orderedIds.length === 0 &&
         listStructure.smallBalanceIds.length === 0)
     ) {
-      tln(
-        `ui.proj FALLBACK undefined owner=${listStructure.ownerKey} gen=${listStructure.generation} ordered=${listStructure.orderedIds.length} small=${listStructure.smallBalanceIds.length}`,
-      );
       return undefined;
     }
     const s = tokenListStore;
@@ -741,9 +722,6 @@ function TokenListViewCmp(props: IProps) {
       getMeta,
       aggregateTokenListMap: allAggregateTokenMap,
     });
-    tln(
-      `ui.proj OK owner=${listStructure.ownerKey} gen=${listStructure.generation} ordered=${listStructure.orderedIds.length} projected=${projected.length}`,
-    );
     return projected;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -906,17 +884,6 @@ function TokenListViewCmp(props: IProps) {
       tokenListIsRefreshing: tokenListState.isRefreshing,
       displayCount,
     });
-    tln(
-      `ui.skeleton show=${decision ? 1 : 0} home=${
-        showActiveAccountTokenList ? 1 : 0
-      } seam=${isHomeProjectionPath ? 1 : 0} tlInit=${
-        tokenListState.initialized ? 1 : 0
-      } tlRefresh=${
-        tokenListState.isRefreshing ? 1 : 0
-      } displayCount=${displayCount} ownerMismatch=${
-        ownerMismatch ? 1 : 0
-      } owner=${listStructure.ownerKey} gen=${listStructure.generation}`,
-    );
     return decision;
   }, [
     ownerMismatch,
@@ -935,7 +902,6 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenListState.isRefreshing,
     showActiveAccountTokenList,
     displayCount,
-    // [TLNATIVE temp] keep the logged owner/gen fresh (log-only deps).
     isHomeProjectionPath,
     listStructure.ownerKey,
     listStructure.generation,

@@ -40,19 +40,6 @@ import { reorderNetworksByCachePriority } from './reorderNetworksByCachePriority
 import { shouldSkipRedundantAllNetworkRun } from './shouldSkipRedundantAllNetworkRun';
 import { usePromiseResult } from './usePromiseResult';
 
-// [TLNATIVE temp] native log for the all-network cold-owner load optimization
-// (main runtime). No-op off-native.
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 // Native keeps a strict cap to avoid Hermes memory spikes.
 // Web keeps full fan-out to preserve Home startup latency.
 const getAllNetworkTaskConcurrencyLimit = (taskCount: number) =>
@@ -418,7 +405,6 @@ function useAllNetworkRequests<T>(params: {
       setEnabledNetworksChangedNonce((v) => v + 1);
       // owner intentionally omitted (this appEventBus-listener effect must not
       // depend on the owner); it appears on the following `allnet.run` line.
-      tln('allnet.trigger reason=enabledNetworks');
       void runWithQueueRef.current?.();
     };
     appEventBus.on(
@@ -458,7 +444,6 @@ function useAllNetworkRequests<T>(params: {
       // (e.g. DeFi) is mounted but not the active tab during the HW connect
       // batch — the cache would be cleared but no fetch would actually run.
       // owner intentionally omitted (see enabledNetworks trigger above).
-      tln('allnet.trigger reason=addAccounts');
       void runWithQueueRef.current?.({
         skipAccountsCache: true,
         alwaysSetState: true,
@@ -474,9 +459,6 @@ function useAllNetworkRequests<T>(params: {
     if (currentAccountId && currentNetworkId && currentWalletId) {
       allNetworkDataInit.current = false;
       runCountRef.current = 0;
-      tln(
-        `allnet.trigger reason=accountSwitch owner=${currentAccountId}__${currentNetworkId}`,
-      );
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
   }, [
@@ -518,9 +500,6 @@ function useAllNetworkRequests<T>(params: {
 
       if (effectiveDisabled) return;
       if (isFetching.current) {
-        tln(
-          `allnet.run DEFER inflight owner=${currentAccountId}__${currentNetworkId}`,
-        );
         rerunAfterCurrentRef.current = true;
         return;
       }
@@ -549,16 +528,8 @@ function useAllNetworkRequests<T>(params: {
           lastSignature: lastRunSignatureRef.current,
         })
       ) {
-        tln(
-          `allnet.run SKIP redundant sig=${currentRunSignature} owner=${currentAccountId}__${currentNetworkId}`,
-        );
         return;
       }
-      tln(
-        `allnet.run GO sig=${currentRunSignature} init=${
-          allNetworkDataInit.current ? 1 : 0
-        } mustRun=${isMustRun ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
-      );
       lastRunSignatureRef.current = currentRunSignature;
 
       runCountRef.current += 1;
@@ -622,11 +593,6 @@ function useAllNetworkRequests<T>(params: {
           ? backgroundApiProxy.serviceDeFi.getDeFiEnabledNetworksMap()
           : undefined;
 
-        tln(
-          `allnet.acctResolve start skipCache=${
-            skipAccountsCacheForThisRun ? 1 : 0
-          } isDeFi=${isDeFiRequests ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
-        );
         const baseResult = await accountsTask;
         const deFiEnabledNetworksMap = deFiEnabledNetworksMapTask
           ? await deFiEnabledNetworksMapTask
@@ -680,18 +646,6 @@ function useAllNetworkRequests<T>(params: {
         if (accountsInfo.length === 0) {
           setIsEmptyAccount(true);
         }
-
-        // [TLNATIVE temp] the GO->fanout gap resolution: how many accounts the
-        // fan-out got, split by backend-indexed vs not, and whether the WARM
-        // (cache-seeded) gate at L767 is on. warmGate=0 here means this run takes
-        // the COLD `else` path (L826) which emits NO settle/fanout logs.
-        tln(
-          `allnet.acctResolve done n=${accountsInfo?.length ?? 0} bIdx=${
-            accountsInfoBackendIndexed?.length ?? 0
-          } bNotIdx=${accountsInfoBackendNotIndexed?.length ?? 0} all=${
-            allAccountsInfo?.length ?? 0
-          } warmGate=${allNetworkDataInit.current ? 1 : 0} owner=${currentAccountId}__${currentNetworkId}`,
-        );
 
         if (onStartedTask) {
           await onStartedTask;
@@ -790,9 +744,6 @@ function useAllNetworkRequests<T>(params: {
             accountsInfo,
             cachePriorityNetworkIds,
           );
-          tln(
-            `allnet.reorder priorityFunded=${cachePriorityNetworkIds.size} total=${allNetworks.length} owner=${currentAccountId}__${currentNetworkId}`,
-          );
           const requestFactories = allNetworks.map((networkDataString) => {
             const { accountId, networkId, dbAccount } = networkDataString;
             return () =>
@@ -810,13 +761,6 @@ function useAllNetworkRequests<T>(params: {
             // wave — the next network starts the instant a slot frees.
             // L4b: a dedicated native cap (iOS 16 / Android 8) drains the waves
             // faster on iOS without touching the shared PROMISE_CONCURRENCY_LIMIT.
-            tln(
-              `allnet.fanout networks=${
-                requestFactories.length
-              } concurrency=${getTokenListFanOutConcurrencyLimit(
-                requestFactories.length,
-              )} sliding owner=${currentAccountId}__${currentNetworkId}`,
-            );
             resp = (
               await promiseAllSettledSlidingWindow(requestFactories, {
                 continueOnError: true,
@@ -828,12 +772,6 @@ function useAllNetworkRequests<T>(params: {
                 // the whole fan-out.
                 onSettled: (settledResult) => {
                   if (settledResult) {
-                    tln(
-                      `allnet.settle net=${
-                        (settledResult as { networkId?: string }).networkId ??
-                        ''
-                      } owner=${currentAccountId}__${currentNetworkId}`,
-                    );
                     onRequestSettled?.(settledResult, runGeneration);
                   }
                 },
@@ -845,13 +783,6 @@ function useAllNetworkRequests<T>(params: {
             abortAllNetworkRequests?.();
           }
         } else {
-          // [TLNATIVE temp] COLD path (cache empty): the freshly-created-account
-          // case. Emits no settle/fanout — log entry + result so #6 is visible.
-          tln(
-            `allnet.coldpath bIdx=${accountsInfoBackendIndexed?.length ?? 0} bNotIdx=${
-              accountsInfoBackendNotIndexed?.length ?? 0
-            } owner=${currentAccountId}__${currentNetworkId}`,
-          );
           const respTemp: Array<T> = [];
           // Fix A: the COLD path must feed the progressive-paint pipeline the
           // same way the WARM path does via `onSettled`. `promiseAllSettledEnhanced`
@@ -865,10 +796,6 @@ function useAllNetworkRequests<T>(params: {
               onRequestSettled,
               runGeneration,
               getAllNetworkDataInit: () => allNetworkDataInit.current,
-              onFed: (networkId) =>
-                tln(
-                  `allnet.coldSettle net=${networkId} owner=${currentAccountId}__${currentNetworkId}`,
-                ),
             });
           try {
             const factories = Array.from(accountsInfoBackendIndexed).map(
@@ -906,21 +833,11 @@ function useAllNetworkRequests<T>(params: {
             // pass
           }
           resp = respTemp.length ? respTemp : null;
-          tln(
-            `allnet.coldpath done resp=${
-              resp?.length ?? 'null'
-            } owner=${currentAccountId}__${currentNetworkId}`,
-          );
         }
         if (accountsInfo.length && accountsInfo.length > 0) {
           allNetworkDataInit.current = true;
         }
 
-        tln(
-          `allnet.run RETURN resp=${resp?.length ?? 'null'} warm=${
-            allNetworkDataInit.current ? 1 : 0
-          } owner=${currentAccountId}__${currentNetworkId}`,
-        );
         return resp;
       } finally {
         isFetching.current = false;

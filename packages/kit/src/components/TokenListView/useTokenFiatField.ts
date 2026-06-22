@@ -94,24 +94,6 @@ function useTokenFiatField<T>(
   const mapToken =
     contextTokenListMap?.[$key] ?? contextAggregateTokenFiatMap?.[$key];
 
-  // [TLNATIVE temp] leaf read for the iOS-only "-" tokens. Logs what the LEAF
-  // actually sees: seam mode, aggregate branch, cell-field value, map presence.
-  if ($key && (/jupSoL/i.test($key) || $key.endsWith('_native'))) {
-    try {
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      const m =
-        require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-      m.NativeLogger.write(
-        m.LogLevel.Info,
-        `[TLNATIVE] leaf key=${$key} seam=${useCellSeam ? 1 : 0} agg=${
-          aggregate ? 1 : 0
-        } cellField=${JSON.stringify(cellField)} mapHas=${!!mapToken}`,
-      );
-    } catch {
-      /* noop */
-    }
-  }
-
   return useCellSeam ? cellField : select(mapToken);
 }
 

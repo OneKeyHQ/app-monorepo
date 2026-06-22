@@ -33,19 +33,6 @@ import type { IStoreProjection } from './projection';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
 import type { Atom, PrimitiveAtom } from 'jotai';
 
-// [TLNATIVE temp] full-chain native log for the iOS-only "-" repro. No-op on
-// non-native (the file-logger module exports a no-op NativeLogger off-device).
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 /**
  * Shallow array equality used to keep `orderedIds` reference-stable when a
  * structure frame carries identical content (spec §4 "FlatList 引用稳定",
@@ -196,7 +183,6 @@ export function applyStructureSnapshot(
   }
   // 2. identity check (reset/recreate guard)
   if (deps.resolveCurrentStore(snapshot.storeData) !== store) {
-    tln(`ui.applyStruct DROP identity owner=${snapshot.ownerKey}`);
     return;
   }
   // 3. owner switch -> full reset (incl. aggregate)
@@ -207,9 +193,6 @@ export function applyStructureSnapshot(
   }
   // 4. generation guard — drop stale structure frames
   if (snapshot.generation <= P.curGeneration) {
-    tln(
-      `ui.applyStruct DROP gen ${snapshot.generation}<=${P.curGeneration} owner=${snapshot.ownerKey}`,
-    );
     return;
   }
 
@@ -298,24 +281,9 @@ export function applyStructureSnapshot(
   for (const k of normalKeys) {
     deps.cell(store, k);
   }
-  tln(
-    `ui.applyStruct OK owner=${snapshot.ownerKey} gen=${snapshot.generation} ordered=${snapshot.orderedIds.length} small=${snapshot.smallBalanceIds.length} cells=${P.cells.size}`,
-  );
 
   // 9. orderedIds ref-stability via shallowEqual
   const cur = deps.get(deps.listStructureAtom);
-  // [TLNATIVE temp] H1 negative detector: a HIGHER-generation structure frame
-  // for the SAME owner that SHRINKS orderedIds would be a stale-prefix
-  // overwrite if the generation guard ever failed. Only log the shrink case.
-  if (
-    cur.ownerKey === snapshot.ownerKey &&
-    snapshot.generation > cur.generation &&
-    snapshot.orderedIds.length < cur.orderedIds.length
-  ) {
-    tln(
-      `ui.applyStruct SHRINK gen=${snapshot.generation} prev=${cur.orderedIds.length} now=${snapshot.orderedIds.length} owner=${snapshot.ownerKey}`,
-    );
-  }
   const orderedIds = deps.shallowEqual(snapshot.orderedIds, cur.orderedIds)
     ? cur.orderedIds
     : snapshot.orderedIds;
@@ -369,19 +337,13 @@ export function applyValuationFrame(
   }
   // identity check
   if (deps.resolveCurrentStore(frame.storeData) !== store) {
-    tln(`ui.applyVal DROP identity owner=${frame.ownerKey}`);
     return;
   }
   // owner guard (do NOT gate by generation; do NOT lazy-build)
   if (frame.ownerKey !== P.curOwnerKey) {
-    tln(`ui.applyVal DROP owner ${frame.ownerKey}!=${P.curOwnerKey ?? 'none'}`);
     return;
   }
 
-  const _skipped: string[] = [];
-  // [TLNATIVE temp] count of changed fiat cells whose fiatValue parses to a
-  // real number > 0 — the first `nonZeroChanged>0` line marks first real data.
-  let _nonZeroChanged = 0;
   batch(() => {
     // normal tokens — existing cells only (orphan guard)
     for (const k of Object.keys(frame.changedFiatById)) {
@@ -392,12 +354,6 @@ export function applyValuationFrame(
         if (!deps.fiatEqual(deps.get(cellAtom), next)) {
           deps.set(cellAtom, next);
         }
-        const fv = Number.parseFloat(next?.fiatValue ?? '');
-        if (Number.isFinite(fv) && fv > 0) {
-          _nonZeroChanged += 1;
-        }
-      } else {
-        _skipped.push(k);
       }
     }
 
@@ -418,15 +374,6 @@ export function applyValuationFrame(
       }
     }
   });
-  tln(
-    `ui.applyVal OK owner=${frame.ownerKey} changed=${
-      Object.keys(frame.changedFiatById).length
-    } orphanSkipped=${
-      _skipped.length
-    } nonZeroChanged=${_nonZeroChanged} sample=${_skipped
-      .slice(0, 6)
-      .join(',')}`,
-  );
 }
 
 /**

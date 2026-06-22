@@ -61,18 +61,6 @@ import type {
   IValuationFrame,
 } from '../states/jotai/contexts/tokenList/cellsPure/types';
 
-// [TLNATIVE temp] full-chain native log for the iOS-only "-" repro (bg runtime).
-function tln(msg: string): void {
-  try {
-    const m =
-      // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
-      require('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger') as typeof import('@onekeyhq/shared/src/modules3rdParty/react-native-file-logger');
-    m.NativeLogger.write(m.LogLevel.Info, `[TLNATIVE] ${msg}`);
-  } catch {
-    /* noop */
-  }
-}
-
 /**
  * The three wire-frame payloads, keyed by FrameChannel kind. Sourced from the
  * appEventBus payload registration so they stay in sync with the bus contract.
@@ -121,6 +109,15 @@ interface IRawTokenListData {
    * frame's filtered `changedFiatById`) so the composed map is exact.
    */
   tokenListMap: Record<ITokenKey, ITokenFiat>;
+  /**
+   * Current-round risky `$key -> ITokenFiat` map. Stored on the every-round raw
+   * blob (NOT read from the gated risky frame) so the `getAllTokenListMap` PULL
+   * composition always sees FRESH risky prices: the risky frame is only pushed
+   * on a membership/balance change, so a pure price tick would otherwise leave
+   * `getAllTokenListMap` composing STALE risky fiat (regression vs the legacy
+   * `allTokenListMapAtom`, which wrote the current round's riskyMap every time).
+   */
+  riskyMap: Record<ITokenKey, ITokenFiat>;
   /** nested aggregate map `aggKey -> networkId -> ITokenFiat` (for flatten). */
   aggregateTokensMap: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
 }
@@ -171,9 +168,8 @@ export interface IIngestRoundParams {
   /** keys string mirrored from the legacy `allTokenListAtom` write. */
   rawKeys?: string;
   /**
-   * [TLNATIVE temp] log-only tag identifying which UI ingest produced this round
-   * (single | cacheSeed | progPaint | authoritative). Threaded only into the
-   * `bg.emit` log line so interleaved frames are distinguishable on-device.
+   * Log-only tag identifying which UI ingest produced this round
+   * (single | cacheSeed | progPaint | authoritative).
    */
   source?: string;
 }
@@ -380,15 +376,6 @@ class ServiceTokenViewModel extends ServiceBase {
     }));
 
     const framesNow = this.frames.getFrames(ownerKey);
-    tln(
-      `bg.emit owner=${ownerKey} structEmit=${!!structure} structVer=${
-        framesNow.structure.version
-      } ordered=${structure ? structure.orderedIds.length : -1} valVer=${
-        framesNow.valuation.version
-      } valChanged=${
-        Object.keys(valuation.changedFiatById).length
-      } src=${source ?? ''}`,
-    );
 
     // --- raw token list (PULL-only source) ---------------------------------
     // REPLACE (not concat) the owner's raw slices each round: the merged list is
@@ -401,6 +388,7 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId,
       networkId,
       tokenListMap,
+      riskyMap,
       aggregateTokensMap,
     } satisfies IRawTokenListData);
 
@@ -542,11 +530,13 @@ class ServiceTokenViewModel extends ServiceBase {
     if (!raw) {
       return {};
     }
-    const riskyMap: Record<ITokenKey, ITokenFiat> =
-      this.frames.getFrames(ownerKey).risky.payload?.riskyMap ?? {};
+    // Compose from the every-round raw blob's own `riskyMap` (NOT the gated risky
+    // frame payload): the risky frame is suppressed on a pure price tick, so
+    // reading it here would compose STALE risky fiat. The raw blob is rewritten
+    // every round, so `raw.riskyMap` always carries the current round's prices.
     return {
       ...raw.tokenListMap,
-      ...riskyMap,
+      ...raw.riskyMap,
       ...flattenAggregateTokensMap(raw.aggregateTokensMap),
     };
   }
