@@ -259,7 +259,7 @@ export function buildTpSlLine(
     qty: formatHlSize(resolvedSize, szDecimals) || '0',
     side,
     label: { left: labelText },
-    editable: false, // TP/SL orders are not draggable
+    editable: true, // Drag moves the trigger price; amend modifies in place.
     meta: { orderId: String(order.oid), orderType: order.orderType },
     version: getNextVersion(),
   };

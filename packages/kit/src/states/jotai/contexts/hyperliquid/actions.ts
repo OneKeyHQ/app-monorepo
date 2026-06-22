@@ -3109,6 +3109,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           if (!existing) {
             throw new OneKeyLocalError(`Order ${params.oid} not found`);
           }
+          // Dragging a TP/SL line moves its trigger price; modify in place as a
+          // trigger order so HL keeps its reduce-only / position-tpsl nature.
+          const isTriggerTpSl =
+            existing.isTrigger &&
+            (existing.orderType.startsWith('Take') ||
+              existing.orderType.startsWith('Stop'));
+          const trigger = isTriggerTpSl
+            ? {
+                isMarket: existing.orderType.includes('Market'),
+                tpsl: existing.orderType.startsWith('Take')
+                  ? ('tp' as const)
+                  : ('sl' as const),
+              }
+            : undefined;
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3117,6 +3131,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: existing.side === 'B',
               size: existing.sz,
               reduceOnly: existing.reduceOnly,
+              trigger,
             },
           );
         },
