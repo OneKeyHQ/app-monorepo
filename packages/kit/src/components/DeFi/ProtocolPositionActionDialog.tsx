@@ -1234,20 +1234,32 @@ function ProtocolPositionActionDialogContent({
   };
 
   const handleConfirm = async ({
-    close,
+    preventClose,
   }: {
-    close: (extra?: { flag?: string }) => Promise<void> | void;
+    preventClose: () => void;
   }) => {
     if (selectedAssets.length === 0) {
-      throw new OneKeyLocalError('DeFi action asset is missing');
+      preventClose();
+      return;
     }
 
-    await close({ flag: 'confirm' });
-    void submitProtocolPositionAction({
-      action,
-      selectedAssets,
-      percent: isPercentAction ? actionPercent : undefined,
-    }).catch(() => undefined);
+    // Build + navigate WHILE the dialog stays open. The footer keeps the
+    // confirm button in its loading state for the whole await and only
+    // auto-closes once this resolves — so the server-side buildDeFiTransaction
+    // call happens with the dialog (and a spinner) still on screen, handing
+    // straight off to the tx-confirm modal. Closing first instead left a blank
+    // gap until the modal mounted.
+    try {
+      await submitProtocolPositionAction({
+        action,
+        selectedAssets,
+        percent: isPercentAction ? actionPercent : undefined,
+      });
+    } catch {
+      // submitProtocolPositionAction already surfaced the error via Toast;
+      // keep the dialog open so the user can retry instead of auto-closing.
+      preventClose();
+    }
   };
 
   const assetSelector =
