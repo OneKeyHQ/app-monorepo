@@ -74,6 +74,61 @@ describe('ServiceMarketV2 watchlist cleanup', () => {
     });
   });
 
+  test('dedupes concurrent read-path cleanup while cleanup is in flight', async () => {
+    const cleanData = [
+      {
+        chainId: 'evm--1',
+        contractAddress: '',
+        isNative: true,
+        sortIndex: 1,
+      },
+    ];
+    const removedItems = [
+      {
+        chainId: 'evm--1',
+        contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+        isNative: true,
+        sortIndex: 2,
+      },
+    ];
+    const entity = {
+      getMarketWatchListV2CleanupInfo: jest.fn(async () => ({
+        cleanData,
+        removedItems,
+        shouldCleanup: true,
+      })),
+      markWatchListDataCleaned: jest.fn(),
+    };
+    const service = createServiceForTest({
+      simpleDb: {
+        marketWatchListV2: entity,
+      },
+    });
+    const testableService = service as unknown as ITestableServiceMarketV2;
+    let resolveCleanup: () => void = () => undefined;
+    const cleanupPromise = new Promise<void>((resolve) => {
+      resolveCleanup = resolve;
+    });
+    const cleanupSpy = jest
+      .spyOn(testableService, '_cleanupMarketWatchListV2Data')
+      .mockReturnValue(cleanupPromise);
+
+    await expect(
+      Promise.all([
+        service.getMarketWatchListV2(),
+        service.getMarketWatchListV2(),
+      ]),
+    ).resolves.toEqual([{ data: cleanData }, { data: cleanData }]);
+
+    expect(cleanupSpy).toHaveBeenCalledTimes(1);
+    expect(entity.markWatchListDataCleaned).not.toHaveBeenCalled();
+
+    resolveCleanup();
+    await flushMicrotasks();
+
+    expect(entity.markWatchListDataCleaned).toHaveBeenCalledTimes(1);
+  });
+
   test('only creates cleanup tombstones for removed items with no retained legacy key', () => {
     const cleanData = [
       {

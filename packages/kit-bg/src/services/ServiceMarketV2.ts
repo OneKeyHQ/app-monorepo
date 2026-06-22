@@ -108,6 +108,8 @@ class ServiceMarketV2 extends ServiceBase {
     seconds: 20,
   });
 
+  private _marketWatchListV2CleanupPromise: Promise<void> | undefined;
+
   private _cleanExpiredMarketTokenBatchCache() {
     const now = Date.now();
     for (const [key, value] of this._marketTokenBatchCache) {
@@ -745,17 +747,21 @@ class ServiceMarketV2 extends ServiceBase {
     const entity = this.backgroundApi.simpleDb.marketWatchListV2;
     const { cleanData, removedItems, shouldCleanup } =
       await entity.getMarketWatchListV2CleanupInfo();
-    if (shouldCleanup) {
-      void this._cleanupMarketWatchListV2Data({
-        cleanData,
-        removedItems,
-      })
-        .then(() => {
-          entity.markWatchListDataCleaned();
+    if (shouldCleanup && !this._marketWatchListV2CleanupPromise) {
+      this._marketWatchListV2CleanupPromise =
+        this._cleanupMarketWatchListV2Data({
+          cleanData,
+          removedItems,
         })
-        .catch((error) => {
-          console.error('Failed to cleanup market watchlist v2 data:', error);
-        });
+          .then(() => {
+            entity.markWatchListDataCleaned();
+          })
+          .catch((error) => {
+            console.error('Failed to cleanup market watchlist v2 data:', error);
+          })
+          .finally(() => {
+            this._marketWatchListV2CleanupPromise = undefined;
+          });
     }
     return { data: cleanData };
   }
