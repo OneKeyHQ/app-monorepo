@@ -225,6 +225,7 @@ export type IFaultMode =
       retryAfter?: string;
     }
   | { kind: 'status404'; target?: IRangeTarget; times?: number }
+  | { kind: 'status416'; target?: IRangeTarget; times?: number }
   // Body-shape faults on a 206 response.
   | {
       kind: 'dropAfterBytesForRange';
@@ -405,6 +406,16 @@ export function startFaultServer(
       case 'status404': {
         res.writeHead(404, { ETag: etag });
         res.end('not found');
+        return;
+      }
+      case 'status416': {
+        // Range Not Satisfiable: no body, echo the ETag and a Content-Range
+        // with the resource size so it looks like a real 416 response.
+        res.writeHead(416, {
+          ETag: etag,
+          'Content-Range': `bytes */${content.length}`,
+        });
+        res.end();
         return;
       }
       case 'status429ThenOk': {
