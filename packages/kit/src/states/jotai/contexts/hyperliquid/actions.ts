@@ -2435,6 +2435,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 slTriggerPx: formData.hasTpsl
                   ? formData.slTriggerPx
                   : undefined,
+                reduceOnly: formData.reduceOnly,
                 slippage,
               });
             return result;

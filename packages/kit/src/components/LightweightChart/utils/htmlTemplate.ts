@@ -192,7 +192,7 @@ function getChartInitScript(): string {
           patternOpacity: 0.28,
           patternRadius: 0.9,
           patternSpacing: 10,
-          showLastPointMarker: true,
+          showLastPointMarker: nextConfig.showLastPointMarker !== false,
           lastPointMarkerColor: nextConfig.theme.lineColor,
           lastPointMarkerRadius: 5.5,
           lastValueVisible: showLast,

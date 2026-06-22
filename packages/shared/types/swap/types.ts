@@ -44,6 +44,7 @@ export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
   PRIVATE_SEND = 'PrivateSend',
+  STOCK = 'Stock',
   ALL = 'All',
 }
 
@@ -52,6 +53,7 @@ export enum ESwapTabSwitchType {
   BRIDGE = 'bridge',
   LIMIT = 'limit',
   PRIVATE_SEND = 'privateSend',
+  STOCK = 'stock',
 }
 
 export enum ESwapDirectionType {
@@ -139,6 +141,7 @@ export interface ISwapNetworkBase {
   supportSingleSwap?: boolean;
   supportLimit?: boolean;
   supportPrivateSend?: boolean;
+  supportStock?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {

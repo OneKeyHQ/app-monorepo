@@ -59,6 +59,9 @@ export interface ISetTpslParams {
   szDecimals: number;
   assetId: number;
   isMobile?: boolean;
+  // Seed a single trigger field when opened from a chart position context.
+  presetTriggerPrice?: string;
+  presetTpsl?: 'tp' | 'sl';
 }
 
 interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
@@ -73,7 +76,14 @@ function MarkPrice({ coin }: { coin: string }) {
 }
 
 const SetTpslForm = memo(
-  ({ coin, szDecimals, assetId, onClose = () => {} }: ISetTpslFormProps) => {
+  ({
+    coin,
+    szDecimals,
+    assetId,
+    presetTriggerPrice,
+    presetTpsl,
+    onClose = () => {},
+  }: ISetTpslFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
@@ -209,12 +219,14 @@ const SetTpslForm = memo(
       return 1; // Default leverage if calculation fails
     }, [currentPosition]);
 
-    const [formData, setFormData] = useState({
-      tpPrice: '',
-      slPrice: '',
+    const [formData, setFormData] = useState(() => ({
+      tpPrice:
+        presetTriggerPrice && presetTpsl === 'tp' ? presetTriggerPrice : '',
+      slPrice:
+        presetTriggerPrice && presetTpsl === 'sl' ? presetTriggerPrice : '',
       amount: '',
       percentage: 100,
-    });
+    }));
 
     const [configureAmount, setConfigureAmount] = useState(false);
 
@@ -750,6 +762,8 @@ export function showSetTpslDialog({
   coin,
   szDecimals,
   assetId,
+  presetTriggerPrice,
+  presetTpsl,
   intl,
 }: ISetTpslParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
@@ -766,6 +780,8 @@ export function showSetTpslDialog({
             coin={coin}
             szDecimals={szDecimals}
             assetId={assetId}
+            presetTriggerPrice={presetTriggerPrice}
+            presetTpsl={presetTpsl}
             onClose={() => {
               void dialogInstance.close();
             }}

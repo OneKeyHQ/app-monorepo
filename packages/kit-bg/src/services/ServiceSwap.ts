@@ -127,6 +127,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
+import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
   isSwapTxHistoryStatusTerminal,
   shouldEmitSwapHistoryBalanceUpdate,
@@ -317,6 +318,13 @@ function isPrivateSendProtocol(protocol?: string) {
   );
 }
 
+function isStockProtocol(protocol?: string) {
+  return (
+    protocol === ESwapTabSwitchType.STOCK ||
+    protocol === EProtocolOfExchange.STOCK
+  );
+}
+
 function getProtocolOfExchangeFromSwapTab(
   protocol?: string,
 ): EProtocolOfExchange {
@@ -328,6 +336,9 @@ function getProtocolOfExchangeFromSwapTab(
   }
   if (isPrivateSendProtocol(protocol)) {
     return EProtocolOfExchange.PRIVATE_SEND;
+  }
+  if (isStockProtocol(protocol)) {
+    return EProtocolOfExchange.STOCK;
   }
   return EProtocolOfExchange.SWAP;
 }
@@ -557,6 +568,7 @@ export default class ServiceSwap extends ServiceBase {
             supportSingleSwap: network.supportSingleSwap,
             supportLimit: network.supportLimit,
             supportPrivateSend: network.supportPrivateSend,
+            supportStock: network.supportStock,
           };
         }
         return null;
@@ -583,19 +595,28 @@ export default class ServiceSwap extends ServiceBase {
       await this.cancelFetchTokenList();
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
+    const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
+    const shouldFetchStaticStockTokens =
+      requestProtocol === EProtocolOfExchange.STOCK;
     const params: IFetchTokenListParams = {
-      protocol: getProtocolOfExchangeFromSwapTab(protocol),
+      protocol: requestProtocol,
       networkId: targetNetworkId,
       keywords,
       limit,
-      accountAddress: !networkUtils.isAllNetwork({
-        networkId: targetNetworkId,
-      })
-        ? accountAddress
-        : undefined,
-      accountNetworkId,
+      accountAddress:
+        !shouldFetchStaticStockTokens &&
+        !networkUtils.isAllNetwork({
+          networkId: targetNetworkId,
+        })
+          ? accountAddress
+          : undefined,
+      accountNetworkId: shouldFetchStaticStockTokens
+        ? undefined
+        : accountNetworkId,
       skipReservationValue: true,
-      onlyAccountTokens,
+      onlyAccountTokens: shouldFetchStaticStockTokens
+        ? undefined
+        : onlyAccountTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {
@@ -606,7 +627,12 @@ export default class ServiceSwap extends ServiceBase {
       currency ??
       (await settingsPersistAtom.get())?.currencyInfo?.id ??
       USD_CURRENCY_ID;
-    if (accountId && accountAddress && networkId) {
+    if (
+      !shouldFetchStaticStockTokens &&
+      accountId &&
+      accountAddress &&
+      networkId
+    ) {
       try {
         const accountAddressForAccountId =
           await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -2071,10 +2097,7 @@ export default class ServiceSwap extends ServiceBase {
       isPrivateSendHistory,
     });
     return this.fetchTxState({
-      txId:
-        currentSwapTxHistory.txInfo.txId ??
-        currentSwapTxHistory.txInfo.orderId ??
-        '',
+      txId: getSwapHistoryStateTxIdParam(currentSwapTxHistory),
       provider: currentSwapTxHistory.swapInfo.provider.provider,
       protocol:
         currentSwapTxHistory.protocol ??
@@ -2989,8 +3012,12 @@ export default class ServiceSwap extends ServiceBase {
       if (data?.code === 0 && data?.data?.length) {
         return data.data[0];
       }
+      if (data?.code !== 0 && data?.message) {
+        throw new OneKeyError(data.message);
+      }
     } catch (e) {
       console.error('fetchSpeedMarketQuote error', e);
+      throw e;
     }
     return undefined;
   }

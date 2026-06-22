@@ -41,6 +41,7 @@ export function LightweightChart({
   seriesType,
   baselineOptions,
   showLastValue,
+  showLastPointMarker,
   showTimeScale,
   onHover,
 }: ILightweightChartProps) {
@@ -66,6 +67,7 @@ export function LightweightChart({
     seriesType,
     baselineOptions,
     showLastValue,
+    showLastPointMarker,
     showTimeScale,
   });
   const nativeConfig = useMemo(
