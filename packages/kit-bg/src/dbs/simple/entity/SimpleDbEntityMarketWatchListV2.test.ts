@@ -28,7 +28,7 @@ function setupEntity(initialRawData: IMarketWatchListDataV2) {
 }
 
 describe('SimpleDbEntityMarketWatchListV2', () => {
-  test('dedupes EVM checksum/lowercase spot tokens and persists cleanup when reading existing watchlist data', async () => {
+  test('dedupes EVM checksum/lowercase spot tokens and exposes cleanup data when reading existing watchlist data', async () => {
     const checksumAddressToken = {
       chainId: 'evm--1',
       contractAddress: '0xdA5e1988097297dCdc1f90D4dFE7909e847CBeF6',
@@ -67,6 +67,31 @@ describe('SimpleDbEntityMarketWatchListV2', () => {
       data: [checksumAddressToken, duplicatedNativeToken],
     });
 
+    expect(setRawData).not.toHaveBeenCalled();
+    await expect(entity.getMarketWatchListV2CleanupInfo()).resolves.toEqual({
+      cleanData: [checksumAddressToken, duplicatedNativeToken],
+      removedItems: [
+        {
+          chainId: 'evm--1',
+          contractAddress: '0xda5e1988097297dcdc1f90d4dfe7909e847cbef6',
+          sortIndex: 2,
+        },
+        {
+          chainId: 'evm--1',
+          contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          isNative: true,
+          sortIndex: 4,
+        },
+        {
+          chainId: '',
+          contractAddress: '0xinvalid',
+          sortIndex: 6,
+        },
+      ],
+      shouldCleanup: true,
+    });
+
+    await entity.cleanupMarketWatchListV2Data();
     expect(setRawData).toHaveBeenCalledTimes(1);
     expect(getRawDataValue()).toEqual({
       data: [checksumAddressToken, duplicatedNativeToken],
@@ -152,6 +177,46 @@ describe('SimpleDbEntityMarketWatchListV2', () => {
 
     expect(getRawDataValue()).toEqual({
       data: [ethFromRecommendedApi, bnbFromRecommendedApi],
+    });
+  });
+
+  test('uses native-aware identity when getting and removing watchlist data', async () => {
+    const nativeToken = {
+      chainId: 'evm--1',
+      contractAddress: '',
+      isNative: true,
+      sortIndex: 1,
+    };
+    const contractToken = {
+      chainId: 'evm--1',
+      contractAddress: '0xabc0000000000000000000000000000000000000',
+      sortIndex: 2,
+    };
+    const { entity, getRawDataValue } = setupEntity({
+      data: [nativeToken, contractToken],
+    });
+
+    await expect(
+      entity.getMarketWatchListItemV2({
+        chainId: 'evm--1',
+        contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+        isNative: true,
+      }),
+    ).resolves.toEqual(nativeToken);
+
+    await entity.removeMarketWatchListV2({
+      callerName: 'test-native-remove',
+      items: [
+        {
+          chainId: 'evm--1',
+          contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          isNative: true,
+        },
+      ],
+    });
+
+    expect(getRawDataValue()).toEqual({
+      data: [contractToken],
     });
   });
 });

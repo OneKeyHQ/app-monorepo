@@ -9,6 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  buildMarketWatchListItemKey,
+  isSameMarketWatchListItem,
+} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import {
   equalTokenNoCaseSensitive,
@@ -38,15 +42,7 @@ import {
 
 export const homeResettingFlags: Record<string, number> = {};
 
-const uniqByFn = (i: IMarketWatchListItemV2) =>
-  i.perpsCoin
-    ? `perps:${i.perpsCoin}`
-    : `${i.chainId}:${
-        normalizeTokenContractAddress({
-          networkId: i.chainId,
-          contractAddress: i.contractAddress,
-        }) || ''
-      }`;
+const uniqByFn = (i: IMarketWatchListItemV2) => buildMarketWatchListItemKey(i);
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 
@@ -369,12 +365,19 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   });
 
   isInWatchListV2 = contextAtomMethod(
-    (get, _set, chainId: string, contractAddress: string) => {
+    (
+      get,
+      _set,
+      chainId: string,
+      contractAddress: string,
+      isNative?: boolean,
+    ) => {
       const prev = get(marketWatchListV2Atom());
       return !!prev.data?.find((i) =>
-        equalTokenNoCaseSensitive({
-          token1: { networkId: chainId, contractAddress },
-          token2: { networkId: i.chainId, contractAddress: i.contractAddress },
+        isSameMarketWatchListItem(i, {
+          chainId,
+          contractAddress,
+          isNative,
         }),
       );
     },
@@ -424,13 +427,23 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   removeFromWatchListV2 = contextAtomMethod(
-    async (get, set, chainId: string, contractAddress: string) => {
-      // eslint-disable-next-line no-param-reassign
-      contractAddress =
+    async (
+      get,
+      set,
+      chainId: string,
+      contractAddress: string,
+      isNative?: boolean,
+    ) => {
+      const normalizedContractAddress =
         normalizeTokenContractAddress({
           networkId: chainId,
           contractAddress,
         }) || '';
+      const removeItem = {
+        chainId,
+        contractAddress: normalizedContractAddress,
+        isNative,
+      };
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
@@ -438,20 +451,13 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
       // Immediately update local state using proper token matching
       const newData = prev.data.filter(
-        (item) =>
-          !equalTokenNoCaseSensitive({
-            token1: { networkId: chainId, contractAddress },
-            token2: {
-              networkId: item.chainId,
-              contractAddress: item.contractAddress,
-            },
-          }),
+        (item) => !isSameMarketWatchListItem(item, removeItem),
       );
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
       // Asynchronously call API without waiting for result
       await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [{ chainId, contractAddress }],
+        items: [removeItem],
         callerName: 'jotaiContextActions_removeFromWatchListV2',
       });
       await this.refreshWatchListV2.call(set);
@@ -534,18 +540,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       if (firstItem) {
         if (payload.perpsCoin && firstItem.perpsCoin) {
           if (payload.perpsCoin === firstItem.perpsCoin) return;
-        } else if (
-          equalTokenNoCaseSensitive({
-            token1: {
-              networkId: firstItem.chainId,
-              contractAddress: firstItem.contractAddress,
-            },
-            token2: {
-              networkId: payload.chainId,
-              contractAddress: payload.contractAddress,
-            },
-          })
-        ) {
+        } else if (isSameMarketWatchListItem(firstItem, payload)) {
           return;
         }
       }

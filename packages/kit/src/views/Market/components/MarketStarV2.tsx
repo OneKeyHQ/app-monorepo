@@ -11,7 +11,7 @@ import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { isSameMarketWatchListItem } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
 import { MarketTestIDs } from '../testIDs';
@@ -40,19 +40,17 @@ export const useStarV2Checked = ({
       return false;
     }
     return !!watchListData?.find((item) =>
-      equalTokenNoCaseSensitive({
-        token1: { networkId: chainId, contractAddress },
-        token2: {
-          networkId: item.chainId,
-          contractAddress: item.contractAddress,
-        },
+      isSameMarketWatchListItem(item, {
+        chainId,
+        contractAddress,
+        isNative,
       }),
     );
-  }, [watchListData, isMounted, chainId, contractAddress]);
+  }, [watchListData, isMounted, chainId, contractAddress, isNative]);
 
   const handlePress = useCallback(async () => {
     if (checked) {
-      actions.removeFromWatchListV2(chainId, contractAddress);
+      actions.removeFromWatchListV2(chainId, contractAddress, isNative);
       // Dex analytics
       defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
         network: chainId,

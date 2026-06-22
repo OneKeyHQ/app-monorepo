@@ -167,6 +167,7 @@ export function useOpenMarketWatchlistEditDialog() {
         await actions.current.removeFromWatchListV2(
           item.networkId,
           item.address,
+          item.isNative,
         );
       }
     },

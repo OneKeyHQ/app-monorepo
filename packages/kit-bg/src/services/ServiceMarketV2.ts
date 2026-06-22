@@ -10,6 +10,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  type IMarketWatchListItemRequiredIdentity,
+  buildMarketWatchListItemKey,
+} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import { dedupeTokenSelectorFavoriteCoins } from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -553,9 +557,11 @@ class ServiceMarketV2 extends ServiceBase {
   async buildMarketWatchListV2SyncItems({
     watchList,
     isDeleted,
+    useLegacySyncKey,
   }: {
-    watchList: IMarketWatchListItemV2[];
+    watchList: IMarketWatchListItemRequiredIdentity[];
     isDeleted?: boolean;
+    useLegacySyncKey?: boolean;
   }): Promise<IDBCloudSyncItem[]> {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     const syncCredential =
@@ -564,6 +570,14 @@ class ServiceMarketV2 extends ServiceBase {
     const syncItems = (
       await Promise.all(
         watchList.map(async (watchListItem) => {
+          if (useLegacySyncKey && isDeleted) {
+            return syncManagers.marketWatchList.buildLegacySyncItemByDBQuery({
+              syncCredential,
+              dbRecord: watchListItem,
+              dataTime: undefined,
+              isDeleted,
+            });
+          }
           return syncManagers.marketWatchList.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: watchListItem,
@@ -581,13 +595,15 @@ class ServiceMarketV2 extends ServiceBase {
     watchList,
     isDeleted,
     skipSaveLocalSyncItem,
+    useLegacySyncKey,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     skipEventEmit,
   }: {
     fn: () => Promise<void>;
-    watchList: IMarketWatchListItemV2[];
+    watchList: IMarketWatchListItemRequiredIdentity[];
     isDeleted: boolean;
     skipSaveLocalSyncItem?: boolean;
+    useLegacySyncKey?: boolean;
     skipEventEmit?: boolean;
   }) {
     let syncItems: IDBCloudSyncItem[] = [];
@@ -595,6 +611,7 @@ class ServiceMarketV2 extends ServiceBase {
       syncItems = await this.buildMarketWatchListV2SyncItems({
         watchList,
         isDeleted,
+        useLegacySyncKey,
       });
     }
     await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
@@ -647,11 +664,7 @@ class ServiceMarketV2 extends ServiceBase {
     skipEventEmit,
     callerName,
   }: {
-    items: Array<{
-      chainId: string;
-      contractAddress: string;
-      perpsCoin?: string;
-    }>;
+    items: IMarketWatchListItemRequiredIdentity[];
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
     callerName: string;
@@ -675,25 +688,92 @@ class ServiceMarketV2 extends ServiceBase {
     });
   }
 
+  private _getMarketWatchListV2CleanupSyncDeleteItems({
+    cleanData,
+    removedItems,
+  }: {
+    cleanData: IMarketWatchListItemV2[];
+    removedItems: IMarketWatchListItemV2[];
+  }) {
+    const retainedSyncKeys = new Set<string>();
+    cleanData.forEach((item) => {
+      retainedSyncKeys.add(
+        buildMarketWatchListItemKey(item, {
+          delimiter: '_',
+        }),
+      );
+      retainedSyncKeys.add(
+        buildMarketWatchListItemKey(item, {
+          delimiter: '_',
+          normalizeNativeAddress: false,
+        }),
+      );
+    });
+    return removedItems.filter((item) => {
+      const legacyKey = buildMarketWatchListItemKey(item, {
+        delimiter: '_',
+        normalizeNativeAddress: false,
+      });
+      return !retainedSyncKeys.has(legacyKey);
+    });
+  }
+
+  private async _cleanupMarketWatchListV2Data({
+    cleanData,
+    removedItems,
+  }: {
+    cleanData: IMarketWatchListItemV2[];
+    removedItems: IMarketWatchListItemV2[];
+  }) {
+    const deleteSyncItems = this._getMarketWatchListV2CleanupSyncDeleteItems({
+      cleanData,
+      removedItems,
+    });
+    await this.withMarketWatchListV2CloudSync({
+      watchList: deleteSyncItems,
+      isDeleted: true,
+      useLegacySyncKey: true,
+      skipEventEmit: true,
+      fn: async () => {
+        await this.backgroundApi.simpleDb.marketWatchListV2.cleanupMarketWatchListV2Data();
+      },
+    });
+  }
+
   @backgroundMethod()
   async getMarketWatchListV2() {
-    return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+    const entity = this.backgroundApi.simpleDb.marketWatchListV2;
+    const { cleanData, removedItems, shouldCleanup } =
+      await entity.getMarketWatchListV2CleanupInfo();
+    if (shouldCleanup) {
+      void this._cleanupMarketWatchListV2Data({
+        cleanData,
+        removedItems,
+      })
+        .then(() => {
+          entity.markWatchListDataCleaned();
+        })
+        .catch((error) => {
+          console.error('Failed to cleanup market watchlist v2 data:', error);
+        });
+    }
+    return { data: cleanData };
   }
 
   @backgroundMethod()
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    isNative,
     perpsCoin,
-  }: {
-    chainId: string;
-    contractAddress: string;
-    perpsCoin?: string;
-  }): Promise<IMarketWatchListItemV2 | undefined> {
+  }: IMarketWatchListItemRequiredIdentity): Promise<
+    IMarketWatchListItemV2 | undefined
+  > {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
       {
         chainId,
         contractAddress,
+        isNative,
         perpsCoin,
       },
     );

@@ -37,9 +37,9 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { isSameMarketWatchListItem } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -290,15 +290,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) =>
       watchListItems.some((item) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: record.chainId,
-            contractAddress: record.contractAddress,
-          },
-          token2: {
-            networkId: item.chainId,
-            contractAddress: item.contractAddress,
-          },
+        isSameMarketWatchListItem(item, {
+          chainId: record.chainId,
+          contractAddress: record.contractAddress,
+          isNative: record.isNative,
         }),
       ),
     [watchListItems],
@@ -315,6 +310,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               {
                 chainId: record.chainId,
                 contractAddress: record.contractAddress,
+                isNative: record.isNative,
               },
             ],
             callerName: 'PopularTrading',
@@ -835,6 +831,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               : {
                   chainId: record.chainId,
                   contractAddress: record.contractAddress,
+                  isNative: record.isNative,
                 },
           ],
           callerName: 'PopularTrading',

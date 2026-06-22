@@ -1,9 +1,10 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import {
-  equalTokenNoCaseSensitive,
-  normalizeTokenContractAddress,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+  type IMarketWatchListItemRequiredIdentity,
+  buildMarketWatchListItemKey,
+  isSameMarketWatchListItem,
+} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type {
   IMarketWatchListDataV2,
   IMarketWatchListItemV2,
@@ -22,80 +23,76 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     return !!(item.perpsCoin || item.chainId?.trim());
   }
 
-  private _buildItemKey(item: IMarketWatchListItemV2): string {
-    if (item.perpsCoin) {
-      return `perps:${item.perpsCoin}`;
-    }
-    const contractAddress = item.isNative
-      ? ''
-      : (normalizeTokenContractAddress({
-          networkId: item.chainId,
-          contractAddress: item.contractAddress,
-        }) ?? '');
-    return `${item.chainId}:${contractAddress}`;
-  }
-
-  private _dedupeItems(
-    items: IMarketWatchListItemV2[],
-  ): IMarketWatchListItemV2[] {
+  private _buildCleanData(items: IMarketWatchListItemV2[]): {
+    cleanData: IMarketWatchListItemV2[];
+    removedItems: IMarketWatchListItemV2[];
+  } {
     const seen = new Set<string>();
-    return items.filter((item) => {
-      const key = this._buildItemKey(item);
+    const cleanData: IMarketWatchListItemV2[] = [];
+    const removedItems: IMarketWatchListItemV2[] = [];
+
+    items.forEach((item) => {
+      if (!this._isValidItem(item)) {
+        removedItems.push(item);
+        return;
+      }
+
+      const key = buildMarketWatchListItemKey(item);
       if (seen.has(key)) {
-        return false;
+        removedItems.push(item);
+        return;
       }
       seen.add(key);
-      return true;
+      cleanData.push(item);
     });
+
+    return { cleanData, removedItems };
+  }
+
+  markWatchListDataCleaned() {
+    this._watchListDataCleaned = true;
+  }
+
+  async getMarketWatchListV2CleanupInfo() {
+    const result = await this.getRawData();
+    const data = result?.data ?? [];
+    const { cleanData, removedItems } = this._buildCleanData(data);
+    return {
+      cleanData,
+      removedItems,
+      shouldCleanup: !this._watchListDataCleaned && removedItems.length > 0,
+    };
+  }
+
+  async cleanupMarketWatchListV2Data() {
+    await this.setRawData((rawData) => ({
+      data: this._buildCleanData(rawData?.data ?? []).cleanData,
+    }));
   }
 
   async getMarketWatchListV2() {
-    const result = await this.getRawData();
-    const data = result?.data ?? [];
-
-    // Filter out invalid items (non-perps with empty chainId) on every read
-    const validData = data.filter((item) => this._isValidItem(item));
-    const cleanData = this._dedupeItems(validData);
-
-    // Persist cleanup once per app session if invalid or duplicate items were found
-    if (!this._watchListDataCleaned) {
-      this._watchListDataCleaned = true;
-      if (cleanData.length !== data.length) {
-        void this.setRawData((rawData) => ({
-          data: this._dedupeItems(
-            (rawData?.data ?? []).filter((item) => this._isValidItem(item)),
-          ),
-        }));
-      }
-    }
-
+    const { cleanData } = await this.getMarketWatchListV2CleanupInfo();
     return { data: cleanData };
   }
 
   async getMarketWatchListItemV2({
     chainId,
     contractAddress,
+    isNative,
     perpsCoin,
-  }: {
-    chainId: string;
-    contractAddress: string;
-    perpsCoin?: string;
-  }): Promise<IMarketWatchListItemV2 | undefined> {
+  }: IMarketWatchListItemRequiredIdentity): Promise<
+    IMarketWatchListItemV2 | undefined
+  > {
     try {
       const watchList = await this.getMarketWatchListV2();
       if (perpsCoin) {
         return watchList.data.find((item) => item.perpsCoin === perpsCoin);
       }
       return watchList.data.find((item) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: chainId,
-            contractAddress,
-          },
-          token2: {
-            networkId: item.chainId,
-            contractAddress: item.contractAddress,
-          },
+        isSameMarketWatchListItem(item, {
+          chainId,
+          contractAddress,
+          isNative,
         }),
       );
     } catch (error) {
@@ -122,7 +119,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
       const newList: IMarketWatchListItemV2[] = sortUtils.buildSortedList({
         oldList,
         saveItems: watchList,
-        uniqByFn: (i) => this._buildItemKey(i),
+        uniqByFn: (i) => buildMarketWatchListItemKey(i),
       });
 
       return { data: newList };
@@ -133,11 +130,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     items,
     callerName,
   }: {
-    items: Array<{
-      chainId: string;
-      contractAddress: string;
-      perpsCoin?: string;
-    }>;
+    items: IMarketWatchListItemRequiredIdentity[];
     callerName: string;
   }) {
     defaultLogger.cloudSync.market.simpleDbRemoveWatchListItems({
@@ -154,17 +147,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
             if (item.perpsCoin) {
               return i.perpsCoin === item.perpsCoin;
             }
-            // Match spot items by chainId + contractAddress
-            return equalTokenNoCaseSensitive({
-              token1: {
-                networkId: item.chainId,
-                contractAddress: item.contractAddress,
-              },
-              token2: {
-                networkId: i.chainId,
-                contractAddress: i.contractAddress,
-              },
-            });
+            return isSameMarketWatchListItem(i, item);
           }),
       );
 
