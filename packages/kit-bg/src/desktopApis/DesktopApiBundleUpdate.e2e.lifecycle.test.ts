@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, onekey/no-raw-error -- e2e specs drive the real private download methods via `(api as any)`; the local waitFor helper throws a plain Error on timeout */
 // End-to-end lifecycle regression for the desktop concurrent downloader.
 //
 // Sibling of DesktopApiBundleUpdate.e2e.test.ts (which covers OCDS-T2). This
@@ -276,7 +277,11 @@ describe('DesktopApiBundleUpdate — concurrent download lifecycle e2e', () => {
       expect(concurrentRuns).toBe(1);
 
       // Final file is correct and verified.
-      expect(sha256(fs.readFileSync(r1.downloadedFile))).toBe(expectedSha);
+      const downloadedFile = r1?.downloadedFile;
+      expect(downloadedFile).toBeTruthy();
+      expect(sha256(fs.readFileSync(downloadedFile as string))).toBe(
+        expectedSha,
+      );
 
       // Only ONE set of segment requests happened — no co-write / double fetch.
       // A single run fetches the 8 segments once; a second run would have

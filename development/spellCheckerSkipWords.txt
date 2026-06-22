@@ -1489,3 +1489,13 @@ ivar
 RCTJS
 retryably
 unpair
+
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable

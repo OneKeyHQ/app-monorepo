@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- e2e specs drive the real private download methods via `(api as any)` */
 // End-to-end HANDOFF regression for the desktop bundle downloader (OCDS gap N3).
 //
 // The sibling e2e files assert the two ENDS of the concurrent->single-stream

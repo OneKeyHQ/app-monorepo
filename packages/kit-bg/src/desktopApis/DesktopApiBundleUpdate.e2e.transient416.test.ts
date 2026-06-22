@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- e2e specs drive the real private download methods via `(api as any)` */
 // End-to-end regression for OCDS gap N1 (SPEC #4): a 416 "Range Not
 // Satisfiable" on a resume request is TRANSIENT, not Permanent.
 //

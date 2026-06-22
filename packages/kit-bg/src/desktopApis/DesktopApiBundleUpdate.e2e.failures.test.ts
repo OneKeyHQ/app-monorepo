@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- e2e specs drive the real private download methods via `(api as any)` */
 // End-to-end FAILURE-MODE regression for the desktop concurrent downloader.
 //
 // Companion to DesktopApiBundleUpdate.e2e.test.ts (which covers the happy-path

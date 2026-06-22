@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- the mocked desktop-app deps return `any` from require() inside jest.mock factories */
 // DesktopApiBundleUpdate logic tests
 // Tests the pure logic aspects of DesktopApiBundleUpdate that don't require
 // a real Electron environment: parameter validation, HTTPS enforcement,
@@ -13,6 +14,7 @@ import { UNRECOVERABLE_DOWNLOAD_ERROR_CODES } from '@onekeyhq/kit/src/components
 // Import the REAL shipped helpers (named exports) so these tests exercise
 // production code instead of re-implemented local copies (OCDS conformance:
 // the test must pin the actual classifier the downloader runs).
+import { USERDATA } from './__e2e__/desktopBundleUpdateE2eHarness';
 import {
   classifyHttpStatus,
   computeBackoffMs,
@@ -20,6 +22,45 @@ import {
   retryAfterMsFromHeader,
   validateSegmentContentRange,
 } from './DesktopApiBundleUpdate';
+
+// --- Mock the Electron / desktop-app deps so the module loads under node-jest.
+// Importing the REAL ./DesktopApiBundleUpdate (above) pulls in `electron` and
+// the desktop-app singletons at module load, which throw under plain node-jest.
+// (Copied from desktopBundleUpdateE2eHarness.ts JEST_MOCK_BLOCK — jest.mock
+// hoists per-file so it cannot be shared via the helper.)
+jest.mock('electron', () => ({ app: { getPath: () => USERDATA } }));
+jest.mock('electron-log/main', () => ({
+  __esModule: true,
+  default: { info() {}, warn() {}, error() {}, transports: {} },
+}));
+jest.mock('@onekeyhq/desktop/app/bundle', () => {
+  const c = require('crypto');
+  const f = require('fs');
+  const sha = (p: string) =>
+    c.createHash('sha256').update(f.readFileSync(p)).digest('hex');
+  return {
+    verifySha256: (p: string, expected: string) =>
+      sha(p).toLowerCase() === String(expected).toLowerCase(),
+    calculateSHA256: sha,
+    lastSHA256FailureReason: () => 'MISMATCH',
+    checkFileSha512: () => true,
+    getBundleDirName: () => 'bundle',
+    getBundleExtractDir: () => require('path').join(USERDATA, 'extract'),
+    testExtractedSha256FromVerifyAscFile: () => true,
+    verifyMetadataFileSha256: () => true,
+  };
+});
+jest.mock('@onekeyhq/desktop/app/config', () => ({
+  ipcMessageKeys: new Proxy({}, { get: () => 'ipc-key' }),
+}));
+jest.mock(
+  '@onekeyhq/desktop/app/libs/store',
+  () => new Proxy({}, { get: () => () => undefined }),
+);
+jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
+  clearWindowProgressBar() {},
+  updateWindowProgressBar() {},
+}));
 
 // ---------------------------------------------------------------------------
 // HTTPS enforcement - mirrors downloadBundle (lines 97-102)

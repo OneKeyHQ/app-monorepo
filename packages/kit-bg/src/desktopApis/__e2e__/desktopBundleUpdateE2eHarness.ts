@@ -522,15 +522,17 @@ export function startFaultServer(
           ETag: etag,
         });
         const holdMs = active.holdMs ?? 5000;
+        // setTimeout resolves to the DOM `number` overload under this
+        // tsconfig's lib, so reach `unref` via the Node timer shape.
         const t = setTimeout(() => {
           try {
             res.socket?.destroy();
           } catch {
             // ignore
           }
-        }, holdMs);
+        }, holdMs) as unknown as { unref?: () => void };
         // Don't keep the event loop alive on this timer.
-        if (typeof t.unref === 'function') t.unref();
+        t.unref?.();
         return;
       }
       default: {

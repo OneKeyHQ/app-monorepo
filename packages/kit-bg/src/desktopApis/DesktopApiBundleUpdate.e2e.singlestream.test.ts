@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- e2e specs drive the real private download methods via `(api as any)` */
 // End-to-end regression for the desktop SINGLE-STREAM bundle downloader.
 //
 // Drives the REAL `downloadBundleSingleStream` (open-ended-Range resume,
