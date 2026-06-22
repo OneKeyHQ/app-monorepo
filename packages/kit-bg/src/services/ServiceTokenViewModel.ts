@@ -297,7 +297,6 @@ class ServiceTokenViewModel extends ServiceBase {
       accountId,
       networkId,
       rawKeys = '',
-      source,
     } = params;
 
     if (!ownerKey) {

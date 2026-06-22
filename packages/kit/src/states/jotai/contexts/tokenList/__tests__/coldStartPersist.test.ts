@@ -64,7 +64,9 @@ import type { IStoreProjection } from '../cells/projection';
 // kit-bg atoms barrel needs) and override ONLY the storage sink.
 const mockWriteColdStartSnapshotKey = jest.fn();
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils', () => {
-  const actual = jest.requireActual('@onekeyhq/kit-bg/src/states/jotai/utils');
+  const actual = jest.requireActual(
+    '@onekeyhq/kit-bg/src/states/jotai/utils',
+  ) as Record<string, unknown>;
   return {
     ...actual,
     writeColdStartSnapshotKey: (args: unknown): void => {

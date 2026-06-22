@@ -902,9 +902,6 @@ function TokenListViewCmp(props: IProps) {
     activeAccountTokenListState.isRefreshing,
     showActiveAccountTokenList,
     displayCount,
-    isHomeProjectionPath,
-    listStructure.ownerKey,
-    listStructure.generation,
   ]);
 
   useEffect(() => {
