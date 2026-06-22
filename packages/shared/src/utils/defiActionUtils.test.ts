@@ -89,6 +89,165 @@ describe('defiActionUtils.buildDeFiActionBps', () => {
   });
 });
 
+describe('defiActionUtils.resolveDeFiPositionActionDebugCandidates', () => {
+  it('returns only protocol-supported actions that normal resolution hides', () => {
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        rewardCategory: 'reward',
+        action: EDeFiPositionAction.Claim,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'morpho-blue',
+        },
+        position: makePosition(makeSourcePosition()),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(1);
+    expect(debugCandidates[0]).toEqual(
+      expect.objectContaining({
+        protocolId: 'morphoblue',
+        action: EDeFiPositionAction.Claim,
+        assets: [],
+      }),
+    );
+  });
+
+  it('returns current-UI-gated actions as empty debug candidates', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: '0x1111111111111111111111111111111111111111#123',
+      name: 'Uniswap Position',
+      assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v3',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'uniswap-v3',
+        },
+        position: makePosition(sourcePosition),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(1);
+    expect(debugCandidates[0].action).toBe(EDeFiPositionAction.RemoveLiquidity);
+    expect(debugCandidates[0].assets).toEqual([]);
+  });
+
+  it('returns proxy-hidden actions as empty debug candidates', () => {
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'morpho-blue',
+        },
+        position: makePosition(
+          makeSourcePosition({
+            proxyDetail: {
+              project: {
+                id: 'defisaver',
+                name: 'DeFi Saver',
+              },
+              proxyContractId: '0xf1293ed7a84a32445ef03a8734cd5d279664b27c',
+            },
+          }),
+        ),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(1);
+    expect(debugCandidates[0]).toEqual(
+      expect.objectContaining({
+        action: EDeFiPositionAction.Withdraw,
+        assets: [],
+      }),
+    );
+  });
+
+  it('keeps non-matching capabilities and permit actions hidden', () => {
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Permit,
+      },
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--137',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+      {
+        protocolId: 'spark',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'staking',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const debugCandidates =
+      defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+        protocol: {
+          networkId: 'evm--1',
+          protocol: 'morpho-blue',
+        },
+        position: makePosition(makeSourcePosition()),
+        supportedActions,
+      });
+
+    expect(debugCandidates).toHaveLength(0);
+  });
+});
+
 describe('defiActionUtils.resolveDeFiPositionActions', () => {
   it('matches Debank morphoblue ids with morpho-blue positions', () => {
     const supportedActions: IDeFiSupportedProtocolAction[] = [

@@ -24,6 +24,21 @@ type IResolveDeFiPositionActionsParams = {
   supportedActions: IDeFiSupportedProtocolAction[];
 };
 
+type IMatchSupportedDeFiPositionActionsParams =
+  IResolveDeFiPositionActionsParams & {
+    includeUnsupportedByCurrentUi?: boolean;
+  };
+
+type IDeFiPositionActionKeySource = Pick<
+  IResolvedDeFiPositionAction,
+  | 'protocolId'
+  | 'networkId'
+  | 'positionCategory'
+  | 'assetCategory'
+  | 'rewardCategory'
+  | 'action'
+>;
+
 const DEFI_ACTION_MIN_PERCENT = 1;
 const DEFI_ACTION_MAX_PERCENT = 100;
 const DEFI_ACTION_BPS_PER_PERCENT = 100;
@@ -91,6 +106,17 @@ function isCategoryMatch(expected?: string, actual?: string) {
   return (
     normalizeCategoryForAction(expected) === normalizeCategoryForAction(actual)
   );
+}
+
+function getDeFiPositionActionKey(action: IDeFiPositionActionKeySource) {
+  return [
+    action.protocolId,
+    action.networkId,
+    action.positionCategory,
+    action.assetCategory ?? '',
+    action.rewardCategory ?? '',
+    action.action,
+  ].join('-');
 }
 
 function normalizeDeFiActionPercent(value?: number) {
@@ -663,19 +689,51 @@ function buildResolvedAsset({
   };
 }
 
+function getMatchedSupportedDeFiPositionActions({
+  protocol,
+  position,
+  supportedActions,
+  includeUnsupportedByCurrentUi = false,
+}: IMatchSupportedDeFiPositionActionsParams) {
+  return supportedActions.filter(
+    (supportedAction) =>
+      isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
+      supportedAction.networkId === protocol.networkId &&
+      supportedAction.action !== EDeFiPositionAction.Permit &&
+      (includeUnsupportedByCurrentUi ||
+        isSupportedByCurrentActionUi(supportedAction)) &&
+      isCategoryMatch(supportedAction.positionCategory, position.category),
+  );
+}
+
+function buildResolvedDeFiPositionAction({
+  supportedAction,
+  assets,
+}: {
+  supportedAction: IDeFiSupportedProtocolAction;
+  assets: IResolvedDeFiPositionActionAsset[];
+}): IResolvedDeFiPositionAction {
+  return {
+    action: supportedAction.action,
+    protocolId: supportedAction.protocolId,
+    networkId: supportedAction.networkId,
+    positionCategory: supportedAction.positionCategory,
+    assetCategory: supportedAction.assetCategory,
+    rewardCategory: supportedAction.rewardCategory,
+    assets,
+  };
+}
+
 function resolveDeFiPositionActions({
   protocol,
   position,
   supportedActions,
 }: IResolveDeFiPositionActionsParams): IResolvedDeFiPositionAction[] {
-  const matchedActions = supportedActions.filter(
-    (supportedAction) =>
-      isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
-      supportedAction.networkId === protocol.networkId &&
-      supportedAction.action !== EDeFiPositionAction.Permit &&
-      isSupportedByCurrentActionUi(supportedAction) &&
-      isCategoryMatch(supportedAction.positionCategory, position.category),
-  );
+  const matchedActions = getMatchedSupportedDeFiPositionActions({
+    protocol,
+    position,
+    supportedActions,
+  });
 
   return matchedActions.reduce<IResolvedDeFiPositionAction[]>(
     (acc, supportedAction) => {
@@ -698,23 +756,54 @@ function resolveDeFiPositionActions({
         return acc;
       }
 
-      acc.push({
-        action: supportedAction.action,
-        protocolId: supportedAction.protocolId,
-        networkId: supportedAction.networkId,
-        positionCategory: supportedAction.positionCategory,
-        assetCategory: supportedAction.assetCategory,
-        rewardCategory: supportedAction.rewardCategory,
-        assets,
-      });
+      acc.push(
+        buildResolvedDeFiPositionAction({
+          supportedAction,
+          assets,
+        }),
+      );
       return acc;
     },
     [],
   );
 }
 
+function resolveDeFiPositionActionDebugCandidates({
+  protocol,
+  position,
+  supportedActions,
+}: IResolveDeFiPositionActionsParams): IResolvedDeFiPositionAction[] {
+  const resolvedActionKeys = new Set(
+    resolveDeFiPositionActions({
+      protocol,
+      position,
+      supportedActions,
+    }).map(getDeFiPositionActionKey),
+  );
+
+  return getMatchedSupportedDeFiPositionActions({
+    protocol,
+    position,
+    supportedActions,
+    includeUnsupportedByCurrentUi: true,
+  }).reduce<IResolvedDeFiPositionAction[]>((acc, supportedAction) => {
+    if (resolvedActionKeys.has(getDeFiPositionActionKey(supportedAction))) {
+      return acc;
+    }
+
+    acc.push(
+      buildResolvedDeFiPositionAction({
+        supportedAction,
+        assets: [],
+      }),
+    );
+    return acc;
+  }, []);
+}
+
 export default {
   buildDeFiActionBps,
+  resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
 };
 
@@ -724,5 +813,6 @@ export {
   buildDeFiActionBps,
   normalizeCategoryForAction,
   normalizeDeFiActionPercent,
+  resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
 };

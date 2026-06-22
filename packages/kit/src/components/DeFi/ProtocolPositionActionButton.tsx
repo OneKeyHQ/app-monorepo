@@ -14,6 +14,7 @@ import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
@@ -63,6 +64,10 @@ type IBorrowManageParams = {
   symbol: string;
   logoURI?: string;
   providerLogoURI?: string;
+};
+
+type IRenderedDeFiPositionAction = IResolvedDeFiPositionAction & {
+  disabled?: boolean;
 };
 
 function normalizeMatchValue(value?: string) {
@@ -293,6 +298,25 @@ function isVisibleInPlacement({
   return false;
 }
 
+function getVisibleDeFiPositionActions<
+  T extends { action: EDeFiPositionAction },
+>({
+  actions,
+  hasAaveDebt,
+  placement,
+}: {
+  actions: T[];
+  hasAaveDebt: boolean;
+  placement: NonNullable<IProtocolPositionActionButtonProps['placement']>;
+}) {
+  const actionsForPosition = hasAaveDebt
+    ? actions.filter((action) => action.action !== EDeFiPositionAction.Withdraw)
+    : actions;
+  return actionsForPosition.filter((action) =>
+    isVisibleInPlacement({ action: action.action, placement }),
+  );
+}
+
 // Manage actions sit under the asset they act on, like the other inline
 // actions: Withdraw with the supplied balance, Repay with the borrowed debt.
 function getManageActionTypesForPlacement(
@@ -373,6 +397,7 @@ const ProtocolPositionActionButton = memo(
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
     const navigation = useAppNavigation();
+    const [devSettings] = useDevSettingsPersistAtom();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -395,6 +420,29 @@ const ProtocolPositionActionButton = memo(
           : [],
       [isActionAccount, position, protocol, supportedActions],
     );
+    const shouldShowUnavailableDeFiActionButtons = Boolean(
+      devSettings.enabled &&
+      devSettings.settings?.showUnavailableDeFiActionButtons,
+    );
+    const unavailableActions = useMemo<IRenderedDeFiPositionAction[]>(
+      () =>
+        isActionAccount && shouldShowUnavailableDeFiActionButtons
+          ? defiActionUtils
+              .resolveDeFiPositionActionDebugCandidates({
+                protocol,
+                position,
+                supportedActions,
+              })
+              .map((action) => ({ ...action, disabled: true }))
+          : [],
+      [
+        isActionAccount,
+        position,
+        protocol,
+        shouldShowUnavailableDeFiActionButtons,
+        supportedActions,
+      ],
+    );
     const hasAaveDebt = useMemo(
       () => isAaveProtocol(protocol.protocol) && hasDebt(position),
       [position, protocol.protocol],
@@ -403,24 +451,37 @@ const ProtocolPositionActionButton = memo(
       () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
       [manageAsset, position, protocol],
     );
-    const visibleActions = useMemo(() => {
-      const actionsForPosition = hasAaveDebt
-        ? actions.filter(
-            (action) => action.action !== EDeFiPositionAction.Withdraw,
-          )
-        : actions;
-      return actionsForPosition.filter((action) =>
-        isVisibleInPlacement({ action: action.action, placement }),
-      );
-    }, [actions, hasAaveDebt, placement]);
+    const visibleActions = useMemo(
+      () =>
+        getVisibleDeFiPositionActions({
+          actions,
+          hasAaveDebt,
+          placement,
+        }),
+      [actions, hasAaveDebt, placement],
+    );
+    const visibleUnavailableActions = useMemo(
+      () =>
+        getVisibleDeFiPositionActions({
+          actions: unavailableActions,
+          hasAaveDebt,
+          placement,
+        }),
+      [hasAaveDebt, placement, unavailableActions],
+    );
     const manageActionTypes = getManageActionTypesForPlacement(placement);
     const shouldShowManage =
       manageActionTypes.length > 0 && Boolean(borrowManageParams);
     // Position-level resolved actions render once per position; a per-asset
     // caller suppresses them on every row but the first.
-    const renderedActions = showResolvedActions ? visibleActions : [];
+    const renderedActions: IRenderedDeFiPositionAction[] = showResolvedActions
+      ? [...visibleActions, ...visibleUnavailableActions]
+      : [];
     const handleActionPress = useCallback(
-      async (action: (typeof visibleActions)[number]) => {
+      async (action: IRenderedDeFiPositionAction) => {
+        if (action.disabled) {
+          return;
+        }
         if (!accountId) {
           return;
         }
@@ -509,14 +570,16 @@ const ProtocolPositionActionButton = memo(
       >
         {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
+          const isActionDisabled =
+            action.disabled || Boolean(submittingActionKey);
           return (
             <Button
               key={actionKey}
               testID={`defi-position-action-${action.action}`}
               size="small"
               {...actionButtonFrameProps}
-              disabled={Boolean(submittingActionKey)}
-              loading={submittingActionKey === actionKey}
+              disabled={isActionDisabled}
+              loading={!action.disabled && submittingActionKey === actionKey}
               onPress={() => void handleActionPress(action)}
             >
               {renderActionButtonLabel({
