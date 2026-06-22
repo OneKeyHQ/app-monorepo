@@ -38,15 +38,8 @@ const SwapRecentTokenPairsGroup = ({
   const [swapTypeSwitchAtom] = useSwapTypeSwitchAtom();
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
-    if (swapTypeSwitchAtom === ESwapTabSwitchType.BRIDGE) {
-      return tokenPairs?.filter(
-        (tokens) => tokens.fromToken.networkId !== tokens.toToken.networkId,
-      );
-    }
     if (swapTypeSwitchAtom === ESwapTabSwitchType.SWAP) {
-      return tokenPairs?.filter(
-        (tokens) => tokens.toToken.networkId === tokens.fromToken.networkId,
-      );
+      return tokenPairs;
     }
     return [];
   }, [swapTypeSwitchAtom, tokenPairs]);

@@ -48,7 +48,6 @@ export function BorrowSwapOrBridge({
   );
 
   const showSwap = swapConfig.isSupportSwap || swapConfig.isSupportCrossChain;
-  const showBridge = swapConfig.isSupportCrossChain;
 
   const borrowToken = useMemo<IBorrowToken>(
     () => ({
@@ -69,7 +68,7 @@ export function BorrowSwapOrBridge({
     ],
   );
 
-  const { handleSwap, handleBridge } = useSupplyActions({
+  const { handleSwap } = useSupplyActions({
     accountId,
     walletId: wallet?.id ?? '',
     networkId,
@@ -81,11 +80,6 @@ export function BorrowSwapOrBridge({
     if (!showSwap) return;
     void handleSwap?.({ token: borrowToken });
   }, [borrowToken, handleSwap, showSwap]);
-
-  const handleBridgePress = useCallback(() => {
-    if (!showBridge) return;
-    void handleBridge?.({ token: borrowToken });
-  }, [borrowToken, handleBridge, showBridge]);
 
   return (
     <XStack ai="center" jc="space-between" pt="$5" {...containerStyle}>
@@ -103,14 +97,6 @@ export function BorrowSwapOrBridge({
           testID="borrow-handle-swap-press-btn"
         >
           {intl.formatMessage({ id: ETranslations.global_swap })}
-        </Button>
-        <Button
-          size="small"
-          onPress={handleBridgePress}
-          disabled={!showBridge}
-          testID="borrow-handle-bridge-press-btn"
-        >
-          {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </Button>
       </XStack>
     </XStack>

@@ -15,6 +15,12 @@ import type {
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+// Cap for the global token-metadata map (`data`, keyed by networkId_tokenAddress).
+// It is merge-only and not per-account, so it can't be orphan-filtered; instead we
+// bound it. Entries are pure cache (re-fetched on miss), so dropping the oldest is
+// safe. 5000 covers any realistic multi-chain wallet's working set.
+const LOCAL_TOKENS_METADATA_MAX_ENTRIES = 5000;
+
 export interface ISimpleDBLocalTokens {
   data: Record<string, IToken>; // <networkId_tokenIdOnNetwork, token>
   tokenList: Record<string, IAccountToken[]>; // <networkId_accountAddress/xpub, IAccountToken[]>
@@ -32,6 +38,23 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   entityName = 'localTokens';
 
   override enableCache = false;
+
+  // Bound the global token-metadata map. Applied on every write (here, on read it
+  // re-fetches on miss) so growth is capped regardless of whether the periodic
+  // orphan sweep runs. Object key order is insertion order, so the oldest entries
+  // are at the front; keep the most recent LOCAL_TOKENS_METADATA_MAX_ENTRIES.
+  private capTokenMetadata(
+    data: Record<string, IToken> | undefined,
+  ): Record<string, IToken> {
+    const map = data ?? {};
+    const entries = Object.entries(map);
+    if (entries.length <= LOCAL_TOKENS_METADATA_MAX_ENTRIES) {
+      return map;
+    }
+    return Object.fromEntries(
+      entries.slice(entries.length - LOCAL_TOKENS_METADATA_MAX_ENTRIES),
+    );
+  }
 
   @backgroundMethod()
   async updateTokens({
@@ -52,7 +75,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       '$key',
     );
     await this.setRawData((rawData) => ({
-      data: merge({}, rawData?.data, tokenMap),
+      data: this.capTokenMetadata(merge({}, rawData?.data, tokenMap)),
       tokenList: rawData?.tokenList ?? {},
       smallBalanceTokenList: rawData?.smallBalanceTokenList ?? {},
       riskyTokenList: rawData?.riskyTokenList ?? {},
@@ -305,6 +328,52 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
       tokenListMap: {},
       tokenListValue: {},
       tokenListCurrency: {},
+    });
+  }
+
+  // Drop cached token lists belonging to deleted accounts and cap the global
+  // token-metadata map. `validOwners` is the set of lowercased addresses/xpubs of
+  // all surviving accounts. Pure-cache cleanup: anything wrongly dropped just
+  // re-fetches on the next refresh. See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
+  async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+    const filterByOwner = <V>(
+      map: Record<string, V> | undefined,
+    ): Record<string, V> => {
+      const result: Record<string, V> = {};
+      for (const [key, value] of Object.entries(map ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+    await this.setRawData((rawData) => {
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
+      // concurrent clearRawData ("Clear cache" calls localTokens.clearRawData)
+      // nulls the store, and `?? existing` would resurrect the cleared cache.
+      const base = rawData;
+      return {
+        // `data` is global token metadata (networkId_tokenAddress), not per
+        // account; it can't be orphan-filtered, so cap total entries instead.
+        data: this.capTokenMetadata(base?.data),
+        tokenList: filterByOwner(base?.tokenList),
+        smallBalanceTokenList: filterByOwner(base?.smallBalanceTokenList),
+        riskyTokenList: filterByOwner(base?.riskyTokenList),
+        tokenListMap: filterByOwner(base?.tokenListMap),
+        tokenListValue: filterByOwner(base?.tokenListValue),
+        tokenListCurrency: filterByOwner(base?.tokenListCurrency),
+      };
     });
   }
 }

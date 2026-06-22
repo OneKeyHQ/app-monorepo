@@ -64,6 +64,7 @@ import {
   isSwapZeroProviderQuoteCompleted,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -150,7 +151,9 @@ export function useSwapQuoteEventFetching() {
       getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
-          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+          swapIncognitoMode &&
+          swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+          swapTypeSwitch !== ESwapTabSwitchType.STOCK
             ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
             : undefined,
       }),
@@ -346,6 +349,13 @@ export function useSwapActionState() {
       infoRes.disable = true;
     }
     if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
       new BigNumber(toTokenAmount.value ?? 0).isZero() ||
       new BigNumber(toTokenAmount.value ?? 0).isNaN()
     ) {
@@ -368,6 +378,19 @@ export function useSwapActionState() {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
+        infoRes.disable = true;
+      }
+      const stockTradeControl =
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK
+          ? getStockQuoteTradeControl({
+              quoteResult: quoteCurrentSelect,
+              fromTokenAmount: fromTokenAmount.value,
+              fromTokenSymbol: fromToken?.symbol,
+              intl,
+            })
+          : undefined;
+      if (stockTradeControl) {
+        infoRes.label = stockTradeControl.message;
         infoRes.disable = true;
       }
       if (

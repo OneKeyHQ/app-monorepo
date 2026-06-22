@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
+  // Show Market Home websocket subscription debug overlay and row highlight.
+  showMarketHomeWsDebug?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -144,6 +146,7 @@ export const {
       useLocalTradingViewUrl: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
+      showMarketHomeWsDebug: false,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',

@@ -2,6 +2,7 @@
 // eslint-disable-next-line max-classes-per-file
 
 import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import { Semaphore } from 'async-mutex';
 import {
   debounce,
   isEmpty,
@@ -71,6 +72,7 @@ import {
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  LocalDBIndexedAccountIndexConflictError,
   NotImplemented,
   OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   OneKeyInternalError,
@@ -105,6 +107,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
@@ -120,6 +123,7 @@ import type {
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncKeyInfoWallet,
+  ICloudSyncTargetIndexedAccount,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
@@ -158,6 +162,7 @@ import type {
   IDBSetWalletNameAndAvatarParams,
   IDBUpdateDeviceSettingsParams,
   IDBUpdateFirmwareVerifiedParams,
+  IDBUtxoAccount,
   IDBVariantAccount,
   IDBWallet,
   IDBWalletId,
@@ -169,6 +174,7 @@ import type {
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
+  ITrezorThpCredential,
 } from './types';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
@@ -225,6 +231,239 @@ function getLocalPasswordKdfParams(): ILocalPasswordKdfParams {
   };
 }
 
+export function clearTrezorThpSettingsRaw(settingsRaw: string | undefined) {
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(settingsRaw || '{}');
+  } catch {
+    settings = {};
+  }
+  delete settings.thpCredentials;
+  return JSON.stringify(settings);
+}
+
+export function buildTrezorDesktopBleUsbConnectId({
+  vendor,
+  transportType,
+  rawDeviceId,
+}: {
+  vendor: EHardwareVendor;
+  transportType?: EHardwareTransportType;
+  rawDeviceId?: string;
+}): string | undefined {
+  if (
+    vendor === EHardwareVendor.trezor &&
+    transportType === EHardwareTransportType.DesktopWebBle &&
+    rawDeviceId
+  ) {
+    return rawDeviceId;
+  }
+  return undefined;
+}
+
+function getExtraDeviceFieldString(
+  device: IDBCreateHwWalletParams['device'],
+  field:
+    | 'raw.firmwareVersion'
+    | 'raw.serialNumber'
+    | 'vendorModel'
+    | 'vendorModelName',
+) {
+  const extraDevice = device as IDBCreateHwWalletParams['device'] & {
+    raw?: Record<string, unknown>;
+    vendorModel?: unknown;
+    vendorModelName?: unknown;
+  };
+  if (field === 'raw.firmwareVersion') {
+    const value = extraDevice.raw?.firmwareVersion;
+    return isString(value) ? value : undefined;
+  }
+  if (field === 'raw.serialNumber') {
+    const value = extraDevice.raw?.serialNumber;
+    return isString(value) ? value : undefined;
+  }
+  const value = extraDevice[field];
+  return isString(value) ? value : undefined;
+}
+
+function getKnownThirdPartyFirmwareVersion(
+  version: string | undefined,
+): string | undefined {
+  if (!version || version.toLowerCase() === 'unknown') {
+    return undefined;
+  }
+  return version;
+}
+
+function buildThirdPartyFirmwareVersionFromFeatures(
+  features: Record<string, unknown>,
+): string | undefined {
+  const major = features.major_version;
+  const minor = features.minor_version;
+  const patch = features.patch_version;
+  if (
+    typeof major === 'number' &&
+    typeof minor === 'number' &&
+    typeof patch === 'number'
+  ) {
+    return `${major}.${minor}.${patch}`;
+  }
+  return undefined;
+}
+
+function getThirdPartyFirmwareVersion({
+  device,
+  features,
+}: {
+  device?: IDBCreateHwWalletParams['device'];
+  features: Record<string, unknown>;
+}): string | undefined {
+  return (
+    getKnownThirdPartyFirmwareVersion(
+      isString(features.third_party_firmware_version)
+        ? features.third_party_firmware_version
+        : undefined,
+    ) ||
+    getKnownThirdPartyFirmwareVersion(
+      isString(features.firmware_version)
+        ? features.firmware_version
+        : undefined,
+    ) ||
+    buildThirdPartyFirmwareVersionFromFeatures(features) ||
+    (device
+      ? getKnownThirdPartyFirmwareVersion(
+          getExtraDeviceFieldString(device, 'raw.firmwareVersion'),
+        )
+      : undefined)
+  );
+}
+
+export function buildThirdPartyFeaturesInfoFromDevice({
+  device,
+  features,
+  vendor,
+}: {
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  vendor: EHardwareVendor;
+}): IOneKeyDeviceFeatures {
+  const profile = getVendorProfile(vendor);
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    firmware_version?: string;
+    internal_model?: string;
+    model?: string;
+    third_party_firmware_version?: string;
+  };
+  const vendorModel = getExtraDeviceFieldString(device, 'vendorModel');
+  const vendorModelName = getExtraDeviceFieldString(device, 'vendorModelName');
+  const firmwareVersion = getThirdPartyFirmwareVersion({
+    device,
+    features: featureRecord,
+  });
+  const serialNumber = getExtraDeviceFieldString(device, 'raw.serialNumber');
+
+  return thirdPartyDeviceUtils.buildPersistedFeatures({
+    features: featureRecord,
+    vendor,
+    label:
+      featureRecord.label ||
+      device.name ||
+      vendorModelName ||
+      vendorModel ||
+      profile.defaultDeviceName,
+    model: featureRecord.model || vendorModelName || vendorModel,
+    internalModel: featureRecord.internal_model || vendorModel,
+    firmwareVersion,
+    serialNumber,
+  }) as unknown as IOneKeyDeviceFeatures;
+}
+
+export function buildThirdPartyDeviceSettingsFromDevice({
+  baseSettings,
+  device,
+  features,
+  vendor,
+  supportsSoftwarePin,
+}: {
+  baseSettings?: IDBDeviceSettings;
+  device: IDBCreateHwWalletParams['device'];
+  features: IOneKeyDeviceFeatures;
+  vendor: EHardwareVendor;
+  supportsSoftwarePin: boolean;
+}): IDBDeviceSettings {
+  const featureRecord = features as IOneKeyDeviceFeatures & {
+    firmware_version?: string;
+    internal_model?: string;
+    model?: string;
+    third_party_firmware_version?: string;
+  };
+  const vendorModel =
+    featureRecord.internal_model ||
+    getExtraDeviceFieldString(device, 'vendorModel');
+  const vendorModelName =
+    featureRecord.model ||
+    getExtraDeviceFieldString(device, 'vendorModelName') ||
+    vendorModel;
+  const vendorFirmwareVersion = getThirdPartyFirmwareVersion({
+    device,
+    features: featureRecord,
+  });
+
+  return {
+    ...baseSettings,
+    inputPinOnSoftware: baseSettings?.inputPinOnSoftware ?? supportsSoftwarePin,
+    vendor,
+    ...(vendorModel ? { vendorModel } : undefined),
+    ...(vendorModelName ? { vendorModelName } : undefined),
+    ...(vendorFirmwareVersion ? { vendorFirmwareVersion } : undefined),
+  };
+}
+
+function parseDeviceSettingsRaw(settingsRaw?: string): IDBDeviceSettings {
+  if (!settingsRaw) {
+    return {};
+  }
+  try {
+    return JSON.parse(settingsRaw) as IDBDeviceSettings;
+  } catch {
+    return {};
+  }
+}
+
+function buildThirdPartyDeviceLikeFromDbDevice({
+  device,
+  baseSettings,
+}: {
+  device: IDBDevice;
+  baseSettings: IDBDeviceSettings;
+}): IDBCreateHwWalletParams['device'] & {
+  raw?: Record<string, unknown>;
+  vendorModel?: string;
+  vendorModelName?: string;
+} {
+  const raw: Record<string, unknown> = {};
+  if (baseSettings.vendorFirmwareVersion) {
+    raw.firmwareVersion = baseSettings.vendorFirmwareVersion;
+  }
+  const serialNo = (device.featuresInfo as { serial_no?: string } | undefined)
+    ?.serial_no;
+  if (serialNo) {
+    raw.serialNumber = serialNo;
+  }
+  const deviceLike: IDBCreateHwWalletParams['device'] = {
+    connectId: device.connectId || '',
+    uuid: device.uuid,
+    deviceId: device.deviceId,
+    deviceType: device.deviceType,
+    name: device.name,
+  };
+  return Object.assign(deviceLike, {
+    raw,
+    vendorModel: baseSettings.vendorModel,
+    vendorModelName: baseSettings.vendorModelName,
+  });
+}
+
 function isLocalPasswordCredentialPasswordUpdateCandidate({
   credential,
 }: {
@@ -260,6 +499,25 @@ const getOrderByWalletType = (walletType: IDBWalletType): number => {
   }
 };
 
+export type IIndexedAccountsCreationSyncItemsInfo = {
+  existingSyncItemsInfo: IExistingSyncItemsInfo<EPrimeCloudSyncDataType.IndexedAccount>;
+  existingSyncItems: IDBCloudSyncItem[];
+  newSyncItems: IDBCloudSyncItem[];
+};
+
+// OK-56267: cloud sync items must be built before opening the IndexedDB
+// transaction. Awaiting non-DB promises (credential fetch, async crypto)
+// inside a tx lets IndexedDB auto-commit it, and later tx operations throw
+// "The transaction has finished".
+export type IIndexedAccountsCreationPreparedData = {
+  indexedAccounts: IDBIndexedAccount[];
+  indexedAccountsToAdd: IDBIndexedAccount[];
+  syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined;
+  // indexedAccountId -> cloud sync item id (deterministic key), used to filter
+  // pre-built sync items down to the accounts that survive the in-tx recheck
+  syncItemIdByIndexedAccountId: Record<string, string>;
+};
+
 export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
     [walletId: string]: boolean;
@@ -269,6 +527,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   setBackgroundApi(backgroundApi: IBackgroundApi) {
     this.backgroundApi = backgroundApi;
+  }
+
+  // Serialize next-index allocation per wallet so concurrent
+  // addHDNextIndexedAccount calls don't all prepare the same index and then
+  // contend on the transaction (OK-56267). Within the single bg process this
+  // makes index conflicts effectively impossible; the in-tx conflict check
+  // remains as defense.
+  private hdNextIndexedAccountMutexMap: Map<string, Semaphore> = new Map();
+
+  private getHDNextIndexedAccountMutex(walletId: string): Semaphore {
+    let mutex = this.hdNextIndexedAccountMutexMap.get(walletId);
+    if (!mutex) {
+      mutex = new Semaphore(1);
+      this.hdNextIndexedAccountMutexMap.set(walletId, mutex);
+    }
+    return mutex;
   }
 
   buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
@@ -2086,6 +2360,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists: boolean;
     applyRestoreSyncPolicy?: boolean;
   }) {
+    const prepared = await this.prepareIndexedAccountsCreationData({
+      walletId,
+      indexes,
+      names,
+      skipIfExists,
+      applyRestoreSyncPolicy,
+    });
     return this.withTransaction(EIndexedDBBucketNames.account, async (tx) =>
       this.txAddIndexedAccount({
         tx,
@@ -2094,6 +2375,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         indexes,
         names,
         applyRestoreSyncPolicy,
+        prepared,
       }),
     );
   }
@@ -2124,6 +2406,194 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return idHash;
   }
 
+  validateIndexedAccountWalletId({ walletId }: { walletId: string }) {
+    if (
+      !accountUtils.isHdWallet({ walletId }) &&
+      !accountUtils.isQrWallet({ walletId }) &&
+      !accountUtils.isHwWallet({ walletId })
+    ) {
+      throw new OneKeyInternalError({
+        message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
+      });
+    }
+  }
+
+  // build indexed account records and cloud sync items with non-tx reads, so
+  // the follow-up transaction only performs pure DB operations (OK-56267)
+  async prepareIndexedAccountsCreationData({
+    walletId,
+    indexes,
+    names,
+    skipIfExists,
+    applyRestoreSyncPolicy,
+  }: {
+    walletId: string;
+    indexes: number[];
+    names?: {
+      [index: number]: string;
+    };
+    skipIfExists: boolean;
+    applyRestoreSyncPolicy?: boolean;
+  }): Promise<IIndexedAccountsCreationPreparedData> {
+    this.validateIndexedAccountWalletId({ walletId });
+
+    const dbWallet = await this.getWallet({ walletId });
+
+    const accountDefaultNameMap: {
+      [indexedAccountId: string]: string;
+    } = {};
+    const indexedAccountsPromise: Promise<IDBIndexedAccount>[] = indexes.map(
+      async (index) => {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId,
+          index,
+        });
+
+        let accountName = names?.[index];
+        if (!accountName) {
+          const defaultName = accountUtils.buildIndexedAccountName({
+            pathIndex: index,
+          });
+          accountDefaultNameMap[indexedAccountId] = defaultName;
+          accountName = defaultName;
+        }
+
+        const r: IDBIndexedAccount = {
+          id: indexedAccountId,
+          idHash: await this.buildIndexedAccountIdHash({
+            firstEvmAddress: dbWallet?.firstEvmAddress,
+            indexedAccountId,
+            index,
+          }),
+          walletId,
+          index,
+          name: accountName,
+        };
+        return r;
+      },
+    );
+    const indexedAccounts = await Promise.all(indexedAccountsPromise);
+
+    let indexedAccountsToAdd = indexedAccounts;
+
+    // filter out existing indexed accounts
+    if (skipIfExists) {
+      const { records } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: indexedAccountsToAdd.map((item) => item.id),
+      });
+      const existingIndexedAccounts = records.filter(Boolean);
+      indexedAccountsToAdd = indexedAccountsToAdd.filter(
+        (item) => !existingIndexedAccounts.some((r) => r.id === item.id),
+      );
+    }
+
+    if (!indexedAccountsToAdd.length) {
+      return {
+        indexedAccounts,
+        indexedAccountsToAdd,
+        syncItemsInfo: undefined,
+        syncItemIdByIndexedAccountId: {},
+      };
+    }
+
+    let dbDevice: IDBDevice | undefined;
+    if (
+      accountUtils.isHwWallet({ walletId }) ||
+      accountUtils.isQrWallet({ walletId })
+    ) {
+      const deviceId = dbWallet.associatedDevice;
+      if (deviceId) {
+        dbDevice = await this.getDeviceSafe(deviceId);
+      }
+    }
+
+    const syncManager =
+      this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
+    const shouldBackfillIndexedAccountSyncItemMap: Record<string, boolean> = {};
+    indexedAccountsToAdd.forEach((indexedAccount) => {
+      shouldBackfillIndexedAccountSyncItemMap[indexedAccount.id] = true;
+    });
+
+    const targets: ICloudSyncTargetIndexedAccount[] = indexedAccountsToAdd.map(
+      (indexedAccount) => ({
+        targetId: indexedAccount.id,
+        dataType: EPrimeCloudSyncDataType.IndexedAccount,
+        indexedAccount: { ...indexedAccount, name: indexedAccount.name },
+        wallet: {
+          ...dbWallet,
+          name: dbWallet?.name || '',
+          avatarInfo: dbWallet?.avatarInfo,
+        },
+        dbDevice,
+      }),
+    );
+
+    const buildSyncItemsStartTime = Date.now();
+    const syncItemsInfo: IIndexedAccountsCreationSyncItemsInfo | undefined =
+      await syncManager.buildExistingSyncItemsInfo({
+        tx: undefined,
+        targets,
+        onExistingSyncItemsInfo: async (info) => {
+          // fix account name by existing sync item
+          indexedAccountsToAdd.forEach((indexedAccount) => {
+            const existingItem = info[indexedAccount.id];
+            const name = existingItem?.syncPayload?.name;
+            if (name) {
+              indexedAccount.name = name;
+              existingItem.target.indexedAccount.name = name;
+              shouldBackfillIndexedAccountSyncItemMap[indexedAccount.id] =
+                false;
+            }
+          });
+        },
+        useCreateGenesisTime: async ({ target }) => {
+          const accountDefaultName =
+            accountDefaultNameMap[target.indexedAccount.id];
+          return Boolean(
+            accountDefaultName &&
+            target.indexedAccount.name === accountDefaultName,
+          );
+        },
+        buildSyncItemDataTime: applyRestoreSyncPolicy
+          ? async ({ existingSyncItem, target }) => {
+              if (!shouldBackfillIndexedAccountSyncItemMap[target.targetId]) {
+                return undefined;
+              }
+              return this.buildRestoreSyncItemDataTime({
+                existingSyncItem,
+              });
+            }
+          : undefined,
+      });
+    const buildSyncItemsDuration = Date.now() - buildSyncItemsStartTime;
+    if (buildSyncItemsDuration > 600) {
+      void this.backgroundApi.serviceApp.showToastIfDevMode({
+        method: 'error',
+        title: `prepareIndexedAccountsCreationData took too long: ${buildSyncItemsDuration}ms`,
+      });
+    }
+
+    // Map each indexedAccountId to its deterministic cloud sync item id. The key
+    // derives only from walletXfp + index (not name), so it is stable across the
+    // name fix-up above. Used to drop sync items for accounts removed by the
+    // in-tx recheck, so a concurrent creator's sync row is never overwritten.
+    const syncItemIdByIndexedAccountId: Record<string, string> = {};
+    for (const target of targets) {
+      const keyInfo = await syncManager.buildSyncKeyInfo({ target });
+      if (keyInfo?.key) {
+        syncItemIdByIndexedAccountId[target.targetId] = keyInfo.key;
+      }
+    }
+
+    return {
+      indexedAccounts,
+      indexedAccountsToAdd,
+      syncItemsInfo,
+      syncItemIdByIndexedAccountId,
+    };
+  }
+
   async txAddIndexedAccount({
     tx,
     walletId,
@@ -2132,6 +2602,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists,
     skipServerSyncFlow,
     applyRestoreSyncPolicy,
+    prepared,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
@@ -2142,15 +2613,66 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipIfExists: boolean;
     skipServerSyncFlow?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    prepared?: IIndexedAccountsCreationPreparedData;
   }) {
-    if (
-      !accountUtils.isHdWallet({ walletId }) &&
-      !accountUtils.isQrWallet({ walletId }) &&
-      !accountUtils.isHwWallet({ walletId })
-    ) {
-      throw new OneKeyInternalError({
-        message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
+    this.validateIndexedAccountWalletId({ walletId });
+
+    if (prepared) {
+      // sync items were built outside of this tx, only pure DB writes remain
+      const { indexedAccounts, syncItemsInfo, syncItemIdByIndexedAccountId } =
+        prepared;
+      let { indexedAccountsToAdd } = prepared;
+      const preparedCount = indexedAccountsToAdd.length;
+      if (skipIfExists && indexedAccountsToAdd.length) {
+        // re-check inside tx: a concurrent flow may have added them meanwhile
+        const { records } = await this.txGetRecordsByIds({
+          tx,
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: indexedAccountsToAdd.map((item) => item.id),
+        });
+        const existingIndexedAccounts = records.filter(Boolean);
+        indexedAccountsToAdd = indexedAccountsToAdd.filter(
+          (item) => !existingIndexedAccounts.some((r) => r.id === item.id),
+        );
+      }
+      if (!indexedAccountsToAdd.length) {
+        return indexedAccounts;
+      }
+      let newSyncItems = syncItemsInfo?.newSyncItems || [];
+      let existingSyncItems = syncItemsInfo?.existingSyncItems || [];
+      // If the in-tx recheck dropped some accounts (created concurrently), drop
+      // their pre-built sync items too, so this tx never writes/uploads a sync
+      // row for an account it did not create and clobbers the other flow's data.
+      if (indexedAccountsToAdd.length !== preparedCount) {
+        const survivingSyncItemIds = new Set(
+          indexedAccountsToAdd
+            .map((item) => syncItemIdByIndexedAccountId[item.id])
+            .filter(Boolean),
+        );
+        newSyncItems = newSyncItems.filter((item) =>
+          survivingSyncItemIds.has(item.id),
+        );
+        existingSyncItems = existingSyncItems.filter((item) =>
+          survivingSyncItemIds.has(item.id),
+        );
+      }
+      const preparedSyncManager =
+        this.backgroundApi?.servicePrimeCloudSync.syncManagers.indexedAccount;
+      await preparedSyncManager.txWithSyncFlowOfDBRecordCreating({
+        tx,
+        newSyncItems,
+        existingSyncItems,
+        runDbTxFn: async () => {
+          await this.txAddRecords({
+            tx,
+            skipIfExists,
+            name: ELocalDBStoreNames.IndexedAccount,
+            records: indexedAccountsToAdd,
+          });
+        },
+        skipServerSyncFlow,
       });
+      return indexedAccounts;
     }
 
     const [dbWallet] = await this.txGetWallet({ tx, walletId });
@@ -2334,19 +2856,94 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // }
   }
 
-  async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
-    let indexedAccountId = '';
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId,
-        skipServerSyncFlow: false,
-      }));
+  async findHDNextIndexedAccountIndex({
+    walletId,
+  }: {
+    walletId: string;
+  }): Promise<number> {
+    const wallet = await this.getWallet({ walletId });
+    let nextIndex = this.getNextIdsValue({
+      nextIds: wallet.nextIds,
+      key: 'accountHdIndex',
+      defaultValue: 0,
     });
-    return {
-      indexedAccountId,
-    };
+    let maxLoop = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index: nextIndex,
+      });
+      try {
+        const { records } = await this.getRecordsByIds({
+          name: ELocalDBStoreNames.IndexedAccount,
+          ids: [indexedAccountId],
+        });
+        if (!records.filter(Boolean).length) {
+          break;
+        }
+      } catch (error) {
+        errorUtils.autoPrintErrorIgnore(error);
+        break;
+      }
+      if (maxLoop >= 1000) {
+        break;
+      }
+      nextIndex += 1;
+      maxLoop += 1;
+    }
+    return nextIndex;
+  }
+
+  async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
+    // Serialize per wallet: each call prepares against the latest committed
+    // state, so concurrent calls allocate distinct indexes instead of all
+    // racing for the same one and exhausting the retry budget (OK-56267).
+    return this.getHDNextIndexedAccountMutex(walletId).runExclusive(
+      async () => {
+        // Retry only guards against cross-context races the in-process mutex
+        // can't see; with serialization a conflict is not expected in practice.
+        const maxRetry = 5;
+        let lastError: unknown;
+        for (let retry = 0; retry < maxRetry; retry += 1) {
+          const expectedIndex = await this.findHDNextIndexedAccountIndex({
+            walletId,
+          });
+          const prepared = await this.prepareIndexedAccountsCreationData({
+            walletId,
+            indexes: [expectedIndex],
+            skipIfExists: true,
+          });
+          try {
+            let indexedAccountId = '';
+            await this.withTransaction(
+              EIndexedDBBucketNames.account,
+              async (tx) => {
+                ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
+                  tx,
+                  walletId,
+                  skipServerSyncFlow: false,
+                  expectedIndex,
+                  prepared,
+                }));
+              },
+            );
+            return {
+              indexedAccountId,
+            };
+          } catch (error) {
+            if (!(error instanceof LocalDBIndexedAccountIndexConflictError)) {
+              throw error;
+            }
+            // a concurrent creation took the index, re-prepare with a fresh one
+            lastError = error;
+          }
+        }
+        throw lastError instanceof Error
+          ? lastError
+          : new OneKeyLocalError('addHDNextIndexedAccount failed');
+      },
+    );
   }
 
   async txAddHDNextIndexedAccount({
@@ -2354,11 +2951,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId,
     onlyAddFirst,
     skipServerSyncFlow,
+    expectedIndex,
+    prepared,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     onlyAddFirst?: boolean;
     skipServerSyncFlow: boolean;
+    expectedIndex?: number;
+    prepared?: IIndexedAccountsCreationPreparedData;
   }) {
     console.log('txAddHDNextIndexedAccount');
     const [wallet] = await this.txGetWallet({
@@ -2404,12 +3005,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       nextIndex = 0;
     }
 
+    if (prepared && !isNil(expectedIndex) && expectedIndex !== nextIndex) {
+      // prepared data was built for a stale index, the caller must re-prepare
+      // outside of the tx (rebuilding sync items in-tx would break the tx)
+      throw new LocalDBIndexedAccountIndexConflictError(
+        `txAddHDNextIndexedAccount index conflict: expected=${expectedIndex} actual=${nextIndex}`,
+      );
+    }
+
     await this.txAddIndexedAccount({
       tx,
       walletId,
       indexes: [nextIndex],
       skipIfExists: true,
       skipServerSyncFlow,
+      prepared,
     });
 
     await this.txUpdateWallet({
@@ -3158,6 +3768,55 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async updateThirdPartyDeviceFeatures({
+    vendor,
+    features,
+  }: {
+    vendor: EHardwareVendor;
+    features: IOneKeyDeviceFeatures;
+  }) {
+    const featuresDeviceId =
+      typeof features.device_id === 'string' ? features.device_id : undefined;
+    if (!featuresDeviceId) {
+      return;
+    }
+    const device = await this.getDeviceByQuery({
+      featuresDeviceId,
+      vendor,
+    });
+    if (!device) {
+      return;
+    }
+
+    const baseSettings = parseDeviceSettingsRaw(device.settingsRaw);
+    const deviceLike = buildThirdPartyDeviceLikeFromDbDevice({
+      device,
+      baseSettings,
+    });
+    const featuresInfo = buildThirdPartyFeaturesInfoFromDevice({
+      device: deviceLike,
+      features,
+      vendor,
+    });
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [device.id],
+        updater: async (item) => {
+          const newFeatures = stringUtils.stableStringify(featuresInfo);
+          if (item.features !== newFeatures) {
+            item.features = newFeatures;
+          }
+          return item;
+        },
+      });
+    });
+    appEventBus.emit(EAppEventBusNames.HardwareFeaturesUpdate, {
+      deviceId: device.id,
+    });
+  }
+
   async updateDeviceFeaturesLabel({
     dbDeviceId,
     label,
@@ -3310,6 +3969,53 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           existing[chain] = fingerprint;
           settings.chainFingerprints = existing;
           item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
+  // Persist Trezor THP pairing credentials into the device's own settings.
+  // Stored per-device so "forget device" (which deletes the Device record)
+  // clears them automatically — no separate credential table to clean up.
+  async updateDeviceThpCredentials({
+    dbDeviceId,
+    credentials,
+  }: {
+    dbDeviceId: string;
+    credentials: ITrezorThpCredential[];
+  }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          let settings: Record<string, unknown> = {};
+          try {
+            settings = JSON.parse(item.settingsRaw || '{}');
+          } catch {
+            // ignore
+          }
+          settings.thpCredentials = credentials;
+          item.settingsRaw = JSON.stringify(settings);
+          item.updatedAt = await this.timeNow();
+          return item;
+        },
+      });
+    });
+  }
+
+  async clearTrezorDeviceThpState({ dbDeviceId }: { dbDeviceId: string }) {
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.settingsRaw = clearTrezorThpSettingsRaw(item.settingsRaw);
+          item.bleConnectId = undefined;
           item.updatedAt = await this.timeNow();
           return item;
         },
@@ -3788,6 +4494,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const rawDeviceId = deviceUtils.getRawDeviceId({
       device,
       features,
+      isThirdParty: getVendorProfile(vendor)?.isThirdParty,
     });
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
@@ -3873,12 +4580,16 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   } {
     return {
       deviceType: EDeviceType.Unknown,
-      firmwareType: undefined,
+      firmwareType: thirdPartyDeviceUtils.getFirmwareType({ features }),
       avatar: {
         img: profile.avatarKey as IAllWalletAvatarImageNamesWithoutDividers,
       },
       deviceName: device.name || `${profile.defaultDeviceName} Device`,
-      featuresInfo: features,
+      featuresInfo: buildThirdPartyFeaturesInfoFromDevice({
+        device,
+        features,
+        vendor: profile.vendor,
+      }),
     };
   }
 
@@ -3980,7 +4691,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           // If connectId is empty, get it from getDeviceUUID for compatibility
           if (!compatibleConnectId) {
             const { getDeviceUUID } = await CoreSDKLoader();
-            const uuid = getDeviceUUID(features);
+            const uuid =
+              buildTrezorDesktopBleUsbConnectId({
+                vendor: resolvedVendor,
+                transportType,
+                rawDeviceId,
+              }) || getDeviceUUID(features);
             compatibleConnectId = uuid;
             usbConnectId = uuid;
           }
@@ -3990,22 +4706,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    // Third-party SDKs (e.g. Ledger) attach raw model id / display name to
-    // SearchDevice so we can persist it for per-model avatar resolution later.
-    const vendorDevice = device as {
-      vendorModel?: string;
-      vendorModelName?: string;
-    };
-    const initialSettings: IDBDeviceSettings = {
-      inputPinOnSoftware: profile.supportsSoftwarePin,
-      vendor: resolvedVendor,
-    };
-    if (vendorDevice.vendorModel) {
-      initialSettings.vendorModel = vendorDevice.vendorModel;
-    }
-    if (vendorDevice.vendorModelName) {
-      initialSettings.vendorModelName = vendorDevice.vendorModelName;
-    }
+    const initialSettings: IDBDeviceSettings = profile.isThirdParty
+      ? buildThirdPartyDeviceSettingsFromDevice({
+          device,
+          features: featuresInfo,
+          vendor: resolvedVendor,
+          supportsSoftwarePin: profile.supportsSoftwarePin,
+        })
+      : {
+          inputPinOnSoftware: profile.supportsSoftwarePin,
+          vendor: resolvedVendor,
+        };
 
     const deviceToAdd: IDBDevice = {
       id: dbDeviceId,
@@ -4133,15 +4844,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               } catch {
                 // ignore
               }
-              existingSettings.inputPinOnSoftware =
-                existingSettings.inputPinOnSoftware ??
-                profile.supportsSoftwarePin;
-              existingSettings.vendor = resolvedVendor;
-              if (vendorDevice.vendorModel) {
-                existingSettings.vendorModel = vendorDevice.vendorModel;
-              }
-              if (vendorDevice.vendorModelName) {
-                existingSettings.vendorModelName = vendorDevice.vendorModelName;
+              if (profile.isThirdParty) {
+                existingSettings = buildThirdPartyDeviceSettingsFromDevice({
+                  baseSettings: existingSettings,
+                  device,
+                  features: featuresInfo,
+                  vendor: resolvedVendor,
+                  supportsSoftwarePin: profile.supportsSoftwarePin,
+                });
+              } else {
+                existingSettings.inputPinOnSoftware =
+                  existingSettings.inputPinOnSoftware ??
+                  profile.supportsSoftwarePin;
+                existingSettings.vendor = resolvedVendor;
               }
               item.settingsRaw = JSON.stringify(existingSettings);
 
@@ -5573,6 +6288,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               item.xpubSegwit = xpubSegwit;
             }
           }
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateAccountFindAddresses({
+    accountId,
+    addedFindAddresses,
+    removedRelPaths,
+  }: {
+    accountId: string;
+    addedFindAddresses?: Record<string, string>; // { "0/100": "address" }
+    removedRelPaths?: string[];
+  }) {
+    const account = (await this.getAccount({
+      accountId,
+    })) as IDBUtxoAccount | undefined;
+    if (!account || account.type !== EDBAccountType.UTXO) {
+      throw new OneKeyLocalError(
+        'updateAccountFindAddresses ERROR: utxo account not found',
+      );
+    }
+    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Account,
+        ids: [accountId],
+        updater: (item) => {
+          const utxoItem = item as IDBUtxoAccount;
+          // merge on the in-transaction value (not a pre-read snapshot) so
+          // concurrent claim/unclaim/cleanup writers cannot drop each
+          // other's updates. under realm the field is a live Dictionary,
+          // copy it to a plain object before mutating
+          const currentRaw = utxoItem.findAddresses as
+            | (Record<string, string> & {
+                toJSON?: () => Record<string, string>;
+              })
+            | undefined;
+          const findAddresses: Record<string, string> =
+            currentRaw?.toJSON?.() ?? { ...currentRaw };
+          if (addedFindAddresses) {
+            Object.assign(findAddresses, addedFindAddresses);
+          }
+          removedRelPaths?.forEach((relPath) => {
+            delete findAddresses[relPath];
+          });
+          utxoItem.findAddresses = findAddresses;
           return item;
         },
       });

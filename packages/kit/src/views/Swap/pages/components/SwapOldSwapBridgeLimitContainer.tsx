@@ -13,8 +13,13 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ESwapDirectionType,
@@ -26,6 +31,7 @@ import type {
 import SwapFAQ from '../../components/SwapFAQ';
 import SwapProviderListPanel from '../../components/SwapProviderListPanel';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { getSwapExecutionType } from '../../utils/swapTypeUtils';
 
 import LimitInfoContainer from './LimitInfoContainer';
 import LimitOrderOpenItem from './LimitOrderOpenItem';
@@ -71,6 +77,46 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   headerContent?: ReactNode;
 }
 
+const DESKTOP_SWAP_TITLE_TRANSITION =
+  'color 180ms ease, font-size 180ms ease, opacity 180ms ease';
+
+function SwapTitleText({
+  children,
+  isActive,
+  shouldUseDesktopLayoutTitleState,
+  inactiveOpacity = 0.8,
+}: {
+  children: ReactNode;
+  isActive: boolean;
+  shouldUseDesktopLayoutTitleState: boolean;
+  inactiveOpacity?: number;
+}) {
+  const shouldUseInactiveDesktopLayoutStyle =
+    shouldUseDesktopLayoutTitleState && !isActive;
+  let titleOpacity: number | undefined;
+
+  if (shouldUseDesktopLayoutTitleState) {
+    titleOpacity = isActive ? 1 : inactiveOpacity;
+  }
+
+  return (
+    <SizableText
+      size={shouldUseInactiveDesktopLayoutStyle ? '$headingMd' : '$headingLg'}
+      color={isActive ? '$text' : '$textSubdued'}
+      opacity={titleOpacity}
+      $platform-web={
+        shouldUseDesktopLayoutTitleState
+          ? {
+              transition: DESKTOP_SWAP_TITLE_TRANSITION,
+            }
+          : undefined
+      }
+    >
+      {children}
+    </SizableText>
+  );
+}
+
 const SwapOldSwapBridgeLimitContainer = ({
   pageType,
   storeName,
@@ -97,14 +143,60 @@ const SwapOldSwapBridgeLimitContainer = ({
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
 
-  let swapTitle: string;
-  if (swapTypeSwitch === ESwapTabSwitchType.BRIDGE) {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_bridge });
+  const swapLabel = intl.formatMessage({ id: ETranslations.swap_page_swap });
+  const bridgeLabel = intl.formatMessage({
+    id: ETranslations.swap_page_bridge,
+  });
+  const stockLabel = intl.formatMessage({
+    id: ETranslations.perps_token_selector_stocks,
+  });
+  const effectiveSwapType = getSwapExecutionType({
+    fromNetworkId: fromToken?.networkId,
+    toNetworkId: toToken?.networkId,
+  });
+  const isEffectiveBridge =
+    effectiveSwapType === ESwapTabSwitchType.BRIDGE &&
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+  const shouldUseDesktopLayoutTitleState = Boolean(
+    platformEnv.isDesktop || platformEnv.isWeb,
+  );
+
+  let swapTitleContent = (
+    <XStack alignItems="baseline" flexShrink={1} minWidth={0} gap="$1">
+      <SwapTitleText
+        isActive={!isEffectiveBridge}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
+      >
+        {swapLabel}
+      </SwapTitleText>
+      <SwapTitleText
+        isActive={false}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
+        inactiveOpacity={0.72}
+      >
+        &
+      </SwapTitleText>
+      <SwapTitleText
+        isActive={isEffectiveBridge}
+        shouldUseDesktopLayoutTitleState={shouldUseDesktopLayoutTitleState}
+      >
+        {bridgeLabel}
+      </SwapTitleText>
+    </XStack>
+  );
+  if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+    swapTitleContent = (
+      <SizableText size="$headingLg">{stockLabel}</SizableText>
+    );
   } else if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_limit });
-  } else {
-    swapTitle = intl.formatMessage({ id: ETranslations.swap_page_swap });
+    swapTitleContent = (
+      <SizableText size="$headingLg">
+        {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+      </SizableText>
+    );
   }
 
   // Desktop: show provider panel on the right side
@@ -112,7 +204,8 @@ const SwapOldSwapBridgeLimitContainer = ({
   const showDesktopProviderPanel =
     gtLg &&
     pageType !== EPageType.modal &&
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT;
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+    swapTypeSwitch !== ESwapTabSwitchType.STOCK;
 
   const showLimitDesktopCard =
     gtLg &&
@@ -195,7 +288,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         }}
       >
         <XStack alignItems="center" justifyContent="space-between">
-          <SizableText size="$headingLg">{swapTitle}</SizableText>
+          {swapTitleContent}
           <SwapHeaderRightActionContainer
             pageType={pageType}
             iconSize="$5"
@@ -298,7 +391,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             }}
           >
             <XStack alignItems="center" justifyContent="space-between">
-              <SizableText size="$headingLg">{swapTitle}</SizableText>
+              {swapTitleContent}
               <SwapHeaderRightActionContainer
                 pageType={pageType}
                 iconSize="$5"

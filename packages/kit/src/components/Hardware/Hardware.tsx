@@ -45,7 +45,7 @@ import CommunicatingLottieView from './CommunicatingLottieView';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
-function MacBluetoothIllustrationViews({
+export function MacBluetoothIllustrationViews({
   view,
 }: {
   view: 'paring' | 'system-authorized' | 'user-authorized';
@@ -310,7 +310,7 @@ function MacBluetoothIllustrationViews({
   );
 }
 
-function WindowsBluetoothIllustrationViews({
+export function WindowsBluetoothIllustrationViews({
   view,
 }: {
   view: 'paring' | 'system-authorized' | 'user-authorized';

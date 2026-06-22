@@ -29,7 +29,7 @@ function init() {
       );
     }
     if (method === GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME) {
-      console.log('background event bus sync', params);
+      // console.log('background event bus sync', params);
       const p = params as IGlobalEventBusSyncBroadcastParams;
       // Route through dispatchInboundFromBackground so the receiver skips
       // its own echo (originNodeId === appEventBus.nodeId).

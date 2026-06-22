@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { EPageType, IStackProps } from '@onekeyhq/components';
+import type {
+  EPageType,
+  IPageNavigationProp,
+  IStackProps,
+} from '@onekeyhq/components';
 import {
   SegmentControl,
   SizableText,
@@ -11,20 +15,29 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ScrollableFilterBar } from '@onekeyhq/kit/src/components/ScrollableFilterBar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
+  useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectedTokensColdStartContextAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabSwapParamList } from '@onekeyhq/shared/src/routes';
 import {
   ESwapDirectionType,
+  type ESwapSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
 
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
 
@@ -35,6 +48,17 @@ type ICustomTabItemProps = IStackProps & {
   compact?: boolean;
   onPress?: IStackProps['onPress'];
 };
+
+function getRouteTabParamFromSwapType(type: ESwapTabSwitchType) {
+  const visibleType = getVisibleSwapTabSwitchType(type) ?? type;
+  if (visibleType === ESwapTabSwitchType.STOCK) {
+    return 'stock';
+  }
+  if (visibleType === ESwapTabSwitchType.LIMIT) {
+    return 'limit';
+  }
+  return 'swap';
+}
 
 function CustomTabItem({
   children,
@@ -89,6 +113,7 @@ interface ISwapHeaderContainerProps {
   /** Hide right action buttons (settings/history) - used when they're shown elsewhere in desktop layout */
   hideRightActions?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  enterFrom?: ESwapSource;
 }
 
 const SwapHeaderContainer = ({
@@ -97,11 +122,19 @@ const SwapHeaderContainer = ({
   showSwapPro,
   hideRightActions,
   marketPresetSettings,
+  enterFrom,
 }: ISwapHeaderContainerProps) => {
   const intl = useIntl();
   const { gtLg } = useMedia();
+  const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const { swapTypeSwitchAction } = useSwapActions().current;
+  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setToTokenAmount] = useSwapToTokenAmountAtom();
+  const [, setInitialSelectedTokensSynced] =
+    useSwapInitialSelectedTokensSyncedAtom();
+  const [, setSelectedTokensColdStartContext] =
+    useSwapSelectedTokensColdStartContextAtom();
+  const { resetSwapTokenData, swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -136,13 +169,64 @@ const SwapHeaderContainer = ({
     [updateSelectedAccountNetwork],
   );
 
+  const clearStockTokensBeforeLeaving = useCallback(async () => {
+    if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
+      return;
+    }
+    await resetSwapTokenData(ESwapDirectionType.FROM);
+    await resetSwapTokenData(ESwapDirectionType.TO);
+    setFromTokenAmount({ value: '', isInput: false });
+    setToTokenAmount({ value: '', isInput: false });
+    setSelectedTokensColdStartContext(undefined);
+    setInitialSelectedTokensSynced(false);
+  }, [
+    resetSwapTokenData,
+    setFromTokenAmount,
+    setInitialSelectedTokensSynced,
+    setSelectedTokensColdStartContext,
+    setToTokenAmount,
+    swapTypeSwitch,
+  ]);
+
+  const syncRouteTabParam = useCallback(
+    (type: ESwapTabSwitchType) => {
+      if (pageType === 'modal') {
+        return;
+      }
+      const tab = getRouteTabParamFromSwapType(type);
+      navigation.setParams({ tab });
+    },
+    [navigation, pageType],
+  );
+
   const handleSwapTypeChange = useCallback(
     async (value: string | number) => {
-      const newType = value as ESwapTabSwitchType;
+      const newType =
+        value === ESwapTabSwitchType.BRIDGE
+          ? ESwapTabSwitchType.SWAP
+          : (value as ESwapTabSwitchType);
       if (swapTypeSwitch === newType) return;
 
-      if (newType === ESwapTabSwitchType.LIMIT) {
-        void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
+      defaultLogger.swap.tradeCategorySwitch.tradeCategorySwitch({
+        fromCategory: swapTypeSwitch,
+        toCategory: newType,
+        enterFrom,
+      });
+
+      if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+        await clearStockTokensBeforeLeaving();
+        void swapTypeSwitchAction(newType, networkId);
+        syncRouteTabParam(newType);
+        return;
+      }
+
+      syncRouteTabParam(newType);
+
+      if (
+        newType === ESwapTabSwitchType.LIMIT ||
+        newType === ESwapTabSwitchType.STOCK
+      ) {
+        void swapTypeSwitchAction(newType, networkId);
       } else {
         if (fromToken?.networkId && fromToken?.networkId !== networkId) {
           await updateSelectedAccountNetworkAction(fromToken?.networkId);
@@ -153,24 +237,33 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
+      clearStockTokensBeforeLeaving,
+      syncRouteTabParam,
       networkId,
       fromToken?.networkId,
       updateSelectedAccountNetworkAction,
+      enterFrom,
     ],
   );
 
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
     gtLg && pageType !== 'modal' && !platformEnv.isNative;
+  const swapBridgeLabel = `${intl.formatMessage({
+    id: ETranslations.swap_page_swap,
+  })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
+  const stockLabel = intl.formatMessage({
+    id: ETranslations.perps_token_selector_stocks,
+  });
 
   const segmentOptions = [
     {
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap }),
+      label: swapBridgeLabel,
       value: ESwapTabSwitchType.SWAP,
     },
     {
-      label: intl.formatMessage({ id: ETranslations.swap_page_bridge }),
-      value: ESwapTabSwitchType.BRIDGE,
+      label: stockLabel,
+      value: ESwapTabSwitchType.STOCK,
     },
     {
       label: intl.formatMessage({
@@ -223,45 +316,26 @@ const SwapHeaderContainer = ({
       <CustomTabItem
         compact={isNativeLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
-        onPress={async () => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
-            if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-              await updateSelectedAccountNetworkAction(fromToken?.networkId);
-            }
-            void swapTypeSwitchAction(
-              ESwapTabSwitchType.SWAP,
-              fromToken?.networkId || networkId,
-            );
-          }
+        onPress={() => {
+          void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
         }}
       >
-        {intl.formatMessage({ id: ETranslations.swap_page_swap })}
+        {swapBridgeLabel}
       </CustomTabItem>
-
       <CustomTabItem
         compact={isNativeLayout}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.BRIDGE}
-        onPress={async () => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.BRIDGE) {
-            if (fromToken?.networkId && fromToken?.networkId !== networkId) {
-              await updateSelectedAccountNetworkAction(fromToken?.networkId);
-            }
-            void swapTypeSwitchAction(
-              ESwapTabSwitchType.BRIDGE,
-              fromToken?.networkId || networkId,
-            );
-          }
+        isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
+        onPress={() => {
+          void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
         }}
       >
-        {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
+        {stockLabel}
       </CustomTabItem>
       <CustomTabItem
         compact={isNativeLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
-          if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
-            void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
-          }
+          void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
         }}
       >
         {intl.formatMessage({

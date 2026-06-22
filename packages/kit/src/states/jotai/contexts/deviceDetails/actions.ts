@@ -1,9 +1,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import {
   contextAtomMethod,
@@ -27,28 +30,49 @@ async function buildDeviceMetaStatic(
   if (!features) {
     return undefined;
   }
+  const vendorProfile = getVendorProfile(
+    device.vendor ?? EHardwareVendor.onekey,
+  );
+  const isThirdParty = vendorProfile.isThirdParty;
 
-  const versions = await deviceUtils.getDeviceVersion({
-    device,
-    features,
-  });
-  const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-    features,
-  });
-  const firmwareType = await deviceUtils.getFirmwareType({
-    features,
-  });
+  const versions = isThirdParty
+    ? thirdPartyDeviceUtils.getDeviceVersion({
+        device,
+        features,
+      })
+    : await deviceUtils.getDeviceVersion({
+        device,
+        features,
+      });
+  const deviceType = isThirdParty
+    ? device.deviceType
+    : await deviceUtils.getDeviceTypeFromFeatures({
+        features,
+      });
+  const firmwareType = isThirdParty
+    ? thirdPartyDeviceUtils.getFirmwareType({
+        features,
+      })
+    : await deviceUtils.getFirmwareType({
+        features,
+      });
   const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
     firmwareType,
     displayFormat: 'withSpace',
   });
   const firmwareVersionDisplay = versions?.firmwareVersion
-    ? `${firmwareTypeLabel}v${versions?.firmwareVersion}`
+    ? `${firmwareTypeLabel}v${versions.firmwareVersion}`
     : '-';
 
-  const deviceName = deviceUtils.buildDeviceBleName({
-    features,
-  });
+  const deviceName = isThirdParty
+    ? thirdPartyDeviceUtils.getDeviceName({
+        device,
+        features,
+        defaultDeviceName: vendorProfile.defaultDeviceName,
+      })
+    : deviceUtils.buildDeviceBleName({
+        features,
+      });
 
   return {
     deviceName,

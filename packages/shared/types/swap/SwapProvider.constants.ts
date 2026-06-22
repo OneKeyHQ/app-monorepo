@@ -150,8 +150,16 @@ export interface ISwapProviderManager {
   providerInfo: ISwapProviderInfo;
   enable: boolean;
   serviceDisable?: boolean;
+  isSupportSingleSwap?: boolean;
+  isSupportCrossChain?: boolean;
+  singleSwapEnable?: boolean;
+  crossChainEnable?: boolean;
+  supportSingleSwapNetworks?: ISwapNetwork[];
+  supportCrossChainNetworks?: ISwapNetwork[];
   supportNetworks?: ISwapNetwork[];
   disableNetworks?: ISwapNetwork[];
+  singleSwapDisableNetworks?: ISwapNetwork[];
+  crossChainDisableNetworks?: ISwapNetwork[];
   serviceDisableNetworks?: ISwapNetwork[];
 }
 
@@ -1787,6 +1795,29 @@ export const swapBridgeDefaultTokenExtraConfigs = {
     },
   },
 };
+
+export function getSwapBridgeDefaultToToken(
+  token: Pick<ISwapToken, 'networkId' | 'contractAddress'>,
+) {
+  const matchedConfig = swapBridgeDefaultTokenConfigs.find((config) =>
+    config.fromTokens.some(
+      (fromToken) =>
+        fromToken.networkId === token.networkId &&
+        fromToken.contractAddress.toLowerCase() ===
+          token.contractAddress.toLowerCase(),
+    ),
+  );
+
+  if (matchedConfig) {
+    return matchedConfig.toTokenDefaultMatch;
+  }
+
+  return token.networkId ===
+    swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig.networkId
+    ? swapBridgeDefaultTokenExtraConfigs.mainNetDefaultToTokenConfig
+        .defaultToToken
+    : swapBridgeDefaultTokenExtraConfigs.defaultToToken;
+}
 
 export const wrappedTokens = [
   {

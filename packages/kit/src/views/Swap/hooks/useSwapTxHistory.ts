@@ -18,6 +18,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapHistoryIdentity } from '../utils/swapHistoryIdentity';
 
 export function useSwapTxHistoryActions() {
   const [swapNetworks] = useSwapNetworksAtom();
@@ -41,14 +42,15 @@ export function useSwapTxHistoryActions() {
         swapTxInfo &&
         (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
           swapTxInfo.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+          swapTxInfo.protocol === EProtocolOfExchange.STOCK ||
           swapTxInfo.swapBuildResData.result.isWrapped)
       ) {
-        const useOrderId = Boolean(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
-        );
+        const { orderId, serviceOrderId, useOrderId } =
+          buildSwapHistoryIdentity({
+            buildRes: swapTxInfo.swapBuildResData,
+            protocol: swapTxInfo.protocol,
+            txId,
+          });
         const swapHistoryItem: ISwapTxHistory = {
           protocol: swapTxInfo.protocol,
           status: ESwapTxHistoryStatus.PENDING,
@@ -80,12 +82,7 @@ export function useSwapTxHistoryActions() {
             useOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
-            orderId:
-              swapTxInfo.swapBuildResData.swftOrder?.orderId ??
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ??
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+            orderId,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -94,19 +91,15 @@ export function useSwapTxHistoryActions() {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '0',
+            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '',
             provider: swapTxInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl:
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee:
-              swapTxInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-            protocolFee:
-              swapTxInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            oneKeyFee: swapTxInfo.swapBuildResData.result?.fee?.percentageFee,
+            protocolFee: swapTxInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId:
-              swapTxInfo.swapBuildResData.orderId ??
-              swapTxInfo.swapBuildResData.result?.quoteId,
+            orderId: serviceOrderId,
             supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
             orderSupportUrl:
               swapTxInfo.swapBuildResData.result?.orderSupportUrl,

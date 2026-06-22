@@ -70,6 +70,9 @@ export type ISwapQuoteEventErrorState = {
   message: string;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
+  isStock?: boolean;
+  isMarketOpen?: boolean;
+  eventId?: string;
 };
 
 // swap mev config
@@ -99,13 +102,13 @@ export const {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
   networks = networks.filter((net) => {
-    if (swapType === ESwapTabSwitchType.BRIDGE) {
-      return net.supportCrossChainSwap;
-    }
     if (swapType === ESwapTabSwitchType.LIMIT) {
       return net.supportLimit;
     }
-    return net.supportSingleSwap;
+    if (swapType === ESwapTabSwitchType.STOCK) {
+      return net.supportStock;
+    }
+    return net.supportSingleSwap || net.supportCrossChainSwap;
   });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
@@ -155,6 +158,29 @@ export const { atom: swapSelectToTokenAtom, use: useSwapSelectToTokenAtom } =
   });
 
 export const {
+  atom: swapLastNonLimitSelectedTokensAtom,
+  use: useSwapLastNonLimitSelectedTokensAtom,
+} = contextAtom<
+  | {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
+export const { atom: swapStockExecutionTokenSyncIdAtom } =
+  contextAtom<number>(0);
+
+export const { atom: swapStockExecutionTokensAtom } = contextAtom<
+  | {
+      syncId: number;
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+    }
+  | undefined
+>(undefined);
+
+export const {
   atom: swapSelectedTokensColdStartContextAtom,
   use: useSwapSelectedTokensColdStartContextAtom,
 } = contextAtom<ISwapSelectedTokensColdStartContext | undefined>(undefined, {
@@ -162,6 +188,18 @@ export const {
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
 });
+
+export const {
+  atom: swapStockPayTokenPreferenceAtom,
+  use: useSwapStockPayTokenPreferenceAtom,
+} = contextAtom<Record<string, string>>(
+  {},
+  {
+    coldStartCache: true,
+    coldStartCacheKey:
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockPayTokenPreferenceAtom,
+  },
+);
 
 export const {
   atom: swapInitialSelectedTokensSyncedAtom,

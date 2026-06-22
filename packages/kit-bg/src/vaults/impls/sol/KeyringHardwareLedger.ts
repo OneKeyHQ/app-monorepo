@@ -69,7 +69,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         }
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
 
@@ -88,16 +88,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
             dbDevice,
             'sol',
             (deviceId) =>
-              adapter.hw.solGetAddress(
-                dbDevice.connectId,
-                deviceId,
-                {
-                  path,
-                  showOnDevice: params.isVerifyAddressAction ?? false,
-                },
-                // per-call HW options derived from the account-creation scene
-                ledgerCommonCallParamsForCreateScene(params),
-              ),
+              adapter.hw.solGetAddress(dbDevice.connectId, deviceId, {
+                path,
+                showOnDevice: params.isVerifyAddressAction ?? false,
+                ...ledgerCommonCallParamsForCreateScene(params),
+              }),
           );
 
           let address: string | null = null;
@@ -138,7 +133,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {

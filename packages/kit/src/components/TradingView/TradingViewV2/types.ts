@@ -20,6 +20,12 @@ export interface ITradingViewIndicatorsDialogData {
   timestamp?: number;
 }
 
+export interface ITradingViewInteractionOverlayData {
+  action?: 'open' | 'close';
+  isOpen?: boolean;
+  timestamp?: number;
+}
+
 export interface ITradingViewPriceUpdateData {
   symbol?: string;
   tokenAddress?: string;
@@ -36,6 +42,7 @@ type ITradingViewData =
   | ITradingViewLayoutData
   | ITradingViewTouchScrollData
   | ITradingViewIndicatorsDialogData
+  | ITradingViewInteractionOverlayData
   | ITradingViewPriceUpdateData;
 
 interface ITradingViewMessage {

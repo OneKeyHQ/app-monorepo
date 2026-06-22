@@ -98,6 +98,7 @@ class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
       value: {
         isRefreshing?: boolean;
         initialized?: boolean;
+        loadedOwnerKey?: string;
       },
     ) => {
       set(deFiListStateAtom(), (v) => ({

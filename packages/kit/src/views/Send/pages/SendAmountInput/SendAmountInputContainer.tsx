@@ -76,7 +76,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSendRoutes,
+  EModalSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
@@ -99,19 +103,28 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   privateSendHelpCenterUrl,
   privateSendProvider,
+  swapDefaultSetTokens,
+  swapQuoteFetchInterval,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchQuoteInfo,
   IFetchQuoteResult,
+  IFetchQuotesParams,
+  ISwapQuoteEvent,
+  ISwapQuoteEventAutoSlippage,
+  ISwapQuoteEventData,
+  ISwapQuoteEventError,
+  ISwapQuoteEventInfo,
+  ISwapQuoteEventQuoteResult,
   ISwapToken,
   ISwapTxHistory,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
-  ESwapFetchCancelCause,
   ESwapQuoteKind,
+  ESwapSource,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -207,8 +220,62 @@ type IPrivateSendBuildCtx = {
   payinAddress?: unknown;
 };
 
+type IPrivateSendQuoteEvent = {
+  type: 'message' | 'done' | 'error' | 'close' | 'open';
+  event: ISwapQuoteEvent;
+  params: IFetchQuotesParams;
+  accountId?: string;
+  tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+};
+
+type IPrivateSendQuoteEventRequest = {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+  fromTokenAmount: string;
+  userAddress: string;
+  receivingAddress: string;
+  accountId?: string;
+};
+
+type IPrivateSendQuoteEventsResult = {
+  quotes: IFetchQuoteResult[];
+  quoteError?: string;
+};
+
+let privateSendQuoteEventsSessionId = 0;
+let stopPrivateSendQuoteEventsSession: (() => void) | undefined;
+
+async function cancelPrivateSendQuoteEvents() {
+  const stopSession = stopPrivateSendQuoteEventsSession;
+  if (!stopSession) return;
+
+  privateSendQuoteEventsSessionId += 1;
+  stopPrivateSendQuoteEventsSession = undefined;
+  stopSession();
+  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+}
+
 const privateSendValueDropWarningPercent = 5;
 const privateSendValueDropCountdownSeconds = 5;
+
+function convertBaseTokenToSwapToken({
+  networkId,
+  tokenInfo,
+}: {
+  networkId: string;
+  tokenInfo?: IToken | null;
+}): ISwapToken | undefined {
+  if (!tokenInfo) return undefined;
+  return {
+    networkId,
+    contractAddress: tokenInfo.address,
+    isNative: tokenInfo.isNative,
+    symbol: tokenInfo.symbol,
+    decimals: tokenInfo.decimals,
+    name: tokenInfo.name,
+    logoURI: tokenInfo.logoURI,
+  };
+}
 
 function convertTokenToSwapToken({
   networkId,
@@ -217,19 +284,43 @@ function convertTokenToSwapToken({
   networkId: string;
   tokenDetails?: { info: IToken } & ITokenFiat;
 }): ISwapToken | undefined {
-  if (!tokenDetails?.info) return undefined;
-  return {
+  if (!tokenDetails) return undefined;
+  const swapToken = convertBaseTokenToSwapToken({
     networkId,
-    contractAddress: tokenDetails.info.address,
-    isNative: tokenDetails.info.isNative,
-    symbol: tokenDetails.info.symbol,
-    decimals: tokenDetails.info.decimals,
-    name: tokenDetails.info.name,
-    logoURI: tokenDetails.info.logoURI,
+    tokenInfo: tokenDetails.info,
+  });
+  if (!swapToken) return undefined;
+  return {
+    ...swapToken,
     balanceParsed: tokenDetails.balanceParsed,
     price: tokenDetails.price?.toString(),
     fiatValue: tokenDetails.fiatValue,
   };
+}
+
+function getSendSwapDefaultFromToken({
+  networkId,
+  targetToken,
+}: {
+  networkId: string;
+  targetToken?: ISwapToken;
+}): ISwapToken | undefined {
+  if (!targetToken) return undefined;
+  const defaultTokens = swapDefaultSetTokens[networkId];
+  const candidates = [
+    defaultTokens?.fromToken,
+    defaultTokens?.toToken,
+    defaultTokens?.limitFromToken,
+    defaultTokens?.limitToToken,
+  ];
+  return candidates.find(
+    (candidate) =>
+      candidate &&
+      !equalTokenNoCaseSensitive({
+        token1: candidate,
+        token2: targetToken,
+      }),
+  );
 }
 
 function buildPrivateSendQuoteScopeKey({
@@ -297,11 +388,304 @@ function isPrivateSendQuoteUsable(
   );
 }
 
-function isSwapQuoteCancelError(error: unknown) {
+function isPrivateSendQuoteEventMatched({
+  event,
+  request,
+}: {
+  event: IPrivateSendQuoteEvent;
+  request: IPrivateSendQuoteEventRequest;
+}) {
   return (
-    (error as { cause?: unknown } | undefined)?.cause ===
-    ESwapFetchCancelCause.SWAP_QUOTE_CANCEL
+    event.accountId === request.accountId &&
+    event.params.protocol === EProtocolOfExchange.PRIVATE_SEND &&
+    event.params.fromTokenAmount === request.fromTokenAmount &&
+    event.params.userAddress === request.userAddress &&
+    event.params.receivingAddress === request.receivingAddress &&
+    event.params.kind === ESwapQuoteKind.SELL &&
+    equalTokenNoCaseSensitive({
+      token1: event.tokenPairs.fromToken,
+      token2: request.fromToken,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: event.tokenPairs.toToken,
+      token2: request.toToken,
+    })
   );
+}
+
+function parsePrivateSendQuoteEventData(event: ISwapQuoteEvent) {
+  const data = (event as { data?: unknown }).data;
+  if (typeof data !== 'string' || !data) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(data) as ISwapQuoteEventData;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyPrivateSendAutoSlippage({
+  quote,
+  autoSlippage,
+}: {
+  quote: IFetchQuoteResult;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  if (
+    !autoSlippage ||
+    quote.autoSuggestedSlippage ||
+    quote.eventId !== autoSlippage.eventId ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.fromTokenInfo,
+      token2: {
+        networkId: autoSlippage.fromNetworkId,
+        contractAddress: autoSlippage.fromTokenAddress,
+      },
+    }) ||
+    !equalTokenNoCaseSensitive({
+      token1: quote.toTokenInfo,
+      token2: {
+        networkId: autoSlippage.toNetworkId,
+        contractAddress: autoSlippage.toTokenAddress,
+      },
+    })
+  ) {
+    return quote;
+  }
+  return {
+    ...quote,
+    autoSuggestedSlippage: autoSlippage.autoSuggestedSlippage,
+  };
+}
+
+function normalizePrivateSendQuoteEventResults({
+  quotes,
+  request,
+  eventId,
+  autoSlippage,
+}: {
+  quotes: IFetchQuoteResult[];
+  request: IPrivateSendQuoteEventRequest;
+  eventId?: string;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  return quotes
+    .map((quote) => applyPrivateSendAutoSlippage({ quote, autoSlippage }))
+    .filter(
+      (quote) =>
+        quote.info.provider &&
+        quote.protocol === EProtocolOfExchange.PRIVATE_SEND &&
+        (!eventId || quote.eventId === eventId) &&
+        equalTokenNoCaseSensitive({
+          token1: quote.fromTokenInfo,
+          token2: request.fromToken,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: quote.toTokenInfo,
+          token2: request.toToken,
+        }),
+    );
+}
+
+function mergePrivateSendQuoteEventResults({
+  current,
+  next,
+  request,
+  eventId,
+  autoSlippage,
+}: {
+  current: IFetchQuoteResult[];
+  next: IFetchQuoteResult[];
+  request: IPrivateSendQuoteEventRequest;
+  eventId?: string;
+  autoSlippage?: ISwapQuoteEventAutoSlippage;
+}) {
+  const normalizedNext = normalizePrivateSendQuoteEventResults({
+    quotes: next,
+    request,
+    eventId,
+    autoSlippage,
+  });
+  const updated = current.map((oldQuote) => {
+    const nextQuote = normalizedNext.find(
+      (quote) =>
+        quote.info.provider === oldQuote.info.provider &&
+        quote.info.providerName === oldQuote.info.providerName,
+    );
+    return nextQuote ?? oldQuote;
+  });
+  const additions = normalizedNext.filter(
+    (quote) =>
+      !current.some(
+        (oldQuote) =>
+          quote.info.provider === oldQuote.info.provider &&
+          quote.info.providerName === oldQuote.info.providerName,
+      ),
+  );
+  return normalizePrivateSendQuoteEventResults({
+    quotes: [...updated, ...additions],
+    request,
+    eventId,
+    autoSlippage,
+  });
+}
+
+async function fetchPrivateSendQuotesEvents({
+  request,
+  quoteError,
+}: {
+  request: IPrivateSendQuoteEventRequest;
+  quoteError: string;
+}): Promise<IPrivateSendQuoteEventsResult> {
+  await cancelPrivateSendQuoteEvents();
+
+  privateSendQuoteEventsSessionId += 1;
+  const sessionId = privateSendQuoteEventsSessionId;
+
+  await backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+
+  return new Promise<IPrivateSendQuoteEventsResult>((resolve) => {
+    let settled = false;
+    let quotes: IFetchQuoteResult[] = [];
+    let eventId: string | undefined;
+    let totalQuoteCount: number | undefined;
+    let autoSlippage: ISwapQuoteEventAutoSlippage | undefined;
+    let cleanup = (_cancelEventSource: boolean) => {};
+
+    const isCurrentSession = () =>
+      privateSendQuoteEventsSessionId === sessionId;
+
+    const settle = (
+      result: IPrivateSendQuoteEventsResult,
+      options?: { cancelEventSource?: boolean },
+    ) => {
+      if (settled) return;
+      settled = true;
+      cleanup((options?.cancelEventSource ?? true) && isCurrentSession());
+      resolve(result);
+    };
+
+    const maybeSetEventId = (nextEventId?: string) => {
+      if (!nextEventId) return true;
+      if (eventId && eventId !== nextEventId) return false;
+      eventId = nextEventId;
+      return true;
+    };
+
+    const quoteEventHandler = (event: IPrivateSendQuoteEvent) => {
+      if (!isCurrentSession()) {
+        return;
+      }
+      if (!isPrivateSendQuoteEventMatched({ event, request })) {
+        return;
+      }
+
+      if (event.type === 'message') {
+        const data = parsePrivateSendQuoteEventData(event.event);
+        if (!data) return;
+
+        const errorData = data as ISwapQuoteEventError;
+        if (errorData.errorMessage) {
+          if (!maybeSetEventId(errorData.eventId)) return;
+          settle({ quotes: [], quoteError: errorData.errorMessage });
+          return;
+        }
+
+        const autoSlippageData = data as ISwapQuoteEventAutoSlippage;
+        if (autoSlippageData.autoSuggestedSlippage !== undefined) {
+          if (!maybeSetEventId(autoSlippageData.eventId)) return;
+          autoSlippage = autoSlippageData;
+          quotes = normalizePrivateSendQuoteEventResults({
+            quotes,
+            request,
+            eventId,
+            autoSlippage,
+          });
+          return;
+        }
+
+        if (
+          (data as ISwapQuoteEventInfo).totalQuoteCount ||
+          (data as ISwapQuoteEventInfo).totalQuoteCount === 0
+        ) {
+          const infoData = data as ISwapQuoteEventInfo;
+          if (!maybeSetEventId(infoData.eventId)) return;
+          totalQuoteCount = infoData.totalQuoteCount;
+          if (totalQuoteCount === 0) {
+            settle({ quotes: [] });
+          }
+          return;
+        }
+
+        const quoteResultData = data as ISwapQuoteEventQuoteResult;
+        if (quoteResultData.data?.length) {
+          const quoteEventId = quoteResultData.data[0]?.eventId;
+          if (!maybeSetEventId(quoteEventId)) return;
+          quotes = mergePrivateSendQuoteEventResults({
+            current: quotes,
+            next: quoteResultData.data,
+            request,
+            eventId,
+            autoSlippage,
+          });
+          if (
+            totalQuoteCount !== undefined &&
+            quotes.length >= totalQuoteCount
+          ) {
+            settle({ quotes });
+          }
+        }
+        return;
+      }
+
+      if (event.type === 'done' || event.type === 'close') {
+        settle({ quotes });
+        return;
+      }
+
+      if (event.type === 'error') {
+        settle(quotes.length ? { quotes } : { quotes, quoteError });
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      settle(quotes.length ? { quotes } : { quotes, quoteError });
+    }, swapQuoteFetchInterval);
+    const stopCurrentSession = () => {
+      settle({ quotes: [] }, { cancelEventSource: false });
+    };
+    cleanup = (cancelEventSource: boolean) => {
+      clearTimeout(timeoutId);
+      appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+      if (stopPrivateSendQuoteEventsSession === stopCurrentSession) {
+        stopPrivateSendQuoteEventsSession = undefined;
+      }
+      if (cancelEventSource) {
+        void backgroundApiProxy.serviceSwap.cancelFetchQuoteEvents();
+      }
+    };
+    stopPrivateSendQuoteEventsSession = stopCurrentSession;
+
+    appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+    appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
+
+    void backgroundApiProxy.serviceSwap
+      .fetchQuotesEvents({
+        fromToken: request.fromToken,
+        toToken: request.toToken,
+        fromTokenAmount: request.fromTokenAmount,
+        userAddress: request.userAddress,
+        receivingAddress: request.receivingAddress,
+        slippagePercentage: swapSlippageAutoValue,
+        protocol: ESwapTabSwitchType.PRIVATE_SEND,
+        kind: ESwapQuoteKind.SELL,
+        accountId: request.accountId,
+      })
+      .catch(() => {
+        settle({ quotes: [], quoteError });
+      });
+  });
 }
 
 function PrivateSendValueDropWarningContent({
@@ -599,6 +983,23 @@ function SendAmountInputContainer() {
   const privateSendToken = useMemo(
     () => convertTokenToSwapToken({ networkId, tokenDetails }),
     [networkId, tokenDetails],
+  );
+  const sendSwapTargetToken = useMemo(
+    () =>
+      privateSendToken ??
+      convertBaseTokenToSwapToken({
+        networkId,
+        tokenInfo,
+      }),
+    [networkId, privateSendToken, tokenInfo],
+  );
+  const sendSwapFromToken = useMemo(
+    () =>
+      getSendSwapDefaultFromToken({
+        networkId,
+        targetToken: sendSwapTargetToken,
+      }),
+    [networkId, sendSwapTargetToken],
   );
 
   const { result: isPrivateSendSupported = false } = usePromiseResult(
@@ -946,17 +1347,27 @@ function SendAmountInputContainer() {
       }
       const scopeKey = privateSendQuoteRequestKey;
       try {
-        const quotes = await backgroundApiProxy.serviceSwap.fetchQuotes({
-          fromToken: privateSendToken,
-          toToken: privateSendToken,
-          fromTokenAmount: amountBN.toFixed(),
-          userAddress: account.address,
-          receivingAddress: privateSendQuoteRecipientAddress,
-          slippagePercentage: swapSlippageAutoValue,
-          protocol: ESwapTabSwitchType.PRIVATE_SEND,
-          kind: ESwapQuoteKind.SELL,
-          accountId: currentAccountId,
+        const { quotes, quoteError } = await fetchPrivateSendQuotesEvents({
+          request: {
+            fromToken: privateSendToken,
+            toToken: privateSendToken,
+            fromTokenAmount: amountBN.toFixed(),
+            userAddress: account.address,
+            receivingAddress: privateSendQuoteRecipientAddress,
+            accountId: currentAccountId,
+          },
+          quoteError: intl.formatMessage({
+            id: ETranslations.global_network_error,
+          }),
         });
+        if (quoteError) {
+          return {
+            selectedQuote: undefined,
+            quotes,
+            scopeKey,
+            quoteError,
+          };
+        }
         const selectedQuote =
           quotes.find((item) => isPrivateSendQuoteUsable(item)) ??
           quotes.find((item) => item.info.provider) ??
@@ -967,10 +1378,7 @@ function SendAmountInputContainer() {
           quotes,
           scopeKey,
         };
-      } catch (error) {
-        if (isSwapQuoteCancelError(error)) {
-          return undefined;
-        }
+      } catch {
         return {
           selectedQuote: undefined,
           quotes: [],
@@ -994,6 +1402,14 @@ function SendAmountInputContainer() {
     ],
     { watchLoading: true, alwaysSetState: true, debounced: 500 },
   );
+  useEffect(() => {
+    if (!canFetchPrivateSendQuote) {
+      void cancelPrivateSendQuoteEvents();
+    }
+    return () => {
+      void cancelPrivateSendQuoteEvents();
+    };
+  }, [canFetchPrivateSendQuote]);
   const isPrivateSendQuoteScopeMatched =
     !!privateSendQuoteResult &&
     privateSendQuoteResult.scopeKey === privateSendQuoteRequestKey;
@@ -1553,6 +1969,23 @@ function SendAmountInputContainer() {
       isWatchingWallet,
     ],
   );
+  const showSwapButton = useMemo(
+    () =>
+      isInsufficientBalance &&
+      !isNFT &&
+      showReviewControl &&
+      !!sendSwapTargetToken &&
+      !!sendSwapFromToken &&
+      !(isWatchingWallet && !platformEnv.isDev),
+    [
+      isInsufficientBalance,
+      isNFT,
+      showReviewControl,
+      sendSwapTargetToken,
+      sendSwapFromToken,
+      isWatchingWallet,
+    ],
+  );
   const [isBuyLoading, setIsBuyLoading] = useState(false);
   const handleBuyToken = useCallback(async () => {
     setIsBuyLoading(true);
@@ -1575,6 +2008,26 @@ function SendAmountInputContainer() {
       setIsBuyLoading(false);
     }
   }, [networkId, tokenInfo?.address, currentAccountId]);
+  const handleSwapToken = useCallback(() => {
+    if (!sendSwapTargetToken) return;
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: networkId,
+        importDeriveType: deriveType,
+        importFromToken: sendSwapFromToken,
+        importToToken: sendSwapTargetToken,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.WALLET_TAB,
+      },
+    });
+  }, [
+    deriveType,
+    navigation,
+    networkId,
+    sendSwapFromToken,
+    sendSwapTargetToken,
+  ]);
 
   const onSelectPercentageStage = useCallback(
     (stage: number) => {
@@ -2294,12 +2747,10 @@ function SendAmountInputContainer() {
                   updated: created,
                 },
                 swapInfo: {
-                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '0',
+                  instantRate: normalizedBuildSwapRes.result.instantRate ?? '',
                   provider: privateSendProviderInfo,
-                  oneKeyFee:
-                    normalizedBuildSwapRes.result.fee?.percentageFee ?? 0,
-                  protocolFee:
-                    normalizedBuildSwapRes.result.fee?.protocolFees ?? 0,
+                  oneKeyFee: normalizedBuildSwapRes.result.fee?.percentageFee,
+                  protocolFee: normalizedBuildSwapRes.result.fee?.protocolFees,
                   otherFeeInfos:
                     normalizedBuildSwapRes.result.fee?.otherFeeInfos ?? [],
                   orderId: privateSendOrderId,
@@ -3533,7 +3984,7 @@ function SendAmountInputContainer() {
               isRefreshQuote={isPrivateSendQuoteRefreshing}
               isLoading={isPrivateSendQuoteRefreshing}
               isFocused={isRouteFocused}
-              autoRefresh={!isSubmitting}
+              autoRefresh={false}
             />
           </XStack>
           <XStack
@@ -3697,9 +4148,26 @@ function SendAmountInputContainer() {
     : intl.formatMessage({
         id: ETranslations.send_preview_button,
       });
+  const isInsufficientActionAvailable = showSwapButton || showBuyButton;
 
-  const renderPrivateSendFooterButtons = showBuyButton ? (
-    <>
+  let renderInsufficientPrimaryButton: ReactNode = null;
+  if (showSwapButton) {
+    renderInsufficientPrimaryButton = (
+      <Button
+        testID={SendTestIDs.swapTokenButton}
+        variant="primary"
+        onPress={handleSwapToken}
+        flexGrow={1}
+        flexShrink={1}
+        textEllipsis
+      >
+        {`${intl.formatMessage({
+          id: ETranslations.global_swap,
+        })} ${tokenSymbol}`}
+      </Button>
+    );
+  } else if (showBuyButton) {
+    renderInsufficientPrimaryButton = (
       <Button
         testID={SendTestIDs.buyTokenButton}
         variant="primary"
@@ -3718,6 +4186,12 @@ function SendAmountInputContainer() {
           id: ETranslations.global_buy,
         })} ${tokenSymbol}`}
       </Button>
+    );
+  }
+
+  const renderPrivateSendFooterButtons = isInsufficientActionAvailable ? (
+    <>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3757,26 +4231,9 @@ function SendAmountInputContainer() {
     </Button>
   );
 
-  const renderDefaultBuyFooterButtons = (
+  const renderDefaultInsufficientFooterButtons = (
     <XStack gap="$2.5" flex={1}>
-      <Button
-        testID={SendTestIDs.buyTokenButton}
-        variant="primary"
-        onPress={handleBuyToken}
-        loading={isBuyLoading}
-        flexGrow={1}
-        flexShrink={1}
-        textEllipsis
-        $md={
-          {
-            size: 'large',
-          } as any
-        }
-      >
-        {`${intl.formatMessage({
-          id: ETranslations.global_buy,
-        })} ${tokenSymbol}`}
-      </Button>
+      {renderInsufficientPrimaryButton}
       <Button
         testID={SendTestIDs.insufficientFundsButton}
         disabled
@@ -3819,9 +4276,11 @@ function SendAmountInputContainer() {
         {media.gtMd ? null : renderPrivateSendFooterHelp}
       </Stack>
     );
-  } else if (showBuyButton) {
+  } else if (isInsufficientActionAvailable) {
     renderFooterActions = (
-      <Page.FooterActions confirmButton={renderDefaultBuyFooterButtons} />
+      <Page.FooterActions
+        confirmButton={renderDefaultInsufficientFooterButtons}
+      />
     );
   } else {
     renderFooterActions = (

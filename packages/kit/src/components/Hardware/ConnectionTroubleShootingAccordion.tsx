@@ -20,7 +20,10 @@ import {
   ANIMATE_ONLY_OPACITY,
   ANIMATE_ONLY_TRANSFORM,
 } from '@onekeyhq/components/src/utils/animationConstants';
-import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  HARDWARE_TROUBLESHOOTING_URL,
+  TREZOR_TROUBLESHOOTING_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
@@ -291,6 +294,35 @@ export function DeviceNotFoundDialogContent() {
         icon="OpenOutline"
       >
         {intl.formatMessage({ id: ETranslations.self_troubleshooting })}
+      </Button>
+      <Button
+        testID="hardware-ui-contact-us-btn"
+        onPress={() => {
+          void showIntercom();
+        }}
+        size="large"
+        icon="HelpSupportOutline"
+      >
+        {intl.formatMessage({ id: ETranslations.settings_contact_us })}
+      </Button>
+    </YStack>
+  );
+}
+
+export function TrezorDeviceNotFoundDialogContent() {
+  const intl = useIntl();
+
+  return (
+    <YStack gap="$2">
+      <Button
+        testID="hardware-ui-trezor-troubleshooting-btn"
+        onPress={() => {
+          void Linking.openURL(TREZOR_TROUBLESHOOTING_URL);
+        }}
+        size="large"
+        icon="OpenOutline"
+      >
+        Trezor Support
       </Button>
       <Button
         testID="hardware-ui-contact-us-btn"

@@ -186,6 +186,37 @@ describe('buildSwapReviewState', () => {
       ESwapStepType.APPROVE_TX,
       ESwapStepType.SIGN_MESSAGE,
     ]);
+    expect(result.preSwapData.supportNetworkFeeLevel).toBe(true);
+  });
+
+  it('keeps network fee hidden for pure signing flows', () => {
+    const result = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      batchApproveAndSwapEnabled: true,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'origin',
+            scope: 'scope',
+            signedType: 'eth_signTypedData_v4' as never,
+          },
+        },
+      }),
+      swapType: ESwapTabSwitchType.SWAP,
+      shouldFallback: false,
+      supportPreBuild: true,
+      slippage: 1,
+      texts,
+    });
+
+    expect(result.steps.map((step) => step.type)).toEqual([
+      ESwapStepType.SIGN_MESSAGE,
+    ]);
     expect(result.preSwapData.supportNetworkFeeLevel).toBeUndefined();
   });
 
@@ -364,5 +395,29 @@ describe('buildSwapReviewState', () => {
 
     expect(result.preSwapData.slippage).toBeUndefined();
     expect(result.preSwapData.shouldFallback).toBe(true);
+  });
+
+  it('hides slippage for stock quotes', () => {
+    const result = buildSwapReviewState({
+      accountId: 'hd-1--m/44/60/0/0/0',
+      networkId: fromToken.networkId,
+      batchApproveAndSwapEnabled: false,
+      fromToken,
+      toToken,
+      fromTokenAmount: '1',
+      toTokenAmount: '2500',
+      quoteResult: createQuoteResult({
+        protocol: EProtocolOfExchange.STOCK,
+        unSupportSlippage: true,
+      }),
+      swapType: ESwapTabSwitchType.STOCK,
+      shouldFallback: false,
+      supportPreBuild: true,
+      slippage: 2,
+      texts,
+    });
+
+    expect(result.preSwapData.slippage).toBeUndefined();
+    expect(result.preSwapData.unSupportSlippage).toBe(true);
   });
 });
