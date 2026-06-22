@@ -104,6 +104,7 @@
     "expo-crypto": "15.0.8",
     "expo-device": "8.0.9",
     "expo-font": "14.0.9",
+    "expo-glass-effect": "0.1.7",
     "expo-haptics": "15.0.7",
     "expo-image": "3.0.10",
     "expo-image-loader": "5.1.0",
