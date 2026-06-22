@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -267,46 +267,10 @@ export function useSwapStockEstimatedReceiveState({
     stockChannel.tradeSide === ESwapStockTradeSide.Buy
       ? stockChannel.payToken
       : stockChannel.currentStockToken;
-  const fromTokenAmountValueRef = useRef(fromTokenAmount.value);
-  if (fromTokenAmountValueRef.current !== fromTokenAmount.value) {
-    fromTokenAmountValueRef.current = fromTokenAmount.value;
-  }
-  const quoteResultKey = useMemo(() => {
-    if (!quoteResult) {
-      return '';
-    }
-    return [
-      quoteResult.quoteId,
-      quoteResult.eventId,
-      quoteResult.toAmount,
-      quoteResult.instantRate,
-      quoteResult.info.provider,
-    ]
-      .filter(Boolean)
-      .join(':');
-  }, [quoteResult]);
-  const [quoteInputAmountScope, setQuoteInputAmountScope] = useState({
-    quoteResultKey: '',
-    sendAmount: '',
-  });
-  useEffect(() => {
-    setQuoteInputAmountScope((prev) => {
-      if (prev.quoteResultKey === quoteResultKey) {
-        return prev;
-      }
-      return {
-        quoteResultKey,
-        sendAmount: quoteResult
-          ? (quoteResult.fromAmount ?? fromTokenAmountValueRef.current)
-          : '',
-      };
-    });
-  }, [quoteResult, quoteResult?.fromAmount, quoteResultKey]);
   const quoteMatchesStockTrade = useMemo(
     () =>
       !forceHideQuote &&
       isQuoteResultForStockTrade({
-        quoteInputAmount: quoteInputAmountScope.sendAmount,
         quoteResult,
         receiveToken,
         sendAmount: fromTokenAmount.value,
@@ -315,7 +279,6 @@ export function useSwapStockEstimatedReceiveState({
     [
       forceHideQuote,
       fromTokenAmount.value,
-      quoteInputAmountScope.sendAmount,
       quoteResult,
       receiveToken,
       sendToken,

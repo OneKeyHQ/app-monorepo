@@ -27,7 +27,7 @@ import {
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { getLimitOrderDisplayToAmount } from './LimitOrderCard.utils';
+import { getLimitOrderDisplayAmounts } from './LimitOrderCard.utils';
 import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
@@ -137,8 +137,13 @@ const LimitOrderCard = ({
       toAmount: new BigNumber(item?.toAmount ?? '0').shiftedBy(
         -(item?.toTokenInfo?.decimals ?? 0),
       ),
-      displayToAmount: getLimitOrderDisplayToAmount({
+      ...getLimitOrderDisplayAmounts({
         executedBuyAmount: item.executedBuyAmount,
+        executedSellAmount: item.executedSellAmount,
+        fromAmount: item.fromAmount,
+        fromTokenInfo: {
+          decimals: item.fromTokenInfo?.decimals ?? 0,
+        },
         toAmount: item.toAmount,
         toTokenInfo: {
           decimals: item.toTokenInfo?.decimals ?? 0,
@@ -147,6 +152,7 @@ const LimitOrderCard = ({
     }),
     [
       item?.executedBuyAmount,
+      item?.executedSellAmount,
       item?.fromAmount,
       item?.fromTokenInfo?.decimals,
       item?.toAmount,
@@ -189,7 +195,7 @@ const LimitOrderCard = ({
 
   const renderAmount = useCallback(() => {
     const fromAmountFormatted = formatBalance(
-      decimalsAmount.fromAmount.toFixed(),
+      decimalsAmount.displayFromAmount.toFixed(),
     );
     const toAmountFormatted = formatBalance(
       decimalsAmount.displayToAmount.toFixed(),

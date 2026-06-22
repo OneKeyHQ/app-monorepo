@@ -789,27 +789,36 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 quoteResultData.data?.length &&
                 quoteEventTotalCount.eventId === quoteResultData.data[0].eventId
               ) {
-                const quoteResultsUpdateSlippage = quoteResultData.data.map(
-                  (quote) => {
-                    if (
-                      `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
-                        swapAutoSlippageSuggestedValue?.from &&
-                      `${quote.toTokenInfo.networkId}-${quote.toTokenInfo.contractAddress}` ===
-                        swapAutoSlippageSuggestedValue?.to &&
-                      quote.eventId ===
-                        swapAutoSlippageSuggestedValue?.eventId &&
-                      swapAutoSlippageSuggestedValue.value &&
-                      !quote.autoSuggestedSlippage
-                    ) {
-                      return {
+                const shouldNormalizeQuoteInputAmount =
+                  event.params.protocol === ESwapTabSwitchType.STOCK;
+                const quoteResults = quoteResultData.data.map((quote) =>
+                  shouldNormalizeQuoteInputAmount &&
+                  !quote.fromAmount &&
+                  event.params.fromTokenAmount
+                    ? {
                         ...quote,
-                        autoSuggestedSlippage:
-                          swapAutoSlippageSuggestedValue.value,
-                      };
-                    }
-                    return quote;
-                  },
+                        fromAmount: event.params.fromTokenAmount,
+                      }
+                    : quote,
                 );
+                const quoteResultsUpdateSlippage = quoteResults.map((quote) => {
+                  if (
+                    `${quote.fromTokenInfo.networkId}-${quote.fromTokenInfo.contractAddress}` ===
+                      swapAutoSlippageSuggestedValue?.from &&
+                    `${quote.toTokenInfo.networkId}-${quote.toTokenInfo.contractAddress}` ===
+                      swapAutoSlippageSuggestedValue?.to &&
+                    quote.eventId === swapAutoSlippageSuggestedValue?.eventId &&
+                    swapAutoSlippageSuggestedValue.value &&
+                    !quote.autoSuggestedSlippage
+                  ) {
+                    return {
+                      ...quote,
+                      autoSuggestedSlippage:
+                        swapAutoSlippageSuggestedValue.value,
+                    };
+                  }
+                  return quote;
+                });
                 const currentQuoteList = get(swapQuoteListAtom());
                 let newQuoteList = currentQuoteList.map((oldQuoteRes) => {
                   const newUpdateQuoteRes = quoteResultsUpdateSlippage.find(
@@ -867,7 +876,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 set(swapQuoteCurrentEventProviderKeysAtom(), (keys) => [
                   ...new Set([
                     ...keys,
-                    ...quoteResultData.data.map((quote) =>
+                    ...quoteResults.map((quote) =>
                       buildSwapQuoteProviderKey(quote),
                     ),
                   ]),

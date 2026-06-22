@@ -14,13 +14,11 @@ function isSameAmount({ left, right }: { left?: string; right?: string }) {
 }
 
 export function isQuoteResultForStockTrade({
-  quoteInputAmount,
   quoteResult,
   receiveToken,
   sendAmount,
   sendToken,
 }: {
-  quoteInputAmount?: string;
   quoteResult?: IFetchQuoteResult;
   receiveToken?: ISwapTokenBase;
   sendAmount?: string;
@@ -40,13 +38,12 @@ export function isQuoteResultForStockTrade({
     return false;
   }
 
-  const quoteSendAmount = quoteResult.fromAmount ?? quoteInputAmount;
-  if (!quoteSendAmount) {
+  if (!quoteResult.fromAmount) {
     return false;
   }
 
   return isSameAmount({
-    left: quoteSendAmount,
+    left: quoteResult.fromAmount,
     right: sendAmount,
   });
 }

@@ -50,7 +50,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
-import { getLimitOrderDisplayToAmount } from '../../components/LimitOrderCard.utils';
+import { getLimitOrderDisplayAmounts } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -90,8 +90,13 @@ const LimitOrderDetailModal = () => {
       toAmount: new BigNumber(orderItemState?.toAmount ?? '0').shiftedBy(
         -(orderItemState?.toTokenInfo?.decimals ?? 0),
       ),
-      displayToAmount: getLimitOrderDisplayToAmount({
+      ...getLimitOrderDisplayAmounts({
         executedBuyAmount: orderItemState?.executedBuyAmount,
+        executedSellAmount: orderItemState?.executedSellAmount,
+        fromAmount: orderItemState?.fromAmount,
+        fromTokenInfo: {
+          decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+        },
         toAmount: orderItemState?.toAmount,
         toTokenInfo: {
           decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
@@ -100,6 +105,7 @@ const LimitOrderDetailModal = () => {
     }),
     [
       orderItemState?.executedBuyAmount,
+      orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
       orderItemState?.toAmount,
@@ -143,7 +149,7 @@ const LimitOrderDetailModal = () => {
       isNative: !!orderItemState?.toTokenInfo.isNative,
       price: orderItemState?.toTokenInfo?.price ?? '0',
     };
-    const fromAmount = decimalsAmount.fromAmount.toFixed();
+    const fromAmount = decimalsAmount.displayFromAmount.toFixed();
     const toAmount = decimalsAmount.displayToAmount.toFixed();
     return (
       <>
@@ -176,8 +182,8 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
+    decimalsAmount.displayFromAmount,
     decimalsAmount.displayToAmount,
-    decimalsAmount.fromAmount,
     orderItemState?.fromTokenInfo.isNative,
     orderItemState?.fromTokenInfo.logoURI,
     orderItemState?.fromTokenInfo.name,

@@ -50,17 +50,16 @@ describe('swapStockQuoteUtils', () => {
     ).toBe(false);
   });
 
-  it('uses the locally captured quote input amount when the quote omits fromAmount', () => {
+  it('rejects quotes without a dispatch-time input amount', () => {
     const { fromAmount, ...quoteWithoutFromAmount } = quoteResult;
 
     expect(
       isQuoteResultForStockTrade({
-        quoteInputAmount: fromAmount,
         quoteResult: quoteWithoutFromAmount as IFetchQuoteResult,
         receiveToken,
         sendAmount: '1000',
         sendToken,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
