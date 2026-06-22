@@ -3461,7 +3461,7 @@ function SendAmountInputContainer() {
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
             reversible={
-              !isInvoiceAmountLocked ? hasUsablePrice || isUseFiat : null
+              !isInvoiceAmountLocked ? hasUsablePrice || isUseFiat : undefined
             }
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
