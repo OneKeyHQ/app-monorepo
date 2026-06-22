@@ -163,6 +163,17 @@ function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
   return value as IDeFiUnknownRecord;
 }
 
+function hasProxyDetail(value: unknown) {
+  const record = asRecord(value);
+  const extraParams = asRecord(record?.extraParams);
+  return Boolean(
+    asRecord(record?.proxyDetail) ||
+    asRecord(record?.proxy_detail) ||
+    asRecord(extraParams?.proxyDetail) ||
+    asRecord(extraParams?.proxy_detail),
+  );
+}
+
 function pickStringFromRecord(
   record: IDeFiUnknownRecord | undefined,
   keys: string[],
@@ -492,6 +503,7 @@ function getSourcePositions(
           },
           groupId: position.groupId,
           name: position.poolFullName,
+          proxyDetail: position.proxyDetail,
         },
       ];
 }
@@ -527,12 +539,16 @@ function getCandidateAssets({
   const sourcePositions = getSourcePositions(position);
 
   return sourcePositions.flatMap((sourcePosition) => {
+    if (hasProxyDetail(sourcePosition)) {
+      return [];
+    }
+
     const candidates =
       supportedAction.action === EDeFiPositionAction.Claim
         ? sourcePosition.rewards
         : sourcePosition.assets;
-    const positiveCandidates = candidates.filter((asset) =>
-      isPositiveAmount(asset.amount),
+    const positiveCandidates = candidates.filter(
+      (asset) => isPositiveAmount(asset.amount) && !hasProxyDetail(asset),
     );
 
     if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {

@@ -35,6 +35,14 @@ export type IDeFiAssetMeta = {
   isVerified: boolean;
 };
 
+export type IDeFiProxyDetail = {
+  project?: {
+    id?: string;
+    name?: string;
+  } & IDeFiUnknownRecord;
+  proxyContractId?: string;
+} & IDeFiUnknownRecord;
+
 export type IDeFiActionExtraParams = {
   poolAddress?: string;
   groupId?: string;
@@ -67,6 +75,7 @@ export type IDeFiAsset = {
   tokenId?: string;
   currency0?: string;
   currency1?: string;
+  proxyDetail?: IDeFiProxyDetail;
 };
 
 export type IMetrics = {
@@ -100,6 +109,7 @@ export type IDeFiPosition = {
   tokenId?: string;
   currency0?: string;
   currency1?: string;
+  proxyDetail?: IDeFiProxyDetail;
 };
 
 export type IProtocolSummary = {
@@ -163,6 +173,7 @@ export type IDeFiProtocol = {
     poolName: string;
     poolFullName: string;
     sourcePositions?: IDeFiPosition[];
+    proxyDetail?: IDeFiProxyDetail;
   }[];
 };
 

@@ -115,6 +115,39 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
   });
 
+  it('hides actions for proxy positions that cannot finish in App', () => {
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'morphoblue',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.Withdraw,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'morpho-blue',
+      },
+      position: makePosition(
+        makeSourcePosition({
+          proxyDetail: {
+            project: {
+              id: 'defisaver',
+              name: 'DeFi Saver',
+            },
+            proxyContractId: '0xf1293ed7a84a32445ef03a8734cd5d279664b27c',
+          },
+        }),
+      ),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
   it('hides Uniswap removeLiquidity until the min-receive contract is ready', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
