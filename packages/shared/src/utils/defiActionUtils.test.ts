@@ -128,7 +128,7 @@ describe('defiActionUtils.resolveDeFiPositionActionDebugCandidates', () => {
     );
   });
 
-  it('returns current-UI-gated actions as empty debug candidates', () => {
+  it('returns metadata-gated actions as empty debug candidates', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -307,7 +307,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('hides Uniswap removeLiquidity until the min-receive contract is ready', () => {
+  it('hides Uniswap removeLiquidity when min-receive metadata is missing', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -350,11 +350,67 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    // RemoveLiquidity is gated off in the app (isSupportedByCurrentActionUi)
-    // until the build service guarantees a server-enforced min-out. The
-    // resolution metadata above (tokenId / underlyingAssets) stays exercised so
-    // re-enabling only flips the gate, not this setup.
     expect(actions).toHaveLength(0);
+  });
+
+  it('resolves Uniswap V3 removeLiquidity when tokenId and min-receive metadata are available', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'uniswap-v3',
+      protocolName: 'Uniswap V3',
+      category: 'liquidity',
+      groupId: '0x1111111111111111111111111111111111111111#123',
+      name: 'Uniswap Position',
+      extraParams: {
+        amount0Min: '0.49',
+        amount1Min: '1490',
+      },
+      assets: [
+        makeAsset({
+          symbol: 'ETH',
+          address: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+          amount: '0.5',
+          value: 1500,
+          price: 3000,
+        }),
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+          amount: '1500',
+          value: 1500,
+          price: 1,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'uniswap-v3',
+        networkId: 'evm--1',
+        positionCategory: 'liquidity',
+        assetCategory: 'deposit',
+        action: EDeFiPositionAction.RemoveLiquidity,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'uniswap-v3',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0]).toEqual(
+      expect.objectContaining({
+        underlyingAssets: sourcePosition.assets,
+        extraParams: expect.objectContaining({
+          amount0Min: '0.49',
+          amount1Min: '1490',
+          tokenId: '123',
+        }),
+      }),
+    );
   });
 
   it('hides Uniswap removeLiquidity when tokenId metadata is missing', () => {
@@ -395,6 +451,10 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       category: 'liquidity',
       groupId: '0x1111111111111111111111111111111111111111#123',
       name: 'Uniswap Position',
+      extraParams: {
+        amount0Min: '1',
+        amount1Min: '1',
+      },
       assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
     });
     const supportedActions: IDeFiSupportedProtocolAction[] = [
@@ -419,13 +479,17 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('gates grouped Uniswap removeLiquidity off', () => {
+  it('resolves grouped Uniswap removeLiquidity source positions independently', () => {
     const firstSourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
       category: 'liquidity',
       groupId: '0x1111111111111111111111111111111111111111#123',
       name: 'ETH / USDC',
+      extraParams: {
+        amount0Min: '0.49',
+        amount1Min: '1490',
+      },
       assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
     });
     const secondSourcePosition = makeSourcePosition({
@@ -434,6 +498,10 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       category: 'liquidity',
       groupId: '0x2222222222222222222222222222222222222222#456',
       name: 'ETH / USDC',
+      extraParams: {
+        amount0Min: '0.24',
+        amount1Min: '745',
+      },
       assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
     });
     const position = {
@@ -459,10 +527,14 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets).toHaveLength(2);
+    expect(
+      actions[0].assets.map((asset) => asset.extraParams?.tokenId),
+    ).toEqual(['123', '456']);
   });
 
-  it('resolves Polygon claimWithdrawal with pool and group metadata', () => {
+  it('hides Polygon pending cooldown rows until they become claimable', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
@@ -497,9 +569,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(1);
-    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xvalidator');
-    expect(actions[0].assets[0].extraParams?.groupId).toBe('Cooldown #5');
+    expect(actions).toHaveLength(0);
   });
 
   it('resolves Polygon withdraw only from Debank staked groupId assets', () => {
@@ -761,11 +831,13 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
   });
 
   it('does not pass Polygon unbond nonces for claimWithdrawal', () => {
+    const validatorShareAddress = '0x8f846c443cfa44a6e95aacd2ac362b6cf4fd4335';
     const sourcePosition = makeSourcePosition({
       protocol: 'polygon_staking',
       protocolName: 'Polygon Staking',
       category: 'staking',
-      groupId: 'polygon-cooldowns',
+      // oxlint-disable-next-line @cspell/spellchecker
+      groupId: `${validatorShareAddress}#new_version_unbonded_10`,
       name: 'Polygon Cooldowns',
       assets: [
         makeAsset({
@@ -802,7 +874,10 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(1);
     // oxlint-disable-next-line @cspell/spellchecker
     expect(actions[0].assets[0].extraParams?.['unbondNonces']).toBeUndefined();
-    expect(actions[0].assets[0].extraParams?.groupId).toBe('polygon-cooldowns');
+    expect(actions[0].assets[0].extraParams?.groupId).toBe(
+      // oxlint-disable-next-line @cspell/spellchecker
+      `${validatorShareAddress}#new_version_unbonded_10`,
+    );
   });
 
   it('resolves Ethena claimWithdrawal when pool metadata is available', () => {
@@ -879,5 +954,79 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     });
 
     expect(actions).toHaveLength(0);
+  });
+
+  it('hides Stake DAO claim when pool metadata is missing', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stake_dao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      groupId: '0x1111111111111111111111111111111111111111#gauge',
+      rewards: [
+        makeAsset({
+          symbol: 'SDT',
+          address: '0xsdt',
+          category: 'liquidity-mining',
+          poolAddress: undefined,
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake_dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        rewardCategory: 'liquidity-mining',
+        action: EDeFiPositionAction.Claim,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stake_dao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
+  });
+
+  it('resolves Stake DAO claim when pool metadata is available', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'stake_dao',
+      protocolName: 'Stake DAO',
+      category: 'yield',
+      rewards: [
+        makeAsset({
+          symbol: 'SDT',
+          address: '0xsdt',
+          category: 'liquidity-mining',
+          poolAddress: '0xgauge',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'stake_dao',
+        networkId: 'evm--1',
+        positionCategory: 'yield',
+        rewardCategory: 'liquidity-mining',
+        action: EDeFiPositionAction.Claim,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'stake_dao',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xgauge');
   });
 });

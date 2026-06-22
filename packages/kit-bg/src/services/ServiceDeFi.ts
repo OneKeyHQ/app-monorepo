@@ -379,9 +379,12 @@ class ServiceDeFi extends ServiceBase {
   @backgroundMethod()
   public async buildDeFiTransaction(params: IDeFiBuildTransactionParams) {
     const { accountId, ...rest } = params;
-    if (accountUtils.isUrlAccountFn({ accountId })) {
+    if (
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      accountUtils.isWatchingAccount({ accountId })
+    ) {
       throw new OneKeyLocalError(
-        'DeFi actions are not available for URL accounts',
+        'DeFi actions are not available for URL or watch-only accounts',
       );
     }
 

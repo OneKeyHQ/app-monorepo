@@ -62,22 +62,13 @@ function normalizeDeFiPositionMetadata(position: IDeFiPosition): IDeFiPosition {
   if (!parsedGroupId) return position;
 
   const tokenId = normalizeTokenId(position.tokenId) ?? parsedGroupId.tokenId;
-  const poolAddress =
-    normalizeEvmAddress(position.contracts?.pool) ?? parsedGroupId.poolAddress;
-  if (
-    tokenId === position.tokenId &&
-    poolAddress === position.contracts?.pool
-  ) {
+  if (tokenId === position.tokenId) {
     return position;
   }
 
   return {
     ...position,
     tokenId,
-    contracts: {
-      ...position.contracts,
-      pool: poolAddress,
-    },
   };
 }
 

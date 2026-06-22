@@ -1,7 +1,9 @@
 # DeFi Portfolio Actions Guide
 
 Use this when adding or debugging one-click actions on existing DeFi portfolio
-positions, such as withdraw, claim, claimWithdrawal, and removeLiquidity.
+positions, such as withdraw, claim, and removeLiquidity. `claimWithdrawal` is
+an internal build-transaction action for claimable withdrawal rows; product UI
+should present it as Claim unless a requirement explicitly says otherwise.
 
 ## Source Of Truth Boundaries
 
@@ -34,9 +36,11 @@ Required metadata examples:
 
 - Aave/Morpho/Polygon/Spark withdraw or claim flows may require `poolAddress`
   when the service contract says so.
-- Polygon staking `claimWithdrawal` needs the redemption queue nonce(s), usually
-  returned as `extraParams.unbondNonces`; cooldown display labels can be used
-  only when their format is documented and stable.
+- Polygon staking `claimWithdrawal` needs a stable claimable-withdrawal group
+  id such as `validatorShare#new_version_unbonded_N`. Pending/cooldown labels
+  are display state only and must not create an executable action. Do not pass
+  client-derived nonce arrays unless the build API contract explicitly asks for
+  them.
 - Uniswap V3/V4 `removeLiquidity` needs `tokenId` (`positionId`/`nftId` aliases
   are acceptable only if the backend payload explicitly uses them). Uniswap V4
   also needs `currency0` and `currency1`.

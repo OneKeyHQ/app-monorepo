@@ -25,9 +25,7 @@ type IResolveDeFiPositionActionsParams = {
 };
 
 type IMatchSupportedDeFiPositionActionsParams =
-  IResolveDeFiPositionActionsParams & {
-    includeUnsupportedByCurrentUi?: boolean;
-  };
+  IResolveDeFiPositionActionsParams;
 
 type IDeFiPositionActionKeySource = Pick<
   IResolvedDeFiPositionAction,
@@ -166,7 +164,7 @@ function isPoolAddressRequired({
   }
 
   if (action === EDeFiPositionAction.Claim) {
-    return ['polygon_staking'].includes(normalizedProtocolId);
+    return ['polygon_staking', 'stake_dao'].includes(normalizedProtocolId);
   }
 
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
@@ -254,19 +252,9 @@ function getPoolAddressFromGroupId(groupId?: string) {
   return normalizeEvmAddress(poolAddress);
 }
 
-function isPolygonCooldownAsset({
-  sourcePosition,
-  asset,
-}: {
-  sourcePosition: IDeFiPosition | undefined;
-  asset: IDeFiAsset;
-}) {
-  if (isPolygonClaimableWithdrawalPosition(sourcePosition)) {
-    return true;
-  }
-
-  return [sourcePosition?.name, sourcePosition?.groupId, asset.symbol].some(
-    (text) => /cooldown/i.test(text ?? ''),
+function hasRemoveLiquidityMinOut(params?: IDeFiActionExtraParams) {
+  return (
+    isPositiveAmount(params?.amount0Min) && isPositiveAmount(params?.amount1Min)
   );
 }
 
@@ -543,19 +531,6 @@ function getSupportedAssetCategory(
   return supportedAction.assetCategory;
 }
 
-function isSupportedByCurrentActionUi(
-  supportedAction: IDeFiSupportedProtocolAction,
-) {
-  if (supportedAction.action === EDeFiPositionAction.RemoveLiquidity) {
-    // Gated off in the App: the resolution/preview plumbing below exists, but
-    // the build service must guarantee a server-enforced min-out before we
-    // expose liquidity removal as a safe signing flow. Re-enable here once the
-    // backend contract is confirmed.
-    return false;
-  }
-  return true;
-}
-
 function getCandidateAssets({
   position,
   supportedAction,
@@ -592,15 +567,10 @@ function getCandidateAssets({
         if (
           isNormalizedProtocolId(supportedAction.protocolId, 'polygon_staking')
         ) {
-          const isCooldownAsset = isPolygonCooldownAsset({
-            sourcePosition,
-            asset,
-          });
           if (supportedAction.action === EDeFiPositionAction.ClaimWithdrawal) {
-            return isCooldownAsset;
+            return isPolygonClaimableWithdrawalPosition(sourcePosition);
           }
           if (supportedAction.action === EDeFiPositionAction.Withdraw) {
-            if (isCooldownAsset) return false;
             return (
               isPolygonStakedPosition(sourcePosition) &&
               isCategoryMatch(targetCategory, asset.category)
@@ -642,6 +612,10 @@ function buildResolvedAsset({
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     const tokenId = getTokenId(sourcePosition, asset);
     if (!tokenId) return undefined;
+
+    if (!hasRemoveLiquidityMinOut(extraParams)) {
+      return undefined;
+    }
 
     const { currency0, currency1 } = getRemoveLiquidityCurrencies({
       protocolId,
@@ -693,15 +667,12 @@ function getMatchedSupportedDeFiPositionActions({
   protocol,
   position,
   supportedActions,
-  includeUnsupportedByCurrentUi = false,
 }: IMatchSupportedDeFiPositionActionsParams) {
   return supportedActions.filter(
     (supportedAction) =>
       isProtocolMatch(supportedAction.protocolId, protocol.protocol) &&
       supportedAction.networkId === protocol.networkId &&
       supportedAction.action !== EDeFiPositionAction.Permit &&
-      (includeUnsupportedByCurrentUi ||
-        isSupportedByCurrentActionUi(supportedAction)) &&
       isCategoryMatch(supportedAction.positionCategory, position.category),
   );
 }
@@ -785,7 +756,6 @@ function resolveDeFiPositionActionDebugCandidates({
     protocol,
     position,
     supportedActions,
-    includeUnsupportedByCurrentUi: true,
   }).reduce<IResolvedDeFiPositionAction[]>((acc, supportedAction) => {
     if (resolvedActionKeys.has(getDeFiPositionActionKey(supportedAction))) {
       return acc;

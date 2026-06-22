@@ -23,6 +23,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { buildDeFiActionBps } from '@onekeyhq/shared/src/utils/defiActionUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   EDeFiPositionAction,
@@ -33,6 +34,8 @@ import {
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
   ProtocolValueCell,
@@ -69,12 +72,10 @@ function getActionLabel({
     return intl.formatMessage({ id: ETranslations.global_withdraw });
   }
   if (action === EDeFiPositionAction.Claim) {
-    return intl.formatMessage({ id: ETranslations.earn_claim_rewards__action });
+    return intl.formatMessage({ id: ETranslations.earn_claim });
   }
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
-    return intl.formatMessage({
-      id: ETranslations.earn_claim_redemption__action,
-    });
+    return intl.formatMessage({ id: ETranslations.earn_claim });
   }
   if (action === EDeFiPositionAction.RemoveLiquidity) {
     return intl.formatMessage({
@@ -427,7 +428,7 @@ function getActionSourceLabel({
     return intl.formatMessage({ id: ETranslations.defi_claimable_rewards });
   }
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
-    return intl.formatMessage({ id: ETranslations.defi_redeemable });
+    return intl.formatMessage({ id: ETranslations.earn_claimable });
   }
   return intl.formatMessage({ id: ETranslations.global_current });
 }
@@ -506,9 +507,54 @@ function attachDeFiActionTxConfirmInfo({
   };
 }
 
+function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
+  if (
+    action === EDeFiPositionAction.Claim ||
+    action === EDeFiPositionAction.ClaimWithdrawal
+  ) {
+    return EEarnLabels.Claim;
+  }
+  if (
+    action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.RemoveLiquidity
+  ) {
+    return EEarnLabels.Withdraw;
+  }
+  return EEarnLabels.Unknown;
+}
+
+async function addDeFiActionEarnOrders({
+  action,
+  networkId,
+  data,
+}: {
+  action: IResolvedDeFiPositionAction;
+  networkId: string;
+  data: ISendTxOnSuccessData[];
+}) {
+  for (const orderTx of data) {
+    if (orderTx?.signedTx?.txid) {
+      await backgroundApiProxy.serviceStaking.addEarnOrder({
+        orderId: generateUUID(),
+        networkId,
+        txId: orderTx.signedTx.txid,
+        status: orderTx.decodedTx.status,
+        stakingLabel: getDeFiActionEarnLabel(action.action),
+        stakingProtocol: action.protocolId,
+        stakingTags: [
+          'defi-portfolio-action',
+          action.protocolId,
+          action.action,
+        ],
+      });
+    }
+  }
+}
+
 type IProtocolPositionActionSuccessParams = {
   accountId: string;
   networkId: string;
+  data: ISendTxOnSuccessData[];
 };
 
 type IProtocolPositionActionSubmitParams = {
@@ -690,16 +736,13 @@ function useProtocolPositionActionSubmit({
           await navigationToTxConfirm({
             unsignedTxs,
             gasAccountScenario: 'earn',
-            onSuccess: async () => {
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.feedback_transaction_submitted,
-                }),
-                message: intl.formatMessage({
-                  id: ETranslations.earn_pending_transactions_data_out_of_sync,
-                }),
+            onSuccess: async (data: ISendTxOnSuccessData[]) => {
+              await addDeFiActionEarnOrders({
+                action,
+                networkId,
+                data,
               });
-              await onSuccess?.({ accountId, networkId });
+              await onSuccess?.({ accountId, networkId, data });
             },
             onFail: (error: Error) => {
               if (isTxConfirmInitializing) {
