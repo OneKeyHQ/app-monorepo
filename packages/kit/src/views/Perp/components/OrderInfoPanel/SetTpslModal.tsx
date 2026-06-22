@@ -75,6 +75,46 @@ function MarkPrice({ coin }: { coin: string }) {
   );
 }
 
+function CancelOrderButton({
+  disabled,
+  label,
+  onPress,
+}: {
+  disabled: boolean;
+  label: string;
+  onPress?: () => void;
+}) {
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="center"
+      h={24}
+      minWidth={56}
+      px="$2.5"
+      ml="$2"
+      borderRadius="$full"
+      bg={disabled ? '$bgSubdued' : '$bgStrong'}
+      borderWidth="$px"
+      borderColor="$transparent"
+      cursor={disabled ? 'default' : 'pointer'}
+      hoverStyle={
+        disabled ? undefined : { bg: '$bgHover', borderColor: '$borderHover' }
+      }
+      pressStyle={
+        disabled
+          ? undefined
+          : { bg: '$bgActive', borderColor: '$borderActive', opacity: 0.88 }
+      }
+      onPress={disabled ? undefined : onPress}
+      flexShrink={0}
+    >
+      <SizableText size="$bodySm" color={disabled ? '$textDisabled' : '$text'}>
+        {label}
+      </SizableText>
+    </XStack>
+  );
+}
+
 const SetTpslForm = memo(
   ({
     coin,
@@ -516,14 +556,20 @@ const SetTpslForm = memo(
           </YStack>
           <Divider />
           {!tpOrder ? null : (
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_tp_price,
-                })}
-              </SizableText>
-              <YStack gap="$1">
-                <XStack gap="$1">
+            <YStack gap="$1">
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_tp_price,
+                  })}
+                </SizableText>
+                <XStack
+                  gap="$2"
+                  alignItems="center"
+                  justifyContent="flex-end"
+                  flex={1}
+                  ml="$4"
+                >
                   <SizableText size="$bodyMdMedium">
                     {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_above,
@@ -531,47 +577,38 @@ const SetTpslForm = memo(
                     {': '}
                     {tpOrder.triggerPx}
                   </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color={
-                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
-                    }
-                    ml="$2"
-                    onPress={
-                      canSubmitForScopedAccount
-                        ? () => handleCancelOrder(tpOrder)
-                        : undefined
-                    }
-                  >
-                    {intl.formatMessage({
+                  <CancelOrderButton
+                    disabled={!canSubmitForScopedAccount}
+                    label={intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
                     })}
-                  </SizableText>
+                    onPress={() => handleCancelOrder(tpOrder)}
+                  />
                 </XStack>
-                {expectedProfit ? (
+              </XStack>
+              {expectedProfit ? (
+                <SizableText
+                  size="$bodySm"
+                  alignSelf="flex-end"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_profit,
+                  })}
+                  {': '}
                   <SizableText
                     size="$bodySm"
-                    alignSelf="flex-end"
-                    color="$textSubdued"
+                    color={
+                      expectedProfit.startsWith('-') ? '$red11' : '$green11'
+                    }
                   >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_profit,
-                    })}
-                    {': '}
-                    <SizableText
-                      size="$bodySm"
-                      color={
-                        expectedProfit.startsWith('-') ? '$red11' : '$green11'
-                      }
-                    >
-                      {expectedProfit.startsWith('-')
-                        ? `-$${expectedProfit.slice(1)}`
-                        : `$${expectedProfit}`}
-                    </SizableText>
+                    {expectedProfit.startsWith('-')
+                      ? `-$${expectedProfit.slice(1)}`
+                      : `$${expectedProfit}`}
                   </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
+                </SizableText>
+              ) : null}
+            </YStack>
           )}
           <TpslInput
             price={entryPrice}
@@ -590,14 +627,20 @@ const SetTpslForm = memo(
             hiddenSl={!!slOrder}
           />
           {!slOrder ? null : (
-            <XStack justifyContent="space-between">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_sl_price,
-                })}
-              </SizableText>
-              <YStack gap="$1">
-                <XStack gap="$1">
+            <YStack gap="$1">
+              <XStack justifyContent="space-between" alignItems="center">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_sl_price,
+                  })}
+                </SizableText>
+                <XStack
+                  gap="$2"
+                  alignItems="center"
+                  justifyContent="flex-end"
+                  flex={1}
+                  ml="$4"
+                >
                   <SizableText size="$bodyMdMedium">
                     {intl.formatMessage({
                       id: ETranslations.perp_tp_sl_below,
@@ -605,47 +648,36 @@ const SetTpslForm = memo(
                     {': '}
                     {slOrder.triggerPx}
                   </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color={
-                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
-                    }
-                    ml="$2"
-                    onPress={
-                      canSubmitForScopedAccount
-                        ? () => handleCancelOrder(slOrder)
-                        : undefined
-                    }
-                  >
-                    {intl.formatMessage({
+                  <CancelOrderButton
+                    disabled={!canSubmitForScopedAccount}
+                    label={intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
                     })}
-                  </SizableText>
+                    onPress={() => handleCancelOrder(slOrder)}
+                  />
                 </XStack>
-                {expectedLoss ? (
+              </XStack>
+              {expectedLoss ? (
+                <SizableText
+                  size="$bodySm"
+                  alignSelf="flex-end"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_loss,
+                  })}
+                  {': '}
                   <SizableText
                     size="$bodySm"
-                    alignSelf="flex-end"
-                    color="$textSubdued"
+                    color={expectedLoss.startsWith('-') ? '$red11' : '$green11'}
                   >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_loss,
-                    })}
-                    {': '}
-                    <SizableText
-                      size="$bodySm"
-                      color={
-                        expectedLoss.startsWith('-') ? '$red11' : '$green11'
-                      }
-                    >
-                      {expectedLoss.startsWith('-')
-                        ? `-$${expectedLoss.slice(1)}`
-                        : `$${expectedLoss}`}
-                    </SizableText>
+                    {expectedLoss.startsWith('-')
+                      ? `-$${expectedLoss.slice(1)}`
+                      : `$${expectedLoss}`}
                   </SizableText>
-                ) : null}
-              </YStack>
-            </XStack>
+                </SizableText>
+              ) : null}
+            </YStack>
           )}
 
           <YStack alignItems="flex-start" gap="$2" width="100%">
@@ -692,7 +724,10 @@ const SetTpslForm = memo(
                     onChange={handlePercentageChange}
                     max={100}
                     min={0}
-                    segments={0}
+                    segments={4}
+                    snapTapToSegment
+                    sliderHeight={4}
+                    showBubble={false}
                   />
                 </YStack>
               </YStack>
