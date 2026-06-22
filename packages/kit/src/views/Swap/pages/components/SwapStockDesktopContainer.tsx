@@ -1128,9 +1128,10 @@ function StockPriceChart({
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
   );
-  const chartScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
+  const chartAssetScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
     isNative ? 'native' : 'token'
-  }:${range}:${normalizedCoinGeckoId ?? ''}`;
+  }:${normalizedCoinGeckoId ?? ''}`;
+  const chartScope = `${chartAssetScope}:${range}`;
   useEffect(() => {
     setHoverData(null);
   }, [chartScope]);
@@ -1144,6 +1145,7 @@ function StockPriceChart({
       ) {
         return {
           scope: chartScope,
+          assetScope: chartAssetScope,
           data: [] as IMarketTokenChart,
         };
       }
@@ -1157,6 +1159,7 @@ function StockPriceChart({
       );
       return {
         scope: chartScope,
+        assetScope: chartAssetScope,
         data: normalizeSwapKLineWalletChartData({
           chartData: response,
           timeFrom,
@@ -1166,6 +1169,7 @@ function StockPriceChart({
     },
     [
       activeRange,
+      chartAssetScope,
       chartScope,
       isNative,
       networkId,
@@ -1175,15 +1179,21 @@ function StockPriceChart({
     {
       initResult: {
         scope: '',
+        assetScope: '',
         data: [] as IMarketTokenChart,
       },
       watchLoading: true,
     },
   );
+  const isChartStateForCurrentScope = chartState.scope === chartScope;
+  const canReusePreviousRangeChartData =
+    chartState.assetScope === chartAssetScope;
   const chartData =
-    chartState.scope === chartScope
+    isChartStateForCurrentScope || canReusePreviousRangeChartData
       ? chartState.data
       : ([] as IMarketTokenChart);
+  const shouldShowChartLoading =
+    chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
     (price: number) =>
       numberFormat(String(price), {
@@ -1277,7 +1287,7 @@ function StockPriceChart({
       </SizableText>
     </YStack>
   );
-  if (isLoading) {
+  if (shouldShowChartLoading) {
     chartContent = <Skeleton w="100%" h="100%" />;
   } else if (chartData.length > 0) {
     chartContent = (
@@ -1324,9 +1334,11 @@ function StockPriceChart({
           secondaryLineColor={chartLineColor}
           secondaryLineWidth={2}
           seriesType="dotted-area"
+          showPriceScale
           showLastPointMarker={false}
-          showTimeScale={false}
+          showTimeScale
           priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
+          priceScaleEntireTextOnly
           priceFormatter={priceFormatter}
           fontSize={11}
           onHover={handleChartHover}
