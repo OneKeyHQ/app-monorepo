@@ -1,6 +1,7 @@
 import {
   convertSwapKLineWalletChartToKLineResponse,
   getSwapKLineWalletChartDays,
+  normalizeSwapKLineWalletChartData,
 } from './swapKLineChartUtils';
 
 const ONE_DAY_SECONDS = 24 * 60 * 60;
@@ -29,6 +30,29 @@ describe('swapKLineChartUtils', () => {
           nowSeconds,
         }),
       ).toBe('max');
+    });
+  });
+
+  describe('normalizeSwapKLineWalletChartData', () => {
+    it('normalizes wallet chart timestamps, filters invalid points, and sorts by time', () => {
+      const baseTime = 1_700_000_000;
+
+      expect(
+        normalizeSwapKLineWalletChartData({
+          chartData: [
+            [(baseTime + 2) * 1000, 12],
+            [(baseTime - 1) * 1000, 5],
+            [baseTime * 1000, 10],
+            [baseTime + 1, Number.NaN],
+            [baseTime * 1000, 11],
+          ],
+          timeFrom: baseTime,
+          timeTo: baseTime + 2,
+        }),
+      ).toEqual([
+        [baseTime, 11],
+        [baseTime + 2, 12],
+      ]);
     });
   });
 

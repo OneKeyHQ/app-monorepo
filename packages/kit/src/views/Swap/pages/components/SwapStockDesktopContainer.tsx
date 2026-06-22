@@ -98,6 +98,10 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory';
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
+import {
+  getSwapKLineWalletChartDays,
+  normalizeSwapKLineWalletChartData,
+} from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
@@ -161,16 +165,62 @@ type IStockChartHoverData = {
   y: number;
 };
 
-function normalizeStockChartData(points?: { t: number; c: number }[]) {
-  const pointsByTime = new Map<number, number>();
-  for (const point of points ?? []) {
-    if (Number.isFinite(point.t) && Number.isFinite(point.c)) {
-      pointsByTime.set(point.t, point.c);
-    }
+function getStockChartTokenDetailCoinGeckoId(
+  tokenDetail?: IStockMarketTokenDetail,
+) {
+  const coinGeckoId = tokenDetail?.coingeckoId;
+  if (typeof coinGeckoId !== 'string') {
+    return undefined;
   }
-  return Array.from(pointsByTime.entries())
-    .toSorted((a, b) => a[0] - b[0])
-    .map(([time, price]) => [time, price] as [number, number]);
+  return coinGeckoId.trim() || undefined;
+}
+
+function useStockChartCoinGeckoId({
+  networkId,
+  tokenAddress,
+  tokenDetail,
+}: {
+  networkId?: string;
+  tokenAddress?: string;
+  tokenDetail?: IStockMarketTokenDetail;
+}) {
+  const tokenDetailCoinGeckoId =
+    getStockChartTokenDetailCoinGeckoId(tokenDetail);
+  const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
+  const { result } = usePromiseResult<
+    | {
+        tokenScope: string;
+        coinGeckoId?: string;
+      }
+    | undefined
+  >(
+    async () => {
+      if (tokenDetailCoinGeckoId || !networkId) {
+        return undefined;
+      }
+
+      const tokenInfo =
+        await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+          networkId,
+          tokenAddress: tokenAddress ?? '',
+        });
+      return {
+        tokenScope,
+        coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
+      };
+    },
+    [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
+    {
+      checkIsFocused: false,
+      undefinedResultIfError: true,
+      undefinedResultIfReRun: true,
+    },
+  );
+
+  return (
+    tokenDetailCoinGeckoId ||
+    (result?.tokenScope === tokenScope ? result.coinGeckoId : undefined)
+  );
 }
 
 function StockMarketDataItem({
@@ -1030,6 +1080,7 @@ function StockMarketTokenHeader({
 }
 
 function StockPriceChart({
+  coinGeckoId,
   isNative,
   networkId,
   onRangeChange,
@@ -1037,6 +1088,7 @@ function StockPriceChart({
   tokenAddress,
   tokenSymbol,
 }: {
+  coinGeckoId?: string;
   isNative?: boolean;
   networkId?: string;
   onRangeChange: (range: IStockChartRange) => void;
@@ -1048,6 +1100,7 @@ function StockPriceChart({
   const theme = useTheme();
   const [hoverData, setHoverData] = useState<IStockChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
+  const normalizedCoinGeckoId = coinGeckoId?.trim();
   const chartLineColor = theme.textSuccess.val;
   const rangeOptions = useMemo(
     () =>
@@ -1077,13 +1130,18 @@ function StockPriceChart({
   );
   const chartScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
     isNative ? 'native' : 'token'
-  }:${range}`;
+  }:${range}:${normalizedCoinGeckoId ?? ''}`;
   useEffect(() => {
     setHoverData(null);
   }, [chartScope]);
   const { result: chartState, isLoading } = usePromiseResult(
     async () => {
-      if (!networkId || (!tokenAddress && !isNative) || !activeRange) {
+      if (
+        !networkId ||
+        !normalizedCoinGeckoId ||
+        (!tokenAddress && !isNative) ||
+        !activeRange
+      ) {
         return {
           scope: chartScope,
           data: [] as IMarketTokenChart,
@@ -1091,21 +1149,29 @@ function StockPriceChart({
       }
       const timeTo = Math.floor(Date.now() / 1000);
       const timeFrom = timeTo - activeRange.seconds;
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenKline({
-          tokenAddress: tokenAddress ?? '',
-          networkId,
-          interval: activeRange.interval,
-          timeFrom,
-          timeTo,
-          autoHandleError: false,
-        });
+      const days = getSwapKLineWalletChartDays({ timeFrom, timeTo });
+      const response = await backgroundApiProxy.serviceMarket.fetchTokenChart(
+        normalizedCoinGeckoId,
+        days,
+        { requestCurrency: 'usd' },
+      );
       return {
         scope: chartScope,
-        data: normalizeStockChartData(response?.points),
+        data: normalizeSwapKLineWalletChartData({
+          chartData: response,
+          timeFrom,
+          timeTo,
+        }),
       };
     },
-    [activeRange, chartScope, isNative, networkId, tokenAddress],
+    [
+      activeRange,
+      chartScope,
+      isNative,
+      networkId,
+      normalizedCoinGeckoId,
+      tokenAddress,
+    ],
     {
       initResult: {
         scope: '',
@@ -1391,6 +1457,11 @@ function StockMarketContextPanel({
   storeName: EJotaiContextStoreNames;
 }) {
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
+  const coinGeckoId = useStockChartCoinGeckoId({
+    networkId,
+    tokenAddress,
+    tokenDetail,
+  });
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
@@ -1423,6 +1494,7 @@ function StockMarketContextPanel({
       <Stack mt="$6">
         {chartReady ? (
           <StockPriceChart
+            coinGeckoId={coinGeckoId}
             tokenAddress={tokenAddress ?? ''}
             networkId={networkId ?? ''}
             isNative={isNative}
