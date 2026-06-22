@@ -7,6 +7,8 @@ import {
 
 import {
   buildSwapTokenSelectorDisableNetworks,
+  getSwapStockTokenDisplayName,
+  isSwapStockMetadataPending,
   isSwapTokenSelectorFromNetworkBridgeOnly,
 } from './SwapTokenSelectModal.utils';
 
@@ -79,5 +81,49 @@ describe('SwapTokenSelectModal.utils', () => {
         swapNetworksIncludeAllNetwork,
       }),
     ).toEqual(['onekeyall--0', 'evm--137']);
+  });
+
+  it('keeps stock token rows pending until matching metadata is ready', () => {
+    expect(
+      isSwapStockMetadataPending({
+        isSwapStockSelectTarget: true,
+        stockMetadataTokenKey: 'evm--56:0x123',
+        stockMetadataLoading: false,
+        resolvedStockMetadataTokenKey: '',
+      }),
+    ).toBe(true);
+
+    expect(
+      isSwapStockMetadataPending({
+        isSwapStockSelectTarget: true,
+        stockMetadataTokenKey: 'evm--56:0x123',
+        stockMetadataLoading: true,
+        resolvedStockMetadataTokenKey: 'evm--56:0x123',
+      }),
+    ).toBe(true);
+
+    expect(
+      isSwapStockMetadataPending({
+        isSwapStockSelectTarget: true,
+        stockMetadataTokenKey: 'evm--56:0x123',
+        stockMetadataLoading: false,
+        resolvedStockMetadataTokenKey: 'evm--56:0x123',
+      }),
+    ).toBe(false);
+  });
+
+  it('uses stock subtitle before token source suffix fallback', () => {
+    expect(
+      getSwapStockTokenDisplayName({
+        stock: { subtitle: '罗宾汉' },
+        tokenName: 'Robinhood (Ondo Tokenized)',
+      }),
+    ).toBe('罗宾汉');
+
+    expect(
+      getSwapStockTokenDisplayName({
+        tokenName: 'Robinhood (Ondo Tokenized)',
+      }),
+    ).toBe('Robinhood');
   });
 });
