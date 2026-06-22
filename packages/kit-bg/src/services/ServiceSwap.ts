@@ -15,6 +15,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -119,10 +120,12 @@ import {
   filterSwapHistoryPendingList,
   inAppNotificationAtom,
   perpsDepositOrderAtom,
+  settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import { getSwapHistoryStateTxIdParam } from './utils/swapHistoryStateUtils';
 import {
@@ -586,6 +589,7 @@ export default class ServiceSwap extends ServiceBase {
     isAllNetworkFetchAccountTokens,
     protocol,
     lpToken,
+    currency,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
@@ -619,6 +623,10 @@ export default class ServiceSwap extends ServiceBase {
       this._tokenListAbortController = new AbortController();
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const requestCurrency =
+      currency ??
+      (await settingsPersistAtom.get())?.currencyInfo?.id ??
+      USD_CURRENCY_ID;
     if (
       !shouldFetchStaticStockTokens &&
       accountId &&
@@ -668,15 +676,20 @@ export default class ServiceSwap extends ServiceBase {
           signal: !isAllNetworkFetchAccountTokens
             ? this._tokenListAbortController?.signal
             : undefined,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            'x-onekey-request-currency': requestCurrency,
+          },
         },
       );
-      return data?.data ?? [];
+      return normalizeSwapTokenListCurrency({
+        tokens: data?.data ?? [],
+        currency: requestCurrency,
+      });
     } catch (e) {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics

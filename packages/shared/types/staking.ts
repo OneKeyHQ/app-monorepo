@@ -913,7 +913,7 @@ export interface IEarnTextTooltip {
   type: 'text';
   data: {
     title?: IEarnText;
-    description: IEarnText;
+    description?: IEarnText;
     items?: IEarnTooltipComparisonItem[];
   };
 }
@@ -1515,7 +1515,9 @@ export interface IStakeEarnDetail {
   };
   intro?: {
     title: IEarnText;
+    description?: IEarnText;
     items: IEarnGridItem[];
+    tooltip?: IEarnTooltip;
   };
   rules?: {
     title: IEarnText;
