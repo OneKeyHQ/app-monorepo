@@ -9,7 +9,6 @@ import {
   Button,
   Divider,
   Icon,
-  IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   NumberSizeableText,
@@ -23,6 +22,7 @@ import {
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -1662,11 +1662,11 @@ function SwapStockDesktopContent({
                     </SizableText>
                   </Stack>
                 ) : (
-                  <IconButton
+                  <HeaderIconButton
                     testID="swap-stock-history-button"
                     icon="ClockTimeHistoryOutline"
                     size="small"
-                    variant="tertiary"
+                    iconProps={{ color: '$iconStrong' }}
                     onPress={onOpenHistoryListModal}
                   />
                 )}
