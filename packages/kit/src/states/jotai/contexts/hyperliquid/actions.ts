@@ -99,7 +99,6 @@ import {
   perpsAllMidsAtom,
   perpsL2BookColdCacheAtom,
   perpsLedgerUpdatesAtom,
-  perpsOpenOrdersByCoinAtomCache,
   perpsTokenSearchAliasesAtom,
   perpsTwapHistoryAtom,
   perpsTwapSliceFillsAtom,
@@ -622,7 +621,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private clearActiveAccountTransientData() {
     this.resetOpenOrdersByDexCache();
-    perpsOpenOrdersByCoinAtomCache.clear();
     this.canceledOrderIds.clear();
     this.canceledTwapIds.clear();
   }
@@ -1909,7 +1907,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
         if (cleanupPlan.shouldClearOpenOrdersData) {
           this.resetOpenOrdersByDexCache();
-          perpsOpenOrdersByCoinAtomCache.clear();
           set(perpsActiveOpenOrdersAtom(), {
             accountAddress: undefined,
             openOrders: [],

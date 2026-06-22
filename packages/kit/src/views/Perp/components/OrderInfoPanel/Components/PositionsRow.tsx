@@ -18,10 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  useHyperliquidActions,
-  usePerpsOpenOrdersByCoin,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -31,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedOpenOrdersByCoin } from '../../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { useShowPositionShare } from '../../../hooks/useShowPositionShare';
 import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
@@ -478,7 +476,7 @@ const PositionRowDesktopTPSL = memo(
     onViewTpslOrders: () => void;
   }) => {
     const intl = useIntl();
-    const currentAssetOpenOrders = usePerpsOpenOrdersByCoin(coin);
+    const currentAssetOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
     const tpslInfo = useMemo(() => {
       const emptyPrice = '--';
       let tpPrice = emptyPrice;
@@ -1071,7 +1069,7 @@ PositionRowMobileFunding.displayName = 'PositionRowMobileFunding';
 
 const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
   const intl = useIntl();
-  const currentAssetOpenOrders = usePerpsOpenOrdersByCoin(coin);
+  const currentAssetOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
   const tpslInfo = useMemo(() => {
     const emptyPrice = '--';
     let tpPrice = emptyPrice;
