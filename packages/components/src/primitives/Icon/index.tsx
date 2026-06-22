@@ -204,6 +204,7 @@ const CRITICAL_ICON_NAMES: IKeyOfIcons[] = [
 
 const SWAP_COLD_START_ICON_NAMES: IKeyOfIcons[] = [
   'TradingViewCandlesOutline',
+  'FunctionCustom',
   'SliderHorOutline',
   'ClockTimeHistoryOutline',
   'InfoCircleSolid',
