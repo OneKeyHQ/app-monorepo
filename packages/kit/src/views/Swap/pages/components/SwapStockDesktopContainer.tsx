@@ -102,6 +102,7 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import SwapActionsState from './SwapActionsState';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
+import SwapQuoteResult from './SwapQuoteResult';
 import {
   type IStockChartRange,
   STOCK_CHART_DEFAULT_RANGE,
@@ -836,6 +837,8 @@ function StockTradeTicket({
   fetchLoading,
   onPreSwap,
   onToAnotherAddressModal,
+  onOpenProviderList,
+  refreshAction,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
@@ -880,6 +883,13 @@ function StockTradeTicket({
         quoteResult={quoteResult}
         stockChannel={stockChannel}
       />
+      {stockChannel.readyForQuote ? (
+        <SwapQuoteResult
+          refreshAction={refreshAction}
+          onOpenProviderList={onOpenProviderList}
+          quoteResult={quoteResult}
+        />
+      ) : null}
     </YStack>
   );
 }
