@@ -27,6 +27,7 @@ import {
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getLimitOrderDisplayToAmount } from './LimitOrderCard.utils';
 import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
@@ -134,8 +135,16 @@ const LimitOrderCard = ({
       toAmount: new BigNumber(item?.toAmount ?? '0').shiftedBy(
         -(item?.toTokenInfo?.decimals ?? 0),
       ),
+      displayToAmount: getLimitOrderDisplayToAmount({
+        executedBuyAmount: item.executedBuyAmount,
+        toAmount: item.toAmount,
+        toTokenInfo: {
+          decimals: item.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      item?.executedBuyAmount,
       item?.fromAmount,
       item?.fromTokenInfo?.decimals,
       item?.toAmount,
@@ -180,7 +189,9 @@ const LimitOrderCard = ({
     const fromAmountFormatted = formatBalance(
       decimalsAmount.fromAmount.toFixed(),
     );
-    const toAmountFormatted = formatBalance(decimalsAmount.toAmount.toFixed());
+    const toAmountFormatted = formatBalance(
+      decimalsAmount.displayToAmount.toFixed(),
+    );
 
     return (
       <YStack gap="$1.5" w={gtMd ? 200 : 240} justifyContent="flex-start">
