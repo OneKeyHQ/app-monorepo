@@ -32,6 +32,8 @@ export const TERMS_OF_SERVICE_URL =
   'https://help.onekey.so/articles/11461297-user-service-agreement';
 export const PRIVACY_POLICY_URL =
   'https://help.onekey.so/articles/11461298-privacy-policy';
+export const PERPS_IP_RESTRICTION_HELP_URL =
+  'https://help.onekey.so/articles/15533117';
 
 // Multi-DEX support constants
 export const DEX_PREFIXES = ['xyz'] as const;
