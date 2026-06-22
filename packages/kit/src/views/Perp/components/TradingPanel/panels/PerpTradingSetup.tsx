@@ -53,11 +53,22 @@ function PerpTradingSetup({ onConnect }: IPerpTradingSetupProps) {
 
       {/* Action Buttons */}
       <YStack space="$3" alignSelf="stretch" maxWidth={320}>
-        <Button size="large" onPress={onConnect} testID="perp-btn">
+        <Button
+          size="large"
+          onPress={onConnect}
+          childrenAsText={false}
+          testID="perp-btn"
+        >
           <SizableText fontWeight="600">Connect Wallet</SizableText>
         </Button>
 
-        <Button size="medium" variant="secondary" disabled testID="perp-btn">
+        <Button
+          size="medium"
+          variant="secondary"
+          disabled
+          childrenAsText={false}
+          testID="perp-btn"
+        >
           <SizableText>Switch to Hyperliquid Network</SizableText>
         </Button>
       </YStack>

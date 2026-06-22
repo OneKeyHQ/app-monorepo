@@ -100,6 +100,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         await decryptAsync({
           password,
           data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
         })
       ).toString('hex');
       return normalizePrivateKey(privateKey, 'aip80', curveName);

@@ -79,6 +79,8 @@ export interface IDevSettings {
   showPerpsRenderStats?: boolean;
   mockTradingViewKLineEmptyEnabled?: boolean;
   mockTradingViewKLineEmptyIntervals?: ITradingViewKLineMockEmptyInterval[];
+  // Show Market Home websocket subscription debug overlay and row highlight.
+  showMarketHomeWsDebug?: boolean;
 
   usbCommunicationMode?: 'webusb' | 'bridge';
 
@@ -104,6 +106,9 @@ export interface IDevSettings {
   disableCustomUA?: boolean;
   // Allow Discovery browser to load local development URLs.
   allowLocalhostUrlInDAppBrowser?: boolean;
+  // Force react-native-fast-pbkdf2 instead of the default quick-crypto backend
+  // for native PBKDF2 calls (debug only).
+  useFastPbkdf2NativeBackend?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -141,11 +146,13 @@ export const {
       useLocalTradingViewUrl: false,
       mockTradingViewKLineEmptyEnabled: false,
       mockTradingViewKLineEmptyIntervals: ['1m'],
+      showMarketHomeWsDebug: false,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      useFastPbkdf2NativeBackend: false,
     },
   },
 });

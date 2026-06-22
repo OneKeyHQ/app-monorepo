@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import {
   useActiveTabIdAtom,
+  useAliveWebViewIdsAtom,
   useDisabledAddedNewTabAtom,
   useDisplayHomePageAtom,
   useWebTabsAtom,
@@ -38,6 +39,16 @@ export const useActiveTabId = () => {
     }),
     [activeTabId],
   );
+};
+
+/**
+ * Whether the given tab should keep its WebView mounted. Tabs outside the
+ * keep-alive LRU window return false and unmount their WebView to free memory;
+ * re-activating such a tab remounts and reloads it.
+ */
+export const useShouldKeepWebViewAlive = (id?: string) => {
+  const [aliveIds] = useAliveWebViewIdsAtom();
+  return useMemo(() => (id ? aliveIds.has(id) : false), [aliveIds, id]);
 };
 
 export const useDisplayHomePageFlag = () => {

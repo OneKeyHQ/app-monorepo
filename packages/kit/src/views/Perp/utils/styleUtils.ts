@@ -39,6 +39,8 @@ export function GetTradingButtonStyleProps(side: ITradeSide, disabled = false) {
   };
 }
 
-export function getTradingSideTextColor(side: ITradeSide): string {
+export function getTradingSideTextColor(
+  side: ITradeSide,
+): '$green11' | '$red11' {
   return side === 'long' ? '$green11' : '$red11';
 }

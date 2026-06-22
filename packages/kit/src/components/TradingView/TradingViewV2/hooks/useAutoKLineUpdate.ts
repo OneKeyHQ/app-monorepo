@@ -1,10 +1,8 @@
 import { type RefObject, useCallback, useRef } from 'react';
 
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+
+import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import { fetchTradingViewV2Data } from './useTradingViewV2';
 
@@ -16,6 +14,8 @@ interface IAutoKLineUpdateParams {
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
   interval?: number; // in milliseconds, default 60000 (1 minute)
+  autoHandleError?: boolean;
+  symbol?: string;
 }
 
 export function useAutoKLineUpdate({
@@ -24,10 +24,10 @@ export function useAutoKLineUpdate({
   webRef,
   enabled = true,
   interval = 5000, // 1 minute
+  autoHandleError,
+  symbol,
 }: IAutoKLineUpdateParams) {
   const lastUpdateTime = useRef<number>(0);
-  const tokenDetailActions = useTokenDetailActions();
-  const [tokenDetail] = useTokenDetailAtom();
 
   const pushLatestKLineData = useCallback(async () => {
     // Skip if disabled or missing required params
@@ -52,6 +52,7 @@ export function useAutoKLineUpdate({
         interval: '1m', // 1 minute interval
         timeFrom,
         timeTo,
+        autoHandleError,
       });
 
       // Sort K-line data by timestamp to ensure we get the actual latest price
@@ -68,38 +69,20 @@ export function useAutoKLineUpdate({
             timestamp: now,
           },
         });
-
-        // Update token detail price with latest K-line close price
-
-        if (kLineData.points && kLineData.points.length > 0 && tokenDetail) {
-          const latestPoint = kLineData.points[kLineData.points.length - 1];
-          const latestPrice = latestPoint.c.toString(); // close price
-
-          // Only update if the price is different to avoid unnecessary updates
-          if (tokenDetail.price !== latestPrice) {
-            const updatedTokenDetail: typeof tokenDetail = {
-              ...tokenDetail,
-              price: latestPrice,
-              lastUpdated: now * 1000, // Convert to milliseconds for JavaScript Date
-            };
-
-            tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
-          }
-        }
+        sendVolumeVisibilityUpdate({
+          allowHide: false,
+          kLineData,
+          source: 'realtime',
+          symbol,
+          webRef,
+        });
 
         lastUpdateTime.current = now;
       }
     } catch (error) {
       console.error('Failed to push auto K-line data:', error);
     }
-  }, [
-    enabled,
-    tokenAddress,
-    networkId,
-    webRef,
-    tokenDetail,
-    tokenDetailActions,
-  ]);
+  }, [enabled, tokenAddress, networkId, webRef, autoHandleError, symbol]);
 
   // Use the existing useInterval hook pattern
   // For native tokens, tokenAddress might be empty, but networkId is required

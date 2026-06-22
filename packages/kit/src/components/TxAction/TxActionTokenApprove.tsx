@@ -65,6 +65,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
     componentProps,
     showIcon,
     replaceType,
+    displayStatus,
     hideValue,
     compact,
   } = props;
@@ -248,7 +249,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       showIcon={showIcon}
       hideFeeInfo={hideFeeInfo}
       replaceType={replaceType}
-      status={decodedTx.status}
+      status={displayStatus ?? decodedTx.status}
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
       riskyLevel={decodedTx.riskyLevel}

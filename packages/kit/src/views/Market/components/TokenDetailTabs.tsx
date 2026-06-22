@@ -11,9 +11,9 @@ import {
   useIsOverlayPage,
   useMedia,
   useSplitSubView,
-  useTabContainerWidth,
 } from '@onekeyhq/components';
 import type { IDeferredPromise } from '@onekeyhq/components';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';

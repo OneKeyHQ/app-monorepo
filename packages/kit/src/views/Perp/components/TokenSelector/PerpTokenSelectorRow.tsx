@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from 'react';
 
@@ -18,13 +19,12 @@ import {
   SizableText,
   SkeletonContainer,
   Stack,
-  Tooltip,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxEntry,
   spotAssetCtxsMapAtom,
@@ -35,11 +35,16 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { markPerpsColdStartPerfOnce } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
   formatLocalizedNumberString,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  reconcileTokenSelectorFavoritesOrder,
+  updateTokenSelectorFavoriteCoins,
+} from '@onekeyhq/shared/src/utils/perpsTokenSelectorFavorites';
 import {
   formatSpotPairDisplayName,
   formatSpotPriceToValid,
@@ -100,9 +105,7 @@ interface ITokenSelectorRowContextValue {
 const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
-const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
 const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
-const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function isSpotAssetCtxEntryEqual(
   a: ISpotAssetCtxEntry | null,
@@ -228,56 +231,54 @@ export const FavoriteButton = memo(
       : perpFavs.favorites.includes(coin);
 
     const handleToggle = useCallback(() => {
-      const mode: 'perp' | 'spot' = isSpot ? 'spot' : 'perp';
-      const toggleFavorites = (prev: string[]) => {
-        const removing = prev.includes(coin);
-        return removing ? prev.filter((f) => f !== coin) : [...prev, coin];
-      };
-      const wasFavorited = isSpot
-        ? spotFavs.favorites.includes(coin)
-        : perpFavs.favorites.includes(coin);
+      const mode = isSpot ? 'spot' : 'perp';
+      const action = isFavorite ? 'remove' : 'add';
+      const updateFavorites = (favorites: string[]) =>
+        updateTokenSelectorFavoriteCoins({
+          favorites,
+          coin,
+          action,
+        }).favorites;
+
       if (isSpot) {
         setSpotFavs((prev) => ({
           ...prev,
-          favorites: toggleFavorites(prev.favorites),
+          favorites: updateFavorites(prev.favorites),
         }));
       } else {
-        setPerpFavs((prev) => {
-          const removing = prev.favorites.includes(coin);
-          void backgroundApiProxy.serviceMarketV2.syncToMarketWatchList({
-            coin,
-            action: removing ? 'remove' : 'add',
-          });
-          return {
-            ...prev,
-            favorites: toggleFavorites(prev.favorites),
-          };
-        });
+        setPerpFavs((prev) => ({
+          ...prev,
+          favorites: updateFavorites(prev.favorites),
+        }));
       }
-      // FavoritesBar's passive sync would eventually backfill, but writing
-      // directly here avoids a one-frame flicker on add/remove.
-      setFavoritesOrder((prev) => {
-        if (wasFavorited) {
-          return {
-            sequence: prev.sequence.filter(
-              (e) => !(e.mode === mode && e.coinName === coin),
-            ),
-          };
-        }
-        if (prev.sequence.some((e) => e.mode === mode && e.coinName === coin)) {
-          return prev;
-        }
-        return {
-          sequence: [...prev.sequence, { mode, coinName: coin }],
-        };
+
+      const nextPerpFavorites = isSpot
+        ? perpFavs.favorites
+        : updateFavorites(perpFavs.favorites);
+      const nextSpotFavorites = isSpot
+        ? updateFavorites(spotFavs.favorites)
+        : spotFavs.favorites;
+      setFavoritesOrder((prev) => ({
+        sequence: reconcileTokenSelectorFavoritesOrder({
+          sequence: prev.sequence,
+          perpFavorites: nextPerpFavorites,
+          spotFavorites: nextSpotFavorites,
+        }),
+      }));
+
+      void backgroundApiProxy.serviceHyperliquid.updateTokenSelectorFavorite({
+        mode,
+        coin,
+        action,
       });
     }, [
       coin,
+      isFavorite,
       isSpot,
+      perpFavs.favorites,
+      setFavoritesOrder,
       setPerpFavs,
       setSpotFavs,
-      setFavoritesOrder,
-      perpFavs.favorites,
       spotFavs.favorites,
     ]);
 
@@ -299,59 +300,6 @@ export const FavoriteButton = memo(
 );
 
 FavoriteButton.displayName = 'FavoriteButton';
-
-const SubtitleBadge = memo(
-  ({
-    subtitle,
-    maxWidth,
-    withTooltip,
-  }: {
-    subtitle: string;
-    maxWidth: number;
-    withTooltip?: boolean;
-  }) => {
-    const badge = (
-      <XStack
-        borderRadius="$1"
-        bg="$bgInfo"
-        justifyContent="center"
-        alignItems="center"
-        px="$1"
-        maxWidth={maxWidth}
-        minWidth={0}
-        overflow="hidden"
-        flexShrink={0}
-        accessibilityLabel={subtitle}
-      >
-        <SizableText
-          fontSize={10}
-          alignSelf="center"
-          color="$textInfo"
-          lineHeight={16}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          flexShrink={1}
-        >
-          {subtitle}
-        </SizableText>
-      </XStack>
-    );
-
-    if (!withTooltip) {
-      return badge;
-    }
-
-    return (
-      <Tooltip
-        placement="top"
-        hovering
-        renderTrigger={badge}
-        renderContent={subtitle}
-      />
-    );
-  },
-);
-SubtitleBadge.displayName = 'SubtitleBadge';
 
 export const TradingModeBadge = memo(
   ({
@@ -394,7 +342,6 @@ TradingModeBadge.displayName = 'TradingModeBadge';
 const TokenInfoCellDesktop = memo(() => {
   const { token, isSpot, pairCoin, desktopLayout } =
     useTokenSelectorRowContext();
-  const { gtLg } = useMedia();
   const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
   const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
@@ -431,44 +378,46 @@ const TokenInfoCellDesktop = memo(() => {
               )}
               fallbackIcon="CryptoCoinOutline"
             />
-            <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
-              {token.displayName}
-            </SizableText>
-            <XStack gap="$1" minWidth={0}>
-              {isSpot ? (
-                <TradingModeBadge
-                  isSpot
-                  px="$1.5"
-                  bg="$bgStrong"
-                  color="$textSubdued"
-                />
-              ) : null}
-              {!isSpot && token.maxLeverage > 0 ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgStrong"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
+            <YStack flex={1} minWidth={0}>
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySmMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
                 >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
+                  {token.displayName}
+                </SizableText>
+                {isSpot ? (
+                  <TradingModeBadge
+                    isSpot
+                    px="$1.5"
+                    bg="$bgStrong"
                     color="$textSubdued"
-                    lineHeight={16}
+                  />
+                ) : null}
+                {!isSpot && token.maxLeverage > 0 ? (
+                  <XStack
+                    borderRadius="$1"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                    px="$1.5"
                   >
-                    {token.maxLeverage}x
-                  </SizableText>
-                </XStack>
+                    <SizableText
+                      fontSize={10}
+                      alignSelf="center"
+                      color="$textSubdued"
+                      lineHeight={16}
+                    >
+                      {token.maxLeverage}x
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </XStack>
+              {token.subtitle ? (
+                <SubtitleText subtitle={token.subtitle} maxWidth={66} />
               ) : null}
-              {token.subtitle && gtLg ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
-                  withTooltip
-                />
-              ) : null}
-            </XStack>
+            </YStack>
           </XStack>
         </XStack>
       </DebugRenderTracker>
@@ -478,7 +427,6 @@ const TokenInfoCellDesktop = memo(() => {
       token.subtitle,
       token.maxLeverage,
       token.name,
-      gtLg,
       isSpot,
       pairCoin,
       useFlexibleLayout,
@@ -933,7 +881,7 @@ const TokenNameMobile = memo(() => {
         offsetY={10}
       >
         <YStack gap="$0">
-          <XStack gap="$1.5" alignItems="center" justifyContent="center">
+          <XStack gap="$1.5" alignItems="center">
             <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
             <XStack gap="$1">
@@ -958,18 +906,12 @@ const TokenNameMobile = memo(() => {
                   </SizableText>
                 </XStack>
               ) : null}
-              {token.subtitle ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={MOBILE_SUBTITLE_MAX_WIDTH}
-                />
-              ) : null}
             </XStack>
           </XStack>
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, isSpot],
+    [token.displayName, token.maxLeverage, isSpot],
   );
   return content;
 });
@@ -977,7 +919,7 @@ const TokenNameMobile = memo(() => {
 TokenNameMobile.displayName = 'TokenNameMobile';
 
 const TokenVolumeMobile = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, token } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -986,17 +928,22 @@ const TokenVolumeMobile = memo(() => {
         name="TokenVolumeMobile"
         offsetY={10}
       >
-        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-          <SizableText size="$bodySm" color="$text">
-            $
-            {formatDisplayNumber(
-              NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
-            )}
-          </SizableText>
-        </SkeletonContainer>
+        <XStack gap="$1" alignItems="center" minWidth={0}>
+          {token.subtitle ? (
+            <SubtitleText subtitle={token.subtitle} maxWidth={80} />
+          ) : null}
+          <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+            <SizableText size="$bodySm" color="$textSubdued">
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
+              )}
+            </SizableText>
+          </SkeletonContainer>
+        </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.volume24h, isLoading],
+    [assetCtx.volume24h, isLoading, token.subtitle],
   );
   return content;
 });
@@ -1308,6 +1255,15 @@ const PerpTokenSelectorRowPerps = memo(
         desktopLayout,
       ],
     );
+
+    useEffect(() => {
+      if (!isLoading && assetCtx?.markPrice && assetCtx.markPrice !== '0') {
+        markPerpsColdStartPerfOnce('ui_token_selector_perp_row_ready', {
+          tokenName,
+          markPrice: assetCtx.markPrice,
+        });
+      }
+    }, [assetCtx?.markPrice, isLoading, tokenName]);
 
     if (!tokenName) {
       return null;

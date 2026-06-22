@@ -1,16 +1,15 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useTokenDetailActions,
-  useTokenDetailAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
+
+import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import type { IWebViewRef } from '../../../WebView/types';
 
@@ -21,14 +20,60 @@ interface IUseTradingViewV2WebSocketProps {
   enabled?: boolean;
   chartType?: string;
   currency?: string;
+  symbol?: string;
 }
 
 interface IMarketPriceUpdatePayload {
   channel: string;
   tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
   messageType?: string;
   data: unknown;
   originalData?: unknown;
+}
+
+function normalizeMarketWsKLineInterval(interval: string | undefined): string {
+  switch (interval) {
+    case '1':
+    case '1m':
+      return '1m';
+    case '5':
+    case '5m':
+      return '5m';
+    case '15':
+    case '15m':
+      return '15m';
+    case '30':
+    case '30m':
+      return '30m';
+    case '60':
+    case '1h':
+    case '1H':
+      return '1h';
+    case '240':
+    case '4h':
+    case '4H':
+      return '4h';
+    case '1d':
+    case '1D':
+      return '1d';
+    case '1w':
+    case '1W':
+      return '1w';
+    default:
+      return interval || '1m';
+  }
+}
+
+function isMarketTokenKLineResponse(
+  data: unknown,
+): data is IMarketTokenKLineResponse {
+  return (
+    Boolean(data) &&
+    typeof data === 'object' &&
+    Array.isArray((data as { points?: unknown }).points)
+  );
 }
 
 export function useTradingViewV2WebSocket({
@@ -38,20 +83,18 @@ export function useTradingViewV2WebSocket({
   enabled = true,
   chartType = '1m',
   currency = 'usd',
+  symbol,
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
-  const tokenDetailActions = useTokenDetailActions();
-  const [tokenDetail] = useTokenDetailAtom();
-  const tokenDetailRef = useRef(tokenDetail);
+  const wsChartType = normalizeMarketWsKLineInterval(chartType);
   const { markSubscriptionActivity } = useMarketWSSubscriptionRecovery({
     enabled,
     networkId,
     tokenAddress,
-    chartType,
+    chartType: wsChartType,
     currency,
     channel: 'ohlcv',
   });
-  tokenDetailRef.current = tokenDetail;
   useEffect(() => {
     if (!networkId || !tokenAddress) {
       return;
@@ -63,7 +106,7 @@ export function useTradingViewV2WebSocket({
         await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
           networkId,
           tokenAddress,
-          chartType,
+          chartType: wsChartType,
           currency,
         });
       } catch (error) {
@@ -81,7 +124,7 @@ export function useTradingViewV2WebSocket({
           await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
             networkId,
             tokenAddress,
-            chartType,
+            chartType: wsChartType,
             currency,
           });
         } catch (error) {
@@ -91,7 +134,7 @@ export function useTradingViewV2WebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled, chartType, currency]);
+  }, [networkId, tokenAddress, enabled, wsChartType, currency]);
 
   useEffect(() => {
     if (!enabled) {
@@ -102,6 +145,26 @@ export function useTradingViewV2WebSocket({
       if (
         payload.tokenAddress !== tokenAddress ||
         payload.channel !== 'ohlcv'
+      ) {
+        return;
+      }
+
+      if (payload.networkId && payload.networkId !== networkId) {
+        return;
+      }
+
+      if (!payload.networkId && payload.isSubscriptionAmbiguous) {
+        return;
+      }
+
+      const receivedData = payload.data as
+        | IWsPriceData
+        | IMarketTokenKLineResponse;
+      if (
+        receivedData &&
+        !isMarketTokenKLineResponse(receivedData) &&
+        receivedData.type &&
+        normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
       ) {
         return;
       }
@@ -118,9 +181,8 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      const receivedData = payload.data as IWsPriceData;
-      const dataForWebView =
-        receivedData && 'points' in receivedData
+      const dataForWebView: IMarketTokenKLineResponse =
+        isMarketTokenKLineResponse(receivedData)
           ? receivedData
           : {
               points: [
@@ -142,29 +204,21 @@ export function useTradingViewV2WebSocket({
           timestamp: now,
         },
       });
+      sendVolumeVisibilityUpdate({
+        allowHide: false,
+        kLineData: dataForWebView,
+        source: 'realtime',
+        symbol,
+        webRef,
+      });
 
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
         address: tokenAddress,
         type: 'ohlcv',
+        networkId,
+        chartType: wsChartType,
+        currency,
       });
-
-      if (
-        receivedData &&
-        typeof receivedData.c === 'number' &&
-        tokenDetailRef.current
-      ) {
-        const latestPrice = receivedData.c.toString();
-
-        if (tokenDetailRef.current.price !== latestPrice) {
-          const updatedTokenDetail: typeof tokenDetailRef.current = {
-            ...tokenDetailRef.current,
-            price: latestPrice,
-            lastUpdated: now * 1000,
-          };
-
-          tokenDetailActions.current.setTokenDetail(updatedTokenDetail);
-        }
-      }
 
       lastUpdateTime.current = now;
     }
@@ -182,9 +236,13 @@ export function useTradingViewV2WebSocket({
     };
   }, [
     markSubscriptionActivity,
+    networkId,
     tokenAddress,
+    chartType,
+    currency,
     webRef,
     enabled,
-    tokenDetailActions,
+    wsChartType,
+    symbol,
   ]);
 }

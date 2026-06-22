@@ -17,17 +17,31 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IGasPayer } from '@onekeyhq/shared/types/fee';
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
 const DEFAULT_IMAGE_HEIGHT = 40;
 
+function isPrivateSendSwapInfo(swapInfo: IUnsignedTxPro['swapInfo']) {
+  const buildResult = swapInfo?.swapBuildResData?.result;
+  return (
+    swapInfo?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    buildResult?.info?.provider === privateSendProvider
+  );
+}
+
 function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
+  effectiveFeePayer?: IGasPayer;
+  txFeeInfoInit?: boolean;
 }) {
-  const { decodedTxs, unsignedTxs } = props;
+  const { decodedTxs, unsignedTxs, effectiveFeePayer, txFeeInfoInit } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
   const theme = useThemeName();
@@ -37,7 +51,36 @@ function TxConfirmHeaderRight(props: {
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
 
+    // Wait until fee info is initialized before deciding on the badge.
+    // `effectiveFeePayer` defaults to `'user'` and is only updated once the
+    // async fee estimation completes, so rendering the badge earlier would
+    // briefly show MEV for sponsored txs (and could leak the previous tx's
+    // payer in queue mode). Hiding it until init avoids that flicker.
+    if (!txFeeInfoInit) {
+      return null;
+    }
+
+    // Hide the MEV badge whenever the fee is sponsored (gas account or BNB
+    // gas-free / megafuel). Sponsored transactions are relayed through a
+    // sponsor-bound RPC rather than the MEV-protected RPC, so the badge would
+    // be misleading. Only user-paid transactions go through the MEV-protected
+    // RPC and keep the badge.
+    if (
+      effectiveFeePayer === 'gasAccount' ||
+      effectiveFeePayer === 'megafuel'
+    ) {
+      return null;
+    }
+
     const unsignedTx = unsignedTxs[0];
+    const swapTx = find(unsignedTxs, 'swapInfo');
+
+    if (
+      decodedTx?.payload?.privateSend ||
+      isPrivateSendSwapInfo(swapTx?.swapInfo)
+    ) {
+      return null;
+    }
 
     if (unsignedTx.disableMev) {
       return null;
@@ -46,8 +89,6 @@ function TxConfirmHeaderRight(props: {
     if (decodedTx?.txDisplay?.mevProtectionProvider) {
       return decodedTx.txDisplay.mevProtectionProvider;
     }
-
-    const swapTx = find(unsignedTxs, 'swapInfo');
 
     if (swapTx && swapTx.swapInfo) {
       let isBridge = false;
@@ -69,7 +110,13 @@ function TxConfirmHeaderRight(props: {
         ];
       }
     }
-  }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
+  }, [
+    unsignedTxs,
+    decodedTx?.payload?.privateSend,
+    decodedTx?.txDisplay?.mevProtectionProvider,
+    effectiveFeePayer,
+    txFeeInfoInit,
+  ]);
 
   const imageUri = useMemo(() => {
     if (!mevProtectionProvider) {
@@ -98,6 +145,10 @@ function TxConfirmHeaderRight(props: {
           });
         }
       });
+    } else {
+      // Reset stale size when the badge is hidden so a later provider with a
+      // different logo does not render with the previous provider's dimensions.
+      setProviderImageSize(undefined);
     }
   }, [imageUri]);
 

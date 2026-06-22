@@ -12,7 +12,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   LeverageBadge,
-  SubtitleBadge,
+  SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -22,6 +22,7 @@ import { type IMarketToken } from '../../MarketTokenData';
 
 export const useColumnsMobile = (
   showStockSubtitle?: boolean,
+  useStockMetadataColumns?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const intl = useIntl();
 
@@ -31,11 +32,17 @@ export const useColumnsMobile = (
       renderTitle: (sortIcon) => (
         <XStack alignItems="center" py="$2" paddingLeft="$5">
           <SizableText color="$textSubdued" size="$bodySmMedium">
-            {`${intl.formatMessage({
-              id: ETranslations.global_name,
-            })} / ${intl.formatMessage({
-              id: ETranslations.dexmarket_turnover,
-            })}`}
+            {useStockMetadataColumns
+              ? `${intl.formatMessage({
+                  id: ETranslations.global_name,
+                })} / ${intl.formatMessage({
+                  id: ETranslations.global_market_cap,
+                })}`
+              : `${intl.formatMessage({
+                  id: ETranslations.global_name,
+                })} / ${intl.formatMessage({
+                  id: ETranslations.dexmarket_turnover,
+                })}`}
           </SizableText>
           {sortIcon}
         </XStack>
@@ -74,20 +81,24 @@ export const useColumnsMobile = (
                   {record.maxLeverage ? (
                     <LeverageBadge leverage={record.maxLeverage} />
                   ) : null}
-                  {record.perpsSubtitle ? (
-                    <SubtitleBadge subtitle={record.perpsSubtitle} />
-                  ) : null}
                 </XStack>
-                {record.turnover ? (
-                  <NumberSizeableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    formatter="marketCap"
-                    formatterOptions={{ currency: '$' }}
-                  >
-                    {record.turnover}
-                  </NumberSizeableText>
+                {record.perpsSubtitle || record.turnover ? (
+                  <XStack alignItems="center" gap="$1" minWidth={0}>
+                    {record.perpsSubtitle ? (
+                      <SubtitleText subtitle={record.perpsSubtitle} />
+                    ) : null}
+                    {record.turnover ? (
+                      <NumberSizeableText
+                        size="$bodyMd"
+                        color="$textSubdued"
+                        numberOfLines={1}
+                        formatter="marketCap"
+                        formatterOptions={{ currency: '$' }}
+                      >
+                        {record.turnover}
+                      </NumberSizeableText>
+                    ) : null}
+                  </XStack>
                 ) : null}
               </Stack>
             </XStack>
@@ -103,7 +114,9 @@ export const useColumnsMobile = (
               symbol={record.symbol}
               address={record.address}
               showVolume
-              volume={record.turnover}
+              volume={
+                useStockMetadataColumns ? record.marketCap : record.turnover
+              }
               communityRecognized={record.communityRecognized}
               stock={record.stock}
               showStockSubtitle={showStockSubtitle}

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
+import { displayOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
 import {
   useFlattenAggregateTokensMapAtom,
@@ -34,7 +35,7 @@ function TokenBalanceView(props: IProps) {
       formatterOptions={{ tokenSymbol: symbol }}
       {...rest}
     >
-      {token?.balanceParsed || '0'}
+      {displayOrUnavailable(token?.balanceParsed)}
     </NumberSizeableTextWrapper>
   );
 }

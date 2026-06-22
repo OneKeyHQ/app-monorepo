@@ -49,6 +49,7 @@ function normalizeSearchQuery(query: string) {
 
 export function usePerpTokenSelector() {
   const [searchQuery, setSearchQueryInternal] = useState('');
+  const searchQueryRef = useRef(searchQuery);
   const actions = useHyperliquidActions();
   const [{ assetsByDex, query: filteredQuery }] =
     usePerpsAllAssetsFilteredAtom();
@@ -58,6 +59,7 @@ export function usePerpTokenSelector() {
   const tokenSearchAliasesRef = useRef<ITokenSearchAliases | undefined>(
     undefined,
   );
+  searchQueryRef.current = searchQuery;
 
   const refreshAllAssets = useCallback(async () => {
     const [{ universesByDex }, tokenSearchAliases] = await Promise.all([
@@ -68,7 +70,7 @@ export function usePerpTokenSelector() {
     tokenSearchAliasesRef.current = tokenSearchAliases;
     actions.current.updateAllAssetsFiltered({
       allAssetsByDex: allAssetsRef.current,
-      query: '',
+      query: searchQueryRef.current,
       tokenSearchAliases,
     });
   }, [actions]);

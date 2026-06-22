@@ -40,6 +40,7 @@ export interface IRookieGuideInfo {
     reason: string;
     address?: string;
   };
+  locale: string;
 }
 
 // ============ Rookie Share Types ============

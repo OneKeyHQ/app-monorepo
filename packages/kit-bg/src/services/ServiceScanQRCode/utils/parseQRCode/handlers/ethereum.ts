@@ -31,10 +31,11 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
     },
   } = parseValue;
 
+  const parsedFunctionName =
+    typeof functionName === 'string' ? functionName : undefined;
+  const isTransferFunction = parsedFunctionName?.toLowerCase() === 'transfer';
   const sendAddress: string | undefined =
-    functionName === 'transfer' && address
-      ? address
-      : tokenAddress || undefined;
+    isTransferFunction && address ? address : tokenAddress || undefined;
   if (sendAddress) {
     const networkList =
       await options?.backgroundApi?.serviceNetwork?.getNetworksByImpls?.({
@@ -45,6 +46,7 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
       address: sendAddress,
       id: chainId,
       network,
+      functionName: parsedFunctionName,
       uint256,
       amount,
       value: amountValue,

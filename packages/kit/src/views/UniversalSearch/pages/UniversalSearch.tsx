@@ -240,21 +240,74 @@ export function UniversalSearch({
     },
     [focusedTab],
   );
-  const isInAllTab = useMemo(() => {
-    return filterType === tabTitles[0];
-  }, [filterType, tabTitles]);
+  // Only surface tabs that actually have results for the current search. The
+  // leading "All" tab is always kept; module tabs with no results are hidden.
+  const visibleTabTitles = useMemo(() => {
+    const sectionTitles = new Set(sections.map((section) => section.title));
+    return tabTitles.filter(
+      (title, index) => index === 0 || sectionTitles.has(title),
+    );
+  }, [sections, tabTitles]);
 
+  // The selected tab may have been hidden (e.g. an `initialTab` preset whose
+  // module returned no results). Fall back to the "All" tab so the result list
+  // still shows the available results instead of an empty state.
+  const activeTab = useMemo(
+    () => (visibleTabTitles.includes(filterType) ? filterType : tabTitles[0]),
+    [visibleTabTitles, filterType, tabTitles],
+  );
+
+  const isInAllTab = useMemo(() => {
+    return activeTab === tabTitles[0];
+  }, [activeTab, tabTitles]);
+
+  // Reset the active tab to the initial tab whenever a new search starts.
+  // The TabBar is only rendered in the `done` state and is unmounted while
+  // `loading`, so resetting here (before it re-mounts) guarantees it re-mounts
+  // already focused on the initial tab. Resetting on `done` instead is
+  // unreliable: the TabBar re-mounts initializing its internal `currentTab`
+  // from the previous (stale) `focusedTab`, and a deferred programmatic write
+  // can be dropped by its mount-time state initialization — leaving the
+  // highlight stuck on the old tab while the result list already shows all
+  // modules. Covers both typing and recent-search fill, since both enter
+  // `loading` before `done`.
   useEffect(() => {
-    if (searchStatus === ESearchStatus.done) {
-      const targetTabName = initialTabName;
-      if (focusedTab.value !== targetTabName) {
-        setFilterType(targetTabName);
-        setTimeout(() => {
-          focusedTab.value = targetTabName;
-        }, 0);
+    if (searchStatus === ESearchStatus.loading) {
+      if (focusedTab.value !== initialTabName) {
+        focusedTab.value = initialTabName;
       }
+      setFilterType(initialTabName);
     }
   }, [focusedTab, searchStatus, initialTabName]);
+
+  // The loading-phase reset above points `focusedTab` at `initialTabName`, which
+  // can end up hidden when that preset module returns no results (see
+  // `visibleTabTitles`). The TabBar seeds its highlight from `focusedTab.value`
+  // at mount, so a hidden value would leave the bar with no active tab while the
+  // list already falls back to the All results. Correct it synchronously here —
+  // before the TabBar mounts in the `done` branch — to the resolved, always
+  // visible `activeTab`. This is a render-time fix (not a deferred write), so it
+  // is applied at mount-seed time rather than being dropped by it.
+  if (
+    searchStatus === ESearchStatus.done &&
+    focusedTab.value !== activeTab &&
+    !visibleTabTitles.includes(focusedTab.value)
+  ) {
+    focusedTab.value = activeTab;
+    // Commit `filterType` to the resolved fallback too. Otherwise it keeps the
+    // hidden preset (e.g. "Dapps"): once that preset's deferred results arrive
+    // and its tab becomes visible again, `activeTab` would jump back to the
+    // preset and the content list would re-filter to it — while the TabBar,
+    // already mounted and seeded to the always-visible fallback, keeps
+    // highlighting it, leaving the highlight out of sync with the content.
+    // Pinning `filterType` here keeps the user on the fallback so both stay in
+    // sync.
+    // This guard never fires mid-swipe, where `filterType` already equals
+    // `activeTab` (only `focusedTab` is mid-transition).
+    if (filterType !== activeTab) {
+      setFilterType(activeTab);
+    }
+  }
 
   const shouldUseTokensCacheData = useMemo(() => {
     return (
@@ -800,9 +853,9 @@ export function UniversalSearch({
 
       return sectionsWithSliceData;
     }
-    const filtered = sections.filter((i) => i.title === filterType);
+    const filtered = sections.filter((i) => i.title === activeTab);
     return filtered;
-  }, [filterType, isInAllTab, sections, isFocusInMarketTab]);
+  }, [activeTab, isInAllTab, sections, isFocusInMarketTab]);
 
   const renderResult = useCallback(() => {
     switch (searchStatus) {
@@ -839,17 +892,19 @@ export function UniversalSearch({
       case ESearchStatus.done:
         return (
           <>
-            <Tabs.TabBar
-              scrollable
-              tabNames={tabTitles}
-              onTabPress={handleTabPress}
-              focusedTab={focusedTab}
-              tabItemStyle={{
-                h: 44,
-              }}
-            />
+            {visibleTabTitles.length > 1 ? (
+              <Tabs.TabBar
+                scrollable
+                tabNames={visibleTabTitles}
+                onTabPress={handleTabPress}
+                focusedTab={focusedTab}
+                tabItemStyle={{
+                  h: 44,
+                }}
+              />
+            ) : null}
             <SectionList
-              key={`search-results-${isInAllTab ? 'all' : filterType}`}
+              key={`search-results-${isInAllTab ? 'all' : activeTab}`}
               stickySectionHeadersEnabled
               sections={filterSections}
               renderSectionHeader={renderSectionHeader}
@@ -885,11 +940,11 @@ export function UniversalSearch({
     keyExtractor,
     filterTypes,
     handleSearchTextFill,
-    tabTitles,
+    visibleTabTitles,
     handleTabPress,
     focusedTab,
     isInAllTab,
-    filterType,
+    activeTab,
     filterSections,
     renderSectionFooter,
     intl,

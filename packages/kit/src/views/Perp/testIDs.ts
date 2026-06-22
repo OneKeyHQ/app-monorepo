@@ -17,6 +17,7 @@ export const PerpTestIDs = {
   OrderTypeMarketTab: 'perp-order-type-market-tab',
   OrderTypeLimitTab: 'perp-order-type-limit-tab',
   OrderTypeTriggerTab: 'perp-order-type-trigger-tab',
+  OrderTypeInfoButton: 'perp-order-type-info-button',
 
   // -- Trading form: price inputs --
   PriceInput: 'perp-price-input',
@@ -45,6 +46,7 @@ export const PerpTestIDs = {
   // -- Deposit --
   DepositButton: 'perp-deposit-button',
   MobileDepositButton: 'perp-trading-form-mobile-deposit-button',
+  MarginToastDepositButton: 'perp-margin-toast-deposit-button',
 
   // -- Order info panel tabs --
   PositionsTab: 'perp-positions-tab',
@@ -112,6 +114,7 @@ export const PerpTestIDs = {
   // -- Empty state CTAs (positions / holdings panels) --
   PositionsEmptyDepositButton: 'perp-positions-empty-deposit-button',
   PositionsEmptyGuideButton: 'perp-positions-empty-guide-button',
+  TwapEmptyGuideButton: 'perp-twap-empty-guide-button',
   HoldingsEmptyDepositButton: 'perp-holdings-empty-deposit-button',
   HoldingsEmptyGuideButton: 'perp-holdings-empty-guide-button',
 

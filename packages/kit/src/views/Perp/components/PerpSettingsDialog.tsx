@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -17,7 +18,9 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsSpotDustingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -118,6 +121,189 @@ interface IPerpSettingsPopoverContentProps {
   showGuideEntry?: boolean;
 }
 
+function SpotDustingOptOutSetting() {
+  const intl = useIntl();
+  const [activeAccount] = usePerpsActiveAccountAtom();
+  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [spotDusting] = usePerpsSpotDustingAtom();
+  const [pendingStatus, setPendingStatus] = useState<
+    | {
+        accountAddress: string;
+        enabled: boolean;
+      }
+    | undefined
+  >();
+
+  const activeAccountAddress = activeAccount.accountAddress?.toLowerCase();
+  const activeAccountAddressRef = useRef(activeAccountAddress);
+  activeAccountAddressRef.current = activeAccountAddress;
+  const statusMatchesActiveAccount =
+    Boolean(activeAccountAddress) &&
+    spotDusting?.accountAddress?.toLowerCase() === activeAccountAddress;
+  const serverEnabled = statusMatchesActiveAccount
+    ? spotDusting?.optOut !== true
+    : false;
+  const pendingEnabled =
+    pendingStatus && pendingStatus.accountAddress === activeAccountAddress
+      ? pendingStatus.enabled
+      : undefined;
+  const enabled = pendingEnabled ?? serverEnabled;
+  const canToggle =
+    activeAccountStatus.canTrade === true &&
+    statusMatchesActiveAccount &&
+    pendingEnabled === undefined;
+
+  useEffect(() => {
+    setPendingStatus((prev) =>
+      prev?.accountAddress === activeAccountAddress ? prev : undefined,
+    );
+  }, [activeAccountAddress]);
+
+  const copy = useMemo(
+    () => ({
+      title: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting__title,
+      }),
+      loadingSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_loading__desc,
+      }),
+      disabledSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_enable_trading_required__desc,
+      }),
+      enabledSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_on__desc,
+      }),
+      disabledStateSubtitle: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_off__desc,
+      }),
+      loadingToast: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_loading__msg,
+      }),
+      disabledToast: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_enable_trading_required__msg,
+      }),
+      enabling: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turning_on__msg,
+      }),
+      disabling: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turning_off__msg,
+      }),
+      enabled: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turned_on__msg,
+      }),
+      disabled: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_turned_off__msg,
+      }),
+      failed: intl.formatMessage({
+        id: ETranslations.perp_spot_dusting_update_failed__msg,
+      }),
+    }),
+    [intl],
+  );
+
+  const subtitle = useMemo(() => {
+    if (!statusMatchesActiveAccount) {
+      return copy.loadingSubtitle;
+    }
+    if (activeAccountStatus.canTrade !== true) {
+      return copy.disabledSubtitle;
+    }
+    return enabled ? copy.enabledSubtitle : copy.disabledStateSubtitle;
+  }, [
+    activeAccountStatus.canTrade,
+    copy.disabledStateSubtitle,
+    copy.disabledSubtitle,
+    copy.enabledSubtitle,
+    copy.loadingSubtitle,
+    enabled,
+    statusMatchesActiveAccount,
+  ]);
+
+  const handleToggle = useCallback(
+    async (value: boolean) => {
+      const requestAccountAddress = activeAccountAddressRef.current;
+      if (!requestAccountAddress) {
+        return;
+      }
+      if (!statusMatchesActiveAccount) {
+        Toast.error({
+          title: copy.loadingToast,
+        });
+        return;
+      }
+
+      if (activeAccountStatus.canTrade !== true) {
+        Toast.error({
+          title: copy.disabledToast,
+        });
+        return;
+      }
+
+      setPendingStatus({
+        accountAddress: requestAccountAddress,
+        enabled: value,
+      });
+      const loadingToast = Toast.loading({
+        title: value ? copy.enabling : copy.disabling,
+        duration: Infinity,
+      });
+      try {
+        await backgroundApiProxy.serviceHyperliquidExchange.setSpotDustingOptOut(
+          { optOut: !value },
+        );
+        loadingToast?.close();
+        if (activeAccountAddressRef.current === requestAccountAddress) {
+          Toast.success({
+            title: value ? copy.enabled : copy.disabled,
+          });
+        }
+      } catch (error) {
+        loadingToast?.close();
+        if (activeAccountAddressRef.current === requestAccountAddress) {
+          Toast.error({
+            title: (error as Error)?.message || copy.failed,
+          });
+        }
+      } finally {
+        setPendingStatus((prev) =>
+          prev?.accountAddress === requestAccountAddress ? undefined : prev,
+        );
+      }
+    },
+    [
+      activeAccountStatus.canTrade,
+      copy.disabledToast,
+      copy.disabling,
+      copy.disabled,
+      copy.enabled,
+      copy.enabling,
+      copy.failed,
+      copy.loadingToast,
+      statusMatchesActiveAccount,
+    ],
+  );
+
+  return (
+    <ListItem
+      mx="$0"
+      px="$2.5"
+      titleProps={{ size: '$bodyMdMedium' }}
+      subtitleProps={{ size: '$bodySm' }}
+      title={copy.title}
+      subtitle={subtitle}
+      cursor="default"
+    >
+      <Switch
+        testID="perp-spot-dusting-opt-out-switch"
+        size={ESwitchSize.small}
+        value={enabled}
+        disabled={!canToggle}
+        onChange={handleToggle}
+      />
+    </ListItem>
+  );
+}
+
 function PerpSettingsPopoverContent({
   closePopover,
   showGuideEntry = false,
@@ -154,6 +340,8 @@ function PerpSettingsPopoverContent({
           }}
         />
       </ListItem>
+
+      <SpotDustingOptOutSetting />
 
       <ListItem
         mx="$0"

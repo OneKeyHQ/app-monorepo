@@ -294,6 +294,18 @@ function MessageConfirm() {
     );
   }, []);
 
+  // Pre-warm the device while the user reviews, so Sign can skip Initialize.
+  // Fire-and-forget; the service no-ops for non-hardware wallets.
+  useEffect(() => {
+    if (!accountId) {
+      return;
+    }
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    void backgroundApiProxy.serviceHardware.preInitializeDeviceForSign({
+      walletId,
+    });
+  }, [accountId]);
+
   useEffect(() => {
     if (sourceInfo) {
       const walletId = accountUtils.getWalletIdFromAccountId({

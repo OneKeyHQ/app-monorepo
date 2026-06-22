@@ -123,10 +123,16 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
+import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
+import {
+  SWAP_STOCK_ANALYTICS_ORDER_TYPE,
+  getStockTradeAnalyticsPayload,
+} from '../utils/swapStockAnalytics';
+import { getSwapExecutionTypeFromQuoteResult } from '../utils/swapTypeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapBuildTxInfo, useSwapProAccount } from './useSwapPro';
@@ -141,6 +147,30 @@ const getEthers = createLazySdkLoader(() => import('ethers'));
 const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
+
+type ISwapSendTxResult = ISignedTxPro & {
+  gasFeeFiatValue?: string;
+  gasFeeInNative?: string;
+};
+
+type IEstimateNetworkFeeResult = {
+  fallbackToSeparateTxConfirm?: boolean;
+};
+
+function canFallbackToSeparateTxConfirm({
+  buildUnsignedParams,
+  approveUnsignedTxArr,
+}: {
+  buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams;
+  approveUnsignedTxArr?: IUnsignedTxPro[];
+}) {
+  return Boolean(
+    approveUnsignedTxArr?.length &&
+    (buildUnsignedParams.encodedTx ||
+      buildUnsignedParams.transfersInfo?.length),
+  );
+}
+
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
  *
@@ -262,6 +292,42 @@ export function useSwapBuildTx() {
   }
 
   const isModalPage = useIsOverlayPage();
+
+  const buildSeparateApproveAndSwapSteps = useCallback(
+    (quoteResult?: IFetchQuoteResult) =>
+      buildSwapApproveAndSendSteps({
+        quoteResult,
+        texts: {
+          approveAndSwap: intl.formatMessage({
+            id: ETranslations.swap_page_approve_and_swap,
+          }),
+          revokeApprove: intl.formatMessage(
+            {
+              id: ETranslations.global_revoke_approve,
+            },
+            {
+              symbol: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+            },
+          ),
+          approveTokenWithTarget: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_approve_button,
+            },
+            {
+              token: quoteResult?.fromTokenInfo.symbol ?? fromToken?.symbol,
+              target: quoteResult?.info.providerName,
+            },
+          ),
+          confirmSwap: intl.formatMessage({
+            id: ETranslations.swap_review_confirm_swap,
+          }),
+          swap: intl.formatMessage({
+            id: ETranslations.global_swap,
+          }),
+        },
+      }),
+    [fromToken?.symbol, intl],
+  );
 
   const syncRecentTokenPairs = useCallback(
     async ({
@@ -537,6 +603,12 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
+        const toastId = [
+          'swap-native-balance-insufficient',
+          nativeBalanceRequirement.token.networkId,
+          checkResult.tokenSymbol,
+          nativeBalanceRequirement.reserveAmount,
+        ].join('-');
         const reserveAmountMessage = nativeBalanceRequirement.includesFromAmount
           ? undefined
           : intl.formatMessage(
@@ -559,6 +631,7 @@ export function useSwapBuildTx() {
             { token: checkResult.tokenSymbol },
           ),
           message: reserveAmountMessage,
+          toastId,
         });
         return false;
       }
@@ -804,7 +877,11 @@ export function useSwapBuildTx() {
           feeInfo: gasInfo as IFeeInfoUnit,
         },
       });
-      return res;
+      return {
+        ...res,
+        gasFeeFiatValue: totalFiatForDisplay,
+        gasFeeInNative: totalNativeForDisplay,
+      };
     },
     [checkLatestNativeTokenBalance, intl, setSwapSteps],
   );
@@ -819,14 +896,9 @@ export function useSwapBuildTx() {
       swapInfo?: ISwapTxInfo,
       isBatch?: boolean,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
-      if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
-      } else if (
-        swapInfo?.sender.token.networkId !== swapInfo?.receiver.token.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
-      }
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        swapInfo?.swapBuildResData.result,
+      );
       defaultLogger.swap.swapEstimateFee.swapEstimateFee({
         status,
         message,
@@ -863,14 +935,9 @@ export function useSwapBuildTx() {
       swapInfo?: ISwapTxInfo,
       quoteResult?: IFetchQuoteResult,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
-      if (swapInfo?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
-      } else if (
-        swapInfo?.sender.token.networkId !== swapInfo?.receiver.token.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
-      }
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        swapInfo?.swapBuildResData.result,
+      );
       defaultLogger.swap.swapSendTx.swapSendTx({
         fromAddress: fromUserAddress ?? '',
         toAddress: toUserAddress ?? '',
@@ -1207,7 +1274,7 @@ export function useSwapBuildTx() {
           };
         },
       );
-      let lastTxRes: ISignedTxPro | undefined;
+      let lastTxRes: ISwapSendTxResult | undefined;
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -1777,14 +1844,15 @@ export function useSwapBuildTx() {
       buildSwapRes: { orderId?: string; result?: IFetchQuoteResult },
       quoteResult?: IFetchQuoteResult,
     ) => {
-      let swapType = ESwapTabSwitchType.SWAP;
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        buildSwapRes?.result,
+      );
       if (buildSwapRes?.result?.protocol === EProtocolOfExchange.SWAP) {
         void syncRecentTokenPairs({
           swapFromToken: fromToken as ISwapToken,
           swapToToken: toToken as ISwapToken,
         });
       } else if (buildSwapRes?.result?.protocol === EProtocolOfExchange.LIMIT) {
-        swapType = ESwapTabSwitchType.LIMIT;
         appEventBus.emit(
           EAppEventBusNames.SwapLimitOrderBuildSuccess,
           undefined,
@@ -1796,12 +1864,6 @@ export function useSwapBuildTx() {
             : undefined,
           true,
         );
-      }
-      if (
-        buildSwapRes.result?.fromTokenInfo.networkId !==
-        buildSwapRes.result?.toTokenInfo.networkId
-      ) {
-        swapType = ESwapTabSwitchType.BRIDGE;
       }
       defaultLogger.swap.createSwapOrder.swapCreateOrder({
         fromTokenAmount: buildSwapRes.result?.fromAmount ?? '',
@@ -1823,6 +1885,15 @@ export function useSwapBuildTx() {
         isFirstTime: isFirstTimeSwap,
         createFrom: isModalPage ? 'modal' : 'swapPage',
         orderId: buildSwapRes?.orderId ?? '',
+        orderType:
+          buildSwapRes.result?.protocol === EProtocolOfExchange.STOCK
+            ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+            : undefined,
+        ...getStockTradeAnalyticsPayload({
+          protocol: buildSwapRes.result?.protocol,
+          fromToken: buildSwapRes.result?.fromTokenInfo,
+          toToken: buildSwapRes.result?.toTokenInfo,
+        }),
       });
       setPersistSettings((prev) => ({
         ...prev,
@@ -1893,12 +1964,15 @@ export function useSwapBuildTx() {
             toToken: data.toTokenInfo,
             toTokenAmount: data.toAmount,
             fromTokenAmount: data.fromAmount,
-            slippagePercentage: slippageItem.value,
+            slippagePercentage:
+              data.protocol === EProtocolOfExchange.STOCK
+                ? (data.slippage ?? slippageItem.value)
+                : slippageItem.value,
             receivingAddress: toUserAddress ?? '',
             userAddress: fromUserAddress,
-            provider: data?.info.provider,
+            provider: data.info.provider,
             accountId: fromAccountId ?? '',
-            quoteResultCtx: data?.quoteResultCtx,
+            quoteResultCtx: data.quoteResultCtx,
             protocol: data.protocol ?? EProtocolOfExchange.SWAP,
             kind: data.kind ?? ESwapQuoteKind.SELL,
             walletType: swapFromAddressInfo.accountInfo?.wallet?.type ?? '',
@@ -1913,14 +1987,7 @@ export function useSwapBuildTx() {
               },
             }));
           }
-          let swapType = ESwapTabSwitchType.SWAP;
-          if (data?.protocol === EProtocolOfExchange.LIMIT) {
-            swapType = ESwapTabSwitchType.LIMIT;
-          } else if (
-            data?.fromTokenInfo.networkId !== data?.toTokenInfo.networkId
-          ) {
-            swapType = ESwapTabSwitchType.BRIDGE;
-          }
+          const swapType = getSwapExecutionTypeFromQuoteResult(data);
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             fromTokenAmount: data?.fromAmount ?? '',
             toTokenAmount: buildSwapRes?.result?.toAmount ?? '',
@@ -1943,6 +2010,15 @@ export function useSwapBuildTx() {
             isFirstTime: isFirstTimeSwap,
             createFrom: isModalPage ? 'modal' : 'swapPage',
             orderId: buildSwapRes?.orderId ?? '',
+            orderType:
+              data?.protocol === EProtocolOfExchange.STOCK
+                ? SWAP_STOCK_ANALYTICS_ORDER_TYPE
+                : undefined,
+            ...getStockTradeAnalyticsPayload({
+              protocol: data?.protocol,
+              fromToken: data?.fromTokenInfo,
+              toToken: data?.toTokenInfo,
+            }),
           });
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const ne = new Error(e?.message ?? 'unknown error');
@@ -2015,7 +2091,7 @@ export function useSwapBuildTx() {
                 networkId: buildSwapRes.result.fromTokenInfo.networkId,
                 okxTx: buildSwapRes.OKXTxObject,
                 fromTokenInfo: buildSwapRes.result.fromTokenInfo,
-                type: swapTypeSwitch,
+                type: getSwapExecutionTypeFromQuoteResult(buildSwapRes.result),
               });
           } else if (buildSwapRes?.LMTronObject) {
             encodedTx =
@@ -2081,7 +2157,8 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            buildSwapRes?.ctx?.oneInchFusionOrderHash
+            buildSwapRes?.ctx?.oneInchFusionOrderHash ||
+            buildSwapRes.result.swapShouldSignedData
           ) {
             skipSendTransAction = true;
           }
@@ -2106,7 +2183,10 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
-            protocol: buildSwapRes.result.protocol ?? EProtocolOfExchange.SWAP,
+            protocol:
+              buildSwapRes.result.protocol ??
+              data.protocol ??
+              EProtocolOfExchange.SWAP,
             sender: {
               amount: buildSwapRes.result.fromAmount ?? data.fromAmount,
               token: currentFromToken ?? buildSwapRes.result.fromTokenInfo,
@@ -2140,6 +2220,8 @@ export function useSwapBuildTx() {
             buildSwapRes?.ctx?.oneInchFusionOrderHash ??
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.changeHeroOrderId ??
+            buildSwapRes.orderId ??
+            buildSwapRes.result.quoteId ??
             '';
           setSwapSteps((prev) => ({
             ...prev,
@@ -2192,7 +2274,6 @@ export function useSwapBuildTx() {
       isModalPage,
       toAccountId,
       swapBuildFinish,
-      swapTypeSwitch,
       intl,
     ],
   );
@@ -2308,7 +2389,13 @@ export function useSwapBuildTx() {
               needFetchGas,
             );
             if (sendTxRes) {
-              void onBuildTxSuccess(sendTxRes.txid, swapInfo, orderId);
+              void onBuildTxSuccess(
+                sendTxRes.txid,
+                swapInfo,
+                orderId,
+                sendTxRes.gasFeeFiatValue,
+                sendTxRes.gasFeeInNative,
+              );
             }
           }
         }
@@ -2632,7 +2719,13 @@ export function useSwapBuildTx() {
             swapFromToken: fromTokenInfo,
             swapToToken: toTokenInfo,
           });
-          void onBuildTxSuccess(sendTxRes.txid, swapInfo);
+          void onBuildTxSuccess(
+            sendTxRes.txid,
+            swapInfo,
+            undefined,
+            sendTxRes.gasFeeFiatValue,
+            sendTxRes.gasFeeInNative,
+          );
           return sendTxRes;
         }
       }
@@ -2772,7 +2865,7 @@ export function useSwapBuildTx() {
       accountId: string,
       buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
       approveUnsignedTxArr?: IUnsignedTxPro[],
-    ) => {
+    ): Promise<IEstimateNetworkFeeResult> => {
       if (!fromToken || !fromAccountId || !fromUserAddress) {
         throw new OneKeyError('account error');
       }
@@ -2860,6 +2953,24 @@ export function useSwapBuildTx() {
               swapInfo,
               true,
             );
+            if (
+              canFallbackToSeparateTxConfirm({
+                buildUnsignedParams,
+                approveUnsignedTxArr,
+              })
+            ) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  estimateNetworkFeeLoading: false,
+                  netWorkFee: undefined,
+                },
+              }));
+              return {
+                fallbackToSeparateTxConfirm: true,
+              };
+            }
             throw e;
           }
         } else if (
@@ -3057,6 +3168,7 @@ export function useSwapBuildTx() {
         }));
         throw _e;
       }
+      return {};
     },
     [
       buildGasInfo,
@@ -3101,7 +3213,7 @@ export function useSwapBuildTx() {
             data,
           );
           const { unsignedTxArr } = await getApproveUnSignedTxArr(data);
-          await estimateNetworkFee(
+          const estimateNetworkFeeResult = await estimateNetworkFee(
             fromAccountNetworkId ?? '',
             fromAccountId ?? '',
             {
@@ -3113,6 +3225,26 @@ export function useSwapBuildTx() {
             },
             unsignedTxArr,
           );
+          if (estimateNetworkFeeResult.fallbackToSeparateTxConfirm) {
+            const separateSteps = buildSeparateApproveAndSwapSteps(data);
+            if (separateSteps.length) {
+              setSwapSteps((prev) => ({
+                ...prev,
+                steps: separateSteps,
+                preSwapData: {
+                  ...prev.preSwapData,
+                  shouldFallback: true,
+                  needFetchGas: true,
+                  supportNetworkFeeLevel: false,
+                  netWorkFee: undefined,
+                  estimateNetworkFeeLoading: false,
+                  stepBeforeActionsLoading: false,
+                  stepBeforeActionsError: undefined,
+                },
+              }));
+              return;
+            }
+          }
           setSwapSteps((prev) => ({
             ...prev,
             preSwapData: {
@@ -3138,6 +3270,7 @@ export function useSwapBuildTx() {
       buildSwapAction,
       estimateNetworkFee,
       getApproveUnSignedTxArr,
+      buildSeparateApproveAndSwapSteps,
       setSwapSteps,
       slippageItem,
       fromAccountId,
@@ -3248,7 +3381,10 @@ export function useSwapBuildTx() {
                           ...pre,
                           swapApprovingTransaction: {
                             txId: approveSendTx?.txid,
-                            swapType: swapTypeSwitch,
+                            swapType:
+                              getSwapExecutionTypeFromQuoteResult(
+                                quoteResultFinal,
+                              ),
                             protocol:
                               quoteResultFinal?.protocol ??
                               EProtocolOfExchange.SWAP,
@@ -3451,7 +3587,6 @@ export function useSwapBuildTx() {
       swapActionState.approveUnLimit,
       intl,
       setInAppNotificationAtom,
-      swapTypeSwitch,
       fromUserAddress,
       fromAccountId,
       wrappedTx,

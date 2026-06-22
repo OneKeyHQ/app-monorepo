@@ -31,12 +31,16 @@ export const SendTestIDs = {
 
   // Coin control
   coinControlPage: 'send-coin-control-page',
+  coinControlSortSelect: 'send-coin-control-sort-select',
+  coinControlSelectAllCheckbox: 'send-coin-control-select-all-checkbox',
+  coinControlDoneButton: 'send-coin-control-done-button',
 
   // Amount input extras
   nftMaxButton: 'send-nft-max-button',
   hexDataFaqButton: 'send-hex-data-faq-button',
   hexDataInput: 'send-hex-data-input',
   buyTokenButton: 'send-buy-token-button',
+  swapTokenButton: 'send-swap-token-button',
   insufficientFundsButton: 'send-insufficient-funds-button',
 
   // Data input (recipient/amount form)

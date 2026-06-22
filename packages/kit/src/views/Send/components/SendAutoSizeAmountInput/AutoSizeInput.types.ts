@@ -2,6 +2,7 @@ import type { IInputProps } from '@onekeyhq/components';
 
 export type IAutoSizeInputRef = {
   focus: () => void;
+  blur: () => void;
 };
 
 export type IAutoSizeInputProps = {
@@ -12,6 +13,7 @@ export type IAutoSizeInputProps = {
   maxFontSize: number;
   minFontSize: number;
   availableInlineWidth: number;
+  inlineTextAlignMode?: 'auto' | 'center';
   currencyLabel?: string;
   inlineTokenSymbol?: string;
   inlinePrefixGapPx: number;

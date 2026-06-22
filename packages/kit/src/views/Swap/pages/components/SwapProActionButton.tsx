@@ -143,7 +143,6 @@ interface ISwapProActionButtonProps {
   hasEnoughBalance: boolean;
   balanceLoading: boolean;
   supportSpeedSwap: boolean;
-  onlySupportCrossChain: boolean;
   isActionDisabled?: boolean;
 }
 
@@ -152,7 +151,6 @@ const SwapProActionButton = ({
   hasEnoughBalance,
   balanceLoading,
   supportSpeedSwap,
-  onlySupportCrossChain,
   isActionDisabled,
 }: ISwapProActionButtonProps) => {
   const intl = useIntl();
@@ -274,11 +272,7 @@ const SwapProActionButton = ({
   const [, setSwapFromInputAmount] = useSwapFromTokenAmountAtom();
 
   const handleJumpToSwapAction = useCallback(() => {
-    if (onlySupportCrossChain) {
-      void setSwapTypeSwitch(ESwapTabSwitchType.BRIDGE);
-    } else {
-      void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
-    }
+    void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
     if (swapProDirection === ESwapDirection.BUY) {
       if (
         equalTokenNoCaseSensitive({
@@ -319,7 +313,6 @@ const SwapProActionButton = ({
       });
     }
   }, [
-    onlySupportCrossChain,
     swapProDirection,
     swapProInputAmount,
     setSwapTypeSwitch,

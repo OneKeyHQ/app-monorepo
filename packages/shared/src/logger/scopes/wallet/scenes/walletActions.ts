@@ -15,6 +15,10 @@ export type IWalletActionBaseParams = {
     | 'earn'
     | 'swap'
     | 'accountSelector';
+  // Optional sub-UI marker within `source`. Currently used by home-page
+  // Receive to distinguish the collapsed Add-Money CTA from the full row,
+  // so analytics can compare conversion between the two variants.
+  variant?: 'home_add_money' | 'home_full_row';
   isSoftwareWalletOnlyUser: boolean;
 };
 

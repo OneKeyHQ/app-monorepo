@@ -1,20 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
-
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const EMPTY_SET = new Set<string>();
+import {
+  getWebUsbConnectedDeviceKey,
+  isSupportedHardwareWebUsbDevice,
+  isWalletConnectedByHardwareStatus,
+} from './useHardwareWalletConnectStatusUtils';
 
-function isOneKeyDevice(device: USBDevice): boolean {
-  return (
-    ONEKEY_WEBUSB_FILTER?.some(
-      (filter) =>
-        device.vendorId === filter.vendorId &&
-        device.productId === filter.productId,
-    ) ?? false
-  );
-}
+const EMPTY_SET = new Set<string>();
 
 function areSetsEqual(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -38,8 +33,9 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
   const deviceIds = new Set<string>();
 
   for (const device of devices) {
-    if (isOneKeyDevice(device) && device.serialNumber) {
-      deviceIds.add(device.serialNumber);
+    const key = getWebUsbConnectedDeviceKey(device);
+    if (key) {
+      deviceIds.add(key);
     }
   }
 
@@ -51,17 +47,26 @@ async function fetchConnectedDevices(): Promise<Set<string>> {
  * Returns stable Set reference - only changes when device list actually changes.
  */
 export function useHardwareWalletConnectStatus() {
-  const prevDevicesRef = useRef<Set<string>>(EMPTY_SET);
-  const [connectedDevices, setConnectedDevices] =
+  const prevDeviceKeysRef = useRef<Set<string>>(EMPTY_SET);
+  const [connectedDeviceKeys, setConnectedDeviceKeys] =
     useState<Set<string>>(EMPTY_SET);
 
   const refreshDevices = async () => {
     const newDevices = await fetchConnectedDevices();
-    if (!areSetsEqual(prevDevicesRef.current, newDevices)) {
-      prevDevicesRef.current = newDevices;
-      setConnectedDevices(newDevices);
+    if (!areSetsEqual(prevDeviceKeysRef.current, newDevices)) {
+      prevDeviceKeysRef.current = newDevices;
+      setConnectedDeviceKeys(newDevices);
     }
   };
+
+  const isWalletConnected = useCallback(
+    (wallet: IDBWallet | undefined) =>
+      isWalletConnectedByHardwareStatus({
+        wallet,
+        connectedDeviceKeys,
+      }),
+    [connectedDeviceKeys],
+  );
 
   useEffect(() => {
     void refreshDevices();
@@ -79,7 +84,7 @@ export function useHardwareWalletConnectStatus() {
     }
 
     const handleUSBEvent = (event: USBConnectionEvent) => {
-      if (isOneKeyDevice(event.device)) {
+      if (isSupportedHardwareWebUsbDevice(event.device)) {
         void refreshDevices();
       }
     };
@@ -94,5 +99,10 @@ export function useHardwareWalletConnectStatus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { connectedDevices, refresh: refreshDevices };
+  return {
+    connectedDevices: connectedDeviceKeys,
+    connectedDeviceKeys,
+    isWalletConnected,
+    refresh: refreshDevices,
+  };
 }

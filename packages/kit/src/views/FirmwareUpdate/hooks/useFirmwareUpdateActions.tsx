@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { StackActions } from '@react-navigation/routers';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
@@ -20,9 +19,10 @@ import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/devi
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { FirmwareUpdateCheckList } from '../components/FirmwareUpdateCheckList';
+import { getTargetFirmwareTypeLabel } from '../utils';
 
 import type { AllFirmwareRelease } from '@onekeyfe/hd-core';
-import type { EDeviceType } from '@onekeyfe/hd-shared';
+import type { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 
 export function useFirmwareUpdateActions() {
   const intl = useIntl();
@@ -249,36 +249,21 @@ export function useFirmwareUpdateActions() {
       let title;
 
       const updateFirmwareInfo = result?.updateInfos?.firmware;
-      if (
-        updateFirmwareInfo &&
-        updateFirmwareInfo?.fromFirmwareType &&
-        updateFirmwareInfo?.toFirmwareType &&
+      const isSwitchingFirmwareType =
+        updateFirmwareInfo?.fromFirmwareType !== undefined &&
+        updateFirmwareInfo?.toFirmwareType !== undefined &&
         updateFirmwareInfo.toFirmwareType !==
-          updateFirmwareInfo.fromFirmwareType &&
-        updateFirmwareInfo.toFirmwareType === EFirmwareType.BitcoinOnly
-      ) {
+          updateFirmwareInfo.fromFirmwareType;
+      if (isSwitchingFirmwareType) {
         title = intl.formatMessage(
           {
             id: ETranslations.device_checklist_switch_firmware_type,
           },
           {
-            type: 'Bitcoin-only',
-          },
-        );
-      } else if (
-        updateFirmwareInfo &&
-        updateFirmwareInfo?.fromFirmwareType &&
-        updateFirmwareInfo?.toFirmwareType &&
-        updateFirmwareInfo.toFirmwareType !==
-          updateFirmwareInfo.fromFirmwareType &&
-        updateFirmwareInfo.toFirmwareType === EFirmwareType.Universal
-      ) {
-        title = intl.formatMessage(
-          {
-            id: ETranslations.device_checklist_switch_firmware_type,
-          },
-          {
-            type: 'Universal',
+            type: getTargetFirmwareTypeLabel({
+              firmwareType: updateFirmwareInfo.toFirmwareType,
+              intl,
+            }),
           },
         );
       } else {

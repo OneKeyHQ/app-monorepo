@@ -140,70 +140,81 @@ function BulkCopyAddresses({
 
   const isHwWallet = accountUtils.isHwWallet({ walletId: selectedWalletId });
 
-  const { result: availableWallets } = usePromiseResult(async () => {
-    const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
-      ignoreEmptySingletonWalletAccounts: true,
-      ignoreNonBackedUpWallets: true,
-      nestedHiddenWallets: true,
-      includingAccounts: true,
-    });
-
-    const availableWalletsTemp: (IDBWallet & {
-      parentWalletName?: string;
-    })[] = [];
-
-    const isWalletDeactivatedBotWallet = async (id: string) => {
-      if (!accountUtils.isBotWallet({ walletId: id })) {
-        return false;
-      }
-      return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
-        walletId: id,
+  const { result: availableWallets, run: refreshAvailableWallets } =
+    usePromiseResult(async () => {
+      const { wallets } = await backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+        ignoreNonBackedUpWallets: true,
+        nestedHiddenWallets: true,
+        includingAccounts: true,
       });
-    };
 
-    // Reset the map alongside the list so a deactivated wallet that was
-    // previously selectable cannot stay reachable through walletsMap when its
-    // status flips.
-    walletsMap.current = {};
+      const availableWalletsTemp: (IDBWallet & {
+        parentWalletName?: string;
+      })[] = [];
 
-    for (const wallet of wallets) {
-      if (
-        !accountUtils.isQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
-        !wallet.deprecated
-      ) {
-        // eslint-disable-next-line no-await-in-loop
-        const isWalletDeactivated = await isWalletDeactivatedBotWallet(
-          wallet.id,
-        );
-        if (!wallet.isMocked && !isWalletDeactivated) {
-          availableWalletsTemp.push(wallet);
-          walletsMap.current[wallet.id] = wallet;
+      const isWalletDeactivatedBotWallet = async (id: string) => {
+        if (!accountUtils.isBotWallet({ walletId: id })) {
+          return false;
         }
-        if (wallet.hiddenWallets?.length) {
-          for (const hiddenWallet of wallet.hiddenWallets) {
-            if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
-              // eslint-disable-next-line no-await-in-loop
-              const isHiddenWalletDeactivated =
-                await isWalletDeactivatedBotWallet(hiddenWallet.id);
-              if (!isHiddenWalletDeactivated) {
-                availableWalletsTemp.push({
-                  ...hiddenWallet,
-                  parentWalletName: wallet.name,
-                });
-                walletsMap.current[hiddenWallet.id] = {
-                  ...hiddenWallet,
-                  parentWalletName: wallet.name,
-                };
+        return backgroundApiProxy.serviceAccount.isBotWalletDeactivated({
+          walletId: id,
+        });
+      };
+
+      // Reset the map alongside the list so a deactivated wallet that was
+      // previously selectable cannot stay reachable through walletsMap when its
+      // status flips.
+      walletsMap.current = {};
+
+      for (const wallet of wallets) {
+        if (
+          !accountUtils.isQrWallet({ walletId: wallet.id }) &&
+          !accountUtils.isOthersWallet({ walletId: wallet.id }) &&
+          !wallet.deprecated
+        ) {
+          // eslint-disable-next-line no-await-in-loop
+          const isWalletDeactivated = await isWalletDeactivatedBotWallet(
+            wallet.id,
+          );
+          if (!wallet.isMocked && !isWalletDeactivated) {
+            availableWalletsTemp.push(wallet);
+            walletsMap.current[wallet.id] = wallet;
+          }
+          if (wallet.hiddenWallets?.length) {
+            for (const hiddenWallet of wallet.hiddenWallets) {
+              if (!hiddenWallet.deprecated && !hiddenWallet.isMocked) {
+                // eslint-disable-next-line no-await-in-loop
+                const isHiddenWalletDeactivated =
+                  await isWalletDeactivatedBotWallet(hiddenWallet.id);
+                if (!isHiddenWalletDeactivated) {
+                  availableWalletsTemp.push({
+                    ...hiddenWallet,
+                    parentWalletName: wallet.name,
+                  });
+                  walletsMap.current[hiddenWallet.id] = {
+                    ...hiddenWallet,
+                    parentWalletName: wallet.name,
+                  };
+                }
               }
             }
           }
         }
       }
-    }
 
-    return availableWalletsTemp;
-  }, []);
+      return availableWalletsTemp;
+    }, []);
+
+  // Keep the available-wallet list reactive: bot wallet activate /
+  // deactivate emits WalletUpdate (debounced) — without this the picker
+  // would still show the wallet until the user navigates away and back.
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refreshAvailableWallets);
+    };
+  }, [refreshAvailableWallets]);
 
   // If the wallet that was passed in via route params (or previously selected)
   // is no longer available — e.g. it became a deactivated Bot Wallet and was

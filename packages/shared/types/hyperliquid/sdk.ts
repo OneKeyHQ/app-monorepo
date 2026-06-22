@@ -16,6 +16,12 @@ export type IWsOpenOrders = HL.OpenOrdersWsEvent;
 export type IWsAllDexsClearinghouseState = HL.AllDexsClearinghouseStateWsEvent;
 export type IWsAllDexsAssetCtxs = HL.AllDexsAssetCtxsWsEvent;
 export type IWsBbo = HL.BboWsEvent;
+export type IWsTwapStates = HL.TwapStatesWsEvent;
+export type IWsUserTwapHistory = HL.UserTwapHistoryWsEvent;
+export type IWsUserTwapSliceFills = HL.UserTwapSliceFillsWsEvent;
+export type ITwapState = IWsTwapStates['states'][number][1];
+export type ITwapHistoryRecord = HL.TwapHistoryResponse[number];
+export type ITwapSliceFill = HL.UserTwapSliceFillsResponse[number];
 
 // Spot WebSocket event types
 export type IWsSpotState = HL.SpotStateWsEvent;
@@ -121,6 +127,8 @@ export type IOrderParams = HL.OrderParameters['orders'][number];
 export type IOrderResponse = HL.OrderSuccessResponse;
 export type ICancelResponse = HL.CancelSuccessResponse;
 export type IModifyResponse = HL.ModifySuccessResponse;
+export type ITwapOrderResponse = HL.TwapOrderSuccessResponse;
+export type ITwapCancelResponse = HL.TwapCancelSuccessResponse;
 export type ITIF = 'Gtc' | 'Ioc' | 'Alo';
 
 // Account and asset states
@@ -155,6 +163,10 @@ export type IReferral = HL.ReferralResponse;
 // Request types
 export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
 export type IUserFillsParameters = HL.UserFillsParameters;
+export type ITwapHistoryParameters = HL.TwapHistoryParameters;
+export type IUserTwapSliceFillsParameters = HL.UserTwapSliceFillsParameters;
+export type IUserTwapSliceFillsByTimeParameters =
+  HL.UserTwapSliceFillsByTimeParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
 export type IWithdraw3Request = HL.Withdraw3Parameters;
 export type IOrderRequest = HL.OrderParameters;
@@ -174,10 +186,10 @@ export type IEventAllDexsClearinghouseStateParameters =
   HL.AllDexsClearinghouseStateWsParameters;
 export type IEventOpenOrdersParameters = HL.OpenOrdersWsParameters;
 export type IEventAllDexsAssetCtxsParameters = Record<string, never>;
-export type IEventTwapStatesParameters = {
-  user: IHex;
-  dex?: string;
-};
+export type IEventTwapStatesParameters = HL.TwapStatesWsParameters;
+export type IEventUserTwapHistoryParameters = HL.UserTwapHistoryWsParameters;
+export type IEventUserTwapSliceFillsParameters =
+  HL.UserTwapSliceFillsWsParameters;
 
 // Response types
 export type ISuccessResponse = unknown;
@@ -203,6 +215,8 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.OPEN_ORDERS]: IEventOpenOrdersParameters;
   [ESubscriptionType.ALL_DEXS_ASSET_CTXS]: IEventAllDexsAssetCtxsParameters;
   [ESubscriptionType.TWAP_STATES]: IEventTwapStatesParameters;
+  [ESubscriptionType.USER_TWAP_HISTORY]: IEventUserTwapHistoryParameters;
+  [ESubscriptionType.USER_TWAP_SLICE_FILLS]: IEventUserTwapSliceFillsParameters;
   [ESubscriptionType.SPOT_STATE]: IEventSpotStateParameters;
   [ESubscriptionType.SPOT_ASSET_CTXS]: IEventSpotAssetCtxsParameters;
   [ESubscriptionType.ACTIVE_SPOT_ASSET_CTX]: IEventActiveSpotAssetCtxParameters;

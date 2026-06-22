@@ -45,7 +45,7 @@ import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import { ENetworkStatus, type IServerNetwork } from '@onekeyhq/shared/types';
 
 import { vaultFactory } from '../../vaults/factory';
 import {
@@ -60,6 +60,7 @@ import type {
   IAccountDeriveInfo,
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
+  INetworkDeriveInfo,
 } from '../../vaults/types';
 
 const defaultPinnedNetworkIds = [
@@ -170,6 +171,16 @@ class ServiceNetwork extends ServiceBase {
       // Convert Map back to array
       let networks = Array.from(networkMap.values());
       perf.markEnd('convertMapToArray');
+
+      // Defense-in-depth: never surface delisted (TRASH) networks, no matter
+      // which source they came from. The backend marks a network as delisted by
+      // setting its status to TRASH while still returning it (see
+      // ServiceCustomRpc.fetchNetworkFromServer), so the merged result MUST drop
+      // them here. Without this, a stale server-network entry would keep showing
+      // in the wallet network selector until the next successful server fetch.
+      perf.markStart('filterNetworks-excludeTrashNetwork');
+      networks = networks.filter((n) => n.status !== ENetworkStatus.TRASH);
+      perf.markEnd('filterNetworks-excludeTrashNetwork');
 
       perf.markStart('filterNetworks-excludeCustomNetwork');
       if (params.excludeCustomNetwork) {
@@ -772,8 +783,7 @@ class ServiceNetwork extends ServiceBase {
     validatePrivateKey?: boolean;
     template: string | undefined;
   }) {
-    const { serviceAccount, servicePassword, serviceNetwork } =
-      this.backgroundApi;
+    const { serviceAccount, serviceNetwork } = this.backgroundApi;
 
     const { deriveType: deriveTypeInTpl } =
       await serviceNetwork.getDeriveTypeByTemplate({
@@ -786,7 +796,9 @@ class ServiceNetwork extends ServiceBase {
     const validateResult = await serviceAccount.validateGeneralInputOfImporting(
       {
         networkId,
-        input: await servicePassword.encodeSensitiveText({ text: input }),
+        // Callers pass sensitive-text encoded input so this method does not
+        // re-wrap private keys or xpubs during derive type detection.
+        input,
         validateAddress,
         validateXpub,
         validatePrivateKey,
@@ -1660,10 +1672,7 @@ class ServiceNetwork extends ServiceBase {
       };
     }
 
-    const networkInfoMap: Record<
-      string,
-      { deriveType: IAccountDeriveTypes; mergeDeriveAssetsEnabled: boolean }
-    > = {};
+    const networkInfoMap: Record<string, INetworkDeriveInfo> = {};
 
     const formattedAccountNetworkValues: Record<string, string> = {};
     const allAccountValues: Record<string, string> = {};
@@ -1680,26 +1689,45 @@ class ServiceNetwork extends ServiceBase {
         string,
         string,
       ];
-
-      const deriveType: IAccountDeriveTypes =
-        accountUtils.normalizeDeriveType(_deriveType) ?? 'default';
-
-      if (!networkInfoMap[networkId]) {
-        const [globalDeriveType, vaultSettings] = await Promise.all([
-          this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-            rawData: deriveTypeRawData,
-          }),
-          this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-        ]);
-        networkInfoMap[networkId] = {
-          deriveType: globalDeriveType,
-          mergeDeriveAssetsEnabled:
-            vaultSettings.mergeDeriveAssetsEnabled ?? false,
-        };
+      const shouldUseAccountNetworkValue = Boolean(
+        networkId && accountId && walletId === _walletId,
+      );
+      if (shouldUseAccountNetworkValue) {
+        if (!networkInfoMap[networkId]) {
+          const [globalDeriveType, vaultSettings] = await Promise.all([
+            this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+              networkId,
+              rawData: deriveTypeRawData,
+            }),
+            this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+          ]);
+          const suffixToDeriveType: Record<string, string> = {};
+          for (const [dt, info] of Object.entries(
+            vaultSettings.accountDeriveInfo ?? {},
+          )) {
+            if (info.idSuffix) {
+              suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+            }
+          }
+          networkInfoMap[networkId] = {
+            deriveType: globalDeriveType,
+            mergeDeriveAssetsEnabled:
+              vaultSettings.mergeDeriveAssetsEnabled ?? false,
+            suffixToDeriveType,
+          };
+        }
       }
+      const deriveType: IAccountDeriveTypes =
+        accountUtils.normalizeDeriveType(_deriveType) ??
+        accountUtils.normalizeDeriveType(
+          networkInfoMap[networkId]?.suffixToDeriveType?.[
+            (_deriveType ?? '').toLowerCase()
+          ] ?? '',
+        ) ??
+        'default';
+
       if (
-        walletId === _walletId &&
+        shouldUseAccountNetworkValue &&
         networkInfoMap[networkId] &&
         (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
           accountUtils.isOthersAccount({ accountId }) ||

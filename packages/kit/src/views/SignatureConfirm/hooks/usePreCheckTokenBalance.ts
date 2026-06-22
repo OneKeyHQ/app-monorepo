@@ -114,6 +114,7 @@ function usePreCheckTokenBalance({
 
       if (
         transferPayload?.isMaxSend &&
+        !transferPayload.isPrivateSend &&
         isSendNativeTokenOnly &&
         nativeTokenTransferBN.plus(feeBN).gte(nativeTokenBalanceBN)
       ) {
@@ -164,6 +165,7 @@ function usePreCheckTokenBalance({
     sendSelectedFeeInfo?.totalNative,
     transferPayload?.amountToSend,
     transferPayload?.isMaxSend,
+    transferPayload?.isPrivateSend,
     updateNativeTokenTransferAmount,
     updateNativeTokenTransferAmountToUpdate,
     updateSendTxStatus,

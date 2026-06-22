@@ -4,7 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IBtcMetadata } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IBtcMetadata,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { formatNextHalving } from '../utils/formatNextHalving';
 
@@ -17,9 +20,16 @@ export type IUseBtcMetadataResult = Omit<
   nextHalvingDisplay: string;
 };
 
-export function useBtcMetadata(): IUseBtcMetadataResult | null {
+type IUseBtcMetadataFromTokenDetailParams = {
+  tokenDetail?: IMarketTokenDetail;
+  networkId?: string;
+};
+
+export function useBtcMetadataFromTokenDetail({
+  tokenDetail,
+  networkId,
+}: IUseBtcMetadataFromTokenDetailParams): IUseBtcMetadataResult | null {
   const intl = useIntl();
-  const { tokenDetail, networkId } = useTokenDetail();
 
   return useMemo(() => {
     if (networkId !== getNetworkIdsMap().btc) {
@@ -70,4 +80,13 @@ export function useBtcMetadata(): IUseBtcMetadataResult | null {
       ),
     };
   }, [intl, networkId, tokenDetail?.btcMetadata]);
+}
+
+export function useBtcMetadata(): IUseBtcMetadataResult | null {
+  const { tokenDetail, networkId } = useTokenDetail();
+
+  return useBtcMetadataFromTokenDetail({
+    tokenDetail,
+    networkId,
+  });
 }

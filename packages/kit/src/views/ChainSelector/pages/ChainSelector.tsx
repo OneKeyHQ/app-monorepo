@@ -85,15 +85,13 @@ export default function ChainSelectorPage({
         }
         if (valueAccountId) {
           const accountsValue =
-            await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue(
-              {
-                accounts: [{ accountId: valueAccountId }],
-              },
+            await backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+              { accountId: valueAccountId },
             );
           // Raw values use compound keys "accountId_networkId" (via buildAccountValueKey).
           // Multiple concrete accounts can map to the same network (for example BTC
           // address types under one indexed account), so aggregate by networkId here.
-          const rawValues = accountsValue[0]?.value ?? {};
+          const rawValues = accountsValue?.value ?? {};
           const formattedValues: Record<string, string> = {};
           const walletId = accountUtils.getWalletIdFromAccountId({
             accountId: valueAccountId,
@@ -115,7 +113,7 @@ export default function ChainSelectorPage({
             }
           }
           accountNetworkValues = formattedValues;
-          accountNetworkValueCurrency = accountsValue[0]?.currency;
+          accountNetworkValueCurrency = accountsValue?.currency;
 
           // Sort networks by value descending
           networks.sort((a, b) => {

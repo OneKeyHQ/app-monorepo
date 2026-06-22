@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
-
 import type { INumberSizeableTextProps } from '@onekeyhq/components';
 import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { UNAVAILABLE_DISPLAY } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
+import { convertFiat } from '../../utils/fiatConvert';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 
 export const useCurrency = () => {
@@ -33,39 +33,44 @@ function BasicCurrency({
 }) {
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [{ currencyInfo }] = useSettingsPersistAtom();
-  const sourceCurrencyInfo = useMemo(
-    () => currencyMap[sourceCurrency ?? currencyInfo?.id],
-    [currencyInfo?.id, currencyMap, sourceCurrency],
-  );
-  const targetCurrencyInfo = useMemo(
-    () => currencyMap[targetCurrency ?? currencyInfo?.id],
-    [currencyInfo?.id, currencyMap, targetCurrency],
-  );
+  const effectiveSource = sourceCurrency ?? currencyInfo?.id;
+  const effectiveTarget = targetCurrency ?? currencyInfo?.id;
 
   const value = useMemo(() => {
-    if (sourceCurrencyInfo?.id === targetCurrencyInfo?.id) {
-      return BigNumber(String(children)).toFixed();
+    if (children === undefined || children === null || children === '') {
+      return '0';
     }
-    return sourceCurrencyInfo && targetCurrencyInfo
-      ? new BigNumber(String(children))
-          .div(new BigNumber(sourceCurrencyInfo.value))
-          .times(new BigNumber(targetCurrencyInfo.value))
-          .toFixed()
-      : children;
-  }, [children, sourceCurrencyInfo, targetCurrencyInfo]);
+    // Pass the unavailable sentinel through unchanged so NumberSizeableText
+    // can render the literal placeholder instead of formatting NaN.
+    if (children === UNAVAILABLE_DISPLAY) {
+      return UNAVAILABLE_DISPLAY;
+    }
+    return convertFiat({
+      value: String(children),
+      sourceCurrency: effectiveSource,
+      targetCurrency: effectiveTarget,
+      currencyMap,
+    });
+  }, [children, effectiveSource, effectiveTarget, currencyMap]);
+
+  // When the rate map can't resolve the target unit yet (cold-start window
+  // before currencyMap hydrates), fall back to the source unit so the rendered
+  // symbol matches the numeric basis.
+  const formatterCurrencyUnit =
+    currencyMap[effectiveTarget]?.unit ?? currencyMap[effectiveSource]?.unit;
 
   return (
     <NumberSizeableTextWrapper
       formatter={formatter}
       formatterOptions={{
-        currency: targetCurrencyInfo?.unit,
+        currency: formatterCurrencyUnit,
         ...formatterOptions,
       }}
       {...props}
       width={
         props.w ||
         props.width ||
-        dynamicWidth?.(String(value || 0), targetCurrencyInfo?.unit || '')
+        dynamicWidth?.(String(value || 0), formatterCurrencyUnit || '')
       }
     >
       {value}

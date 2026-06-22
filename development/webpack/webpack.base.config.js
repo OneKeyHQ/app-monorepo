@@ -8,10 +8,14 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const webpack = require('webpack');
 const webpackManifestPlugin = require('webpack-manifest-plugin');
 
+const { resolveCommitSha } = require('../utils/resolveCommitSha');
+
 const { isDev, PUBLIC_URL, NODE_ENV, ONEKEY_PROXY } = require('./constant');
 const { createResolveExtensions } = require('./utils');
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -107,6 +111,8 @@ const basePlugins = [
       env: {
         ONEKEY_PROXY: JSON.stringify(ONEKEY_PROXY),
         NODE_ENV: JSON.stringify(NODE_ENV),
+        DESKTOP_E2E_MODE: JSON.stringify(process.env.DESKTOP_E2E_MODE || ''),
+        E2E_MODE: JSON.stringify(process.env.E2E_MODE || ''),
         TAMAGUI_TARGET: JSON.stringify('web'),
         PERF_MONITOR_ENABLED: JSON.stringify(
           process.env.PERF_MONITOR_ENABLED || '',
@@ -117,6 +123,7 @@ const basePlugins = [
         PERF_FUNCTION_WARN_MS: JSON.stringify(
           process.env.PERF_FUNCTION_WARN_MS || '',
         ),
+        GITHUB_SHA: JSON.stringify(COMMIT_SHA),
       },
     },
   }),
@@ -338,9 +345,6 @@ module.exports = ({ platform, basePath, configName }) => {
                 // // keystonehq
                 // /(@?keystonehq).*\.(c|m)?(ts|js)x?$/,
 
-                /* web-embed on  */
-                /react-router/,
-                /turbo-stream/,
                 // @react-aria packages
                 /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],

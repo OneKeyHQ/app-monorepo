@@ -57,36 +57,6 @@ export function createDevelopmentConfig({
       //     next();
       //   });
 
-      //   // proxy react-render-tracker
-      //   devServer.app.get(
-      //     '/react-render-tracker@0.7.3/dist/react-render-tracker.js',
-      //     (req, res) => {
-      //       const sendResponse = (text: string) => {
-      //         res.setHeader(
-      //           'Cache-Control',
-      //           'no-store, no-cache, must-revalidate, proxy-revalidate',
-      //         );
-      //         res.setHeader('Age', '0');
-      //         res.setHeader('Expires', '0');
-      //         res.setHeader('Content-Type', 'text/javascript');
-      //         res.write(text);
-      //         res.end();
-      //       };
-      //       const filePath = path.join(
-      //         __dirname,
-      //         '../../node_modules/react-render-tracker/dist/react-render-tracker.js',
-      //       );
-      //       fs.readFile(filePath, 'utf8', (err, data) => {
-      //         if (err) {
-      //           console.error(err);
-      //           res.status(500).send(`Error reading file:  ${filePath}`);
-      //           return;
-      //         }
-      //         sendResponse(data);
-      //       });
-      //     },
-      //   );
-
       //   return middlewares;
       // },
     } as RspackOptions['devServer'],

@@ -3,12 +3,15 @@ import { useCallback, useMemo } from 'react';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   EUpdateStrategy,
+  getUpdateFileType,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -133,7 +136,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     return result;
   }, []);
 
-  const { downloadPackage, showUpdateInCompleteDialog } = useDownloadPackage();
+  const { downloadPackage, installPackage, showUpdateInCompleteDialog } =
+    useDownloadPackage();
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
@@ -162,6 +166,70 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     toUpdatePreviewPage,
   ]);
 
+  // Unified "direct" update action shared by the toolbox update reminder and
+  // the new top-right Update button. Unlike onUpdateAction it never opens the
+  // changelog (UpdatePreview): hot updates restart immediately and major
+  // updates jump straight into the download/verify modal. The changelog still
+  // auto-pops after the update via the featured changelog path.
+  const onUpdateActionDirect = useCallback(() => {
+    if (appUpdateInfo.status === EAppUpdateStatus.updateIncomplete) {
+      showUpdateInCompleteDialog({});
+      return;
+    }
+    if (appUpdateInfo.status === EAppUpdateStatus.manualInstall) {
+      navigation.pushModal(EModalRoutes.AppUpdateModal, {
+        screen: EAppUpdateRoutes.ManualInstall,
+      });
+      return;
+    }
+    const fileType = getUpdateFileType({
+      latestVersion: appUpdateInfo.latestVersion,
+      jsBundleVersion: appUpdateInfo.jsBundleVersion,
+    });
+    if (fileType === EUpdateFileType.jsBundle) {
+      // Hot update only surfaces once the bundle is silently downloaded
+      // (status === ready); clicking applies it and restarts. For any other
+      // status (e.g. a manual hot update not yet downloaded, or a re-update),
+      // fall back to the download/verify flow — preserving the re-update path.
+      if (appUpdateInfo.status === EAppUpdateStatus.ready) {
+        void installPackage(
+          () => {},
+          () => showUpdateInCompleteDialog({}),
+        );
+        return;
+      }
+      if (appUpdateInfo.status === EAppUpdateStatus.notify) {
+        void downloadPackage();
+      }
+      toDownloadAndVerifyPage();
+      return;
+    }
+    // Major version (appShell). App Store builds open the store; direct-channel
+    // builds start the download (when still at notify) and open the modal.
+    if (appUpdateInfo.storeUrl) {
+      openUrlExternal(appUpdateInfo.storeUrl);
+      return;
+    }
+    if (appUpdateInfo.downloadUrl || appUpdateInfo.jsBundle?.downloadUrl) {
+      if (appUpdateInfo.status === EAppUpdateStatus.notify) {
+        void downloadPackage();
+      }
+      toDownloadAndVerifyPage();
+    }
+  }, [
+    appUpdateInfo.status,
+    appUpdateInfo.latestVersion,
+    appUpdateInfo.jsBundleVersion,
+    appUpdateInfo.storeUrl,
+    appUpdateInfo.downloadUrl,
+    appUpdateInfo.jsBundle?.downloadUrl,
+    downloadPackage,
+    installPackage,
+    navigation,
+    showUpdateInCompleteDialog,
+    toDownloadAndVerifyPage,
+  ]);
+
   return useMemo(() => {
     const { shouldUpdate, fileType } = isNeedUpdate({
       latestVersion: appUpdateInfo.latestVersion,
@@ -173,6 +241,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
       updateFileType: fileType,
       data: appUpdateInfo,
       onUpdateAction,
+      onUpdateActionDirect,
       toUpdatePreviewPage,
       onViewReleaseInfo,
       checkForUpdates,
@@ -183,6 +252,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
     checkForUpdates,
     downloadPackage,
     onUpdateAction,
+    onUpdateActionDirect,
     onViewReleaseInfo,
     toUpdatePreviewPage,
   ]);
@@ -196,6 +266,8 @@ export {
   isAutoUpdateStrategy,
   isForceUpdateStrategy,
   isShowAppUpdateUIWhenUpdating,
+  getUpdateReminderActionLabelId,
+  isToolboxUpdateIndicatorRedundant,
 } from './updateStrategy';
 export { useDownloadPackage } from './useDownloadPackage';
 export {

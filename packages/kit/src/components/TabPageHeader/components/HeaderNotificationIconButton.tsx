@@ -11,6 +11,7 @@ import {
 import { HeaderNotificationButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 
@@ -32,13 +33,20 @@ export function HeaderNotificationIconButton({
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
 
-  const notificationBadge = useMemo(
-    () => ({
+  const notificationBadge = useMemo(() => {
+    // Web dapp mode disables the first-time notification guide
+    // (`canShowNotificationSettings` is hardcoded false in NotificationListView),
+    // so `firstTimeGuideOpened` never flips to true and the guide red dot would
+    // never clear — even after marking all read. Drive the badge purely off the
+    // unread count there, so it disappears once everything is read.
+    if (platformEnv.isWebDappMode) {
+      return { show: !!badge, count: badge };
+    }
+    return {
       show: !firstTimeGuideOpened || !!badge,
       count: firstTimeGuideOpened ? badge : undefined,
-    }),
-    [firstTimeGuideOpened, badge],
-  );
+    };
+  }, [firstTimeGuideOpened, badge]);
 
   const handleNotificationPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {

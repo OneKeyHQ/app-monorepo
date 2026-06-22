@@ -24,10 +24,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  filterSwapHistoryPendingList,
-  useInAppNotificationAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -42,6 +39,11 @@ import {
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
+import {
+  filterSwapMarketHistoryItems,
+  getSwapMarketPendingHistoryCount,
+  getSwapMarketPendingHistoryKey,
+} from '../../utils/swapMarketHistory';
 import SwapMarketHistoryList from '../components/SwapMarketHistoryList';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -61,11 +63,20 @@ const SwapHistoryListModal = ({
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
     >();
   const { type } = route.params;
-  const [historyType, setHistoryType] = useState<EProtocolOfExchange>(
-    type ?? EProtocolOfExchange.SWAP,
-  );
+  const initialHistoryType =
+    type === EProtocolOfExchange.LIMIT ? type : EProtocolOfExchange.SWAP;
+  const [historyType, setHistoryType] =
+    useState<EProtocolOfExchange>(initialHistoryType);
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
+  const marketPendingKey = useMemo(
+    () =>
+      getSwapMarketPendingHistoryKey(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
+    [swapHistoryPendingList],
+  );
 
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.refreshSwapHistoryPendingStatusOnce();
@@ -78,8 +89,15 @@ const SwapHistoryListModal = ({
       return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [swapHistoryPendingList],
-    { watchLoading: true },
+    [marketPendingKey],
+  );
+  const swapMarketTxHistoryList = useMemo(
+    () =>
+      filterSwapMarketHistoryItems({
+        items: swapTxHistoryList ?? [],
+        protocol: EProtocolOfExchange.SWAP,
+      }),
+    [swapTxHistoryList],
   );
 
   // Default fee percentage for savings calculation (0.3%)
@@ -87,11 +105,16 @@ const SwapHistoryListModal = ({
 
   // Calculate cumulative savings from all completed successful orders
   const cumulativeSavings = useMemo(() => {
-    if (!swapTxHistoryList) return '$0';
+    if (
+      historyType !== EProtocolOfExchange.SWAP ||
+      !swapMarketTxHistoryList.length
+    ) {
+      return '$0';
+    }
 
     let total = new BigNumber(0);
 
-    for (const history of swapTxHistoryList) {
+    for (const history of swapMarketTxHistoryList) {
       // Only count completed successful orders
       // eslint-disable-next-line no-continue
       if (history.status !== ESwapTxHistoryStatus.SUCCESS) continue;
@@ -118,18 +141,16 @@ const SwapHistoryListModal = ({
       formatter: 'value',
       formatterOptions: { currency: '$' },
     });
-  }, [swapTxHistoryList]);
+  }, [historyType, swapMarketTxHistoryList]);
 
-  const marketPendingHistoryCount = useMemo(
+  const swapMarketPendingHistoryCount = useMemo(
     () =>
-      filterSwapHistoryPendingList(swapHistoryPendingList).filter(
-        (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
-      ).length,
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
     [swapHistoryPendingList],
   );
-
   const limitPendingHistoryCount = useMemo(
     () =>
       swapLimitOrders.filter(
@@ -141,18 +162,22 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    marketPendingHistoryCount + limitPendingHistoryCount > 0;
+    swapMarketPendingHistoryCount + limitPendingHistoryCount > 0;
 
-  const historyTypeTitle = useMemo(
-    () =>
-      historyType === EProtocolOfExchange.LIMIT
-        ? intl.formatMessage({
-            id: ETranslations.swap_page_limit_dialog_title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_market,
-          }),
-    [historyType, intl],
+  const historyTypeTitle = useMemo(() => {
+    if (historyType === EProtocolOfExchange.LIMIT) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_limit_dialog_title,
+      });
+    }
+    return intl.formatMessage({
+      id: ETranslations.perp_trade_market,
+    });
+  }, [historyType, intl]);
+
+  const cleanExcludeProtocols = useMemo(
+    () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],
+    [],
   );
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
@@ -195,10 +220,10 @@ const SwapHistoryListModal = ({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
-        {renderHistoryTypeBadge(marketPendingHistoryCount)}
+        {renderHistoryTypeBadge(swapMarketPendingHistoryCount)}
       </XStack>
     ),
-    [intl, marketPendingHistoryCount, renderHistoryTypeBadge],
+    [intl, renderHistoryTypeBadge, swapMarketPendingHistoryCount],
   );
 
   const renderLimitHistoryTypeLabel = useCallback(
@@ -276,7 +301,7 @@ const SwapHistoryListModal = ({
 
   const onDeleteHistory = useCallback(() => {
     // dialog
-    if (!swapTxHistoryList?.length) return;
+    if (!swapMarketTxHistoryList.length) return;
     Dialog.show({
       icon: 'BroomOutline',
       // description: intl.formatMessage({
@@ -286,7 +311,9 @@ const SwapHistoryListModal = ({
         id: ETranslations.swap_history_all_history_title,
       }),
       onConfirm: async () => {
-        await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems();
+        await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
+          excludeProtocols: cleanExcludeProtocols,
+        });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
           title: intl.formatMessage({
@@ -302,12 +329,12 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapTxHistoryList?.length]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList.length]);
 
   const onDeletePendingHistory = useCallback(() => {
     // dialog
     if (
-      !swapTxHistoryList?.some(
+      !swapMarketTxHistoryList.some(
         (item) => item.status === ESwapTxHistoryStatus.PENDING,
       )
     )
@@ -321,9 +348,10 @@ const SwapHistoryListModal = ({
         id: ETranslations.swap_history_pending_history_title,
       }),
       onConfirm: () => {
-        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems([
-          ESwapTxHistoryStatus.PENDING,
-        ]);
+        void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
+          [ESwapTxHistoryStatus.PENDING],
+          { excludeProtocols: cleanExcludeProtocols },
+        );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
         });
@@ -333,7 +361,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapTxHistoryList]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList]);
 
   const savingsPopoverContent = useMemo(
     () => (
@@ -516,7 +544,7 @@ const SwapHistoryListModal = ({
     if (
       cumulativeSavings === '$0' ||
       gtMd ||
-      historyType === EProtocolOfExchange.LIMIT
+      historyType !== EProtocolOfExchange.SWAP
     ) {
       return null;
     }
@@ -591,7 +619,7 @@ const SwapHistoryListModal = ({
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList />
+          <SwapMarketHistoryList protocol={EProtocolOfExchange.SWAP} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />

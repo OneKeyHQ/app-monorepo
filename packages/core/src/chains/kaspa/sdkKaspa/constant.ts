@@ -13,6 +13,14 @@ export const MINIMUM_RELAY_TRANSACTION_FEE = DEFAULT_FEE;
 
 export const DEFAULT_FEE_RATE = 1;
 
+// The KRC20 reveal tx is broadcast only AFTER the commit tx confirms, so the
+// network's minimum relay fee rate may have risen since the commit was built
+// (KRC20 mint/trade storms move it fast). The reveal MUST land — otherwise the
+// commit's KAS stays locked in the P2SH output — so its fee rate is bumped by
+// this multiplier over the freshly re-estimated network rate. The reveal input
+// is a fixed 1.3 KAS, so even a multiplied fee is a tiny fraction of it.
+export const KRC20_REVEAL_FEE_RATE_BUFFER = 2;
+
 // export const DEFAULT_SEQNUMBER = 0xffffffffffffffffn;
 export const DEFAULT_SEQNUMBER = 0;
 

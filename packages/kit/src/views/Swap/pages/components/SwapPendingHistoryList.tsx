@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
+  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,6 +34,7 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { SwapTestIDs } from '../../testIDs';
+import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
 
 const SwapPendingHistoryListComponent = ({
   pageType,
@@ -55,14 +57,32 @@ const SwapPendingHistoryListComponent = ({
     [swapHistoryPendingList],
   );
   const listData = useMemo(() => {
-    const pendingData =
-      swapTxHistoryList?.filter(
-        (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
-      ) ?? [];
+    const swapPendingItems = filterSwapMarketHistoryItems({
+      items: filterSwapHistoryPendingList(swapHistoryPendingList),
+      protocol: EProtocolOfExchange.SWAP,
+    });
+    const pendingData = swapPendingItems.filter(
+      (item) =>
+        item.status === ESwapTxHistoryStatus.PENDING ||
+        item.status === ESwapTxHistoryStatus.CANCELING,
+    );
     return pendingData;
-  }, [swapTxHistoryList]);
+  }, [swapHistoryPendingList]);
+  const filteredSwapTxHistoryList = useMemo(
+    () =>
+      swapTxHistoryList?.length
+        ? filterSwapMarketHistoryItems({
+            items: swapTxHistoryList,
+            protocol: EProtocolOfExchange.SWAP,
+          })
+        : undefined,
+    [swapTxHistoryList],
+  );
+  const txHistoryListForDetail = useMemo(
+    () =>
+      filteredSwapTxHistoryList?.length ? filteredSwapTxHistoryList : listData,
+    [filteredSwapTxHistoryList, listData],
+  );
   const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
   if (
     (!fromTokenAmountBN.isZero() && !fromTokenAmountBN.isNaN()) ||
@@ -132,7 +152,7 @@ const SwapPendingHistoryListComponent = ({
                 screen: EModalSwapRoutes.SwapHistoryDetail,
                 params: {
                   txHistoryOrderId: item.swapInfo.orderId,
-                  txHistoryList: [...(swapTxHistoryList ?? [])],
+                  txHistoryList: [...txHistoryListForDetail],
                 },
               });
             }}

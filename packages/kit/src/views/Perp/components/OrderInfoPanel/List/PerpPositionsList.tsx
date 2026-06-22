@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -14,7 +14,6 @@ import {
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
-  usePerpsActivePositionLengthAtom,
   usePositionFilterByCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
@@ -23,13 +22,27 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+  isPerpsAccountScopedDataReady,
+} from '../../../utils/accountScopedData';
+import {
+  type IPerpsMobileLayoutTraceRect,
+  getPerpsMobileLayoutTraceRect,
+  isPerpsMobileLayoutTraceRectChanged,
+  tracePerpsMobileLayout,
+} from '../../../utils/mobileLayoutTrace';
 import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { MobilePositionsListHeader } from '../Components/MobilePositionsListHeader';
 import { PerpPositionsEmptyState } from '../Components/PerpPositionsEmptyState';
-import { PositionRow } from '../Components/PositionsRow';
+import { type IPositionRowItem, PositionRow } from '../Components/PositionsRow';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
@@ -45,13 +58,33 @@ function PerpPositionsList({
   disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
+  const layoutRectsRef = useRef<
+    Record<string, IPerpsMobileLayoutTraceRect | undefined>
+  >({});
   const [currentUser] = usePerpsActiveAccountAtom();
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-  const [positionsLength] = usePerpsActivePositionLengthAtom();
+  const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [filterByCurrentToken] = usePositionFilterByCurrentTokenAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [positions] = usePerpsActivePositionAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
+  const canMutateScopedPositions = isPerpsAccountAddressMatched({
+    activeAccountAddress: currentUser?.accountAddress,
+    dataAccountAddress: accountScopedAddress,
+  });
+  const scopedActivePositions = useMemo(
+    () =>
+      getPerpsAccountScopedListData({
+        activeAccountAddress: accountScopedAddress,
+        dataAccountAddress: positions.accountAddress,
+        data: positions.activePositions,
+      }),
+    [accountScopedAddress, positions.accountAddress, positions.activePositions],
+  );
+  const positionsReady = isPerpsAccountScopedDataReady({
+    activeAccountAddress: accountScopedAddress,
+    dataAccountAddress: positions.accountAddress,
+  });
+  const positionsLength = scopedActivePositions.length;
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
@@ -154,12 +187,14 @@ function PerpPositionsList({
         align: 'right',
         flex: 1,
         fixed: positionsLength > 0,
-        ...(positionsLength > 0 && {
-          onPress: () => showCloseAllPositionsDialog(),
-        }),
+        ...(positionsLength > 0 &&
+          canMutateScopedPositions && {
+            onPress: () =>
+              showCloseAllPositionsDialog(undefined, accountScopedAddress),
+          }),
       },
     ];
-  }, [intl, positionsLength]);
+  }, [accountScopedAddress, canMutateScopedPositions, intl, positionsLength]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -169,31 +204,93 @@ function PerpPositionsList({
     [columnsConfig],
   );
 
-  // Generate mocked positions with correct original indices
-  const mockedPositions = useMemo<{ index: number }[]>(() => {
+  // Keep each row on the same positions snapshot that decided list emptiness.
+  const mockedPositions = useMemo<IPositionRowItem[]>(() => {
     if (!isMobile || !filterByCurrentToken || !activeAsset?.coin) {
-      // No filter: use sequential indices
-      return Array.from(
-        { length: positions.activePositions.length },
-        (_, index) => ({
-          index,
-        }),
-      );
+      return scopedActivePositions.map((activePosition, index) => ({
+        index,
+        activePosition,
+      }));
     }
-    // Filter active: preserve original indices from unfiltered array
-    return positions.activePositions
-      .map((p, originalIndex) => ({ position: p, originalIndex }))
-      .filter((item) => item.position.position.coin === activeAsset.coin)
-      .map((item) => ({ index: item.originalIndex }));
+    return scopedActivePositions
+      .map((activePosition, originalIndex) => ({
+        index: originalIndex,
+        activePosition,
+      }))
+      .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
-    positions.activePositions,
+    scopedActivePositions,
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,
   ]);
 
+  const handleTraceLayout = useCallback(
+    (name: string, event: LayoutChangeEvent) => {
+      if (!isMobile) {
+        return;
+      }
+      const rect = getPerpsMobileLayoutTraceRect(event);
+      if (
+        isPerpsMobileLayoutTraceRectChanged(layoutRectsRef.current[name], rect)
+      ) {
+        tracePerpsMobileLayout(`positionsList.${name}.layout`, {
+          rect,
+          mockedPositionsLength: mockedPositions.length,
+          activePositionsLength: scopedActivePositions.length,
+          filterByCurrentToken,
+          activeCoin: activeAsset?.coin,
+          hasAccountAddress: Boolean(accountScopedAddress),
+          useTabsList,
+          disableListScroll,
+          positionsReady,
+        });
+        layoutRectsRef.current[name] = rect;
+      }
+    },
+    [
+      activeAsset?.coin,
+      accountScopedAddress,
+      disableListScroll,
+      filterByCurrentToken,
+      isMobile,
+      mockedPositions.length,
+      positionsReady,
+      scopedActivePositions.length,
+      useTabsList,
+    ],
+  );
+
+  useEffect(() => {
+    if (!isMobile) {
+      return;
+    }
+    tracePerpsMobileLayout('positionsList.state', {
+      positionsLength,
+      mockedPositionsLength: mockedPositions.length,
+      activePositionsLength: scopedActivePositions.length,
+      filterByCurrentToken,
+      activeCoin: activeAsset?.coin,
+      hasAccountAddress: Boolean(accountScopedAddress),
+      useTabsList,
+      disableListScroll,
+      positionsReady,
+    });
+  }, [
+    activeAsset?.coin,
+    accountScopedAddress,
+    disableListScroll,
+    filterByCurrentToken,
+    isMobile,
+    mockedPositions.length,
+    positionsReady,
+    positionsLength,
+    scopedActivePositions.length,
+    useTabsList,
+  ]);
+
   const renderPositionRow = (
-    item: { index: number },
+    item: IPositionRowItem,
     _index: number,
     renderMode?: 'full' | 'left' | 'right',
     isHovered?: boolean,
@@ -210,6 +307,9 @@ function PerpPositionsList({
       onHoverChange={onHoverChange}
     />
   );
+  const keyExtractor = useCallback((item: IPositionRowItem) => {
+    return item.activePosition.position.coin;
+  }, []);
   const actions = useHyperliquidActions();
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
@@ -261,7 +361,7 @@ function PerpPositionsList({
     </XStack>
   );
 
-  if (!isMobile && mockedPositions.length === 0) {
+  if (!isMobile && positionsReady && mockedPositions.length === 0) {
     return (
       <YStack flex={1} width="100%">
         <ScrollView
@@ -296,36 +396,42 @@ function PerpPositionsList({
   }
 
   return (
-    <CommonTableListView
-      onPullToRefresh={async () => {
-        await actions.current.refreshAllPerpsData();
-      }}
-      listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-      useTabsList={useTabsList}
-      disableListScroll={disableListScroll}
-      currentListPage={currentListPage}
-      setCurrentListPage={setCurrentListPage}
-      enablePagination={!isMobile}
-      columns={columnsConfig}
-      minTableWidth={totalMinWidth}
-      data={mockedPositions}
-      isMobile={isMobile}
-      renderRow={renderPositionRow}
-      ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
-      emptyMessage={intl.formatMessage({
-        id: ETranslations.perp_position_empty,
-      })}
-      emptySubMessage={intl.formatMessage({
-        id: ETranslations.perp_position_empty_desc,
-      })}
-      ListHeaderComponent={
-        isMobile ? (
-          <MobilePositionsListHeader
-            totalPositionCount={positions.activePositions.length}
-          />
-        ) : null
-      }
-    />
+    <YStack flex={1} onLayout={(event) => handleTraceLayout('root', event)}>
+      <CommonTableListView
+        onPullToRefresh={async () => {
+          await actions.current.refreshAllPerpsData();
+        }}
+        listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
+        useTabsList={useTabsList}
+        disableListScroll={disableListScroll}
+        currentListPage={currentListPage}
+        setCurrentListPage={setCurrentListPage}
+        enablePagination={!isMobile}
+        columns={columnsConfig}
+        minTableWidth={totalMinWidth}
+        data={mockedPositions}
+        isMobile={isMobile}
+        renderRow={renderPositionRow}
+        keyExtractor={keyExtractor}
+        listLoading={!positionsReady}
+        ListEmptyComponent={<PerpPositionsEmptyState isMobile={isMobile} />}
+        emptyMessage={intl.formatMessage({
+          id: ETranslations.perp_position_empty,
+        })}
+        emptySubMessage={intl.formatMessage({
+          id: ETranslations.perp_position_empty_desc,
+        })}
+        ListHeaderComponent={
+          isMobile ? (
+            <MobilePositionsListHeader
+              totalPositionCount={scopedActivePositions.length}
+              canCloseAll={canMutateScopedPositions}
+              scopedAccountAddress={accountScopedAddress}
+            />
+          ) : null
+        }
+      />
+    </YStack>
   );
 }
 

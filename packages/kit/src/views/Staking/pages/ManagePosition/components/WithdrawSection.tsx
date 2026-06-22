@@ -43,6 +43,7 @@ import {
   type IEarnManagePageResponse,
   type IEarnTokenInfo,
   type IEarnTokenItem,
+  type IEarnWithdrawType,
   type IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -122,6 +123,10 @@ export const WithdrawSection = ({
     [protocolInfo?.provider],
   );
   const isPendleProvider = useIsPendleProvider(providerName);
+  const isNativeProvider = useMemo(
+    () => earnUtils.isNativeProvider({ providerName }),
+    [providerName],
+  );
 
   const token = useMemo(
     () => (tokenInfo?.token ? (tokenInfo.token as IToken) : undefined),
@@ -282,22 +287,42 @@ export const WithdrawSection = ({
   );
   const approveAssetToken =
     fetchedApproveAssetToken ?? fallbackApproveAssetToken;
-  const approvalToken = useMemo(() => {
-    if (!borrowTokenApproveNeeded) {
+  const withdrawApproveToken = useMemo(() => {
+    if (
+      !isNativeProvider ||
+      !protocolInfo?.withdrawApprove?.tokenAddress ||
+      !token
+    ) {
       return token;
     }
-    if (effectiveBorrowApproveInfo?.approveAsset) {
-      return approveAssetToken;
+    return {
+      ...token,
+      address: protocolInfo.withdrawApprove.tokenAddress,
+      isNative: false,
+    };
+  }, [isNativeProvider, protocolInfo?.withdrawApprove?.tokenAddress, token]);
+  const approvalToken = useMemo(() => {
+    if (borrowTokenApproveNeeded) {
+      if (effectiveBorrowApproveInfo?.approveAsset) {
+        return approveAssetToken;
+      }
+      return effectiveToken;
     }
-    return effectiveToken;
+    if (isNativeProvider) {
+      return withdrawApproveToken;
+    }
+    return token;
   }, [
     approveAssetToken,
     borrowTokenApproveNeeded,
     effectiveBorrowApproveInfo?.approveAsset,
     effectiveToken,
+    isNativeProvider,
     token,
+    withdrawApproveToken,
   ]);
-  const useApproveTarget = isPendleProvider || borrowTokenApproveNeeded;
+  const useApproveTarget =
+    isPendleProvider || isNativeProvider || borrowTokenApproveNeeded;
 
   const approveSpenderAddress = useMemo(() => {
     if (!useApproveTarget) {
@@ -313,6 +338,10 @@ export const WithdrawSection = ({
       });
     }
 
+    if (isNativeProvider) {
+      return protocolInfo?.withdrawApprove?.approveTarget ?? '';
+    }
+
     return earnUtils.resolveEarnApproveSpenderAddress({
       providerName,
       protocolVault: protocolInfo?.vault,
@@ -322,11 +351,16 @@ export const WithdrawSection = ({
     approvalToken?.isNative,
     borrowMarketAddress,
     effectiveBorrowApproveInfo?.approveTarget,
+    isNativeProvider,
+    protocolInfo?.withdrawApprove?.approveTarget,
     useApproveTarget,
     useBorrowApi,
     providerName,
     protocolInfo?.vault,
   ]);
+  const backendApproveType = isNativeProvider
+    ? protocolInfo?.withdrawApprove?.approveType
+    : effectiveBorrowApproveInfo?.approveType;
   const effectiveApproveType = useMemo(
     () =>
       earnUtils.resolveEarnApproveType({
@@ -334,12 +368,12 @@ export const WithdrawSection = ({
         networkId,
         tokenIsNative: approvalToken?.isNative,
         approveSpenderAddress,
-        backendApproveType: effectiveBorrowApproveInfo?.approveType,
+        backendApproveType,
       }),
     [
       approvalToken?.isNative,
       approveSpenderAddress,
-      effectiveBorrowApproveInfo?.approveType,
+      backendApproveType,
       networkId,
       providerName,
     ],
@@ -898,6 +932,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake,
       onStepChange,
       onEthenaCooldownUnstakeReady,
+      withdrawType,
     }: {
       amount: string;
       withdrawAll: boolean;
@@ -906,6 +941,7 @@ export const WithdrawSection = ({
       resumeEthenaCooldownUnstake?: boolean;
       onStepChange?: (step: number) => void;
       onEthenaCooldownUnstakeReady?: () => void;
+      withdrawType?: IEarnWithdrawType;
     }) => {
       if (!hasRequiredData) return;
 
@@ -918,7 +954,7 @@ export const WithdrawSection = ({
       await handleWithdraw({
         amount,
         // identity,
-        protocolVault: earnUtils.isVaultBasedProvider({
+        protocolVault: earnUtils.shouldSendEarnProtocolVault({
           providerName,
         })
           ? vault
@@ -933,6 +969,7 @@ export const WithdrawSection = ({
         effectiveApy,
         useEthenaCooldown,
         resumeEthenaCooldownUnstake,
+        withdrawType,
         onStepChange,
         onEthenaCooldownUnstakeReady,
         signal: abortController.signal,
@@ -1341,6 +1378,8 @@ export const WithdrawSection = ({
           tokenImageUri={token?.logoURI || fallbackTokenImageUri}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
+          protocolInfo={protocolInfo}
+          tokenInfo={tokenInfo}
           onConfirm={onConfirm}
           inputTitle={
             isPendleProvider
@@ -1368,6 +1407,9 @@ export const WithdrawSection = ({
           onQuoteRefreshingChange={onQuoteRefreshingChange}
           approveTarget={approveTarget}
           currentAllowance={initialAllowanceResult?.allowanceParsed}
+          receiptTokenRate={
+            protocolInfo?.receiptTokenRate ?? protocolInfo?.morphoTokenRate
+          }
           pendleSlippage={pendleSlippage}
         />
       )}

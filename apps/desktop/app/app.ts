@@ -9,11 +9,12 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
   app,
-  dialog,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   inAppPurchase,
   ipcMain,
@@ -40,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -53,7 +55,7 @@ import {
   getMetadata,
 } from './bundle';
 import { ipcMessageKeys } from './config';
-import { ElectronTranslations, i18nFormat, i18nText, initLocale } from './i18n';
+import { ElectronTranslations, i18nText, initLocale } from './i18n';
 import { scheduleCrashDumpCleanup } from './libs/crashDumpCleanup';
 // Side-effect import: registers synchronous IPC handler for renderer MMKV access
 // eslint-disable-next-line import-js/order
@@ -77,10 +79,14 @@ import { startServices } from './service';
 // eslint-disable-next-line import-js/order
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
+import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
+
+import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
 initSentry();
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
+const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';
 const isDevServer = isDev && !isPerfCiMode;
 const isLocalUnpacked = isDev || isPerfCiMode;
 
@@ -106,6 +112,12 @@ if (isPerfCiMode) {
     path.join(os.homedir(), 'perf-profiles', 'desktop');
   app.setPath('userData', userDataDir);
   logger.info('[perf-ci] userDataDir:', userDataDir);
+} else if (isDesktopE2EMode) {
+  const userDataDir =
+    process.env.DESKTOP_E2E_USER_DATA_DIR ||
+    path.join(os.tmpdir(), 'onekey-desktop-e2e');
+  app.setPath('userData', userDataDir);
+  logger.info('[desktop-e2e] userDataDir:', userDataDir);
 }
 
 // https://github.com/sindresorhus/electron-context-menu
@@ -141,6 +153,12 @@ const APP_NAME = 'OneKey Wallet';
 const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
+let isAppReady = false;
+// Custom scheme used to serve the renderer bundle via interceptFileProtocol.
+// Module-scoped so softRestartRenderer and createMainWindow reference the SAME
+// value — a divergence would make the pre-recreate uninterceptProtocol call
+// silently no-op and reintroduce the stale-interceptor bug it exists to prevent.
+const PROTOCOL = 'file';
 
 const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
@@ -177,6 +195,97 @@ function showMainWindow() {
   const safelyMainWindow = getSafelyMainWindow();
   safelyMainWindow?.show();
   safelyMainWindow?.focus();
+}
+
+// MAS / Mac App Store builds cannot call `app.relaunch()` (sandbox forbids it),
+// so a JS bundle update there cannot hard-restart. Instead we "soft restart":
+// destroy the renderer and recreate it in-process. createMainWindow() re-runs
+// processPreLaunchPendingTask() + getUpdateBundleData() + getBundleIndexHtmlPath()
+// and (after the P0-1 uninterceptProtocol fix) rebinds the file:// interceptor to
+// the new bundle, so the recreated window loads the freshly-installed bundle.
+// The active bundle pointer was already written to the main-process store
+// (store.setUpdateBundleData) before this runs, so no extra path wiring is needed.
+let softRestarting = false;
+async function softRestartRenderer() {
+  if (softRestarting) {
+    logger.warn('[softRestart] already in progress, ignoring re-entrant call');
+    return;
+  }
+  softRestarting = true;
+  const startedAt = Date.now();
+  const targetBundle = store.getUpdateBundleData();
+  logger.info('[softRestart] begin', {
+    mas: process.mas,
+    targetAppVersion: targetBundle?.appVersion,
+    targetBundleVersion: targetBundle?.bundleVersion,
+    nativeVersion: app.getVersion(),
+    hadTrayWindow: !!getTrayWindow(),
+  });
+  try {
+    // Give the newly installed bundle a fresh boot-fail budget (the bundle-level
+    // analog of createMainWindow's app-version-change reset). createMainWindow
+    // then increments to 1 — the soft restart still COUNTS, so a new bundle that
+    // crashes on boot accumulates toward the recovery page just like a cold boot,
+    // while repeated SUCCESSFUL soft restarts can't trip recovery (each resets
+    // here, then markBootSuccess clears it). This keeps the crash self-heal /
+    // auto-rollback path alive on MAS where app.relaunch() is unavailable.
+    store.resetConsecutiveBootFailCount();
+    // destroy() force-terminates the old renderer process (same as today's hard
+    // restart), giving the recreated window a clean customElements registry and
+    // killing any in-flight JS in the old renderer so it cannot re-trigger.
+    getSafelyMainWindow()?.destroy();
+    mainWindow = null;
+    isAppReady = false;
+    logger.info('[softRestart] old renderer destroyed');
+    // The macOS tray panel is a separate BrowserWindow running its own copy of
+    // the bundle; it is NOT recreated by createMainWindow, so after a soft
+    // restart it would keep running the OLD bundle. Destroy it (keeping the tray
+    // icon + polling alive) so the next tray open lazily rebuilds it from the new
+    // bundle (loadTrayUrl reads the current bundle path fresh on each create).
+    destroyTrayWindow();
+    logger.info('[softRestart] tray window destroyed (will rebuild on demand)');
+    // Remove the previous window's file:// interceptor NOW, before the recreated
+    // window's loadURL runs. The interceptor lives on the persistent
+    // defaultSession (it outlives the window) and still captures the OLD bundle's
+    // path + metadata. createMainWindow only re-registers it later, after an
+    // `await getMetadata`, so without this the new bundle's very first
+    // `file://{newBundle}/index.html` request would be served by the stale
+    // interceptor → hash mismatch / tamper dialog / old bundle. Clearing it here
+    // lets Chromium's default file handler serve the real new index.html (same
+    // as a cold boot), and createMainWindow then installs a fresh interceptor.
+    try {
+      const wasIntercepted =
+        session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL);
+      if (wasIntercepted) {
+        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+      logger.info('[softRestart] stale file interceptor cleared', {
+        wasIntercepted,
+      });
+    } catch (e) {
+      logger.warn(
+        '[softRestart] uninterceptProtocol before recreate failed',
+        e,
+      );
+    }
+    mainWindow = await createMainWindow({ isSoftRestart: true });
+    showMainWindow();
+    logger.info('[softRestart] done: renderer recreated with new bundle', {
+      durationMs: Date.now() - startedAt,
+      indexHtml:
+        globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.(),
+    });
+  } catch (e) {
+    // If recreation fails there is no safe in-process recovery on MAS; exit so
+    // the user can relaunch manually (equivalent to today's MAS behavior).
+    logger.error('[softRestart] failed, exiting', {
+      durationMs: Date.now() - startedAt,
+      error: e,
+    });
+    app.exit(0);
+  } finally {
+    softRestarting = false;
+  }
 }
 
 const initMenu = () => {
@@ -423,7 +532,6 @@ function quitOrMinimizeApp() {
 }
 
 const emitter = new EventEmitter();
-let isAppReady = false;
 function handleDeepLinkUrl(
   event: Event | null,
   url: string,
@@ -516,8 +624,20 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
-async function createMainWindow() {
+async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
+  const isSoftRestart = opts?.isSoftRestart ?? false;
   // === Boot Recovery Check (must be first) ===
+  // Runs for BOTH cold boots AND MAS soft restarts: a soft restart is a real
+  // attempt to bring up the (newly installed) bundle, so it MUST count toward
+  // crash detection — otherwise a bundle that crashes the renderer on init
+  // would, on MAS (no app.relaunch()), leave a dead white window with no path
+  // to the recovery page / auto-rollback. softRestartRenderer resets the
+  // counter to 0 right before calling this (the bundle-version analog of the
+  // app-version-change reset below — a new bundle deserves a fresh budget), so
+  // a soft restart starts the new bundle at count 1: repeated SUCCESSFUL soft
+  // restarts can't accumulate (each resets, then markBootSuccess clears it),
+  // while a new bundle that keeps crashing accumulates across subsequent
+  // launches and reaches the recovery page at 3, exactly like a cold boot.
   const currentAppVersion = app.getVersion();
   const storedFailVersion = store.getBootFailAppVersion();
   if (storedFailVersion && storedFailVersion !== currentAppVersion) {
@@ -531,7 +651,7 @@ async function createMainWindow() {
   }
   store.setBootFailAppVersion(currentAppVersion);
   const bootFailCount = store.incrementConsecutiveBootFailCount();
-  logger.info('Boot fail count:', bootFailCount);
+  logger.info('Boot fail count:', bootFailCount, { isSoftRestart });
   if (bootFailCount >= 3) {
     logger.error('Recovery page triggered', {
       crashCount: bootFailCount,
@@ -628,6 +748,7 @@ async function createMainWindow() {
     getAppName: () => APP_NAME,
     getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
     useJsBundle: () => !!bundleIndexHtmlPath,
+    softRestartRenderer,
   };
 
   if (isMac) {
@@ -636,12 +757,28 @@ async function createMainWindow() {
     });
   }
 
-  const PROTOCOL = 'file';
   const perfIndexHtmlPath =
     process.env.PERF_DESKTOP_INDEX_HTML ||
     path.join(__dirname, '..', 'build', 'index.html');
 
+  // Re-registering interceptFileProtocol on a session that already has an
+  // interceptor for the scheme silently fails (Electron returns false), which
+  // would leave the OLD closure — capturing the previous bundle's path/metadata
+  // — still serving requests after a MAS soft restart, so the recreated window
+  // would load the STALE bundle. Clear any prior interceptor first so each
+  // createMainWindow() installs a fresh handler bound to the new bundle data.
+  const uninterceptFileProtocolIfNeeded = () => {
+    try {
+      if (session.defaultSession.protocol.isProtocolIntercepted(PROTOCOL)) {
+        session.defaultSession.protocol.uninterceptProtocol(PROTOCOL);
+      }
+    } catch (e) {
+      logger.warn('uninterceptProtocol failed', e);
+    }
+  };
+
   if (isLocalUnpacked) {
+    uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -692,7 +829,7 @@ async function createMainWindow() {
         slashes: true,
       })
     : isDev
-      ? 'http://localhost:3001/'
+      ? process.env.DESKTOP_E2E_RENDERER_URL || 'http://localhost:3001/'
       : formatUrl({
           pathname: bundleIndexHtmlPath || 'index.html',
           protocol: PROTOCOL,
@@ -700,7 +837,7 @@ async function createMainWindow() {
         });
   /* eslint-enable no-nested-ternary */
 
-  if (isDevServer) {
+  if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();
   }
 
@@ -713,7 +850,11 @@ async function createMainWindow() {
   setMainWindowForHttpServer(browserWindow);
 
   // Protocol handler for win32
-  if (isWin || isMac) {
+  // Skip on soft restart: process.argv is unchanged across an in-process
+  // recreate, so replaying the launch deep link here would re-dispatch the
+  // original cold-start URL (e.g. a WalletConnect pairing or send screen) after
+  // every bundle update. Only a genuine cold boot should consume argv.
+  if ((isWin || isMac) && !isSoftRestart) {
     // Keep only command line / deep linked arguments
     const deeplinkingUrl = process.argv[1];
     handleDeepLinkUrl(null, deeplinkingUrl, process.argv, true);
@@ -775,8 +916,24 @@ async function createMainWindow() {
     isAppReady = true;
   });
 
+  // Gate shell.openExternal behind a protocol whitelist so a tainted main
+  // renderer (XSS) cannot weaponize window.open() into phishing redirects
+  // via javascript:/file:/data: URIs. Only https:// (and mailto:) are
+  // forwarded to the OS browser. See SlowMist audit Desktop-14.
   browserWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url);
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+        logger.warn(
+          '[setWindowOpenHandler] blocked non-https url:',
+          parsed.protocol,
+        );
+        return { action: 'deny' };
+      }
+      void shell.openExternal(url);
+    } catch {
+      logger.warn('[setWindowOpenHandler] blocked malformed url');
+    }
     return { action: 'deny' };
   });
 
@@ -785,13 +942,6 @@ async function createMainWindow() {
     isAppReady = true;
     logger.info('set isAppReady on ipcMain app/ready', isAppReady);
     emitter.emit('ready');
-  });
-  ipcMain.on(ipcMessageKeys.APP_READY, () => {
-    if (!process.mas) {
-      app.relaunch();
-    }
-    app.exit(0);
-    disposeContextMenu?.();
   });
 
   registerInfoHandlers(isDevServer, () => {
@@ -947,8 +1097,13 @@ async function createMainWindow() {
       event,
       payload: { module: string; method: string; params: any[] },
     ) => {
-      // Only allow calls from the main window renderer
-      if (event.sender.id !== browserWindow.webContents.id) {
+      // Only allow calls from the main window renderer. Resolve the live main
+      // window dynamically (not the closure-captured `browserWindow`) so a MAS
+      // soft restart — which destroys and recreates the window — keeps the gate
+      // pointed at the current renderer instead of the destroyed one.
+      const currentMainWebContentsId =
+        getSafelyMainWindow()?.webContents.id ?? browserWindow.webContents.id;
+      if (event.sender.id !== currentMainWebContentsId) {
         logger.warn(
           '[DESKTOP_API_CALL] Rejected call from non-main renderer',
           event.sender.id,
@@ -1123,6 +1278,10 @@ async function createMainWindow() {
     return false;
   });
 
+  // `session` here is the persistent defaultSession, which OUTLIVES the
+  // BrowserWindow. `.on` is additive, so on a MAS soft restart this would stack
+  // one more listener per recreate. Clear any prior one first so it stays at 1.
+  browserWindow.webContents.session.removeAllListeners('select-hid-device');
   browserWindow.webContents.session.on(
     'select-hid-device',
     (event, details, callback) => {
@@ -1139,12 +1298,28 @@ async function createMainWindow() {
 
   // Permission handler for webview (partition: persist:onekey)
   //
-  // - media: only allowed for whitelisted fiat pay sites (camera/microphone for KYC, etc.)
-  // - notifications: already disabled at the webview tag level via
-  //   disableBlinkFeatures="Notifications" in DesktopWebView.tsx,
-  //   so the Notification API is completely unavailable and this handler
-  //   will never receive a 'notifications' permission request.
-  // - all other permissions: allowed to preserve default Electron behavior.
+  // Default policy: DENY all permissions. Only types explicitly listed in
+  // WEBVIEW_ALLOWED_PERMISSIONS are granted. Previously the handler fell
+  // through to `callback(true)` for anything other than `media`, which let
+  // any dapp silently read the user's clipboard, geolocation, screen
+  // capture, etc. See SlowMist audit Desktop-10.1.
+  //
+  // - media: whitelisted fiat pay sites only (camera/microphone for KYC)
+  // - clipboard-sanitized-write: allowed (no information disclosure)
+  // - fullscreen / pointerLock: allowed (legitimate dapp UX for video/games);
+  //   revisit if business confirms they are unused
+  // - clipboard-read: DENIED at the Electron level so dapps cannot bypass
+  //   the `wallet_requestClipboardPermission` modal via
+  //   `navigator.clipboard.readText()`
+  // - notifications: already disabled at the Blink engine level via
+  //   `disableBlinkFeatures="Notifications"` in DesktopWebView.tsx
+  // - all other permissions (geolocation, display-capture, idle-detection,
+  //   midi, serial/usb/hid/bluetooth, etc.): DENIED
+  const WEBVIEW_ALLOWED_PERMISSIONS = new Set([
+    'fullscreen',
+    'pointerLock',
+    'clipboard-sanitized-write',
+  ]);
   const webviewSession = session.fromPartition('persist:onekey');
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
@@ -1172,12 +1347,32 @@ async function createMainWindow() {
         callback(false);
         return;
       }
-      // Allow all non-media permissions to preserve default Electron behavior.
-      // Note: 'notifications' is never requested here because it is disabled
-      // at the Blink engine level (see disableBlinkFeatures in DesktopWebView.tsx).
-      callback(true);
+      if (WEBVIEW_ALLOWED_PERMISSIONS.has(permission)) {
+        callback(true);
+        return;
+      }
+      // Log only the origin — full URLs can carry session tokens or
+      // dapp-specific query strings that should not leak into log files.
+      let deniedOrigin = '<malformed>';
+      try {
+        deniedOrigin = new URL(requestingUrl || topLevelUrl).origin;
+      } catch {
+        // keep '<malformed>' fallback
+      }
+      logger.info('[webview] permission denied:', permission, deniedOrigin);
+      callback(false);
     },
   );
+  // Some permissions (notably clipboard) reach the renderer via the
+  // synchronous PermissionCheck path rather than PermissionRequest; without a
+  // check handler Electron's default is `true`, which would silently let
+  // dapps bypass the request-time policy above. Mirror the allowlist here.
+  // `media` keeps a true default so the dynamic fiat-pay whitelist still
+  // runs at request time.
+  webviewSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === 'media') return true;
+    return WEBVIEW_ALLOWED_PERMISSIONS.has(permission);
+  });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
@@ -1241,6 +1436,7 @@ async function createMainWindow() {
         metadataFailed = true;
       }
     }
+    uninterceptFileProtocolIfNeeded();
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -1388,6 +1584,57 @@ async function createMainWindow() {
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
 
+  // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
+  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
+  // `initTrezorBleSupport`, whose IPC channels live in their own
+  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
+  // own `nobleBle` without colliding. When we add other 3rd-party BLE
+  // vendors, they should plug into the same `thirdPartyBle` surface
+  // rather than each adding a parallel object.
+  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+    ipcMain.removeHandler(channel),
+  );
+  // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
+  // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
+  // otherwise drive BLE scan/connect/write. Gate every channel to the main
+  // window renderer, matching the DESKTOP_API_CALL sender check.
+  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        if (event.sender.id !== browserWindow.webContents.id) {
+          logger.warn(
+            '[TrezorBLE] Rejected IPC from non-main renderer',
+            channel,
+            event.sender.id,
+          );
+          throw new OneKeyLocalError(
+            'Trezor BLE IPC is only allowed from the main window',
+          );
+        }
+        return listener(event, ...args);
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+  };
+  initTrezorBleSupport(browserWindow.webContents, {
+    ipcMain: trezorBleSenderGatedIpcMain,
+    logger: (entry) => {
+      const message = `[hwk:${entry.scope}] ${entry.event}`;
+      // THP debug payloads can carry handshake packets / pairing credentials /
+      // static keys — redact before anything reaches the on-disk file log.
+      const data = sanitizeTrezorThpModuleLogData(entry.data) ?? '';
+      if (entry.level === 'error') {
+        logger.error(message, data);
+        return;
+      }
+      if (entry.level === 'warn') {
+        logger.warn(message, data);
+        return;
+      }
+      logger.info(message, data);
+    },
+  });
+
   return browserWindow;
 }
 
@@ -1504,7 +1751,12 @@ if (!singleInstance && !process.mas) {
 //  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
-  if (!mainWindow) {
+  // During a soft restart `mainWindow` is transiently null while
+  // createMainWindow() runs. Skip creating a window here in that window of time,
+  // otherwise a dock-icon click would spawn a SECOND main window (without
+  // isSoftRestart, so it would also bump the boot-fail counter). softRestart's
+  // own showMainWindow() will surface the recreated window.
+  if (!mainWindow && !softRestarting) {
     mainWindow = await createMainWindow();
   }
   showMainWindow();
@@ -1979,7 +2231,6 @@ const cpuHistoryByPid = new Map<number, number[]>();
 const prevCumCpuByPid = new Map<number, number>();
 let lastSampleAt: number | null = null;
 let lastWatchdogFiredAt = 0;
-let watchdogDialogOpen = false;
 let cpuWatchdogInterval: ReturnType<typeof setInterval> | null = null;
 
 type ICpuWatchdogReason =
@@ -2121,18 +2372,6 @@ function startCpuWatchdog() {
   });
 }
 
-function pickWatchdogDialogParent(): BrowserWindow | undefined {
-  const candidates = BrowserWindow.getAllWindows().filter(
-    (w) => !w.isDestroyed() && w.isVisible(),
-  );
-  if (candidates.length === 0) return undefined;
-  return (
-    candidates.find((w) => w.isFocused()) ??
-    getSafelyMainWindow() ??
-    candidates[0]
-  );
-}
-
 function reportWatchdogToSentry(params: {
   reason: ICpuWatchdogReason;
   pid?: number;
@@ -2162,12 +2401,6 @@ function triggerCpuWatchdog(params: {
   bypassCooldown?: boolean;
 }) {
   const now = Date.now();
-  if (watchdogDialogOpen) {
-    logger.warn('[CPU Watchdog] trigger ignored — dialog already open', {
-      reason: params.reason,
-    });
-    return;
-  }
   if (
     !params.bypassCooldown &&
     now - lastWatchdogFiredAt < CPU_WATCHDOG_COOLDOWN_MS
@@ -2181,91 +2414,18 @@ function triggerCpuWatchdog(params: {
   }
   lastWatchdogFiredAt = now;
 
-  logger.warn('[CPU Watchdog] fired', params);
+  // UI suppressed: only collect local logs + Sentry telemetry while we
+  // investigate the underlying CPU regression. Re-enable surface (status
+  // indicator / non-blocking card) once root cause is identified.
+  logger.warn('[CPU Watchdog] fired (UI suppressed)', params);
   reportWatchdogToSentry(params);
-
-  const parent = pickWatchdogDialogParent();
-  if (!parent) {
-    logger.warn(
-      '[CPU Watchdog] no visible window to attach dialog to; skipping UI',
-    );
-    return;
-  }
-
-  const uptimeMinutes = Math.round(process.uptime() / 60);
-  let reasonText: string;
-  if (params.reason === 'unresponsive') {
-    reasonText = i18nText(ElectronTranslations.cpu_watchdog_unresponsive__desc);
-  } else if (params.reason === 'sustained-high-cpu-severe') {
-    const seconds = Math.round(
-      (CPU_WATCHDOG_SEVERE_SUSTAINED_SAMPLES *
-        CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
-        1000,
-    );
-    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_severe__desc, {
-      threshold: CPU_WATCHDOG_SEVERE_THRESHOLD_PERCENT,
-      seconds,
-    });
-  } else {
-    const minutes = Math.round(
-      (CPU_WATCHDOG_MILD_SUSTAINED_SAMPLES * CPU_WATCHDOG_SAMPLE_INTERVAL_MS) /
-        60_000,
-    );
-    reasonText = i18nFormat(ElectronTranslations.cpu_watchdog_mild__desc, {
-      threshold: CPU_WATCHDOG_MILD_THRESHOLD_PERCENT,
-      minutes,
-    });
-  }
-  const actionText = i18nFormat(
-    ElectronTranslations.cpu_watchdog_action__desc,
-    { minutes: uptimeMinutes },
-  );
-  const dialogTitle = i18nText(ElectronTranslations.cpu_watchdog__title);
-
-  watchdogDialogOpen = true;
-  void dialog
-    .showMessageBox(parent, {
-      type: 'warning',
-      title: dialogTitle,
-      message: dialogTitle,
-      detail: `${reasonText}\n\n${actionText}`,
-      buttons: [
-        i18nText(ElectronTranslations.settings_upload_state_logs),
-        i18nText(ElectronTranslations.troubleshooting_restart_app),
-        i18nText(ElectronTranslations.global_later),
-      ],
-      defaultId: 0,
-      cancelId: 2,
-      noLink: true,
-    })
-    .then(({ response }) => {
-      if (response === 0) {
-        const win = getSafelyMainWindow();
-        win?.webContents.send(ipcMessageKeys.CPU_WATCHDOG_OPEN_EXPORT_LOGS);
-      } else if (response === 1) {
-        if (!process.mas) {
-          app.relaunch();
-        }
-        app.exit(0);
-      } else {
-        logger.info('[CPU Watchdog] user dismissed dialog');
-      }
-    })
-    .catch((err) => {
-      logger.warn('[CPU Watchdog] dialog failed', err);
-    })
-    .finally(() => {
-      watchdogDialogOpen = false;
-    });
 }
 
 function resetCpuWatchdogStateForTesting() {
   logger.warn('[CPU Watchdog] cooldown reset via IPC', {
     previousLastFiredAt: lastWatchdogFiredAt,
-    previousDialogOpen: watchdogDialogOpen,
   });
   lastWatchdogFiredAt = 0;
-  watchdogDialogOpen = false;
   cpuHistoryByPid.clear();
   prevCumCpuByPid.clear();
   lastSampleAt = null;

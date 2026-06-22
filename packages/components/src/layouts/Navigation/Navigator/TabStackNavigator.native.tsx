@@ -199,7 +199,13 @@ export function TabStackNavigator<RouteName extends string>({
       case ESplitViewType.MAIN:
         return false;
       case ESplitViewType.SUB:
-        return isLandscape;
+        // In landscape the main pane carries the side-rail tab bar, so the
+        // sub pane has no tab bar. In portrait the main pane is collapsed
+        // via display:none and the sub pane is the only visible surface — it
+        // must honor the HideTabBar event the same way the single-pane
+        // layout does, otherwise detail screens like MarketDetail can't hide
+        // the bottom tab bar on iPad portrait.
+        return isLandscape || tabBarHidden;
       default:
         return tabBarHidden;
     }

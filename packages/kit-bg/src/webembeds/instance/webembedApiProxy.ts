@@ -19,6 +19,8 @@ import type WebEmbedApiImageUtils from '../WebEmbedApiImageUtils';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
 
+const WEB_EMBED_API_READY_TIMEOUT_MS = 40 * 1000;
+
 class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
   // backgroundApiProxy = appGlobals.$backgroundApiProxy;
   // backgroundApiProxy = backgroundApiProxy;
@@ -39,8 +41,8 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
         const timerId = setTimeout(() => {
           defaultLogger.app.webembed.initTimeout();
           globalThis.$onekeyAppWebembedApiWebviewInitFailed = true;
-          reject(new Error('WebEmbedApi not ready after 30s.'));
-        }, 30 * 1000);
+          reject(new Error('WebEmbedApi not ready after 40s.'));
+        }, WEB_EMBED_API_READY_TIMEOUT_MS);
         appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
           defaultLogger.app.webembed.loadWebEmbedWebViewComplete();
           clearTimeout(timerId);

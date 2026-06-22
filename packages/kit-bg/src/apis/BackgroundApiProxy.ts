@@ -41,6 +41,7 @@ import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
 import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/ServiceHyperliquidReferral';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
@@ -82,6 +83,7 @@ import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
+import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
 import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
@@ -268,6 +270,10 @@ class BackgroundApiProxy
     'serviceHardwareUI',
   ) as ServiceHardwareUI;
 
+  serviceThirdPartyHardware = this._createProxyService(
+    'serviceThirdPartyHardware',
+  ) as ServiceThirdPartyHardware;
+
   serviceFirmwareUpdate = this._createProxyService(
     'serviceFirmwareUpdate',
   ) as ServiceFirmwareUpdate;
@@ -369,6 +375,10 @@ class BackgroundApiProxy
   serviceHyperliquid = this._createProxyService(
     'serviceHyperliquid',
   ) as ServiceHyperliquid;
+
+  serviceHyperliquidCache = this._createProxyService(
+    'serviceHyperliquidCache',
+  ) as ServiceHyperliquidCache;
 
   serviceHyperliquidExchange = this._createProxyService(
     'serviceHyperliquidExchange',

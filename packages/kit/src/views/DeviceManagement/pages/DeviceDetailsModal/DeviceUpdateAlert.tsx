@@ -10,10 +10,10 @@ import {
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 
 import { FirmwareUpdateReminderAlert } from '../../../FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
+import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
 
 export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
   const intl = useIntl();
@@ -51,11 +51,13 @@ export function DeviceUpdateAlert({ type }: { type?: 'top' | 'bottom' }) {
 
   let message = 'New firmware is available';
   if (detectResult?.detectInfo?.toVersion) {
-    const firmwareTypeLabel = deviceUtils.getFirmwareTypeLabelByFirmwareType({
+    const firmwareTypeLabel = getTargetFirmwareTypeLabel({
       firmwareType: detectResult.detectInfo.toFirmwareType,
-      displayFormat: 'withSpace',
+      intl,
     });
-    const version = `${firmwareTypeLabel}${detectResult.detectInfo.toVersion}`;
+    const version = [firmwareTypeLabel, detectResult.detectInfo.toVersion]
+      .filter(Boolean)
+      .join(' ');
     message = intl.formatMessage(
       { id: ETranslations.update_firmware_version_available },
       {

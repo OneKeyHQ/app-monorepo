@@ -82,9 +82,9 @@ export function NetworkContent({
     async () => {
       const [_accountsValue, _chainSelectorNetworks, _localDeFiOverview] =
         await Promise.all([
-          backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValue({
-            accounts: [{ accountId: indexedAccountId ?? accountId ?? '' }],
-          }),
+          backgroundApiProxy.serviceAccountProfile.getAllNetworkAccountsValueByAccountId(
+            { accountId: indexedAccountId ?? accountId ?? '' },
+          ),
           backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
             {
               accountId,
@@ -105,7 +105,7 @@ export function NetworkContent({
           }),
         ]);
 
-      if (_accountsValue[0] || _localDeFiOverview[0]) {
+      if (_accountsValue || _localDeFiOverview[0]) {
         const {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
@@ -115,10 +115,10 @@ export function NetworkContent({
         } = await backgroundApiProxy.serviceNetwork.sortChainSelectorNetworksByValue(
           {
             walletId: accountUtils.getWalletIdFromAccountId({
-              accountId: _accountsValue[0]?.accountId ?? '',
+              accountId: _accountsValue?.accountId ?? '',
             }),
             chainSelectorNetworks: _chainSelectorNetworks,
-            accountNetworkValues: _accountsValue[0]?.value ?? {},
+            accountNetworkValues: _accountsValue?.value ?? {},
             localDeFiOverview: _localDeFiOverview[0]?.overview ?? {},
           },
         );
@@ -126,7 +126,7 @@ export function NetworkContent({
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,
-          accountNetworkValueCurrency: _accountsValue[0]?.currency,
+          accountNetworkValueCurrency: _accountsValue?.currency,
           accountDeFiOverview: _accountDeFiOverview,
           zeroValue,
         };

@@ -59,6 +59,8 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendAmountInput,
     component: SendAmountInput,
+    modalContentMaxHeight: 544,
+    modalContentMaxWidth: 544,
   },
   {
     name: EModalSendRoutes.SendConfirm,

@@ -164,13 +164,6 @@ function BtcRewardDetailPage() {
           <YStack bg="$bgSubdued" borderRadius="$3" p="$4" gap="$3">
             <DescriptionItem
               label={intl.formatMessage({
-                id: ETranslations.redemption_btc_label_product,
-              })}
-              value={item.batchName}
-            />
-
-            <DescriptionItem
-              label={intl.formatMessage({
                 id: ETranslations.redemption_btc_label_code,
               })}
               value={item.code}

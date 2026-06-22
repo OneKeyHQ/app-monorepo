@@ -18,6 +18,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
@@ -80,8 +81,6 @@ import {
 
 const TRAY_ROUTE_HOME = '/main/tab-home';
 const TRAY_ROUTE_MARKET = '/main/tab-market';
-// Fires while pending txs exist even when panel is closed and home is unfocused.
-const TRAY_PENDING_TX_RECHECK_INTERVAL_MS = 12_000;
 
 async function refreshTrayPendingTxStatuses(
   txs: IAccountHistoryTx[],
@@ -342,13 +341,7 @@ async function getTrayActiveAccountScope({
 type ITrayEnabledNetworkScope = {
   enabledNetworkIds: string[];
   enabledNetworksCompatibleWithWalletId: Array<{ id: string }>;
-  networkInfoMap: Record<
-    string,
-    {
-      deriveType: string;
-      mergeDeriveAssetsEnabled: boolean;
-    }
-  >;
+  networkInfoMap: Record<string, INetworkDeriveInfo>;
 };
 
 async function getTrayEnabledNetworkScope({
@@ -408,11 +401,20 @@ async function getTrayEnabledNetworkScope({
           networkId: network.id,
         }),
       ]);
+      const suffixToDeriveType: Record<string, string> = {};
+      for (const [dt, info] of Object.entries(
+        vaultSettings.accountDeriveInfo ?? {},
+      )) {
+        if (info.idSuffix) {
+          suffixToDeriveType[info.idSuffix.toLowerCase()] = dt;
+        }
+      }
       return [
         network.id,
         {
           deriveType,
           mergeDeriveAssetsEnabled: !!vaultSettings.mergeDeriveAssetsEnabled,
+          suffixToDeriveType,
         },
       ] as const;
     }),
@@ -469,15 +471,8 @@ export function useTrayDataProvider() {
   // Renderer-side inflight guard for non-poll paths (account change, refresh).
   const inFlightRef = useRef(false);
   const trailingRefreshRef = useRef(false);
-  const hasPendingTxRef = useRef(false);
   // Cached resolved watchlist for the account-switch optimistic placeholder (OK-54088).
   const lastWatchlistRef = useRef<ITrayWatchlistItem[]>([]);
-  const pendingRecheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const isTrayActiveRef = useRef(isTrayActive);
-  isTrayActiveRef.current = isTrayActive;
-
   const handleTrayDataRequestInner = useCallback(async () => {
     // Tray window can't reach backgroundApiProxy (DESKTOP_API_CALL is gated
     // to the main window), so we push locale inline with every payload.
@@ -878,7 +873,6 @@ export function useTrayDataProvider() {
         return;
       }
 
-      hasPendingTxRef.current = (trayData.pendingTxs?.length ?? 0) > 0;
       globalThis.desktopApi?.sendTrayData(trayData);
     } catch {
       // Prefer locked placeholder over error if user locked during the
@@ -911,25 +905,6 @@ export function useTrayDataProvider() {
     }
   }, []);
 
-  const clearPendingRecheck = useCallback(() => {
-    if (pendingRecheckTimerRef.current) {
-      clearTimeout(pendingRecheckTimerRef.current);
-      pendingRecheckTimerRef.current = null;
-    }
-  }, []);
-
-  // Resets on every refresh so external events near a tick don't cause back-to-back gathers.
-  const schedulePendingRecheck = useCallback(() => {
-    if (!isTrayActiveRef.current) return;
-    if (pendingRecheckTimerRef.current) {
-      clearTimeout(pendingRecheckTimerRef.current);
-    }
-    pendingRecheckTimerRef.current = setTimeout(() => {
-      pendingRecheckTimerRef.current = null;
-      void handleTrayDataRequestRef.current?.();
-    }, TRAY_PENDING_TX_RECHECK_INTERVAL_MS);
-  }, []);
-
   const handleTrayDataRequest = useCallback(async () => {
     if (inFlightRef.current) {
       trailingRefreshRef.current = true;
@@ -940,21 +915,16 @@ export function useTrayDataProvider() {
       await handleTrayDataRequestInner();
     } finally {
       inFlightRef.current = false;
-      const willTrailingRefresh = trailingRefreshRef.current;
-      if (willTrailingRefresh) {
+      if (trailingRefreshRef.current) {
         trailingRefreshRef.current = false;
         // Microtask so the call stack unwinds and main-process
         // `guardedRequest` can release on TRAY_DATA_RESPONSE first.
         queueMicrotask(() => {
           void handleTrayDataRequestRef.current?.();
         });
-      } else if (hasPendingTxRef.current) {
-        schedulePendingRecheck();
-      } else {
-        clearPendingRecheck();
       }
     }
-  }, [handleTrayDataRequestInner, schedulePendingRecheck, clearPendingRecheck]);
+  }, [handleTrayDataRequestInner]);
 
   const handleOpenTransactionDetail = useCallback(
     async (action: ITrayAction) => {
@@ -1233,14 +1203,4 @@ export function useTrayDataProvider() {
       );
     };
   }, [isTrayActive]);
-
-  useEffect(() => {
-    if (!isTrayActive) {
-      clearPendingRecheck();
-      hasPendingTxRef.current = false;
-    }
-    return () => {
-      clearPendingRecheck();
-    };
-  }, [isTrayActive, clearPendingRecheck]);
 }

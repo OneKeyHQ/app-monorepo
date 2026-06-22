@@ -31,7 +31,12 @@ function AccountAvatarWithWallet({
   );
 
   return (
-    <AccountAvatar size="default" address={address} wallet={resolvedWallet} />
+    <AccountAvatar
+      size="default"
+      address={address}
+      wallet={resolvedWallet}
+      enableEnterAnimation
+    />
   );
 }
 

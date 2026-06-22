@@ -438,6 +438,7 @@ export function useDeviceConnect({
           communication: getHardwareCommunicationTypeString(
             hardwareTransportType,
           ),
+          vendor: EHardwareVendor.onekey,
         },
         isSoftwareWalletOnlyUser,
       });

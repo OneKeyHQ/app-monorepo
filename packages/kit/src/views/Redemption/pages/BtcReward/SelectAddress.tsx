@@ -44,7 +44,6 @@ type IRouteParams = RouteProp<
     BtcRewardSelectAddress: {
       codeInfo: IBtcRewardCodeInfoParam;
       voucherCode: string;
-      displayTitle: string;
       quotaRemaining?: number;
     };
   },
@@ -57,7 +56,7 @@ function SelectAddressContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const { codeInfo, voucherCode, displayTitle, quotaRemaining } = route.params;
+  const { codeInfo, voucherCode, quotaRemaining } = route.params;
 
   const { activeAccount, showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
@@ -114,17 +113,9 @@ function SelectAddressContent() {
     navigation.push(EModalReferFriendsRoutes.BtcRewardConfirm, {
       codeInfo,
       voucherCode,
-      displayTitle,
       walletAddress,
     });
-  }, [
-    navigation,
-    canProceed,
-    walletAddress,
-    codeInfo,
-    voucherCode,
-    displayTitle,
-  ]);
+  }, [navigation, canProceed, walletAddress, codeInfo, voucherCode]);
 
   const renderSelectedCard = () => (
     <XStack
@@ -274,17 +265,17 @@ function ManualInputContent() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route = useRoute<IRouteParams>();
-  const { codeInfo, voucherCode, displayTitle, quotaRemaining } = route.params;
+  const { codeInfo, voucherCode, quotaRemaining } = route.params;
 
   const form = useForm<IManualInputFormValues>(MANUAL_INPUT_FORM_OPTIONS);
   const { control } = form;
   const addressValue = useFormWatch({ control, name: 'to' });
-  const { errors, isValid } = form.formState;
+  const { errors } = form.formState;
 
   const canProceed = useMemo(() => {
     if (Object.values(errors).length) return false;
-    return !addressValue.pending && !!addressValue.resolved && isValid;
-  }, [addressValue.pending, addressValue.resolved, errors, isValid]);
+    return !addressValue.pending && !!addressValue.resolved;
+  }, [addressValue.pending, addressValue.resolved, errors]);
 
   const handleNext = useCallback(() => {
     const resolved = form.getValues('to').resolved;
@@ -292,10 +283,9 @@ function ManualInputContent() {
     navigation.push(EModalReferFriendsRoutes.BtcRewardConfirm, {
       codeInfo,
       voucherCode,
-      displayTitle,
       walletAddress: resolved,
     });
-  }, [canProceed, codeInfo, displayTitle, form, navigation, voucherCode]);
+  }, [canProceed, codeInfo, form, navigation, voucherCode]);
 
   return (
     <Page scrollEnabled>

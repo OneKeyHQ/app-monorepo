@@ -6,7 +6,6 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
   SizableText,
   Stack,
   Toast,
@@ -14,6 +13,7 @@ import {
   YStack,
   getSharedButtonStyles,
   rootNavigationRef,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListLoading } from '@onekeyhq/kit/src/components/Loading';
@@ -27,10 +27,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
-import {
-  EPerpPageEnterSource,
-  setPerpPageEnterSource,
-} from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -38,18 +35,16 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  equalTokenNoCaseSensitive,
-  getTokenPriceChangeStyle,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
-import { LeverageBadge } from '../../../Market/components/PerpsBadges';
 import {
   useMarketBasicConfig,
   useNavigateToMarketTab,
+  usePerpsNavigation,
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
@@ -61,10 +56,22 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
+import {
+  getPopularTradingColumns,
+  renderPopularTradingCommunityBadge,
+  renderPopularTradingStockBadges,
+} from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
-import { getTokenKey } from './utils';
+import {
+  getMarketTokenDisplayMarketCap,
+  getMarketTokenDisplayPrice,
+  getMarketTokenDisplayPriceChange24h,
+  getMarketTokenDisplayVolume24h,
+  getTokenKey,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketCategoryItem } from '../../../Market/MarketHomeV2/types';
@@ -111,11 +118,13 @@ function RecommendCardItem({
         <Token
           size="md"
           tokenImageUri={token.logoUrl}
+          tokenImageUris={token.logoUrls}
           networkId={token.chainId}
           showNetworkIcon
         />
         <YStack
           flexShrink={1}
+          minWidth={0}
           {...(platformEnv.isNativeAndroid
             ? {
                 width: '$20',
@@ -124,16 +133,19 @@ function RecommendCardItem({
               }
             : {})}
         >
-          <XStack>
+          <XStack alignItems="center" gap="$1" minWidth={0}>
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={1}
+              flexShrink={1}
               $sm={{
                 size: '$bodyMdMedium',
               }}
             >
               {token.symbol}
             </SizableText>
+            {renderPopularTradingStockBadges(token)}
+            {renderPopularTradingCommunityBadge(token)}
           </XStack>
           <XStack>
             <SizableText
@@ -169,10 +181,19 @@ function RecommendCardItem({
 
 function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
+  const { md } = useMedia();
+  const shouldUseTableLayout = Boolean(tableLayout && !md);
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
-  const { minLiquidity, spotCategories: apiSpotCategories } =
-    useMarketBasicConfig();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.PopularTrading,
+  );
+  const {
+    isLoading: isMarketBasicConfigLoading,
+    minLiquidity,
+    homeTab: apiHomeTabs,
+    spotCategories: apiSpotCategories,
+  } = useMarketBasicConfig();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
     [],
   );
@@ -189,6 +210,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   );
 
   const initializedRef = useRef(false);
+  const hasShownCategorySelectorRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -213,25 +235,56 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return DEFAULT_SPOT_CATEGORIES;
   }, [apiSpotCategories]);
 
-  const homeCategories = useMemo<IMarketCategoryItem[]>(
-    () => [
-      {
-        id: FAVORITES_CATEGORY_ID,
-        name: intl.formatMessage({ id: ETranslations.global_favorites }),
-        iconName: 'StarOutline',
-        iconOnly: true,
-      },
-      ...marketCategories,
-    ],
-    [intl, marketCategories],
+  const favoritesCategory = useMemo<IMarketCategoryItem>(
+    () => ({
+      id: FAVORITES_CATEGORY_ID,
+      name: intl.formatMessage({ id: ETranslations.global_favorites }),
+      iconName: 'StarOutline',
+      iconOnly: true,
+    }),
+    [intl],
   );
 
-  const selectedMarketCategoryId =
-    selectedCategoryId === FAVORITES_CATEGORY_ID
-      ? undefined
-      : selectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
+  const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
+    if (apiHomeTabs.length > 0) {
+      return apiHomeTabs.map((tab) => {
+        if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
+          return {
+            ...favoritesCategory,
+            name: tab.name,
+          };
+        }
 
-  const isMarketCategoryTokenInWatchList = useCallback(
+        return {
+          id: tab.type,
+          name: tab.name,
+          icon: tab.icon,
+        };
+      });
+    }
+
+    return [favoritesCategory, ...marketCategories];
+  }, [apiHomeTabs, favoritesCategory, marketCategories]);
+
+  const resolvedSelectedCategoryId = useMemo(() => {
+    if (homeCategories.some((category) => category.id === selectedCategoryId)) {
+      return selectedCategoryId;
+    }
+
+    return homeCategories[0]?.id ?? FAVORITES_CATEGORY_ID;
+  }, [homeCategories, selectedCategoryId]);
+
+  const selectedMarketCategoryId =
+    resolvedSelectedCategoryId === FAVORITES_CATEGORY_ID
+      ? undefined
+      : resolvedSelectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
+
+  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
+    minLiquidity,
+    selectedMarketCategoryId,
+  });
+
+  const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) =>
       watchListItems.some((item) =>
         equalTokenNoCaseSensitive({
@@ -250,7 +303,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   const handleMarketCategoryStarPress = useCallback(
     async (record: IFavoriteTokenDisplay) => {
-      const checked = isMarketCategoryTokenInWatchList(record);
+      const checked = isTokenInWatchList(record);
 
       try {
         if (checked) {
@@ -306,201 +359,41 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }
     },
-    [intl, isMarketCategoryTokenInWatchList, watchListItems],
+    [intl, isTokenInWatchList, watchListItems],
   );
 
   // Columns for table layout (only used when user has favorites)
   const columns = useMemo(() => {
-    if (tableLayout) {
-      return [
-        {
-          dataIndex: 'symbol',
-          title: intl.formatMessage({ id: ETranslations.global_name }),
-          render: (
-            _: unknown,
-            record: IFavoriteTokenDisplay,
-            _index: number,
-          ) => (
-            <XStack alignItems="center" gap="$2">
-              <IconButton
-                testID="home-columns-icon-btn"
-                icon="StarSolid"
-                size="small"
-                variant="tertiary"
-                iconProps={{ color: '$iconActive' }}
-                title={intl.formatMessage({
-                  id: ETranslations.market_remove_from_favorites,
-                })}
-                onPress={() => handleRemoveFromWatchlistRef.current(record)}
-              />
-              <XStack alignItems="center" gap="$2">
-                <Token
-                  size="md"
-                  tokenImageUri={record.logoUrl}
-                  networkId={record.perpsCoin ? undefined : record.chainId}
-                  showNetworkIcon={!record.perpsCoin}
-                />
-                <YStack>
-                  <XStack alignItems="center" gap="$1">
-                    <SizableText size="$bodyLgMedium">
-                      {record.symbol}
-                    </SizableText>
-                    {record.maxLeverage ? (
-                      <LeverageBadge leverage={record.maxLeverage} />
-                    ) : null}
-                  </XStack>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    maxWidth={200}
-                  >
-                    {record.name}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            </XStack>
-          ),
-        },
-        {
-          dataIndex: 'price',
-          title: intl.formatMessage({ id: ETranslations.global_price }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="price"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {record.price ?? '-'}
-            </NumberSizeableText>
-          ),
-        },
-        {
-          dataIndex: 'priceChange24h',
-          title: intl.formatMessage({ id: ETranslations.market_change_24h }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => {
-            const { changeColor, showPlusMinusSigns } =
-              getTokenPriceChangeStyle({
-                priceChange: record.priceChange24h ?? 0,
-              });
-            return (
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyLgMedium"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            );
-          },
-        },
-        {
-          dataIndex: 'volume24h',
-          title: intl.formatMessage({ id: ETranslations.market_24h_turnover }),
-          render: (_: unknown, record: IFavoriteTokenDisplay) => (
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="marketCap"
-              formatterOptions={{
-                currency: '$',
-              }}
-            >
-              {!record.volume24h ? '--' : record.volume24h}
-            </NumberSizeableText>
-          ),
-        },
-      ];
-    }
+    // Favorites are already in the watchlist, so the star always removes.
+    const renderStarButton = (record: IFavoriteTokenDisplay) => (
+      <IconButton
+        testID={
+          shouldUseTableLayout ? 'home-columns-icon-btn' : 'home-icon-btn'
+        }
+        icon="StarSolid"
+        size="small"
+        variant="tertiary"
+        iconProps={{ color: '$iconActive' }}
+        title={intl.formatMessage({
+          id: ETranslations.market_remove_from_favorites,
+        })}
+        m="$0"
+        onPress={() => handleRemoveFromWatchlistRef.current(record)}
+        {...(shouldUseTableLayout
+          ? undefined
+          : {
+              hoverStyle: { bg: 'transparent' },
+              pressStyle: { bg: 'transparent' },
+            })}
+      />
+    );
 
-    return [
-      {
-        dataIndex: 'symbol',
-        title: intl.formatMessage({ id: ETranslations.global_name }),
-        render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => (
-          <XStack alignItems="center" gap="$2" justifyContent="flex-end">
-            <IconButton
-              testID="home-icon-btn"
-              icon="StarSolid"
-              size="small"
-              variant="tertiary"
-              iconProps={{ color: '$iconActive' }}
-              title={intl.formatMessage({
-                id: ETranslations.market_remove_from_favorites,
-              })}
-              onPress={() => handleRemoveFromWatchlistRef.current(record)}
-              hoverStyle={{ bg: 'transparent' }}
-              pressStyle={{ bg: 'transparent' }}
-            />
-            <XStack alignItems="center" gap="$2">
-              <Token
-                size="lg"
-                tokenImageUri={record.logoUrl}
-                networkId={record.perpsCoin ? undefined : record.chainId}
-                showNetworkIcon={!record.perpsCoin}
-              />
-              <YStack>
-                <XStack alignItems="center" gap="$1">
-                  <SizableText size="$bodyLgMedium">
-                    {record.symbol}
-                  </SizableText>
-                  {record.maxLeverage ? (
-                    <LeverageBadge leverage={record.maxLeverage} />
-                  ) : null}
-                </XStack>
-                <NumberSizeableText
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  formatterOptions={{
-                    currency: '$',
-                  }}
-                >
-                  {!record.volume24h ? '--' : record.volume24h}
-                </NumberSizeableText>
-              </YStack>
-            </XStack>
-          </XStack>
-        ),
-      },
-      {
-        dataIndex: 'price',
-        title: intl.formatMessage({ id: ETranslations.global_price }),
-        render: (_: unknown, record: IFavoriteTokenDisplay) => {
-          const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-            priceChange: record.priceChange24h ?? 0,
-          });
-          return (
-            <YStack alignItems="flex-end">
-              <NumberSizeableText
-                size="$bodyLgMedium"
-                formatter="price"
-                formatterOptions={{
-                  currency: '$',
-                }}
-              >
-                {record.price ?? '-'}
-              </NumberSizeableText>
-              <NumberSizeableText
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns }}
-                color={changeColor}
-                size="$bodyMd"
-              >
-                {record.priceChange24h ?? '-'}
-              </NumberSizeableText>
-            </YStack>
-          );
-        },
-      },
-    ];
-  }, [intl, tableLayout]);
-
-  const { categoryTokens, isCategoryLoading } = useHomeMarketCategoryTokens({
-    minLiquidity,
-    selectedMarketCategoryId,
-  });
+    return getPopularTradingColumns({
+      intl,
+      shouldUseTableLayout,
+      renderStarButton,
+    });
+  }, [intl, shouldUseTableLayout]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -532,29 +425,38 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
         const perpsTargets = targetItems.filter((item) => !!item.perpsCoin);
 
-        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other
-        const [spotResult, perpsResult] = await Promise.allSettled([
-          spotTargets.length > 0
-            ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-                tokenAddressList: spotTargets.map((item) => ({
-                  chainId: item.chainId,
-                  contractAddress: item.contractAddress,
-                  isNative: item.isNative ?? false,
-                })),
-              })
-            : { list: [] as IMarketTokenListItem[] },
-          perpsTargets.length > 0
-            ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-                category: 'all',
-              })
-            : null,
-        ]);
+        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other.
+        // Perps localized subtitles (e.g. "美光科技") live in a separate aliases map.
+        const [spotResult, perpsResult, perpsAliasesResult] =
+          await Promise.allSettled([
+            spotTargets.length > 0
+              ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+                  tokenAddressList: spotTargets.map((item) => ({
+                    chainId: item.chainId,
+                    contractAddress: item.contractAddress,
+                    isNative: item.isNative ?? false,
+                  })),
+                })
+              : { list: [] as IMarketTokenListItem[] },
+            perpsTargets.length > 0
+              ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                  category: 'all',
+                })
+              : null,
+            perpsTargets.length > 0
+              ? backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases()
+              : null,
+          ]);
         const spotResponse =
           spotResult.status === 'fulfilled'
             ? spotResult.value
             : { list: [] as IMarketTokenListItem[] };
         const perpsResponse =
           perpsResult.status === 'fulfilled' ? perpsResult.value : null;
+        const perpsAliases =
+          perpsAliasesResult.status === 'fulfilled'
+            ? (perpsAliasesResult.value ?? undefined)
+            : undefined;
 
         // Build spot token lookup map
         const spotTokenMap = new Map<string, IMarketTokenListItem>();
@@ -598,6 +500,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 marketCap: 0,
                 perpsCoin: targetItem.perpsCoin,
                 maxLeverage: perpsToken.maxLeverage,
+                perpsSubtitle: getTokenSubtitle(perpsToken.name, perpsAliases),
                 volume24h: parseFloat(perpsToken.volume24h ?? '0'),
               };
             }
@@ -618,10 +521,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              logoUrls: item.logoUrls,
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -675,7 +581,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
 
         const displayTokens: IFavoriteTokenDisplay[] = targetList
-          .map((targetItem) => {
+          .map((targetItem): IFavoriteTokenDisplay | null => {
             const { normalizedAddress } = getNativeTokenInfo(
               targetItem.isNative,
               targetItem.contractAddress,
@@ -691,10 +597,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               symbol: item.symbol,
               name: item.name,
               logoUrl: item.logoUrl ?? '',
-              price: parseFloat(item.price ?? '0'),
-              priceChange24h: parseFloat(item.priceChange24hPercent ?? '0'),
-              marketCap: parseFloat(item.marketCap ?? '0'),
-              volume24h: parseFloat(item.volume24h ?? '0'),
+              logoUrls: item.logoUrls,
+              price: getMarketTokenDisplayPrice(item),
+              priceChange24h: getMarketTokenDisplayPriceChange24h(item),
+              marketCap: getMarketTokenDisplayMarketCap(item),
+              volume24h: getMarketTokenDisplayVolume24h(item),
+              communityRecognized: item.communityRecognized,
+              stock: item.stock,
             };
           })
           .filter((item): item is IFavoriteTokenDisplay => item !== null);
@@ -712,6 +621,28 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     },
   );
   refreshDataRef.current = refreshData;
+
+  const isMarketConfigInitialLoading =
+    isMarketBasicConfigLoading !== false &&
+    apiHomeTabs.length === 0 &&
+    apiSpotCategories.length === 0;
+  const isFavoritesInitialLoading =
+    !selectedMarketCategoryId && !initializedRef.current && isLoading !== false;
+  const isCategoryInitialLoading =
+    Boolean(selectedMarketCategoryId) &&
+    categoryTokens.length === 0 &&
+    isCategoryLoading;
+  const shouldHideCategorySelector =
+    !hasShownCategorySelectorRef.current &&
+    (isMarketConfigInitialLoading ||
+      isFavoritesInitialLoading ||
+      isCategoryInitialLoading);
+
+  useEffect(() => {
+    if (!shouldHideCategorySelector) {
+      hasShownCategorySelectorRef.current = true;
+    }
+  }, [shouldHideCategorySelector]);
 
   // Initialize selected tokens when favorites load (for empty state)
   useEffect(() => {
@@ -840,11 +771,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           });
           return;
         }
-        setPerpPageEnterSource(EPerpPageEnterSource.PopularTrading);
-        navigation.switchTab(ETabRoutes.Perp);
-        void backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin: record.perpsCoin,
-        });
+        navigateToPerps(record.perpsCoin);
         return;
       }
 
@@ -856,11 +783,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        void backgroundApiProxy.serviceApp.openExtensionExpandTab({
-          path: `/market/token/${shortCode || record.chainId}/${record.contractAddress}`,
-          params: {
-            isNative: record.isNative,
-          },
+        void backgroundApiProxy.serviceApp.openExtensionMarketTokenDetail({
+          tokenAddress: record.contractAddress,
+          network: shortCode || record.chainId,
+          isNative: record.isNative,
         });
         return;
       }
@@ -881,7 +807,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         });
       }, 300);
     },
-    [navigation, marketTab],
+    [marketTab, navigateToPerps, navigation],
   );
 
   const renderEmptyStateCards = useCallback(() => {
@@ -897,7 +823,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       />
     );
 
-    if (!tableLayout) {
+    if (!shouldUseTableLayout) {
       return (
         <YStack gap="$2.5" width="100%">
           {[0, 1].map((rowIndex) => (
@@ -916,7 +842,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         {favoriteTokens.map(renderCardItem)}
       </XStack>
     );
-  }, [favoriteTokens, selectedTokens, handleRecommendItemChange, tableLayout]);
+  }, [
+    favoriteTokens,
+    selectedTokens,
+    handleRecommendItemChange,
+    shouldUseTableLayout,
+  ]);
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
@@ -936,7 +867,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     return (
       <YStack>
         <RichTable<IFavoriteTokenDisplay>
-          showHeader={!!tableLayout}
+          showHeader={shouldUseTableLayout}
           dataSource={favoriteTokens}
           columns={columns}
           keyExtractor={(item) =>
@@ -986,7 +917,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     handleTokenPress,
     handleViewMore,
     intl,
-    tableLayout,
+    shouldUseTableLayout,
     totalFavoritesCount,
   ]);
 
@@ -1032,8 +963,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           <MarketCategoryTokenList
             tokens={categoryTokens}
             isLoading={isCategoryLoading}
-            tableLayout={tableLayout}
-            isTokenInWatchList={isMarketCategoryTokenInWatchList}
+            tableLayout={shouldUseTableLayout}
+            isTokenInWatchList={isTokenInWatchList}
             onStarPress={handleMarketCategoryStarPress}
             onTokenPress={handleTokenPress}
             onViewMore={handleViewMore}
@@ -1041,7 +972,29 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
       }
 
-      if (!initializedRef.current && isLoading) {
+      // Author intent (#12008 / OK-56230): show the <ListLoading> skeleton for
+      // the ENTIRE initial loading window — including the very first render,
+      // where usePromiseResult's `isLoading` is still `undefined` (which is why
+      // the original code used `isLoading !== false`).
+      //
+      // Bug it triggers (iOS, RN 0.81.5, Fabric/New Arch): rendering the
+      // skeleton on that first `undefined` frame and then swapping it for the
+      // real <RichTable> subtree happens WHILE the enclosing
+      // react-native-collapsible-tab-view <Tabs.ScrollView> is running its async
+      // Yoga measurement pass. That extra ListLoading→RichTable subtree swap
+      // mid-measure moves a shadow node to a new parent and trips the assertion
+      // `react_native_assert(YGNodeGetOwner(child) == &yogaNode_)` →
+      // hard crash on Home startup. (Confirmed via git bisect to #12008.)
+      //
+      // `react_native_assert` is a DEBUG-ONLY check (compiled out in Release),
+      // so production never hits this crash. Therefore we only soften the gate
+      // in dev: `isLoading` (truthy → skip the skeleton on the `undefined`
+      // frame, avoiding the extra swap) for dev, and keep the author's original
+      // `isLoading !== false` (full skeleton UX) in production.
+      const shouldShowInitialSkeleton = platformEnv.isDev
+        ? isLoading
+        : isLoading !== false;
+      if (!initializedRef.current && shouldShowInitialSkeleton) {
         return (
           <ListLoading
             listCount={displayCount}
@@ -1074,14 +1027,18 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack px={tableLayout ? '$pagePadding' : undefined}>
-          <CategorySelector
-            categories={homeCategories}
-            selectedCategoryId={selectedCategoryId}
-            onSelectCategory={setSelectedCategoryId}
-            showBorder={false}
-            showHorizontalPadding={false}
-          />
+        <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
+          {shouldHideCategorySelector ? (
+            <Stack h="$10" />
+          ) : (
+            <CategorySelector
+              categories={homeCategories}
+              selectedCategoryId={resolvedSelectedCategoryId}
+              onSelectCategory={setSelectedCategoryId}
+              showBorder={false}
+              showHorizontalPadding={false}
+            />
+          )}
         </YStack>
         {listContent}
       </YStack>
@@ -1097,13 +1054,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     homeCategories,
     intl,
     isCategoryLoading,
-    isMarketCategoryTokenInWatchList,
+    isTokenInWatchList,
     isLoading,
     renderEmptyStateCards,
     renderUserFavoritesList,
-    selectedCategoryId,
     selectedMarketCategoryId,
-    tableLayout,
+    resolvedSelectedCategoryId,
+    shouldHideCategorySelector,
+    shouldUseTableLayout,
   ]);
 
   return (

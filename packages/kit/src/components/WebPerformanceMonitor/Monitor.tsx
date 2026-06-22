@@ -18,6 +18,7 @@ import type { FrameInfo } from 'react-native-reanimated';
 
 const isLowFps: WorkletFn<(fps: number) => boolean> = (fps) => {
   'worklet';
+
   return fps < 30;
 };
 const styles = StyleSheet.create({

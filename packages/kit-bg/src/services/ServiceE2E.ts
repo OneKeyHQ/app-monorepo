@@ -12,6 +12,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import localDb from '../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
@@ -62,6 +63,18 @@ class ServiceE2E extends ServiceBase {
     await localDb.resetContext();
 
     await this.backgroundApi.simpleDb.accountSelector.clearRawData();
+
+    // Wipe every SWR namespace (walletList, accountSelectorList,
+    // allNetCompat, netContent, unsMeta, recentNets, defiEnabled, etc.).
+    // This dev wipe means to reset all wallet state, so the broad clear
+    // is intentional — keeping non-account namespaces around would leave
+    // them referencing IDs that no longer exist in localDb.
+    // ServiceApp.resetApp clears the entire coldStartCacheStorage (jotai
+    // snapshot included); this path is narrower (SWR only). flushNow
+    // persists the empty snapshot immediately — clearAll alone debounces
+    // the MMKV write 2s, which could lose the wipe on a fast kill.
+    swrCacheUtils.clearAll();
+    swrCacheUtils.flushNow();
 
     appEventBus.emit(EAppEventBusNames.WalletClear, undefined);
   }

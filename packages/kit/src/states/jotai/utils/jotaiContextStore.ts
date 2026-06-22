@@ -35,6 +35,8 @@ function setStoreColdStartScopeKey({
 class JotaiContextStore {
   storeCache = new Map<string, IJotaiContextStore>();
 
+  storeResetRequests = new Map<string, IJotaiContextStore>();
+
   createStore(data: IJotaiContextStoreData): IJotaiContextStore {
     const id = buildJotaiContextStoreId(data);
     const store = createStore();
@@ -50,12 +52,53 @@ class JotaiContextStore {
 
   removeStore(data: IJotaiContextStoreData) {
     const id = buildJotaiContextStoreId(data);
+    this.removeStoreById(id);
+  }
+
+  removeStoreById(id: string) {
+    this.storeResetRequests.delete(id);
     this.storeCache.delete(id);
     console.log('JotaiContextStore removeStore', id);
   }
 
+  cancelStoreResetById(id: string, store: IJotaiContextStore) {
+    if (this.storeCache.get(id) === store) {
+      this.storeResetRequests.delete(id);
+    }
+  }
+
+  cancelStoreReset(data: IJotaiContextStoreData, store: IJotaiContextStore) {
+    const id = buildJotaiContextStoreId(data);
+    this.cancelStoreResetById(id, store);
+  }
+
+  requestStoreResetById(id: string, store: IJotaiContextStore) {
+    if (this.storeCache.get(id) !== store) {
+      return;
+    }
+    this.storeResetRequests.set(id, store);
+  }
+
+  requestStoreReset(data: IJotaiContextStoreData, store: IJotaiContextStore) {
+    const id = buildJotaiContextStoreId(data);
+    this.requestStoreResetById(id, store);
+  }
+
+  completeStoreResetIfRequestedById(id: string) {
+    const resetStore = this.storeResetRequests.get(id);
+    if (!resetStore) {
+      return;
+    }
+    this.storeResetRequests.delete(id);
+    if (this.storeCache.get(id) === resetStore) {
+      this.storeCache.delete(id);
+      console.log('JotaiContextStore removeStore', id);
+    }
+  }
+
   getOrCreateStore(data: IJotaiContextStoreData): IJotaiContextStore {
-    let store = this.getStore(data);
+    const id = buildJotaiContextStoreId(data);
+    let store = this.storeCache.get(id);
     if (!store) {
       store = this.createStore(data);
     }

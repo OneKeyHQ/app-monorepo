@@ -2,6 +2,7 @@ import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { usePerpTokenSelectorConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
@@ -31,6 +32,30 @@ function BaseSortableHeaderCell({
     usePerpTokenSelectorConfigPersistAtom();
 
   const handlePress = useCallback(() => {
+    const previousField = selectorConfig?.field ?? '';
+    const previousDirection = selectorConfig?.direction ?? '';
+    const activeTab =
+      selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+    let nextField = field;
+    let nextDirection = DEFAULT_PERP_TOKEN_SORT_DIRECTION;
+
+    if (selectorConfig?.field === field) {
+      if (selectorConfig.direction === 'asc') {
+        nextField = DEFAULT_PERP_TOKEN_SORT_FIELD;
+        nextDirection = DEFAULT_PERP_TOKEN_SORT_DIRECTION;
+      } else {
+        nextDirection = 'asc';
+      }
+    }
+
+    defaultLogger.perp.tokenSelector.perpTokenSelectorSortClick({
+      activeTab,
+      field: nextField,
+      direction: nextDirection,
+      previousField,
+      previousDirection,
+    });
+
     setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
       if (prev?.field === field) {
         // Same field: toggle direction, or reset to default sort if already ascending
@@ -57,7 +82,7 @@ function BaseSortableHeaderCell({
         activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
       };
     });
-  }, [field, setSelectorConfig]);
+  }, [field, selectorConfig, setSelectorConfig]);
 
   const isActive = selectorConfig?.field === field;
   let iconName: string;

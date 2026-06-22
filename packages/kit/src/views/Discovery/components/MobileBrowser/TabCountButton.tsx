@@ -19,13 +19,15 @@ import {
 
 interface ITabCountButtonProps {
   testID: string;
+  size?: 'medium' | 'large';
 }
 
-function TabCountButton({ testID }: ITabCountButtonProps) {
+function TabCountButton({ testID, size = 'medium' }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const tabCount = useMemo(() => tabs.length, [tabs]);
+  const isLarge = size === 'large';
   const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const navigation =
@@ -49,7 +51,7 @@ function TabCountButton({ testID }: ITabCountButtonProps) {
 
   return (
     <Stack
-      p="$3"
+      p={isLarge ? '$3.5' : '$3'}
       borderRadius="$full"
       pressStyle={{
         bg: '$bgActive',
@@ -60,8 +62,8 @@ function TabCountButton({ testID }: ITabCountButtonProps) {
       testID={testID}
     >
       <Stack
-        minWidth="$5"
-        minHeight="$5"
+        minWidth={isLarge ? '$6' : '$5'}
+        minHeight={isLarge ? '$6' : '$5'}
         borderRadius="$1"
         borderWidth="$0.5"
         borderColor="$iconSubdued"

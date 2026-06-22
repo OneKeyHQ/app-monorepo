@@ -61,6 +61,8 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       onPress?: () => void;
       loading?: boolean;
       iconText?: string;
+      hideIcon?: boolean;
+      tokenSymbol?: string;
       testID?: string;
     };
     balanceHelperProps?: {
@@ -72,6 +74,7 @@ export type IAmountInputFormItemProps = IFormFieldProps<
       selectedTokenSymbol?: string;
       selectedNetworkName?: string;
       isCustomNetwork?: boolean;
+      showNetworkIconBorder?: boolean;
       loading?: boolean;
       disabled?: boolean;
       popover?: ITokenSelectorPopoverProps;
@@ -197,9 +200,23 @@ export function AmountInput({
   }, [valueProps, reversible]);
 
   const TokenSelectorTrigger = useMemo(() => {
-    if (tokenSelectorTriggerProps?.loading) {
+    const {
+      popover: popoverProps,
+      selectedTokenImageUri,
+      selectedNetworkImageUri,
+      selectedTokenSymbol,
+      selectedNetworkName,
+      isCustomNetwork,
+      showNetworkIconBorder = true,
+      loading,
+      disabled,
+      onPress,
+      ...triggerStackProps
+    } = tokenSelectorTriggerProps ?? {};
+
+    if (loading) {
       return (
-        <XStack p="$3.5" pb="$2" alignItems="center">
+        <XStack p="$3.5" pb="$2" alignItems="center" {...triggerStackProps}>
           <Skeleton w="$7" h="$7" radius="round" />
           <Stack pl="$2" py="$1.5">
             <Skeleton h="$4" w="$10" />
@@ -208,10 +225,8 @@ export function AmountInput({
       );
     }
 
-    const { popover: popoverProps, ...restTriggerProps } =
-      tokenSelectorTriggerProps ?? {};
     const hasPopover = !!popoverProps?.content;
-    const hasOnPress = !!restTriggerProps.onPress || hasPopover;
+    const hasOnPress = !!onPress || hasPopover;
 
     const triggerContent = (
       <XStack
@@ -221,9 +236,10 @@ export function AmountInput({
         p="$2"
         borderRadius="$2"
         userSelect="none"
-        {...(restTriggerProps.selectedTokenSymbol && {
+        {...(selectedTokenSymbol && {
           maxWidth: '$44',
         })}
+        {...triggerStackProps}
         {...(hasOnPress && {
           role: 'button',
           hoverStyle: {
@@ -233,15 +249,15 @@ export function AmountInput({
             bg: '$bgActive',
           },
         })}
-        disabled={restTriggerProps.disabled}
-        onPress={hasPopover ? undefined : restTriggerProps.onPress}
+        disabled={disabled}
+        onPress={hasPopover ? undefined : onPress}
       >
         <Stack mr="$2">
           <Image
             size="$7"
             borderRadius="$full"
             source={{
-              uri: restTriggerProps.selectedTokenImageUri,
+              uri: selectedTokenImageUri,
             }}
             fallback={
               <Image.Fallback
@@ -259,21 +275,21 @@ export function AmountInput({
               </Image.Fallback>
             }
           />
-          {restTriggerProps.selectedNetworkImageUri ? (
+          {selectedNetworkImageUri ? (
             <Stack
               position="absolute"
               right="$-1"
               bottom="$-1"
-              p="$0.5"
+              p={showNetworkIconBorder ? '$0.5' : '$0'}
               borderRadius="$full"
               flexShrink={1}
-              bg="$bgApp"
+              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
             >
               <Image
                 size="$3"
                 borderRadius="$full"
                 source={{
-                  uri: restTriggerProps.selectedNetworkImageUri,
+                  uri: selectedNetworkImageUri,
                 }}
                 fallback={
                   <Image.Fallback bg="$gray5" delayMs={1000}>
@@ -287,29 +303,25 @@ export function AmountInput({
               />
             </Stack>
           ) : null}
-          {restTriggerProps.isCustomNetwork &&
-          restTriggerProps.selectedNetworkName ? (
+          {isCustomNetwork && selectedNetworkName ? (
             <Stack
               position="absolute"
               right="$-1"
               bottom="$-1"
-              p="$0.5"
+              p={showNetworkIconBorder ? '$0.5' : '$0'}
               borderRadius="$full"
               flexShrink={1}
-              bg="$bgApp"
+              bg={showNetworkIconBorder ? '$bgApp' : '$transparent'}
             >
-              <LetterAvatar
-                size="$3"
-                letter={restTriggerProps.selectedNetworkName[0]}
-              />
+              <LetterAvatar size="$3" letter={selectedNetworkName[0]} />
             </Stack>
           ) : null}
         </Stack>
         <SizableText size="$headingXl" numberOfLines={1} flexShrink={1}>
-          {restTriggerProps.selectedTokenSymbol ||
+          {selectedTokenSymbol ||
             intl.formatMessage({ id: ETranslations.token_selector_title })}
         </SizableText>
-        {hasOnPress && !restTriggerProps.disabled ? (
+        {hasOnPress && !disabled ? (
           <Icon
             flexShrink={0}
             name="ChevronDownSmallOutline"
@@ -322,7 +334,7 @@ export function AmountInput({
     );
 
     // Wrap with Popover if popover prop is provided
-    if (hasPopover && !restTriggerProps.disabled) {
+    if (hasPopover && !disabled) {
       return (
         <Popover
           title={popoverProps.title}
@@ -350,6 +362,18 @@ export function AmountInput({
       );
     }
     if (balanceProps.value) {
+      let balanceLeadingElement: ReactElement | null = null;
+      if (balanceProps.iconText) {
+        balanceLeadingElement = (
+          <SizableText color="$textSubdued" size="$bodySm" mr="$1">
+            {balanceProps.iconText}
+          </SizableText>
+        );
+      } else if (!balanceProps.hideIcon) {
+        balanceLeadingElement = (
+          <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
+        );
+      }
       const contentComponent = (
         <XStack
           alignItems="center"
@@ -373,13 +397,7 @@ export function AmountInput({
             mr: '$-2',
           })}
         >
-          {balanceProps.iconText ? (
-            <SizableText color="$textSubdued" size="$bodySm" mr="$1">
-              {balanceProps.iconText}
-            </SizableText>
-          ) : (
-            <Icon name="WalletOutline" size="$4" color="$iconSubdued" mr="$1" />
-          )}
+          {balanceLeadingElement}
           <>
             <NumberSizeableText
               size="$bodySm"
@@ -389,6 +407,11 @@ export function AmountInput({
               {balanceProps.value ?? 0}
             </NumberSizeableText>
           </>
+          {balanceProps.tokenSymbol ? (
+            <SizableText pl="$1" size="$bodySm" color="$textSubdued">
+              {balanceProps.tokenSymbol}
+            </SizableText>
+          ) : null}
           {enableMaxAmount ? (
             <SizableText pl="$1" size="$bodySmMedium" color="$textInteractive">
               {maxAmountText ??

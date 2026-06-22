@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { NumberSizeableText, Stack } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
@@ -10,10 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalAssetDetailRoutes,
@@ -39,7 +37,6 @@ export function UniversalSearchAccountAssetItem({
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const universalSearchActions = useUniversalSearchActions();
-  const [settings] = useSettingsPersistAtom();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
@@ -154,14 +151,14 @@ export function UniversalSearchAccountAssetItem({
         </NumberSizeableTextWrapper>
       </Stack>
       <Stack flexDirection="column" alignItems="flex-end" flexShrink={1}>
-        <NumberSizeableTextWrapper
+        <Currency
           formatter="value"
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
+          sourceCurrency={tokenFiat?.currency}
           size="$bodyLgMedium"
           hideValue={hideValue}
         >
           {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
-        </NumberSizeableTextWrapper>
+        </Currency>
         <NumberSizeableText
           formatter="priceChange"
           formatterOptions={{ showPlusMinusSigns }}

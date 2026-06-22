@@ -1,6 +1,4 @@
-import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
-
-import type { IFill, IHex, IWithdraw3Request } from './sdk';
+import type { IFill, IHex, ITIF, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum EPerpsSubscriptionCategory {
@@ -22,6 +20,8 @@ export enum ESubscriptionType {
   OPEN_ORDERS = 'openOrders',
   ALL_DEXS_ASSET_CTXS = 'allDexsAssetCtxs',
   TWAP_STATES = 'twapStates',
+  USER_TWAP_HISTORY = 'userTwapHistory',
+  USER_TWAP_SLICE_FILLS = 'userTwapSliceFills',
   BBO = 'bbo',
   SPOT_STATE = 'spotState',
   SPOT_ASSET_CTXS = 'spotAssetCtxs',
@@ -81,7 +81,7 @@ export interface IPlaceOrderParams {
   isBuy: boolean;
   sz: string;
   limitPx?: string;
-  orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
+  orderType: { limit: { tif: ITIF } } | { market?: object };
   slippage?: number;
   reduceOnly?: boolean;
 }
@@ -92,9 +92,12 @@ export interface IOrderOpenParams {
   size: string;
   price: string;
   type: 'market' | 'limit';
+  tif?: ITIF;
   tpTriggerPx?: string;
   slTriggerPx?: string;
   slippage?: number;
+  // Reduce-only main order (standard limit). Defaults to false when omitted.
+  reduceOnly?: boolean;
 }
 
 export interface IOrderCloseParams {
@@ -125,7 +128,7 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?: { limit: { tif: 'Gtc' | 'Ioc' | 'Alo' } };
+  orderType?: { limit: { tif: ITIF } };
 }
 
 export interface IWithdrawParams extends IWithdraw3Request {
@@ -146,6 +149,10 @@ export interface IUpdateIsolatedMarginRequest {
 
 export interface ISetReferrerRequest {
   code: string;
+}
+
+export interface ISpotDustingOptOutRequest {
+  optOut: boolean;
 }
 
 export interface IBuilderFeeRequest {
@@ -185,6 +192,79 @@ export interface ITriggerOrderParams {
   executionPx?: string; // required for limit triggers
   reduceOnly: boolean;
   slippage?: number;
+}
+
+// ── Scale Order Types ──
+
+export type IScaleOrderTif = ITIF;
+export type IScaleOrderSizeDistribution = 'fixed' | 'increasing';
+
+export interface IScaleOrderBuildParams {
+  totalSize: string;
+  lowerPrice: string;
+  upperPrice: string;
+  orderCount: number;
+  szDecimals: number;
+  side: 'long' | 'short';
+  sizeSkew?: number;
+  assetType?: 'perp' | 'spot';
+}
+
+export interface IScaleOrderLeg {
+  index: number;
+  price: string;
+  size: string;
+}
+
+export type IScaleOrderValidationIssueCode =
+  | 'invalidParams'
+  | 'invalidPrice'
+  | 'sizeTooSmall'
+  | 'priceRangeTooTight'
+  | 'minNotionalTooSmall';
+
+export interface IScaleOrderValidationIssue {
+  code: IScaleOrderValidationIssueCode;
+  legIndex?: number;
+  minNotional?: string;
+}
+
+export interface IScaleOrderValidationResult {
+  isValid: boolean;
+  errors: string[];
+  issues: IScaleOrderValidationIssue[];
+}
+
+export interface IPlaceScaleOrderParams {
+  assetId: number;
+  coin: string;
+  isBuy: boolean;
+  size: string;
+  lowerPrice: string;
+  upperPrice: string;
+  orderCount: number;
+  reduceOnly?: boolean;
+  tif?: IScaleOrderTif;
+  szDecimals?: number;
+  sizeSkew?: number;
+  assetType?: 'perp' | 'spot';
+}
+
+// ── TWAP Order Types ──
+
+export interface IPlaceTwapOrderParams {
+  assetId: number;
+  isBuy: boolean;
+  size: string;
+  reduceOnly: boolean;
+  minutes: number;
+  randomize: boolean;
+  szDecimals?: number;
+}
+
+export interface ICancelTwapOrderParams {
+  assetId: number;
+  twapId: number;
 }
 
 export interface ISpotOrderParams {
@@ -248,6 +328,26 @@ export interface IPerpAssetMeta {
 }
 
 export type IPerpsAssetMetaMap = Record<string, IPerpAssetMeta>;
+
+export type IPerpServerBannerAlertType =
+  | 'info'
+  | 'warning'
+  | 'critical'
+  | 'success'
+  | 'default'
+  | 'danger'
+  | 'caution';
+
+export interface IPerpServerBannerConfig {
+  id: string;
+  alertType: IPerpServerBannerAlertType;
+  title: string;
+  description: string;
+  href?: string;
+  hrefType?: string;
+  useSystemBrowser?: boolean;
+  canClose?: boolean;
+}
 
 export interface IPerpCommonConfig {
   disablePerp?: boolean;

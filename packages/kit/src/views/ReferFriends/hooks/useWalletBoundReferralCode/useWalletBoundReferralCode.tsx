@@ -145,6 +145,9 @@ export function useWalletBoundReferralCode({
       walletInfo,
       navigationToMessageConfirmAsync,
       onSuccess,
+      suppressSuccessToast,
+      suppressErrorToast,
+      source,
     }: {
       referralCode: string;
       walletInfo: IReferralCodeWalletInfo | null | undefined;
@@ -153,6 +156,24 @@ export function useWalletBoundReferralCode({
       ) => Promise<string>;
       preventClose?: () => void;
       onSuccess?: () => void;
+      /**
+       * Where the bind was triggered from. Threaded into the
+       * referralBindingCompleted analytics event so the caller doesn't have
+       * to re-log it (which would cause a double-fire).
+       */
+      source?: 'onboarding_dialog' | 'home_block' | 'settings';
+      /**
+       * If true, do not show the default success Toast on bind success.
+       * Use this when the caller renders its own success feedback (e.g. an
+       * animated confirm button) and a Toast would be redundant.
+       */
+      suppressSuccessToast?: boolean;
+      /**
+       * If true, never show the default error Toast on bind failure. Use
+       * this when the caller surfaces errors inline (e.g. via form.setError)
+       * for all error types — not just server API errors.
+       */
+      suppressErrorToast?: boolean;
     }) => {
       try {
         if (!walletInfo) {
@@ -249,12 +270,15 @@ export function useWalletBoundReferralCode({
             referralCode,
             address: walletInfo.address,
             networkId: walletInfo.networkId,
+            source,
           });
-          Toast.success({
-            title: intl.formatMessage({
-              id: ETranslations.global_success,
-            }),
-          });
+          if (!suppressSuccessToast) {
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.global_success,
+              }),
+            });
+          }
           onSuccess?.();
         }
       } catch (e) {
@@ -275,11 +299,16 @@ export function useWalletBoundReferralCode({
           err?.data?.message === 'exceeded_bind_window' ||
           err?.message === 'exceeded_bind_window';
 
-        // Only suppress toast for server API errors when preventClose is
-        // provided — the caller (InviteCodeDialog) handles them inline via
-        // form.setError(). Other call sites have no inline display, so they
-        // still need the toast.
-        if (!(isServerApiError && preventClose) && err?.message) {
+        // Suppress toast when:
+        //   - caller opts out unconditionally (suppressErrorToast), or
+        //   - caller provides preventClose for inline server-error handling
+        //     (Settings InviteCodeDialog pattern).
+        // Otherwise the call site has no inline display and still needs it.
+        if (
+          !suppressErrorToast &&
+          !(isServerApiError && preventClose) &&
+          err?.message
+        ) {
           Toast.error({
             title: isBindWindowExpired
               ? intl.formatMessage({

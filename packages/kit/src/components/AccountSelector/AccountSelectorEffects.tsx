@@ -142,6 +142,11 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
             num,
             selectedAccount: selectedAccountRef.current,
           });
+          await actions.current.flushCurrentAccountSelectorColdStartSnapshot({
+            sceneName: sceneNameRef.current,
+            sceneUrl: sceneUrlRef.current,
+            includeActiveAccounts: true,
+          });
           if (activeAccount.account && activeAccount.network?.id) {
             void backgroundApiProxy.serviceAccount.saveAccountAddresses({
               account: activeAccount.account,

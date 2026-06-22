@@ -33,7 +33,16 @@ export const ReceiveTestIDs = {
   BtcAddressesPage: 'receive-btc-addresses-page',
   BtcAddressTable: 'receive-btc-address-table',
   BtcAddressCopyButton: 'receive-btc-address-copy-button',
+  BtcNextAddressCopyButton: 'receive-btc-next-address-copy-button',
   BtcAddressPagination: 'receive-btc-address-pagination',
+  BtcAddressTypeSelector: 'receive-btc-address-type-selector',
+  BtcFindAddressEntry: 'receive-btc-find-address-entry',
+  BtcFindAddressIndexInput: 'receive-btc-find-address-index-input',
+  BtcFindAddressCopyButton: 'receive-btc-find-address-copy-button',
+  BtcFindAddressRemoveButton: 'receive-btc-find-address-remove-button',
+
+  // BtcCoins page
+  BtcCoinsSortSelect: 'receive-btc-coins-sort-select',
 
   // ExchangeOpenRedirect page
   ExchangeRedirectPage: 'receive-exchange-redirect-page',

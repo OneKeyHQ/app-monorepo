@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
 
@@ -7,7 +7,6 @@ import {
   useAccountSelectorActions,
   useAccountSelectorSceneInfo,
   useActiveAccount,
-  useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 
 export function useAccountSelectorTrigger({
@@ -21,30 +20,10 @@ export function useAccountSelectorTrigger({
 } & IAccountSelectorRouteParamsExtraConfig) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
-  const { selectedAccount } = useSelectedAccount({ num });
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const actions = useAccountSelectorActions();
 
-  const activeAccountRef = useRef(activeAccount);
-  activeAccountRef.current = activeAccount;
-  const selectedAccountRef = useRef(selectedAccount);
-  selectedAccountRef.current = selectedAccount;
-
   const showAccountSelector = useCallback(() => {
-    console.log(
-      'showAccountSelector>>>>',
-      activeAccountRef.current,
-      selectedAccountRef.current,
-      {
-        activeWallet: activeAccount.wallet,
-        num,
-        sceneName,
-        sceneUrl,
-        showConnectWalletModalInDappMode,
-        linkNetworkId,
-        ...others,
-      },
-    );
     void actions.current.showAccountSelector({
       activeWallet: activeAccount.wallet,
       num,

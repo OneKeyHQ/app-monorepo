@@ -9,7 +9,9 @@ import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
+import { isValidNumberValue } from './tokenValueUtils';
 
+import type { IServerNetwork } from '../../types';
 import type {
   IAccountToken,
   IAggregateToken,
@@ -103,6 +105,91 @@ export function getEmptyTokenData() {
   };
 }
 
+function tokenFieldsContainKeyword(token: IAccountToken, kw: string): boolean {
+  return (
+    token.name?.toLowerCase().includes(kw) ||
+    token.symbol?.toLowerCase().includes(kw) ||
+    token.commonSymbol?.toLowerCase().includes(kw) ||
+    token.address?.toLowerCase() === kw ||
+    false
+  );
+}
+
+function networkFieldsContainKeyword(
+  network: IServerNetwork | undefined,
+  kw: string,
+): boolean {
+  if (!network) return false;
+  return (
+    network.name?.toLowerCase().includes(kw) ||
+    network.code?.toLowerCase().includes(kw) ||
+    network.shortname?.toLowerCase().includes(kw) ||
+    network.shortcode?.toLowerCase().includes(kw) ||
+    false
+  );
+}
+
+const tokenSearchKeywordAliasMap: Record<string, string[]> = {
+  eth: ['ether'],
+};
+
+export function buildTokenSearchKeywordQueries(keywords?: string): string[] {
+  const trimmedKeywords = keywords?.trim();
+  if (!trimmedKeywords) {
+    return [];
+  }
+
+  const searchTerms = trimmedKeywords.split(/\s+/).filter(Boolean);
+  if (searchTerms.length < 2) {
+    return [trimmedKeywords];
+  }
+
+  const queries = new Set<string>([trimmedKeywords]);
+  searchTerms.forEach((term, index) => {
+    const aliases = tokenSearchKeywordAliasMap[term.toLowerCase()];
+    aliases?.forEach((alias) => {
+      const nextTerms = [...searchTerms];
+      nextTerms[index] = alias;
+      queries.add(nextTerms.join(' '));
+    });
+  });
+
+  return Array.from(queries);
+}
+
+enum ESearchStrength {
+  BOTH = 1,
+  NETWORK_ONLY = 2,
+  TOKEN_ONLY = 3,
+}
+
+function computeSearchStrength(
+  token: IAccountToken,
+  keywords: string[],
+  network: IServerNetwork | undefined,
+): { matched: boolean; strength: ESearchStrength } {
+  let anyTokenHit = false;
+  let anyNetworkHit = false;
+
+  for (const kw of keywords) {
+    const hitToken = tokenFieldsContainKeyword(token, kw);
+    const hitNetwork = networkFieldsContainKeyword(network, kw);
+    if (!hitToken && !hitNetwork)
+      return { matched: false, strength: ESearchStrength.TOKEN_ONLY };
+    if (hitToken) anyTokenHit = true;
+    if (hitNetwork) anyNetworkHit = true;
+  }
+
+  let strength = ESearchStrength.TOKEN_ONLY;
+  if (anyTokenHit && anyNetworkHit) {
+    strength = ESearchStrength.BOTH;
+  } else if (anyNetworkHit) {
+    strength = ESearchStrength.NETWORK_ONLY;
+  }
+
+  return { matched: true, strength };
+}
+
 export function getFilteredTokenBySearchKey({
   tokens,
   searchKey,
@@ -111,6 +198,10 @@ export function getFilteredTokenBySearchKey({
   allowEmptyWhenBelowMinLength,
   aggregateTokenListMap,
   searchKeyLengthThreshold,
+  networksMap,
+  enableNetworkSearch,
+  tokenFiatMap,
+  localAggregateTokenListMap,
 }: {
   tokens: IAccountToken[];
   searchKey: string;
@@ -119,6 +210,10 @@ export function getFilteredTokenBySearchKey({
   allowEmptyWhenBelowMinLength?: boolean;
   aggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
   searchKeyLengthThreshold?: number;
+  networksMap?: Record<string, IServerNetwork>;
+  enableNetworkSearch?: boolean;
+  tokenFiatMap?: Record<string, ITokenFiat>;
+  localAggregateTokenListMap?: Record<string, { tokens: IAccountToken[] }>;
 }) {
   let mergedTokens = tokens;
 
@@ -147,33 +242,102 @@ export function getFilteredTokenBySearchKey({
     return allowEmptyWhenBelowMinLength ? [] : mergedTokens;
   }
 
-  // eslint-disable-next-line no-param-reassign
-  searchKey = searchKey.trim().toLowerCase();
+  const trimmedSearchKey = searchKey.trim().toLowerCase();
 
-  const filteredTokens = mergedTokens.filter((token) => {
-    if (token.isAggregateToken) {
-      const aggregateTokenList = aggregateTokenListMap?.[token.$key];
-      if (
-        aggregateTokenList?.tokens?.some(
-          (t) => t.address?.toLowerCase() === searchKey,
-        )
-      ) {
-        return true;
+  if (!enableNetworkSearch) {
+    return mergedTokens.filter((token) => {
+      if (token.isAggregateToken) {
+        const aggregateTokenList = aggregateTokenListMap?.[token.$key];
+        if (
+          aggregateTokenList?.tokens?.some(
+            (t) => t.address?.toLowerCase() === trimmedSearchKey,
+          )
+        ) {
+          return true;
+        }
       }
-      return (
-        token.name?.toLowerCase().includes(searchKey) ||
-        token.symbol?.toLowerCase().includes(searchKey) ||
-        token.commonSymbol?.toLowerCase().includes(searchKey)
-      );
-    }
-    return (
-      token.name?.toLowerCase().includes(searchKey) ||
-      token.symbol?.toLowerCase().includes(searchKey) ||
-      token.address?.toLowerCase() === searchKey
-    );
-  });
+      return tokenFieldsContainKeyword(token, trimmedSearchKey);
+    });
+  }
 
-  return filteredTokens;
+  const keywords = trimmedSearchKey.split(/\s+/).filter(Boolean);
+  if (keywords.length === 0) return [];
+
+  const results: Array<{
+    token: IAccountToken;
+    strength: ESearchStrength;
+  }> = [];
+
+  for (const token of mergedTokens) {
+    if (token.isAggregateToken) {
+      const subTokens = aggregateTokenListMap?.[token.$key]?.tokens ?? [];
+
+      const matchedSubs: Array<{
+        token: IAccountToken;
+        strength: ESearchStrength;
+      }> = [];
+      for (const sub of subTokens) {
+        const network = networksMap?.[sub.networkId ?? ''];
+        const { matched, strength } = computeSearchStrength(
+          sub,
+          keywords,
+          network,
+        );
+        if (matched) {
+          const localSub = localAggregateTokenListMap?.[
+            token.$key
+          ]?.tokens?.find((t) => t.networkId === sub.networkId);
+          matchedSubs.push({ token: localSub ?? sub, strength });
+        }
+      }
+
+      if (matchedSubs.length > 0) {
+        const networkQualifiedMatches = matchedSubs.filter(
+          (s) => s.strength !== ESearchStrength.TOKEN_ONLY,
+        );
+        if (networkQualifiedMatches.length > 0) {
+          results.push(...networkQualifiedMatches);
+        } else {
+          results.push({
+            token,
+            strength: ESearchStrength.TOKEN_ONLY,
+          });
+        }
+      } else {
+        const { matched, strength } = computeSearchStrength(
+          token,
+          keywords,
+          undefined,
+        );
+        if (matched) {
+          results.push({ token, strength });
+        }
+      }
+    } else {
+      const network = networksMap?.[token.networkId ?? ''];
+      const { matched, strength } = computeSearchStrength(
+        token,
+        keywords,
+        network,
+      );
+      if (matched) {
+        results.push({ token, strength });
+      }
+    }
+  }
+
+  if (tokenFiatMap) {
+    results.sort((a, b) => {
+      if (a.strength !== b.strength) return a.strength - b.strength;
+      const fa = new BigNumber(tokenFiatMap[a.token.$key]?.fiatValue ?? -1);
+      const fb = new BigNumber(tokenFiatMap[b.token.$key]?.fiatValue ?? -1);
+      return (fb.isNaN() ? new BigNumber(-1) : fb).comparedTo(
+        fa.isNaN() ? new BigNumber(-1) : fa,
+      );
+    });
+  }
+
+  return results.map((r) => r.token);
 }
 
 export function sortTokensByFiatValue({
@@ -317,9 +481,19 @@ export function mergeDeriveTokenListMap({
           .plus(value.totalBalanceParsed ?? 0)
           .toFixed();
 
-        mergedToken.fiatValue = new BigNumber(mergedToken.fiatValue)
-          .plus(value.fiatValue)
-          .toFixed();
+        // Only write a partial sum when at least one participant has a valid
+        // fiatValue. If every participant is unavailable, keep the merged
+        // token's existing unavailable marker so TokenValueView still renders
+        // '--' instead of a misleading $0.
+        const mergedFiatValid = isValidNumberValue(mergedToken.fiatValue);
+        const incomingFiatValid = isValidNumberValue(value.fiatValue);
+        if (mergedFiatValid || incomingFiatValid) {
+          mergedToken.fiatValue = new BigNumber(
+            mergedFiatValid ? mergedToken.fiatValue : 0,
+          )
+            .plus(incomingFiatValid ? value.fiatValue : 0)
+            .toFixed();
+        }
 
         mergedToken.frozenBalanceFiatValue = new BigNumber(
           mergedToken.frozenBalanceFiatValue ?? 0,
@@ -550,6 +724,13 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
       fiatValue: '0',
       price: firstEntry.price,
       price24h: firstEntry.price24h,
+      // Inherit the currency basis from the source entries (all network
+      // entries are normalized to the same basis, 'usd', before aggregation).
+      // Without it the flattened entry has `currency: undefined`, so
+      // <Currency sourceCurrency> falls back to the display currency and skips
+      // the USD -> display conversion — leaving aggregated tokens (ETH, USDT,
+      // USDC) showing raw USD numbers under a non-USD symbol.
+      currency: firstEntry.currency,
     };
 
     networkEntries.forEach((tokenFiat) => {
@@ -1126,33 +1307,18 @@ export function calculateAccountTokensValue({
     updateAll?: boolean;
   };
   mergeDeriveAssetsEnabled: boolean;
-}) {
-  if (networkUtils.isAllNetwork({ networkId })) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
-    return allWorth;
+}): string {
+  const sumValues = (values: string[]) =>
+    values
+      .reduce<BigNumber>((acc, cur) => acc.plus(cur), new BigNumber(0))
+      .toFixed();
+
+  if (networkUtils.isAllNetwork({ networkId }) || mergeDeriveAssetsEnabled) {
+    return sumValues(Object.values(tokensWorth.worth));
   }
 
-  if (mergeDeriveAssetsEnabled) {
-    const allWorth = Object.values(tokensWorth.worth).reduce(
-      (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
-      '0',
-    );
-    return allWorth;
-  }
-
-  return (
-    tokensWorth.worth[
-      accountUtils.buildAccountValueKey({
-        accountId,
-        networkId,
-      })
-    ] ??
-    Object.values(tokensWorth.worth)[0] ??
-    '0'
-  );
+  const key = accountUtils.buildAccountValueKey({ accountId, networkId });
+  return tokensWorth.worth[key] ?? Object.values(tokensWorth.worth)[0] ?? '0';
 }
 
 export function validateTokenAmount({
@@ -1266,6 +1432,7 @@ export function calculateAccountTotalValue(params: {
     {
       deriveType: string;
       mergeDeriveAssetsEnabled: boolean;
+      suffixToDeriveType?: Record<string, string>;
     }
   >;
 }): string | undefined {
@@ -1306,10 +1473,13 @@ export function calculateAccountTotalValue(params: {
       const restAccountId = keyArray.join('_');
       const parts = restAccountId.split(SEPARATOR);
       const keyWalletId = parts[0];
-      const keyDeriveType = (
-        accountUtils.normalizeDeriveType(parts[2] || '') ?? 'default'
-      ).toLowerCase();
       const infoEntry = networkInfoMap[netId];
+      const rawSuffix = parts[2] || '';
+      const keyDeriveType = (
+        accountUtils.normalizeDeriveType(rawSuffix) ??
+        infoEntry?.suffixToDeriveType?.[rawSuffix.toLowerCase()] ??
+        'default'
+      ).toLowerCase();
       if (
         keyWalletId === walletId &&
         compatibleIds.has(netId) &&

@@ -1,5 +1,5 @@
 /* oxlint-disable import-js/order */
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import-js/order
@@ -7,7 +7,6 @@ import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 import { BigNumber } from 'bignumber.js';
-import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
@@ -29,10 +28,48 @@ if (process.env.NODE_ENV !== 'production') {
   Purchases.setLogLevel(LogLevel.Verbose);
 }
 
+function getWebEmbedSearchParamsString() {
+  if (typeof globalThis.location === 'undefined') {
+    return '';
+  }
+
+  const hash = globalThis.location.hash || '';
+  const hashValue = hash.startsWith('#') ? hash.slice(1) : hash;
+  const queryIndex = hashValue.indexOf('?');
+  if (queryIndex >= 0) {
+    return hashValue.slice(queryIndex + 1);
+  }
+
+  const search = globalThis.location.search || '';
+  return search.startsWith('?') ? search.slice(1) : search;
+}
+
+function subscribeWebEmbedSearchParams(onStoreChange: () => void) {
+  if (typeof globalThis.addEventListener !== 'function') {
+    return () => undefined;
+  }
+
+  globalThis.addEventListener('hashchange', onStoreChange);
+  globalThis.addEventListener('popstate', onStoreChange);
+
+  return () => {
+    globalThis.removeEventListener('hashchange', onStoreChange);
+    globalThis.removeEventListener('popstate', onStoreChange);
+  };
+}
+
 export function usePrimePaymentMethods(): IUsePrimePayment {
   const isReady = true;
 
-  const [searchParams] = useSearchParams();
+  const searchParamsString = useSyncExternalStore(
+    subscribeWebEmbedSearchParams,
+    getWebEmbedSearchParamsString,
+    () => '',
+  );
+  const searchParams = useMemo(
+    () => new URLSearchParams(searchParamsString),
+    [searchParamsString],
+  );
 
   const params = useMemo(() => {
     const apiKey = searchParams.get('apiKey') || '';

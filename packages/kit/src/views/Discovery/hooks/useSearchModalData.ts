@@ -95,14 +95,11 @@ export function useSearchModalData(searchValue: string) {
 
   const { result: trendingData, run: refreshTrendingData } = usePromiseResult(
     async (): Promise<IDApp[]> => {
-      if (!showSearchResult) {
-        return [];
-      }
       return (
         (await serviceDiscovery.fetchDiscoveryHomePageData())?.trending ?? []
       );
     },
-    [serviceDiscovery, showSearchResult],
+    [serviceDiscovery],
     {
       initResult: [],
     },
@@ -148,7 +145,6 @@ export function useSearchModalData(searchValue: string) {
     return buildDiscoverySearchListFromFactors({
       searchValue,
       searchActionTitle,
-      showSearchResult,
       searchResult,
       rankingHistoryData,
       localSearchData,
@@ -160,7 +156,6 @@ export function useSearchModalData(searchValue: string) {
     searchActionTitle,
     searchResult,
     searchValue,
-    showSearchResult,
     trendingData,
   ]);
 

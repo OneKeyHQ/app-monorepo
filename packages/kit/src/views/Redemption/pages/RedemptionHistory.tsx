@@ -4,13 +4,10 @@ import { useIntl } from 'react-intl';
 
 import { Badge, Empty, Page, Spinner, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EBtcRewardStatus } from '@onekeyhq/shared/src/referralCode/type';
@@ -20,15 +17,12 @@ import type {
 } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   formatUsd,
   getBtcRewardStatusConfig,
   isBtcRewardSnapshotStatus,
 } from '../utils';
-
-const baseNetworkId = getNetworkIdsMap().base;
 
 type IUnifiedRecord =
   | {
@@ -83,21 +77,23 @@ function BtcRewardRecordRow({
     statusConfigs[record.status] ?? statusConfigs[EBtcRewardStatus.Wait];
   const handlePress = useCallback(() => onPress(record), [onPress, record]);
   const hasBtcSnapshot = isBtcRewardSnapshotStatus(record.status);
+  const hasBtcAmount = hasBtcSnapshot && record.btcAmount;
+  const displayDate = formatDate(
+    hasBtcAmount ? record.paidAt || record.submittedAt : record.submittedAt,
+    { hideSeconds: true },
+  );
 
-  const subtitle =
-    hasBtcSnapshot && record.btcAmount
-      ? `${record.btcAmount} cbBTC · ${formatDate(
-          record.paidAt || record.submittedAt,
-          { hideSeconds: true },
-        )}`
-      : `${formatUsd(record.rewardUsd)} · ${formatDate(record.submittedAt, {
-          hideSeconds: true,
-        })}`;
+  const title = hasBtcAmount
+    ? `${record.btcAmount} cbBTC`
+    : formatUsd(record.rewardUsd);
+  const subtitle = hasBtcAmount
+    ? `${formatUsd(record.rewardUsd)} · ${displayDate}`
+    : displayDate;
 
   return (
     <ListItem
       icon="TicketOutline"
-      title={record.batchName}
+      title={title}
       subtitle={subtitle}
       drillIn
       onPress={handlePress}
@@ -114,32 +110,7 @@ function RedemptionHistoryContent() {
   const navigation = useAppNavigation();
   const statusConfigs = useMemo(() => getBtcRewardStatusConfig(intl), [intl]);
 
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { isLoggedIn } = useOneKeyAuth();
-
-  const indexedAccountId = activeAccount?.indexedAccount?.id;
-  const accountId = activeAccount?.account?.id;
-
-  const { result: walletAddress, isLoading: isWalletAddressLoading } =
-    usePromiseResult(
-      async () => {
-        if (!indexedAccountId && !accountId) return undefined;
-        try {
-          const networkAccount =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              indexedAccountId,
-              accountId: indexedAccountId ? undefined : accountId,
-              networkId: baseNetworkId,
-              deriveType: 'default',
-            });
-          return networkAccount?.address;
-        } catch {
-          return undefined;
-        }
-      },
-      [indexedAccountId, accountId],
-      { watchLoading: true },
-    );
 
   const { result: legacyResult, isLoading: isLegacyLoading } = usePromiseResult(
     async () => {
@@ -153,16 +124,14 @@ function RedemptionHistoryContent() {
 
   const { result: btcItems, isLoading: isBtcLoading } = usePromiseResult(
     async () => {
-      if (!walletAddress) return [] as IBtcRewardHistoryItem[];
       const result =
         await backgroundApiProxy.serviceReferralCode.btcRewardHistory({
-          walletAddress,
           pageSize: 100,
         });
       if (!result.success) return [] as IBtcRewardHistoryItem[];
       return result.data.data;
     },
-    [walletAddress],
+    [],
     { watchLoading: true, initResult: [] as IBtcRewardHistoryItem[] },
   );
 
@@ -192,8 +161,7 @@ function RedemptionHistoryContent() {
     [navigation],
   );
 
-  const isLoading =
-    isWalletAddressLoading || isBtcLoading || (isLoggedIn && isLegacyLoading);
+  const isLoading = isBtcLoading || (isLoggedIn && isLegacyLoading);
 
   const renderContent = () => {
     if (isLoading) {
@@ -251,15 +219,5 @@ function RedemptionHistoryContent() {
 }
 
 export default function RedemptionHistory() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <RedemptionHistoryContent />
-    </AccountSelectorProviderMirror>
-  );
+  return <RedemptionHistoryContent />;
 }

@@ -17,7 +17,9 @@ export async function handleAnalyticsInterval({
     // Extract interval property safely
     const safeData = messageData as unknown as Record<string, unknown>;
     const interval = safeData.TVIntervalSelect as string;
-    if (context.currentKLineResolution) {
+    if (context.onCurrentKLineResolutionChange) {
+      context.onCurrentKLineResolutionChange(interval);
+    } else if (context.currentKLineResolution) {
       context.currentKLineResolution.current = interval;
     }
 

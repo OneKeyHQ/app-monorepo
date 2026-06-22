@@ -2,7 +2,7 @@ import bufferUtils from '../utils/bufferUtils';
 
 export const AppCryptoTestEmoji = {
   isCorrect: '✅',
-  isIncorrect: '❌❌❌❌❌❌❌❌❌❌',
+  isIncorrect: '❌',
   isSlow: '🐌🐌🐌🐌🐌🐌🐌🐌🐌🐌🐌',
   isWarning: '⚠️',
 };

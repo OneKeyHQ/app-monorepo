@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 
-import { LeverageBadge, SubtitleBadge } from '../../../components/PerpsBadges';
+import { LeverageBadge, SubtitleText } from '../../../components/PerpsBadges';
 import { PriceChangeBadge } from '../PriceChangeBadge';
 
 import type { IMarketPerpsToken } from './hooks/useMarketPerpsTokenList';
@@ -54,9 +54,9 @@ const BasicMarketPerpsTokenListItem: FC<IMarketPerpsTokenListItemProps> = ({
               {item.displayName}
             </SizableText>
             <LeverageBadge leverage={item.maxLeverage} />
-            {item.subtitle ? <SubtitleBadge subtitle={item.subtitle} /> : null}
           </XStack>
-          <XStack alignItems="center" height="$4">
+          <XStack alignItems="center" gap="$1" minWidth={0}>
+            {item.subtitle ? <SubtitleText subtitle={item.subtitle} /> : null}
             <SkeletonContainer isLoading={!hasRealTimeData}>
               <NumberSizeableText
                 size="$bodyMd"

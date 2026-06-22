@@ -10,6 +10,7 @@ export enum EChainSelectorPages {
   AccountChainSelector = 'AccountChainSelector',
   ChainSelector = 'ChainSelector',
   AddCustomNetwork = 'AddCustomNetwork',
+  ChainListSearch = 'ChainListSearch',
   AllNetworksManager = 'AllNetworksManager',
   TokenSelector = 'TokenSelector',
   UnifiedNetworkSelector = 'UnifiedNetworkSelector',
@@ -51,6 +52,9 @@ export type IChainSelectorParamList = {
   [EChainSelectorPages.AccountChainSelector]: IAccountChainSelectorRouteParams;
   [EChainSelectorPages.ChainSelector]?: IChainSelectorParams;
   [EChainSelectorPages.UnifiedNetworkSelector]: IUnifiedNetworkSelectorRouteParams;
+  [EChainSelectorPages.ChainListSearch]: {
+    onSuccess?: (network: IServerNetwork) => void;
+  };
   [EChainSelectorPages.AddCustomNetwork]: {
     state: 'add' | 'edit';
     networkId?: string;

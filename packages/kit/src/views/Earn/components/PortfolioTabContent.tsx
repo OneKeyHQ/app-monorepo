@@ -35,6 +35,7 @@ import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
   type IEarnActionIcon,
+  type IEarnClaimType,
   type IEarnPortfolioAirdropAsset,
   type IEarnPortfolioInvestment,
   type IEarnText,
@@ -229,18 +230,21 @@ const WrappedActionButtonCmp = ({
       asset.token.info.address
         ? asset.token.info.address
         : undefined;
+    const claimRequestType: IEarnClaimType | undefined =
+      'claimType' in reward ? reward.claimType : undefined;
 
     handleAction({
       actionIcon: reward.button,
       token: getRewardButtonToken(reward.button),
       rewardTokenAddress,
+      claimRequestType,
       indexedAccountId: indexedAccount?.id,
       stakedSymbol,
       rewardSymbol,
     });
   }, [
     handleAction,
-    reward.button,
+    reward,
     asset,
     isMorphoProvider,
     indexedAccount?.id,

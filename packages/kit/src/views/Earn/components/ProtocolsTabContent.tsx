@@ -5,11 +5,11 @@ import { YStack } from '@onekeyhq/components';
 import { AvailableAssetsTabViewList } from './AvailableAssetsTabViewList';
 import { Recommended } from './Recommended';
 
-function BaseProtocolsTabContent() {
+function BaseProtocolsTabContent({ isActive = true }: { isActive?: boolean }) {
   return (
     <YStack gap="$8">
-      <Recommended />
-      <AvailableAssetsTabViewList />
+      <Recommended isActive={isActive} />
+      <AvailableAssetsTabViewList isActive={isActive} />
     </YStack>
   );
 }

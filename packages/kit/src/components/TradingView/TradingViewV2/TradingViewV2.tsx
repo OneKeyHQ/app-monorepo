@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components';
+import { SizableText, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { ITradingViewKLineMockEmptyInterval } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -25,14 +25,23 @@ import {
 import {
   DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
+  normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
 
+import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
-import type { ICustomReceiveHandlerData } from './types';
+import type {
+  ICustomReceiveHandlerData,
+  ITradingViewPriceUpdateData,
+} from './types';
 import type { IWebViewRef } from '../../WebView/types';
+import type { ITradingViewDisabledFeature } from '../hooks';
 import type { WebViewProps } from 'react-native-webview';
-import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
+import type {
+  WebViewNavigation,
+  WebViewNavigationEvent,
+} from 'react-native-webview/lib/WebViewTypes';
 
 const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
   { right: '$2', bottom: '$2' },
@@ -59,6 +68,16 @@ interface IBaseTradingViewV2Props {
   dataSource?: 'websocket' | 'polling';
   accountAddress?: string;
   onTouchScroll?: (deltaY: number) => void;
+  onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
+  disabledFeatures?: readonly ITradingViewDisabledFeature[];
+  storageNamespace?: string;
+  forceEmptyKLineData?: boolean;
+  emptyKLineDataOnError?: boolean;
+  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  primaryKLineDataUnavailable?: boolean;
+  onPrimaryKLineDataUnavailable?: () => void;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -67,7 +86,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webRef = useRef<IWebViewRef | null>(null);
   const marksTimeRange = useRef<IMarksTimeRange | null>(null);
   const currentKLineResolution = useRef(DEFAULT_TRADING_VIEW_KLINE_RESOLUTION);
+  const [activeKLineResolution, setActiveKLineResolution] = useState(
+    DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
+  );
   const theme = useThemeVariant();
+  const themeColors = useTheme();
+  const tradingViewBackgroundColor = themeColors.bgApp.val;
   const isVisible = useRouteIsFocused();
   const [devSettings] = useDevSettingsPersistAtom();
   const [
@@ -84,10 +108,32 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     dataSource,
     accountAddress,
     onTouchScroll,
+    onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
+    disabledFeatures,
+    storageNamespace,
+    forceEmptyKLineData,
+    emptyKLineDataOnError,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
+    onLoadStart,
     ...stackStyle
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
+  const handleCurrentKLineResolutionChange = useCallback(
+    (resolution: string) => {
+      const normalizedResolution =
+        normalizeTradingViewKLineInterval(resolution);
+      currentKLineResolution.current = normalizedResolution;
+      setActiveKLineResolution((prev) =>
+        prev === normalizedResolution ? prev : normalizedResolution,
+      );
+    },
+    [],
+  );
   const { customReceiveHandler } = useTradingViewMessageHandler({
     tokenAddress,
     networkId,
@@ -97,7 +143,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenSymbol: symbol,
     marksTimeRange,
     currentKLineResolution,
+    onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
     onTouchScroll,
+    onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
+    forceEmptyKLineData,
+    emptyKLineDataOnError,
+    kLineDataFallback,
+    primaryKLineDataUnavailable,
+    onPrimaryKLineDataUnavailable,
+    onPriceUpdate,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -118,31 +173,54 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   const additionalParams = useMemo(() => {
+    const finalStorageNamespace =
+      storageNamespace?.trim() ||
+      (useHyperLiquid ? 'market-hyperliquid' : 'market');
+
     return {
       decimal: decimal?.toString(),
       networkId,
       address: tokenAddress,
       symbol: chartSymbol,
       type: 'market',
-      storageNamespace: useHyperLiquid ? 'market-hyperliquid' : 'market',
+      storageNamespace: finalStorageNamespace,
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
-  }, [chartSymbol, decimal, networkId, tokenAddress, useHyperLiquid]);
+  }, [
+    chartSymbol,
+    decimal,
+    networkId,
+    storageNamespace,
+    tokenAddress,
+    useHyperLiquid,
+  ]);
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
     additionalParams,
+    disabledFeatures,
   });
+  const tradingViewWebViewStyleProps = useMemo(
+    () => ({
+      containerStyle: { backgroundColor: tradingViewBackgroundColor },
+      style: { backgroundColor: tradingViewBackgroundColor },
+    }),
+    [tradingViewBackgroundColor],
+  );
 
   // OneKey realtime hooks only apply to app-served market candles.
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
+    symbol: chartSymbol,
     enabled:
       isVisible &&
       effectiveDataSource !== 'websocket' &&
       !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled,
+      !mockEmptyKLineEnabled &&
+      !forceEmptyKLineData &&
+      !primaryKLineDataUnavailable,
+    autoHandleError: emptyKLineDataOnError ? false : undefined,
   });
 
   useAutoTokenDetailUpdate({
@@ -160,13 +238,16 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       isVisible &&
       effectiveDataSource === 'websocket' &&
       !isHyperLiquidSource &&
-      !mockEmptyKLineEnabled,
-    chartType: '1m',
+      !mockEmptyKLineEnabled &&
+      !forceEmptyKLineData,
+    chartType: activeKLineResolution,
+    symbol: chartSymbol,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
   useEffect(() => {
     if (!isVisible || !accountAddress || !tokenAddress || !networkId) return;
+    if (forceEmptyKLineData) return;
 
     const refreshMarks = () => {
       const now = Math.floor(Date.now() / 1000);
@@ -246,6 +327,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     chartSymbol,
     mockEmptyKLineEnabled,
     mockEmptyKLineIntervals,
+    forceEmptyKLineData,
     webRef,
   ]);
 
@@ -253,6 +335,43 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     (event: WebViewNavigation) => handleNavigation(event),
     [handleNavigation],
   );
+
+  const resetIndicatorsDialogOpen = useCallback(() => {
+    onIndicatorsDialogOpenChange?.(false);
+  }, [onIndicatorsDialogOpenChange]);
+
+  const resetInteractionOverlayOpen = useCallback(() => {
+    onInteractionOverlayOpenChange?.(false);
+  }, [onInteractionOverlayOpenChange]);
+
+  const resetInteractionLocks = useCallback(() => {
+    resetIndicatorsDialogOpen();
+    resetInteractionOverlayOpen();
+  }, [resetIndicatorsDialogOpen, resetInteractionOverlayOpen]);
+
+  const handleLoadStart = useCallback(
+    (event: WebViewNavigationEvent) => {
+      resetInteractionLocks();
+      onLoadStart?.(event);
+    },
+    [onLoadStart, resetInteractionLocks],
+  );
+
+  const handleWebViewRef = useCallback(
+    (ref: IWebViewRef | null) => {
+      if (!ref) {
+        resetInteractionLocks();
+      }
+      webRef.current = ref;
+    },
+    [resetInteractionLocks, webRef],
+  );
+
+  useEffect(() => {
+    return () => {
+      resetInteractionLocks();
+    };
+  }, [resetInteractionLocks]);
 
   const handleMockEmptyKLineBadgePress = useCallback(() => {
     setMockEmptyKLineBadgePositionIndex(
@@ -264,14 +383,17 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const webView = useMemo(
     () => (
       <WebView
-        key={theme}
+        key={`${theme}:${tradingViewUrlWithParams}`}
+        containerProps={{ bg: '$bgApp' }}
+        containerStyle={tradingViewWebViewStyleProps.containerStyle}
+        style={tradingViewWebViewStyleProps.style}
         customReceiveHandler={async (data) => {
-          await customReceiveHandler(data as ICustomReceiveHandlerData);
+          const receiveData = data as ICustomReceiveHandlerData;
+          await customReceiveHandler(receiveData);
         }}
-        onWebViewRef={(ref) => {
-          webRef.current = ref;
-        }}
+        onWebViewRef={handleWebViewRef}
         allowsBackForwardNavigationGestures={false}
+        onLoadStart={handleLoadStart}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
@@ -286,10 +408,12 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     ),
     [
       customReceiveHandler,
+      handleLoadStart,
+      handleWebViewRef,
       onShouldStartLoadWithRequest,
       theme,
       tradingViewUrlWithParams,
-      webRef,
+      tradingViewWebViewStyleProps,
     ],
   );
 

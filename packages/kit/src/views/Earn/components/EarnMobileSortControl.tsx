@@ -65,7 +65,7 @@ export function EarnMobileSortControl({
   }
 
   return (
-    <XStack px="$pagePadding">
+    <XStack px="$pagePadding" pb="$2">
       <XStack
         ai="center"
         gap="$2"

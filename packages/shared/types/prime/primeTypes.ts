@@ -57,6 +57,10 @@ export type IPrimeServerUserInfo = {
   // isLogin
 
   inviteCode: string;
+
+  // Whether the user has enabled KYT (receive risk monitoring) on the server.
+  // Used as the source of truth for the KYT switch and the intro dialog gate.
+  kytEnabled?: boolean;
 };
 
 export enum ESecurityPasswordType {

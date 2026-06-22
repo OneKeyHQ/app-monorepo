@@ -192,6 +192,7 @@ const normalizeAutoSizeNativeColor = (color?: string): string | undefined => {
 
 export type ISendAmountAutoSizeInputRef = {
   focus: () => void;
+  blur: () => void;
   focusPercentageButton: (percent: 25 | 50 | 75 | 100) => void;
 };
 
@@ -200,6 +201,7 @@ type ISendAmountAutoSizeInputProps = {
   onChange?: (value: string) => void;
   reversible?: boolean;
   tokenSymbol?: string;
+  inlineTextAlignMode?: 'auto' | 'center';
   inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
     loading?: boolean;
   };
@@ -225,6 +227,7 @@ function SendAutoSizeAmountInputComponent(
     value: controlledValue,
     valueProps,
     tokenSymbol,
+    inlineTextAlignMode,
     extraContent,
     onLayout,
     ...rest
@@ -255,6 +258,9 @@ function SendAutoSizeAmountInputComponent(
   useImperativeHandle(ref, () => ({
     focus: () => {
       autoSizeInputRef.current?.focus?.();
+    },
+    blur: () => {
+      autoSizeInputRef.current?.blur?.();
     },
     focusPercentageButton: () => {},
   }));
@@ -407,6 +413,7 @@ function SendAutoSizeAmountInputComponent(
       maxFontSize={maxFontSize}
       minFontSize={minFontSize}
       availableInlineWidth={availableInlineWidth}
+      inlineTextAlignMode={inlineTextAlignMode}
       currencyLabel={currencyLabel}
       inlineTokenSymbol={inlineTokenSymbol}
       inlinePrefixGapPx={inlinePrefixGapPx}

@@ -25,6 +25,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 import {
   callLedgerWithFingerprint,
   ensureLedgerChainFingerprint,
+  ledgerCommonCallParamsForCreateScene,
 } from '../../base/ledgerFingerprintUtils';
 
 import type { IDBAccount, IDBDevice } from '../../../dbs/local/types';
@@ -52,17 +53,37 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
         const { dbDevice } = params.deviceParams;
         const { template } = params.deriveInfo;
 
+        const buildPath = ({ index }: { index: number }) =>
+          accountUtils.buildPathFromTemplate({
+            template,
+            index,
+          });
+        const allNetworkAccounts = await this.getAllNetworkPrepareAccounts({
+          params,
+          usedIndexes,
+          buildPath,
+          buildResultAccount: ({ account }) => ({
+            address: account.payload?.address || '',
+            path: account.path,
+            publicKey: '',
+            __hwExtraInfo__: {
+              rootFingerprint: account.payload?.rootFingerprint,
+            },
+          }),
+          hwSdkNetwork: this.hwSdkNetwork,
+        });
+        if (allNetworkAccounts) {
+          return allNetworkAccounts.payload;
+        }
+
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (const index of usedIndexes) {
-          const path = accountUtils.buildPathFromTemplate({
-            template,
-            index,
-          });
+          const path = buildPath({ index });
 
           let address: string | null = null;
           if (adapter) {
@@ -74,6 +95,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
                 adapter.hw.evmGetAddress(dbDevice.connectId, deviceId, {
                   path,
                   showOnDevice: params.isVerifyAddressAction ?? false,
+                  ...ledgerCommonCallParamsForCreateScene(params),
                 }),
             );
             if (result.success) {
@@ -126,7 +148,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const { dbDevice } = checkIsDefined(deviceParams);
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -186,7 +208,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
     const { dbDevice } = deviceParams;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -282,8 +304,14 @@ export class KeyringHardwareLedger extends KeyringHardwareBase {
   }
 
   override async buildHwAllNetworkPrepareAccountsParams(
-    _params: IBuildHwAllNetworkPrepareAccountsParams,
+    params: IBuildHwAllNetworkPrepareAccountsParams,
   ): Promise<AllNetworkAddressParams | undefined> {
-    return undefined;
+    const chainId = await this.getNetworkChainId();
+    return {
+      network: this.hwSdkNetwork,
+      path: params.path,
+      showOnOneKey: false,
+      chainName: chainId,
+    };
   }
 }

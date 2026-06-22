@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -33,6 +34,28 @@ import ServiceBase from './ServiceBase';
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
 
+  private buildChainListRequestParams(params: {
+    keywords?: string;
+    page?: number;
+  }): { keywords?: string; page: number; showTestNet: boolean } {
+    const keywords = params.keywords?.trim() || undefined;
+    const page = Math.max(1, Math.floor(params.page ?? 1));
+    return {
+      keywords,
+      page,
+      showTestNet: true,
+    };
+  }
+
+  private async fetchChainListPage(page: number): Promise<IChainListItem[]> {
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.get<{ data: IChainListItem[] }>(
+      '/wallet/v1/network/chainlist',
+      { params: this.buildChainListRequestParams({ page }) },
+    );
+    return resp.data.data || [];
+  }
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -45,7 +68,6 @@ class ServiceCustomRpc extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -55,7 +77,7 @@ class ServiceCustomRpc extends ServiceBase {
           return syncManagers.customRpc.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customRpc,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),
@@ -72,7 +94,6 @@ class ServiceCustomRpc extends ServiceBase {
     isDeleted: boolean;
   }) {
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
     const syncCredential =
       await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
@@ -82,7 +103,7 @@ class ServiceCustomRpc extends ServiceBase {
           return syncManagers.customNetwork.buildSyncItemByDBQuery({
             syncCredential,
             dbRecord: customNetwork,
-            dataTime: now,
+            dataTime: undefined,
             isDeleted,
           });
         }),
@@ -112,7 +133,7 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });
@@ -138,7 +159,7 @@ class ServiceCustomRpc extends ServiceBase {
         isDeleted,
       });
     }
-    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+    await this.backgroundApi.localDb.addAndUpdateFreshSyncItems({
       items: syncItems,
       fn,
     });
@@ -278,6 +299,28 @@ class ServiceCustomRpc extends ServiceBase {
     return {
       chainId: result.chainId,
     };
+  }
+
+  @backgroundMethod()
+  public async measureCustomNetworkRpcStatus(params: {
+    rpcUrl: string;
+    chainId: number;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId: getNetworkIdsMap().eth,
+    });
+    const result = await vault.getCustomRpcEndpointStatus({
+      rpcUrl: params.rpcUrl,
+      validateChainId: false,
+    });
+    if (
+      !new BigNumber(result.chainId ?? 0).isEqualTo(
+        new BigNumber(params.chainId),
+      )
+    ) {
+      throw new OneKeyError('Invalid chainId');
+    }
+    return result;
   }
 
   async upsertCustomNetworkInfo({
@@ -498,11 +541,30 @@ class ServiceCustomRpc extends ServiceBase {
 
     const serverNetworks = resp.data.data;
     const presetNetworkIds = Object.values(getNetworkIdsMap());
-    // filter preset networks
+    // Persist ALL non-preset server networks, INCLUDING delisted (TRASH) ones,
+    // keeping their `status`. The backend marks a network as delisted by flipping
+    // its `status` to TRASH while still returning the entry (it does NOT drop it from
+    // the list). If we filtered TRASH out here, a network that was cached while
+    // LISTED and later delisted would keep its stale LISTED snapshot in the DB
+    // forever. Instead we store the real status and let the read/merge layer
+    // (ServiceNetwork.getAllNetworks) filter TRASH out.
     const usedNetworks = serverNetworks.filter(
-      (n) =>
-        !presetNetworkIds.includes(n.id) && n.status === ENetworkStatus.LISTED,
+      (n) => !presetNetworkIds.includes(n.id),
     );
+
+    // Snapshot the previous server-network set so the refresh event below is only
+    // fanned out when the set actually changed (id added/removed or status
+    // flipped), instead of on every hourly fetch.
+    const { networks: prevServerNetworks } =
+      await this.backgroundApi.simpleDb.serverNetwork.getAllServerNetworks();
+    const serverNetworkSignature = (list: IServerNetwork[]) =>
+      list
+        .map((n) => `${n.id}:${n.status}`)
+        .toSorted()
+        .join(',');
+    const serverNetworkListChanged =
+      serverNetworkSignature(prevServerNetworks ?? []) !==
+      serverNetworkSignature(usedNetworks);
 
     await this.backgroundApi.simpleDb.serverNetwork.upsertServerNetworks({
       networkInfos: usedNetworks,
@@ -522,8 +584,36 @@ class ServiceCustomRpc extends ServiceBase {
     // If the server network is updated, clear the getAllNetworks cache
     await this.backgroundApi.serviceNetwork.clearAllNetworksCache();
 
+    // Notify network-list views to refresh in place, but only when the set
+    // actually changed. A delisted (TRASH) network is dropped by the read/merge
+    // layer only AFTER this fetch persists its new status, so without this signal
+    // an already-rendered selector keeps showing the stale entry until reopened.
+    // We reuse AddedCustomNetwork, the de-facto "network list changed, refresh"
+    // signal every network selector already listens to.
+    if (serverNetworkListChanged) {
+      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+    }
+
     defaultLogger.account.wallet.insertServerNetwork(usedNetworks);
     return usedNetworks;
+  }
+
+  @backgroundMethod()
+  async searchChainListByKeywords(params: {
+    keywords?: string;
+    page?: number;
+  }): Promise<IChainListItem[]> {
+    const requestParams = this.buildChainListRequestParams(params);
+    if (requestParams.keywords) {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<{ data: IChainListItem[] }>(
+        '/wallet/v1/network/chainlist',
+        { params: requestParams },
+      );
+      return resp.data.data || [];
+    }
+
+    return this.fetchChainListPage(requestParams.page);
   }
 
   @backgroundMethod()
@@ -534,10 +624,10 @@ class ServiceCustomRpc extends ServiceBase {
       const resp = await client.get<{ data: IChainListItem[] }>(
         '/wallet/v1/network/chainlist',
         {
-          params: {
-            keywords: chainId,
-            showTestNet: true,
-          },
+          params: this.buildChainListRequestParams({
+            keywords: String(chainId),
+            page: 1,
+          }),
         },
       );
       return (

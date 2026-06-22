@@ -58,7 +58,7 @@ const HASH_TEST_SNAPSHOTS = {
 
 const CRYPTO_TEST_SNAPSHOTS = {
   keyFromPasswordAndSalt:
-    '2e90bd72bd2580bdf52e85ff316a3b551fa8c9133bc92a5ada7ba1e7f452df02',
+    '6a80d4df77251f36ede0ed6613506c2531a299e7dfa83c438fd6dddeea7787d5',
   aesCbcEncrypt: '4919bcae82be9c9a490b1ffb58c33d9a',
   aesCbcDecrypt: '48656c6c6f2c20576f726c6421',
 };

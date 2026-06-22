@@ -12,6 +12,10 @@ import {
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  isUnavailableOrZeroFiatValue,
+  sumFiatValuesFromTokens,
+} from '@onekeyhq/shared/src/utils/tokenValueUtils';
 import type {
   ETokenListSortType,
   IAccountToken,
@@ -204,9 +208,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const index = newTokens.findIndex((token) =>
-            new BigNumber(
-              mergedTokenListMap[token.$key]?.fiatValue ?? 0,
-            ).isZero(),
+            isUnavailableOrZeroFiatValue(
+              mergedTokenListMap[token.$key]?.fiatValue,
+            ),
           );
 
           if (index > -1) {
@@ -227,10 +231,9 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             );
             const lowValueTokens = newTokens.slice(TOKEN_LIST_HIGH_VALUE_MAX);
 
-            const lowValueTokensFiatValue = lowValueTokens.reduce(
-              (acc, item) =>
-                acc.plus(mergedTokenListMap[item.$key]?.fiatValue ?? 0),
-              new BigNumber(0),
+            const lowValueTokensFiatValue = sumFiatValuesFromTokens(
+              lowValueTokens,
+              mergedTokenListMap,
             );
 
             set(tokenListAtom(), {

@@ -18,6 +18,23 @@ on:
         required: false
         type: boolean
         default: true
+  workflow_call:
+    inputs:
+      publish_to_npm:
+        description: 'Publish generated darwin packages to npm'
+        required: false
+        type: boolean
+        default: false
+      npm_tag:
+        description: 'npm dist-tag used when publishing'
+        required: false
+        type: string
+        default: next
+      notarize:
+        description: 'Submit the signed macOS CLI zip to Apple notarization'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -219,7 +236,19 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TAG: ${{ inputs.npm_tag }}
         run: |
+          set -euo pipefail
           TARBALL=$(ls apps/cli/build/macos-standalone/darwin-${CLI_MACOS_ARCH}/npm-tarball/*.tgz)
+          # Idempotency: npm refuses to overwrite an existing version, so if
+          # the standalone subpackage is already on npm for this version
+          # (e.g. a previous run published it but the main package failed),
+          # skip the publish so the pipeline can be re-run end-to-end.
+          PKG_META=$(tar -xzf "$TARBALL" --to-stdout package/package.json)
+          PKG_NAME=$(printf '%s' "$PKG_META" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).name")
+          PKG_VERSION=$(printf '%s' "$PKG_META" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "::notice::${PKG_NAME}@${PKG_VERSION} already published — skipping (idempotent retry)"
+            exit 0
+          fi
           npm publish "$TARBALL" --access public --tag "$NPM_TAG"
 
       - name: Clean up signing keychain

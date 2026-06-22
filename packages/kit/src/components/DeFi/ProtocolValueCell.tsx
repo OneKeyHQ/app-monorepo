@@ -89,7 +89,6 @@ const ProtocolValueCell = memo(
           textAlign={textAlign}
           numberOfLines={numberOfLines}
           fontVariant={fontVariant}
-          dashColor="$textDisabled"
           dashThickness={0.5}
         >
           {formattedValue}

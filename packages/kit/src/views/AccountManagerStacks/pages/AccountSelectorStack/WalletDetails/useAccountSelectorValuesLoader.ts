@@ -53,22 +53,43 @@ export function useAccountSelectorValuesLoader({
     const currentLoadId = loadingIdRef.current;
 
     const loadBatches = async () => {
-      // Clear this selector's sub-map only
+      // Prune this selector's sub-map: drop entries whose accountId is no
+      // longer in the new query, but PRESERVE entries that are still
+      // relevant. The previous behavior set `next[num] = {}` which wiped
+      // already-loaded balances every time `accountsForValuesQuery`
+      // changed reference, causing a visible "loaded -> '--' -> loaded"
+      // flicker when the effect re-ran for the same wallet (e.g. when
+      // listDataResult re-mounted but the account set was unchanged).
+      // New accountIds simply have no entry yet and render the "--"
+      // placeholder naturally until the batch below fills them in.
+      const desiredIds = new Set(
+        accountsForValuesQuery.map((a) => a.accountId),
+      );
       {
         const prev = await accountSelectorValuesMapAtom.get();
         if (isCancelled(currentLoadId, loadingIdRef)) return;
+        const prevSub = prev[num] || {};
+        const prunedSub: Record<string, IAccountSelectorValueItem> = {};
+        for (const id of Object.keys(prevSub)) {
+          if (desiredIds.has(id)) prunedSub[id] = prevSub[id];
+        }
         const next = {
           ...prev,
-          [num]: {},
+          [num]: prunedSub,
         };
         await accountSelectorValuesMapAtom.set(next);
       }
       {
         const prev = await accountSelectorDeFiMapAtom.get();
         if (isCancelled(currentLoadId, loadingIdRef)) return;
+        const prevSub = prev[num] || {};
+        const prunedSub: Record<string, IAccountSelectorDeFiItem> = {};
+        for (const id of Object.keys(prevSub)) {
+          if (desiredIds.has(id)) prunedSub[id] = prevSub[id];
+        }
         const next = {
           ...prev,
-          [num]: {},
+          [num]: prunedSub,
         };
         await accountSelectorDeFiMapAtom.set(next);
       }

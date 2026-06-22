@@ -1,7 +1,6 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
@@ -15,8 +14,14 @@ import {
 } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { swapSlippageDecimal } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  privateSendProvider,
+  swapSlippageDecimal,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  EProtocolOfExchange,
+  type ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
@@ -39,6 +44,9 @@ function SwapInfo(props: IProps) {
     slippage,
     unSupportSlippage,
   } = swapBuildResData.result;
+  const isPrivateSend =
+    data.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    provider.provider === privateSendProvider;
 
   const { network: senderNetwork } = useAccountData({
     networkId: sender.accountInfo.networkId,
@@ -57,7 +65,8 @@ function SwapInfo(props: IProps) {
   );
 
   const tokenRate = useMemo(() => {
-    if (isNil(instantRate)) {
+    const instantRateBN = new BigNumber(instantRate ?? '');
+    if (!instantRateBN.isFinite() || instantRateBN.lte(0)) {
       return null;
     }
 
@@ -83,7 +92,7 @@ function SwapInfo(props: IProps) {
           }}
           {...textStyle}
         >
-          {instantRate}
+          {instantRateBN.toFixed()}
         </NumberSizeableText>
       </XStack>
     );
@@ -117,7 +126,7 @@ function SwapInfo(props: IProps) {
           </XStack>
         </SignatureConfirmItem>
 
-        {tokenRate ? (
+        {tokenRate && !isPrivateSend ? (
           <SignatureConfirmItem compact p="$2.5">
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
@@ -128,7 +137,7 @@ function SwapInfo(props: IProps) {
           </SignatureConfirmItem>
         ) : null}
 
-        {unSupportSlippage ? null : (
+        {unSupportSlippage || isPrivateSend ? null : (
           <SignatureConfirmItem compact p="$2.5">
             <SignatureConfirmItem.Label>
               {intl.formatMessage({

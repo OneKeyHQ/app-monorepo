@@ -17,7 +17,14 @@ import type {
   Stats,
 } from '@rspack/core';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
+  resolveCommitSha: () => string;
+};
+
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
+
+const COMMIT_SHA = resolveCommitSha();
 
 const CANVASKIT_WASM_TEST =
   /canvaskit-wasm[\\/]bin[\\/](full[\\/])?canvaskit\.wasm$/;
@@ -133,6 +140,10 @@ const buildBasePlugins: (
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
     'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
     'process.env.NODE_ENV': JSON.stringify(nodeEnv),
+    'process.env.DESKTOP_E2E_MODE': JSON.stringify(
+      process.env.DESKTOP_E2E_MODE || '',
+    ),
+    'process.env.E2E_MODE': JSON.stringify(process.env.E2E_MODE || ''),
     'process.env.TAMAGUI_TARGET': JSON.stringify('web'),
     'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
       process.env.PERF_MONITOR_ENABLED || '',
@@ -140,6 +151,7 @@ const buildBasePlugins: (
     'process.env.VERSION': JSON.stringify(process.env.VERSION),
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
+    'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
   }),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
@@ -424,8 +436,6 @@ export function createBaseConfig({
           test: [
             /(@?expo-*).*\.(c|m)?(ts|js)x?$/,
             /(@?set-interval-async).*\.(c|m)?(ts|js)x?$/,
-            /react-router/,
-            /turbo-stream/,
             /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
           ],
 

@@ -120,9 +120,11 @@ const DappSideDisplay = memo(BaseDappSideDisplay);
 export function Welcome({
   banner,
   discoveryData,
+  tabId,
 }: {
   banner: React.ReactNode;
   discoveryData?: { hot?: Array<{ logo?: string; url?: string }> };
+  tabId?: string;
 }) {
   const media = useMedia();
 
@@ -189,7 +191,7 @@ export function Welcome({
           }}
         >
           {banner || (showDefaultTitle && <DefaultTitle />)}
-          {!platformEnv.isNative ? <SearchInput /> : null}
+          {!platformEnv.isNative ? <SearchInput tabId={tabId} /> : null}
         </Stack>
       ) : null}
 

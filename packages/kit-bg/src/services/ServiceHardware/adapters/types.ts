@@ -11,8 +11,43 @@ import type {
 
 export type { DeviceInfo, IHardwareWallet, Response, IConnector };
 
+export type TrezorDisplayRotation = 'North' | 'East' | 'South' | 'West';
+export type TrezorSafetyCheckLevel =
+  | 'Strict'
+  | 'PromptAlways'
+  | 'PromptTemporarily';
+export type TrezorDeviceSettingsParams = {
+  language?: string;
+  label?: string;
+  use_passphrase?: boolean;
+  homescreen?: string;
+  auto_lock_delay_ms?: number;
+  display_rotation?: TrezorDisplayRotation;
+  passphrase_always_on_device?: boolean;
+  safety_checks?: TrezorSafetyCheckLevel;
+  experimental_features?: boolean;
+  hide_passphrase_from_host?: boolean;
+  haptic_feedback?: boolean;
+  auto_lock_delay_battery_ms?: number;
+};
+export type TrezorBrightnessParams = { value?: number };
+export type TrezorChangePinParams = { remove?: boolean };
+
 export type IThirdPartyHardwareSearchOptions = {
   resetSession?: boolean;
+  waitForAllTransports?: boolean;
+  transportType?: 'usb' | 'ble';
+};
+
+export type IThirdPartyConnectedDevicePayload = {
+  connectId: string;
+  deviceId: string;
+  model?: string;
+  modelName?: string;
+  label?: string;
+  firmwareVersion?: string;
+  features?: Record<string, unknown>;
+  raw?: Record<string, unknown>;
 };
 
 // =====================================================================
@@ -45,16 +80,10 @@ export type IAdapterUiEvent = IAdapterUiRequest;
 /** Alias of SDK's UiResponseEvent — the (type, payload) contract is SDK-owned. */
 export type IAdapterUiResponse = UiResponseEvent;
 
-/**
- * The narrow union of "vendors that currently have a registered adapter"
- * is derived from `thirdPartyHardwareAdapterRegistry` — import it from
- * `./thirdPartyHardwareAdapterRegistry` (or re-export via `./index`).
- * We keep `vendor` typed as the broader `EHardwareVendor` here to avoid
- * a types ↔ registry circular import.
- */
 export interface IThirdPartyHardwareAdapter {
   readonly vendor: EHardwareVendor;
   readonly hw: IHardwareWallet;
+  readonly supportsAllNetworkGetAddress?: boolean;
 
   onUiEvent(handler: (event: IAdapterUiEvent) => void): () => void;
   uiResponse(response: IAdapterUiResponse): void;
@@ -65,7 +94,42 @@ export interface IThirdPartyHardwareAdapter {
   ): Promise<DeviceInfo[]>;
   connectDevice(
     connectId: string,
-  ): Promise<Response<{ connectId: string; deviceId: string }>>;
+  ): Promise<Response<IThirdPartyConnectedDevicePayload>>;
   disconnect(connectId: string): Promise<void>;
   reset(): void;
+
+  deviceSettings?(
+    connectId: string,
+    params: TrezorDeviceSettingsParams,
+  ): Promise<Response<Record<string, unknown>>>;
+  setBrightness?(
+    connectId: string,
+    params?: TrezorBrightnessParams,
+  ): Promise<Response<Record<string, unknown>>>;
+  changePin?(
+    connectId: string,
+    params?: TrezorChangePinParams,
+  ): Promise<Response<Record<string, unknown>>>;
+  wipeDevice?(connectId: string): Promise<Response<Record<string, unknown>>>;
+
+  /**
+   * Trezor-only: flush this device's buffered THP pairing credentials into its
+   * DB settings. Pairing can precede the device record (created during
+   * createHWWallet), so the host calls this once the record exists. Optional —
+   * adapters without host-managed pairing credentials (Ledger) omit it.
+   */
+  flushThpCredentials?(
+    deviceId: string,
+    options?: { connectId?: string },
+  ): Promise<void>;
+
+  /**
+   * Trezor-only: mark a USB→BLE binding probe as active for `connectId`. While
+   * active, a pairing request from that candidate is cancelled silently instead
+   * of surfacing the THP pairing dialog (a non-matching candidate is "not this
+   * one"). Call endBindingProbe() when the probe finishes. Optional — adapters
+   * without host-managed pairing (Ledger) omit it.
+   */
+  beginBindingProbe?(connectId: string): void;
+  endBindingProbe?(): void;
 }

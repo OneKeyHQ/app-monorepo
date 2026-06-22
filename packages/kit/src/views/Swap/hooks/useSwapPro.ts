@@ -51,8 +51,10 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
   useActiveAccount,
+  useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import {
+  buildSwapProPositionsOwnerKey,
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
@@ -60,6 +62,7 @@ import {
   useSwapProDirectionAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
+  useSwapProPositionsCacheAtom,
   useSwapProSelectTokenAtom,
   useSwapProSellToTokenAtom,
   useSwapProSupportNetworksTokenListAtom,
@@ -78,6 +81,11 @@ import { useMarketBasicConfig } from '../../Market/hooks';
 import { useTransactionsWebSocket } from '../../Market/MarketDetailV2/components/InformationTabs/components/TransactionsHistory/hooks/useTransactionsWebSocket';
 import { useSpeedSwapInit } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useSpeedSwapInit';
 import { ESwapDirection } from '../../Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
+import {
+  SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK,
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../utils/swapStockAnalytics';
 
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
@@ -881,6 +889,10 @@ export function useSwapProTokenInit() {
 export function useSwapProTokenSearch(
   input: string,
   selectedNetworkId?: string,
+  analyticsOverride?: {
+    tokenRole?: string;
+    tokenListType?: string;
+  },
 ) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchTokenList, setSearchTokenList] = useState<
@@ -966,7 +978,12 @@ export function useSwapProTokenSearch(
 
         const queryLength = input.length;
         const currentNetworkId = selectedNetworkId ?? '';
-        const logKey = `${input}__${currentNetworkId}`;
+        const logKey = [
+          input,
+          currentNetworkId,
+          analyticsOverride?.tokenRole ?? '',
+          analyticsOverride?.tokenListType ?? '',
+        ].join('__');
         if (queryLength >= 1 && lastLoggedSearchRef.current !== logKey) {
           lastLoggedSearchRef.current = logKey;
           const networkInfo = selectedNetworkId
@@ -974,13 +991,25 @@ export function useSwapProTokenSearch(
             : undefined;
           const networkName =
             networkInfo?.name ?? selectedNetworkId ?? 'Market';
+          const resultCount =
+            analyticsOverride?.tokenListType ===
+            SWAP_STOCK_ANALYTICS_TOKEN_LIST_TYPE_STOCK
+              ? finalList.filter((item) => !!item.stock).length
+              : finalList.length;
           defaultLogger.swap.tokenSelectorSearch.swapTokenSelectorSearch({
             query: input,
-            resultCount: finalList.length,
+            resultCount,
             networkId: currentNetworkId,
             networkName,
+            network: networkName,
             direction: ESwapDirectionType.FROM,
             from: 'pro',
+            tokenRole:
+              analyticsOverride?.tokenRole ??
+              getSwapAnalyticsTokenRole(ESwapDirectionType.FROM),
+            tokenListType:
+              analyticsOverride?.tokenListType ??
+              getSwapAnalyticsTokenListType({ from: 'pro' }),
           });
         }
       } catch (e) {
@@ -997,7 +1026,12 @@ export function useSwapProTokenSearch(
     return () => {
       isCancelled = true;
     };
-  }, [input, selectedNetworkId]);
+  }, [
+    input,
+    analyticsOverride?.tokenListType,
+    analyticsOverride?.tokenRole,
+    selectedNetworkId,
+  ]);
 
   const searchTokenListLength = searchTokenList.length;
   // Use a content-based key so the polling effect restarts when search
@@ -1221,12 +1255,84 @@ export function useSwapPositionsSupportTokenListAction() {
 export function useSwapProSupportNetworksTokenList(
   networkList: (IMarketBasicConfigNetwork | ISwapNetwork)[],
 ) {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [swapSelectToken] = useSwapProSelectTokenAtom();
   const [swapProUseSelectBuyToken] = useSwapProUseSelectBuyTokenAtom();
   const { syncOrderTokenBalance } = useSwapProTokenInfoSync();
   const [swapProSupportNetworksTokenList, setSwapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
+  const [swapProPositionsCache] = useSwapProPositionsCacheAtom();
   const { syncTokensToPosition } = useSwapTokenPairBalanceSyncForPosition();
+  const positionAccountId =
+    selectedAccount.indexedAccountId ??
+    selectedAccount.othersWalletAccountId ??
+    activeAccount?.indexedAccount?.id ??
+    activeAccount?.account?.id ??
+    activeAccount?.dbAccount?.id;
+  const positionNetworkIdsKey = useMemo(
+    () =>
+      networkList
+        .map((item) => item.networkId)
+        .filter(Boolean)
+        .toSorted()
+        .join(','),
+    [networkList],
+  );
+  const positionOwnerKey = useMemo(
+    () =>
+      buildSwapProPositionsOwnerKey({
+        accountId: positionAccountId,
+        networkIdsKey: positionNetworkIdsKey,
+      }),
+    [positionAccountId, positionNetworkIdsKey],
+  );
+  const cachedPositionEntry = useMemo(() => {
+    if (positionOwnerKey) {
+      const exactEntry = swapProPositionsCache.byOwner[positionOwnerKey];
+      if (exactEntry) {
+        return exactEntry;
+      }
+    }
+    if (!positionAccountId || positionNetworkIdsKey) {
+      return undefined;
+    }
+    const ownerPrefix = `${positionAccountId}__`;
+    return Object.values(swapProPositionsCache.byOwner)
+      .filter((entry) => entry.ownerKey.startsWith(ownerPrefix))
+      .toSorted((a, b) => b.updatedAt - a.updatedAt)[0];
+  }, [
+    positionAccountId,
+    positionNetworkIdsKey,
+    positionOwnerKey,
+    swapProPositionsCache.byOwner,
+  ]);
+  const cachedPositionTokenList = useMemo(() => {
+    if (
+      !cachedPositionEntry ||
+      (!positionNetworkIdsKey && !positionAccountId)
+    ) {
+      return [];
+    }
+    if (
+      cachedPositionEntry?.ownerKey === positionOwnerKey &&
+      cachedPositionEntry.networkIdsKey === positionNetworkIdsKey
+    ) {
+      return cachedPositionEntry.tokens;
+    }
+    if (!positionNetworkIdsKey && positionAccountId) {
+      const ownerPrefix = `${positionAccountId}__`;
+      if (cachedPositionEntry.ownerKey.startsWith(ownerPrefix)) {
+        return cachedPositionEntry.tokens;
+      }
+    }
+    return [];
+  }, [
+    cachedPositionEntry,
+    positionAccountId,
+    positionNetworkIdsKey,
+    positionOwnerKey,
+  ]);
   const swapProSelectTokenRef = useRef(swapSelectToken);
   if (swapProSelectTokenRef.current !== swapSelectToken) {
     swapProSelectTokenRef.current = swapSelectToken;
@@ -1359,37 +1465,41 @@ export function useSwapProSupportNetworksTokenList(
   }, [checkSyncOrderTokenBalance]);
 
   return {
+    cachedPositionTokenList,
+    hasCachedPositionTokenList: cachedPositionTokenList.length > 0,
     swapProLoadSupportNetworksTokenListRun,
   };
 }
 
-export function useSwapProPositionsListFilter(filterToken?: ISwapToken[]) {
+export function useSwapProPositionsListFilter(
+  filterToken?: ISwapToken[],
+  sourceTokenList?: ISwapToken[],
+) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
+  const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
   const filterDefaultTokenList = useMemo(() => {
-    const filterMinValueTokenList = swapProSupportNetworksTokenList.filter(
-      (token) => {
-        return new BigNumber(token.fiatValue || '0').gt(
-          swapProPositionsListMinValue,
-        );
-      },
-    );
+    const filterMinValueTokenList = positionsTokenList.filter((token) => {
+      return new BigNumber(token.fiatValue || '0').gt(
+        swapProPositionsListMinValue,
+      );
+    });
     if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [swapProSupportNetworksTokenList]);
+  }, [positionsTokenList]);
 
   const finallyTokenList = useMemo(
     () =>
       filterToken
-        ? swapProSupportNetworksTokenList.filter((token) =>
+        ? positionsTokenList.filter((token) =>
             filterToken.some((t) =>
               equalTokenNoCaseSensitive({ token1: t, token2: token }),
             ),
           )
         : filterDefaultTokenList,
-    [filterDefaultTokenList, swapProSupportNetworksTokenList, filterToken],
+    [filterDefaultTokenList, positionsTokenList, filterToken],
   );
   return {
     finallyTokenList,

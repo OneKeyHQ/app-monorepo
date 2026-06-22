@@ -16,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { dedupeTokenSelectorFavoriteCoins } from '../utils/tokenSelectorFavorites';
 
 export type IFavoriteItem = {
   mode: 'perp' | 'spot';
@@ -43,6 +44,10 @@ export function usePerpsFavorites(options?: {
     favoritesMode === 'spot'
       ? spotFavorites.favorites
       : perpFavorites.favorites;
+  const uniqueFavorites = useMemo(
+    () => dedupeTokenSelectorFavoriteCoins(favorites),
+    [favorites],
+  );
 
   // Fetch the full universe independently — must not read from the
   // search-filtered atom, otherwise favorites disappear during search.
@@ -88,7 +93,7 @@ export function usePerpsFavorites(options?: {
   );
 
   const favoriteItems = useMemo(() => {
-    if (!favorites.length || !taggedUniverse) {
+    if (!uniqueFavorites.length || !taggedUniverse) {
       return [];
     }
 
@@ -99,7 +104,7 @@ export function usePerpsFavorites(options?: {
       if (!spotUniverses.length) {
         return [];
       }
-      favorites.forEach((favCoin) => {
+      uniqueFavorites.forEach((favCoin) => {
         const asset = spotUniverses.find((item) => item.name === favCoin);
         if (asset) {
           items.push({
@@ -124,7 +129,7 @@ export function usePerpsFavorites(options?: {
     if (!perpsUniverses.length) {
       return [];
     }
-    favorites.forEach((favCoin) => {
+    uniqueFavorites.forEach((favCoin) => {
       for (let dexIndex = 0; dexIndex < perpsUniverses.length; dexIndex += 1) {
         const assets = perpsUniverses[dexIndex];
         const asset = Array.isArray(assets)
@@ -146,7 +151,7 @@ export function usePerpsFavorites(options?: {
     });
 
     return items;
-  }, [favorites, taggedUniverse]);
+  }, [uniqueFavorites, taggedUniverse]);
 
   return { favoriteItems, isReady: taggedUniverse !== undefined };
 }

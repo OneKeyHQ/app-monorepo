@@ -25,6 +25,7 @@ export enum EModalSwapRoutes {
   SwapToAnotherAddress = 'SwapToAnotherAddress',
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
+  SwapKLine = 'SwapKLine',
   LimitOrderDetail = 'LimitOrderDetail',
   SwapProMarketDetail = 'SwapProMarketDetail',
 }
@@ -44,6 +45,8 @@ export type IModalSwapParamList = {
     type: ESwapDirectionType;
     storeName: EJotaiContextStoreNames;
     autoSearch?: boolean;
+    selectTarget?: 'swapStock';
+    defaultNetworkId?: string;
   };
   [EModalSwapRoutes.SwapNetworkSelect]: {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
@@ -74,6 +77,9 @@ export type IModalSwapParamList = {
   };
   [EModalSwapRoutes.SwapLazyMarketModal]: {
     coinGeckoId: string;
+  };
+  [EModalSwapRoutes.SwapKLine]: {
+    storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapProSelectToken]: {
     storeName: EJotaiContextStoreNames;

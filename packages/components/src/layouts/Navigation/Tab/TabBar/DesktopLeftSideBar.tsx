@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -72,7 +72,36 @@ function DesktopWinSidebarTop() {
   );
 }
 
-function TabItemView({
+type ITabItemOptions = BottomTabNavigationOptions & {
+  actionList?: IActionListSection[];
+  tabbarOnPress?: () => void;
+  onPressWhenSelected?: () => void;
+  trackId?: string;
+  collapseTabBarLabel?: string;
+  hideOnTabBar?: boolean;
+};
+
+// React Navigation rebuilds the `descriptors[].options` object on every
+// navigator render, but the individual field references (tabBarIcon,
+// tabBarLabel, ...) come from the static screenOptions config so they stay
+// stable. Shallow-compare only the fields the items actually read so memo
+// can short-circuit the 8+ sidebar items whose isActive didn't flip.
+function areTabOptionsEqual(a: ITabItemOptions, b: ITabItemOptions) {
+  if (a === b) return true;
+  return (
+    a.tabBarIcon === b.tabBarIcon &&
+    a.tabBarLabel === b.tabBarLabel &&
+    a.tabBarStyle === b.tabBarStyle &&
+    a.actionList === b.actionList &&
+    a.tabbarOnPress === b.tabbarOnPress &&
+    a.onPressWhenSelected === b.onPressWhenSelected &&
+    a.trackId === b.trackId &&
+    a.collapseTabBarLabel === b.collapseTabBarLabel &&
+    a.hideOnTabBar === b.hideOnTabBar
+  );
+}
+
+function BasicTabItemView({
   isActive,
   route,
   onPress,
@@ -83,14 +112,7 @@ function TabItemView({
   route: NavigationState['routes'][0];
   onPress: () => void;
   onPressOut?: () => void;
-  options: BottomTabNavigationOptions & {
-    actionList?: IActionListSection[];
-    tabbarOnPress?: () => void;
-    onPressWhenSelected?: () => void;
-    trackId?: string;
-    collapseTabBarLabel?: string;
-    hideOnTabBar?: boolean;
-  };
+  options: ITabItemOptions;
 }) {
   useEffect(() => {
     // @ts-expect-error
@@ -183,6 +205,16 @@ function TabItemView({
 
   return contentMemo;
 }
+
+const TabItemView = memo(
+  BasicTabItemView,
+  (prev, next) =>
+    prev.isActive === next.isActive &&
+    prev.route === next.route &&
+    prev.onPress === next.onPress &&
+    prev.onPressOut === next.onPressOut &&
+    areTabOptionsEqual(prev.options, next.options),
+);
 
 const isRouteActive = (
   route: NavigationState['routes'][0],
@@ -514,7 +546,7 @@ function OverflowMoreButton({
   );
 }
 
-function VisibleTabItemView({
+function BasicVisibleTabItemView({
   route,
   isActive,
   options,
@@ -522,14 +554,7 @@ function VisibleTabItemView({
 }: {
   route: NavigationState['routes'][0];
   isActive: boolean;
-  options: BottomTabNavigationOptions & {
-    actionList?: IActionListSection[];
-    tabbarOnPress?: () => void;
-    onPressWhenSelected?: () => void;
-    trackId?: string;
-    collapseTabBarLabel?: string;
-    hideOnTabBar?: boolean;
-  };
+  options: ITabItemOptions;
   handleTabPress: (
     route: NavigationState['routes'][0],
     isActive: boolean,
@@ -559,6 +584,15 @@ function VisibleTabItemView({
     />
   );
 }
+
+const VisibleTabItemView = memo(
+  BasicVisibleTabItemView,
+  (prev, next) =>
+    prev.isActive === next.isActive &&
+    prev.route === next.route &&
+    prev.handleTabPress === next.handleTabPress &&
+    areTabOptionsEqual(prev.options, next.options),
+);
 
 export function DesktopLeftSideBar({
   navigation,

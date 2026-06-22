@@ -84,6 +84,12 @@ const buildBorrowTrackingStakingInfo = ({
   });
 };
 
+const getEarnOrderTrackingInfo = (stakingInfo?: IStakingInfo) => ({
+  stakingLabel: stakingInfo?.label,
+  stakingProtocol: stakingInfo?.protocol,
+  stakingTags: stakingInfo?.tags,
+});
+
 type ITxConfirmResult =
   | {
       status: 'success';
@@ -115,11 +121,13 @@ const syncBorrowOrder = async ({
   networkId,
   txId,
   status,
+  stakingInfo,
 }: {
   orderId?: string;
   networkId: string;
   txId?: string;
   status: EDecodedTxStatus;
+  stakingInfo?: IStakingInfo;
 }) => {
   if (!orderId || !txId) {
     return;
@@ -130,6 +138,7 @@ const syncBorrowOrder = async ({
     networkId,
     txId,
     status,
+    ...getEarnOrderTrackingInfo(stakingInfo),
   });
 };
 
@@ -137,11 +146,13 @@ const handleBorrowSuccess = async ({
   data,
   orderId,
   networkId,
+  stakingInfo,
   onSuccess,
 }: {
   data: ISendTxOnSuccessData[];
   orderId?: string;
   networkId: string;
+  stakingInfo?: IStakingInfo;
   onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
 }) => {
   const latestTxId =
@@ -152,6 +163,7 @@ const handleBorrowSuccess = async ({
     networkId,
     txId: latestTxId,
     status: data[data.length - 1]?.decodedTx.status ?? EDecodedTxStatus.Pending,
+    stakingInfo,
   });
   onSuccess?.(data);
 };
@@ -222,6 +234,7 @@ export function useUniversalBorrowSupply({
             data,
             orderId: resp.orderId,
             networkId,
+            stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
         },
@@ -281,6 +294,7 @@ export function useUniversalBorrowWithdraw({
             data,
             orderId: resp.orderId,
             networkId,
+            stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
         },
@@ -338,6 +352,7 @@ export function useUniversalBorrowBorrow({
             data,
             orderId: resp.orderId,
             networkId,
+            stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
         },
@@ -395,6 +410,7 @@ export function useUniversalBorrowRepay({
             data,
             orderId: resp.orderId,
             networkId,
+            stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
         },
@@ -528,6 +544,7 @@ export function useUniversalBorrowRepayWithCollateral({
             status:
               setupConfirmResult.data[setupConfirmResult.data.length - 1]
                 ?.decodedTx.status ?? EDecodedTxStatus.Pending,
+            stakingInfo: setupTrackingStakingInfo,
           });
 
           setupLutFinalizationResult =
@@ -623,6 +640,7 @@ export function useUniversalBorrowRepayWithCollateral({
           data: repayConfirmResult.data,
           orderId: resp.orderId,
           networkId,
+          stakingInfo: stakingInfoWithOrderId,
           onSuccess,
         });
         return true;
@@ -695,6 +713,7 @@ export function useUniversalBorrowClaim({
             data,
             orderId: resp.orderId,
             networkId,
+            stakingInfo: stakingInfoWithOrderId,
             onSuccess,
           });
         },

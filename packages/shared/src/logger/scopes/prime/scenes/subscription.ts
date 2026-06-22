@@ -8,12 +8,13 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PrimeSubscriptionScene extends BaseScene {
   /**
    * Prime feature entry click
-   * Triggered when a non-Prime user clicks on any Prime feature entry point
+   * Triggered when a user clicks on any Prime feature entry point.
    */
   @LogToServer()
   public primeEntryClick({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint:
@@ -23,10 +24,12 @@ export class PrimeSubscriptionScene extends BaseScene {
       | 'primePage'
       | 'walletEdit'
       | 'browserTranslate';
+    isPrimeActive: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
     };
   }
 
@@ -38,20 +41,22 @@ export class PrimeSubscriptionScene extends BaseScene {
   public primeUpsellShow({
     featureName,
     entryPoint,
+    isPrimeActive,
   }: {
     featureName: EPrimeFeatures;
     entryPoint?: 'settingsPage' | 'moreActions' | 'approvalPopup' | 'primePage';
+    isPrimeActive?: boolean;
   }) {
     return {
       featureName,
       entryPoint,
+      isPrimeActive,
     };
   }
 
   /**
    * Prime dashboard shown
    * Triggered once when PrimeDashboard mounts.
-   * Filter by isPrimeActive=false to exclude users managing an existing subscription.
    */
   @LogToServer()
   public primeDashboardShow({
@@ -126,6 +131,27 @@ export class PrimeSubscriptionScene extends BaseScene {
     return {
       featureName,
       entryPoint,
+    };
+  }
+
+  /**
+   * Prime feature CTA button click
+   * Triggered when an active Prime user clicks a feature action CTA on the feature intro page/dialog.
+   */
+  @LogToServer()
+  public primeFeatureCtaClick({
+    featureName,
+    entryPoint,
+    isPrimeActive,
+  }: {
+    featureName: EPrimeFeatures;
+    entryPoint: 'primePage';
+    isPrimeActive: boolean;
+  }) {
+    return {
+      featureName,
+      entryPoint,
+      isPrimeActive,
     };
   }
 

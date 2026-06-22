@@ -24,6 +24,7 @@ export interface IIconButtonProps extends Omit<
   icon: IKeyOfIcons;
   iconSize?: IIconProps['size'];
   iconProps?: IIconProps;
+  allowPressWhenDisabled?: boolean;
   title?: ITooltipProps['renderContent'];
   // Allow triggering via the Enter or Space key.
   hotKey?: boolean;
@@ -57,6 +58,7 @@ export function IconButton(props: IIconButtonProps) {
     title,
     icon,
     iconProps,
+    allowPressWhenDisabled = false,
     size,
     variant = 'secondary',
     hotKey = false,
@@ -65,10 +67,12 @@ export function IconButton(props: IIconButtonProps) {
     ...rest
   } = props;
 
+  const visualDisabled = !!disabled;
+  const effectiveDisabled = visualDisabled && !allowPressWhenDisabled;
   const { p, negativeMargin } = getSizeStyles(size);
 
   const { sharedFrameStyles, iconColor } = getSharedButtonStyles({
-    disabled,
+    disabled: visualDisabled,
     loading,
     variant,
   });
@@ -84,8 +88,8 @@ export function IconButton(props: IIconButtonProps) {
       <ButtonFrame
         p={p}
         borderRadius="$full"
-        disabled={!!disabled || !!loading}
-        aria-disabled={!!disabled || !!loading}
+        disabled={effectiveDisabled || !!loading}
+        aria-disabled={effectiveDisabled || !!loading}
         // @ts-expect-error
         onKeyDown={hotKey ? undefined : onKeyDown}
         hitSlop={size === 'small' ? NATIVE_HIT_SLOP : undefined}
@@ -116,7 +120,7 @@ export function IconButton(props: IIconButtonProps) {
       </ButtonFrame>
     ),
     [
-      disabled,
+      effectiveDisabled,
       hotKey,
       icon,
       iconColor,

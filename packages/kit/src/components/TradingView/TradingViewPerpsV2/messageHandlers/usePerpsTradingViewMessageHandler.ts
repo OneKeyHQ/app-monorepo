@@ -33,10 +33,14 @@ import {
 } from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
+import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
+
 import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVChartOrderIntentPayload,
+  ITVChartReadyPayload,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
   ITVOrderDraftCreatePayload,
@@ -50,20 +54,26 @@ export function usePerpsTradingViewMessageHandler({
   symbol,
   userAddress,
   webRef,
+  onChartReady,
   onChartLinesReady,
   onOrderCancel,
   onOrderDraftCreate,
   onOrderPriceUpdate,
+  onChartOrderIntent,
   onTouchScroll,
+  onInteractionOverlayOpenChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
   webRef: React.RefObject<IWebViewRef | null>;
+  onChartReady?: (payload: ITVChartReadyPayload) => void;
   onChartLinesReady?: (payload: ITVLineReadyPayload) => void;
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
   onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
+  onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
@@ -355,7 +365,10 @@ export function usePerpsTradingViewMessageHandler({
             messageData.data as { symbol: string; requestId: string },
           );
           break;
-        case 'tradingview_perpsReady':
+        case PERPS_TV_MESSAGE_METHODS.CHART_READY:
+          onChartReady?.(messageData.data as ITVChartReadyPayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.READY:
           // Chart lines iframe is ready to receive data
           onChartLinesReady?.(messageData.data as ITVLineReadyPayload);
           break;
@@ -365,6 +378,9 @@ export function usePerpsTradingViewMessageHandler({
           break;
         case PERPS_TV_MESSAGE_METHODS.ORDER_DRAFT_CREATE:
           onOrderDraftCreate?.(messageData.data as ITVOrderDraftCreatePayload);
+          break;
+        case PERPS_TV_MESSAGE_METHODS.CHART_ORDER_INTENT:
+          onChartOrderIntent?.(messageData.data as ITVChartOrderIntentPayload);
           break;
         case PERPS_TV_MESSAGE_METHODS.ORDER_PRICE_UPDATE:
           onOrderPriceUpdate?.(messageData.data as ITVOrderPriceUpdatePayload);
@@ -387,6 +403,13 @@ export function usePerpsTradingViewMessageHandler({
           }
           break;
         }
+        case 'tradingview_interactionOverlay': {
+          const isOpen = getPerpsInteractionOverlayOpenState(messageData.data);
+          if (typeof isOpen === 'boolean') {
+            onInteractionOverlayOpenChange?.(isOpen);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -394,11 +417,14 @@ export function usePerpsTradingViewMessageHandler({
     [
       handleGetMarks,
       handleGetHyperliquidPriceScale,
+      onChartReady,
       onChartLinesReady,
       onOrderCancel,
       onOrderDraftCreate,
       onOrderPriceUpdate,
+      onChartOrderIntent,
       onTouchScroll,
+      onInteractionOverlayOpenChange,
       setLayoutState,
     ],
   );

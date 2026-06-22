@@ -141,7 +141,6 @@ export function TokenSupplementaryInfo() {
                 <DashText
                   size="$bodySm"
                   color="$textSubdued"
-                  dashColor="$textDisabled"
                   dashThickness={0.5}
                   cursor="help"
                 >

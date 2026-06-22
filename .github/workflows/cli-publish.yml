@@ -12,6 +12,7 @@ jobs:
     outputs:
       version: ${{ steps.version-info.outputs.version }}
       is_prerelease: ${{ steps.version-info.outputs.is_prerelease }}
+      npm_tag: ${{ steps.version-info.outputs.npm_tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,14 +26,30 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           if [[ "$VERSION" =~ - ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "npm_tag=next" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "npm_tag=latest" >> $GITHUB_OUTPUT
           fi
 
-  publish:
+  standalone:
     needs: get-version
+    uses: ./.github/workflows/cli-macos-standalone.yml
+    with:
+      publish_to_npm: true
+      npm_tag: ${{ needs.get-version.outputs.npm_tag }}
+      notarize: true
+    secrets: inherit
+
+  publish:
+    needs: [get-version, standalone]
     runs-on: ubuntu-latest
     name: "Publish CLI v${{ needs.get-version.outputs.version }}"
+    env:
+      # Single source of truth for which platform subpackages the main
+      # package routes to. Both the pre-publish guard and the
+      # optionalDependencies inject step read from this list.
+      PLATFORM_SUBPKGS: "@onekeyfe/cli-darwin-arm64 @onekeyfe/cli-darwin-x64"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +62,34 @@ jobs:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Pre-publish guard
+        env:
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Guard 1: refuse to publish if the main package version already exists
+          if npm view "@onekeyfe/cli@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::@onekeyfe/cli@$VERSION is already published; bump version first"
+            exit 1
+          fi
+          # Guard 2: every platform subpackage must already be published at the
+          # same version. The standalone job is expected to have published
+          # them — if any is missing, abort before publishing a main package
+          # that would resolve to broken platform deps.
+          if [ -z "${PLATFORM_SUBPKGS:-}" ]; then
+            echo "::error::PLATFORM_SUBPKGS env is empty"
+            exit 1
+          fi
+          for pkg in $PLATFORM_SUBPKGS; do
+            if ! npm view "$pkg@$VERSION" version >/dev/null 2>&1; then
+              echo "::error::$pkg@$VERSION is not on npm yet"
+              echo "::error::The standalone job should have published it. Check the standalone job logs."
+              exit 1
+            fi
+            echo "✓ $pkg@$VERSION found on npm"
+          done
+          echo "Pre-publish guards passed for v$VERSION"
+
       - name: Install dependencies
         run: yarn
 
@@ -53,6 +98,35 @@ jobs:
 
       - name: Verify build
         run: node apps/cli/dist/cli.js --version
+
+      - name: Inject optionalDependencies into package.json
+        # Source apps/cli/package.json never carries optionalDependencies —
+        # yarn 4 hard-fails on optional deps that 404 on the registry, which
+        # creates a chicken-and-egg with the standalone job that publishes
+        # those subpackages. We inject them into the package.json right before
+        # `npm pack` so the published tarball routes installs to the signed
+        # platform binaries while the source repo stays installable. The
+        # subpackage names come from the job-level PLATFORM_SUBPKGS env,
+        # shared with the Pre-publish guard.
+        env:
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          node -e '
+          const fs = require("fs");
+          const p = "apps/cli/package.json";
+          const pkg = JSON.parse(fs.readFileSync(p, "utf8"));
+          const subpkgs = (process.env.PLATFORM_SUBPKGS || "").split(/\s+/).filter(Boolean);
+          if (subpkgs.length === 0) {
+            console.error("PLATFORM_SUBPKGS env is empty");
+            process.exit(1);
+          }
+          pkg.optionalDependencies = Object.fromEntries(
+            subpkgs.map(name => [name, process.env.VERSION])
+          );
+          fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + "\n");
+          '
+          echo "Injected optionalDependencies at v$VERSION:"
+          node -p "JSON.stringify(require('./apps/cli/package.json').optionalDependencies, null, 2)"
 
       - name: Pack and verify tarball
         run: |
@@ -72,17 +146,14 @@ jobs:
       - name: Publish to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TAG: ${{ needs.get-version.outputs.npm_tag }}
         run: |
           cd apps/cli
-          IS_PRERELEASE="${{ needs.get-version.outputs.is_prerelease }}"
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            npm publish "${{ env.tarball }}" --access public --tag next
-          else
-            npm publish "${{ env.tarball }}" --access public --tag latest
-          fi
+          npm publish "${{ env.tarball }}" --access public --tag "$NPM_TAG"
 
       - name: Summary
         env:
           CLI_VERSION: ${{ needs.get-version.outputs.version }}
+          NPM_TAG: ${{ needs.get-version.outputs.npm_tag }}
         run: |
-          echo "Published @onekeyfe/cli v${CLI_VERSION}"
+          echo "Published @onekeyfe/cli v${CLI_VERSION} with dist-tag ${NPM_TAG}"

@@ -22,6 +22,7 @@ import {
   getMarketPresetSlippageValue,
   isMarketPresetConfirmDisabled,
   resolveMarketPresetDirectionSettings,
+  shouldShowMarketPresetPriorityFeeTooltip,
   shouldShowMarketPresetReviewCustomNetworkFeeOption,
 } from './marketPresetSettings';
 
@@ -37,6 +38,19 @@ function buildSpeedConfigWithMarketPresetConfig(
     marketPresetConfig,
   };
   return speedConfig;
+}
+
+function buildSpeedConfigWithPreset(
+  preset: ISwapProSpeedConfig['preset'],
+): ISwapProSpeedConfig {
+  return {
+    slippage: 0.5,
+    spenderAddress: '',
+    defaultTokens: [],
+    defaultLimitTokens: [],
+    swapMevNetConfig: [],
+    preset,
+  };
 }
 
 describe('marketPresetSettings', () => {
@@ -133,6 +147,53 @@ describe('marketPresetSettings', () => {
     });
 
     expect(settings.priorityFee.type).toBe(EMarketPresetPriorityFeeType.MARKET);
+  });
+
+  it('shows priority fee tooltip only when custom priority fee is supported', async () => {
+    const evmConfig = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.bsc.id,
+    });
+    const solConfig = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.sol.id,
+    });
+    const btcConfig = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.btc.id,
+      speedConfig: buildSpeedConfigWithPreset({
+        isEnabled: true,
+        priorityFee: true,
+      }),
+    });
+    const opConfig = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.optimism.id,
+      speedConfig: buildSpeedConfigWithPreset({
+        isEnabled: true,
+        priorityFee: true,
+        min: 0,
+        max: 1000,
+      }),
+    });
+    const tonConfig = await fetchMarketPresetConfig({
+      networkId: presetNetworksMap.ton.id,
+      speedConfig: buildSpeedConfigWithPreset({
+        isEnabled: true,
+        priorityFee: false,
+      }),
+    });
+
+    expect(shouldShowMarketPresetPriorityFeeTooltip(evmConfig)).toBe(true);
+    expect(shouldShowMarketPresetPriorityFeeTooltip(solConfig)).toBe(true);
+    expect(btcConfig?.priorityFee.editable).toBe(false);
+    expect(btcConfig?.priorityFee.supportedTypes).toEqual([
+      EMarketPresetPriorityFeeType.AUTO,
+    ]);
+    expect(shouldShowMarketPresetPriorityFeeTooltip(btcConfig)).toBe(false);
+    expect(opConfig?.priorityFee.editable).toBe(false);
+    expect(opConfig?.priorityFee.supportedTypes).toEqual([
+      EMarketPresetPriorityFeeType.AUTO,
+    ]);
+    expect(shouldShowMarketPresetPriorityFeeTooltip(opConfig)).toBe(false);
+    expect(shouldShowMarketPresetPriorityFeeTooltip(tonConfig)).toBe(false);
+    expect(shouldShowMarketPresetPriorityFeeTooltip(undefined)).toBe(false);
   });
 
   it('lets speed-config disable Market presets before local fallback', async () => {

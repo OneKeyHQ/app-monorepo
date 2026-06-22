@@ -13,8 +13,8 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -29,7 +29,6 @@ function TokenDetailsFooter(props: { networkId: string }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
-  const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
 
   const priceChangeColor = useMemo(() => {
@@ -80,15 +79,13 @@ function TokenDetailsFooter(props: { networkId: string }) {
         </SizableText>
         {tokenMetadata ? (
           <XStack alignItems="center" gap="$2">
-            <NumberSizeableText
+            <Currency
               size="$bodyMd"
               formatter="price"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
+              sourceCurrency={tokenMetadata?.currency}
             >
               {tokenMetadata?.price}
-            </NumberSizeableText>
+            </Currency>
             <NumberSizeableText
               size="$bodyMd"
               formatter="priceChange"

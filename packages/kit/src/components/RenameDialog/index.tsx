@@ -1,31 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { ISelectItem, UseFormReturn } from '@onekeyhq/components';
+import type { ISelectItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
   Form,
-  Icon,
-  Image,
-  ImageCrop,
   Input,
   Select,
   Stack,
   Toast,
-  XStack,
-  YStack,
-  useDialogInstance,
-  useForm,
-  useInPageDialog,
 } from '@onekeyhq/components';
-import type {
-  IDialogInstance,
-  IDialogShowProps,
-} from '@onekeyhq/components/src/composite/Dialog/type';
+import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { v4CoinTypeToNetworkId } from '@onekeyhq/shared/src/consts/v4CoinTypeToNetworkId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -33,14 +21,11 @@ import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { OneKeyIdFallbackAvatar } from '../../views/Setting/pages/OneKeyId/OneKeyIdAvatar';
 import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
-import { useOneKeyAuth } from '../OneKeyAuth/useOneKeyAuth';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
 
@@ -277,170 +262,3 @@ export const showRenameDialog = (
         }
       : {}),
   });
-
-interface IPrimeProfileFormValues {
-  avatar: string | undefined;
-  nickname: string | undefined;
-}
-
-function PrimeProfileDialogContent({ user }: { user: IPrimeUserInfo }) {
-  const intl = useIntl();
-  const dialogInstance = useDialogInstance();
-  const formOption = useMemo(
-    () => ({
-      defaultValues: {
-        avatar: user?.avatar,
-        nickname: user?.nickname,
-      },
-      onSubmit: async (form: UseFormReturn<IPrimeProfileFormValues>) => {
-        const values = form.getValues();
-        if (values.avatar && values.nickname) {
-          try {
-            await backgroundApiProxy.servicePrime.updatePrimeUserProfile({
-              avatar: values.avatar,
-              nickname: values.nickname,
-            });
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.feedback_change_saved,
-              }),
-            });
-            await dialogInstance.close();
-          } catch (error) {
-            console.error(error);
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.global_update_failed,
-              }),
-            });
-          }
-        }
-      },
-    }),
-    [dialogInstance, user?.avatar, user?.nickname, intl],
-  );
-  const form = useForm<IPrimeProfileFormValues>(formOption);
-  const handlePickAvatar = useCallback(async () => {
-    const image = await ImageCrop.openPicker({
-      width: 240,
-      height: 240,
-      compressImageQuality: 0.8,
-    });
-    if (image.data) {
-      form.setValue('avatar', image.data);
-    }
-  }, [form]);
-  const userAvatar = form.watch('avatar');
-  const handleSubmit = useCallback(
-    async ({
-      preventClose,
-      close: _close,
-    }: {
-      preventClose: () => void;
-      close: IDialogInstance['close'];
-    }) => {
-      preventClose();
-      await form.trigger();
-      await form.submit?.();
-    },
-    [form],
-  );
-  return (
-    <>
-      <Form form={form}>
-        <YStack gap="$4">
-          <XStack jc="center">
-            <Stack position="relative" onPress={handlePickAvatar}>
-              <Image
-                size="$20"
-                borderRadius="$full"
-                borderWidth={1}
-                borderColor="$neutral3"
-                source={userAvatar ? { uri: userAvatar } : undefined}
-                fallback={<OneKeyIdFallbackAvatar size="$20" />}
-              />
-              <XStack
-                bg="$bg"
-                w={30}
-                h={30}
-                jc="center"
-                ai="center"
-                borderRadius="$full"
-                position="absolute"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$bgApp"
-                right={0}
-                bottom={0}
-              >
-                <Icon name="EditOutline" size="$4" color="$icon" />
-              </XStack>
-            </Stack>
-          </XStack>
-          <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.settings_nickname,
-            })}
-            name="nickname"
-            rules={{
-              required: {
-                value: true,
-                message: intl.formatMessage({
-                  id: ETranslations.form_rename_error_empty,
-                }),
-              },
-              validate: (value: string) => {
-                if (!value?.trim()) {
-                  return intl.formatMessage({
-                    id: ETranslations.form_rename_error_empty,
-                  });
-                }
-                return true;
-              },
-            }}
-          >
-            {/* Caller-driven dialog; testID can be threaded via outer props. */}
-            {/* oxlint-disable-next-line onekey/require-testid */}
-            <Input
-              size="large"
-              $gtMd={{ size: 'medium' }}
-              maxLength={20}
-              autoFocus
-              flex={1}
-              addOns={[
-                {
-                  label: `${form.watch('nickname')?.length || 0}/20`,
-                },
-              ]}
-            />
-          </Form.Field>
-        </YStack>
-      </Form>
-      <Dialog.Footer
-        showCancelButton={false}
-        onConfirm={handleSubmit}
-        confirmButtonProps={{
-          loading: form.formState.isSubmitting,
-        }}
-      />
-    </>
-  );
-}
-
-function PrimeProfileDialogContentNotLoggedIn() {
-  const { user, isLoggedIn } = useOneKeyAuth();
-  return isLoggedIn ? <PrimeProfileDialogContent user={user} /> : null;
-}
-
-export const useEditPrimeProfileDialog = () => {
-  const intl = useIntl();
-  const dialog = useInPageDialog();
-  return useCallback(async () => {
-    return new Promise<void>((resolve) => {
-      dialog.confirm({
-        onClose: () => resolve(),
-        title: intl.formatMessage({ id: ETranslations.settings_edit_profile }),
-        renderContent: <PrimeProfileDialogContentNotLoggedIn />,
-      });
-    });
-  }, [dialog, intl]);
-};

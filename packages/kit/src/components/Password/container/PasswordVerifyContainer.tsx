@@ -46,17 +46,21 @@ interface IPasswordVerifyProps {
   onLayout?: (e: LayoutChangeEvent) => void;
   name?: 'lock';
   pageMode?: boolean;
+  skipPostVerifyBackgroundTasks?: boolean;
 }
 
 const PasswordVerifyContainer = ({
   onVerifyRes,
   name,
   pageMode,
+  skipPostVerifyBackgroundTasks,
 }: IPasswordVerifyProps) => {
   const intl = useIntl();
   const [{ authType, isEnable, isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
-  const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions();
+  const { verifiedPasswordWebAuth, checkWebAuth } = useWebAuthActions({
+    skipPostVerifyBackgroundTasks,
+  });
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
@@ -286,6 +290,7 @@ const PasswordVerifyContainer = ({
                 await backgroundApiProxy.servicePassword.verifyPassword({
                   password: securePassword,
                   passwordMode,
+                  skipPostVerifyBackgroundTasks,
                 });
               await callOnVerifyRes(verifiedPassword);
               setVerifiedStatus();
@@ -319,6 +324,7 @@ const PasswordVerifyContainer = ({
                 password: '',
                 isBiologyAuth: true,
                 passwordMode,
+                skipPostVerifyBackgroundTasks,
               });
           }
           if (biologyAuthRes) {
@@ -389,6 +395,7 @@ const PasswordVerifyContainer = ({
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
+      skipPostVerifyBackgroundTasks,
       setPasswordAtom,
       setVerifyPeriodBiologyAuthAttempts,
       setVerifyPeriodBiologyEnable,
@@ -427,6 +434,7 @@ const PasswordVerifyContainer = ({
           await backgroundApiProxy.servicePassword.verifyPassword({
             password: encodePassword,
             passwordMode,
+            skipPostVerifyBackgroundTasks,
           });
         if (platformEnv.isNativeAndroid) {
           dismissKeyboard();
@@ -536,6 +544,7 @@ const PasswordVerifyContainer = ({
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
+      skipPostVerifyBackgroundTasks,
       resetApp,
       hasSecurePassword,
       setPasswordAtom,

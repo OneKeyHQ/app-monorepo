@@ -109,6 +109,11 @@ export interface ITVLineEditResultPayload {
 }
 
 // Iframe -> App messages
+export interface ITVChartReadyPayload {
+  symbol?: string;
+  containerId?: string;
+}
+
 export interface ITVLineReadyPayload {
   capabilities?: string[];
 }
@@ -146,6 +151,14 @@ export interface ITVOrderPriceUpdatePayload {
   stage: 'move' | 'modify';
   source: 'tv_drag';
   timestamp: number;
+}
+
+export interface ITVChartOrderIntentPayload {
+  symbol: string;
+  price: string;
+  intent: 'limitEntry' | 'positionTpSl';
+  tpsl?: 'tp' | 'sl';
+  positionSide?: 'long' | 'short';
 }
 
 export interface ITVOrderPriceUpdateRejectedPayload {

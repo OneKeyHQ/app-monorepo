@@ -36,12 +36,14 @@ class ServiceRookieGuide extends ServiceBase {
       oneKeyId,
       instanceId,
       hyperliquidReferral,
+      locale,
     ] = await Promise.all([
       this.getTaskProgress(),
       this._getActiveFiatBalance(),
       this._getOneKeyIdInfo(),
       this.backgroundApi.serviceSetting.getInstanceId(),
       this._getHyperliquidReferralEligibility(),
+      this.backgroundApi.serviceSetting.getCurrentLocale(),
     ]);
 
     const result: IRookieGuideInfo = {
@@ -51,6 +53,7 @@ class ServiceRookieGuide extends ServiceBase {
       instanceId,
       taskProgress,
       hyperliquidReferral,
+      locale,
     };
 
     defaultLogger.rookieGuide.guide.getInfo({

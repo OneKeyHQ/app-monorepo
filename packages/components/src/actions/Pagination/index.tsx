@@ -117,7 +117,6 @@ function PaginationFrame({
           icon="ChevronLeftSmallOutline"
           disabled={disableControls || isFirstPage}
           onPress={onPrev}
-          title="Previous Page"
           testID={testID ? `${testID}-prev` : undefined}
         />
       ) : null}
@@ -151,7 +150,6 @@ function PaginationFrame({
           icon="ChevronRightSmallOutline"
           disabled={disableControls || isLastPage}
           onPress={onNext}
-          title="Next Page"
           testID={testID ? `${testID}-next` : undefined}
         />
       ) : null}

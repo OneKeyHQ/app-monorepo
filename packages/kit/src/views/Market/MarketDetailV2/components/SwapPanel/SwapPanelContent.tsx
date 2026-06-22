@@ -18,7 +18,10 @@ import type {
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
-import { MarketPresetSelector } from './components/MarketPresetSelector';
+import {
+  type IEstimateMarketPresetPriorityFeeFiatValues,
+  MarketPresetSelector,
+} from './components/MarketPresetSelector';
 import { RateDisplay } from './components/RateDisplay';
 import SellForSelector from './components/SellForSelector';
 import { SlippageSetting } from './components/SlippageSetting';
@@ -42,7 +45,6 @@ export type ISwapPanelContentProps = {
   supportSpeedSwap: {
     enabled?: boolean;
     warningMessage?: string;
-    actionTranslationId?: ETranslations;
     actionToken?: ISwapToken;
     actionOtherToken?: ISwapToken;
     onlySupportCrossChain?: boolean;
@@ -69,6 +71,7 @@ export type ISwapPanelContentProps = {
   speedCheckError?: string;
   disableNativeToken?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
+  estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
 };
 
 export function SwapPanelContent(props: ISwapPanelContentProps) {
@@ -95,6 +98,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     speedCheckError,
     disableNativeToken,
     marketPresetSettings,
+    estimatePriorityFeeFiatValues,
     onCloseDialog,
   } = props;
 
@@ -326,6 +330,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       {showMarketPresetSelector && marketPresetSettings ? (
         <MarketPresetSelector
           antiMEV={isMEV}
+          estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
           presetSettings={marketPresetSettings}
           variant={onCloseDialog ? 'compact' : 'full'}
         />

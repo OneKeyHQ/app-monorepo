@@ -38,6 +38,10 @@ import { ESwapDirection } from './hooks/useTradeType';
 import { MarketSwapReviewDialog } from './MarketSwapReviewDialog';
 import { SwapPanelContent } from './SwapPanelContent';
 
+import type {
+  IEstimateMarketPresetPriorityFeeFiatValues,
+  IMarketPresetPriorityFeeFiatEstimateMap,
+} from './components/MarketPresetSelector';
 import type { IToken } from './types';
 
 interface ISwapPanelWrapProps {
@@ -145,34 +149,25 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
         id: ETranslations.swap_page_alert_account_does_not_support_swap,
       });
     }
-    let actionTranslationId;
-    let actionToken: ISwapToken | undefined;
-    let actionOtherToken: ISwapToken | undefined;
-    if (!speedSwapEnabled) {
-      actionTranslationId = onlySupportCrossChain
-        ? ETranslations.promode_swap_unsupported_message_btc
-        : ETranslations.promode_swap_unsupported_message_regular;
-      actionToken = {
-        networkId: networkId || '',
-        contractAddress: tokenDetail?.address || '',
-        symbol: tokenDetail?.symbol || '',
-        decimals: tokenDetail?.decimals || 0,
-        logoURI: tokenDetail?.logoUrl || '',
-        isNative: !!tokenDetail?.isNative,
-      };
-      actionOtherToken = {
-        networkId: paymentToken?.networkId || '',
-        contractAddress: paymentToken?.contractAddress || '',
-        symbol: paymentToken?.symbol || '',
-        decimals: paymentToken?.decimals || 0,
-        logoURI: paymentToken?.logoURI || '',
-        isNative: paymentToken?.isNative || false,
-      };
-    }
+    const actionToken: ISwapToken | undefined = {
+      networkId: networkId || '',
+      contractAddress: tokenDetail?.address || '',
+      symbol: tokenDetail?.symbol || '',
+      decimals: tokenDetail?.decimals || 0,
+      logoURI: tokenDetail?.logoUrl || '',
+      isNative: !!tokenDetail?.isNative,
+    };
+    const actionOtherToken: ISwapToken | undefined = {
+      networkId: paymentToken?.networkId || '',
+      contractAddress: paymentToken?.contractAddress || '',
+      symbol: paymentToken?.symbol || '',
+      decimals: paymentToken?.decimals || 0,
+      logoURI: paymentToken?.logoURI || '',
+      isNative: paymentToken?.isNative || false,
+    };
     return {
       enabled: isEnabled,
       warningMessage,
-      actionTranslationId,
       actionToken,
       actionOtherToken,
       onlySupportCrossChain,
@@ -207,6 +202,10 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const effectiveCustomPriorityFee = marketPresetSettings.enabled
     ? marketPresetSettings.selectedPriorityFeeOverride
     : undefined;
+  const currentFromTokenAmount =
+    tradeType === ESwapDirection.BUY
+      ? paymentAmount.toFixed()
+      : sellAmount.toFixed();
   const useSpeedSwapActionsParams = {
     slippage: effectiveSlippage,
     spenderAddress: speedConfig.spenderAddress,
@@ -230,10 +229,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     },
     provider,
     tradeType: tradeType || ESwapDirection.BUY,
-    fromTokenAmount:
-      tradeType === ESwapDirection.BUY
-        ? paymentAmount.toFixed()
-        : sellAmount.toFixed(),
+    fromTokenAmount: currentFromTokenAmount,
     antiMEV: Array.isArray(swapMevNetConfig)
       ? swapMevNetConfig.includes(swapPanel.networkId ?? '')
       : false,
@@ -256,6 +252,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,
@@ -471,6 +468,26 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     ],
   );
 
+  const estimatePriorityFeeFiatValues =
+    useCallback<IEstimateMarketPresetPriorityFeeFiatValues>(
+      async ({ items }) => {
+        const estimates: IMarketPresetPriorityFeeFiatEstimateMap = {};
+        const feeValues = await estimateMarketPresetNetworkFees({
+          items: items.map((item) => ({
+            customPriorityFee: item.customPriorityFee,
+            networkFeeLevel: item.networkFeeLevel,
+          })),
+        });
+
+        items.forEach((item, index) => {
+          estimates[item.type] = feeValues[index];
+        });
+
+        return estimates;
+      },
+      [estimateMarketPresetNetworkFees],
+    );
+
   const isActionLoading = useMemo(() => {
     return (
       speedSwapBuildTxLoading ||
@@ -654,6 +671,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       speedCheckError={speedCheckError}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
+      estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
     />
   );
 }

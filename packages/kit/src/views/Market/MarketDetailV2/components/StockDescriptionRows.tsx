@@ -11,7 +11,6 @@ export function StockDescriptionRows({ rows }: { rows: IDescriptionRow[] }) {
             <DashText
               size="$bodySm"
               color="$textSubdued"
-              dashColor="$textDisabled"
               dashThickness={0.5}
               tooltip={item.tooltip}
               tooltipTitle={item.label}

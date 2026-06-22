@@ -124,11 +124,23 @@ export const syncStorage = platformEnv.isExtensionBackgroundServiceWorker
   ? syncStorageExtBg
   : createMMKVSyncStorage(mmkvStorageInstance, { checkResetting: true });
 
-/** Cold-start cache storage (onekey-cold-start-cache MMKV instance).
- *  Native-only: on web/desktop/ext, react-native-mmkv falls back to
- *  localStorage, which can't match native MMKV's sync + capacity guarantees
- *  this cache depends on. Non-native platforms get a no-op stub so reads
- *  always miss and writes are discarded. */
-export const coldStartCacheStorage = platformEnv.isNative
-  ? createMMKVSyncStorage(coldStartCacheMMKVInstance)
-  : syncStorageExtBg;
+/** Cold-start cache storage.
+ *  Native: backed by `coldStartCacheMMKVInstance` (synchronous MMKV).
+ *  Web/Desktop: backed by an in-memory Map pre-warmed by hydrate.ts at
+ *    boot, with debounced IndexedDB persistence (`onekey-cold-start-cache`).
+ *    Synchronous reads/writes operate on the Map; IDB is the durability layer.
+ *  Extension background service worker: no-op stub. */
+function createColdStartCacheStorage(): ISyncStorage {
+  if (platformEnv.isNative) {
+    return createMMKVSyncStorage(coldStartCacheMMKVInstance);
+  }
+  if (platformEnv.isWeb || platformEnv.isDesktop) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createWebColdStartStorage } =
+      require('./webColdStartStorage') as typeof import('./webColdStartStorage');
+    return createWebColdStartStorage();
+  }
+  return syncStorageExtBg;
+}
+
+export const coldStartCacheStorage = createColdStartCacheStorage();

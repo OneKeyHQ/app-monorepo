@@ -12,14 +12,31 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IntlShape } from 'react-intl';
 
-const showRecoveryPhraseProtectedDialog = (intl: IntlShape) => {
+type IRecoveryPhraseProtectedDialogType =
+  | 'recoveryPhrase'
+  | 'sensitiveInformation';
+
+type IUseRecoveryPhraseProtectedOptions = {
+  dialogType?: IRecoveryPhraseProtectedDialogType;
+  enabled?: boolean;
+};
+
+const showRecoveryPhraseProtectedDialog = (
+  intl: IntlShape,
+  dialogType: IRecoveryPhraseProtectedDialogType,
+) => {
+  const isRecoveryPhrase = dialogType === 'recoveryPhrase';
   Dialog.confirm({
     title: intl.formatMessage({
-      id: ETranslations.recovery_phrase_screenshot_protected_title,
+      id: isRecoveryPhrase
+        ? ETranslations.recovery_phrase_screenshot_protected_title
+        : ETranslations.sensitive_information_screenshot_protected__title,
     }),
     description: intl.formatMessage(
       {
-        id: ETranslations.recovery_phrase_screenshot_protected_desc,
+        id: isRecoveryPhrase
+          ? ETranslations.recovery_phrase_screenshot_protected_desc
+          : ETranslations.sensitive_information_screenshot_protected__desc,
       },
       {
         tag: (chunks) =>
@@ -89,13 +106,21 @@ const showRecoveryPhraseProtectedDialog = (intl: IntlShape) => {
   });
 };
 
-export const useRecoveryPhraseProtected = () => {
+export const useRecoveryPhraseProtected = ({
+  dialogType = 'recoveryPhrase',
+  enabled = true,
+}: IUseRecoveryPhraseProtectedOptions = {}) => {
   const intl = useIntl();
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const debouncedShow = debounce(
-      () => showRecoveryPhraseProtectedDialog(intl),
+      () => showRecoveryPhraseProtectedDialog(intl, dialogType),
       350,
     );
+    let showTimer: ReturnType<typeof setTimeout> | undefined;
+
     void CaptureProtection.prevent();
     const listener = CaptureProtection.addListener(
       (eventType: CaptureEventType) => {
@@ -103,15 +128,22 @@ export const useRecoveryPhraseProtected = () => {
           eventType === CaptureEventType.CAPTURED ||
           eventType === CaptureEventType.RECORDING
         ) {
-          setTimeout(() => {
+          if (showTimer) {
+            clearTimeout(showTimer);
+          }
+          showTimer = setTimeout(() => {
             debouncedShow();
           }, 350);
         }
       },
     );
     return () => {
+      if (showTimer) {
+        clearTimeout(showTimer);
+      }
+      debouncedShow.cancel();
       void CaptureProtection.allow();
       listener?.remove();
     };
-  }, [intl]);
+  }, [dialogType, enabled, intl]);
 };

@@ -2,7 +2,6 @@
 // development, but some (e.g. onekey_pending_install_task) are used in
 // production on mobile/desktop.
 export enum EAppSyncStorageKeys {
-  rrt = 'rrt',
   perf_switch = 'perf_switch',
   onekey_webembed_config = 'onekey_webembed_config',
   onekey_disable_bg_api_serializable_checking = 'onekey_disable_bg_api_serializable_checking',
@@ -17,6 +16,7 @@ export enum EAppSyncStorageKeys {
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
+  onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
 }
 

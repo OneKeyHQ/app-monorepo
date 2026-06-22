@@ -14,6 +14,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EOAuthSocialLoginProvider } from '@onekeyhq/shared/src/consts/authConsts';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -79,6 +80,30 @@ function convertToEthereumChainResult(
     chainId: result?.chainId,
     networkVersion: undefined,
   };
+}
+
+// Validate a dApp-supplied keyless provider hint. Returns the typed enum
+// value only when the origin is on the keyless allowlist (e.g. app.onekey.so)
+// AND the value matches a known provider; otherwise undefined. Prevents
+// arbitrary origins from force-opening the connect modal with a keyless
+// preselect, and prevents downstream code from treating bogus strings as
+// providers.
+const KEYLESS_PROVIDER_VALUES: readonly string[] = Object.values(
+  EOAuthSocialLoginProvider,
+);
+
+function parseKeylessProviderHint({
+  value,
+  origin,
+}: {
+  value: unknown;
+  origin?: string;
+}): EOAuthSocialLoginProvider | undefined {
+  if (!value || !origin) return undefined;
+  if (!isKeylessWebAutoConnectOriginAllowed(origin)) return undefined;
+  if (typeof value !== 'string') return undefined;
+  if (!KEYLESS_PROVIDER_VALUES.includes(value)) return undefined;
+  return value as EOAuthSocialLoginProvider;
 }
 
 function prefixTxValueToHex(value: string) {
@@ -264,17 +289,38 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: Record<string, unknown>,
   ) {
-    const _requestOneKeyKeylessAccount = params?.requestOneKeyKeylessAccount;
+    const _requestOneKeyKeylessAccount = parseKeylessProviderHint({
+      value: params?.requestOneKeyKeylessAccount,
+      origin: request.origin,
+    });
 
     return this.semaphore.runExclusive(async () => {
       const accounts = await this.eth_accounts(request);
-      if (accounts && accounts.length) {
-        return accounts;
+
+      // Keyless provider hint path: web "Continue with Google/Apple" pressed.
+      // Matching authorized account → silent reuse; mismatch or unauthorized
+      // → force-open ConnectionModal with the keyless account preselected.
+      // This makes the web button behave as a switch entry rather than
+      // silently returning whatever was previously authorized.
+      if (_requestOneKeyKeylessAccount && request.origin) {
+        const isMatching = await this.backgroundApi.serviceDApp
+          .isOriginAuthorizedKeylessProvider({
+            origin: request.origin,
+            provider: _requestOneKeyKeylessAccount,
+            scope: request.scope,
+          })
+          .catch(() => false);
+        if (isMatching && accounts && accounts.length) {
+          return accounts;
+        }
+        await this.backgroundApi.serviceDApp.openConnectionModal(request, {
+          preselectKeylessProvider: _requestOneKeyKeylessAccount,
+        });
+        void this._getConnectedNetworkName(request);
+        return this.eth_accounts(request);
       }
-      const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
-        request.origin,
-      );
-      if (_requestOneKeyKeylessAccount && isAllowedKeylessOrigin) {
+
+      if (accounts && accounts.length) {
         return accounts;
       }
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
@@ -313,19 +359,33 @@ class ProviderApiEthereum extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     _permissions: Record<string, unknown>,
   ) {
-    const _requestOneKeyKeylessAccount =
-      _permissions?.requestOneKeyKeylessAccount;
+    const _requestOneKeyKeylessAccount = parseKeylessProviderHint({
+      value: _permissions?.requestOneKeyKeylessAccount,
+      origin: request.origin,
+    });
 
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const isAllowedKeylessOrigin = isKeylessWebAutoConnectOriginAllowed(
-      request.origin,
-    );
     let accounts = await this.eth_accounts(request);
-    if (
-      !accounts.length ||
-      !_requestOneKeyKeylessAccount ||
-      !isAllowedKeylessOrigin
-    ) {
+
+    // Mirror eth_requestAccounts: keyless provider hint routes to a
+    // matching-or-modal decision so a "Continue with Google/Apple" button
+    // routed via wallet_requestPermissions doesn't silently return whatever
+    // non-keyless account was previously authorized.
+    if (_requestOneKeyKeylessAccount && request.origin) {
+      const isMatching = await this.backgroundApi.serviceDApp
+        .isOriginAuthorizedKeylessProvider({
+          origin: request.origin,
+          provider: _requestOneKeyKeylessAccount,
+          scope: request.scope,
+        })
+        .catch(() => false);
+      if (!isMatching || !accounts.length) {
+        await this.backgroundApi.serviceDApp.openConnectionModal(request, {
+          preselectKeylessProvider: _requestOneKeyKeylessAccount,
+        });
+        accounts = await this.eth_accounts(request);
+      }
+    } else if (!accounts.length) {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
       accounts = await this.eth_accounts(request);
     }

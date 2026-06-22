@@ -10,6 +10,7 @@ import {
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketTokenIcon } from '../../../components/MarketTokenIcon';
 
 export function RecommendItem({
@@ -20,6 +21,7 @@ export function RecommendItem({
   symbol,
   address,
   networkId,
+  communityRecognized,
 }: {
   icon: string;
   tokenName: string;
@@ -27,6 +29,7 @@ export function RecommendItem({
   symbol: string;
   address: string;
   networkId?: string;
+  communityRecognized?: boolean;
   onChange: (checked: boolean, address: string) => void;
 }) {
   const { sharedFrameStyles } = useMemo(
@@ -70,16 +73,18 @@ export function RecommendItem({
               }
             : {})}
         >
-          <XStack>
+          <XStack alignItems="center" gap="$1">
             <SizableText
               size="$bodyLgMedium"
               numberOfLines={1}
+              flexShrink={1}
               $sm={{
                 size: '$bodyMdMedium',
               }}
             >
               {symbol}
             </SizableText>
+            {communityRecognized ? <CommunityRecognizedBadge /> : null}
           </XStack>
           <XStack>
             <SizableText

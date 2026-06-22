@@ -98,6 +98,7 @@ const ADDRESS_ACTION_ICON_SIZE = '$4';
 const DESKTOP_CONTENT_MIN_WIDTH = 960;
 const MIN_DISPLAY_PERCENTAGE_TEXT = '< 0.01%';
 const TOKEN_AMOUNT_COMPACT_THRESHOLD = 1000;
+const POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD = 2;
 const POOL_DETAIL_TOKEN_LIST_SCROLL_THRESHOLD = 6;
 const POOL_DETAIL_TOKEN_LIST_MAX_HEIGHT = '$64';
 const POOL_DETAIL_PAIR_NAME_COMPACT_THRESHOLD = 10;
@@ -806,6 +807,8 @@ function TokenAmountLines({ tokens }: { tokens: IDisplayPoolToken[] }) {
       title: labels.tokenAmount,
       renderContent: <TokenAmountListDialogContent tokens={tokens} />,
       showFooter: false,
+      disableDrag:
+        tokens.length > POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD,
     });
   }, [labels.tokenAmount, tokens]);
 
@@ -1185,6 +1188,9 @@ function MobilePoolRow({ item }: { item: IDisplayPool }) {
       title: intl.formatMessage({ id: ETranslations.dexmarket_pool_details }),
       renderContent: <PoolDetailsContent item={item} />,
       showFooter: false,
+      disableDrag:
+        item.tokenAmounts.length >
+        POOL_DETAIL_DIALOG_DISABLE_DRAG_TOKEN_THRESHOLD,
     });
   }, [intl, item]);
 

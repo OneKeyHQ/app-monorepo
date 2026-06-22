@@ -5,7 +5,10 @@ import { renderHook } from '@testing-library/react';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
-import { useBtcMetadata } from './useBtcMetadata';
+import {
+  useBtcMetadata,
+  useBtcMetadataFromTokenDetail,
+} from './useBtcMetadata';
 import { useTokenDetail } from './useTokenDetail';
 
 jest.mock('./useTokenDetail', () => ({
@@ -152,6 +155,27 @@ describe('useBtcMetadata', () => {
       networkId: getNetworkIdsMap().btc,
     });
     const { result } = renderHook(() => useBtcMetadata());
+    expect(result.current).toEqual({
+      marketCap: '1545781500232',
+      circulatingSupply: '20022175',
+      remainingSupply: '977825',
+      totalSupply: '21000000',
+      fdv: '1545781500232',
+      volume24h: '40906812011',
+      blockHeight: '947103',
+      blockReward: '3.125',
+      nextHalvingDisplay: '~2Y 41D',
+    });
+  });
+
+  it('returns formatted struct from an explicit token detail source', () => {
+    const { result } = renderHook(() =>
+      useBtcMetadataFromTokenDetail({
+        tokenDetail: { btcMetadata: buildBtcMetadata() } as IMarketTokenDetail,
+        networkId: getNetworkIdsMap().btc,
+      }),
+    );
+
     expect(result.current).toEqual({
       marketCap: '1545781500232',
       circulatingSupply: '20022175',

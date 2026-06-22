@@ -1,6 +1,7 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type {
+  IMarketBasicConfigHomeTab,
   IMarketBasicConfigNetwork,
   IMarketBasicConfigToken,
   IMarketPerpsCategory,
@@ -19,6 +20,7 @@ const EMPTY_TOKENS: IMarketBasicConfigToken[] = [];
 const EMPTY_NETWORKS: IMarketBasicConfigNetwork[] = [];
 const EMPTY_PERPS_CATEGORIES: IMarketPerpsCategory[] = [];
 const EMPTY_SPOT_CATEGORIES: IMarketSpotCategory[] = [];
+const EMPTY_HOME_TABS: IMarketBasicConfigHomeTab[] = [];
 
 /**
  * Hook to fetch and manage market basic configuration
@@ -43,6 +45,7 @@ export function useMarketBasicConfig() {
       const formattedMinLiquidity = formatLiquidityValue(minLiquidity);
       const networkList = getNetworkList(configData);
 
+      const homeTab = configData.homeTab ?? [];
       const perpsCategories = configData.perpsCategories ?? [];
       const spotCategories = configData.spotCategories ?? [];
       return {
@@ -55,6 +58,7 @@ export function useMarketBasicConfig() {
         refreshInterval,
         formattedMinLiquidity,
         networkList,
+        homeTab,
         perpsCategories,
         spotCategories,
       };
@@ -78,6 +82,7 @@ export function useMarketBasicConfig() {
     refreshInterval: result?.refreshInterval ?? 5,
     formattedMinLiquidity: result?.formattedMinLiquidity ?? '5K',
     networkList: result?.networkList ?? EMPTY_NETWORKS,
+    homeTab: result?.homeTab ?? EMPTY_HOME_TABS,
     perpsCategories: result?.perpsCategories ?? EMPTY_PERPS_CATEGORIES,
     spotCategories: result?.spotCategories ?? EMPTY_SPOT_CATEGORIES,
   };

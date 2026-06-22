@@ -2,12 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  HeaderScrollGestureWrapper,
-  Tabs,
-  YStack,
-  useTabContainerWidth,
-} from '@onekeyhq/components';
+import { HeaderScrollGestureWrapper, Tabs, YStack } from '@onekeyhq/components';
+import { useTabContainerWidth } from '@onekeyhq/kit/src/hooks/useTabContainerWidth';
 import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -70,12 +66,14 @@ export function MobileInformationTabs({
   portfolioData,
   isRefreshing,
   tokenLogoUrl,
+  scrollEnabled = true,
 }: {
   renderHeader: CollapsibleProps['renderHeader'];
   onScrollEnd: () => void;
   portfolioData: IMarketAccountPortfolioItem[];
   isRefreshing?: boolean;
   tokenLogoUrl?: string;
+  scrollEnabled?: boolean;
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail, isNative, isStockToken } =
@@ -118,6 +116,7 @@ export function MobileInformationTabs({
             tokenAddress={tokenAddress}
             networkId={networkId}
             onScrollEnd={onScrollEnd}
+            scrollEnabled={scrollEnabled}
           />
         </Tabs.Tab>
       ),
@@ -132,6 +131,7 @@ export function MobileInformationTabs({
           isRefreshing={!!isRefreshing}
           accountAddress={accountAddress}
           tokenLogoUrl={tokenLogoUrl}
+          scrollEnabled={scrollEnabled}
         />
       </Tabs.Tab>,
       shouldShowLiquidityPoolsTab && (
@@ -141,7 +141,7 @@ export function MobileInformationTabs({
             id: ETranslations.global_liquidity,
           })}
         >
-          <Tabs.ScrollView>
+          <Tabs.ScrollView scrollEnabled={scrollEnabled}>
             <TokenLiquidityPools
               showTitle={false}
               variant="mobile"
@@ -154,7 +154,11 @@ export function MobileInformationTabs({
       ),
       shouldShowHoldersTab && (
         <Tabs.Tab key="holders" name={holdersTabName}>
-          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+          <Holders
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            scrollEnabled={scrollEnabled}
+          />
         </Tabs.Tab>
       ),
     ].filter(Boolean);
@@ -172,6 +176,7 @@ export function MobileInformationTabs({
     isBTCNetwork,
     tokenLogoUrl,
     isStockToken,
+    scrollEnabled,
   ]);
 
   const tabKeys = useMemo(() => tabs.map((tab) => String(tab.key)), [tabs]);

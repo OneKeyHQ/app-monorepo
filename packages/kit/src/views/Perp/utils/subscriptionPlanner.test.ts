@@ -86,6 +86,33 @@ describe('planTradeSubscriptions', () => {
     expect(plan.shouldSyncSubscriptions).toBe(true);
   });
 
+  it('syncs a focused perp market before order book options arrive', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
+  it('syncs a focused perp market while order book options lag behind the active coin', () => {
+    const plan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'ETH', assetId: 1 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+      },
+    });
+
+    expect(plan.shouldSyncSubscriptions).toBe(true);
+  });
+
   it('does not sync subscriptions for a hidden perps-only selector tab', () => {
     const plan = planTradeSubscriptions({
       activeInstrument: baseInstrument,
@@ -100,5 +127,38 @@ describe('planTradeSubscriptions', () => {
 
     expect(plan.spotAssetCtxsEnabled).toBe(false);
     expect(plan.shouldSyncSubscriptions).toBe(false);
+  });
+
+  it('changes the subscription state key when route-only subscription flags change', () => {
+    const perpsOnlyPlan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'BTC', assetId: 0 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+        tokenSelectorOpen: true,
+        tokenSelectorTab: 'perps',
+      },
+    });
+    const spotSelectorPlan = planTradeSubscriptions({
+      activeInstrument: baseInstrument,
+      hasAccount: true,
+      orderBookOptions: { coin: 'BTC', assetId: 0 },
+      viewState: {
+        ...baseViewState,
+        routeFocused: true,
+        tokenSelectorOpen: true,
+        tokenSelectorTab: 'spot',
+      },
+    });
+
+    expect(perpsOnlyPlan.shouldSyncSubscriptions).toBe(true);
+    expect(spotSelectorPlan.shouldSyncSubscriptions).toBe(true);
+    expect(perpsOnlyPlan.spotAssetCtxsEnabled).toBe(false);
+    expect(spotSelectorPlan.spotAssetCtxsEnabled).toBe(true);
+    expect(perpsOnlyPlan.subscriptionStateKey).not.toBe(
+      spotSelectorPlan.subscriptionStateKey,
+    );
   });
 });

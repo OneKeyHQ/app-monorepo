@@ -132,6 +132,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
         feeInfos,
         approvesInfo,
         swapInfo,
+        stakingInfo,
         encodedTx,
         transfersInfo,
         ...rest
@@ -167,6 +168,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               encodedTx,
               transfersInfo,
               swapInfo,
+              stakingInfo,
               prevNonce,
               ...rest,
             }),
@@ -178,6 +180,7 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
               accountId,
               approveInfo: approvesInfo?.[0],
               swapInfo,
+              stakingInfo,
               encodedTx,
               transfersInfo,
               ...rest,

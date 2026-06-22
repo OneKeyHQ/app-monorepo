@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -27,6 +28,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
+import {
+  isPrivateSendHistoryTx,
+  maybeOpenPrivateSendHistoryDetail,
+} from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
@@ -40,7 +45,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/assetDetails';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -62,6 +69,8 @@ import {
 import { getHistoryTxMeta } from '../../utils';
 
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
+import { TxKYTRiskCheck } from './components/TxKYTRiskCheck';
+import { getTxConfirmSubtitle } from './txConfirmSubtitle';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -71,14 +80,20 @@ function getTxStatusTextProps(
 ): {
   key: ETranslations;
   color: ColorValue;
+  // True only for an explicitly-broadcast Pending tx; gates the spinner and ETA
+  // subtitle. The unknown/not-yet-loaded fallback below shows the "confirming"
+  // copy but leaves this false (no live tx to estimate yet).
+  isConfirming: boolean;
 } {
   if (
     status === EDecodedTxStatus.Pending ||
     status === EOnChainHistoryTxStatus.Pending
   ) {
+    // A broadcast on-chain tx is "confirming", not "pending" (OK-56372).
     return {
-      key: ETranslations.global_pending,
+      key: ETranslations.global_confirming,
       color: '$textCaution',
+      isConfirming: true,
     };
   }
 
@@ -89,6 +104,7 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_success,
       color: '$textSuccess',
+      isConfirming: false,
     };
   }
 
@@ -101,13 +117,49 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_failed,
       color: '$textCritical',
+      isConfirming: false,
     };
   }
 
+  // Unknown / not-yet-loaded status is treated as confirming (OK-56372).
   return {
-    key: ETranslations.global_pending,
+    key: ETranslations.global_confirming,
     color: '$textCaution',
+    isConfirming: false,
   };
+}
+
+// Compact action button used in the confirming-state status row (OK-56372 §6).
+// Button locks the font size to its `size` variant with no override prop, so we
+// render custom text via `childrenAsText={false}` to get `$bodySmMedium`.
+function CompactReplaceButton({
+  variant = 'secondary',
+  children,
+  testID,
+  onPress,
+}: {
+  variant?: 'primary' | 'secondary';
+  children: string;
+  testID?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Button
+      testID={testID}
+      size="small"
+      variant={variant}
+      childrenAsText={false}
+      px="$3"
+      onPress={onPress}
+    >
+      <SizableText
+        size="$bodySmMedium"
+        color={variant === 'primary' ? '$textInverse' : '$text'}
+      >
+        {children}
+      </SizableText>
+    </Button>
+  );
 }
 
 export function AssetItem({
@@ -337,6 +389,7 @@ function HistoryDetails() {
 
   const historyInit = useRef(false);
   const historyConfirmed = useRef(false);
+  const privateSendSwapDetailOpened = useRef(false);
 
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
@@ -348,6 +401,41 @@ function HistoryDetails() {
 
   const accountAddress = route.params?.accountAddress || account?.address;
   const txid = transactionHash || historyTxParam?.decodedTx.txid || '';
+  const isInitialPrivateSendHistory = historyTxParam
+    ? isPrivateSendHistoryTx(historyTxParam)
+    : false;
+
+  useEffect(() => {
+    privateSendSwapDetailOpened.current = false;
+  }, [isInitialPrivateSendHistory, txid]);
+
+  const openPrivateSendHistoryDetailOnce = useCallback(
+    async (historyTx: IAccountHistoryTx) => {
+      if (!isPrivateSendHistoryTx(historyTx)) {
+        return false;
+      }
+      if (privateSendSwapDetailOpened.current) {
+        return true;
+      }
+      privateSendSwapDetailOpened.current = true;
+      return maybeOpenPrivateSendHistoryDetail({
+        historyTx,
+        navigation,
+        accountId,
+        accountAddress,
+        network,
+        currencySymbol: settings.currencyInfo.symbol,
+      });
+    },
+    [
+      accountAddress,
+      accountId,
+      navigation,
+      network,
+      settings.currencyInfo.symbol,
+    ],
+  );
+
   const nativeToken = usePromiseResult(
     () =>
       backgroundApiProxy.serviceToken.getNativeToken({
@@ -359,6 +447,16 @@ function HistoryDetails() {
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (isInitialPrivateSendHistory && historyTxParam) {
+        historyInit.current = true;
+        await openPrivateSendHistoryDetailOnce(historyTxParam);
+        return {
+          txDetails: undefined,
+          decodedOnChainTx: historyTxParam,
+          addressMap: undefined,
+        };
+      }
+
       if (!accountAddress) return;
       const r = await backgroundApiProxy.serviceHistory.fetchHistoryTxDetails({
         accountId,
@@ -391,6 +489,15 @@ function HistoryDetails() {
           });
       }
 
+      if (decodedOnChainTx && isPrivateSendHistoryTx(decodedOnChainTx)) {
+        await openPrivateSendHistoryDetailOnce(decodedOnChainTx);
+        return {
+          txDetails: undefined,
+          decodedOnChainTx,
+          addressMap: undefined,
+        };
+      }
+
       return {
         txDetails: r?.data,
         decodedOnChainTx,
@@ -405,6 +512,8 @@ function HistoryDetails() {
       txid,
       vaultSettings?.fixConfirmedTxEnabled,
       historyTxParam,
+      isInitialPrivateSendHistory,
+      openPrivateSendHistoryDetailOnce,
     ],
     {
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -412,8 +521,15 @@ function HistoryDetails() {
       alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       checkIsFocused,
+      // Seed the last-known detail synchronously on re-open so the confirming
+      // subtitle (ETA) renders immediately instead of flashing the "waiting"
+      // fallback before the request resolves (OK-56372).
+      swrKey: txid
+        ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
+        : undefined,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
+        !privateSendSwapDetailOpened.current &&
         (!historyInit.current ||
           ((historyTxParam?.decodedTx.status ?? EDecodedTxStatus.Pending) ===
             EDecodedTxStatus.Pending &&
@@ -423,6 +539,20 @@ function HistoryDetails() {
 
   const { txDetails, decodedOnChainTx, addressMap } = result || {};
   const historyTx = historyTxParam ?? decodedOnChainTx;
+
+  // Prefer the detail response's KYT block, falling back to the one carried from
+  // the history list so the section renders before the detail request resolves.
+  const kytResult = useMemo(
+    () => txDetails?.kyt ?? historyTx?.decodedTx.kyt,
+    [txDetails?.kyt, historyTx?.decodedTx.kyt],
+  );
+  const kytReceives = useMemo(
+    () =>
+      historyTx?.decodedTx.actions?.flatMap(
+        (action) => action.assetTransfer?.receives ?? [],
+      ) ?? [],
+    [historyTx?.decodedTx.actions],
+  );
 
   useEffect(() => {
     if (txDetails && notificationId) {
@@ -762,21 +892,21 @@ function HistoryDetails() {
     const renderCancelActions = () => (
       <XStack gap="$2">
         <SpeedUpAction
+          compact
           networkId={networkId}
           onSpeedUp={() =>
             handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
           }
         />
         {cancelTxEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-cancel-actions-btn"
-            size="small"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
             }
           >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </XStack>
     );
@@ -784,9 +914,8 @@ function HistoryDetails() {
     const renderSpeedUpCancelAction = () => (
       <>
         {speedUpCancelEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-speed-up-cancel-action-btn"
-            size="small"
             variant="primary"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
@@ -795,22 +924,21 @@ function HistoryDetails() {
             {intl.formatMessage({
               id: ETranslations.speed_up_cancellation,
             })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </>
     );
 
     const renderCheckSpeedUpState = () => (
-      <Button
+      <CompactReplaceButton
         testID="asset-details-render-check-speed-up-state-btn"
-        size="small"
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
       >
         {intl.formatMessage({
           id: ETranslations.tx_accelerate_order_inquiry_label,
         })}
-      </Button>
+      </CompactReplaceButton>
     );
 
     const renderReplaceButtons = () => {
@@ -819,7 +947,7 @@ function HistoryDetails() {
     };
 
     return (
-      <XStack ml="$5">
+      <XStack ml="$2">
         {renderReplaceButtons()}
         {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
       </XStack>
@@ -837,33 +965,58 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(
-      txDetails?.status ?? historyTx?.decodedTx.status,
-    );
+    const status = txDetails?.status ?? historyTx?.decodedTx.status;
+    const { key, color, isConfirming } = getTxStatusTextProps(status);
+
+    const broadcastTimeMs = txDetails?.timestamp
+      ? txDetails.timestamp * 1000
+      : (historyTx?.decodedTx.updatedAt ?? historyTx?.decodedTx.createdAt);
+    const subtitle = isConfirming
+      ? getTxConfirmSubtitle({
+          confirmationETASeconds: txDetails?.confirmationETASeconds,
+          confirmationETABlocks: txDetails?.confirmationETABlocks,
+          broadcastTimeMs,
+          nowMs: Date.now(),
+        })
+      : null;
+
     return (
-      <XStack minHeight="$5" alignItems="center">
-        <SizableText size="$bodyMdMedium" color={color}>
-          {intl.formatMessage({ id: key })}
-        </SizableText>
-        {historyTx?.replacedType &&
-        txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
-          <Badge badgeSize="sm" badgeType="info" ml="$2">
-            {intl.formatMessage({
-              id:
-                historyTx?.replacedType === EReplaceTxType.SpeedUp
-                  ? ETranslations.global_sped_up
-                  : ETranslations.global_cancelling,
-            })}
-          </Badge>
+      <YStack gap="$1">
+        <XStack minHeight="$5" alignItems="center">
+          {isConfirming ? <Spinner size="small" mr="$2" /> : null}
+          <SizableText size="$bodyMdMedium" color={color}>
+            {intl.formatMessage({ id: key })}
+          </SizableText>
+          {historyTx?.replacedType &&
+          txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
+            <Badge badgeSize="sm" badgeType="info" ml="$2">
+              {intl.formatMessage({
+                id:
+                  historyTx?.replacedType === EReplaceTxType.SpeedUp
+                    ? ETranslations.global_sped_up
+                    : ETranslations.global_cancelling,
+              })}
+            </Badge>
+          ) : null}
+          {renderReplaceTxActions()}
+        </XStack>
+        {subtitle ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: subtitle.id }, subtitle.values)}
+          </SizableText>
         ) : null}
-        {renderReplaceTxActions()}
-      </XStack>
+      </YStack>
     );
   }, [
     historyTx?.decodedTx.status,
+    historyTx?.decodedTx.updatedAt,
+    historyTx?.decodedTx.createdAt,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    txDetails?.timestamp,
+    txDetails?.confirmationETASeconds,
+    txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
   ]);
 
@@ -1102,7 +1255,16 @@ function HistoryDetails() {
   );
 
   const renderHistoryDetails = useCallback(() => {
-    if (isLoading && !historyInit.current && !historyTxParam) {
+    // On the notification path no `historyTx` is passed in, so the detail is
+    // fetched on mount. `isLoading` starts as `undefined` and, because the
+    // request is debounced, only flips to `true` after the debounce window —
+    // during that gap the previous `isLoading &&` guard fell through and
+    // rendered the detail skeleton whose empty (undefined) status shows as
+    // "Pending", flashing a brief "待处理" frame before the spinner. Treat
+    // "fetch path, not yet initialized, loading not settled to false" as
+    // loading so the spinner shows immediately and the pending placeholder is
+    // never rendered.
+    if (!historyTxParam && !historyInit.current && isLoading !== false) {
       return (
         <Stack pt={240} justifyContent="center" alignItems="center">
           <Spinner size="large" />
@@ -1138,6 +1300,15 @@ function HistoryDetails() {
               compact
             />
           </InfoItemGroup>
+
+          {/* KYT Risk Check — hidden for watch-only accounts */}
+          {accountId && accountUtils.isWatchingAccount({ accountId }) ? null : (
+            <TxKYTRiskCheck
+              kyt={kytResult}
+              transfers={kytReceives}
+              networkName={network?.name}
+            />
+          )}
 
           {/* Notification account */}
           {notificationAccountId ? (
@@ -1265,6 +1436,9 @@ function HistoryDetails() {
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
+    kytResult,
+    kytReceives,
+    accountId,
   ]);
 
   return (

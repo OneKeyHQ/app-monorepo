@@ -98,6 +98,7 @@ import { VaultBase } from '../../base/VaultBase';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHardwareLedger } from './KeyringHardwareLedger';
+import { KeyringHardwareTrezor } from './KeyringHardwareTrezor';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringQr } from './KeyringQr';
@@ -151,6 +152,7 @@ export default class Vault extends VaultBase {
     qr: KeyringQr,
     hw: KeyringHardware,
     hwLedger: KeyringHardwareLedger,
+    hwTrezor: KeyringHardwareTrezor,
     imported: KeyringImported,
     watching: KeyringWatching,
     external: KeyringExternal,
@@ -1013,14 +1015,15 @@ export default class Vault extends VaultBase {
     }
 
     let extraInfo: IDecodedTxExtraSol | null = null;
+    const hasCreateTokenAccountInstruction = instructions.some(
+      (instruction) =>
+        instruction.programId.toString() ===
+        ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
+    );
     if (
-      !unsignedTx.swapInfo &&
       !unsignedTx.stakingInfo &&
-      instructions.some(
-        (instruction) =>
-          instruction.programId.toString() ===
-          ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
-      ) &&
+      (!unsignedTx.swapInfo || transferPayload?.isPrivateSend === true) &&
+      hasCreateTokenAccountInstruction &&
       actions[0].assetTransfer
     ) {
       const network = await this.getNetwork();

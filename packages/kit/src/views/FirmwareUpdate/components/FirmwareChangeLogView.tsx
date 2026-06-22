@@ -110,10 +110,18 @@ function ChangeLogSection({
       >
         {({ open }: { open: boolean }) => (
           <>
-            <XStack ai="center" gap="$1.5" flex={1}>
+            <XStack
+              ai="center"
+              gap="$1.5"
+              flex={1}
+              minWidth={0}
+              flexShrink={1}
+              flexWrap="wrap"
+            >
               <SizableText
                 size="$bodyLgMedium"
                 color={open ? '$text' : '$textSubdued'}
+                flexShrink={0}
               >
                 {title}
               </SizableText>
@@ -130,6 +138,7 @@ function ChangeLogSection({
               animation="quick"
               animateOnly={ANIMATE_ONLY_TRANSFORM}
               rotate={open ? '-180deg' : '0deg'}
+              flexShrink={0}
             >
               <Icon
                 name="ChevronDownSmallOutline"

@@ -8,7 +8,6 @@ import {
   Button,
   Icon,
   IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Stack,
@@ -16,10 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import {
-  useSettingsPersistAtom,
-  useSettingsValuePersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -47,6 +43,7 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { Currency } from '../Currency';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
@@ -80,8 +77,6 @@ function TokenListFooter(props: IProps) {
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
-
-  const [settings] = useSettingsPersistAtom();
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
 
@@ -402,14 +397,14 @@ function TokenListFooter(props: IProps) {
             justifyContent="center"
             alignItems="flex-end"
           >
-            <NumberSizeableText
+            <Currency
               size={tableLayout ? '$bodyMdMedium' : '$bodyLgMedium'}
               formatter="value"
-              formatterOptions={{ currency: settings.currencyInfo.symbol }}
+              sourceCurrency="usd"
               textAlign="right"
             >
               {smallBalanceTokensFiatValue}
-            </NumberSizeableText>
+            </Currency>
           </Stack>
         </ListItem>
       ) : null}

@@ -10,13 +10,25 @@ import {
 } from '../types/errorTypes';
 
 import { getDeviceErrorPayloadMessage } from './errorUtils';
-import { convertThirdPartyDeviceError } from './thirdPartyDeviceErrorUtils';
+import {
+  convertThirdPartyDeviceError,
+  isThirdPartyInstallAppUserCancelCode,
+  normalizeThirdPartyDeviceErrorCode,
+} from './thirdPartyDeviceErrorUtils';
 
-import type { IDeviceResponseResult } from '../../../types/device';
+import type {
+  EHardwareVendor,
+  IDeviceResponseResult,
+} from '../../../types/device';
 import type {
   IOneKeyError,
   IOneKeyHardwareErrorPayload,
 } from '../types/errorTypes';
+
+export type IConvertDeviceErrorOptions = {
+  silentMode?: boolean;
+  vendor?: EHardwareVendor | string;
+};
 
 // HWK (third-party hardware) error codes live in a disjoint range from
 // OneKey HD-SDK's enum. When convertDeviceError's switch can't match a
@@ -58,10 +70,18 @@ export function captureSpecialError(
 
 export function convertDeviceError(
   payloadOrigin: IOneKeyHardwareErrorPayload,
-  options?: { silentMode?: boolean },
+  options?: IConvertDeviceErrorOptions,
 ): IOneKeyError {
+  const { _tag, ...payloadOriginWithoutTag } =
+    payloadOrigin as IOneKeyHardwareErrorPayload & {
+      _tag?: string;
+    };
   const payload = {
-    ...payloadOrigin,
+    ...payloadOriginWithoutTag,
+    code: normalizeThirdPartyDeviceErrorCode({
+      code: payloadOrigin.code,
+      _tag,
+    }),
     message: getDeviceErrorPayloadMessage(payloadOrigin),
   };
   const { code, message, params } = payload;
@@ -251,12 +271,18 @@ export function convertDeviceError(
     case 'ERR_BAD_REQUEST':
       return new HardwareErrors.HardwareCommunicationError({ payload });
     default:
-      if (isHwkErrorCode(code)) {
-        return convertThirdPartyDeviceError({
-          code: Number(code),
-          error: payload.error ?? message ?? '',
-          params: payload.params,
-        });
+      if (isHwkErrorCode(code) || isThirdPartyInstallAppUserCancelCode(code)) {
+        return convertThirdPartyDeviceError(
+          {
+            code: Number(code),
+            error: payload.error ?? message ?? '',
+            params: payload.params,
+          },
+          {
+            silentMode: options?.silentMode,
+            vendor: options?.vendor,
+          },
+        );
       }
       return new HardwareErrors.UnknownHardwareError({ payload });
 
@@ -270,7 +296,7 @@ export function convertDeviceError(
 
 export async function convertDeviceResponse<T>(
   fn: () => Promise<IDeviceResponseResult<T>>,
-  options?: { silentMode?: boolean },
+  options?: IConvertDeviceErrorOptions,
 ): Promise<T> {
   let response: IDeviceResponseResult<T> | undefined;
   try {

@@ -9,8 +9,24 @@ import {
   isPerpTokenSelectorSpotTab,
 } from './tokenSelectorTabs';
 
+export function isTradeInstrumentBackedBySubscriptionState(params: {
+  activeInstrument: IActiveTradeInstrument;
+  tradingMode: IActiveTradeInstrument['mode'];
+  perpCoin?: string;
+  spotCoin?: string;
+}): boolean {
+  const { activeInstrument, tradingMode, perpCoin, spotCoin } = params;
+  const instrumentCoin = activeInstrument?.coin ?? '';
+  if (!instrumentCoin || activeInstrument.mode !== tradingMode) {
+    return false;
+  }
+  const authoritativeCoin = tradingMode === 'spot' ? spotCoin : perpCoin;
+  return instrumentCoin === authoritativeCoin;
+}
+
 export interface ITradeSubscriptionPlan {
   enableLedgerUpdates: boolean;
+  subscriptionStateKey: string;
   shouldSyncSubscriptions: boolean;
   spotAssetCtxsEnabled: boolean;
   spotEnabled: boolean;
@@ -22,7 +38,7 @@ export function planTradeSubscriptions(params: {
   orderBookOptions?: IPerpsActiveOrderBookOptionsAtom;
   viewState: ITradeRouteViewState;
 }): ITradeSubscriptionPlan {
-  const { activeInstrument, hasAccount, orderBookOptions, viewState } = params;
+  const { activeInstrument, hasAccount, viewState } = params;
   const instrumentCoin = activeInstrument?.coin ?? '';
   const isSpot = activeInstrument?.mode === 'spot';
   const isSpotSelectorOpen =
@@ -45,20 +61,17 @@ export function planTradeSubscriptions(params: {
   const enableLedgerUpdates =
     hasAccount && viewState.infoPanelTab === 'Account';
 
-  let shouldSyncSubscriptions = shouldSyncSelectorSubscriptions;
-  if (viewState.routeFocused) {
-    if (isSpot) {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions || Boolean(instrumentCoin);
-    } else {
-      shouldSyncSubscriptions =
-        shouldSyncSelectorSubscriptions ||
-        (Boolean(instrumentCoin) && orderBookOptions?.coin === instrumentCoin);
-    }
-  }
+  const shouldSyncSubscriptions = viewState.routeFocused
+    ? shouldSyncSelectorSubscriptions || Boolean(instrumentCoin)
+    : shouldSyncSelectorSubscriptions;
 
   return {
     enableLedgerUpdates,
+    subscriptionStateKey: [
+      enableLedgerUpdates ? '1' : '0',
+      spotAssetCtxsEnabled ? '1' : '0',
+      spotEnabled ? '1' : '0',
+    ].join(':'),
     shouldSyncSubscriptions,
     spotAssetCtxsEnabled,
     spotEnabled,

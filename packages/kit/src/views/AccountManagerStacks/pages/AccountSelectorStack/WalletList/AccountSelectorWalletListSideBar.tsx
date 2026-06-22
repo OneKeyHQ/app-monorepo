@@ -36,7 +36,9 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
+import { shouldShowCreateHiddenWalletSidebarButtonForWallet } from '../../../components/WalletEdit/WalletEditButtonUtils';
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 import { AccountManagerTestIDs } from '../../../testIDs';
 
@@ -44,6 +46,7 @@ import { AccountSelectorCreateWalletButton } from './AccountSelectorCreateWallet
 import { WalletListItem } from './WalletListItem';
 import {
   buildGroupedAccountSelectorWallets,
+  computeHwVendorProfile,
   getWalletChildrenLength,
 } from './walletListUtils';
 
@@ -104,7 +107,7 @@ export function AccountSelectorWalletListSideBar({
 
   // Detect connected hardware wallets via WebUSB
   // Note: connectedDevices reference is stable - only changes when device list actually changes
-  const { connectedDevices } = useHardwareWalletConnectStatus();
+  const { isWalletConnected } = useHardwareWalletConnectStatus();
 
   const [layoutRefreshTS, setLayoutRefreshTS] = useState(0);
   useEffect(() => {
@@ -127,6 +130,17 @@ export function AccountSelectorWalletListSideBar({
   const reloadWalletsHook = `${layoutRefreshTS}-${
     accountSelectorStatus?.passphraseProtectionChangedAt ?? 0
   }`;
+
+  // Sidebar SWR cache. Invalidation is handled outside this component:
+  //   - Wallet/Account CRUD funnels through WalletUpdate / AccountUpdate
+  //     (see ServiceAccount emits) — listeners below call reloadWallets,
+  //     which runs the fetcher and overwrites this slot via usePromiseResult.
+  //   - HardwareFeaturesUpdate / passphrase toggle flow through
+  //     reloadWalletsHook -> useEffect refetch -> same overwrite path.
+  //   - Bulk wipes (ServiceApp.resetApp, ServiceE2E.clearWalletsAndAccounts)
+  //     clear the cold-start cache in the bg service before emitting the
+  //     wipe event, so this hook reads an empty MMKV on next mount.
+  const walletsSwrKey = swrKeys.walletListSideBar({ hideNonBackedUpWallet });
 
   const {
     result: walletsResult,
@@ -193,6 +207,7 @@ export function AccountSelectorWalletListSideBar({
     [serviceAccount, hideNonBackedUpWallet, reloadWalletsHook],
     {
       checkIsFocused: false,
+      swrKey: walletsSwrKey,
     },
   );
 
@@ -216,11 +231,15 @@ export function AccountSelectorWalletListSideBar({
         (wallet) => wallet.isKeyless,
       ).length;
       const appWalletCount = walletCount - hwWalletCount;
+      const { hwVendors, primaryHwVendor } = computeHwVendorProfile(wallets);
+
       analytics.updateUserProfile({
         walletCount,
         hwWalletCount,
         appWalletCount,
         keylessWalletCount,
+        hwVendors,
+        primaryHwVendor,
       });
     }
   }, [wallets]);
@@ -293,43 +312,26 @@ export function AccountSelectorWalletListSideBar({
 
   const shouldShowCreateHiddenWalletButtonFn = useCallback(
     ({ wallet }: { wallet: IDBWallet | undefined }) => {
-      let shouldShowCreateHiddenWalletButton = false;
       noop(reloadWalletsHook);
-      if (
-        wallet &&
-        accountUtils.isHwOrQrWallet({ walletId: wallet.id }) &&
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        isEditableRouteParams &&
-        !wallet?.deprecated &&
-        settings.showAddHiddenInWalletSidebar
-      ) {
-        if (
-          accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          (wallet?.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
-            true ||
-            (wallet?.hiddenWallets?.length ?? 0) > 0)
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-
-        if (
-          accountUtils.isQrWallet({
-            walletId: wallet.id,
-          }) &&
-          !accountUtils.isHwWallet({
-            walletId: wallet.id,
-          }) &&
-          (wallet?.hiddenWallets?.length ?? 0) > 0
-        ) {
-          shouldShowCreateHiddenWalletButton = true;
-        }
-      }
-      return shouldShowCreateHiddenWalletButton;
+      if (!wallet) return false;
+      return shouldShowCreateHiddenWalletSidebarButtonForWallet({
+        isEditableRouteParams: !!isEditableRouteParams,
+        showAddHiddenInWalletSidebar: settings.showAddHiddenInWalletSidebar,
+        isDeprecated: wallet.deprecated,
+        isHiddenWallet: accountUtils.isHwHiddenWallet({ wallet }),
+        isHwOrQrWallet: accountUtils.isHwOrQrWallet({ walletId: wallet.id }),
+        isHwWallet: accountUtils.isHwWallet({
+          walletId: wallet.id,
+        }),
+        isQrWallet: accountUtils.isQrWallet({
+          walletId: wallet.id,
+        }),
+        hasPassphraseProtection:
+          wallet.associatedDeviceInfo?.featuresInfo?.passphrase_protection ===
+          true,
+        hiddenWalletsLength: wallet.hiddenWallets?.length ?? 0,
+        vendor: wallet.associatedDeviceInfo?.vendor,
+      });
     },
     [
       isEditableRouteParams,
@@ -388,13 +390,11 @@ export function AccountSelectorWalletListSideBar({
       }
 
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
-      const deviceId = wallet.associatedDeviceInfo?.deviceId;
-      const isConnected =
-        isHwWallet && deviceId ? connectedDevices.has(deviceId) : false;
+      const isConnected = isHwWallet ? isWalletConnected(wallet) : false;
       map.set(wallet.id, isConnected);
     });
     return map;
-  }, [wallets, connectedDevices]);
+  }, [wallets, isWalletConnected]);
 
   const isShowCloseButton = md && !platformEnv.isNativeIOS;
   const shouldHideWalletList =

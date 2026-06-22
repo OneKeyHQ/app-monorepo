@@ -13,6 +13,7 @@ export interface ITimeSlice {
 
 export interface ISliceRequestOptions {
   isNativeToken?: boolean;
+  minTimeSpanSeconds?: number;
 }
 
 export function sliceRequest(
@@ -21,12 +22,6 @@ export function sliceRequest(
   timeTo: number,
   options?: ISliceRequestOptions,
 ): ITimeSlice[] {
-  // Limit time span to maximum 5 years, adjust timeFrom if necessary
-  const timeSpan = timeTo - timeFrom;
-  const adjustedTimeFrom =
-    timeSpan > MAX_TIME_SPAN_SECONDS
-      ? timeTo - MAX_TIME_SPAN_SECONDS
-      : timeFrom;
   const getIntervalInSeconds = (intervalStr: string): number => {
     const match = intervalStr.match(/^(\d+)([mHDWMy])$/);
     if (!match) {
@@ -55,6 +50,19 @@ export function sliceRequest(
   };
 
   const intervalSeconds = getIntervalInSeconds(interval);
+
+  const minTimeSpanSeconds = options?.minTimeSpanSeconds ?? 0;
+  const expandedTimeFrom =
+    minTimeSpanSeconds > 0
+      ? Math.min(timeFrom, timeTo - minTimeSpanSeconds)
+      : timeFrom;
+
+  // Limit time span to maximum 5 years, adjust timeFrom if necessary
+  const timeSpan = timeTo - expandedTimeFrom;
+  const adjustedTimeFrom =
+    timeSpan > MAX_TIME_SPAN_SECONDS
+      ? timeTo - MAX_TIME_SPAN_SECONDS
+      : expandedTimeFrom;
 
   // Determine max data length based on token type
   const maxDataLength = options?.isNativeToken

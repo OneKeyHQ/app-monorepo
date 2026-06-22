@@ -88,6 +88,12 @@ export type IOnboardingParamListV2 = {
     shouldAutoResetKeylessPinAfterRestore?: boolean;
     isFirmwareVerified?: boolean;
     deviceData?: IConnectYourDeviceItem;
+    // User-selected connection channel for this session. Carried forward from
+    // the Ledger entry points (ConnectionFlowLedger / ConnectYourDevice Ledger
+    // branch) so the analytics `walletAdded` event can attribute the actual
+    // per-session transport (via getForceTransportType) rather than the stale
+    // persisted hardwareTransportType setting.
+    tabValue?: EConnectDeviceChannel;
     keylessPackSetId?: string;
     keylessOwnerId?: string;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;

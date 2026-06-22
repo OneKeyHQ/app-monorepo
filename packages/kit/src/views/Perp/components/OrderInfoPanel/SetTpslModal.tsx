@@ -17,11 +17,9 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useHyperliquidActions,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   type EModalPerpRoutes,
@@ -35,9 +33,19 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../PerpDialogLayout';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountAddressMatched,
+} from '../../utils/accountScopedData';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../PerpDialogLayout';
 import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -51,9 +59,12 @@ export interface ISetTpslParams {
   szDecimals: number;
   assetId: number;
   isMobile?: boolean;
+  // Seed a single trigger field when opened from a chart position context.
+  presetTriggerPrice?: string;
+  presetTpsl?: 'tp' | 'sl';
 }
 
-interface ISetTpslFormProps extends ISetTpslParams {
+interface ISetTpslFormProps extends Omit<ISetTpslParams, 'isMobile'> {
   onClose: () => void;
 }
 
@@ -69,15 +80,32 @@ const SetTpslForm = memo(
     coin,
     szDecimals,
     assetId,
-    isMobile,
+    presetTriggerPrice,
+    presetTpsl,
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const { mid: midPrice } = usePerpsMidPrice({ coin });
 
-    const [{ activePositions }] = usePerpsActivePositionAtom();
-    const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
+    const activePositions = usePerpsAccountScopedActivePositions();
+    const [activeAccount] = usePerpsActiveAccountAtom();
+    const accountScopedAddress = usePerpsAccountScopedCacheAddress();
+    const canSubmitForScopedAccount = isPerpsAccountAddressMatched({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: accountScopedAddress,
+    });
+    const [{ accountAddress: openOrdersAccountAddress, openOrders }] =
+      usePerpsActiveOpenOrdersAtom();
+    const accountScopedOpenOrders = useMemo(
+      () =>
+        getPerpsAccountScopedListData({
+          activeAccountAddress: accountScopedAddress,
+          dataAccountAddress: openOrdersAccountAddress,
+          data: openOrders,
+        }),
+      [accountScopedAddress, openOrders, openOrdersAccountAddress],
+    );
 
     const currentPosition = useMemo(() => {
       return activePositions.find((p) => p.position.coin === coin)?.position;
@@ -85,12 +113,12 @@ const SetTpslForm = memo(
 
     const currentTpslOrders = useMemo(() => {
       if (!currentPosition) return [];
-      return openOrders.filter(
+      return accountScopedOpenOrders.filter(
         (o) =>
           o.coin === currentPosition.coin &&
           (o.orderType.startsWith('Take') || o.orderType.startsWith('Stop')),
       );
-    }, [openOrders, currentPosition]);
+    }, [accountScopedOpenOrders, currentPosition]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
@@ -150,6 +178,9 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         await hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -169,7 +200,7 @@ const SetTpslForm = memo(
           ],
         });
       },
-      [hyperliquidActions],
+      [canSubmitForScopedAccount, hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -188,12 +219,14 @@ const SetTpslForm = memo(
       return 1; // Default leverage if calculation fails
     }, [currentPosition]);
 
-    const [formData, setFormData] = useState({
-      tpPrice: '',
-      slPrice: '',
+    const [formData, setFormData] = useState(() => ({
+      tpPrice:
+        presetTriggerPrice && presetTpsl === 'tp' ? presetTriggerPrice : '',
+      slPrice:
+        presetTriggerPrice && presetTpsl === 'sl' ? presetTriggerPrice : '',
       amount: '',
       percentage: 100,
-    });
+    }));
 
     const [configureAmount, setConfigureAmount] = useState(false);
 
@@ -284,6 +317,9 @@ const SetTpslForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
+        if (!canSubmitForScopedAccount) {
+          return;
+        }
         setIsSubmitting(true);
 
         const tpslAmount = configureAmount
@@ -428,6 +464,7 @@ const SetTpslForm = memo(
       midPrice,
       isValidForm,
       intl,
+      canSubmitForScopedAccount,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -496,9 +533,15 @@ const SetTpslForm = memo(
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
-                    color="$green9"
+                    color={
+                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
+                    }
                     ml="$2"
-                    onPress={() => handleCancelOrder(tpOrder)}
+                    onPress={
+                      canSubmitForScopedAccount
+                        ? () => handleCancelOrder(tpOrder)
+                        : undefined
+                    }
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
@@ -564,9 +607,15 @@ const SetTpslForm = memo(
                   </SizableText>
                   <SizableText
                     size="$bodyMd"
-                    color="$green9"
+                    color={
+                      canSubmitForScopedAccount ? '$green9' : '$textDisabled'
+                    }
                     ml="$2"
-                    onPress={() => handleCancelOrder(slOrder)}
+                    onPress={
+                      canSubmitForScopedAccount
+                        ? () => handleCancelOrder(slOrder)
+                        : undefined
+                    }
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_open_orders_cancel,
@@ -650,13 +699,15 @@ const SetTpslForm = memo(
             ) : null}
           </YStack>
         </YStack>
-        <TradingGuardWrapper>
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
             testID="perp-processed-value-btn"
-            size={isMobile ? 'large' : 'medium'}
+            size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
-            disabled={!isValidForm || isSubmitting}
+            disabled={
+              !canSubmitForScopedAccount || !isValidForm || isSubmitting
+            }
             loading={isSubmitting}
           >
             {intl.formatMessage({
@@ -676,7 +727,7 @@ function SetTpslModal() {
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId, isMobile = true } = route.params;
+  const { coin, szDecimals, assetId } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -689,17 +740,18 @@ function SetTpslModal() {
         })}
       />
       <Page.Body>
-        <PerpsProviderMirror>
-          <YStack px="$4" flex={1}>
-            <SetTpslForm
-              coin={coin}
-              szDecimals={szDecimals}
-              assetId={assetId}
-              onClose={handleClose}
-              isMobile={isMobile}
-            />
-          </YStack>
-        </PerpsProviderMirror>
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <YStack px="$4" flex={1}>
+              <SetTpslForm
+                coin={coin}
+                szDecimals={szDecimals}
+                assetId={assetId}
+                onClose={handleClose}
+              />
+            </YStack>
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
       </Page.Body>
     </Page>
   );
@@ -710,6 +762,8 @@ export function showSetTpslDialog({
   coin,
   szDecimals,
   assetId,
+  presetTriggerPrice,
+  presetTpsl,
   intl,
 }: ISetTpslParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
@@ -720,16 +774,20 @@ export function showSetTpslDialog({
       id: ETranslations.perp_tp_sl_position_desc,
     }),
     renderContent: (
-      <PerpsProviderMirror>
-        <SetTpslForm
-          coin={coin}
-          szDecimals={szDecimals}
-          assetId={assetId}
-          onClose={() => {
-            void dialogInstance.close();
-          }}
-        />
-      </PerpsProviderMirror>
+      <PerpsAccountSelectorProviderMirror>
+        <PerpsProviderMirror>
+          <SetTpslForm
+            coin={coin}
+            szDecimals={szDecimals}
+            assetId={assetId}
+            presetTriggerPrice={presetTriggerPrice}
+            presetTpsl={presetTpsl}
+            onClose={() => {
+              void dialogInstance.close();
+            }}
+          />
+        </PerpsProviderMirror>
+      </PerpsAccountSelectorProviderMirror>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,

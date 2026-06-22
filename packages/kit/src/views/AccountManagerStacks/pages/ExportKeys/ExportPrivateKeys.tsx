@@ -27,6 +27,7 @@ import {
 import { DeriveTypeSelectorFormField } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -155,6 +156,17 @@ function ExportPrivateKeysPage({
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
+  });
+  const rawKeyContent = form.watch('rawKeyContent');
+
+  const isKeyContentVisible =
+    !secureEntry &&
+    Boolean(rawKeyContent) &&
+    rawKeyContent !== SECURE_ENTRY_PLACEHOLDER;
+
+  useRecoveryPhraseProtected({
+    enabled: isKeyContentVisible,
+    dialogType: 'sensitiveInformation',
   });
 
   const networkIdValue = form.watch('networkId');

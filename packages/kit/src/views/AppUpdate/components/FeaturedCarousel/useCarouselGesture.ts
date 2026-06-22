@@ -42,23 +42,26 @@ export function useCarouselGesture({
         .enabled(enabled && slideWidth > 0 && count > 1)
         .onStart(() => {
           'worklet';
+
           cancelAnimation(progress);
           startProgress.value = progress.value;
         })
         .onUpdate((e) => {
           'worklet';
+
           if (slideWidth <= 0) return;
           let next = startProgress.value - e.translationX / slideWidth;
 
           // Rubber-band clamp: damping outside [0, count-1]
           const maxIndex = count - 1;
-          if (next < 0) next = next * 0.33;
+          if (next < 0) next *= 0.33;
           if (next > maxIndex) next = maxIndex + (next - maxIndex) * 0.33;
 
           progress.value = next;
         })
         .onEnd((e) => {
           'worklet';
+
           const target = computeTargetIndex({
             progress: progress.value,
             velocityX: e.velocityX,

@@ -5,3 +5,8 @@ export const startViewTransition = (fn: () => void) => {
     fn();
   }
 };
+
+export const parseCssSize = (value: string | undefined) => {
+  const size = Number.parseFloat(value ?? '');
+  return Number.isFinite(size) ? size : 0;
+};

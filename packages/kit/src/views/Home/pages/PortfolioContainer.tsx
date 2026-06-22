@@ -16,8 +16,10 @@ import {
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { ProviderJotaiContextDeFiList } from '../../../states/jotai/contexts/deFiList';
 import { ProviderJotaiContextHistoryList } from '../../../states/jotai/contexts/historyList';
@@ -59,6 +61,15 @@ function PortfolioContainer() {
   const stickyHeaderCtx = useContext(HomeStickyHeaderContext);
   const isTabFocused =
     stickyHeaderCtx?.activeTabId === EHomeWalletTab.Portfolio;
+  const [isHomeRouteVisible, setIsHomeRouteVisible] = useState(false);
+  const handleHomeRouteFocusChange = useCallback(
+    (isFocus: boolean, isHideByModal: boolean) => {
+      setIsHomeRouteVisible(isFocus && !isHideByModal);
+    },
+    [],
+  );
+
+  useListenTabFocusState(ETabRoutes.Home, handleHomeRouteFocusChange);
 
   const sidebarRef = useRef<HTMLElement | null>(null);
   const sidebarContentRef = useRef<HTMLElement | null>(null);
@@ -197,6 +208,7 @@ function PortfolioContainer() {
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
+  const isEarnListActive = isTabFocused && isHomeRouteVisible;
 
   // Use a stable tree structure (Stack > YStack > children) regardless of
   // layout mode so that TokenListBlock is never unmounted/remounted when the
@@ -223,7 +235,7 @@ function PortfolioContainer() {
           />
           <DeFiListBlock refreshCacheOnly />
           <PopularTrading tableLayout={tableLayout || undefined} />
-          <EarnListView />
+          <EarnListView isActive={isEarnListActive} />
           <Upgrade />
           <SupportHub />
         </YStack>

@@ -14,6 +14,7 @@ function HeaderIconButton(props: IIconButtonProps) {
       tooltipProps={headerTooltipProps}
       variant="tertiary"
       focusVisibleStyle={undefined}
+      className="app-region-no-drag"
       {...props}
     />
   );

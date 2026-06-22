@@ -2,7 +2,10 @@
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, useAtom } from 'jotai';
 
-import type { IContextAtomColdStartCacheKey } from '@onekeyhq/shared/src/consts/jotaiConsts';
+import {
+  CONTEXT_ATOM_COLD_START_CACHE_KEYS,
+  type IContextAtomColdStartCacheKey,
+} from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   LogLevel,
@@ -10,6 +13,10 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  parseColdStartSnapshotRaw,
+  prepareColdStartSnapshotForWrite,
+} from '@onekeyhq/shared/src/utils/coldStartCacheSnapshotUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 import {
@@ -185,7 +192,12 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
       /* fallback to default initialValue */
     }
   } else {
-    // Non-native: use pre-loaded snapshot from __ONEKEY_JOTAI_INIT_STATES__
+    // Non-native: opt-in snapshot injection used by jotaiInitFromUi's fast
+    // path (extension / native BG→UI bridge with useSnapshotInjection:true).
+    // Cold-start L1 mirror was REMOVED on web/desktop — hydrate.ts no longer
+    // writes to this global. So in practice on web/desktop this stays
+    // undefined and atoms initialize from defaults; jotaiInit reconciles
+    // from source-of-truth IDB asynchronously.
     const snapshotStates = (globalThis as any).__ONEKEY_JOTAI_INIT_STATES__;
     if (snapshotStates && name && name in snapshotStates) {
       const cached = snapshotStates[name];
@@ -422,6 +434,87 @@ const coldStartDirtyKeys = new Set<string>();
 /** Debounce timer for batched MMKV writes */
 let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
+const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
+const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
+
+type IAccountSelectorRecentSelectionCacheItem = {
+  version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
+  updatedAt: number;
+  selectedAccountsMap?: unknown;
+  updateMeta?: unknown;
+};
+
+type IAccountSelectorRecentSelectionCache = Record<
+  string,
+  IAccountSelectorRecentSelectionCacheItem | undefined
+>;
+
+function getRecentAccountSelectorColdStartValue({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
+}) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return undefined;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  if (!sceneId) {
+    return undefined;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { coldStartCacheStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+
+    const cache =
+      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
+        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      );
+    const item = cache?.[sceneId];
+    const now = Date.now();
+    if (
+      item?.version !== ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION ||
+      !item.updatedAt ||
+      now - item.updatedAt < 0 ||
+      now - item.updatedAt > RECENT_ACCOUNT_SWITCH_COLD_START_MS
+    ) {
+      return undefined;
+    }
+
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom
+    ) {
+      return item.selectedAccountsMap;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom
+    ) {
+      return item.updateMeta;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom
+    ) {
+      return true;
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  return undefined;
+}
+
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
   coldStartLog(
@@ -441,15 +534,22 @@ function flushColdStartCache() {
     const raw = coldStartCacheStorage.getString(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
     );
-    const snapshot = raw ? JSON.parse(raw) : {};
+    const snapshot = parseColdStartSnapshotRaw(raw) ?? {};
 
     for (const name of coldStartDirtyKeys) {
       snapshot[name] = coldStartValuesMap.get(name);
     }
 
+    const preparedSnapshot = prepareColdStartSnapshotForWrite(snapshot);
+    if (preparedSnapshot.droppedKeys.length > 0) {
+      coldStartLog(
+        `drop oversized keys: ${preparedSnapshot.droppedKeys.join(', ')}`,
+      );
+    }
+
     coldStartCacheStorage.set(
       EAppSyncStorageKeys.onekey_jotai_context_atoms_snapshot,
-      JSON.stringify(snapshot),
+      preparedSnapshot.serialized,
     );
     coldStartDirtyKeys.clear();
   } catch {
@@ -471,27 +571,86 @@ function scheduleColdStartSave(name: string) {
   }, 2000);
 }
 
+async function flushWebColdStartCacheNowIfNeeded() {
+  if (!platformEnv.isWeb && !platformEnv.isDesktop) {
+    return;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushColdStartCacheNow } =
+      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+    await flushColdStartCacheNow();
+  } catch {
+    /* webColdStartStorage may not be loaded on extension UI */
+  }
+}
+
+export async function writeContextAtomColdStartCacheValues({
+  entries,
+  flushImmediately,
+}: {
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+    value: unknown;
+  }[];
+  flushImmediately?: boolean;
+}) {
+  if (entries.length === 0) {
+    return;
+  }
+
+  let lastScopedKey = '';
+  for (const { coldStartScopeKey, coldStartCacheKey, value } of entries) {
+    const scopedKey = buildColdStartScopedKey({
+      coldStartScopeKey,
+      coldStartCacheKey,
+    });
+    lastScopedKey = scopedKey;
+    coldStartValuesMap.set(scopedKey, value);
+    coldStartDirtyKeys.add(scopedKey);
+    coldStartLog(`writeNow: ${scopedKey}`);
+  }
+
+  if (flushImmediately) {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    await flushWebColdStartCacheNowIfNeeded();
+    return;
+  }
+
+  scheduleColdStartSave(lastScopedKey);
+}
+
 let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
   coldStartAppStateListenerRegistered = true;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { AppState } =
-      require('react-native') as typeof import('react-native');
-    AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        if (coldStartSaveTimer) {
-          clearTimeout(coldStartSaveTimer);
-          coldStartSaveTimer = undefined;
-        }
-        flushColdStartCache();
-        swrCacheUtils.flushNow();
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { registerColdStartFlushTrigger } =
+    require('@onekeyhq/shared/src/storage/coldStartFlushTrigger') as typeof import('@onekeyhq/shared/src/storage/coldStartFlushTrigger');
+  registerColdStartFlushTrigger(() => {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    swrCacheUtils.flushNow();
+    // Web/Desktop: also push the in-memory cold-start map to IndexedDB now.
+    if (platformEnv.isWeb || platformEnv.isDesktop) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { flushColdStartCacheNow } =
+          require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+        void flushColdStartCacheNow();
+      } catch {
+        /* webColdStartStorage may not be loaded on extension UI */
       }
-    });
-  } catch {
-    /* AppState not available in non-RN env */
-  }
+    }
+  });
 }
 
 export function hydrateContextColdStartCacheForProvider({
@@ -519,21 +678,31 @@ export function hydrateContextColdStartCacheForProvider({
     const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
       | Record<string, unknown>
       | undefined;
-    if (!snapshot) {
-      return;
-    }
 
     for (const [
       cacheKey,
       { atom: atomBuilder },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
-      const cached = getScopedColdStartSnapshotValue({
-        snapshot,
-        coldStartScopeKey: scope,
-        coldStartCacheKey: typedCacheKey,
-      });
+      const recentAccountSelectorCached =
+        getRecentAccountSelectorColdStartValue({
+          coldStartScopeKey: scope,
+          coldStartCacheKey: typedCacheKey,
+        });
+      const cached =
+        recentAccountSelectorCached ??
+        (snapshot
+          ? getScopedColdStartSnapshotValue({
+              snapshot,
+              coldStartScopeKey: scope,
+              coldStartCacheKey: typedCacheKey,
+            })
+          : undefined);
       if (cached !== undefined && cached !== null) {
+        const scopedCacheKey = buildColdStartScopedKey({
+          coldStartScopeKey: scope,
+          coldStartCacheKey: typedCacheKey,
+        });
         const atomInstance = atomBuilder();
         const currentValue = store.get(atomInstance);
         const nextValue =
@@ -545,13 +714,14 @@ export function hydrateContextColdStartCacheForProvider({
             : cached;
 
         store.set(atomInstance, nextValue);
-        coldStartValuesMap.set(
-          buildColdStartScopedKey({
-            coldStartScopeKey: scope,
-            coldStartCacheKey: typedCacheKey,
-          }),
-          nextValue,
-        );
+        coldStartValuesMap.set(scopedCacheKey, nextValue);
+        coldStartLog(`hydrate: ${scopedCacheKey}`);
+        if (
+          typedCacheKey ===
+          CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsL2BookColdCacheAtom
+        ) {
+          (globalThis as any).__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__ = nextValue;
+        }
       }
     }
     // Schedule snapshot cleanup after first screen renders (HomePageReady).

@@ -3,7 +3,6 @@ import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Divider,
   HeaderIconButton,
   Icon,
@@ -19,10 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { useCurrencySections } from '@onekeyhq/kit/src/hooks/useCurrencySections';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  DOWNLOAD_MOBILE_APP_URL,
-  DOWNLOAD_URL,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
@@ -40,18 +36,21 @@ import {
   useActiveAccount,
 } from '../../states/jotai/contexts/accountSelector';
 import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { PerpsActivityCenterAction } from '../../views/Perp/components/PerpsActivityCenterAction';
 import { useLanguageSelector } from '../../views/Setting/hooks';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { ListItem } from '../ListItem';
 
 import {
   HeaderNotificationIconButton,
-  LanguageButton,
-  ThemeButton,
-  WalletConnectionForWeb,
   WalletConnectionGroup,
   WebHeaderNavigation,
 } from './components';
+import {
+  WebAccountSelectorTrigger,
+  WebConnectButton,
+  WebSettingsTrigger,
+} from './components/WebAccountPanel';
 import { HeaderTitle } from './HeaderTitle';
 import { UniversalSearchInput } from './UniversalSearchInput';
 
@@ -265,52 +264,6 @@ function DownloadOneKeyWalletListItem() {
   );
 }
 
-function DownloadAppButton() {
-  const handlePress = useCallback(() => {
-    openUrlExternal(DOWNLOAD_MOBILE_APP_URL);
-  }, []);
-
-  return (
-    <Button
-      testID="tab-page-header-handle-press-btn"
-      size="small"
-      h="$8"
-      icon="DownloadOutline"
-      bg="#49DF58"
-      color="#000000"
-      iconColor="#000000"
-      hoverStyle={{ bg: '#3ECC4D' }}
-      pressStyle={{ bg: '#35B844' }}
-      onPress={handlePress}
-    >
-      APP
-    </Button>
-  );
-}
-
-function SearchButton() {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const handlePress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.UniversalSearchModal, {
-      screen: EUniversalSearchPages.UniversalSearch,
-    });
-  }, [navigation]);
-
-  return (
-    <XStack ai="center" px="$1.5" py="$1.5" borderRadius="$2" bg="$bgStrong">
-      <HeaderIconButton
-        size="small"
-        icon="SearchOutline"
-        title={intl.formatMessage({
-          id: ETranslations.global_search_everything,
-        })}
-        onPress={handlePress}
-      />
-    </XStack>
-  );
-}
-
 // function Web3GuideListItem() {
 //   const intl = useIntl();
 //   const handlePress = useCallback(() => {
@@ -444,14 +397,12 @@ function MoreDappAction({ size }: { size?: 'small' | 'medium' }) {
 
 function RightActions({
   tabRoute,
-  customHeaderRightItems,
-  customToolbarItems,
 }: {
   tabRoute: ETabRoutes;
   customHeaderRightItems?: ReactNode;
   customToolbarItems?: ReactNode;
 }) {
-  const { gtLg } = useMedia();
+  const intl = useIntl();
   const navigation = useAppNavigation();
   const {
     activeAccount: { wallet, account },
@@ -460,7 +411,11 @@ function RightActions({
   });
 
   const isWalletConnected = !!wallet && !!account;
-  const isPerpsTab = tabRoute === ETabRoutes.Perp;
+  // The remote perps config can serve /perps as the webview impl, which the tab
+  // router exposes as WebviewPerpTrade (hiding ETabRoutes.Perp). Match both so
+  // the relocated Activity Hub stays in the header in either configuration.
+  const isPerpsTab =
+    tabRoute === ETabRoutes.Perp || tabRoute === ETabRoutes.WebviewPerpTrade;
 
   const handleSearchPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
@@ -468,58 +423,33 @@ function RightActions({
     });
   }, [navigation]);
 
-  const intl = useIntl();
-
   return (
-    <XStack ai="center" gap="$2">
-      {gtLg ? (
-        <SearchButton />
-      ) : (
-        <HeaderIconButton
-          size="small"
-          icon="SearchOutline"
-          title={intl.formatMessage({
-            id: ETranslations.global_search_everything,
-          })}
-          onPress={handleSearchPress}
-        />
-      )}
-
-      {isPerpsTab && customHeaderRightItems ? (
-        customHeaderRightItems
+    <XStack ai="center" gap="$5">
+      <HeaderIconButton
+        size="medium"
+        icon="SearchOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_search_everything,
+        })}
+        onPress={handleSearchPress}
+        testID="header-right-search"
+      />
+      <HeaderNotificationIconButton
+        testID="header-right-notification"
+        size="medium"
+      />
+      {isPerpsTab && isWalletConnected ? (
+        <PerpsActivityCenterAction copyAsUrl size="medium" />
+      ) : null}
+      <KeylessWebConnectAlertContainer />
+      {isWalletConnected ? (
+        <WebAccountSelectorTrigger tabRoute={tabRoute} />
       ) : (
         <>
-          <XStack
-            ai="center"
-            px={isWalletConnected ? '$1.5' : undefined}
-            borderRadius="$2"
-            bg={isWalletConnected ? '$bgStrong' : undefined}
-          >
-            <WalletConnectionForWeb tabRoute={tabRoute} />
-          </XStack>
+          <WebSettingsTrigger />
+          <WebConnectButton />
         </>
       )}
-
-      {!isPerpsTab && gtLg ? <DownloadAppButton /> : null}
-      <KeylessWebConnectAlertContainer />
-
-      <XStack
-        ai="center"
-        gap="$2.5"
-        px="$1.5"
-        py="$1.5"
-        borderRadius="$2"
-        bg="$bgStrong"
-      >
-        {customToolbarItems}
-        <HeaderNotificationIconButton
-          testID="header-right-notification"
-          size="small"
-        />
-        <MoreDappAction size="small" />
-        <LanguageButton size="small" />
-        <ThemeButton size="small" />
-      </XStack>
     </XStack>
   );
 }

@@ -2,4 +2,56 @@
 // Suppress dependency deprecation warnings in the package bin wrapper.
 // The bundled CLI build separately rejects deprecated Buffer constructors.
 process.noDeprecation = true;
+
+const { platform, arch } = process;
+
+// macOS ships a signed, notarized standalone binary via an optional platform
+// subpackage. Routing through it keeps keychain access bound to the onekey-cli
+// process identity instead of the shared system `security` namespace.
+const STANDALONE_PLATFORMS = {
+  darwin: new Set(['arm64', 'x64']),
+};
+
+if (STANDALONE_PLATFORMS[platform] && STANDALONE_PLATFORMS[platform].has(arch)) {
+  const subpkg = `@onekeyfe/cli-darwin-${arch}`;
+  let binPath;
+  try {
+    const path = require('path');
+    const subPkgJsonPath = require.resolve(`${subpkg}/package.json`);
+    binPath = path.join(path.dirname(subPkgJsonPath), 'bin', 'onekey');
+  } catch (err) {
+    if (err && err.code === 'MODULE_NOT_FOUND') {
+      process.stderr.write(
+        `[onekey] platform package ${subpkg} is not installed.\n` +
+          `[onekey] npm may have skipped the optional dependency for ${platform}-${arch}.\n` +
+          `[onekey] Reinstall with: npm install -g @onekeyfe/cli --force\n` +
+          `[onekey] If the issue persists, file an issue at https://github.com/OneKeyHQ/app-monorepo/issues\n`,
+      );
+      process.exit(1);
+    }
+    throw err;
+  }
+
+  const { spawnSync } = require('child_process');
+  const result = spawnSync(binPath, process.argv.slice(2), {
+    stdio: 'inherit',
+    env: process.env,
+  });
+
+  if (result.error) {
+    process.stderr.write(
+      `[onekey] failed to launch ${binPath}: ${result.error.message}\n`,
+    );
+    process.exit(1);
+  }
+
+  process.exit(typeof result.status === 'number' ? result.status : 1);
+}
+
+// Non-macOS: fall back to the JS bundle. Keychain operations on this path
+// share the system `security` namespace; standalone packaging is tracked
+// separately for Linux/Windows.
+process.stderr.write(
+  `[onekey] running JS bundle on ${platform}-${arch}; signed standalone binary is currently macOS-only.\n`,
+);
 require('../dist/cli.js');

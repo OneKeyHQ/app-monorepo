@@ -72,7 +72,7 @@ export type ILineNumberedTextAreaProps = {
   };
   onActiveAccountChange?: (
     activeAccount: IAccountSelectorActiveAccountInfo,
-  ) => void;
+  ) => void | boolean | Promise<void | boolean>;
   networkId?: string;
   accountId?: string;
   onInputTypeChange?: (type: EInputAddressChangeType) => void;

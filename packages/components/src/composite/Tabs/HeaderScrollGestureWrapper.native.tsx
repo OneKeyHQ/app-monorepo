@@ -20,6 +20,7 @@ const REFRESH_THRESHOLD = 80;
 
 export function HeaderScrollGestureWrapper({
   children,
+  disabled = false,
   onRefresh,
   disableMomentum = false,
   panActiveOffsetY = [-10, 10],
@@ -96,6 +97,7 @@ export function HeaderScrollGestureWrapper({
     };
 
     let verticalPanGesture = Gesture.Pan()
+      .enabled(!disabled)
       .activeOffsetY(panActiveOffsetY)
       .failOffsetX(panFailOffsetX);
 
@@ -162,6 +164,7 @@ export function HeaderScrollGestureWrapper({
     }
 
     let horizontalPanGesture = Gesture.Pan()
+      .enabled(!disabled)
       .activeOffsetX([-10, 10])
       .failOffsetY([-10, 10]);
 
@@ -223,6 +226,7 @@ export function HeaderScrollGestureWrapper({
     simultaneousWithNativeGesture,
     cancelChildTouches,
     onGestureActiveChange,
+    disabled,
     containerWidth,
     measuredWidth,
     isGestureEnabled,

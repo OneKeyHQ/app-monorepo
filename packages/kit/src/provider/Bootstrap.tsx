@@ -83,6 +83,8 @@ import { useOnLock } from '../hooks/useOnLock';
 import { useRunAfterTokensDone } from '../hooks/useRunAfterTokensDone';
 import { useTrayDataProvider } from '../hooks/useTrayDataProvider';
 
+import { useExtensionMarketTokenDetailHashNavigation } from './useExtensionMarketTokenDetailHashNavigation';
+
 import type { IntlShape } from 'react-intl';
 
 const useOnLockCallback = platformEnv.isDesktop
@@ -848,6 +850,50 @@ export function Bootstrap() {
     };
   }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
 
+  // Dev-only: expose a global handle to control the native performance
+  // overlay from the JS console or an automation harness. On iOS the overlay
+  // is a full-screen passthrough UIWindow (react-native-perf-stats) that can
+  // swallow synthesized taps landing over its HUD box during UI automation,
+  // so `globalThis.$onekeyPerfMonitor.hide()` unblocks driving without having
+  // to toggle dev settings. Programmatic `move` is not exposed by the native
+  // module (the overlay is drag-only), so this only offers show/hide/toggle.
+  useEffect(() => {
+    if (!platformEnv.isDev) {
+      return undefined;
+    }
+    const globalRef = globalThis as typeof globalThis & {
+      $onekeyPerfMonitor?: {
+        show: () => void;
+        hide: () => void;
+        toggle: () => void;
+      };
+    };
+    let shown = Boolean(
+      devSettings.enabled && devSettings.settings?.showPerformanceMonitor,
+    );
+    globalRef.$onekeyPerfMonitor = {
+      show: () => {
+        shown = true;
+        performance.showOverlay();
+      },
+      hide: () => {
+        shown = false;
+        performance.hideOverlay();
+      },
+      toggle: () => {
+        shown = !shown;
+        if (shown) {
+          performance.showOverlay();
+        } else {
+          performance.hideOverlay();
+        }
+      },
+    };
+    return () => {
+      delete globalRef.$onekeyPerfMonitor;
+    };
+  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
   // Bridge native memory-warning notifications to the cross-process
   // appEventBus, so background services and JS-side caches can react.
   // Registered once for the lifetime of the React tree; the native
@@ -921,6 +967,7 @@ export function Bootstrap() {
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
+  useExtensionMarketTokenDetailHashNavigation();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();
   return (

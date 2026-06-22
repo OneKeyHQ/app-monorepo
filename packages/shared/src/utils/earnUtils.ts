@@ -43,6 +43,8 @@ const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
 const isPendleProvider = createProviderCheck(EEarnProviderEnum.Pendle);
 
+const isNativeProvider = createProviderCheck(EEarnProviderEnum.Native);
+
 const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
 
 const isStakefishProvider = createProviderCheck(EEarnProviderEnum.Stakefish);
@@ -59,6 +61,16 @@ const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
     isPendleProvider({ providerName }) ||
     isListaProvider({ providerName }) ||
     isMomentumProvider({ providerName })
+  );
+};
+
+const shouldSendEarnProtocolVault = ({
+  providerName,
+}: {
+  providerName: string;
+}) => {
+  return (
+    isVaultBasedProvider({ providerName }) || isNativeProvider({ providerName })
   );
 };
 
@@ -87,8 +99,8 @@ function resolveEarnApproveSpenderAddress({
   if (providerKey && providerApproveSpenderOverrides[providerKey]) {
     return providerApproveSpenderOverrides[providerKey];
   }
-  return isVaultBasedProvider({ providerName })
-    ? (protocolVault ?? '')
+  return shouldSendEarnProtocolVault({ providerName })
+    ? (protocolVault ?? backendApproveTarget ?? '')
     : (backendApproveTarget ?? '');
 }
 
@@ -210,6 +222,7 @@ export default {
   getEarnProviderEnumKey,
   isMorphoProvider,
   isPendleProvider,
+  isNativeProvider,
   isListaProvider,
   isLidoProvider,
   isBabylonProvider,
@@ -222,6 +235,7 @@ export default {
   getEarnPermitCacheKey,
   isUSDTonETHNetwork,
   isVaultBasedProvider,
+  shouldSendEarnProtocolVault,
   isValidatorProvider,
   resolveEarnApproveSpenderAddress,
   resolveEarnApproveType,

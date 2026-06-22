@@ -27,6 +27,8 @@ const clearPackage: IClearPackage = () => Promise.resolve();
 
 const manualInstallPackage: IManualInstallPackage = () => Promise.resolve();
 
+const clearApkCache = () => Promise.resolve();
+
 export const AppUpdate: IAppUpdate = {
   downloadPackage,
   verifyPackage,
@@ -35,6 +37,7 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+  clearApkCache,
 };
 
 export const BundleUpdate: IBundleUpdate = {
@@ -50,6 +53,7 @@ export const BundleUpdate: IBundleUpdate = {
   resetToBuiltInBundle: () => Promise.resolve(),
   restart: () => {},
   isSkipGpgVerificationAllowed: () => Promise.resolve(false),
+  pruneStaleAppVersionBundles: () => Promise.resolve(0),
   clearAllJSBundleData: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),

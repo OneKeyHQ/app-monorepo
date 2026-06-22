@@ -77,9 +77,11 @@ import type {
   IEarnManagePageResponse,
   IEarnPermit2ApproveSignData,
   IEarnRegisterSignMessageResponse,
+  IEarnStakeType,
   IEarnSummary,
   IEarnSummaryV2,
   IEarnUnbondingDelegationList,
+  IEarnWithdrawType,
   IGetPortfolioParams,
   IRecommendAsset,
   IRepayWithCollateralQuote,
@@ -406,7 +408,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
 
@@ -443,7 +445,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isVaultBased) {
+    if (shouldSendProtocolVault) {
       paramsToSend.vault = protocolVault;
     }
 
@@ -479,7 +481,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: params.provider,
     });
     const resp = await client.post<{
@@ -491,7 +493,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: isVaultBased ? protocolVault : undefined,
+      vault: shouldSendProtocolVault ? protocolVault : undefined,
       effectiveApy,
       ...rest,
     });
@@ -566,7 +568,9 @@ class ServiceStaking extends ServiceBase {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (
-      earnUtils.isVaultBasedProvider({ providerName: params.provider }) &&
+      earnUtils.shouldSendEarnProtocolVault({
+        providerName: params.provider,
+      }) &&
       vaultAddress
     ) {
       sendParams.vault = vaultAddress;
@@ -652,9 +656,9 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const isVaultBased =
+    const shouldSendProtocolVault =
       params.provider &&
-      earnUtils.isVaultBasedProvider({
+      earnUtils.shouldSendEarnProtocolVault({
         providerName: params.provider,
       });
     const data: Record<string, string | undefined> & { type?: string } = {
@@ -663,7 +667,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (isVaultBased) {
+    if (shouldSendProtocolVault) {
       data.vault = protocolVault;
     }
     if (type) {
@@ -897,6 +901,7 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
+    withdrawType?: IEarnWithdrawType;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const amountNumber = BigNumber(params.amount);
@@ -1290,33 +1295,8 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async fetchAllNetworkAssetsV2({
-    accountId,
-    networkId,
-    indexedAccountId,
-    scopeNetworkIds,
-  }: {
-    accountId: string;
-    networkId: string;
-    indexedAccountId?: string;
-    scopeNetworkIds?: string[];
-  }) {
-    if (!accountId) {
-      return this._getAccountAssetV2([]);
-    }
-
-    const accounts = await this.getEarnAvailableAccountsParams({
-      accountId,
-      networkId,
-      indexedAccountId,
-    });
-    const scopeNetworkIdSet = scopeNetworkIds?.length
-      ? new Set(scopeNetworkIds)
-      : undefined;
-    const scopedAccounts = scopeNetworkIdSet
-      ? accounts.filter((account) => scopeNetworkIdSet.has(account.networkId))
-      : accounts;
-    return this._getAccountAssetV2(scopedAccounts);
+  async fetchAllNetworkAssetsV2() {
+    return this._getAccountAssetV2([]);
   }
 
   @backgroundMethod()
@@ -1464,11 +1444,6 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearRecommendedAssetsCache() {
-    void this._getAccountAssetV2.clear();
-  }
-
-  @backgroundMethod()
   async getAvailableAssetsV2() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<
@@ -1487,10 +1462,11 @@ class ServiceStaking extends ServiceBase {
     code?: string | number;
     message?: string;
     requestId?: string;
+    disableAutoToast?: boolean;
   }) {
     if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
       throw new OneKeyServerApiError({
-        autoToast: true,
+        autoToast: !data.disableAutoToast,
         disableFallbackMessage: true,
         code: Number(data.code),
         message: data.message,
@@ -1513,6 +1489,8 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress,
     outputTokenAddress,
     slippage,
+    stakeType,
+    withdrawType,
   }: {
     accountId?: string;
     networkId?: string;
@@ -1526,13 +1504,15 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     slippage?: number;
+    stakeType?: IEarnStakeType;
+    withdrawType?: IEarnWithdrawType;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new OneKeyLocalError(
         'networkId or accountId or provider not found',
       );
     }
-    const isVaultBased = earnUtils.isVaultBasedProvider({
+    const shouldSendProtocolVault = earnUtils.shouldSendEarnProtocolVault({
       providerName: provider,
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -1550,12 +1530,14 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: isVaultBased ? protocolVault : '',
+        vault: shouldSendProtocolVault ? protocolVault : '',
         withdrawAll,
         identity,
         inputTokenAddress,
         outputTokenAddress,
         slippage,
+        stakeType,
+        withdrawType,
       },
     });
     return result.data;
@@ -1761,6 +1743,66 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data.delegations;
   }
 
+  // Memoized for a short window so concurrent Earn account callers collapse
+  // into a single backend roundtrip instead of each firing their own
+  // serviceAllNetwork.getAllNetworkAccounts() call on every tab switch.
+  // CDP profile showed 3-4 redundant calls per Wallet/Earn focus producing
+  // ~700ms of cumulative CPU work in ServiceAllNetwork.
+  private _getEarnAvailableAccounts = memoizee(
+    async (params: {
+      accountId: string;
+      networkId: string;
+      indexedAccountId?: string;
+      excludeTestNetwork?: boolean;
+    }) => {
+      const { accountId, networkId } = params;
+      const { accountsInfo } =
+        await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
+          accountId,
+          networkId,
+          indexedAccountId: params.indexedAccountId,
+          fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
+            ? undefined
+            : true,
+          excludeTestNetwork: params.excludeTestNetwork,
+        });
+
+      // Check if the wallet is using BTC-only firmware
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      let isBtcOnlyFirmware = false;
+      if (walletId && accountUtils.isHwWallet({ walletId })) {
+        isBtcOnlyFirmware =
+          await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
+            walletId,
+          });
+      }
+
+      return accountsInfo.filter((account) => {
+        // Filter out non-Taproot BTC addresses
+        if (
+          networkUtils.isBTCNetwork(account.networkId) &&
+          !isTaprootAddress(account.apiAddress)
+        ) {
+          return false;
+        }
+
+        // For BTC-only firmware, only allow BTC network accounts
+        if (
+          isBtcOnlyFirmware &&
+          !networkUtils.isBTCNetwork(account.networkId)
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+    },
+  );
+
   @backgroundMethod()
   async getEarnAvailableAccounts(params: {
     accountId: string;
@@ -1768,44 +1810,7 @@ class ServiceStaking extends ServiceBase {
     indexedAccountId?: string;
     excludeTestNetwork?: boolean;
   }) {
-    const { accountId, networkId } = params;
-    const { accountsInfo } =
-      await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
-        accountId,
-        networkId,
-        indexedAccountId: params.indexedAccountId,
-        fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
-          ? undefined
-          : true,
-        excludeTestNetwork: params.excludeTestNetwork,
-      });
-
-    // Check if the wallet is using BTC-only firmware
-    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-    let isBtcOnlyFirmware = false;
-    if (walletId && accountUtils.isHwWallet({ walletId })) {
-      isBtcOnlyFirmware =
-        await this.backgroundApi.serviceAccount.isBtcOnlyFirmwareByWalletId({
-          walletId,
-        });
-    }
-
-    return accountsInfo.filter((account) => {
-      // Filter out non-Taproot BTC addresses
-      if (
-        networkUtils.isBTCNetwork(account.networkId) &&
-        !isTaprootAddress(account.apiAddress)
-      ) {
-        return false;
-      }
-
-      // For BTC-only firmware, only allow BTC network accounts
-      if (isBtcOnlyFirmware && !networkUtils.isBTCNetwork(account.networkId)) {
-        return false;
-      }
-
-      return true;
-    });
+    return this._getEarnAvailableAccounts(params);
   }
 
   _getFAQListForHome = memoizee(
@@ -1884,14 +1889,18 @@ class ServiceStaking extends ServiceBase {
     inputTokenAddress?: string;
     outputTokenAddress?: string;
     message?: string;
+    stakeType?: IEarnStakeType;
+    withdrawType?: IEarnWithdrawType;
   }) {
     const { symbol, protocolVault, withdrawAll, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const sendParams: Record<string, string | boolean | undefined> = {
+    const sendParams: Record<string, string | number | boolean | undefined> = {
       symbol,
       ...rest,
     };
-    if (earnUtils.isVaultBasedProvider({ providerName: params.provider })) {
+    if (
+      earnUtils.shouldSendEarnProtocolVault({ providerName: params.provider })
+    ) {
       sendParams.vault = protocolVault;
     }
     if (withdrawAll !== undefined) {
@@ -1967,7 +1976,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
-    defaultLogger.staking.order.addOrder(order);
+    defaultLogger.staking.order.addOrder({
+      status: order.status,
+      stakingLabel: order.stakingLabel,
+      stakingProtocol: order.stakingProtocol,
+      stakingTags: order.stakingTags,
+    });
     await simpleDb.earnOrders.addOrder(order);
     try {
       await this.updateEarnOrderStatusToServer({
@@ -1976,7 +1990,6 @@ class ServiceStaking extends ServiceBase {
     } catch (_e) {
       // ignore error, continue
       defaultLogger.staking.order.updateOrderStatusError({
-        txId: order.txId,
         status: order.status,
       });
     }
@@ -2007,14 +2020,15 @@ class ServiceStaking extends ServiceBase {
             status: tx.status,
           });
           defaultLogger.staking.order.updateOrderStatus({
-            txId: tx.txId,
             status: tx.status,
+            stakingLabel: order.stakingLabel,
+            stakingProtocol: order.stakingProtocol,
+            stakingTags: order.stakingTags,
           });
         }
       } catch (_e) {
         // ignore error, continue loop
         defaultLogger.staking.order.updateOrderStatusError({
-          txId: tx.txId,
           status: tx.status,
         });
       }
@@ -2051,10 +2065,19 @@ class ServiceStaking extends ServiceBase {
     newTxId?: string;
     status: EDecodedTxStatus;
   }) {
-    defaultLogger.staking.order.updateOrderStatusByTxId(params);
-    await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
-      params,
-    );
+    const result =
+      await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
+        params,
+      );
+    if (!result.success || !result.order) {
+      return;
+    }
+    defaultLogger.staking.order.updateOrderStatusByTxId({
+      status: params.status,
+      stakingLabel: result.order.stakingLabel,
+      stakingProtocol: result.order.stakingProtocol,
+      stakingTags: result.order.stakingTags,
+    });
   }
 
   @backgroundMethod()
@@ -2062,6 +2085,33 @@ class ServiceStaking extends ServiceBase {
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     return vaultSettings.stakingResultPollingInterval ?? 30;
+  }
+
+  // Batched variant: callers iterating `effectiveNetworkIds` (see
+  // useStakingPendingTxsByInfo) MUST prefer this over N parallel
+  // `getFetchHistoryPollingInterval` calls. Single-item method retained for
+  // legacy callers; the cascade hot path collapses N RPCs into 1.
+  @backgroundMethod()
+  async getFetchHistoryPollingIntervalsBatch({
+    networkIds,
+  }: {
+    networkIds: string[];
+  }): Promise<Record<string, number>> {
+    const result: Record<string, number> = {};
+    await Promise.all(
+      networkIds.map(async (networkId) => {
+        try {
+          const vaultSettings =
+            await this.backgroundApi.serviceNetwork.getVaultSettings({
+              networkId,
+            });
+          result[networkId] = vaultSettings.stakingResultPollingInterval ?? 30;
+        } catch {
+          result[networkId] = 30;
+        }
+      }),
+    );
+    return result;
   }
 
   @backgroundMethod()

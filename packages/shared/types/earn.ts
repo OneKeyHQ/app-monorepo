@@ -15,6 +15,7 @@ export enum EEarnProviderEnum {
   Stakefish = 'Stakefish',
   Kamino = 'Kamino',
   Aave = 'Aave',
+  Native = 'Native',
 }
 
 export type ISupportedSymbol =

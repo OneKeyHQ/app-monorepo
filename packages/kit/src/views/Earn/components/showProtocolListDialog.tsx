@@ -60,7 +60,7 @@ function getProtocolKey({ networkId, provider, vault }: ISelectedProtocol) {
 }
 
 function getProtocolVault(item: IStakeProtocolListItem) {
-  return earnUtils.isVaultBasedProvider({
+  return earnUtils.shouldSendEarnProtocolVault({
     providerName: item.provider.name,
   })
     ? item.provider.vault
@@ -233,7 +233,7 @@ export function ProtocolListContent({
     () =>
       media.gtMd
         ? { p: '$1' as const, pb: '$2' as const }
-        : { px: '$3' as const, pb: '$5' as const },
+        : { px: '$3' as const, pb: '$8' as const },
     [media.gtMd],
   );
 
@@ -726,7 +726,7 @@ export function showProtocolListDialog({
                 earnAccount?.account.indexedAccountId || indexedAccountId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.isVaultBasedProvider({
+              vault: earnUtils.shouldSendEarnProtocolVault({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault

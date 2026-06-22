@@ -10,6 +10,8 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
+  clearThirdPartyHardwareUiStateIfCurrent,
+  createTrezorBleBindingDialogCallbacks,
 } from './utils';
 
 describe('ThirdPartyHardwareUiStateContainer utils', () => {
@@ -35,6 +37,68 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
       type: UI_RESPONSE.RECEIVE_BTC_HIGH_INDEX_CONFIRM,
       payload: { confirmed: false },
     });
+  });
+
+  it('builds a Trezor passphrase response without exposing it to logs', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+        true,
+        {
+          passphrase: 'hidden-passphrase',
+          passphraseOnDevice: false,
+          save: true,
+        },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: 'hidden-passphrase',
+        passphraseOnDevice: false,
+        save: true,
+      },
+    });
+  });
+
+  it('builds a Trezor on-device passphrase response', () => {
+    expect(
+      buildThirdPartyHardwareUiResponse(
+        EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+        true,
+        {
+          passphraseOnDevice: true,
+          save: true,
+        },
+      ),
+    ).toEqual({
+      type: UI_RESPONSE.RECEIVE_PASSPHRASE,
+      payload: {
+        value: '',
+        passphraseOnDevice: true,
+        save: true,
+      },
+    });
+  });
+
+  it('does not clear a newer Trezor UI request when an older request finishes', async () => {
+    const passphraseState: IThirdPartyHardwareUiState = {
+      action: EThirdPartyHardwareUiAction.requestTrezorPassphrase,
+      vendor: EHardwareVendor.trezor,
+      payload: { connectId: 'trezor-connect-id' },
+    };
+    const confirmOnDeviceState: IThirdPartyHardwareUiState = {
+      action: EThirdPartyHardwareUiAction.confirmOnDevice,
+      vendor: EHardwareVendor.trezor,
+    };
+    const setState = jest.fn(async () => undefined);
+
+    await clearThirdPartyHardwareUiStateIfCurrent({
+      expectedState: passphraseState,
+      getState: () => confirmOnDeviceState,
+      setState,
+    });
+
+    expect(setState).not.toHaveBeenCalled();
   });
 
   it('sends the declined UI response and clears state when a request dialog is cancelled', async () => {
@@ -86,5 +150,56 @@ describe('ThirdPartyHardwareUiStateContainer utils', () => {
 
     expect(cancel).not.toHaveBeenCalled();
     expect(clearState).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves a Trezor BLE binding once and clears UI state', async () => {
+    const resolveCallback = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const dialogInstanceRef = { current: {} };
+    const settledRef = { current: false };
+
+    const callbacks = createTrezorBleBindingDialogCallbacks({
+      promiseId: 123,
+      dialogInstanceRef,
+      settledRef,
+      resolveCallback,
+      clearState,
+    });
+
+    callbacks.onBound('BLE_CONNECT_ID');
+    await callbacks.onClose();
+
+    expect(resolveCallback).toHaveBeenCalledTimes(1);
+    expect(resolveCallback).toHaveBeenCalledWith({
+      id: 123,
+      data: 'BLE_CONNECT_ID',
+    });
+    expect(clearState).toHaveBeenCalledTimes(2);
+    expect(dialogInstanceRef.current).toBeNull();
+  });
+
+  it('resolves null when the Trezor BLE binding dialog is closed before binding', async () => {
+    const resolveCallback = jest.fn(async () => undefined);
+    const clearState = jest.fn(async () => undefined);
+    const dialogInstanceRef = { current: {} };
+    const settledRef = { current: false };
+
+    const callbacks = createTrezorBleBindingDialogCallbacks({
+      promiseId: 123,
+      dialogInstanceRef,
+      settledRef,
+      resolveCallback,
+      clearState,
+    });
+
+    await callbacks.onClose();
+
+    expect(resolveCallback).toHaveBeenCalledTimes(1);
+    expect(resolveCallback).toHaveBeenCalledWith({
+      id: 123,
+      data: null,
+    });
+    expect(clearState).toHaveBeenCalledTimes(1);
+    expect(dialogInstanceRef.current).toBeNull();
   });
 });

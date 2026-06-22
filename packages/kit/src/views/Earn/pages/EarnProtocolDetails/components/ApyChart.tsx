@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
-  Divider,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -453,7 +452,6 @@ const ApyChartComponent = ({
             showPriceScale
             showHorzGridLines
           />
-          <Divider mt="$8" />
         </YStack>
       ) : null}
     </YStack>

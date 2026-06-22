@@ -15,9 +15,9 @@ export function ScrollView({
 }) {
   const { width, registerChild } = useTabsScrollContext();
   const ref = useRef<Element>(null);
-  const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
+  const { scrollTabElementsRef, focusedTab, requestRemeasure } =
+    useTabsContext();
   const currentTabName = useTabNameContext();
-  const { focusedTab } = useTabsContext();
 
   const focusedTabValue = useConvertAnimatedToValue(focusedTab, '');
 
@@ -29,11 +29,21 @@ export function ScrollView({
       ) {
         scrollTabElementsRef.current[currentTabName] = {} as any;
       }
-      scrollTabElementsRef.current[currentTabName].element =
-        ref.current as HTMLElement;
-      registerChild(ref.current);
+      const next = ref.current as HTMLElement;
+      const prev = scrollTabElementsRef.current[currentTabName].element;
+      scrollTabElementsRef.current[currentTabName].element = next;
+      registerChild(next);
+      if (next && next !== prev) {
+        requestRemeasure?.();
+      }
     }
-  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
+  }, [
+    focusedTabValue,
+    currentTabName,
+    registerChild,
+    scrollTabElementsRef,
+    requestRemeasure,
+  ]);
 
   return (
     <YStack flex={1} style={style} ref={ref as any} width={width}>

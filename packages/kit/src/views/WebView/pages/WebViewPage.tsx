@@ -298,10 +298,11 @@ function WebViewPageContent() {
   //
   // Iframe loads (`event.isTopFrame === false`) are intentionally passed
   // through. Known trade-off: a malicious top-frame could embed iframes
-  // pointing at internal addresses for liveness probing. Mitigations already
-  // in place:
-  //   - Overlay runs with `disableBridge` + `useInjectedNativeCode={false}`,
-  //     so no OneKey provider / wallet bridge is reachable from iframes.
+  // pointing at internal addresses for liveness probing. Mitigations still
+  // in place after the bridge was re-enabled on this overlay:
+  //   - Cross-origin iframes get their own window and cannot read the
+  //     top-frame's `$onekey` provider; only same-origin iframes inherit it,
+  //     which is the standard browser boundary.
   //   - Desktop uses a dedicated `partition` whose session denies all
   //     permission requests, so iframes cannot use camera/mic/geo/notifications.
   //   - Cross-origin XHR/fetch from iframes is subject to standard CORS,
@@ -398,10 +399,8 @@ function WebViewPageContent() {
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onOpenWindow={onOpenWindow}
           allowpopups
-          disableBridge
           mediaPermissionWhitelist={OVERLAY_NO_MEDIA_WHITELIST}
           partition={DESKTOP_WEBVIEW_OVERLAY_PARTITION}
-          useInjectedNativeCode={false}
         />
       </Page.Body>
     </Page>

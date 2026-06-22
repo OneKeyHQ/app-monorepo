@@ -27,7 +27,6 @@ import {
   ForceExtensionUpdatingFromExpandTab,
 } from '../components/FirmwareUpdateExitPrevent';
 import {
-  FirmwareUpdatePageHeader,
   FirmwareUpdatePageHeaderTitle,
   FirmwareUpdatePageLayout,
 } from '../components/FirmwareUpdatePageLayout';
@@ -100,6 +99,10 @@ function PageFirmwareUpdateChangeLog() {
     },
   );
 
+  const shouldShowChangeLog =
+    stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
+    stepInfo.step === EFirmwareUpdateSteps.showCheckList;
+
   const content = useMemo(() => {
     // keep change log modal content when install modal back
     if (confirmUpdateResult.current) {
@@ -129,10 +132,7 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    if (
-      stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
-      stepInfo.step === EFirmwareUpdateSteps.showCheckList
-    ) {
+    if (shouldShowChangeLog) {
       return (
         <FirmwareChangeLogView
           result={result}
@@ -143,7 +143,15 @@ function PageFirmwareUpdateChangeLog() {
       );
     }
     return <FirmwareLatestVersionInstalled />;
-  }, [connectId, isLoading, result, run, stepInfo.payload, stepInfo.step]);
+  }, [
+    connectId,
+    isLoading,
+    result,
+    run,
+    shouldShowChangeLog,
+    stepInfo.payload,
+    stepInfo.step,
+  ]);
 
   return (
     <Page
@@ -155,14 +163,9 @@ function PageFirmwareUpdateChangeLog() {
     >
       <FirmwareUpdatePageLayout
         headerTitle={
-          <FirmwareUpdatePageHeader
-            headerTitle={
-              stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
-              stepInfo.step === EFirmwareUpdateSteps.showCheckList ? (
-                <FirmwareUpdatePageHeaderTitle result={result} />
-              ) : undefined
-            }
-          />
+          shouldShowChangeLog ? (
+            <FirmwareUpdatePageHeaderTitle result={result} />
+          ) : undefined
         }
         containerStyle={{
           p:

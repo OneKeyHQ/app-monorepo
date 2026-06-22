@@ -28,6 +28,35 @@ export type ISwapLatestBalanceCheckResult =
       tokenSymbol: string;
     };
 
+function toFiniteNonNegativeBigNumber(value?: string) {
+  const valueBN = new BigNumber(value ?? '');
+  if (valueBN.isNaN() || !valueBN.isFinite() || valueBN.lt(0)) {
+    return undefined;
+  }
+  return valueBN;
+}
+
+export function getSwapSafeInputBalanceAmount({
+  balance,
+  fallbackBalance,
+  fallbackBalanceMatchesAccount = true,
+}: {
+  balance?: string;
+  fallbackBalance?: string;
+  fallbackBalanceMatchesAccount?: boolean;
+}) {
+  const balanceBN = toFiniteNonNegativeBigNumber(balance);
+  if (balanceBN) {
+    return balanceBN;
+  }
+
+  if (!fallbackBalanceMatchesAccount) {
+    return undefined;
+  }
+
+  return toFiniteNonNegativeBigNumber(fallbackBalance);
+}
+
 async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
   if (!token.isNative || token.contractAddress) {
     return token.contractAddress ?? '';

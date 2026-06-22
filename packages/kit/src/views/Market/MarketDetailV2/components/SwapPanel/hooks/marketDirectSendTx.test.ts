@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { ESwapNetworkFeeLevel } from '@onekeyhq/shared/types/swap/types';
 
 const mockPrepareSendConfirmUnsignedTx = jest.fn();
+const mockBuildUnsignedTx = jest.fn();
 const mockGetVaultSettings = jest.fn();
 const mockBuildEstimateFeeParams = jest.fn();
 const mockBatchEstimateFee = jest.fn();
@@ -19,6 +20,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceSend: {
+      buildUnsignedTx: mockBuildUnsignedTx,
       prepareSendConfirmUnsignedTx: mockPrepareSendConfirmUnsignedTx,
       updateUnsignedTx: mockUpdateUnsignedTx,
       precheckUnsignedTxs: mockPrecheckUnsignedTxs,
@@ -47,6 +49,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 
 const {
+  buildMarketPresetFeeEstimateFakeTransferInfo,
+  estimateMarketPresetGasFeeFiatValues,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
   sendMarketDirectUnsignedTxs,
@@ -90,9 +94,21 @@ function createEstimateFeeResult() {
   };
 }
 
+function createMarketPresetToken(overrides = {}) {
+  return {
+    contractAddress: '',
+    decimals: 18,
+    isNative: true,
+    networkId: 'evm--1',
+    symbol: 'ETH',
+    ...overrides,
+  };
+}
+
 describe('marketDirectSendTx', () => {
   beforeEach(() => {
     mockPrepareSendConfirmUnsignedTx.mockReset();
+    mockBuildUnsignedTx.mockReset();
     mockGetVaultSettings.mockReset();
     mockBuildEstimateFeeParams.mockReset();
     mockBatchEstimateFee.mockReset();
@@ -107,6 +123,7 @@ describe('marketDirectSendTx', () => {
     mockAfterSendTxAction.mockReset();
 
     mockGetVaultSettings.mockResolvedValue({});
+    mockBuildUnsignedTx.mockResolvedValue(createUnsignedTx());
     mockBuildEstimateFeeParams.mockImplementation(async ({ encodedTx }) => ({
       encodedTx,
     }));
@@ -129,6 +146,111 @@ describe('marketDirectSendTx', () => {
     mockSaveSendConfirmHistoryTxs.mockResolvedValue(undefined);
     mockPreActionsBeforeSending.mockResolvedValue(undefined);
     mockAfterSendTxAction.mockResolvedValue(undefined);
+  });
+
+  it('builds market preset fake transfer info as an isolated self-transfer', () => {
+    const transferInfo = buildMarketPresetFeeEstimateFakeTransferInfo({
+      accountAddress: '0xuser',
+      amount: '',
+      token: createMarketPresetToken(),
+    });
+
+    expect(transferInfo).toEqual({
+      amount: '0',
+      from: '0xuser',
+      to: '0xuser',
+      tokenInfo: {
+        address: '',
+        decimals: 18,
+        isNative: true,
+        logoURI: undefined,
+        name: 'ETH',
+        networkId: 'evm--1',
+        symbol: 'ETH',
+      },
+    });
+
+    expect(
+      buildMarketPresetFeeEstimateFakeTransferInfo({
+        accountAddress: '0xuser',
+        token: createMarketPresetToken({
+          contractAddress: '',
+          isNative: false,
+          symbol: 'USDT',
+        }),
+      }),
+    ).toBeUndefined();
+  });
+
+  it('estimates market preset fees from the isolated fake unsigned tx', async () => {
+    const fakeEncodedTx = { data: '0xfake-preset' };
+    const transferInfo = buildMarketPresetFeeEstimateFakeTransferInfo({
+      accountAddress: '0xuser',
+      token: createMarketPresetToken(),
+    });
+    mockBuildUnsignedTx.mockResolvedValue(
+      createUnsignedTx({
+        encodedTx: fakeEncodedTx as IUnsignedTxPro['encodedTx'],
+        transfersInfo: transferInfo ? [transferInfo] : undefined,
+        txSize: 123,
+      }),
+    );
+
+    const result = await estimateMarketPresetGasFeeFiatValues({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      amount: '',
+      items: [{ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM }],
+      networkId: 'evm--1',
+      token: createMarketPresetToken(),
+    });
+
+    expect(mockBuildUnsignedTx).toHaveBeenCalledWith({
+      accountId: 'account-1',
+      networkId: 'evm--1',
+      transfersInfo: [
+        expect.objectContaining({
+          amount: '0',
+          from: '0xuser',
+          to: '0xuser',
+        }),
+      ],
+    });
+    expect(mockBuildEstimateFeeParams).toHaveBeenCalledWith({
+      accountId: 'account-1',
+      encodedTx: fakeEncodedTx,
+      networkId: 'evm--1',
+    });
+    expect(mockEstimateFee).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        encodedTx: fakeEncodedTx,
+        networkId: 'evm--1',
+        scenario: 'swap',
+        transfersInfo: transferInfo ? [transferInfo] : undefined,
+      }),
+    );
+    expect(result[0]).toBeDefined();
+  });
+
+  it('falls back to fee-rate preset estimation when fake tx cannot be built', async () => {
+    mockBuildUnsignedTx.mockRejectedValueOnce(new Error('fake tx failed'));
+
+    const result = await estimateMarketPresetGasFeeFiatValues({
+      accountAddress: '0xuser',
+      accountId: 'account-1',
+      items: [{ networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM }],
+      networkId: 'evm--1',
+      token: createMarketPresetToken(),
+    });
+
+    expect(mockBuildEstimateFeeParams).toHaveBeenCalledWith({
+      accountId: 'account-1',
+      encodedTx: undefined,
+      networkId: 'evm--1',
+    });
+    expect(result[0]).toBeDefined();
   });
 
   it('sends a single unsigned tx through the direct sign-and-send path', async () => {

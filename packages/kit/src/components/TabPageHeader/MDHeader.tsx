@@ -15,6 +15,7 @@ import { HomeTokenListProviderMirror } from '../../views/Home/components/HomeTok
 import { MoreActionButton } from '../MoreActionButton';
 
 import { HeaderNotificationIconButton } from './components/HeaderNotificationIconButton';
+import { HeaderUpdateButton } from './components/HeaderUpdateButton';
 import { HeaderLeft } from './HeaderLeft';
 import { HeaderMDSearch } from './HeaderMDSearch';
 import { HeaderRight, SelectorTrigger } from './HeaderRight';
@@ -150,6 +151,7 @@ export function MDHeader({
                     }}
                   />
                 </XStack>
+                <HeaderUpdateButton />
                 <HeaderNotificationIconButton testID="header-right-notification" />
                 <MoreActionButton />
               </XStack>

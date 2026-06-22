@@ -330,7 +330,10 @@ function createJotaiStorage() {
   if (platformEnv.isNative) {
     return new JotaiStorageNativeMMKV();
   }
-  // web/desktop keep IndexedDB
+  // web/desktop keep IndexedDB. L1 cold-start mirror was removed: sensitive
+  // PersistAtom fields (sensitiveEncodeKey, encryptedSecurityPasswordR1) must
+  // not be duplicated into a second IDB. L2 contextAtom snapshot + L3 SWR
+  // cache still provide the meaningful first-paint TTI win.
   return new JotaiStorage();
 }
 

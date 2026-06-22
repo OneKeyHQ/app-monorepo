@@ -10,8 +10,12 @@ interface IStakeProgressProps {
   /** Current step in the staking process (1, 2, or 3) */
   currentStep: number;
   approveType?: EApproveType;
+  /** Override the step 1 label with already formatted text */
+  step1Label?: string;
   /** Override the step 1 label */
   step1LabelId?: ETranslations;
+  /** Override the step 2 label with already formatted text */
+  step2Label?: string;
   /** Override the step 2 label (e.g. "Swap" for Pendle) */
   step2LabelId?: ETranslations;
   /** Optional step 3 label — when provided, renders a 3-step indicator */
@@ -27,7 +31,9 @@ export enum EStakeProgressStep {
 export function StakeProgress({
   currentStep,
   approveType,
+  step1Label,
   step1LabelId,
+  step2Label,
   step2LabelId,
   step3LabelId,
 }: IStakeProgressProps) {
@@ -40,21 +46,32 @@ export function StakeProgress({
     if (isStep1Done) return undefined;
     return '$textDisabled' as const;
   }, [isStep2Done, isStep1Done]);
-  const resolvedStep1LabelId = useMemo(() => {
-    if (step1LabelId) {
-      return step1LabelId;
+  const resolvedStep1Label = useMemo(() => {
+    if (step1Label) {
+      return step1Label;
     }
 
-    if (!approveType) {
-      return undefined;
+    let labelId = step1LabelId;
+    if (!labelId && approveType) {
+      labelId =
+        approveType === EApproveType.Permit
+          ? ETranslations.earn_approve_permit
+          : ETranslations.global_approve;
     }
 
-    return approveType === EApproveType.Permit
-      ? ETranslations.earn_approve_permit
-      : ETranslations.global_approve;
-  }, [approveType, step1LabelId]);
+    return labelId ? intl.formatMessage({ id: labelId }) : undefined;
+  }, [approveType, intl, step1Label, step1LabelId]);
 
-  if (!resolvedStep1LabelId) {
+  const resolvedStep2Label = useMemo(
+    () =>
+      step2Label ||
+      intl.formatMessage({
+        id: step2LabelId ?? ETranslations.earn_deposit,
+      }),
+    [intl, step2Label, step2LabelId],
+  );
+
+  if (!resolvedStep1Label) {
     return null;
   }
   return (
@@ -64,10 +81,7 @@ export function StakeProgress({
           size="$bodyMdMedium"
           color={isStep1Done ? '$textSuccess' : undefined}
         >
-          1.{' '}
-          {intl.formatMessage({
-            id: resolvedStep1LabelId,
-          })}
+          1. {resolvedStep1Label}
         </SizableText>
         {isStep1Done ? (
           <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
@@ -80,10 +94,7 @@ export function StakeProgress({
       />
       <XStack ai="center" gap="$1.5">
         <SizableText size="$bodyMdMedium" color={step2Color}>
-          2.{' '}
-          {intl.formatMessage({
-            id: step2LabelId ?? ETranslations.earn_deposit,
-          })}
+          2. {resolvedStep2Label}
         </SizableText>
         {isStep2Done ? (
           <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />

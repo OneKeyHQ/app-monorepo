@@ -44,6 +44,7 @@ export interface IEthereumValue extends IChainValue {
   n?: number;
   // byte code data for transaction
   code?: string;
+  functionName?: string;
   uint256?: string;
   value?: string;
 }

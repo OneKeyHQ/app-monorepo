@@ -148,7 +148,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       const privateKeyBase64 = (
-        await decryptAsync({ password, data: privateKeyRaw })
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        })
       ).toString('base64');
       return Buffer.from(
         JSON.stringify({

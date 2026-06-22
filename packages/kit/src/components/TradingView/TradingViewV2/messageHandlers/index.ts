@@ -9,6 +9,7 @@ export {
   DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   fetchAndSendAccountMarks,
   handleKLineDataRequest,
+  normalizeTradingViewKLineInterval,
 } from './klineDataHandler';
 export { handleLayoutUpdate } from './layoutUpdateHandler';
 export { useTradingViewMessageHandler } from './useTradingViewMessageHandler';

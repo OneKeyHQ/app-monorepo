@@ -26,11 +26,18 @@ const SettingClearAppCacheModal = LazyLoadPage(
 const SettingProtectionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
 );
+const SettingReceiveRiskSupportedAssetsModal = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Protection/ReceiveRiskSupportedAssets'),
+);
 const SettingSpendUTXOModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SpendUTXO'),
 );
 const SettingCustomRPCModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomRPC'),
+);
+const SettingChainListSearch = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/ChainSelector/pages/ChainListSearch'),
 );
 const SettingCustomNetworkModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomNetwork'),
@@ -56,6 +63,11 @@ const V4MigrationDevSettings = LazyLoadPage(
 const PageDevUnitTests = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
+);
+
+const DevSesHardenRuntimeCheck = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
 );
 
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
@@ -164,6 +176,10 @@ const DevSplitBundleTest = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/DevSplitBundleTest'),
 );
 
+const DevDrawingOrderStress = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/DevDrawingOrderStress'),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -185,6 +201,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: SettingCustomRPCModal,
   },
   {
+    name: EModalSettingRoutes.SettingChainListSearch,
+    component: SettingChainListSearch,
+  },
+  {
     name: EModalSettingRoutes.SettingCustomNetwork,
     component: SettingCustomNetworkModal,
   },
@@ -196,6 +216,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
     rewrite: '/protection',
+  },
+  {
+    name: EModalSettingRoutes.SettingReceiveRiskSupportedAssets,
+    component: SettingReceiveRiskSupportedAssetsModal,
   },
   {
     name: EModalSettingRoutes.SettingClearAppCache,
@@ -220,6 +244,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevUnitTestsModal,
     component: PageDevUnitTests,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+    component: DevSesHardenRuntimeCheck,
   },
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
@@ -309,6 +337,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevSplitBundleTestModal,
     component: DevSplitBundleTest,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevDrawingOrderStressModal,
+    component: DevDrawingOrderStress,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

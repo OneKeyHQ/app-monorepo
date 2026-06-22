@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -17,6 +17,7 @@ import { TokenListItem } from './components/TokenListItem';
 import { TokenListSkeleton } from './components/TokenListSkeleton';
 import { useMarketTokenList } from './hooks/useMarketTokenList';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
+import { shouldUseStockMetadataColumnsForTokens } from './utils/tokenListHelpers';
 
 import type { IMarketToken } from './MarketTokenData';
 import type { IMarketTimeRangeValue } from '../../types';
@@ -29,6 +30,8 @@ interface IMobileMarketTokenFlatListProps {
   listContainerProps: {
     paddingBottom: number;
   };
+  onStockDataChange?: (categoryId: string, isStockData: boolean) => void;
+  shouldSuppressItemPress?: () => boolean;
 }
 
 const EMPTY_DATA: IMarketToken[] = [];
@@ -38,6 +41,8 @@ function MobileMarketTokenFlatListBase({
   selectedCategory,
   timeRange,
   listContainerProps,
+  onStockDataChange,
+  shouldSuppressItemPress,
 }: IMobileMarketTokenFlatListProps) {
   const intl = useIntl();
   const toMarketDetailPage = useToDetailPage();
@@ -59,22 +64,36 @@ function MobileMarketTokenFlatListBase({
     timeRange,
   });
 
+  const isStockData = useMemo(
+    () => shouldUseStockMetadataColumnsForTokens(data),
+    [data],
+  );
+
+  useEffect(() => {
+    if (selectedCategory) {
+      onStockDataChange?.(selectedCategory, isStockData);
+    }
+  }, [isStockData, onStockDataChange, selectedCategory]);
+
   // Render item callback
   const renderItem: FlatListProps<IMarketToken>['renderItem'] = useCallback(
     ({ item }: { item: IMarketToken }) => (
       <TokenListItem
         item={item}
-        onPress={() =>
-          toMarketDetailPage({
+        onPress={() => {
+          if (shouldSuppressItemPress?.()) {
+            return;
+          }
+          void toMarketDetailPage({
             symbol: item.symbol,
             tokenAddress: item.address,
             networkId: item.networkId,
             isNative: item.isNative,
-          })
-        }
+          });
+        }}
       />
     ),
-    [toMarketDetailPage],
+    [shouldSuppressItemPress, toMarketDetailPage],
   );
 
   // Key extractor - must be unique across different networks
@@ -144,7 +163,7 @@ function MobileMarketTokenFlatListBase({
       ListFooterComponent={ListFooterComponent}
       ListEmptyComponent={ListEmptyComponent}
       contentContainerStyle={{
-        ...(platformEnv.isNative ? {} : { paddingTop: 8 }),
+        ...(platformEnv.isNative ? {} : { paddingTop: 4 }),
         paddingBottom: platformEnv.isNativeAndroid
           ? listContainerProps.paddingBottom
           : tabBarHeight,

@@ -1,12 +1,19 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Buffer } from 'buffer';
 
+import {
+  PBKDF2_CURRENT_NUM_OF_ITERATIONS,
+  PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+} from '@onekeyhq/shared/src/appCrypto/consts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
+  ESecretEncryptPayloadFormat,
+  ESecretEncryptPayloadVersion,
   decodePasswordAsync,
   decodeSensitiveTextAsync,
+  decodeSensitiveTextAsyncWithMetadata,
   decryptAsync,
   decryptStringAsync,
   encodePasswordAsync,
@@ -47,6 +54,7 @@ jest.mock('crypto', () => ({
 beforeEach(() => {
   platformEnv.isExtensionUi = false;
   platformEnv.isWebEmbed = false;
+  platformEnv.isNativeAndroid = false;
   jest.spyOn(console, 'warn').mockImplementation(() => {});
   jest.spyOn(console, 'trace').mockImplementation(() => {});
 });
@@ -385,6 +393,73 @@ describe('AES256 Encryption Tests', () => {
         key: 'test-key',
       });
       expect(decoded).toBe(TEST_DATA);
+    });
+
+    it('should return metadata for current sensitive text encoding', async () => {
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: 'test-key',
+      });
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.encoding).toBe('aes');
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.v2);
+      expect(result.version).toBe(ESecretEncryptPayloadVersion.v2);
+      expect(result.iterations).toBe(PBKDF2_CURRENT_NUM_OF_ITERATIONS);
+      expect(result.needsUpgrade).toBe(false);
+    });
+
+    it('should mark legacy sensitive text as needing upgrade', async () => {
+      const legacyPayload = await encryptAsync({
+        password: 'test-key',
+        data: Buffer.from(TEST_DATA, 'utf-8'),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.legacy,
+      });
+      const encoded = `SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::${legacyPayload.toString(
+        'hex',
+      )}`;
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.encoding).toBe('aes');
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.legacy);
+      expect(result.version).toBe(ESecretEncryptPayloadVersion.legacyCbc);
+      expect(result.iterations).toBe(PBKDF2_LEGACY_NUM_OF_ITERATIONS);
+      expect(result.needsUpgrade).toBe(true);
+    });
+
+    it('should mark v2 sensitive text below local target iterations as needing upgrade', async () => {
+      const lowIterationPayload = await encryptAsync({
+        password: 'test-key',
+        data: Buffer.from(TEST_DATA, 'utf-8'),
+        allowRawPassword: true,
+        format: ESecretEncryptPayloadFormat.v2,
+        iterations: PBKDF2_LEGACY_NUM_OF_ITERATIONS,
+      });
+      const encoded = `SENSITIVE_ENCODE::AE7EADC1-CDA0-45FA-A340-E93BEDDEA21E::${lowIterationPayload.toString(
+        'hex',
+      )}`;
+
+      const result = await decodeSensitiveTextAsyncWithMetadata({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+
+      expect(result.text).toBe(TEST_DATA);
+      expect(result.format).toBe(ESecretEncryptPayloadFormat.v2);
+      expect(result.version).toBe(ESecretEncryptPayloadVersion.v2);
+      expect(result.iterations).toBe(PBKDF2_LEGACY_NUM_OF_ITERATIONS);
+      expect(result.needsUpgrade).toBe(true);
     });
 
     it('should throw on incorrect key (sync)', async () => {

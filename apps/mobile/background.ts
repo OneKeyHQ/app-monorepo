@@ -25,6 +25,58 @@ const bgEntryLog = (msg: string) => {
 const bgEntryStart: number = (globalThis as any).__ONEKEY_BG_ENTRY_START__;
 bgEntryLog(`polyfills loaded (+${Date.now() - bgEntryStart}ms)`);
 
+// Android background-runtime `process.nextTick` fix.
+//
+// The npm `process` polyfill drives its private nextTick queue via a
+// `setTimeout` it caches at module-load time. On the Android background JS
+// runtime that load precedes RN wiring up timers, so the first
+// `runTimeout(drainQueue)` fails and the queue never drains again — verified on
+// device: the queue grows monotonically and drainQueue never runs, while
+// setTimeout / setImmediate / queueMicrotask / Promise.then all work. Any code
+// relying on `process.nextTick` to deliver a result then hangs forever — e.g.
+// npm `pbkdf2`'s async callback used by cardano-crypto.js `mnemonicToRootKeypair`,
+// which made software-wallet Cardano address creation load forever on Android
+// (iOS / hardware wallet were unaffected: hardware derives on-device, and the
+// iOS background runtime drains nextTick normally).
+//
+// Redirect `process.nextTick` to the verified-working `setImmediate`. Scoped to
+// Android, applied here in the background-thread entry (so the main thread is
+// untouched), and only when a `process.nextTick` exists — done right after the
+// polyfill loads and before anything uses nextTick, so the broken queue is
+// never used.
+function applyAndroidBgNextTickFix() {
+  const { Platform } = require('react-native') as typeof import('react-native');
+  const g = globalThis as unknown as {
+    process?: {
+      nextTick?: (
+        callback: (...args: unknown[]) => void,
+        ...args: unknown[]
+      ) => void;
+    };
+    setImmediate?: (callback: () => void) => void;
+  };
+  const proc = g.process;
+  const setImmediateFn = g.setImmediate;
+  if (
+    Platform.OS !== 'android' ||
+    !proc ||
+    typeof proc.nextTick !== 'function' ||
+    typeof setImmediateFn !== 'function'
+  ) {
+    return;
+  }
+  proc.nextTick = function nextTickViaSetImmediate(
+    callback: (...args: unknown[]) => void,
+    ...args: unknown[]
+  ) {
+    setImmediateFn(() => {
+      callback(...args);
+    });
+  };
+  bgEntryLog('process.nextTick -> setImmediate (android background runtime)');
+}
+applyAndroidBgNextTickFix();
+
 // Install production split bundle loader for background runtime (Phase 3).
 // Uses BackgroundThread.loadSegmentInBackground to register segments
 // with the background Hermes runtime.

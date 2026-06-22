@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { ActionList, Toast } from '@onekeyhq/components';
+import { ActionList } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -11,6 +11,7 @@ import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWal
 import { useCopyAddressWithDeriveType } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { showBotWalletDisabledToast } from '@onekeyhq/kit/src/utils/botWalletDisabledToast';
 import { shouldBlockBotWalletCopyAddress } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import type {
   IDBAccount,
@@ -61,21 +62,14 @@ export function AccountCopyButton({
       walletId: wallet?.id,
     },
   );
-  const isCopyDisabled = shouldBlockBotWalletCopyAddress({
+  const isCopyBlocked = shouldBlockBotWalletCopyAddress({
     isBotWallet,
     isBotWalletDeactivated,
   });
 
   const handleCopyAddress = useCallback(async () => {
-    if (
-      shouldBlockBotWalletCopyAddress({
-        isBotWallet,
-        isBotWalletDeactivated,
-      })
-    ) {
-      Toast.error({
-        title: '该钱包已停用，无法复制地址',
-      });
+    if (isCopyBlocked) {
+      showBotWalletDisabledToast('copyAddress');
       return;
     }
     if (
@@ -158,8 +152,7 @@ export function AccountCopyButton({
     indexedAccount?.id,
     copyAddressWithDeriveType,
     activeAccount?.deriveInfoItems,
-    isBotWallet,
-    isBotWalletDeactivated,
+    isCopyBlocked,
   ]);
 
   return (
@@ -169,7 +162,8 @@ export function AccountCopyButton({
       label={intl.formatMessage({ id: ETranslations.global_copy_address })}
       onClose={() => {}}
       onPress={handleCopyAddress}
-      disabled={isCopyDisabled}
+      disabled={isCopyBlocked}
+      allowPressWhenDisabled={isCopyBlocked}
     />
   );
 }

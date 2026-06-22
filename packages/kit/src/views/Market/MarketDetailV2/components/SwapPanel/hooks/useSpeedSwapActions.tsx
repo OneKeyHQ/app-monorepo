@@ -26,6 +26,7 @@ import type {
   ISwapReviewGasInfoEntry,
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
+import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -86,6 +87,8 @@ import {
   buildMarketGasInfoFeeInfo,
   estimateMarketApproveGasInfos,
   estimateMarketDirectGasInfos,
+  estimateMarketPresetGasFeeFiatValues,
+  resolveMarketPresetNativeTokenPrice,
   sendMarketDirectUnsignedTxs,
 } from './marketDirectSendTx';
 import { resolveMarketReviewAllowanceState } from './marketReviewAllowance';
@@ -117,6 +120,8 @@ import {
 } from './marketSwapReviewUtils';
 import { usePaymentTokenPrice } from './usePaymentTokenPrice';
 import { ESwapDirection } from './useTradeType';
+
+import type { IMarketPresetPriorityFeeOverride } from './marketPresetSettings';
 
 export type IMarketSwapReviewAdapter = ISwapReviewAdapter;
 
@@ -555,13 +560,11 @@ export function useSpeedSwapActions(props: {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '0',
+            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
             provider: swapInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee:
-              swapInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
-            protocolFee:
-              swapInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
+            oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
+            protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
             otherFeeInfos:
               swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
             orderId: serviceOrderId,
@@ -717,6 +720,9 @@ export function useSpeedSwapActions(props: {
         buildRes,
         quoteResult,
       });
+      const swapType = getSwapExecutionTypeFromQuoteResult(
+        buildResFinal.result,
+      );
       return buildMarketExecutionPayload({
         accountId,
         buildRes: buildResFinal,
@@ -729,6 +735,7 @@ export function useSpeedSwapActions(props: {
         fromAmount,
         receivingAddress: userAddress,
         slippage,
+        swapType,
         userAddress,
         onBuildOkxSwapEncodedTx: (params) =>
           backgroundApiProxy.serviceSwap.buildOkxSwapEncodedTx(params),
@@ -1044,7 +1051,7 @@ export function useSpeedSwapActions(props: {
         status,
         swapProvider: buildRes.result?.info.provider ?? '',
         swapProviderName: buildRes.result?.info.providerName ?? '',
-        swapType: ESwapTabSwitchType.SWAP,
+        swapType: getSwapExecutionTypeFromQuoteResult(buildRes.result),
         slippage: slippage.toString(),
         sourceChain: fromToken.networkId ?? '',
         receivedChain: toToken.networkId ?? '',
@@ -1206,6 +1213,54 @@ export function useSpeedSwapActions(props: {
       };
     },
     [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+  );
+
+  const estimateMarketPresetNetworkFees = useCallback(
+    async ({
+      items,
+    }: {
+      items: {
+        customPriorityFee?: IMarketPresetPriorityFeeOverride;
+        networkFeeLevel?: ESwapNetworkFeeLevel;
+      }[];
+    }) => {
+      const accountAddress =
+        netAccountRes.result?.addressDetail.address ??
+        account?.account?.address ??
+        '';
+      const accountId = netAccountRes.result?.id ?? account?.account?.id ?? '';
+      const networkId = fromToken.networkId;
+
+      if (!accountAddress || !accountId || !networkId) {
+        return items.map(() => undefined);
+      }
+
+      const nativeTokenPrice = await resolveMarketPresetNativeTokenPrice({
+        networkId,
+        currencyId: settingsAtom.currencyInfo.id,
+        tokens: [fromToken, toToken],
+      });
+
+      return estimateMarketPresetGasFeeFiatValues({
+        accountAddress,
+        accountId,
+        amount: fromTokenAmountDebounced,
+        items,
+        nativeTokenPrice,
+        networkId,
+        token: fromToken,
+      });
+    },
+    [
+      fromToken,
+      fromTokenAmountDebounced,
+      account?.account?.address,
+      account?.account?.id,
+      netAccountRes.result?.addressDetail.address,
+      netAccountRes.result?.id,
+      settingsAtom.currencyInfo.id,
+      toToken,
+    ],
   );
 
   const prepareMarketSwapReview = useCallback<
@@ -2861,6 +2916,7 @@ export function useSpeedSwapActions(props: {
     isWrapped,
     speedCheckError,
     speedCheckLoading,
+    estimateMarketPresetNetworkFees,
     prepareMarketSwapReview,
     sendMarketApproveTx,
     sendMarketSwapTx,

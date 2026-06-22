@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog, Stack } from '@onekeyhq/components';
+import { Dialog, Stack, rootNavigationRef } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -18,7 +17,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -28,32 +26,37 @@ import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeL
 import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
 import { PrimeSetMasterPasswordHintDialog } from '../../../views/Prime/components/PrimeSetMasterPasswordHintDialog';
 
-const showTimeErrorDialog = throttle(
-  (intl: ReturnType<typeof useIntl>) => {
-    Dialog.confirm({
-      title: intl.formatMessage({
-        id: ETranslations.prime_time_error_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.prime_time_error_description,
-      }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_got_it,
-      }),
-      confirmButtonProps: {
-        testID: 'prime-login-time-error-confirm-btn',
-      },
-      dismissOnOverlayPress: false,
-    });
-  },
-  timerUtils.getTimeDurationMs({
-    minute: 5,
-  }),
-  {
-    leading: true,
-    trailing: false,
-  },
-);
+let hasShownTimeErrorDialogInAppLifecycle = false;
+
+function isPrimeCloudSyncPageFocused() {
+  return (
+    rootNavigationRef.current?.getCurrentRoute?.()?.name ===
+    EPrimePages.PrimeCloudSync
+  );
+}
+
+function showTimeErrorDialogOnce(intl: ReturnType<typeof useIntl>) {
+  if (hasShownTimeErrorDialogInAppLifecycle || isPrimeCloudSyncPageFocused()) {
+    return;
+  }
+
+  hasShownTimeErrorDialogInAppLifecycle = true;
+  Dialog.confirm({
+    title: intl.formatMessage({
+      id: ETranslations.prime_time_error_title,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.prime_time_error_description,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_got_it,
+    }),
+    confirmButtonProps: {
+      testID: 'prime-login-time-error-confirm-btn',
+    },
+    dismissOnOverlayPress: false,
+  });
+}
 
 // TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
@@ -68,6 +71,9 @@ export function PrimeLoginContainer() {
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();
+  const isCloudSyncEnabled =
+    cloudSyncPersistAtom?.isCloudSyncEnabled ||
+    cloudSyncPersistAtom?.isCloudSyncEnabledKeyless;
   const intl = useIntl();
   const passwordDataRef = useRef<IPrimeLoginDialogAtomPasswordData | undefined>(
     undefined,
@@ -301,15 +307,15 @@ export function PrimeLoginContainer() {
 
   useEffect(() => {
     const fn = () => {
-      if (cloudSyncPersistAtom?.isCloudSyncEnabled && passwordAtom.unLock) {
-        showTimeErrorDialog(intl);
+      if (isCloudSyncEnabled && passwordAtom.unLock) {
+        showTimeErrorDialogOnce(intl);
       }
     };
     appEventBus.on(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.LocalSystemTimeInvalid, fn);
     };
-  }, [cloudSyncPersistAtom?.isCloudSyncEnabled, intl, passwordAtom.unLock]);
+  }, [isCloudSyncEnabled, intl, passwordAtom.unLock]);
 
   return null;
 }

@@ -8,7 +8,6 @@ import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { useSpotActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { PERPS_ROUTE_PATH } from '@onekeyhq/shared/src/consts/perp';
 import { getSpotTokenDisplayName } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -19,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
+import { usePerpsActiveAssetCtxDisplay } from '../hooks/usePerpsActiveAssetCtxDisplay';
 
 const SPOT_PAIR_SEPARATOR = '_';
 
@@ -163,7 +163,9 @@ export function usePerpTokenUrlSync(): void {
   const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { displayName } = useActiveTradeDisplay();
-  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const { assetCtx: activeAssetCtxDisplay } = usePerpsActiveAssetCtxDisplay(
+    activeTradeInstrument.mode === 'perp' ? activeTradeInstrument.coin : '',
+  );
   const [activeSpotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isInitializedRef = useRef(false);
   const originalTitleRef = useRef<string>('');
@@ -174,10 +176,10 @@ export function usePerpTokenUrlSync(): void {
     const price =
       activeTradeInstrument.mode === 'spot'
         ? activeSpotAssetCtx?.ctx?.markPrice || ''
-        : activeAssetCtx?.ctx?.markPrice || '';
+        : activeAssetCtxDisplay?.ctx?.markPrice || '';
     return isValidPrice(price) ? price : '';
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    activeAssetCtxDisplay?.ctx?.markPrice,
     activeSpotAssetCtx?.ctx?.markPrice,
     activeTradeInstrument.mode,
   ]);

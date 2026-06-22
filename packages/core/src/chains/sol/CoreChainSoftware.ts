@@ -96,7 +96,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return bs58.encode(
         Buffer.concat([
-          await decryptAsync({ password, data: privateKeyRaw }),
+          await decryptAsync({
+            password,
+            data: privateKeyRaw,
+            kdfBackend: query.kdfBackend,
+            enablePbkdf2Cache: query.enablePbkdf2Cache,
+          }),
           bs58.decode(account.pub ?? ''),
         ]),
       );

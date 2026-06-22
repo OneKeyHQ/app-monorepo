@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -10,7 +10,9 @@ import {
   Stack,
   XStack,
   YStack,
+  useClipboard,
   useDialogInstance,
+  useShare,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -24,8 +26,93 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getPrimeTransferImportProgressPercent } from '@onekeyhq/shared/src/utils/primeTransferImportProgressUtils';
+import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+
+type IPrimeTransferImportTraceSnapshot = Awaited<
+  ReturnType<
+    typeof backgroundApiProxy.servicePrimeTransfer.getImportTraceSnapshot
+  >
+>;
+
+type IPrimeTransferImportTraceDebugApi = {
+  help: string;
+  usage: string[];
+  getImportTraceSnapshot: () => Promise<IPrimeTransferImportTraceSnapshot>;
+  getImportTraceText: () => Promise<string>;
+  getLatestImportTraceEntries: (
+    limit?: number,
+  ) => Promise<IPrimeTransferImportTraceSnapshot>;
+};
+
+type IOneKeyDebugApiRegistry = {
+  primeTransferImportTrace?: {
+    description: string;
+    usage: string[];
+    api: IPrimeTransferImportTraceDebugApi;
+  };
+};
+
+type IPrimeTransferImportTraceDebugGlobal = typeof globalThis & {
+  $$oneKeyPrimeTransferDebug?: IPrimeTransferImportTraceDebugApi;
+  $$oneKeyDebugApis?: IOneKeyDebugApiRegistry;
+};
+
+const PRIME_TRANSFER_IMPORT_TRACE_DEBUG_HELP =
+  'Prime Transfer import trace debug API. Data is read from ServicePrimeTransfer memory buffer.';
+
+const PRIME_TRANSFER_IMPORT_TRACE_DEBUG_USAGE = [
+  'await globalThis.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()',
+  'await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()',
+  'await globalThis.$$oneKeyPrimeTransferDebug.getLatestImportTraceEntries(100)',
+  'await globalThis.$$oneKeyPrimeTransferDebug.getImportTraceText()',
+  'globalThis.$$oneKeyDebugApis.primeTransferImportTrace',
+  'window.$$oneKeyDebugApis.primeTransferImportTrace',
+];
+
+export function registerPrimeTransferImportTraceDebugGlobal() {
+  if (process.env.NODE_ENV === 'production') {
+    return;
+  }
+  const api: IPrimeTransferImportTraceDebugApi = {
+    help: PRIME_TRANSFER_IMPORT_TRACE_DEBUG_HELP,
+    usage: PRIME_TRANSFER_IMPORT_TRACE_DEBUG_USAGE,
+    getImportTraceSnapshot: () =>
+      backgroundApiProxy.servicePrimeTransfer.getImportTraceSnapshot(),
+    getImportTraceText: async () =>
+      stableStringify(
+        await backgroundApiProxy.servicePrimeTransfer.getImportTraceSnapshot(),
+      ),
+    getLatestImportTraceEntries: async (limit = 50) => {
+      const trace =
+        await backgroundApiProxy.servicePrimeTransfer.getImportTraceSnapshot();
+      return {
+        ...trace,
+        entries: trace.entries.slice(-limit),
+      };
+    },
+  };
+  const currentGlobal = globalThis as IPrimeTransferImportTraceDebugGlobal & {
+    window?: IPrimeTransferImportTraceDebugGlobal;
+  };
+  const debugGlobals = [currentGlobal, currentGlobal.window].filter(
+    Boolean,
+  ) as IPrimeTransferImportTraceDebugGlobal[];
+
+  for (const globalWithDebug of debugGlobals) {
+    globalWithDebug.$$oneKeyPrimeTransferDebug = api;
+    globalWithDebug.$$oneKeyDebugApis = {
+      ...globalWithDebug.$$oneKeyDebugApis,
+      primeTransferImportTrace: {
+        description: PRIME_TRANSFER_IMPORT_TRACE_DEBUG_HELP,
+        usage: PRIME_TRANSFER_IMPORT_TRACE_DEBUG_USAGE,
+        api,
+      },
+    };
+  }
+}
 
 function PrimeTransferImportProcessingDialogContent({
   navigation: _navigation,
@@ -40,6 +127,8 @@ function PrimeTransferImportProcessingDialogContent({
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
+  const { copyText } = useClipboard();
+  const { shareText } = useShare();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow, disableExitPrevention } = usePrimeTransferExit();
   const [isCancelled, setIsCancelled] = useState(false);
@@ -81,25 +170,29 @@ function PrimeTransferImportProcessingDialogContent({
     hasError,
   ]);
 
+  useEffect(() => {
+    registerPrimeTransferImportTraceDebugGlobal();
+  }, []);
+
   const isFlowEnded = isDone || isCancelled || hasError;
-  let progressPercentage = 0;
-  if (importProgress) {
-    if (importProgress.total > 0) {
-      progressPercentage = Math.ceil(
-        (importProgress.current / importProgress.total) * 100,
-      );
-    } else {
-      progressPercentage = importProgress.isImporting ? 0 : 100;
-    }
-  }
+  const progressPercentage =
+    getPrimeTransferImportProgressPercent(importProgress) ?? 0;
 
   useEffect(() => {
     const cb = async (
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       payload: IAppEventBusPayload[EAppEventBusNames.BatchCreateAccount],
     ) => {
-      console.log('servicePrimeTransfer___updateImportProgress');
-      await backgroundApiProxy.servicePrimeTransfer.updateImportProgress();
+      await backgroundApiProxy.servicePrimeTransfer.updateImportProgress({
+        source: 'batchCreateAccount',
+        batchProgress: {
+          totalCount: payload.totalCount,
+          createdCount: payload.createdCount,
+          progressTotal: payload.progressTotal,
+          progressCurrent: payload.progressCurrent,
+          networkId: payload.networkId,
+          deriveType: payload.deriveType,
+        },
+      });
     };
     appEventBus.on(EAppEventBusNames.BatchCreateAccount, cb);
 
@@ -126,6 +219,32 @@ function PrimeTransferImportProcessingDialogContent({
     previousImportTargetNameRef.current =
       primeTransferAtom.importCurrentCreatingTarget || '';
   }, [primeTransferAtom.importCurrentCreatingTarget]);
+
+  const exportPrimeTransferImportTrace = useCallback(async () => {
+    const trace =
+      await backgroundApiProxy.servicePrimeTransfer.getImportTraceSnapshot();
+    const text = stableStringify(trace);
+    try {
+      copyText(text);
+    } catch (_error) {
+      //
+    }
+    try {
+      await shareText(text);
+    } catch (_error) {
+      //
+    }
+    Dialog.debugMessage({
+      debugMessage: {
+        entriesCount: trace.entries.length,
+        droppedEntriesCount: trace.droppedEntriesCount,
+        maxEntries: trace.maxEntries,
+        cleanupDelayMs: trace.cleanupDelayMs,
+        currentProgress: trace.currentProgress,
+        latestEntries: trace.entries.slice(-20),
+      },
+    });
+  }, [copyText, shareText]);
 
   /*
   Dialog.show({
@@ -192,6 +311,15 @@ function PrimeTransferImportProcessingDialogContent({
                 }}
               >
                 ShowBatchCreateHdAccountsParams
+              </SizableText>
+              {/*
+                Chrome/AI debug commands for this hidden export entry:
+                await window.$$oneKeyPrimeTransferDebug.getImportTraceSnapshot()
+                await window.$$oneKeyPrimeTransferDebug.getLatestImportTraceEntries(100)
+                await window.$$oneKeyDebugApis.primeTransferImportTrace.api.getImportTraceText()
+              */}
+              <SizableText onPress={exportPrimeTransferImportTrace}>
+                ExportPrimeTransferImportTrace
               </SizableText>
               <SizableText textAlign="center">
                 {JSON.stringify(importProgress?.stats)}

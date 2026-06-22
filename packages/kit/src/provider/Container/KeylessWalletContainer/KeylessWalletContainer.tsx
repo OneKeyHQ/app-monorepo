@@ -12,6 +12,12 @@ export function KeylessWalletContainer() {
   const processingPromiseIdRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
+    void backgroundApiProxy.serviceKeylessWallet
+      .tryMigrateLocalExistingKeylessBackendShareToV2()
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     void (async () => {
       if (
         promptKeylessAuthPackDialog &&

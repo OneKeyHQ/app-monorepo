@@ -31,6 +31,8 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
 
+import { PERP_DIALOG_BUTTON_SIZE } from './PerpDialogLayout';
+
 function CustomCheckbox({
   value,
   onChange,
@@ -192,7 +194,7 @@ export function HyperliquidTermsContent({
                 <Button
                   testID="perp-btn"
                   variant="primary"
-                  size="medium"
+                  size={PERP_DIALOG_BUTTON_SIZE}
                   w="100%"
                   onPress={onConfirm}
                   disabled={

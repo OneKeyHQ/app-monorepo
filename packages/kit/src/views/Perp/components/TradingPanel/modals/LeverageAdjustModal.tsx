@@ -24,6 +24,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsLastUsedLeverageAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,11 +33,18 @@ import { parseDexCoin } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpTestIDs } from '../../../testIDs';
 import {
+  getPerpsDisplayLeverage,
+  getPerpsFormLeverage,
+} from '../../../utils/leverageDisplay';
+import {
   CONTEXTUAL_ARTICLE_IDS,
   buildHelpUrl,
   openGuideUrl,
 } from '../../Guide/perpGuideData';
-import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
+import {
+  PERP_DIALOG_BUTTON_SIZE,
+  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+} from '../../PerpDialogLayout';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
@@ -175,7 +183,7 @@ const LeverageContent = memo(
               />
             </XStack>
           </YStack>
-          <YStack gap="$2" pb="$4">
+          <YStack gap="$2">
             <XStack gap="$1" alignItems="center" justifyContent="flex-start">
               <Icon
                 name="InfoCircleSolid"
@@ -209,43 +217,49 @@ const LeverageContent = memo(
               </SizableText>
             </XStack>
           </YStack>
-          <XStack
-            gap="$1"
-            alignItems="center"
-            justifyContent="flex-start"
-            onPress={() => {
-              void dialogInstance.close();
-              setTimeout(() => {
-                openGuideUrl(
-                  buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
-                );
-              }, 150);
-            }}
-            cursor="default"
-          >
-            <Icon name="QuestionmarkOutline" size="$3.5" color="$iconSubdued" />
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              hoverStyle={{ color: '$text' }}
+          <YStack gap="$3" pb="$4">
+            <XStack
+              gap="$1"
+              alignItems="center"
+              justifyContent="flex-start"
+              onPress={() => {
+                void dialogInstance.close();
+                setTimeout(() => {
+                  openGuideUrl(
+                    buildHelpUrl(`articles/${CONTEXTUAL_ARTICLE_IDS.leverage}`),
+                  );
+                }, 150);
+              }}
+              cursor="default"
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_guide_article_basic_concepts,
-              })}
-            </SizableText>
-          </XStack>
-          <TradingGuardWrapper>
-            <Button
-              testID={PerpTestIDs.LeverageConfirmButton}
-              onPress={handleConfirm}
-              disabled={isDisabled}
-              loading={loading}
-              size="medium"
-              variant="primary"
-            >
-              {intl.formatMessage({ id: ETranslations.global_confirm })}
-            </Button>
-          </TradingGuardWrapper>
+              <Icon
+                name="QuestionmarkOutline"
+                size="$3.5"
+                color="$iconSubdued"
+              />
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                hoverStyle={{ color: '$text' }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_guide_article_basic_concepts,
+                })}
+              </SizableText>
+            </XStack>
+            <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+              <Button
+                testID={PerpTestIDs.LeverageConfirmButton}
+                onPress={handleConfirm}
+                disabled={isDisabled}
+                loading={loading}
+                size={PERP_DIALOG_BUTTON_SIZE}
+                variant="primary"
+              >
+                {intl.formatMessage({ id: ETranslations.global_confirm })}
+              </Button>
+            </TradingGuardWrapper>
+          </YStack>
         </YStack>
         {platformEnv.isNativeIOS ? (
           <InputAccessoryView nativeID="leverage-adjust-input-accessory-view">
@@ -265,16 +279,27 @@ export const LeverageAdjustModal = memo(
 
     const [currentToken] = usePerpsActiveAssetAtom();
     const [activeAssetData] = usePerpsActiveAssetDataAtom();
+    const [lastUsedLeverage] = usePerpsLastUsedLeverageAtom();
 
     const intl = useIntl();
     const dialog = useInPageDialog();
+    const cachedLeverage = currentToken?.coin
+      ? lastUsedLeverage[currentToken.coin]
+      : undefined;
+    const displayLeverage = getPerpsDisplayLeverage({
+      liveLeverage: activeAssetData?.leverage?.value,
+      cachedLeverage,
+      maxLeverage: currentToken?.universe?.maxLeverage,
+    });
+    const liveFormLeverage = getPerpsFormLeverage({
+      isSpot: false,
+      liveLeverage: activeAssetData?.leverage?.value,
+    });
     const showLeverageDialog = useCallback(() => {
       if (!userAddress || !currentToken || !activeAssetData) return;
+      if (liveFormLeverage === undefined) return;
 
-      const initialValue =
-        activeAssetData?.leverage?.value ||
-        currentToken?.universe?.maxLeverage ||
-        1;
+      const initialValue = liveFormLeverage;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
       const DialogInstance =
@@ -300,9 +325,16 @@ export const LeverageAdjustModal = memo(
         contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
         showFooter: false,
       });
-    }, [userAddress, currentToken, activeAssetData, dialog, intl]);
+    }, [
+      userAddress,
+      currentToken,
+      activeAssetData,
+      liveFormLeverage,
+      dialog,
+      intl,
+    ]);
 
-    if (!userAddress || !currentToken) return null;
+    if (!currentToken) return null;
 
     return (
       <Badge
@@ -329,12 +361,7 @@ export const LeverageAdjustModal = memo(
             })}
           </SizableText>
         )}
-        <SizableText size="$bodyMdMedium">
-          {activeAssetData?.leverage?.value ||
-            currentToken?.universe?.maxLeverage ||
-            1}
-          x
-        </SizableText>
+        <SizableText size="$bodyMdMedium">{displayLeverage}x</SizableText>
       </Badge>
     );
   },

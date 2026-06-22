@@ -43,12 +43,22 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return sdkStellar.encodeSecretKey(
-        await decryptAsync({ password, data: privateKeyRaw }),
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        }),
       );
     }
     if (keyType === ECoreApiExportedSecretKeyType.publicKey) {
       return sdkStellar.encodeAddress(
-        await decryptAsync({ password, data: privateKeyRaw }),
+        await decryptAsync({
+          password,
+          data: privateKeyRaw,
+          kdfBackend: query.kdfBackend,
+          enablePbkdf2Cache: query.enablePbkdf2Cache,
+        }),
       );
     }
 

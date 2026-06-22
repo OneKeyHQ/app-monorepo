@@ -82,4 +82,10 @@ export default class OffscreenApiAdaSdk implements IAdaSdkApi {
     const api = await adaWebSdk.getCardanoApi();
     return api.extractStakeKeyHashFromBaseAddress(addr);
   }
+
+  async batchGetShelleyAddressByRootKeyHex(...args: any[]) {
+    const api = await adaWebSdk.getCardanoApi();
+    // @ts-ignore
+    return api.batchGetShelleyAddressByRootKeyHex(...args);
+  }
 }

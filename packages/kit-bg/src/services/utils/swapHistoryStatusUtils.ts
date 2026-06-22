@@ -1,8 +1,10 @@
+import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchSwapTxHistoryStatusResponse,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -17,6 +19,17 @@ const BALANCE_REFRESH_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>([
   ESwapCrossChainStatus.TO_SUCCESS,
   ESwapCrossChainStatus.REFUNDED,
 ]);
+
+const TERMINAL_SWAP_HISTORY_STATUSES = new Set<ESwapTxHistoryStatus>([
+  ESwapTxHistoryStatus.SUCCESS,
+  ESwapTxHistoryStatus.FAILED,
+  ESwapTxHistoryStatus.CANCELED,
+  ESwapTxHistoryStatus.PARTIALLY_FILLED,
+]);
+
+export function isSwapTxHistoryStatusTerminal(status?: ESwapTxHistoryStatus) {
+  return status ? TERMINAL_SWAP_HISTORY_STATUSES.has(status) : false;
+}
 
 function isHoudiniSwapProvider(provider?: string) {
   return provider === HOUDINI_SWAP_PROVIDER;
@@ -44,6 +57,34 @@ function shouldTrackHoudiniStateDetailChange({
   );
 }
 
+function isPrivateSendHistory(swapTxHistory: ISwapTxHistory) {
+  return (
+    swapTxHistory.protocol === EProtocolOfExchange.PRIVATE_SEND ||
+    swapTxHistory.swapInfo.provider.provider === privateSendProvider
+  );
+}
+
+function shouldTrackPrivateSendStatusChange({
+  swapTxHistory,
+  txStatusRes,
+}: {
+  swapTxHistory: ISwapTxHistory;
+  txStatusRes: IFetchSwapTxHistoryStatusResponse;
+}) {
+  if (!isPrivateSendHistory(swapTxHistory)) {
+    return false;
+  }
+
+  return (
+    (txStatusRes.extraStatus !== undefined &&
+      txStatusRes.extraStatus !== swapTxHistory.extraStatus) ||
+    (txStatusRes.stateDetail !== undefined &&
+      txStatusRes.stateDetail !== swapTxHistory.stateDetail) ||
+    (txStatusRes.dealReceiveAmount !== undefined &&
+      txStatusRes.dealReceiveAmount !== swapTxHistory.baseInfo.toAmount)
+  );
+}
+
 export function shouldUpdateSwapHistoryAfterTxState({
   swapTxHistory,
   txStatusRes,
@@ -52,8 +93,9 @@ export function shouldUpdateSwapHistoryAfterTxState({
   txStatusRes: IFetchSwapTxHistoryStatusResponse;
 }) {
   return (
-    txStatusRes.state !== ESwapTxHistoryStatus.PENDING ||
+    txStatusRes.state !== swapTxHistory.status ||
     txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus ||
+    shouldTrackPrivateSendStatusChange({ swapTxHistory, txStatusRes }) ||
     shouldTrackHoudiniStateDetailChange({ swapTxHistory, txStatusRes })
   );
 }

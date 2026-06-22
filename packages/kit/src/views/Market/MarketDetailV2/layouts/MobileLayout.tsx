@@ -54,14 +54,55 @@ function MobileTradingViewTouchBridge({
   tokenSymbol,
   dataSource,
   pageWidth,
+  onIndicatorsDialogOpenChange,
+  onInteractionOverlayOpenChange,
 }: {
   tokenAddress: string;
   networkId: string;
   tokenSymbol: string;
   dataSource: 'websocket' | 'polling';
   pageWidth?: number;
+  onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
+  const indicatorsDialogOpenRef = useRef(false);
+  const interactionOverlayOpenRef = useRef(false);
   const handleTouchScroll = useMobileTabTouchScrollBridge();
+  const handleTouchScrollWhenEnabled = useCallback(
+    (deltaY: number) => {
+      if (
+        indicatorsDialogOpenRef.current ||
+        interactionOverlayOpenRef.current
+      ) {
+        return;
+      }
+      handleTouchScroll(deltaY);
+    },
+    [handleTouchScroll],
+  );
+  const handleIndicatorsDialogOpenChange = useCallback(
+    (isOpen: boolean) => {
+      indicatorsDialogOpenRef.current = isOpen;
+      onIndicatorsDialogOpenChange(isOpen);
+    },
+    [onIndicatorsDialogOpenChange],
+  );
+  const handleInteractionOverlayOpenChange = useCallback(
+    (isOpen: boolean) => {
+      interactionOverlayOpenRef.current = isOpen;
+      onInteractionOverlayOpenChange(isOpen);
+    },
+    [onInteractionOverlayOpenChange],
+  );
+
+  useEffect(() => {
+    return () => {
+      indicatorsDialogOpenRef.current = false;
+      interactionOverlayOpenRef.current = false;
+      onIndicatorsDialogOpenChange(false);
+      onInteractionOverlayOpenChange(false);
+    };
+  }, [onIndicatorsDialogOpenChange, onInteractionOverlayOpenChange]);
 
   return (
     <MarketTradingView
@@ -70,7 +111,9 @@ function MobileTradingViewTouchBridge({
       tokenSymbol={tokenSymbol}
       dataSource={dataSource}
       pageWidth={pageWidth}
-      onTouchScroll={handleTouchScroll}
+      onTouchScroll={handleTouchScrollWhenEnabled}
+      onIndicatorsDialogOpenChange={handleIndicatorsDialogOpenChange}
+      onInteractionOverlayOpenChange={handleInteractionOverlayOpenChange}
     />
   );
 }
@@ -135,6 +178,16 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
 
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const focusedTab = useSharedValue(tabNames[0]);
+  const [
+    isTradingViewIndicatorsDialogOpen,
+    setIsTradingViewIndicatorsDialogOpen,
+  ] = useState(false);
+  const [
+    isTradingViewInteractionOverlayOpen,
+    setIsTradingViewInteractionOverlayOpen,
+  ] = useState(false);
+  const isTradingViewScrollLocked =
+    isTradingViewIndicatorsDialogOpen || isTradingViewInteractionOverlayOpen;
   const secondTabTouchStartRef = useRef<{
     pageX: number;
     pageY: number;
@@ -179,6 +232,18 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
 
     return () => clearTimeout(alignTimer);
   }, [effectivePageWidth, focusedTab, tabNames]);
+
+  useEffect(() => {
+    setIsTradingViewIndicatorsDialogOpen(false);
+    setIsTradingViewInteractionOverlayOpen(false);
+  }, [networkId, tokenAddress, tokenSymbol]);
+
+  const handleIndicatorsDialogOpenChange = useCallback((isOpen: boolean) => {
+    setIsTradingViewIndicatorsDialogOpen(isOpen);
+  }, []);
+  const handleInteractionOverlayOpenChange = useCallback((isOpen: boolean) => {
+    setIsTradingViewInteractionOverlayOpen(isOpen);
+  }, []);
 
   const handleHeaderHorizontalSwipe = useCallback(
     (direction: 'left' | 'right') => {
@@ -260,6 +325,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
         </HeaderScrollGestureWrapper>
         <Stack position="relative">
           <HeaderScrollGestureWrapper
+            disabled={isTradingViewScrollLocked}
             panActiveOffsetY={[-4, 4]}
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
@@ -278,6 +344,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                 if (platformEnv.isNativeAndroid || platformEnv.isNativeIOS) {
                   return (
                     <MobileTradingViewTouchBridge
+                      key={`${networkId}:${tokenAddress}:${tokenSymbol}`}
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenSymbol}
@@ -285,6 +352,12 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
                         websocketConfig?.kline ? 'websocket' : 'polling'
                       }
                       pageWidth={effectivePageWidth}
+                      onIndicatorsDialogOpenChange={
+                        handleIndicatorsDialogOpenChange
+                      }
+                      onInteractionOverlayOpenChange={
+                        handleInteractionOverlayOpenChange
+                      }
                     />
                   );
                 }
@@ -320,6 +393,9 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
   }, [
     effectivePageWidth,
     handleHeaderHorizontalSwipe,
+    handleIndicatorsDialogOpenChange,
+    handleInteractionOverlayOpenChange,
+    isTradingViewScrollLocked,
     networkId,
     tokenAddress,
     tokenSymbol,
@@ -340,6 +416,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             <MobileInformationTabs
               onScrollEnd={noop}
               renderHeader={renderInformationHeader}
+              scrollEnabled={!isTradingViewScrollLocked}
               portfolioData={portfolioData}
               isRefreshing={isRefreshing}
               tokenLogoUrl={tokenDetail?.logoUrl}
@@ -369,6 +446,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
     [
       height,
       renderInformationHeader,
+      isTradingViewScrollLocked,
       portfolioData,
       isRefreshing,
       tokenDetail?.logoUrl,

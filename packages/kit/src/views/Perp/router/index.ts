@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+
 import type {
   IModalFlowNavigatorConfig,
   ITabSubNavigatorConfig,
@@ -10,6 +12,10 @@ import {
   LazyLoadPage,
   LazyLoadRootTabPage,
 } from '../../../components/LazyLoadPage';
+import {
+  getLoadedPerpsMobileTokenSelectorPage,
+  loadPerpsMobileTokenSelectorPage,
+} from '../utils/preloadPerpsTokenSelector';
 
 const PerpTradersHistoryList = LazyLoadPage(
   () => import('../components/OrderInfoPanel/PerpTradersHistoryListModal'),
@@ -22,9 +28,17 @@ const MobilePerpMarketPage = LazyLoadPage(
   () => import('../pages/MobilePerpMarket'),
 );
 
-const MobileTokenSelectorPage = LazyLoadPage(
-  () => import('../components/TokenSelector/MoblieTokenSelector'),
+const MobileTokenSelectorLazyPage = LazyLoadPage(
+  loadPerpsMobileTokenSelectorPage,
 );
+
+function MobileTokenSelectorPage() {
+  const LoadedMobileTokenSelectorPage =
+    getLoadedPerpsMobileTokenSelectorPage()?.default;
+  return createElement(
+    LoadedMobileTokenSelectorPage ?? MobileTokenSelectorLazyPage,
+  );
+}
 
 const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
@@ -32,6 +46,10 @@ const MobileSetTpslModal = LazyLoadPage(
 
 const MobileDepositWithdrawModal = LazyLoadPage(
   () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+);
+
+const MobileDepositSelectTokenModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/DepositSelectTokenModal'),
 );
 
 const PerpsInviteeRewardModal = LazyLoadPage(
@@ -67,6 +85,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,
@@ -106,6 +128,10 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileDepositWithdrawModal,
     component: MobileDepositWithdrawModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositSelectToken,
+    component: MobileDepositSelectTokenModal,
   },
   {
     name: EModalPerpRoutes.PerpsInviteeRewardModal,

@@ -5,11 +5,16 @@
 
 import BigNumber from 'bignumber.js';
 
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+
 import {
   analyzeOrderBookPrecision,
+  buildPreferredSpotUniverseByBaseNameMap,
   calculateLiquidationPrice,
   calculatePriceScale,
+  calculateSpotBalancesTotalUsd,
   compareSpotMarketCapValues,
+  computeMaxTradeSize,
   countDecimalPlaces,
   formatHlPrice,
   formatHlSize,
@@ -24,6 +29,7 @@ import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
   isPredictionMarketInstrument,
+  resolveTradingSizeBN,
 } from './perpsUtils';
 
 describe('getValidPriceDecimals - HyperLiquid Perp Rules', () => {
@@ -139,6 +145,114 @@ describe('isPredictionMarketInstrument', () => {
     expect(isPredictionMarketInstrument('BTC')).toBe(false);
     expect(isPredictionMarketInstrument('@107')).toBe(false);
     expect(isPredictionMarketInstrument(undefined)).toBe(false);
+  });
+});
+
+describe('trading size helpers', () => {
+  test('uses direct maxSize for slider sizing without mark/reference price conversion', () => {
+    const maxSize = computeMaxTradeSize({
+      side: 'short',
+      price: '14',
+      markPrice: '20',
+      maxSize: '37.123',
+      maxTradeSzs: ['100', '100'],
+      leverageValue: 5,
+      szDecimals: 2,
+    });
+    expect(maxSize.toFixed()).toBe('37.12');
+
+    const resolvedSize = resolveTradingSizeBN({
+      sizeInputMode: EPerpsSizeInputMode.SLIDER,
+      sizePercent: 50,
+      side: 'short',
+      price: '14',
+      markPrice: '20',
+      maxSize: '37.123',
+      maxTradeSzs: ['100', '100'],
+      leverageValue: 5,
+      szDecimals: 2,
+    });
+    expect(resolvedSize.toFixed()).toBe('18.56');
+  });
+});
+
+describe('calculateSpotBalancesTotalUsd', () => {
+  test('counts non-USDC spot holdings with spot mark prices', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: (coin) => (coin === 'BTC' ? '62454' : undefined),
+    });
+
+    expect(result.missingPriceCoins).toEqual([]);
+    expect(new BigNumber(result.totalUsd).toFixed(2)).toBe('487.06');
+  });
+
+  test('keeps total unresolved when a positive non-stable token price is missing', () => {
+    const result = calculateSpotBalancesTotalUsd({
+      balances: [
+        {
+          coin: 'USDC',
+          token: 0,
+          total: '236.786521',
+        },
+        {
+          coin: 'BTC',
+          token: 1,
+          total: '0.0040073065',
+        },
+      ],
+      getMarkPrice: () => undefined,
+    });
+
+    expect(result.totalUsd).toBe('236.786521');
+    expect(result.missingPriceCoins).toEqual(['BTC']);
+  });
+});
+
+describe('buildPreferredSpotUniverseByBaseNameMap', () => {
+  test('prefers USDC-quoted universes when the same spot token has multiple quotes', () => {
+    const result = buildPreferredSpotUniverseByBaseNameMap([
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDH',
+        name: '@234',
+      },
+      {
+        baseName: 'UBTC',
+        quoteName: 'USDC',
+        name: '@142',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDH',
+        name: '@250',
+      },
+      {
+        baseName: 'KHYPE',
+        quoteName: 'USDC',
+        name: '@336',
+      },
+      {
+        baseName: 'ONLYUSDH',
+        quoteName: 'USDH',
+        name: '@999',
+      },
+    ]);
+
+    expect(result['UBTC'].name).toBe('@142');
+    expect(result['KHYPE'].name).toBe('@336');
+    expect(result['ONLYUSDH'].name).toBe('@999');
   });
 });
 

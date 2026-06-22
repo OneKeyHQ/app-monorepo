@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -17,6 +19,8 @@ import { RecommendItem } from './RecommendItem';
 function getTokenKey(token: { chainId: string; contractAddress: string }) {
   return `${token.chainId}:${token.contractAddress}`;
 }
+
+const EMPTY_COMMUNITY_RECOGNIZED_MAP: Record<string, boolean> = {};
 
 interface IMarketRecommendListProps {
   recommendedTokens: IMarketBasicConfigToken[];
@@ -58,6 +62,41 @@ export function MarketRecommendList({
   const defaultTokens = useMemo(
     () => uniqueTokens.slice(0, maxSize),
     [uniqueTokens, maxSize],
+  );
+
+  const { result: communityRecognizedMap } = usePromiseResult(
+    async () => {
+      if (!defaultTokens.length) {
+        return EMPTY_COMMUNITY_RECOGNIZED_MAP;
+      }
+
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+          tokenAddressList: defaultTokens.map((token) => ({
+            chainId: token.chainId,
+            contractAddress: token.contractAddress,
+            isNative: token.isNative,
+          })),
+        });
+
+      return defaultTokens.reduce<Record<string, boolean>>(
+        (acc, token, index) => {
+          const tokenKey = getTokenKey(token);
+          if (
+            token.communityRecognized ||
+            response.list?.[index]?.communityRecognized
+          ) {
+            acc[tokenKey] = true;
+          }
+          return acc;
+        },
+        {},
+      );
+    },
+    [defaultTokens],
+    {
+      initResult: EMPTY_COMMUNITY_RECOGNIZED_MAP,
+    },
   );
 
   const [selectedTokens, setSelectedTokens] = useState<
@@ -176,7 +215,7 @@ export function MarketRecommendList({
           gap: '$2',
         }}
       >
-        {new Array(Math.ceil(maxSize / 2)).fill(0).map((_, i) => (
+        {new Array(Math.ceil(defaultTokens.length / 2)).fill(0).map((_, i) => (
           <XStack
             gap="$2.5"
             key={i}
@@ -185,7 +224,7 @@ export function MarketRecommendList({
             }}
           >
             {new Array(2).fill(0).map((__, j) => {
-              const item = uniqueTokens[i * 2 + j];
+              const item = defaultTokens[i * 2 + j];
               if (!item) return null;
               const tokenKey = getTokenKey(item);
               const isChecked =
@@ -200,6 +239,10 @@ export function MarketRecommendList({
                   symbol={item.symbol}
                   tokenName={item.name}
                   networkId={item.chainId}
+                  communityRecognized={Boolean(
+                    item.communityRecognized ||
+                    communityRecognizedMap[tokenKey],
+                  )}
                   onChange={handleRecommendItemChange}
                 />
               );
