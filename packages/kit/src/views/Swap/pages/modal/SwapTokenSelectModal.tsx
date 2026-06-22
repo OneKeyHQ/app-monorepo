@@ -107,6 +107,18 @@ type ISwapTokenWithStock = ISwapToken & {
   stock?: IMarketStockInfo;
 };
 
+type IStockMetadataRequest = {
+  tokenAddressEntries: [
+    string,
+    {
+      contractAddress: string;
+      chainId: string;
+      isNative: boolean;
+    },
+  ][];
+  tokenKey: string;
+};
+
 const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
   (item as IFuseResult<ISwapToken>).item
     ? (item as IFuseResult<ISwapToken>).item
@@ -394,21 +406,49 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
-  const stockMetadataTokenKey = useMemo(() => {
+  const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
     if (!isSwapStockSelectTarget) {
-      return '';
+      return { tokenAddressEntries: [], tokenKey: '' };
     }
-    return currentTokens
-      .map((item) => {
-        const rawItem = getRawSwapToken(item);
-        return buildSwapStockMetadataKey({
+    const tokenAddressMap = new Map<
+      string,
+      {
+        contractAddress: string;
+        chainId: string;
+        isNative: boolean;
+      }
+    >();
+    for (const item of currentTokens) {
+      const rawItem = getRawSwapToken(item);
+      const key = buildSwapStockMetadataKey({
+        contractAddress: rawItem.contractAddress,
+        networkId: rawItem.networkId,
+      });
+      if (key && !tokenAddressMap.has(key)) {
+        tokenAddressMap.set(key, {
+          chainId: rawItem.networkId,
           contractAddress: rawItem.contractAddress,
-          networkId: rawItem.networkId,
+          isNative: rawItem.isNative ?? false,
         });
-      })
-      .filter(Boolean)
-      .join(',');
+      }
+    }
+    const tokenAddressEntries = Array.from(tokenAddressMap.entries());
+    return {
+      tokenAddressEntries,
+      tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
+    };
   }, [currentTokens, isSwapStockSelectTarget]);
+  const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
+    stockMetadataRequestSnapshot,
+  );
+  if (
+    stockMetadataRequestRef.current.tokenKey !==
+    stockMetadataRequestSnapshot.tokenKey
+  ) {
+    stockMetadataRequestRef.current = stockMetadataRequestSnapshot;
+  }
+  const stockMetadataRequest = stockMetadataRequestRef.current;
+  const stockMetadataTokenKey = stockMetadataRequest.tokenKey;
   const { result: stockMetadataResult, isLoading: stockMetadataLoading } =
     usePromiseResult(
       async () => {
@@ -418,35 +458,14 @@ const SwapTokenSelectPage = ({
             tokenKey: stockMetadataTokenKey,
           };
         }
-        const tokenAddressMap = new Map<
-          string,
-          {
-            contractAddress: string;
-            chainId: string;
-            isNative: boolean;
-          }
-        >();
-        for (const item of currentTokens) {
-          const rawItem = getRawSwapToken(item);
-          const key = buildSwapStockMetadataKey({
-            contractAddress: rawItem.contractAddress,
-            networkId: rawItem.networkId,
-          });
-          if (key && !tokenAddressMap.has(key)) {
-            tokenAddressMap.set(key, {
-              chainId: rawItem.networkId,
-              contractAddress: rawItem.contractAddress,
-              isNative: rawItem.isNative ?? false,
-            });
-          }
-        }
-        const tokenAddressEntries = Array.from(tokenAddressMap.entries());
         const response = await (async () => {
           try {
             return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
               {
-                requestLocale: intl.locale,
-                tokenAddressList: tokenAddressEntries.map(([, token]) => token),
+                requestLocale: settingsPersistAtom.locale,
+                tokenAddressList: stockMetadataRequest.tokenAddressEntries.map(
+                  ([, token]) => token,
+                ),
               },
             );
           } catch {
@@ -455,7 +474,8 @@ const SwapTokenSelectPage = ({
         })();
         const metadataMap: Record<string, IMarketStockInfo> = {};
         response.list.forEach((token, index) => {
-          const requestKey = tokenAddressEntries[index]?.[0];
+          const requestKey =
+            stockMetadataRequest.tokenAddressEntries[index]?.[0];
           if (requestKey && token.stock) {
             metadataMap[requestKey] = token.stock;
           }
@@ -466,9 +486,9 @@ const SwapTokenSelectPage = ({
         };
       },
       [
-        currentTokens,
-        intl.locale,
         isSwapStockSelectTarget,
+        settingsPersistAtom.locale,
+        stockMetadataRequest,
         stockMetadataTokenKey,
       ],
       {

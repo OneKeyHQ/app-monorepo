@@ -115,12 +115,12 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   private async _getMarketTokenBatchCacheLocale(requestLocale?: string) {
-    const localeFromRequest = requestLocale?.trim();
-    if (localeFromRequest) {
-      return localeFromRequest.toLowerCase();
+    let locale = requestLocale?.trim();
+    if (!locale) {
+      const settings = await settingsPersistAtom.get();
+      locale = settings.locale;
     }
 
-    const { locale } = await settingsPersistAtom.get();
     return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
   }
 
