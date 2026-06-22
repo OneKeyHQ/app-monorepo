@@ -51,6 +51,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
+  buildSwapOrderLongPendingWarningPayload,
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
@@ -946,27 +947,20 @@ const SwapHistoryDetailModal = () => {
     if (!shouldShowLongPendingWarning || !txHistory) {
       return;
     }
-    const logKey = [
-      txHistory.date.created,
-      txHistory.status,
-      txHistory.swapInfo.provider.provider,
-    ].join(':');
-    if (longPendingWarningLoggedKeysRef.current.has(logKey)) {
+    const payload = buildSwapOrderLongPendingWarningPayload({
+      item: txHistory,
+      now: longPendingWarningNow,
+    });
+    if (!payload) {
       return;
     }
-    longPendingWarningLoggedKeysRef.current.add(logKey);
-    defaultLogger.swap.swapOrderLongPendingWarning.swapOrderLongPendingWarning({
-      pendingMinutes: Math.floor(
-        Math.max(longPendingWarningNow - txHistory.date.created, 0) /
-          (60 * 1000),
-      ),
-      protocol: txHistory.protocol ?? EProtocolOfExchange.SWAP,
-      receivedChain: txHistory.baseInfo.toToken.networkId,
-      sourceChain: txHistory.baseInfo.fromToken.networkId,
-      status: txHistory.status,
-      swapProvider: txHistory.swapInfo.provider.provider,
-      swapProviderName: txHistory.swapInfo.provider.providerName,
-    });
+    if (longPendingWarningLoggedKeysRef.current.has(payload.orderId)) {
+      return;
+    }
+    longPendingWarningLoggedKeysRef.current.add(payload.orderId);
+    defaultLogger.swap.swapOrderLongPendingWarning.swapOrderLongPendingWarning(
+      payload,
+    );
   }, [longPendingWarningNow, shouldShowLongPendingWarning, txHistory]);
   const isPrivateSendHistory = useMemo(
     () => isPrivateSendSwapTxHistory(txHistory),
