@@ -96,6 +96,8 @@ export interface IOrderOpenParams {
   tpTriggerPx?: string;
   slTriggerPx?: string;
   slippage?: number;
+  // Reduce-only main order (standard limit). Defaults to false when omitted.
+  reduceOnly?: boolean;
 }
 
 export interface IOrderCloseParams {

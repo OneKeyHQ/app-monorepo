@@ -39,6 +39,7 @@ import {
   usePerpsTokenSearchAliasesAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxsMap,
   usePerpTokenSelectorConfigPersistAtom,
@@ -115,7 +116,7 @@ import {
   type ITokenSelectorListItem,
   SPOT_DEX_INDEX,
 } from './PerpTokenSelector';
-import { PerpTokenSelectorRow, SubtitleBadge } from './PerpTokenSelectorRow';
+import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -284,17 +285,24 @@ const InitialRowsSnapshotRow = memo(
                 </SizableText>
               </XStack>
             ) : null}
-            {subtitle ? (
-              <SubtitleBadge subtitle={subtitle} maxWidth={80} />
-            ) : null}
           </XStack>
-          {hasDisplayAssetCtx ? (
-            <SizableText size="$bodySm" color="$text">
-              ${volumeDisplay}
-            </SizableText>
-          ) : (
-            <Stack width={80} height={16} borderRadius="$full" bg="$bgStrong" />
-          )}
+          <XStack gap="$1" alignItems="center" minWidth={0}>
+            {subtitle ? (
+              <SubtitleText subtitle={subtitle} maxWidth={80} />
+            ) : null}
+            {hasDisplayAssetCtx ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                ${volumeDisplay}
+              </SizableText>
+            ) : (
+              <Stack
+                width={80}
+                height={16}
+                borderRadius="$full"
+                bg="$bgStrong"
+              />
+            )}
+          </XStack>
         </YStack>
         <YStack gap="$1" alignItems="flex-end">
           {hasDisplayAssetCtx ? (

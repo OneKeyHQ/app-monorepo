@@ -27,6 +27,7 @@ export function LightweightChart({
   lineColor,
   topColor,
   bottomColor,
+  textSubduedColor,
   secondaryLineData,
   secondaryLineColor,
   secondaryLineWidth,
@@ -35,10 +36,13 @@ export function LightweightChart({
   showHorzGridLines,
   priceScaleMargins,
   priceFormatter,
+  priceFormatterTickStep,
   fontSize,
   seriesType,
   baselineOptions,
   showLastValue,
+  showLastPointMarker,
+  showTimeScale,
   onHover,
 }: ILightweightChartProps) {
   const webViewRef = useRef<WebView>(null);
@@ -49,6 +53,7 @@ export function LightweightChart({
     lineColor,
     topColor,
     bottomColor,
+    textSubduedColor,
     secondaryLineData,
     secondaryLineColor,
     secondaryLineWidth,
@@ -57,9 +62,13 @@ export function LightweightChart({
     showHorzGridLines,
     priceScaleMargins,
     priceFormatter,
+    priceFormatterTickStep,
     fontSize,
     seriesType,
     baselineOptions,
+    showLastValue,
+    showLastPointMarker,
+    showTimeScale,
   });
   const nativeConfig = useMemo(
     () => ({ ...chartConfig, showLastValue: !!showLastValue }),

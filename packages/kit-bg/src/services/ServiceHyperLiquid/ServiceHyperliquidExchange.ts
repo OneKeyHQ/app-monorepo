@@ -1082,7 +1082,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         b: params.isBuy,
         p: price,
         s: params.size,
-        r: false,
+        r: params.reduceOnly ?? false,
         t: isMarket
           ? {
               limit: {

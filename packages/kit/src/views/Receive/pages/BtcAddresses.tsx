@@ -7,12 +7,14 @@ import { useThrottledCallback } from 'use-debounce';
 
 import {
   ActionList,
-  Badge,
+  Button,
   Divider,
   Empty,
+  Icon,
   IconButton,
   Page,
   Pagination,
+  ScrollView,
   SegmentControl,
   SizableText,
   Spinner,
@@ -49,10 +51,9 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
+  BtcAddressText,
   BtcFindAddressSection,
-  showBtcFindAddressDialog,
 } from '../components/BtcFindAddress';
-import { findAddressCopy } from '../components/btcFindAddressCopy';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -147,10 +148,8 @@ function AddressTable({
   onRowPress?: (row: IBtcAddressRow) => void;
 }) {
   const headerTitleProps = {
-    size: '$bodySmMedium',
-    color: '$textSubdued',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    size: '$headingSm',
+    color: '$text',
     numberOfLines: 1,
     whiteSpace: 'nowrap',
   } as const;
@@ -159,9 +158,7 @@ function AddressTable({
       dataSource={rows}
       scrollEnabled={false}
       contentContainerStyle={{
-        gap: '$2',
         px: '$0',
-        $gtMd: { gap: '$1' },
       }}
       columns={[
         {
@@ -170,9 +167,13 @@ function AddressTable({
           titleProps: headerTitleProps,
           columnProps: { flex: 1, minWidth: 0 },
           render: (_, record) => (
-            <SizableText size="$bodyMd" color="$text" numberOfLines={1}>
-              {record.displayAddress}
-            </SizableText>
+            <XStack alignItems="center" gap="$1.5" minWidth={0}>
+              <BtcAddressText
+                displayAddress={record.displayAddress}
+                address={record.address}
+                copyTestID={ReceiveTestIDs.BtcAddressCopyButton}
+              />
+            </XStack>
           ),
         },
         {
@@ -184,32 +185,17 @@ function AddressTable({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            gap: '$2',
             minWidth: 140,
-            overflow: 'visible',
           },
-          render: (text, record) => (
-            <>
-              <SizableText
-                size="$bodyMd"
-                color="$text"
-                numberOfLines={1}
-                whiteSpace="nowrap"
-              >
-                {text}
-              </SizableText>
-              <IconButton
-                testID={ReceiveTestIDs.BtcAddressCopyButton}
-                variant="tertiary"
-                size="small"
-                icon="Copy3Outline"
-                disabled={!record.address}
-                onPress={(e) => {
-                  e?.stopPropagation?.();
-                  onCopy(record);
-                }}
-              />
-            </>
+          render: (text) => (
+            <SizableText
+              size="$bodyMd"
+              color="$text"
+              numberOfLines={1}
+              whiteSpace="nowrap"
+            >
+              {text}
+            </SizableText>
           ),
         },
       ]}
@@ -225,6 +211,7 @@ function AddressTable({
         alignItems: 'center',
         borderRadius: '$3',
         overflow: 'visible',
+        userSelect: 'none',
         $gtMd: {
           py: '$2',
           minHeight: 40,
@@ -244,49 +231,41 @@ function AddressTable({
 function NextAddressRow({
   row,
   nextLabel,
-  onCopy,
   onRowPress,
 }: {
   row: IBtcAddressRow;
   nextLabel: string;
-  onCopy: (row: IBtcAddressRow) => void;
   onRowPress: (row: IBtcAddressRow) => void;
 }) {
   return (
-    <XStack
-      mx="$4"
-      px="$3"
-      py="$2.5"
-      gap="$2"
-      alignItems="center"
-      borderRadius="$3"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
-      onPress={() => {
-        if (!row.address) return;
-        onRowPress(row);
-      }}
-    >
-      <Badge badgeType="info" badgeSize="sm">
-        <Badge.Text>{nextLabel}</Badge.Text>
-      </Badge>
-      <SizableText size="$bodyMd" color="$text" numberOfLines={1} flex={1}>
-        {row.displayAddress}
+    <YStack>
+      <SizableText px="$5" size="$headingSm" color="$text">
+        {nextLabel}
       </SizableText>
-      <IconButton
-        testID={ReceiveTestIDs.BtcNextAddressCopyButton}
-        variant="tertiary"
-        size="small"
-        icon="Copy3Outline"
-        disabled={!row.address}
-        onPress={(e) => {
-          e?.stopPropagation?.();
-          onCopy(row);
+      <XStack
+        mx="$2"
+        px="$3"
+        py="$2.5"
+        minHeight={44}
+        gap="$1.5"
+        alignItems="center"
+        borderRadius="$3"
+        userSelect="none"
+        hoverStyle={{ bg: '$bgHover' }}
+        pressStyle={{ bg: '$bgActive' }}
+        $gtMd={{ py: '$2', minHeight: 40 }}
+        onPress={() => {
+          if (!row.address) return;
+          onRowPress(row);
         }}
-      />
-    </XStack>
+      >
+        <BtcAddressText
+          displayAddress={row.displayAddress}
+          address={row.address}
+          copyTestID={ReceiveTestIDs.BtcNextAddressCopyButton}
+        />
+      </XStack>
+    </YStack>
   );
 }
 
@@ -669,7 +648,7 @@ function BtcAddresses() {
     const accountPath = currentAccount?.path ?? account?.path;
     if (!accountPath) return;
     defaultLogger.transaction.findAddress.findAddressOpened({ networkId });
-    showBtcFindAddressDialog({
+    navigation.push(EModalReceiveRoutes.BtcFindAddress, {
       accountId: effectiveAccountId,
       networkId,
       accountName: currentAccount?.name ?? account?.name ?? '',
@@ -685,6 +664,7 @@ function BtcAddresses() {
     currentAccount?.path,
     currentDeriveType,
     effectiveAccountId,
+    navigation,
     networkId,
   ]);
 
@@ -706,85 +686,100 @@ function BtcAddresses() {
     [copyAddress, networkId],
   );
 
-  const headerRight = useMemo(() => {
-    if (!showDeriveTypeSelector && !showFindAddressEntry) return undefined;
-    return (
-      <XStack pr="$5" alignItems="center" gap="$2">
-        {showDeriveTypeSelector ? (
-          <AddressTypeSelector
-            placement="bottom-end"
-            walletId={effectiveWalletId ?? ''}
-            networkId={networkId}
-            indexedAccountId={headerRightIndexedAccountId}
-            activeDeriveType={currentDeriveType}
-            activeDeriveInfo={currentDeriveInfo}
-            onSelect={async (value) => {
-              if (value.account) {
-                setCurrentAccount(value.account);
-                setCurrentDeriveType(value.deriveType);
-                setCurrentDeriveInfo(value.deriveInfo);
-              }
-            }}
-          />
-        ) : null}
-        {showFindAddressEntry ? (
-          <ActionList
-            title=""
-            renderTrigger={
-              <IconButton
-                testID={ReceiveTestIDs.BtcFindAddressEntry}
-                icon="DotVerSolid"
-                variant="tertiary"
-                iconSize="$5"
-              />
-            }
-            sections={[
-              {
-                items: [
-                  {
-                    icon: 'SearchOutline',
-                    label: findAddressCopy.entryLabel,
-                    onPress: onPressFindAddress,
-                  },
-                ],
-              },
-            ]}
-          />
-        ) : null}
-      </XStack>
-    );
-  }, [
-    showDeriveTypeSelector,
-    showFindAddressEntry,
-    effectiveWalletId,
-    networkId,
-    headerRightIndexedAccountId,
-    currentDeriveType,
-    currentDeriveInfo,
-    onPressFindAddress,
-  ]);
-
   return (
     <Page testID={ReceiveTestIDs.BtcAddressesPage}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.address_list__action,
         })}
-        headerRight={headerRight ? () => headerRight : undefined}
       />
       <Page.Body>
-        <YStack flex={1} pt="$4" pb="$2" gap="$4">
-          <XStack px="$5">
+        <YStack flex={1} pt="$2" pb="$2" gap="$4">
+          <XStack
+            px="$5"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+          >
             <SegmentControl
-              fullWidth
               value={activeTab}
               onChange={(v) => setActiveTab(v as ITabKey)}
               options={segmentOptions}
             />
+            <XStack alignItems="center" gap="$2.5">
+              {showDeriveTypeSelector && addressTypeLabel ? (
+                <AddressTypeSelector
+                  placement="bottom-end"
+                  walletId={effectiveWalletId ?? ''}
+                  networkId={networkId}
+                  indexedAccountId={headerRightIndexedAccountId}
+                  activeDeriveType={currentDeriveType}
+                  activeDeriveInfo={currentDeriveInfo}
+                  onSelect={async (value) => {
+                    if (value.account) {
+                      setCurrentAccount(value.account);
+                      setCurrentDeriveType(value.deriveType);
+                      setCurrentDeriveInfo(value.deriveInfo);
+                    }
+                  }}
+                  renderSelectorTrigger={
+                    <Button
+                      testID={ReceiveTestIDs.BtcAddressTypeSelector}
+                      size="small"
+                      variant="tertiary"
+                      childrenAsText={false}
+                    >
+                      <XStack alignItems="center" gap="$1">
+                        <SizableText size="$bodyMdMedium" color="$textSubdued">
+                          {addressTypeLabel}
+                        </SizableText>
+                        <Icon
+                          name="ChevronDownSmallOutline"
+                          size="$4.5"
+                          color="$iconSubdued"
+                        />
+                      </XStack>
+                    </Button>
+                  }
+                />
+              ) : null}
+              {showFindAddressEntry ? (
+                <ActionList
+                  title=""
+                  renderTrigger={
+                    <IconButton
+                      testID={ReceiveTestIDs.BtcFindAddressEntry}
+                      icon="DotHorOutline"
+                      variant="tertiary"
+                      size="small"
+                    />
+                  }
+                  sections={[
+                    {
+                      items: [
+                        {
+                          icon: 'SearchOutline',
+                          label: intl.formatMessage({
+                            id: ETranslations.find_address__action,
+                          }),
+                          onPress: onPressFindAddress,
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              ) : null}
+            </XStack>
           </XStack>
 
+          <Divider />
+
           {activeTab === 'receive' ? (
-            <YStack flex={1} gap="$4">
+            <ScrollView
+              flex={1}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: '$4', flexGrow: 1, pb: '$2' }}
+            >
               {showFindAddressEntry ? (
                 <BtcFindAddressSection
                   accountId={effectiveAccountId}
@@ -798,7 +793,6 @@ function BtcAddresses() {
                 <NextAddressRow
                   row={nextReceiveRow}
                   nextLabel={nextLabel}
-                  onCopy={copyAddress}
                   onRowPress={copyAddress}
                 />
               ) : (
@@ -809,50 +803,46 @@ function BtcAddresses() {
                 </Stack>
               )}
 
-              <Divider mx="$5" />
-
-              <YStack testID={ReceiveTestIDs.BtcAddressTable} flex={1}>
-                {receiveLoading ? (
-                  <XStack
-                    flex={1}
-                    justifyContent="center"
-                    alignItems="center"
-                    py="$8"
-                  >
-                    <Spinner size="large" />
-                  </XStack>
-                ) : null}
-                {!receiveLoading && usedRows.length > 0 ? (
+              {receiveLoading ? (
+                <XStack justifyContent="center" alignItems="center" py="$8">
+                  <Spinner size="large" />
+                </XStack>
+              ) : null}
+              {!receiveLoading && usedRows.length > 0 ? (
+                <YStack testID={ReceiveTestIDs.BtcAddressTable}>
                   <AddressTable
                     rows={usedRows}
-                    addressHeader={`${usedLabel} · ${usedResult.total}`}
+                    addressHeader={`${usedLabel} (${usedResult.total})`}
                     receivedHeader={receivedHeader}
                     onCopy={copyAddress}
                     onRowPress={copyAddress}
                   />
-                ) : null}
-                {!receiveLoading && usedRows.length === 0 ? (
-                  <Stack flex={1} px="$5" py="$8" alignItems="center">
-                    <Empty
-                      illustration="QuestionMark"
-                      title={intl.formatMessage({
-                        id: ETranslations.global_no_results,
-                      })}
-                      description={intl.formatMessage({
-                        id: ETranslations.wallet_no_used_addresses_description,
-                      })}
-                    />
-                  </Stack>
-                ) : null}
-              </YStack>
-            </YStack>
+                </YStack>
+              ) : null}
+              {!receiveLoading && usedRows.length === 0 ? (
+                <Stack px="$5" py="$8" alignItems="center">
+                  <Empty
+                    illustration="QuestionMark"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_no_results,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.wallet_no_used_addresses_description,
+                    })}
+                  />
+                </Stack>
+              ) : null}
+            </ScrollView>
           ) : (
-            <YStack flex={1} gap="$4">
+            <ScrollView
+              flex={1}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ gap: '$4', flexGrow: 1, pb: '$2' }}
+            >
               {nextChangeRow ? (
                 <NextAddressRow
                   row={nextChangeRow}
                   nextLabel={nextLabel}
-                  onCopy={copyAddress}
                   onRowPress={copyAddress}
                 />
               ) : (
@@ -862,41 +852,31 @@ function BtcAddresses() {
                   </SizableText>
                 </Stack>
               )}
-
-              <Divider mx="$5" />
-
-              <YStack flex={1}>
-                {changeLoadingInitial ? (
-                  <XStack
-                    flex={1}
-                    justifyContent="center"
-                    alignItems="center"
-                    py="$8"
-                  >
-                    <Spinner size="large" />
-                  </XStack>
-                ) : null}
-                {!changeLoadingInitial && changeRows.length > 0 ? (
-                  <AddressTable
-                    rows={changeRows}
-                    addressHeader={`${usedLabel} · ${changeResult.total}`}
-                    receivedHeader={receivedHeader}
-                    onCopy={copyAddress}
-                    onRowPress={copyAddress}
+              {changeLoadingInitial ? (
+                <XStack justifyContent="center" alignItems="center" py="$8">
+                  <Spinner size="large" />
+                </XStack>
+              ) : null}
+              {!changeLoadingInitial && changeRows.length > 0 ? (
+                <AddressTable
+                  rows={changeRows}
+                  addressHeader={`${usedLabel} (${changeResult.total})`}
+                  receivedHeader={receivedHeader}
+                  onCopy={copyAddress}
+                  onRowPress={copyAddress}
+                />
+              ) : null}
+              {!changeLoadingInitial && changeRows.length === 0 ? (
+                <Stack px="$5" py="$8" alignItems="center">
+                  <Empty
+                    illustration="QuestionMark"
+                    title={intl.formatMessage({
+                      id: ETranslations.global_no_results,
+                    })}
                   />
-                ) : null}
-                {!changeLoadingInitial && changeRows.length === 0 ? (
-                  <Stack flex={1} px="$5" py="$8" alignItems="center">
-                    <Empty
-                      illustration="QuestionMark"
-                      title={intl.formatMessage({
-                        id: ETranslations.global_no_results,
-                      })}
-                    />
-                  </Stack>
-                ) : null}
-              </YStack>
-            </YStack>
+                </Stack>
+              ) : null}
+            </ScrollView>
           )}
         </YStack>
       </Page.Body>

@@ -36,6 +36,8 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
   ],
 );
 
+export const SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS = 90 * 60 * 1000;
+
 export function isPrivateSendSwapHistoryItem(
   item?: ISwapTxHistory | null,
 ): boolean {
@@ -158,4 +160,40 @@ export function isSwapHistoryProtocolExcluded({
     return true;
   }
   return Boolean(item.protocol && excludeProtocols.includes(item.protocol));
+}
+
+export function getSwapHistoryLongPendingWarningDelayMs({
+  item,
+  now = Date.now(),
+}: {
+  item?: ISwapTxHistory | null;
+  now?: number;
+}): number | undefined {
+  if (
+    !item ||
+    item.status !== ESwapTxHistoryStatus.PENDING ||
+    isPrivateSendSwapHistoryItem(item)
+  ) {
+    return undefined;
+  }
+
+  const created = item.date.created;
+  if (!Number.isFinite(created) || created <= 0 || !Number.isFinite(now)) {
+    return undefined;
+  }
+
+  return Math.max(
+    created + SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS - now,
+    0,
+  );
+}
+
+export function shouldShowSwapHistoryLongPendingWarning({
+  item,
+  now = Date.now(),
+}: {
+  item?: ISwapTxHistory | null;
+  now?: number;
+}): boolean {
+  return getSwapHistoryLongPendingWarningDelayMs({ item, now }) === 0;
 }

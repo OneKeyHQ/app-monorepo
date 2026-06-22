@@ -14,6 +14,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -46,6 +47,7 @@ import type { IModalAssetDetailsParamList } from '@onekeyhq/shared/src/routes/as
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes/assetDetails';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryTxDetailInfo } from '@onekeyhq/shared/src/utils/historyUtils';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IAddressInfo } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import {
@@ -68,6 +70,7 @@ import { getHistoryTxMeta } from '../../utils';
 
 import { InfoItem, InfoItemGroup } from './components/TxDetailsInfoItem';
 import { TxKYTRiskCheck } from './components/TxKYTRiskCheck';
+import { getTxConfirmSubtitle } from './txConfirmSubtitle';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { ColorValue } from 'react-native';
@@ -77,14 +80,20 @@ function getTxStatusTextProps(
 ): {
   key: ETranslations;
   color: ColorValue;
+  // True only for an explicitly-broadcast Pending tx; gates the spinner and ETA
+  // subtitle. The unknown/not-yet-loaded fallback below shows the "confirming"
+  // copy but leaves this false (no live tx to estimate yet).
+  isConfirming: boolean;
 } {
   if (
     status === EDecodedTxStatus.Pending ||
     status === EOnChainHistoryTxStatus.Pending
   ) {
+    // A broadcast on-chain tx is "confirming", not "pending" (OK-56372).
     return {
-      key: ETranslations.global_pending,
+      key: ETranslations.global_confirming,
       color: '$textCaution',
+      isConfirming: true,
     };
   }
 
@@ -95,6 +104,7 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_success,
       color: '$textSuccess',
+      isConfirming: false,
     };
   }
 
@@ -107,13 +117,49 @@ function getTxStatusTextProps(
     return {
       key: ETranslations.global_failed,
       color: '$textCritical',
+      isConfirming: false,
     };
   }
 
+  // Unknown / not-yet-loaded status is treated as confirming (OK-56372).
   return {
-    key: ETranslations.global_pending,
+    key: ETranslations.global_confirming,
     color: '$textCaution',
+    isConfirming: false,
   };
+}
+
+// Compact action button used in the confirming-state status row (OK-56372 §6).
+// Button locks the font size to its `size` variant with no override prop, so we
+// render custom text via `childrenAsText={false}` to get `$bodySmMedium`.
+function CompactReplaceButton({
+  variant = 'secondary',
+  children,
+  testID,
+  onPress,
+}: {
+  variant?: 'primary' | 'secondary';
+  children: string;
+  testID?: string;
+  onPress?: () => void;
+}) {
+  return (
+    <Button
+      testID={testID}
+      size="small"
+      variant={variant}
+      childrenAsText={false}
+      px="$3"
+      onPress={onPress}
+    >
+      <SizableText
+        size="$bodySmMedium"
+        color={variant === 'primary' ? '$textInverse' : '$text'}
+      >
+        {children}
+      </SizableText>
+    </Button>
+  );
 }
 
 export function AssetItem({
@@ -475,6 +521,12 @@ function HistoryDetails() {
       alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       checkIsFocused,
+      // Seed the last-known detail synchronously on re-open so the confirming
+      // subtitle (ETA) renders immediately instead of flashing the "waiting"
+      // fallback before the request resolves (OK-56372).
+      swrKey: txid
+        ? swrKeys.historyTxDetail({ networkId, accountAddress, txid })
+        : undefined,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         !privateSendSwapDetailOpened.current &&
@@ -840,21 +892,21 @@ function HistoryDetails() {
     const renderCancelActions = () => (
       <XStack gap="$2">
         <SpeedUpAction
+          compact
           networkId={networkId}
           onSpeedUp={() =>
             handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
           }
         />
         {cancelTxEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-cancel-actions-btn"
-            size="small"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
             }
           >
             {intl.formatMessage({ id: ETranslations.global_cancel })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </XStack>
     );
@@ -862,9 +914,8 @@ function HistoryDetails() {
     const renderSpeedUpCancelAction = () => (
       <>
         {speedUpCancelEnabled ? (
-          <Button
+          <CompactReplaceButton
             testID="asset-details-render-speed-up-cancel-action-btn"
-            size="small"
             variant="primary"
             onPress={() =>
               handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
@@ -873,22 +924,21 @@ function HistoryDetails() {
             {intl.formatMessage({
               id: ETranslations.speed_up_cancellation,
             })}
-          </Button>
+          </CompactReplaceButton>
         ) : null}
       </>
     );
 
     const renderCheckSpeedUpState = () => (
-      <Button
+      <CompactReplaceButton
         testID="asset-details-render-check-speed-up-state-btn"
-        size="small"
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
       >
         {intl.formatMessage({
           id: ETranslations.tx_accelerate_order_inquiry_label,
         })}
-      </Button>
+      </CompactReplaceButton>
     );
 
     const renderReplaceButtons = () => {
@@ -897,7 +947,7 @@ function HistoryDetails() {
     };
 
     return (
-      <XStack ml="$5">
+      <XStack ml="$2">
         {renderReplaceButtons()}
         {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
       </XStack>
@@ -915,33 +965,58 @@ function HistoryDetails() {
   ]);
 
   const renderTxStatus = useCallback(() => {
-    const { key, color } = getTxStatusTextProps(
-      txDetails?.status ?? historyTx?.decodedTx.status,
-    );
+    const status = txDetails?.status ?? historyTx?.decodedTx.status;
+    const { key, color, isConfirming } = getTxStatusTextProps(status);
+
+    const broadcastTimeMs = txDetails?.timestamp
+      ? txDetails.timestamp * 1000
+      : (historyTx?.decodedTx.updatedAt ?? historyTx?.decodedTx.createdAt);
+    const subtitle = isConfirming
+      ? getTxConfirmSubtitle({
+          confirmationETASeconds: txDetails?.confirmationETASeconds,
+          confirmationETABlocks: txDetails?.confirmationETABlocks,
+          broadcastTimeMs,
+          nowMs: Date.now(),
+        })
+      : null;
+
     return (
-      <XStack minHeight="$5" alignItems="center">
-        <SizableText size="$bodyMdMedium" color={color}>
-          {intl.formatMessage({ id: key })}
-        </SizableText>
-        {historyTx?.replacedType &&
-        txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
-          <Badge badgeSize="sm" badgeType="info" ml="$2">
-            {intl.formatMessage({
-              id:
-                historyTx?.replacedType === EReplaceTxType.SpeedUp
-                  ? ETranslations.global_sped_up
-                  : ETranslations.global_cancelling,
-            })}
-          </Badge>
+      <YStack gap="$1">
+        <XStack minHeight="$5" alignItems="center">
+          {isConfirming ? <Spinner size="small" mr="$2" /> : null}
+          <SizableText size="$bodyMdMedium" color={color}>
+            {intl.formatMessage({ id: key })}
+          </SizableText>
+          {historyTx?.replacedType &&
+          txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
+            <Badge badgeSize="sm" badgeType="info" ml="$2">
+              {intl.formatMessage({
+                id:
+                  historyTx?.replacedType === EReplaceTxType.SpeedUp
+                    ? ETranslations.global_sped_up
+                    : ETranslations.global_cancelling,
+              })}
+            </Badge>
+          ) : null}
+          {renderReplaceTxActions()}
+        </XStack>
+        {subtitle ? (
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: subtitle.id }, subtitle.values)}
+          </SizableText>
         ) : null}
-        {renderReplaceTxActions()}
-      </XStack>
+      </YStack>
     );
   }, [
     historyTx?.decodedTx.status,
+    historyTx?.decodedTx.updatedAt,
+    historyTx?.decodedTx.createdAt,
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    txDetails?.timestamp,
+    txDetails?.confirmationETASeconds,
+    txDetails?.confirmationETABlocks,
     historyTx?.replacedType,
   ]);
 

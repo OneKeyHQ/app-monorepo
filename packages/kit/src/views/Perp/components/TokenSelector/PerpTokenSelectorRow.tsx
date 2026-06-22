@@ -19,13 +19,12 @@ import {
   SizableText,
   SkeletonContainer,
   Stack,
-  Tooltip,
   XStack,
   YStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SubtitleText } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   type ISpotAssetCtxEntry,
   spotAssetCtxsMapAtom,
@@ -106,9 +105,7 @@ interface ITokenSelectorRowContextValue {
 const TokenSelectorRowContext =
   createContext<ITokenSelectorRowContextValue | null>(null);
 
-const DESKTOP_SUBTITLE_MAX_WIDTH = 52;
 const DESKTOP_METRIC_TEXT_LINE_HEIGHT = 16;
-const MOBILE_SUBTITLE_MAX_WIDTH = 80;
 
 function isSpotAssetCtxEntryEqual(
   a: ISpotAssetCtxEntry | null,
@@ -304,59 +301,6 @@ export const FavoriteButton = memo(
 
 FavoriteButton.displayName = 'FavoriteButton';
 
-export const SubtitleBadge = memo(
-  ({
-    subtitle,
-    maxWidth,
-    withTooltip,
-  }: {
-    subtitle: string;
-    maxWidth: number;
-    withTooltip?: boolean;
-  }) => {
-    const badge = (
-      <XStack
-        borderRadius="$1"
-        bg="$bgInfo"
-        justifyContent="center"
-        alignItems="center"
-        px="$1"
-        maxWidth={maxWidth}
-        minWidth={0}
-        overflow="hidden"
-        flexShrink={0}
-        accessibilityLabel={subtitle}
-      >
-        <SizableText
-          fontSize={10}
-          alignSelf="center"
-          color="$textInfo"
-          lineHeight={16}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          flexShrink={1}
-        >
-          {subtitle}
-        </SizableText>
-      </XStack>
-    );
-
-    if (!withTooltip) {
-      return badge;
-    }
-
-    return (
-      <Tooltip
-        placement="top"
-        hovering
-        renderTrigger={badge}
-        renderContent={subtitle}
-      />
-    );
-  },
-);
-SubtitleBadge.displayName = 'SubtitleBadge';
-
 export const TradingModeBadge = memo(
   ({
     isSpot,
@@ -398,7 +342,6 @@ TradingModeBadge.displayName = 'TradingModeBadge';
 const TokenInfoCellDesktop = memo(() => {
   const { token, isSpot, pairCoin, desktopLayout } =
     useTokenSelectorRowContext();
-  const { gtLg } = useMedia();
   const useFlexibleLayout = isSpot || desktopLayout === 'mixed';
   const columnLayout = getFlexibleDesktopColumnLayout(desktopLayout);
 
@@ -435,44 +378,46 @@ const TokenInfoCellDesktop = memo(() => {
               )}
               fallbackIcon="CryptoCoinOutline"
             />
-            <SizableText size="$bodySmMedium" numberOfLines={1} flexShrink={1}>
-              {token.displayName}
-            </SizableText>
-            <XStack gap="$1" minWidth={0}>
-              {isSpot ? (
-                <TradingModeBadge
-                  isSpot
-                  px="$1.5"
-                  bg="$bgStrong"
-                  color="$textSubdued"
-                />
-              ) : null}
-              {!isSpot && token.maxLeverage > 0 ? (
-                <XStack
-                  borderRadius="$1"
-                  bg="$bgStrong"
-                  justifyContent="center"
-                  alignItems="center"
-                  px="$1.5"
+            <YStack flex={1} minWidth={0}>
+              <XStack gap="$1" alignItems="center" minWidth={0}>
+                <SizableText
+                  size="$bodySmMedium"
+                  numberOfLines={1}
+                  flexShrink={1}
                 >
-                  <SizableText
-                    fontSize={10}
-                    alignSelf="center"
+                  {token.displayName}
+                </SizableText>
+                {isSpot ? (
+                  <TradingModeBadge
+                    isSpot
+                    px="$1.5"
+                    bg="$bgStrong"
                     color="$textSubdued"
-                    lineHeight={16}
+                  />
+                ) : null}
+                {!isSpot && token.maxLeverage > 0 ? (
+                  <XStack
+                    borderRadius="$1"
+                    bg="$bgStrong"
+                    justifyContent="center"
+                    alignItems="center"
+                    px="$1.5"
                   >
-                    {token.maxLeverage}x
-                  </SizableText>
-                </XStack>
+                    <SizableText
+                      fontSize={10}
+                      alignSelf="center"
+                      color="$textSubdued"
+                      lineHeight={16}
+                    >
+                      {token.maxLeverage}x
+                    </SizableText>
+                  </XStack>
+                ) : null}
+              </XStack>
+              {token.subtitle ? (
+                <SubtitleText subtitle={token.subtitle} maxWidth={66} />
               ) : null}
-              {token.subtitle && gtLg ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={DESKTOP_SUBTITLE_MAX_WIDTH}
-                  withTooltip
-                />
-              ) : null}
-            </XStack>
+            </YStack>
           </XStack>
         </XStack>
       </DebugRenderTracker>
@@ -482,7 +427,6 @@ const TokenInfoCellDesktop = memo(() => {
       token.subtitle,
       token.maxLeverage,
       token.name,
-      gtLg,
       isSpot,
       pairCoin,
       useFlexibleLayout,
@@ -937,7 +881,7 @@ const TokenNameMobile = memo(() => {
         offsetY={10}
       >
         <YStack gap="$0">
-          <XStack gap="$1.5" alignItems="center" justifyContent="center">
+          <XStack gap="$1.5" alignItems="center">
             <SizableText size="$bodyMdMedium">{token.displayName}</SizableText>
 
             <XStack gap="$1">
@@ -962,18 +906,12 @@ const TokenNameMobile = memo(() => {
                   </SizableText>
                 </XStack>
               ) : null}
-              {token.subtitle ? (
-                <SubtitleBadge
-                  subtitle={token.subtitle}
-                  maxWidth={MOBILE_SUBTITLE_MAX_WIDTH}
-                />
-              ) : null}
             </XStack>
           </XStack>
         </YStack>
       </DebugRenderTracker>
     ),
-    [token.displayName, token.subtitle, token.maxLeverage, isSpot],
+    [token.displayName, token.maxLeverage, isSpot],
   );
   return content;
 });
@@ -981,7 +919,7 @@ const TokenNameMobile = memo(() => {
 TokenNameMobile.displayName = 'TokenNameMobile';
 
 const TokenVolumeMobile = memo(() => {
-  const { assetCtx, isLoading } = useTokenSelectorRowContext();
+  const { assetCtx, isLoading, token } = useTokenSelectorRowContext();
 
   const content = useMemo(
     () => (
@@ -990,17 +928,22 @@ const TokenVolumeMobile = memo(() => {
         name="TokenVolumeMobile"
         offsetY={10}
       >
-        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
-          <SizableText size="$bodySm" color="$text">
-            $
-            {formatDisplayNumber(
-              NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
-            )}
-          </SizableText>
-        </SkeletonContainer>
+        <XStack gap="$1" alignItems="center" minWidth={0}>
+          {token.subtitle ? (
+            <SubtitleText subtitle={token.subtitle} maxWidth={80} />
+          ) : null}
+          <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+            <SizableText size="$bodySm" color="$textSubdued">
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(assetCtx.volume24h),
+              )}
+            </SizableText>
+          </SkeletonContainer>
+        </XStack>
       </DebugRenderTracker>
     ),
-    [assetCtx.volume24h, isLoading],
+    [assetCtx.volume24h, isLoading, token.subtitle],
   );
   return content;
 });

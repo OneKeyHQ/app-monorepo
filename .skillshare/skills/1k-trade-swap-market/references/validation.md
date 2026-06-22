@@ -74,6 +74,14 @@ Use these recipes based on failure type:
 - Setup-fee display bug: compare decoded tx actions, decoded `extraInfo`, local
   swap-history context, order detail, and detail UI rows; verify setup costs are
   shown separately and do not inflate the business transfer amount.
+- Stock/order build bug: inspect the quote payload, `swapShouldSignedData` or order
+  payload, user-selected slippage fallback, speed-build request, and pending
+  history row; verify order/sign flows cannot fall through to ordinary send.
+- Stock/order availability bug: compare stock channel market stage, token/detail
+  market-open data, quote error metadata, action-button gate, and alert display
+  before treating a missing quote flag as a product defect.
+- Stock/Market history bug: verify pending counts, list keys, protocol filters,
+  and history detail routing separately for Market and Stock rows.
 - Market K-line bug: verify token detail payload, chart fetch, fallback data, and WebView events separately.
 - Handoff bug: start from Earn/Market/Buy, then confirm Swap owns state after quote starts.
 - Visible-entry merge bug: enter through route params, header tab, cold-start
