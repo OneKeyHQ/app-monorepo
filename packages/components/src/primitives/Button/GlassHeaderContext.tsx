@@ -1,7 +1,13 @@
 import { createContext, useContext } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// NOTE: import useSafeAreaInsets from the leaf package directly, not from the
+// '../../hooks' barrel — that barrel transitively re-exports the Provider that
+// imports this file, forming an import cycle.
 
 /**
  * Signals that the current subtree is rendered inside an iOS 26 Liquid
@@ -26,6 +32,26 @@ const GlassHeaderContext = createContext<boolean>(false);
 
 export function useInGlassHeader(): boolean {
   return useContext(GlassHeaderContext);
+}
+
+// The iOS 26 Liquid Glass nav bar is transparent (headerTransparent), so screen
+// content renders *under* it for the glass to refract it. The standard iOS
+// inline nav bar is 44pt tall below the safe-area top; the extra gap keeps
+// content from butting right up against the glass edge.
+export const LIQUID_GLASS_HEADER_BAR_HEIGHT = 44;
+export const LIQUID_GLASS_HEADER_CONTENT_GAP = 16;
+
+// Single source of truth for the top inset a screen must reserve when its
+// content extends under the iOS 26 Liquid Glass nav bar (safe-area top + bar
+// height + a breathing gap). Returns 0 off iOS 26, where the bar is opaque /
+// self-drawn and the screen keeps its normal layout. Centralizing this keeps
+// every glass screen's top spacing consistent and adjustable in one place.
+export function useLiquidGlassHeaderTopInset(): number {
+  const { top } = useSafeAreaInsets();
+  if (!platformEnv.isNativeIOS26Plus) {
+    return 0;
+  }
+  return top + LIQUID_GLASS_HEADER_BAR_HEIGHT + LIQUID_GLASS_HEADER_CONTENT_GAP;
 }
 
 export function GlassHeaderProvider({ children }: { children: ReactNode }) {

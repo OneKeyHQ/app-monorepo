@@ -58,7 +58,11 @@ export function makeHeaderScreenOptions({
     // Perps ETH/USDC stat row) must add a safe-area top inset themselves
     // to avoid sliding under the bar. Most pages already do via the
     // Tamagui Page component / useSafeAreaInsets.
-    const useLiquidGlassHeader = platformEnv.isNativeIOS26Plus && isRootScreen;
+    // Liquid Glass is enabled for root-tab screens AND onboarding screens
+    // (onboarding opts in via pageType -> isOnboardingScreen). Both extend
+    // their content under the transparent bar so the glass refracts it.
+    const useLiquidGlassHeader =
+      platformEnv.isNativeIOS26Plus && (isRootScreen || isOnboardingScreen);
     const useTransparentHeader = useLiquidGlassHeader;
 
     // iOS 26+ uses native-stack's built-in bar button rendering so
@@ -79,11 +83,20 @@ export function makeHeaderScreenOptions({
     // iOS <26 keeps the OneKey-drawn HeaderBackButton path unchanged.
     let headerLeftOptions: IStackNavigationOptions;
     if (platformEnv.isNativeIOS26Plus) {
-      if (isCanGoBack) {
+      if (isOnboardingScreen) {
+        // Onboarding back-navigable pages use the native system back (chevron),
+        // present from the first frame so it doesn't visibly swap to a custom
+        // arrow. The first/exit screen has no in-stack history (no system
+        // back); its back/exit icon + onboardingExit analytics come from the
+        // OnboardingPage shell's Page.Header headerLeft.
+        headerLeftOptions = isCanGoBack
+          ? { headerBackButtonDisplayMode: 'minimal' as const }
+          : {};
+      } else if (isCanGoBack) {
         headerLeftOptions = {
           headerBackButtonDisplayMode: 'minimal' as const,
         };
-      } else if ((isModelScreen || isOnboardingScreen) && !isRootScreen) {
+      } else if (isModelScreen && !isRootScreen) {
         headerLeftOptions = {
           // Render OneKey's own close icon (a React subview) instead of a
           // native SF Symbol so the glyph matches the brand. iOS 26 wraps

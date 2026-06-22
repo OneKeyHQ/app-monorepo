@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -21,6 +22,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useLiquidGlassHeaderTopInset,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -180,6 +182,29 @@ export const LayoutHeaderLanguageSelector = memo(() => {
 });
 LayoutHeaderLanguageSelector.displayName = 'LayoutHeaderLanguageSelector';
 
+// Back/exit affordance for the iOS 26 native (Liquid Glass) onboarding header.
+// Icon-only (unlike LayoutHeaderBack, which renders a text "Back" button on
+// gtMd) so it sits cleanly in the system glass capsule, while preserving the
+// onboardingExit analytics + the back-vs-exit (arrow vs cross) distinction.
+const OnboardingNativeHeaderBack = memo(({ exit }: { exit?: boolean }) => {
+  const navigation = useAppNavigation();
+  const handleBack = useCallback(() => {
+    if (exit) {
+      defaultLogger.account.wallet.onboardingExit();
+    }
+    navigation.pop();
+  }, [navigation, exit]);
+  return (
+    <IconButton
+      testID={OnboardingTestIDs.layoutHeaderBackBtn}
+      icon={exit ? 'CrossedLargeOutline' : 'ArrowLeftOutline'}
+      variant="tertiary"
+      onPress={handleBack}
+    />
+  );
+});
+OnboardingNativeHeaderBack.displayName = 'OnboardingNativeHeaderBack';
+
 export interface IOnboardingPageProps extends IPageProps {
   headerBack?: boolean | 'exit';
   headerTitle?: string;
@@ -213,10 +238,37 @@ export function OnboardingPage({
   ...pageProps
 }: IOnboardingPageProps) {
   const shouldAnimate = enterAnimation && !platformEnv.isNative;
+  const glassTopInset = useLiquidGlassHeaderTopInset();
+  // The first screen in the onboarding stack has no native back button (no
+  // in-stack history), so the shell supplies the back/exit icon there. Deeper
+  // screens use the native system back (chevron), present from the first frame
+  // — avoiding a chevron->arrow swap when the shell would otherwise override it.
+  const isFirstScreen = useNavigationState((state) => state.index) === 0;
+
+  // On iOS 26 the onboarding header moves into the native nav bar so it gets the
+  // Liquid Glass material; every other platform keeps the self-drawn
+  // LayoutHeader. An "empty" header (no back, no title, no language — e.g.
+  // FinalizeWalletSetup) stays self-drawn so it doesn't show a bare native bar.
+  const isEmptyHeader =
+    headerBack === false && !headerTitle && !showLanguageSelector;
+  const useNativeHeader = platformEnv.isNativeIOS26Plus && !isEmptyHeader;
+
+  const renderNativeHeaderLeft = useCallback(
+    () => <OnboardingNativeHeaderBack exit={headerBack === 'exit'} />,
+    [headerBack],
+  );
+  const renderNativeHeaderRight = useCallback(
+    () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+
   const contentArea = (
     <YStack
       flex={1}
       px="$5"
+      // The transparent glass bar overlays the top of the content, so reserve
+      // room for it via the shared inset (consistent across all glass screens).
+      {...(useNativeHeader && { pt: glassTopInset })}
       $gtMd={{
         alignItems: 'center',
         justifyContent: alignTop ? 'flex-start' : 'center',
@@ -262,15 +314,30 @@ export function OnboardingPage({
           {backgroundLayer}
         </YStack>
       ) : null}
-      <LayoutHeader>
-        {headerBack !== false ? (
-          <LayoutHeaderBack exit={headerBack === 'exit'} />
-        ) : null}
-        {headerTitle ? (
-          <LayoutHeaderTitle>{headerTitle}</LayoutHeaderTitle>
-        ) : null}
-        {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
-      </LayoutHeader>
+      {useNativeHeader ? (
+        <Page.Header
+          headerTitleAlign="center"
+          headerTitle={headerTitle}
+          headerLeft={
+            isFirstScreen && headerBack !== false
+              ? renderNativeHeaderLeft
+              : undefined
+          }
+          headerRight={
+            showLanguageSelector ? renderNativeHeaderRight : undefined
+          }
+        />
+      ) : (
+        <LayoutHeader>
+          {headerBack !== false ? (
+            <LayoutHeaderBack exit={headerBack === 'exit'} />
+          ) : null}
+          {headerTitle ? (
+            <LayoutHeaderTitle>{headerTitle}</LayoutHeaderTitle>
+          ) : null}
+          {showLanguageSelector ? <LayoutHeaderLanguageSelector /> : null}
+        </LayoutHeader>
+      )}
       {scrollable ? (
         <Keyboard.AwareScrollView
           style={{ flex: 1 }}
