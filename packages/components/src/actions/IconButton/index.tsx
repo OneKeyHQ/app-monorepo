@@ -132,13 +132,16 @@ export function IconButton(props: IIconButtonProps) {
             name={icon}
             size={iconSize || (size === 'small' ? '$5' : '$6')}
             {...iconProps}
-            // In a glass header the subdued default looks washed out on the
-            // capsule, so raise it to high-contrast text color. Placed after
-            // {...iconProps} so it wins over a caller-set `$iconSubdued` (e.g.
-            // the address-security shield). Semantic colors set by the caller
-            // (success/critical/…) are preserved.
+            // In a glass header the neutral default icon colors ($icon /
+            // $iconSubdued) look washed out on the capsule, so raise them to
+            // high-contrast $text. Placed after {...iconProps} so it wins over a
+            // caller-set default (e.g. the address-security shield's $iconSubdued,
+            // or the Trade header actions which pass $icon). Semantic colors set
+            // by the caller (success/critical/…) are preserved.
             color={
-              inGlassHeader && resolvedIconColor === '$iconSubdued'
+              inGlassHeader &&
+              (resolvedIconColor === '$iconSubdued' ||
+                resolvedIconColor === '$icon')
                 ? '$text'
                 : resolvedIconColor
             }

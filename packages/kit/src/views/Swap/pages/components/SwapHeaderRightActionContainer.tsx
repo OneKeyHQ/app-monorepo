@@ -12,6 +12,7 @@ import {
   Dialog,
   Divider,
   EPageType,
+  GlassButtonCapsule,
   HeightTransition,
   Icon,
   ScrollView,
@@ -667,92 +668,96 @@ const SwapHeaderRightActionContainer = ({
     });
   }, [intl, marketPresetSettings, swapStoreName]);
   return (
-    <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
-      {showKLineButton ? (
-        <HeaderIconButton
-          testID={SwapTestIDs.kLineButton}
-          icon="TradingViewCandlesOutline"
-          onPress={onOpenSwapKLineModal}
-          disabled={isKLineDisabled}
-          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
-          size={resolvedButtonSize}
-        />
-      ) : null}
-
-      {slippageTitle ? (
-        <XStack
-          testID={SwapTestIDs.settingsButton}
-          onPress={onOpenSwapSettings}
-          borderRadius="$3"
-          bg="$bgSubdued"
-          cursor="pointer"
-          px={compact ? '$1.5' : '$2'}
-          py="$1"
-          gap={compact ? '$0.5' : '$1'}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-        >
-          {slippageTitle}
-          <Icon
-            name="SliderHorOutline"
-            size={resolvedIconSize}
-            color={resolvedIconColor}
+    // iOS 26: the three actions share one Liquid Glass capsule (like the Wallet
+    // header's notification/menu capsule). Passthrough off iOS 26 / non-native.
+    <GlassButtonCapsule>
+      <HeaderButtonGroup gap={compact ? '$2' : '$4'} flexShrink={0}>
+        {showKLineButton ? (
+          <HeaderIconButton
+            testID={SwapTestIDs.kLineButton}
+            icon="TradingViewCandlesOutline"
+            onPress={onOpenSwapKLineModal}
+            disabled={isKLineDisabled}
+            iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
+            size={resolvedButtonSize}
           />
-        </XStack>
-      ) : (
-        <HeaderIconButton
-          testID={SwapTestIDs.settingsButton}
-          icon="SliderHorOutline"
-          onPress={onOpenSwapSettings}
-          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
-          size={resolvedButtonSize}
-        />
-      )}
+        ) : null}
 
-      {historyBadgeCount > 0 ? (
-        <Stack
-          m={compact ? '$0' : '$0.5'}
-          w="$5"
-          h="$5"
-          userSelect="none"
-          borderRadius="$full"
-          borderColor="$icon"
-          borderWidth={1.2}
-          alignItems="center"
-          justifyContent="center"
-          hoverStyle={{
-            bg: '$bgHover',
-          }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineWidth: 2,
-            outlineStyle: 'solid',
-            outlineOffset: 0,
-          }}
-          onPress={onOpenHistoryListModal}
-        >
-          <SizableText color="$text" size="$bodySm">
-            {`${historyBadgeCount}`}
-          </SizableText>
-        </Stack>
-      ) : (
-        <HeaderIconButton
-          icon="ClockTimeHistoryOutline"
-          onPress={onOpenHistoryListModal}
-          iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
-          size={resolvedButtonSize}
-        />
-      )}
-    </HeaderButtonGroup>
+        {slippageTitle ? (
+          <XStack
+            testID={SwapTestIDs.settingsButton}
+            onPress={onOpenSwapSettings}
+            borderRadius="$3"
+            bg="$bgSubdued"
+            cursor="pointer"
+            px={compact ? '$1.5' : '$2'}
+            py="$1"
+            gap={compact ? '$0.5' : '$1'}
+            alignItems="center"
+            justifyContent="center"
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+          >
+            {slippageTitle}
+            <Icon
+              name="SliderHorOutline"
+              size={resolvedIconSize}
+              color={resolvedIconColor}
+            />
+          </XStack>
+        ) : (
+          <HeaderIconButton
+            testID={SwapTestIDs.settingsButton}
+            icon="SliderHorOutline"
+            onPress={onOpenSwapSettings}
+            iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
+            size={resolvedButtonSize}
+          />
+        )}
+
+        {historyBadgeCount > 0 ? (
+          <Stack
+            m={compact ? '$0' : '$0.5'}
+            w="$5"
+            h="$5"
+            userSelect="none"
+            borderRadius="$full"
+            borderColor="$icon"
+            borderWidth={1.2}
+            alignItems="center"
+            justifyContent="center"
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineWidth: 2,
+              outlineStyle: 'solid',
+              outlineOffset: 0,
+            }}
+            onPress={onOpenHistoryListModal}
+          >
+            <SizableText color="$text" size="$bodySm">
+              {`${historyBadgeCount}`}
+            </SizableText>
+          </Stack>
+        ) : (
+          <HeaderIconButton
+            icon="ClockTimeHistoryOutline"
+            onPress={onOpenHistoryListModal}
+            iconProps={{ size: resolvedIconSize, color: resolvedIconColor }}
+            size={resolvedButtonSize}
+          />
+        )}
+      </HeaderButtonGroup>
+    </GlassButtonCapsule>
   );
 };
 
