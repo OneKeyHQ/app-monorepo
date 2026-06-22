@@ -162,14 +162,11 @@ export function PrimeTransferDirection({
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
 
-  // Reset self transfer type when this screen unmounts.
-  useEffect(() => {
-    return () => {
-      void backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
-        transferType: undefined,
-      });
-    };
-  }, []);
+  // Self transfer type lifecycle is owned by the parent PagePrimeTransfer
+  // (set on mount, reset on page unmount). Intentionally NOT reset here: this
+  // screen unmounts on a paired -> init transition (e.g. disconnect), and a
+  // local reset would clear the parent-managed type without it being re-applied
+  // on re-pairing, leaving the peer with a missing transfer type.
 
   const getRoomUsers = useCallback(async () => {
     let result: IE2EESocketUserInfo[] = [];
