@@ -50,16 +50,11 @@ export function FAQSection({
     async (actionId: string) => {
       const id = actionId.trim();
       if (id === 'trade_usdf') {
-        const { isSupportSwap } =
-          await backgroundApiProxy.serviceSwap.checkSupportSwap({
-            networkId,
-          });
         const network = await backgroundApiProxy.serviceNetwork.getNetwork({
           networkId,
         });
         const { importFromToken, swapTabSwitchType } = getImportFromToken({
           networkId,
-          isSupportSwap,
           tokenAddress: tokenInfo?.token?.address ?? '',
         });
         defaultLogger.wallet.walletActions.actionTrade({

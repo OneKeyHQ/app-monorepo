@@ -189,11 +189,6 @@ const SwapProTabListContainer = memo(
                 ) : (
                   <XStack mx="$-6">
                     <SwapMarketHistoryList
-                      showType={
-                        swapTypeSwitch === ESwapTabSwitchType.SWAP
-                          ? 'swap'
-                          : 'bridge'
-                      }
                       filterToken={filterToken}
                       isPushModal
                     />

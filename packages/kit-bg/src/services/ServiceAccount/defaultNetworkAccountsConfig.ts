@@ -3,6 +3,7 @@ import { uniqBy } from 'lodash';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC } from '@onekeyhq/shared/src/engine/engineConsts';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -187,15 +188,29 @@ export async function buildDefaultAddAccountNetworks(
     });
   }
 
-  // Third-party HW (Ledger, Trezor) + add-account with explicit networks
-  // should only create those networks, while All Networks default add-account
-  // uses the same default network set as OneKey devices.
+  // Third-party add-account defaults are vendor-profile driven.
   if (!params.isCreateWallet) {
     const isThirdPartyHw =
       await backgroundApi.serviceAccount.isThirdPartyHwByWalletId({
         walletId,
       });
     if (isThirdPartyHw) {
+      const device = await backgroundApi.serviceAccount.getWalletDevice({
+        walletId,
+      });
+      const vendorProfile = device?.vendor
+        ? getVendorProfile(device.vendor)
+        : undefined;
+      if (vendorProfile?.addAccountDefaultNetworkMode === 'onekeyDefault') {
+        return buildAddAccountsNetworks({
+          ...params,
+          btc: true,
+          evm: true,
+          tron: true,
+          sol: true,
+        });
+      }
+
       const isOnlyAllNetwork =
         params.customNetworks?.length === 1 &&
         networkUtils.isAllNetwork({

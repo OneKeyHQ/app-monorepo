@@ -24,10 +24,7 @@ import {
   usePerpsStarV2Checked,
   useStarV2Checked,
 } from '../../../components/MarketStarV2';
-import {
-  StockSourceLogo,
-  SubtitleBadge,
-} from '../../../components/PerpsBadges';
+import { StockSourceLogo, SubtitleText } from '../../../components/PerpsBadges';
 
 import {
   COLUMN_WIDTH_CHANGE,
@@ -81,6 +78,17 @@ const MarketTokenSelectorRow = memo(
     });
     const star = item.perpsCoin ? perpsStar : spotStar;
 
+    // Localized name shown as plain text on the second row, before the address.
+    const localizedName = item.stock?.subtitle ?? item.perpsSubtitle;
+    const shortenedAddress = item.address
+      ? accountUtils.shortenAddress({
+          address: item.address,
+          leadingLength: 6,
+          trailingLength: 4,
+        })
+      : '';
+    const showAddressRow = Boolean(showAddress && item.address);
+
     const starElement = useMemo(
       () => (
         <IconButton
@@ -133,37 +141,50 @@ const MarketTokenSelectorRow = memo(
               </SizableText>
               {item.communityRecognized ? <CommunityRecognizedBadge /> : null}
               <StockSourceLogo stock={item.stock} />
-              {item.stock?.subtitle ? (
-                <SubtitleBadge subtitle={item.stock.subtitle} />
-              ) : null}
             </XStack>
-            {showAddress && item.address ? (
-              <XStack alignItems="center" gap="$1">
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                >
-                  {accountUtils.shortenAddress({
-                    address: item.address,
-                    leadingLength: 6,
-                    trailingLength: 4,
-                  })}
-                </SizableText>
-                <Stack
-                  cursor="pointer"
-                  p="$0.5"
-                  borderRadius="$full"
-                  hoverStyle={{ bg: '$bgHover' }}
-                  pressStyle={{ bg: '$bgActive' }}
-                  hitSlop={NATIVE_HIT_SLOP}
-                  onPress={(e: GestureResponderEvent) => {
-                    e.stopPropagation();
-                    copyText(item.address);
-                  }}
-                >
-                  <Icon name="Copy3Outline" size="$3" color="$iconSubdued" />
-                </Stack>
+            {localizedName || showAddressRow ? (
+              <XStack alignItems="center" gap="$1.5" minWidth={0}>
+                {localizedName ? (
+                  <SubtitleText subtitle={localizedName} maxWidth={66} />
+                ) : null}
+                {localizedName && showAddressRow ? (
+                  <SizableText
+                    size="$bodySm"
+                    color="$textDisabled"
+                    flexShrink={0}
+                  >
+                    |
+                  </SizableText>
+                ) : null}
+                {showAddressRow ? (
+                  <XStack alignItems="center" gap="$1" flexShrink={0}>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      numberOfLines={1}
+                    >
+                      {shortenedAddress}
+                    </SizableText>
+                    <Stack
+                      cursor="pointer"
+                      p="$0.5"
+                      borderRadius="$full"
+                      hoverStyle={{ bg: '$bgHover' }}
+                      pressStyle={{ bg: '$bgActive' }}
+                      hitSlop={NATIVE_HIT_SLOP}
+                      onPress={(e: GestureResponderEvent) => {
+                        e.stopPropagation();
+                        copyText(item.address);
+                      }}
+                    >
+                      <Icon
+                        name="Copy3Outline"
+                        size="$3"
+                        color="$iconSubdued"
+                      />
+                    </Stack>
+                  </XStack>
+                ) : null}
               </XStack>
             ) : null}
           </YStack>

@@ -114,6 +114,54 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
     };
   }
 
+  // Drop pending/confirmed history belonging to deleted accounts and prune stale
+  // pending txs. `validOwners` is the set of lowercased addresses/xpubs of all
+  // surviving accounts. Pure-cache cleanup (re-derived from chain on next refresh).
+  // See ServiceAppCleanup.cleanupOrphanedAssetCaches.
+  @backgroundMethod()
+  async removeOrphanData({ validOwners }: { validOwners: string[] }) {
+    const existing = await this.getRawData();
+    if (!existing) {
+      return;
+    }
+    const validOwnerSet = new Set(validOwners.map((o) => o.toLowerCase()));
+    await this.setRawData((rawData) => {
+      // Trust the in-mutex fresh value, not the pre-mutex `existing` snapshot: a
+      // concurrent clearRawData ("Clear cache" calls localHistory.clearRawData)
+      // nulls the store, and `?? existing` would resurrect the cleared cache.
+      const base = rawData;
+      // Only orphan-filter (drop keys for removed accounts); do NOT age-prune
+      // pendingTxs. ServiceFreshAddress derives "addresses occupied by a local
+      // pending tx" from pendingTxs, so dropping a still-unconfirmed entry would
+      // let BTC fresh-address hand back an address that is already in use — even
+      // when the chain has not yet surfaced the tx. pendingTxs drains naturally
+      // as txs confirm, and removed-account keys are still dropped below.
+      const nextPending: Record<string, IAccountHistoryTx[]> = {};
+      for (const [key, txs] of Object.entries(base?.pendingTxs ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextPending[key] = txs;
+        }
+      }
+      const nextConfirmed: Record<string, IAccountHistoryTx[]> = {};
+      for (const [key, txs] of Object.entries(base?.confirmedTxs ?? {})) {
+        if (
+          accountUtils.isLocalAssetsKeyOwnedBy({
+            key,
+            validOwners: validOwnerSet,
+          })
+        ) {
+          nextConfirmed[key] = txs;
+        }
+      }
+      return { pendingTxs: nextPending, confirmedTxs: nextConfirmed };
+    });
+  }
+
   @backgroundMethod()
   public async saveLocalHistoryPendingTxs({
     networkId,

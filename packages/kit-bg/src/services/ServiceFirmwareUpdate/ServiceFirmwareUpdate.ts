@@ -32,6 +32,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -300,6 +301,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }) {
     // detect certain account device firmware update, so connectId is required
     if (!connectId) {
+      return;
+    }
+    const dbDevice = await localDb.getDeviceByQuery({ connectId });
+    const vendorProfile = dbDevice?.vendor
+      ? getVendorProfile(dbDevice.vendor)
+      : undefined;
+    if (vendorProfile?.isThirdParty) {
       return;
     }
     const showBootloaderUpdateModal = () => {

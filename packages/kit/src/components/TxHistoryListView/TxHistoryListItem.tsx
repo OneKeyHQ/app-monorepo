@@ -113,12 +113,18 @@ function PendingTxActions({
     return canCancelTx ? renderCancelActions() : renderSpeedUpCancelAction();
   };
 
+  // Align the actions under the title. They render as a child of the same
+  // ListItem, whose content padding (px="$3") already insets them, so we only add
+  // the avatar column: its width (Token "$10" = 40, or compact "$8" = 32) plus the
+  // content row's "$3" gap (12). No icon means no avatar column, so no inset.
+  const avatarSize = compact ? 32 : 40;
+  const titleColumnInset = showIcon ? avatarSize + 12 : 0;
+
   return (
     <XStack
-      // eslint-disable-next-line no-nested-ternary
-      pl={showIcon ? (compact ? 64 : 72) : 20}
+      pl={titleColumnInset}
       testID="history-list-item-speed-up-and-cancel-buttons"
-      pb="$3"
+      pb="$1"
     >
       {renderReplaceButtons()}
       {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
@@ -147,6 +153,12 @@ function BaseTxHistoryListItem(props: IProps) {
   const displayStatus = getHistoryTxDisplayStatus(historyTx);
   const isPending = displayStatus === EDecodedTxStatus.Pending;
 
+  // A pending row is just one ListItem in column layout: the token/balance row on
+  // top, and the speed-up/cancel actions below as its second child. Because they
+  // live in the same ListItem, navigation (onPress) and the press/hover highlight
+  // cover the row + actions as a single container automatically — no wrapper,
+  // state or platform branching needed. The action Buttons stop press propagation
+  // by default, so tapping them runs their action instead of navigating.
   return (
     <TxHistoryListItemErrorBoundary>
       <TxActionsListView
@@ -157,18 +169,20 @@ function BaseTxHistoryListItem(props: IProps) {
         tableLayout={tableLayout}
         showIcon={showIcon}
         componentType={ETxActionComponentType.ListView}
-        componentProps={{ onPress: handlePress }}
+        componentProps={{
+          onPress: handlePress,
+          children: isPending ? (
+            <PendingTxActions
+              historyTx={historyTx}
+              showIcon={showIcon}
+              compact={compact}
+              recomputeLayout={recomputeLayout}
+            />
+          ) : undefined,
+        }}
         displayStatus={displayStatus}
         compact={compact}
       />
-      {isPending ? (
-        <PendingTxActions
-          historyTx={historyTx}
-          showIcon={showIcon}
-          compact={compact}
-          recomputeLayout={recomputeLayout}
-        />
-      ) : null}
     </TxHistoryListItemErrorBoundary>
   );
 }

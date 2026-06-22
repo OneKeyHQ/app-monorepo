@@ -20,7 +20,7 @@ import { SortableListView } from '../../layouts/SortableListView';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 import { useTabsContext } from '../Tabs/context';
-import { useTabNameContext } from '../Tabs/TabNameContext';
+import { useTabNameContextSafe } from '../Tabs/TabNameContext';
 
 import { Column, MemoHeaderColumn } from './components';
 
@@ -95,6 +95,13 @@ function TableRow<T>({
   const themeName = useThemeName();
   const isDarkMode = themeName?.includes('dark');
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
+  const mergedRowProps = useMemo(
+    () => ({
+      ...rowProps,
+      ...onRowEvents?.rowProps,
+    }),
+    [onRowEvents?.rowProps, rowProps],
+  );
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
   const pressTimeRef = useRef(0);
@@ -187,7 +194,7 @@ function TableRow<T>({
         })}
       {...nativeScaleAnimationProps}
       {...(!useNativePressable ? (itemPressStyle as IXStackProps) : undefined)}
-      {...(rowProps as IXStackProps)}
+      {...(mergedRowProps as IXStackProps)}
       {...(nativePressed || (isDragging && isDarkMode)
         ? { bg: '$bgActive' }
         : undefined)}
@@ -330,7 +337,7 @@ function BasicTable<T>({
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
   const scrollAtRef = useRef(0);
-  const currentTabName = useTabNameContext();
+  const currentTabName = useTabNameContextSafe();
   const { requestRemeasure, scrollTabElementsRef } = useTabsContext();
 
   const dataSource = useMemo(() => {

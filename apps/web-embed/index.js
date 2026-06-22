@@ -1,10 +1,9 @@
 /* oxlint-disable import-js/order */
 import '@onekeyhq/shared/src/polyfills';
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useSyncExternalStore } from 'react';
 
 import { createRoot } from 'react-dom/client';
-import { HashRouter, Route, Routes } from 'react-router-dom';
 
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -17,6 +16,47 @@ const PageWebEmbedPrimePurchase = lazy(
   () => import('./pages/PageWebEmbedPrimePurchase'),
 );
 
+const routeComponents = {
+  [EWebEmbedRoutePath.index]: PageIndex,
+  [EWebEmbedRoutePath.webEmbedApi]: PageWebEmbedApi,
+  [EWebEmbedRoutePath.primePurchase]: PageWebEmbedPrimePurchase,
+};
+
+function normalizeHashRoutePath(hash) {
+  const hashPath = (hash.startsWith('#') ? hash.slice(1) : hash).split('?')[0];
+  const routePath = hashPath || EWebEmbedRoutePath.index;
+  return routePath.startsWith('/') ? routePath : `/${routePath}`;
+}
+
+function getCurrentRoutePath() {
+  if (typeof globalThis.location === 'undefined') {
+    return EWebEmbedRoutePath.index;
+  }
+  return normalizeHashRoutePath(globalThis.location.hash || '');
+}
+
+function subscribeRouteChange(callback) {
+  if (typeof globalThis.addEventListener !== 'function') {
+    return () => undefined;
+  }
+  globalThis.addEventListener('hashchange', callback);
+  globalThis.addEventListener('popstate', callback);
+  return () => {
+    globalThis.removeEventListener('hashchange', callback);
+    globalThis.removeEventListener('popstate', callback);
+  };
+}
+
+function WebEmbedRouter() {
+  const routePath = useSyncExternalStore(
+    subscribeRouteChange,
+    getCurrentRoutePath,
+    () => EWebEmbedRoutePath.index,
+  );
+  const PageComponent = routeComponents[routePath] || PageIndex;
+  return <PageComponent />;
+}
+
 const container = document.getElementById('root');
 const root = createRoot(container);
 
@@ -27,19 +67,7 @@ defaultLogger.app.webembed.renderHtmlRoot();
 root.render(
   <React.StrictMode>
     <Suspense fallback={<div />}>
-      <HashRouter>
-        <Routes>
-          <Route path={EWebEmbedRoutePath.index} element={<PageIndex />} />
-          <Route
-            path={EWebEmbedRoutePath.webEmbedApi}
-            element={<PageWebEmbedApi />}
-          />
-          <Route
-            path={EWebEmbedRoutePath.primePurchase}
-            element={<PageWebEmbedPrimePurchase />}
-          />
-        </Routes>
-      </HashRouter>
+      <WebEmbedRouter />
     </Suspense>
   </React.StrictMode>,
 );

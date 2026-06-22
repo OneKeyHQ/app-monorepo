@@ -201,22 +201,17 @@ export function normalizeToEarnProvider(
 export function getImportFromToken({
   networkId,
   tokenAddress,
-  isSupportSwap = true,
 }: {
   networkId: string;
   tokenAddress: string;
-  isSupportSwap: boolean;
 }) {
   let importFromToken: ISwapTokenBase | undefined;
-  let swapTabSwitchType = isSupportSwap
-    ? ESwapTabSwitchType.SWAP
-    : ESwapTabSwitchType.BRIDGE;
+  const swapTabSwitchType = ESwapTabSwitchType.SWAP;
   const networkIdsMap = getNetworkIdsMap();
   switch (networkId) {
     case networkIdsMap.btc:
     case networkIdsMap.sbtc:
       importFromToken = earnTradeDefaultSetETH;
-      swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
     case networkIdsMap.eth:
     case networkIdsMap.sepolia: {
@@ -236,7 +231,6 @@ export function getImportFromToken({
       } else {
         importFromToken = earnTradeDefaultSetUSDC;
       }
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.base: {
@@ -245,25 +239,20 @@ export function getImportFromToken({
       } else {
         importFromToken = earnTradeDefaultSetBaseUSDC;
       }
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.sol: {
       importFromToken = earnTradeDefaultSetSOL;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     }
     case networkIdsMap.apt:
       importFromToken = earnTradeDefaultSetETH;
-      swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
     case networkIdsMap.sui:
       importFromToken = earnTradeDefaultSetSui;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     case networkIdsMap.bsc:
       importFromToken = earnTradeDefaultSetBNB;
-      swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
     default:
       break;

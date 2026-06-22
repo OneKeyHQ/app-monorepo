@@ -36,6 +36,7 @@ export enum EGalleryRoutes {
   ComponentJotaiContext = 'component-JotaiContext',
   ComponentJotaiGlobal = 'component-JotaiGlobal',
   ComponentLinearGradientGallery = 'component-LinearGradient',
+  ComponentLightweightChartStyle = 'component-LightweightChartStyle',
   ComponentListItem = 'component-ListItem',
   ComponentListView = 'component-ListView',
   ComponentLocalDB = 'component-LocalDB',
@@ -114,4 +115,5 @@ export enum EGalleryRoutes {
   ComponentAuth = 'component-Auth',
   ComponentOneKeyID = 'component-OneKeyID',
   ComponentStorage = 'component-Storage',
+  ComponentTrezorMultiTransport = 'component-TrezorMultiTransport',
 }

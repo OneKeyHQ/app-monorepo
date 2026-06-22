@@ -40,6 +40,7 @@ export const COIN_CONTROL_HELP_LINK =
   'https://help.onekey.so/articles/13050014';
 export const HARDWARE_TROUBLESHOOTING_URL =
   'https://help.onekey.so/articles/13183743';
+export const TREZOR_TROUBLESHOOTING_URL = 'https://trezor.io/support';
 export const RECEIVE_RISK_MONITORING_HELP_LINK =
   'https://help.onekey.so/articles/15338240-how-to-use-onekey-incoming-transfer-risk-monitoring-kyt';
 

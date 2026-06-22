@@ -14,6 +14,21 @@ Primary language: TypeScript. When making code changes, always ensure TypeScript
 
 This is a React Native project targeting iOS, Android, and Web. Always consider platform-specific behavior when making changes. Use Platform.select or platform-specific file extensions (.ios.ts, .android.ts, .web.ts) where appropriate. Never apply global CSS/style changes when platform-specific fixes are needed.
 
+## Runtime Threading Model - ALWAYS ASSUME IN NATIVE ANALYSIS
+
+**Production runs TWO JS runtimes: `main` (UI) and `background` (bg).** They live in the **same native process** but in **isolated JS contexts** (separate Hermes/JS heaps — JS-level memory is NOT shared between them). Dev environments are often a single runtime, so NEVER infer production memory/timing/concurrency behavior from dev.
+
+When analyzing ANY native / storage / state / memory / startup / crash issue, you MUST first answer:
+
+- **Where does this code run** — `main`, `bg`, or both?
+- **Native resources** (MMKV, DB handles, file handles, native singletons): shared across both runtimes, or one per runtime? (Native singletons like an MMKV instance are typically shared — one native copy.)
+- **JS-heap copies**: does the same data get deserialized/resident **once per runtime** (×2)? JS objects are NOT shared even when the underlying native store is.
+- **Timing/order**: bg and main init independently; don't assume one is ready when the other runs.
+
+**Every conclusion MUST explicitly label which runtime(s) it concerns** (`main` / `bg` / both), and MUST distinguish a single shared native resource from per-runtime JS-heap copies. State this distinction even when it turns out not to matter — surfacing it is the check.
+
+Related: main-JS & bg-JS bundles ship version-locked (atomic OTA), so the only real version skew is native-vs-JS, never bg-vs-main.
+
 ## Import Hierarchy Rules - STRICTLY ENFORCED
 
 **CRITICAL**: Violating these rules WILL break the build and cause circular dependencies.

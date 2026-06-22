@@ -34,6 +34,7 @@ import {
 } from '../../base/ledgerFingerprintUtils';
 
 import { KeyringHardwareBtcBase } from './KeyringHardwareBtcBase';
+import { appendClaimedAddressPaths } from './sdkBtc/findAddressUtils';
 
 import type VaultBtc from './Vault';
 import type { IDBAccount, IDBUtxoAccount } from '../../../dbs/local/types';
@@ -66,7 +67,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         const { template } = params.deriveInfo;
 
         const adapter =
-          await this.backgroundApi.serviceHardware.getAdapterForVendor(
+          await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
             EHardwareVendor.ledger,
           );
 
@@ -105,15 +106,11 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
               dbDevice,
               'btc',
               (deviceId) =>
-                adapter.hw.btcGetPublicKey(
-                  dbDevice.connectId,
-                  deviceId,
-                  {
-                    path: accountPath,
-                    showOnDevice: params.isVerifyAddressAction ?? false,
-                  },
-                  ledgerCommonCallParamsForCreateScene(params),
-                ),
+                adapter.hw.btcGetPublicKey(dbDevice.connectId, deviceId, {
+                  path: accountPath,
+                  showOnDevice: params.isVerifyAddressAction ?? false,
+                  ...ledgerCommonCallParamsForCreateScene(params),
+                }),
             ));
 
           if (!pubKeyResult.success) {
@@ -223,7 +220,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     let { psbtHex } = encodedTx;
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -254,6 +251,15 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
           addressPathMap[utxo.address] = utxo.path;
         }
       }
+
+      // btc find-address feature: inputs spending claimed off-gap addresses
+      // are not in the gap-scanned utxo pool, resolve paths from
+      // findAddresses (prefer the pool entry when both exist)
+      appendClaimedAddressPaths({
+        addressPathMap,
+        accountPath: dbAccount.path,
+        findAddresses: (dbAccount as IDBUtxoAccount).findAddresses,
+      });
 
       // Fetch full previous transactions
       const prevTxids = [...new Set(inputs.map((i) => i.txid).filter(Boolean))];
@@ -420,7 +426,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     }
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -448,13 +454,28 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
         if (fpResult.success) {
           const fp = Buffer.from(fpResult.payload.masterFingerprint, 'hex');
           const psbt = BitcoinJS.Psbt.fromHex(psbtHex, { network: btcNetwork });
+          // Resolve per-input paths/pubkeys instead of assuming every input
+          // spends from the account's main address. Inputs from fresh or
+          // claimed (find-address) addresses would otherwise be fed the
+          // wrong derivation path and Ledger would refuse or mis-sign.
+          const { resolvePubkeyHexByAddress, resolvePathByAddress } =
+            await this.resolvePsbtAddressDerivation({
+              unsignedTx,
+              dbAccount: dbAccount as IDBUtxoAccount,
+              btcNetwork,
+              addresses: inputsToSign.map((input) => input.address),
+            });
           for (const input of inputsToSign) {
+            const pubkeyHex = resolvePubkeyHexByAddress({
+              address: input.address,
+              fallbackPubkeyHex: input.publicKey,
+            });
             psbt.updateInput(input.index, {
               tapBip32Derivation: [
                 {
                   masterFingerprint: fp,
-                  pubkey: Buffer.from(input.publicKey, 'hex').subarray(1, 33),
-                  path: `${dbAccount.path}/${dbAccount.relPath ?? '0/0'}`,
+                  pubkey: Buffer.from(pubkeyHex, 'hex').subarray(1, 33),
+                  path: resolvePathByAddress(input.address),
                   leafHashes: [],
                 },
               ],
@@ -526,7 +547,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const dbAccount = await this.vault.getAccount();
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
@@ -581,7 +602,7 @@ export class KeyringHardwareLedger extends KeyringHardwareBtcBase {
     const { receiveAddressPath } = chainExtraParams ?? {};
 
     const adapter =
-      await this.backgroundApi.serviceHardware.getAdapterForVendor(
+      await this.backgroundApi.serviceThirdPartyHardware.getAdapterForVendor(
         EHardwareVendor.ledger,
       );
     if (!adapter) {
