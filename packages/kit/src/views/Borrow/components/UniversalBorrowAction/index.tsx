@@ -136,6 +136,8 @@ export function useUniversalBorrowAction({
           accountId,
           action,
           amount: value,
+          withdrawAll: action === 'withdraw' ? withdrawAll : undefined,
+          repayAll: action === 'repay' ? repayAll : undefined,
         },
       );
     },
@@ -147,7 +149,9 @@ export function useUniversalBorrowAction({
       marketAddress,
       networkId,
       provider,
+      repayAll,
       reserveAddress,
+      withdrawAll,
     ],
   );
 

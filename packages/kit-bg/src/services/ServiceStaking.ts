@@ -2427,6 +2427,8 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     action: 'supply' | 'withdraw' | 'borrow' | 'repay' | 'repayWithCollateral';
     amount: string;
+    withdrawAll?: boolean;
+    repayAll?: boolean;
     collateralReserveAddress?: string;
     slippageBps?: number;
   }) {

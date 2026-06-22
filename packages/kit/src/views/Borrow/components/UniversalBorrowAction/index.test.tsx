@@ -207,7 +207,7 @@ describe('useUniversalBorrowAction', () => {
     expect(result.current.checkAmountLoading).toBe(false);
   });
 
-  it('passes withdrawAll to estimate fee without sending it to check amount', async () => {
+  it('passes withdrawAll to transaction confirmation and estimate fee without sending it to check amount', async () => {
     renderHook(() =>
       useUniversalBorrowAction({
         ...baseParams,
@@ -222,6 +222,14 @@ describe('useUniversalBorrowAction', () => {
     });
 
     expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'withdraw',
+        withdrawAll: true,
+      }),
+    );
+    expect(
       backgroundMock.serviceStaking.getBorrowEstimateFee,
     ).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -232,5 +240,45 @@ describe('useUniversalBorrowAction', () => {
     expect(
       backgroundMock.serviceStaking.getBorrowCheckAmount.mock.calls[0][0],
     ).not.toHaveProperty('withdrawAll');
+  });
+
+  it('passes repayAll to transaction confirmation, estimate fee, and check amount', async () => {
+    renderHook(() =>
+      useUniversalBorrowAction({
+        ...baseParams,
+        action: 'repay',
+        repayAll: true,
+      }),
+    );
+
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await flushPromises();
+    });
+
+    expect(
+      backgroundMock.serviceStaking.getBorrowTransactionConfirmation,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'repay',
+        repayAll: true,
+      }),
+    );
+    expect(
+      backgroundMock.serviceStaking.getBorrowEstimateFee,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'repay',
+        repayAll: true,
+      }),
+    );
+    expect(
+      backgroundMock.serviceStaking.getBorrowCheckAmount,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'repay',
+        repayAll: true,
+      }),
+    );
   });
 });
