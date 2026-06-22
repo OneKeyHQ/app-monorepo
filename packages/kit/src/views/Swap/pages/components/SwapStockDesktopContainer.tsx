@@ -507,11 +507,6 @@ function StockEstimatedReceive({
         >
           {receiveTokenSymbol}
         </SizableText>
-        <SwapRateDifferenceText
-          loading={isLoading}
-          rateDifference={rateDifference}
-          size="$bodyMd"
-        />
       </XStack>
       {canSelectReceiveToken ? (
         <Icon
@@ -583,16 +578,24 @@ function StockEstimatedReceive({
         ) : (
           <>
             {receiveTokenContent}
-            <NumberSizeableText
-              size="$bodyMd"
-              color="$textSubdued"
-              formatter="value"
-              formatterOptions={{
-                currency: currencySymbol,
-              }}
-            >
-              {receiveFiatValue || '0'}
-            </NumberSizeableText>
+            <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+              <NumberSizeableText
+                size="$bodyMd"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{
+                  currency: currencySymbol,
+                }}
+                numberOfLines={1}
+              >
+                {receiveFiatValue || '0'}
+              </NumberSizeableText>
+              <SwapRateDifferenceText
+                loading={isLoading}
+                rateDifference={rateDifference}
+                size="$bodyMd"
+              />
+            </XStack>
           </>
         )}
       </YStack>
