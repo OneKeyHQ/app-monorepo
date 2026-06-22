@@ -116,6 +116,9 @@ interface ISwapHeaderContainerProps {
   enterFrom?: ESwapSource;
 }
 
+const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
+const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
+
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
@@ -279,12 +282,16 @@ const SwapHeaderContainer = ({
     return (
       <XStack justifyContent="center" px="$5">
         <SegmentControl
+          width={DESKTOP_TRADE_TAB_GROUP_WIDTH}
+          fullWidth
           value={swapTypeSwitch}
           options={segmentOptions.map((opt) => ({
             ...opt,
             label: (
               <SizableText
                 size="$headingSm"
+                textAlign="center"
+                numberOfLines={1}
                 color={swapTypeSwitch === opt.value ? '$text' : '$textSubdued'}
               >
                 {opt.label}
@@ -299,8 +306,10 @@ const SwapHeaderContainer = ({
           h="auto"
           segmentControlItemStyleProps={{
             py: '$2',
-            px: '$7',
+            px: '$0',
             borderRadius: '$full',
+            alignItems: 'center',
+            justifyContent: 'center',
             '$platform-web': {
               boxShadow: 'none',
             },
