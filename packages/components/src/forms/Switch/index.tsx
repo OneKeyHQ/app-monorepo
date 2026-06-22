@@ -77,7 +77,13 @@ export function Switch({
   const nativeProps = useMemo(
     () => ({
       disabled,
-      ios_backgroundColor: theme.neutral5.val,
+      // iOS 26 gives the native UISwitch a Liquid Glass track; a solid off-state
+      // background bleeds past the glass as an extra-gray sliver, so drop it
+      // there and let the system render the glass off-track. iOS < 26 / Android
+      // keep the neutral5 background unchanged.
+      ios_backgroundColor: platformEnv.isNativeIOS26Plus
+        ? 'transparent'
+        : theme.neutral5.val,
       trackColor: {
         false: theme.neutral5.val,
         true: theme.bgPrimary.val,
