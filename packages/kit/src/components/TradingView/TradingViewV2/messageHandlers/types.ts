@@ -1,6 +1,11 @@
 import type { IWebViewRef } from '../../../WebView/types';
 import type { ITradingViewV2KLineDataFallback } from '../hooks/useTradingViewV2';
-import type { ICustomReceiveHandlerData } from '../types';
+import type {
+  ICustomReceiveHandlerData,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLineLoadErrorData,
+  ITradingViewKLinePeriodChangeData,
+} from '../types';
 
 export interface IKLineDataRequest {
   method: string;
@@ -34,6 +39,9 @@ export interface IMessageHandlerContext {
   kLineDataFallback?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
+  onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
+  onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
 
 export interface IMessageHandlerParams {
