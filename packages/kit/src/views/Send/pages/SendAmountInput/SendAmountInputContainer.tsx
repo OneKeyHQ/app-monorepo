@@ -4124,6 +4124,7 @@ function SendAmountInputContainer() {
       <Page.Header
         title={intl.formatMessage({ id: pageTitleTranslationId })}
         headerRight={renderPrivateSendHeaderRight}
+        headerRightNoGlass
       />
 
       {renderPageBody}

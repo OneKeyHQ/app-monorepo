@@ -617,6 +617,7 @@ function ChainListSearch() {
           id: ETranslations.custom_network_add_network_action_text,
         })}
         headerRight={headerRight}
+        headerRightNoGlass
       />
       <Page.Body>
         <Stack px="$5" pb="$2">

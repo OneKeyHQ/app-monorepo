@@ -171,6 +171,7 @@ function HistoryListModal() {
           id: ETranslations.browser_recently_closed,
         })}
         headerRight={headerRight}
+        headerRightNoGlass
       />
       <Page.Body>
         <SectionList

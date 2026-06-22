@@ -595,6 +595,7 @@ const SwapHistoryListModal = ({
         headerRight={
           historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
         }
+        headerRightNoGlass
         headerTitleAlign={gtMd ? 'left' : 'center'}
         headerTitle={headerSelectType}
       />

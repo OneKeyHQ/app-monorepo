@@ -1636,6 +1636,7 @@ const SwapHistoryDetailModal = () => {
             : ETranslations.swap_history_detail_title,
         })}
         headerRight={headerRight}
+        headerRightNoGlass
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
       {txHistory?.swapInfo.supportUrl ? (
