@@ -796,9 +796,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     ignoreCache = false,
   }: { ignoreCache?: boolean } = {}) {
     try {
-      return ignoreCache
-        ? await this.updatePerpsConfigByServer()
-        : await this.updatePerpsConfigByServerWithCache();
+      if (ignoreCache) {
+        await this._updatePerpsConfigByServerWithCache.clear();
+      }
+      return await this.updatePerpsConfigByServerWithCache();
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       console.warn('[ServiceHyperliquid] Failed to update perp config', error);
