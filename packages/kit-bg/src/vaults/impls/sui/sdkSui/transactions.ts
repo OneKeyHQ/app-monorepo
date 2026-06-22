@@ -1,5 +1,5 @@
 import { Transaction, coinWithBalance } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -54,9 +54,27 @@ async function createTokenTransaction({
   return tx;
 }
 
+// coinWithBalance injects 0x2::coin / 0x2::balance helper calls (redeem_funds,
+// send_funds, etc.) for address-balance transfers; not contract interactions.
+function isCoinFrameworkMoveCall(moveCall: {
+  package: string;
+  module: string;
+  function: string;
+}) {
+  return (
+    normalizeSuiAddress(moveCall.package) === normalizeSuiAddress('0x2') &&
+    (moveCall.module === 'coin' || moveCall.module === 'balance')
+  );
+}
+
 function analyzeTransactionType(tx: Transaction) {
   const commands = tx.getData().commands;
-  const hasMoveCall = commands.some((cmd) => cmd.$kind === 'MoveCall');
+  const hasMoveCall = commands.some(
+    (cmd) =>
+      cmd.$kind === 'MoveCall' &&
+      cmd.MoveCall &&
+      !isCoinFrameworkMoveCall(cmd.MoveCall),
+  );
   if (hasMoveCall) {
     return ESuiTransactionType.ContractInteraction;
   }
