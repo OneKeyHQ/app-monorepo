@@ -15,6 +15,7 @@ import {
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
@@ -24,6 +25,7 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -113,10 +115,12 @@ import {
   filterSwapHistoryPendingList,
   inAppNotificationAtom,
   perpsDepositOrderAtom,
+  settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
+import { normalizeSwapTokenListCurrency } from './ServiceSwap.utils';
 import { buildSpeedSwapTxParams } from './utils/buildSpeedSwapTxParams';
 import {
   isSwapTxHistoryStatusTerminal,
@@ -381,6 +385,77 @@ function getSwapHistoryStateOrderId({
     : undefined;
 }
 
+function getPrivateSendAnalyticsFinalStatus(status: ESwapTxHistoryStatus) {
+  if (
+    status === ESwapTxHistoryStatus.SUCCESS ||
+    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+  ) {
+    return 'done';
+  }
+  return isSwapTxHistoryStatusTerminal(status) ? 'failed' : undefined;
+}
+
+function getPrivateSendHistoryDurationSeconds(swapTxHistory: ISwapTxHistory) {
+  const createdAt = swapTxHistory.date.created;
+  if (!Number.isFinite(createdAt)) {
+    return undefined;
+  }
+  return Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+}
+
+function getPrivateSendFinalFailedReason(swapTxHistory: ISwapTxHistory) {
+  const reason = swapTxHistory.extraStatus ?? swapTxHistory.stateDetail;
+  if (reason === undefined || reason === null) {
+    return undefined;
+  }
+  return String(reason);
+}
+
+function trackPrivateSendOrderFinalStatusIfNeeded({
+  isPrivateSendHistory,
+  previousSwapTxHistory,
+  currentSwapTxHistory,
+}: {
+  isPrivateSendHistory: boolean;
+  previousSwapTxHistory: ISwapTxHistory;
+  currentSwapTxHistory: ISwapTxHistory;
+}) {
+  if (
+    !isPrivateSendHistory ||
+    isSwapTxHistoryStatusTerminal(previousSwapTxHistory.status)
+  ) {
+    return;
+  }
+  const finalStatus = getPrivateSendAnalyticsFinalStatus(
+    currentSwapTxHistory.status,
+  );
+  if (!finalStatus) {
+    return;
+  }
+  defaultLogger.transaction.send.sendPrivateOrderFinalStatus({
+    orderId:
+      currentSwapTxHistory.swapInfo.orderId ??
+      currentSwapTxHistory.txInfo.orderId,
+    finalStatus,
+    failedReason:
+      finalStatus === 'failed'
+        ? getPrivateSendFinalFailedReason(currentSwapTxHistory)
+        : undefined,
+    provider: currentSwapTxHistory.swapInfo.provider.provider,
+    network:
+      currentSwapTxHistory.baseInfo.fromToken.networkId ??
+      currentSwapTxHistory.baseInfo.fromNetwork?.networkId,
+    tokenSymbol: currentSwapTxHistory.baseInfo.fromToken.symbol,
+    receivedTokenSymbol: currentSwapTxHistory.baseInfo.toToken.symbol,
+    sendAmount: currentSwapTxHistory.baseInfo.fromAmount,
+    receivedAmount:
+      finalStatus === 'done'
+        ? currentSwapTxHistory.baseInfo.toAmount
+        : undefined,
+    duration: getPrivateSendHistoryDurationSeconds(currentSwapTxHistory),
+  });
+}
+
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _speedSwapQuoteAbortController?: AbortController;
@@ -568,6 +643,7 @@ export default class ServiceSwap extends ServiceBase {
     isAllNetworkFetchAccountTokens,
     protocol,
     lpToken,
+    currency,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
@@ -592,6 +668,10 @@ export default class ServiceSwap extends ServiceBase {
       this._tokenListAbortController = new AbortController();
     }
     const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const requestCurrency =
+      currency ??
+      (await settingsPersistAtom.get())?.currencyInfo?.id ??
+      USD_CURRENCY_ID;
     if (accountId && accountAddress && networkId) {
       try {
         const accountAddressForAccountId =
@@ -636,15 +716,20 @@ export default class ServiceSwap extends ServiceBase {
           signal: !isAllNetworkFetchAccountTokens
             ? this._tokenListAbortController?.signal
             : undefined,
-          headers:
-            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+          headers: {
+            ...(await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
               {
                 accountId,
               },
-            ),
+            )),
+            'x-onekey-request-currency': requestCurrency,
+          },
         },
       );
-      return data?.data ?? [];
+      return normalizeSwapTokenListCurrency({
+        tokens: data?.data ?? [],
+        currency: requestCurrency,
+      });
     } catch (e) {
       if (axios.isCancel(e)) {
         // eslint-disable-next-line no-restricted-syntax, onekey/no-raw-error -- needs standard Error cause semantics
@@ -2205,6 +2290,11 @@ export default class ServiceSwap extends ServiceBase {
           shouldShowToast,
         });
         const finalStatus = currentSwapTxHistory.status;
+        trackPrivateSendOrderFinalStatusIfNeeded({
+          isPrivateSendHistory,
+          previousSwapTxHistory,
+          currentSwapTxHistory,
+        });
         if (
           finalStatus === ESwapTxHistoryStatus.FAILED ||
           finalStatus === ESwapTxHistoryStatus.CANCELED

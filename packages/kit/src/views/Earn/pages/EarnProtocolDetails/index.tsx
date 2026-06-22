@@ -3,11 +3,14 @@ import { Fragment, memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
+  Dialog,
   Divider,
   Icon,
   IconButton,
   Image,
   Page,
+  ScrollView,
   SizableText,
   Stack,
   XStack,
@@ -50,6 +53,7 @@ import {
 import type {
   IEarnAlert,
   IEarnText,
+  IEarnTextTooltip,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -349,6 +353,37 @@ function ChartSection({
   );
 }
 
+const MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT = 512;
+
+function MarketInfoDialogContent({ tooltip }: { tooltip: IEarnTextTooltip }) {
+  return (
+    <ScrollView
+      maxHeight={MARKET_INFO_DIALOG_CONTENT_MAX_HEIGHT}
+      nestedScrollEnabled
+    >
+      <YStack px="$5" pb="$5" gap="$5">
+        {tooltip.data.description ? (
+          <EarnText text={tooltip.data.description} size="$bodyMd" />
+        ) : null}
+        {tooltip.data.items?.map((item, index) => (
+          <YStack key={`${item.title.text}-${index}`} gap="$1">
+            <EarnText
+              text={item.title}
+              size="$bodySm"
+              color={item.title.color ?? '$textSubdued'}
+            />
+            <EarnText
+              text={item.description}
+              size="$bodyMd"
+              color={item.description.color ?? '$text'}
+            />
+          </YStack>
+        ))}
+      </YStack>
+    </ScrollView>
+  );
+}
+
 function GridSection({
   data,
 }: {
@@ -357,6 +392,35 @@ function GridSection({
     | IStakeEarnDetail['rules']
     | IStakeEarnDetail['performance'];
 }) {
+  const intl = useIntl();
+  const marketInfoTooltip =
+    data && 'tooltip' in data && data.tooltip?.type === 'text'
+      ? data.tooltip
+      : undefined;
+  const handleShowMarketInfo = useCallback(() => {
+    if (!marketInfoTooltip) {
+      return;
+    }
+
+    Dialog.show({
+      title: marketInfoTooltip.data.title?.text ?? 'Market info',
+      disableDrag: true,
+      contentContainerProps: {
+        px: '$0',
+        pb: '$0',
+      },
+      floatingPanelProps: {
+        width: 400,
+      },
+      renderContent: <MarketInfoDialogContent tooltip={marketInfoTooltip} />,
+      onConfirmText: intl.formatMessage({ id: ETranslations.global_got_it }),
+      confirmButtonProps: {
+        variant: 'secondary',
+      },
+      showCancelButton: false,
+    });
+  }, [intl, marketInfoTooltip]);
+
   if (!data) {
     return null;
   }
@@ -365,7 +429,27 @@ function GridSection({
     <>
       {data.items?.length ? (
         <YStack gap="$6">
-          <EarnText text={data.title} size="$headingLg" />
+          <XStack alignItems="center" gap="$3">
+            <EarnText text={data.title} size="$headingLg" />
+            {marketInfoTooltip ? (
+              <Badge
+                badgeSize="lg"
+                badgeType="default"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleShowMarketInfo}
+              >
+                <Badge.Text>
+                  {marketInfoTooltip.data.title?.text ?? 'Market info'}
+                </Badge.Text>
+                <Icon
+                  name="InfoCircleOutline"
+                  size="$3.5"
+                  color="$iconSubdued"
+                />
+              </Badge>
+            ) : null}
+          </XStack>
           <XStack flexWrap="wrap" m="$-5" p="$2">
             {data.items.map((cell, cellIndex) => (
               <GridItem

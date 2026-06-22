@@ -82,11 +82,14 @@ export function isTokenSelectorDappToken({
 export function buildSwapAllNetworkTokenListCacheKey({
   accountId,
   lpToken,
+  currency,
 }: {
   accountId: string;
   lpToken?: boolean;
+  currency?: string;
 }) {
-  return lpToken ? `${accountId}__lpToken` : accountId;
+  const currencyKey = currency ? `__${currency}` : '';
+  return `${accountId}${lpToken ? '__lpToken' : ''}${currencyKey}`;
 }
 
 export const SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED =
