@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
@@ -99,6 +99,13 @@ import SwapActionsState from './SwapActionsState';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
+import {
+  type IStockChartRange,
+  STOCK_CHART_DEFAULT_RANGE,
+  STOCK_CHART_RANGE_ITEMS,
+  STOCK_DESKTOP_HEADER_SLOT_PROPS,
+  getStockDisabledActionButtonProps,
+} from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
   SwapStockTradeProvider,
@@ -130,7 +137,6 @@ interface ISwapStockDesktopContainerProps {
   };
 }
 
-type IStockChartRange = '1D' | '1W' | '1M' | '1Y';
 type IStockMarketTokenDetail = ReturnType<typeof useTokenDetail>['tokenDetail'];
 type IStockMarketDataRow = {
   label: string;
@@ -138,16 +144,6 @@ type IStockMarketDataRow = {
   tooltip?: string;
 };
 
-const STOCK_CHART_RANGE_ITEMS: {
-  label: IStockChartRange;
-  interval: string;
-  seconds: number;
-}[] = [
-  { label: '1D', interval: '1m', seconds: 24 * 60 * 60 },
-  { label: '1W', interval: '1H', seconds: 7 * 24 * 60 * 60 },
-  { label: '1M', interval: '4H', seconds: 30 * 24 * 60 * 60 },
-  { label: '1Y', interval: '1D', seconds: 365 * 24 * 60 * 60 },
-];
 const STOCK_CHART_VISIBLE_HEIGHT = 174;
 const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
@@ -210,6 +206,11 @@ function StockMarketDataItem({
             title={label}
             tooltip={tooltip}
             placement="top"
+            renderContent={
+              <YStack p="$5">
+                <SizableText size="$bodyMd">{tooltip}</SizableText>
+              </YStack>
+            }
           />
         ) : null}
       </XStack>
@@ -602,6 +603,10 @@ function StockActionGate({
     );
   }
 
+  const disabledButtonProps = getStockDisabledActionButtonProps(
+    stockChannel.tradeSide,
+  );
+
   return (
     <Button
       testID={SwapTestIDs.swapButton}
@@ -609,6 +614,7 @@ function StockActionGate({
       variant="primary"
       disabled
       borderRadius="$full"
+      {...disabledButtonProps}
     >
       {disabledLabel}
     </Button>
@@ -982,17 +988,20 @@ function StockMarketTokenHeader({
 function StockPriceChart({
   isNative,
   networkId,
+  onRangeChange,
+  range,
   tokenAddress,
   tokenSymbol,
 }: {
   isNative?: boolean;
   networkId?: string;
+  onRangeChange: (range: IStockChartRange) => void;
+  range: IStockChartRange;
   tokenAddress?: string;
   tokenSymbol?: string;
 }) {
   const intl = useIntl();
   const theme = useTheme();
-  const [range, setRange] = useState<IStockChartRange>('1D');
   const [hoverData, setHoverData] = useState<IStockChartHoverData | null>(null);
   const [chartWidth, setChartWidth] = useState(0);
   const chartLineColor = theme.textSuccess.val;
@@ -1005,10 +1014,13 @@ function StockPriceChart({
       })),
     [],
   );
-  const handleRangeChange = useCallback((value: string | number) => {
-    setRange(value as IStockChartRange);
-    setHoverData(null);
-  }, []);
+  const handleRangeChange = useCallback(
+    (value: string | number) => {
+      onRangeChange(value as IStockChartRange);
+      setHoverData(null);
+    },
+    [onRangeChange],
+  );
   const chartTitle = useMemo(() => {
     const chartLabel = intl.formatMessage({
       id: ETranslations.market_chart,
@@ -1022,6 +1034,9 @@ function StockPriceChart({
   const chartScope = `${networkId ?? ''}:${tokenAddress ?? ''}:${
     isNative ? 'native' : 'token'
   }:${range}`;
+  useEffect(() => {
+    setHoverData(null);
+  }, [chartScope]);
   const { result: chartState, isLoading } = usePromiseResult(
     async () => {
       if (!networkId || (!tokenAddress && !isNative) || !activeRange) {
@@ -1129,9 +1144,26 @@ function StockPriceChart({
   }, [hoverData, intl]);
 
   let chartContent: ReactNode = (
-    <YStack flex={1} alignItems="center" justifyContent="center">
-      <SizableText size="$bodySm" color="$textSubdued">
-        --
+    <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
+      <YStack
+        w="$10"
+        h="$10"
+        borderRadius="$full"
+        bg="$bgStrong"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Icon name="ChartLine2Outline" size="$5" color="$iconSubdued" />
+      </YStack>
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        textAlign="center"
+        numberOfLines={2}
+      >
+        {intl.formatMessage({
+          id: ETranslations.dexmarket_k_line_no_recent_transactions,
+        })}
       </SizableText>
     </YStack>
   );
@@ -1315,6 +1347,9 @@ function StockMarketContextPanel({
   storeName: EJotaiContextStoreNames;
 }) {
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
+  const [range, setRange] = useState<IStockChartRange>(
+    STOCK_CHART_DEFAULT_RANGE,
+  );
   const chartReady = !!networkId && !!tokenDetail?.symbol;
 
   return (
@@ -1347,6 +1382,8 @@ function StockMarketContextPanel({
             tokenAddress={tokenAddress ?? ''}
             networkId={networkId ?? ''}
             isNative={isNative}
+            range={range}
+            onRangeChange={setRange}
             tokenSymbol={tokenDetail?.symbol}
           />
         ) : (
@@ -1428,13 +1465,16 @@ function SwapStockDesktopContent({
   }, [navigation, storeName]);
 
   return (
-    <YStack width="100%" alignItems="center" pt="$5" pb="$5">
-      <YStack width="100%" maxWidth={960} gap="$7">
-        {headerContent ? (
-          <XStack h="$14" alignItems="center" justifyContent="center">
-            {headerContent}
-          </XStack>
-        ) : null}
+    <YStack
+      width="100%"
+      alignItems="center"
+      pb="$5"
+      pt={headerContent ? undefined : '$5'}
+    >
+      {headerContent ? (
+        <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
+      ) : null}
+      <YStack width="100%" maxWidth={960}>
         <XStack width="100%" gap="$6" alignItems="flex-start">
           <YStack
             w={410}

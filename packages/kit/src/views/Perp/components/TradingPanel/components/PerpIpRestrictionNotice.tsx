@@ -11,6 +11,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { PERPS_IP_RESTRICTION_HELP_URL } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+import { openGuideUrl } from '../../Guide/perpGuideData';
 
 export function PerpIpRestrictionNotice({
   isMobile = false,
@@ -47,6 +50,10 @@ export function PerpIpRestrictionNotice({
       });
   }, []);
 
+  const handleLearnMore = useCallback(() => {
+    openGuideUrl(PERPS_IP_RESTRICTION_HELP_URL);
+  }, []);
+
   const recheckText = intl.formatMessage({
     id: ETranslations.redetect__action,
   });
@@ -78,18 +85,37 @@ export function PerpIpRestrictionNotice({
           })}
         </SizableText>
 
-        <XStack
-          gap="$1"
-          alignItems="center"
-          cursor={isChecking ? 'default' : 'pointer'}
-          onPress={handleRecheck}
-        >
-          {isChecking ? (
-            <Spinner size="small" color="$textInteractive" scale={0.65} />
-          ) : null}
-          <SizableText size="$bodyXs" color="$textInteractive">
-            {recheckText}
-          </SizableText>
+        <XStack gap="$3" alignItems="center" flexWrap="wrap">
+          <XStack
+            gap="$1"
+            alignItems="center"
+            cursor={isChecking ? 'default' : 'pointer'}
+            onPress={handleRecheck}
+          >
+            {isChecking ? (
+              <Spinner size="small" color="$textInteractive" scale={0.65} />
+            ) : null}
+            <SizableText size="$bodyXs" color="$textInteractive">
+              {recheckText}
+            </SizableText>
+          </XStack>
+          <XStack
+            gap="$1"
+            alignItems="center"
+            cursor="pointer"
+            onPress={handleLearnMore}
+          >
+            <SizableText size="$bodyXs" color="$textInteractive">
+              {intl.formatMessage({
+                id: ETranslations.global_learn_more,
+              })}
+            </SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$4"
+              color="$textInteractive"
+            />
+          </XStack>
         </XStack>
       </YStack>
     </YStack>

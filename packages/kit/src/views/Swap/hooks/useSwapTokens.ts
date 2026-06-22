@@ -176,8 +176,8 @@ export function useSwapTokenList(
     keywords,
     currentSelectNetwork?.networkId,
     lpToken,
-    shouldFetchStaticStockTokens,
     requestCurrency,
+    shouldFetchStaticStockTokens,
   ]);
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
