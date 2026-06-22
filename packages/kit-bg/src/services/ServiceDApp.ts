@@ -73,6 +73,8 @@ import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
@@ -1255,31 +1257,35 @@ class ServiceDApp extends ServiceBase {
   // notification
   @backgroundMethod()
   async notifyDAppAccountsChanged(targetOrigin: string) {
-    Object.values(this.backgroundApi.providers).forEach(
-      (provider: ProviderApiBase) => {
-        provider.notifyDappAccountsChanged({
-          send: this.backgroundApi.sendForProvider(provider.providerName),
-          targetOrigin,
-        });
-      },
-    );
+    // Only providers already loaded (a dapp has used that chain) need notifying;
+    // un-loaded chains have no connected dapp session to update.
+    Object.values(this.backgroundApi.providers).forEach((provider) => {
+      if (!provider) {
+        return;
+      }
+      provider.notifyDappAccountsChanged({
+        send: this.backgroundApi.sendForProvider(provider.providerName),
+        targetOrigin,
+      });
+    });
     return Promise.resolve();
   }
 
   @backgroundMethod()
   async notifyDAppChainChanged(targetOrigin: string) {
-    Object.values(this.backgroundApi.providers).forEach(
-      (provider: ProviderApiBase) => {
-        try {
-          provider.notifyDappChainChanged({
-            send: this.backgroundApi.sendForProvider(provider.providerName),
-            targetOrigin,
-          });
-        } catch {
-          // ignore error
-        }
-      },
-    );
+    Object.values(this.backgroundApi.providers).forEach((provider) => {
+      if (!provider) {
+        return;
+      }
+      try {
+        provider.notifyDappChainChanged({
+          send: this.backgroundApi.sendForProvider(provider.providerName),
+          targetOrigin,
+        });
+      } catch {
+        // ignore error
+      }
+    });
     return Promise.resolve();
   }
 
@@ -1335,8 +1341,9 @@ class ServiceDApp extends ServiceBase {
     hyperliquidMaxBuilderFee: number | undefined;
   }) {
     // use ethereum provider to send message to dapp
-    const ethereumProvider = this.backgroundApi.providers
-      .ethereum as ProviderApiEthereum;
+    const ethereumProvider = (await this.backgroundApi.getProviderApi(
+      IInjectedProviderNames.ethereum,
+    )) as ProviderApiEthereum;
     await ethereumProvider.notifyHyperliquidPerpConfigChanged(
       {
         // use ethereum provider to send message to dapp
