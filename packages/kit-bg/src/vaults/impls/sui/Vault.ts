@@ -401,12 +401,18 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError('Invalid transfer object');
       }
 
+      // maxSendAmount is human-readable; convert to base units (MIST)
+      const network = await this.getNetwork();
+      const maxSendAmountValue = new BigNumber(nativeAmountInfo.maxSendAmount)
+        .shiftedBy(network.decimals)
+        .toFixed(0, BigNumber.ROUND_FLOOR);
+
       // max send logic
       const newTx = await transactionUtils.createTokenTransaction({
         client,
         sender: oldTx.getData().sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
-        amount: nativeAmountInfo.maxSendAmount,
+        amount: maxSendAmountValue,
         coinType: SUI_TYPE_ARG,
         maxSendNativeToken: true,
       });
