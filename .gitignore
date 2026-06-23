@@ -158,3 +158,6 @@ apps/mobile/android/app/src/main/assets/modules.json
 /_bmad/
 /_bmad-output/
 /.skillshare/skills/bmad-*
+
+# Local Windows perf remote config (host-specific, do not commit)
+development/scripts/.windows-perf.env

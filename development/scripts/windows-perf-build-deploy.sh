@@ -21,11 +21,12 @@
 #   doctor   - Check SSH reachability + remote repo + tooling
 #
 # Config (env vars, or a local development/scripts/.windows-perf.env file):
-#   WIN_HOST   Windows LAN IP or hostname            (required)
-#   WIN_USER   Windows SSH username                  (default: current user)
-#   WIN_REPO   repo path on Windows (Windows-style)  (default: C:\app-monorepo)
-#   CDP_PORT   remote debugging port                 (default: 9222)
-#   OUT_DIR    where captures are written            (default: .tmp/win-perf)
+#   WIN_HOST     Windows LAN IP or hostname            (required)
+#   WIN_USER     Windows SSH username                  (default: current user)
+#   WIN_SSH_PORT SSH port on Windows                   (default: 22)
+#   WIN_REPO     repo path on Windows (Windows-style)  (default: C:\app-monorepo)
+#   CDP_PORT     remote debugging port                 (default: 9222)
+#   OUT_DIR      where captures are written            (default: .tmp/win-perf)
 #
 # Prerequisites (one-time, on Windows): run
 #   apps\desktop\scripts\setup-perf-remote-win.ps1   (Admin)
@@ -46,6 +47,7 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 WIN_USER="${WIN_USER:-$(whoami)}"
+WIN_SSH_PORT="${WIN_SSH_PORT:-22}"
 WIN_REPO="${WIN_REPO:-C:\\app-monorepo}"
 CDP_PORT="${CDP_PORT:-9222}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/.tmp/win-perf}"
@@ -64,14 +66,15 @@ require_host() {
     echo "❌ WIN_HOST is not set. Export it or put it in $CONFIG_FILE :"
     echo "     WIN_HOST=192.168.1.50"
     echo "     WIN_USER=youruser"
-    echo "     WIN_REPO=C:\\\\Users\\\\youruser\\\\app-monorepo"
+    echo "     WIN_SSH_PORT=2222"
+    echo "     WIN_REPO='C:\\Users\\youruser\\app-monorepo'   # single-quote: keep backslashes"
     exit 1
   fi
 }
 
 # Run a PowerShell command on Windows over SSH.
 win_ps() {
-  ssh "$WIN_USER@$WIN_HOST" "powershell -ExecutionPolicy Bypass -Command \"$1\""
+  ssh -p "$WIN_SSH_PORT" "$WIN_USER@$WIN_HOST" "powershell -ExecutionPolicy Bypass -Command \"$1\""
 }
 
 # --- doctor: verify the remote target is reachable + set up ---
@@ -80,7 +83,7 @@ cmd_doctor() {
   echo "$(timestamp) 🩺 Checking $WIN_USER@$WIN_HOST ..."
 
   echo -n "   SSH reachable: "
-  if ssh -o ConnectTimeout=5 -o BatchMode=yes "$WIN_USER@$WIN_HOST" "echo ok" 2>/dev/null | grep -q ok; then
+  if ssh -p "$WIN_SSH_PORT" -o ConnectTimeout=5 -o BatchMode=yes "$WIN_USER@$WIN_HOST" "echo ok" 2>/dev/null | grep -q ok; then
     echo "✅"
   else
     echo "❌ cannot SSH (key auth?). Run setup-perf-remote-win.ps1 on Windows and add your key."
@@ -140,7 +143,7 @@ cmd_tunnel() {
   fi
 
   echo "$(timestamp) 🔌 Opening CDP tunnel localhost:$CDP_PORT -> $WIN_HOST 127.0.0.1:$CDP_PORT ..."
-  ssh -N -L "$CDP_PORT:127.0.0.1:$CDP_PORT" "$WIN_USER@$WIN_HOST" &
+  ssh -p "$WIN_SSH_PORT" -N -L "$CDP_PORT:127.0.0.1:$CDP_PORT" "$WIN_USER@$WIN_HOST" &
   echo $! > "$TUNNEL_PID_FILE"
 
   # Wait for the endpoint to come up (the app may still be booting).
