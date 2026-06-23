@@ -33,6 +33,9 @@ import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type {
   ICustomReceiveHandlerData,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLineLoadErrorData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewPriceUpdateData,
 } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -78,6 +81,9 @@ interface IBaseTradingViewV2Props {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
+  onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
+  onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -118,6 +124,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -153,6 +162,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
