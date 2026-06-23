@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useTheme } from '@tamagui/core';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -64,6 +65,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
@@ -82,6 +84,7 @@ import {
   type ISwapAlertState,
   type ISwapNetwork,
   type ISwapToken,
+  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
@@ -104,6 +107,7 @@ import {
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
+import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -830,6 +834,7 @@ function StockAmountInput({
     isBuySide,
     onAmountChange,
     onBalanceMaxPress,
+    onSelectPercentageStage,
     payToken,
     payTokenOptionsLoading,
     payTokens,
@@ -878,6 +883,9 @@ function StockAmountInput({
         maxAmountText={intl.formatMessage({ id: ETranslations.global_max })}
         inputProps={{
           placeholder: '0.0',
+          inputAccessoryViewID: platformEnv.isNativeIOS
+            ? SwapAmountInputAccessoryViewID
+            : undefined,
           testID: SwapTestIDs.fromAmountInput,
         }}
         tokenSelectorTriggerProps={{
@@ -913,6 +921,13 @@ function StockAmountInput({
         }}
         enableMaxAmount
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 }
