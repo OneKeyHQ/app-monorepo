@@ -54,7 +54,11 @@ function getChartInitScript(): string {
             lockVisibleTimeRangeOnResize: true,
           },
           rightPriceScale: Object.assign(
-            { visible: Boolean(nextConfig.showPriceScale), borderVisible: false },
+            {
+              visible: Boolean(nextConfig.showPriceScale),
+              borderVisible: false,
+              entireTextOnly: Boolean(nextConfig.priceScaleEntireTextOnly),
+            },
             nextConfig.priceScaleMargins
               ? { scaleMargins: nextConfig.priceScaleMargins }
               : {}
@@ -375,7 +379,11 @@ function getChartInitScript(): string {
           },
         },
         rightPriceScale: Object.assign(
-          { visible: Boolean(config.showPriceScale), borderVisible: false },
+          {
+            visible: Boolean(config.showPriceScale),
+            borderVisible: false,
+            entireTextOnly: Boolean(config.priceScaleEntireTextOnly),
+          },
           config.priceScaleMargins ? { scaleMargins: config.priceScaleMargins } : {}
         ),
         leftPriceScale: { visible: false },

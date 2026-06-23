@@ -251,7 +251,10 @@ const SwapHeaderContainer = ({
 
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
-    gtLg && pageType !== 'modal' && !platformEnv.isNative;
+    gtLg &&
+    pageType !== 'modal' &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const swapBridgeLabel = `${intl.formatMessage({
     id: ETranslations.swap_page_swap,
   })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
@@ -319,11 +322,11 @@ const SwapHeaderContainer = ({
     );
   }
 
-  const isNativeLayout = platformEnv.isNative;
+  const isCompactLayout = !showDesktopLayout;
   const tabs = (
     <>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
@@ -332,7 +335,7 @@ const SwapHeaderContainer = ({
         {swapBridgeLabel}
       </CustomTabItem>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
@@ -341,7 +344,7 @@ const SwapHeaderContainer = ({
         {stockLabel}
       </CustomTabItem>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
@@ -356,32 +359,18 @@ const SwapHeaderContainer = ({
     </>
   );
 
-  if (isNativeLayout) {
-    return (
-      <XStack alignItems="center" gap="$2" px="$5" py="$1">
-        <Stack flex={1}>
-          <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
-            {tabs}
-          </ScrollableFilterBar>
-        </Stack>
-        {!hideRightActions ? (
-          <SwapHeaderRightActionContainer
-            pageType={pageType}
-            marketPresetSettings={marketPresetSettings}
-            compact
-          />
-        ) : null}
-      </XStack>
-    );
-  }
-
   return (
-    <XStack justifyContent="space-between" px="$5" py="$1">
-      <XStack gap="$3">{tabs}</XStack>
+    <XStack alignItems="center" gap="$2" px="$5" py="$1">
+      <Stack flex={1} minWidth={0}>
+        <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
+          {tabs}
+        </ScrollableFilterBar>
+      </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          compact={isCompactLayout}
         />
       ) : null}
     </XStack>
