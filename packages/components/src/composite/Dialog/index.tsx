@@ -342,7 +342,11 @@ function DialogFrame({
           testID={testID}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
-          bg="$bg"
+          // Match the sheet frame to the content surface so the bottom
+          // safe-area inset region (applied as paddingBottom on the wrapper,
+          // below the footer) doesn't reveal the default `$bg` as a seam when a
+          // dialog overrides its content background (e.g. Prime feature intro).
+          bg={(contentContainerProps as { bg?: IColorTokens })?.bg ?? '$bg'}
           borderCurve="continuous"
           disableHideBottomOverflow
           // Fix width issue for portrait iPad mini - ensure proper dialog width
