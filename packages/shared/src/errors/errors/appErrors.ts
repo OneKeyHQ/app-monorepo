@@ -394,6 +394,29 @@ export class WrongPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.WrongPassword;
+}
+
+// Thrown when a local secret envelope (LSE) cannot be unwrapped because its
+// required platform layer (secureStorage/keychain, IndexedDB CryptoKey) is
+// transiently unavailable (e.g. keychain busy at cold start). This is NOT a
+// wrong-password condition: the password may be correct, so callers must
+// surface a retryable error instead of masking it as WrongPassword.
+export class LocalSecretEnvelopeUnavailable extends OneKeyAppError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalSecretEnvelopeUnavailable',
+        defaultKey: ETranslations.global_try_again,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override className: EOneKeyErrorClassNames =
+    EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable;
 }
 
 export class SecureQRCodeDialogCancel extends OneKeyAppError {

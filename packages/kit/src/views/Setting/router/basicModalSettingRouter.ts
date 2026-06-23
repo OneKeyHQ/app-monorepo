@@ -105,6 +105,11 @@ const StorageGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/StorageGallery'),
 );
 
+const LocalSecretEnvelopeSelfTest = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/LocalSecretEnvelopeSelfTest'),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -276,6 +281,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevStorageGalleryModal,
     component: StorageGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+    component: LocalSecretEnvelopeSelfTest,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
