@@ -1,5 +1,8 @@
 import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapQuoteKind,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapQuoteUiPhase,
@@ -9,6 +12,7 @@ import {
   hasSwapZeroProviderQuoteEvent,
   isSwapQuoteEventFetching,
   isSwapQuoteFromCurrentEvent,
+  isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
 } from './quoteProgress';
@@ -16,15 +20,18 @@ import {
 function buildQuote({
   eventId,
   provider,
+  kind = ESwapQuoteKind.SELL,
   toAmount = '10',
 }: {
   eventId: string;
   provider: string;
+  kind?: ESwapQuoteKind;
   toAmount?: string;
 }) {
   return {
     eventId,
     quoteId: `${eventId}-${provider}`,
+    kind,
     fromAmount: '1',
     toAmount,
     protocol: EProtocolOfExchange.SWAP,
@@ -43,6 +50,49 @@ describe('swap quote progress', () => {
         maxQuoteCount: 2,
       }),
     ).toEqual({ eventId: 'event-1', count: 2 });
+  });
+
+  it('matches quote input amount by quote kind', () => {
+    const sellQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'sell',
+      kind: ESwapQuoteKind.SELL,
+    });
+    const buyQuote = buildQuote({
+      eventId: 'event-1',
+      provider: 'buy',
+      kind: ESwapQuoteKind.BUY,
+      toAmount: '25',
+    });
+
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: sellQuote,
+        fromAmount: '1',
+        toAmount: '99',
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: sellQuote,
+        fromAmount: '2',
+        toAmount: '99',
+      }),
+    ).toBe(false);
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: buyQuote,
+        fromAmount: '99',
+        toAmount: '25',
+      }),
+    ).toBe(true);
+    expect(
+      isSwapQuoteInputAmountMatched({
+        quote: buyQuote,
+        fromAmount: '99',
+        toAmount: '26',
+      }),
+    ).toBe(false);
   });
 
   it('keeps quote event fetching active until the capped count is received', () => {

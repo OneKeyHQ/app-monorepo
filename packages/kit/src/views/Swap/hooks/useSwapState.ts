@@ -65,6 +65,7 @@ import {
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
+  isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
   selectSwapPreviousActionableQuote,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
@@ -79,6 +80,9 @@ function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
@@ -133,6 +137,9 @@ function useSwapWarningCheck() {
     toToken,
     fromTokenBalance,
     quoteCurrentSelect,
+    quoteEventCompleted,
+    quoteEventError,
+    quoteEventTotalCount,
     isFocused,
     swapLimitUseRate,
   ]);
@@ -223,13 +230,15 @@ export function useSwapQuoteProgressState() {
       ) {
         return false;
       }
-      if (quote.kind === ESwapQuoteKind.BUY) {
-        return Boolean(
-          toTokenAmount.value && quote.toAmount === toTokenAmount.value,
-        );
-      }
       return Boolean(
-        fromTokenAmount.value && quote.fromAmount === fromTokenAmount.value,
+        (quote.kind === ESwapQuoteKind.BUY
+          ? toTokenAmount.value
+          : fromTokenAmount.value) &&
+        isSwapQuoteInputAmountMatched({
+          quote,
+          fromAmount: fromTokenAmount.value,
+          toAmount: toTokenAmount.value,
+        }),
       );
     });
     return sortSwapQuotes(list, {
@@ -380,6 +389,21 @@ export function useSwapActionState() {
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
+  const quoteInputAmountNoMatch = useMemo(() => {
+    const inputAmount =
+      quoteCurrentSelect?.kind === ESwapQuoteKind.BUY
+        ? toTokenAmount.value
+        : fromTokenAmount.value;
+    return Boolean(
+      quoteCurrentSelect &&
+      inputAmount &&
+      !isSwapQuoteInputAmountMatched({
+        quote: quoteCurrentSelect,
+        fromAmount: fromTokenAmount.value,
+        toAmount: toTokenAmount.value,
+      }),
+    );
+  }, [fromTokenAmount.value, quoteCurrentSelect, toTokenAmount.value]);
   const quoteResultNoMatch = useMemo(
     () =>
       (quoteCurrentSelect &&
@@ -389,6 +413,7 @@ export function useSwapActionState() {
             fromToken?.contractAddress ||
           quoteCurrentSelect.toTokenInfo.contractAddress !==
             toToken?.contractAddress)) ||
+      quoteInputAmountNoMatch ||
       (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
         quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
         quoteCurrentSelect?.allowanceResult &&
@@ -398,6 +423,7 @@ export function useSwapActionState() {
       fromToken?.networkId,
       fromTokenAmount,
       quoteCurrentSelect,
+      quoteInputAmountNoMatch,
       toToken?.contractAddress,
       toToken?.networkId,
     ],
@@ -429,8 +455,7 @@ export function useSwapActionState() {
     if (
       !swapFromAddressInfo.address ||
       !swapToAddressInfo.address ||
-      (quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
-        quoteCurrentSelect?.fromAmount !== fromTokenAmount.value)
+      quoteInputAmountNoMatch
     ) {
       infoRes.disable = true;
     }
@@ -572,6 +597,7 @@ export function useSwapActionState() {
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     fromTokenAmount.value,
+    quoteInputAmountNoMatch,
     swapTypeSwitchValue,
     isRefreshQuote,
     toTokenAmount.value,

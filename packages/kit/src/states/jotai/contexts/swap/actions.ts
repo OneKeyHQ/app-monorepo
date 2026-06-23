@@ -87,6 +87,7 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
+  swapInitialSelectedTokensSyncedAtom,
   swapLastNonLimitSelectedTokensAtom,
   swapLimitExpirationTimeAtom,
   swapLimitPartiallyFillAtom,
@@ -121,6 +122,7 @@ import {
   swapSelectTokenDetailFetchingAtom,
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
+  swapSelectedTokensColdStartContextAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
   swapSpeedQuoteFetchingAtom,
@@ -1519,6 +1521,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         get(swapQuoteFetchingAtom()) || get(swapSilenceQuoteLoading());
       const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
       const quoteEventCompleted = get(swapQuoteEventCompletedAtom());
+      const quoteEventError = get(swapQuoteEventErrorAtom());
       const currentEventReceivedCount = get(
         swapQuoteCurrentEventReceivedCountAtom(),
       );
@@ -1542,10 +1545,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         quoteLoading,
         quoteEventFetching,
         quoteCurrentSelect: quoteResult,
+        quoteEventTotalCount: quoteEventProgressTotalCount,
+        quoteEventCompleted,
+        quoteEventError,
       });
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       let alertsRes: ISwapAlertState[] = [];
-      const quoteEventError = get(swapQuoteEventErrorAtom());
       const isCurrentQuoteResult = isQuoteResultSelectedTokenPair({
         quoteResult,
         fromToken,
@@ -2478,14 +2483,29 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const oldType = get(swapTypeSwitchAtom());
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
-      const currentFromToken = get(swapSelectFromTokenAtom());
-      const currentToToken = get(swapSelectToTokenAtom());
+      let currentFromToken = get(swapSelectFromTokenAtom());
+      let currentToToken = get(swapSelectToTokenAtom());
+      if (
+        oldType === ESwapTabSwitchType.STOCK &&
+        normalizedType !== ESwapTabSwitchType.STOCK
+      ) {
+        currentFromToken = undefined;
+        currentToToken = undefined;
+        set(swapSelectFromTokenAtom(), undefined);
+        set(swapSelectToTokenAtom(), undefined);
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        set(swapSelectedTokensColdStartContextAtom(), undefined);
+        set(swapInitialSelectedTokensSyncedAtom(), false);
+        set(swapLastNonLimitSelectedTokensAtom(), undefined);
+      }
       if (
         oldType !== ESwapTabSwitchType.LIMIT &&
         normalizedType === ESwapTabSwitchType.LIMIT &&
         (currentFromToken || currentToToken)
       ) {
         set(swapLastNonLimitSelectedTokensAtom(), {
+          sourceSwapType: oldType,
           fromToken: currentFromToken,
           toToken: currentToToken,
         });
@@ -2515,6 +2535,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const lastNonLimitSelectedTokens = get(
           swapLastNonLimitSelectedTokensAtom(),
         );
+        const shouldRestoreLastNonLimitSelectedTokens =
+          lastNonLimitSelectedTokens &&
+          (!lastNonLimitSelectedTokens.sourceSwapType ||
+            lastNonLimitSelectedTokens.sourceSwapType === normalizedType);
         const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
         const isFromTokenSupported =
           !lastNonLimitSelectedTokens?.fromToken ||
@@ -2529,7 +2553,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               net.networkId === lastNonLimitSelectedTokens.toToken?.networkId,
           );
         if (
-          lastNonLimitSelectedTokens &&
+          shouldRestoreLastNonLimitSelectedTokens &&
           (lastNonLimitSelectedTokens.fromToken ||
             lastNonLimitSelectedTokens.toToken) &&
           isFromTokenSupported &&

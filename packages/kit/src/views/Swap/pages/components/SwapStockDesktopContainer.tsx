@@ -54,7 +54,6 @@ import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/compone
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { useAutoRefreshTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useAutoRefreshTokenDetail';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   formatCurrencyStatValue,
@@ -935,6 +934,7 @@ function StockAmountInput({
       <AmountInput
         value={inputValue}
         onChange={onAmountChange}
+        hasError={hasBalanceError}
         bg="$transparent"
         borderWidth={0}
         borderRadius="$0"
@@ -1578,24 +1578,6 @@ function StockMobilePositionsSection({
   );
 }
 
-function StockTokenDetailAutoRefresh({
-  isNative,
-  networkId,
-  tokenAddress,
-}: {
-  isNative: boolean;
-  networkId: string;
-  tokenAddress: string;
-}) {
-  useAutoRefreshTokenDetail({
-    tokenAddress,
-    networkId,
-    isNative,
-  });
-
-  return null;
-}
-
 function StockMarketContextPanel({
   storeName,
 }: {
@@ -1610,7 +1592,6 @@ function StockMarketContextPanel({
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
-  const canAutoRefreshTokenDetail = !!networkId && (!!tokenAddress || isNative);
   const chartReady = !!networkId && !!tokenDetail?.symbol;
 
   return (
@@ -1635,13 +1616,6 @@ function StockMarketContextPanel({
         shadowRadius: 24,
       }}
     >
-      {canAutoRefreshTokenDetail ? (
-        <StockTokenDetailAutoRefresh
-          tokenAddress={tokenAddress ?? ''}
-          networkId={networkId ?? ''}
-          isNative={!!isNative}
-        />
-      ) : null}
       <StockMarketTokenHeader storeName={storeName} />
 
       <Stack mt="$6">

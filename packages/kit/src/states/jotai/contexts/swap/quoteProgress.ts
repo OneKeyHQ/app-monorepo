@@ -1,7 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteKind,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
 
 type ISwapActionableQuote = Pick<IFetchQuoteResult, 'toAmount'>;
 type ISwapQuoteProviderIdentity = Pick<
@@ -176,6 +179,24 @@ export function isSwapQuoteActionable(
   quoteCurrentSelect?: ISwapActionableQuote,
 ) {
   return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
+}
+
+export function isSwapQuoteInputAmountMatched({
+  quote,
+  fromAmount,
+  toAmount,
+}: {
+  quote?: Pick<IFetchQuoteResult, 'kind' | 'fromAmount' | 'toAmount'>;
+  fromAmount: string;
+  toAmount: string;
+}) {
+  if (!quote) {
+    return false;
+  }
+  if (quote.kind === ESwapQuoteKind.BUY) {
+    return quote.toAmount === toAmount;
+  }
+  return quote.fromAmount === fromAmount;
 }
 
 export function isSwapQuoteFromCurrentEvent({
