@@ -1,10 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import {
-  TMSwitch,
-  useTheme,
-  useThemeName,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ANIMATE_ONLY_TRANSFORM } from '@onekeyhq/components/src/utils/animationConstants';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -59,7 +55,6 @@ export function Switch({
   ...restProps
 }: ISwitchProps) {
   const theme = useTheme();
-  const isDarkMode = useThemeName() === 'dark';
   const [stateChecked, setStateChecked] = useState(defaultChecked);
   const sizeConfig = SWITCH_SIZE_CONFIG[size];
   let nativeScale = 1;
@@ -91,15 +86,13 @@ export function Switch({
         : theme.neutral5.val,
       trackColor: {
         false: theme.neutral5.val,
-        // iOS forces a white UISwitch thumb (RN thumbColor is Android-only). In
-        // dark mode $bgPrimary resolves to a near-white gray, so a white thumb on
-        // a near-white track reads as disabled — use a mid-gray on-track instead
-        // so the thumb stays legible. Light mode keeps the near-black $bgPrimary;
-        // Android keeps $bgPrimary too (its thumb follows $bg and contrasts).
-        true:
-          platformEnv.isNativeIOS && isDarkMode
-            ? theme.neutral8.val
-            : theme.bgPrimary.val,
+        // On iOS the on-state uses the brand green ($bgAccent) so "activated"
+        // reads unmistakably — a saturated color cue, not just a darker/lighter
+        // track — and the forced-white native thumb pops on green in both light
+        // and dark mode. Non-iOS keeps the monochrome $bgPrimary fill.
+        true: platformEnv.isNativeIOS
+          ? theme.bgAccent.val
+          : theme.bgPrimary.val,
       },
       thumbColor: theme.bg.val,
       style: {
@@ -114,9 +107,8 @@ export function Switch({
     [
       disabled,
       nativeScale,
-      isDarkMode,
       theme.neutral5.val,
-      theme.neutral8.val,
+      theme.bgAccent.val,
       theme.bgPrimary.val,
       theme.bg.val,
     ],
