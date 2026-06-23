@@ -5,14 +5,14 @@
   (OpenSSH Server + SMB file share) so NO AI tooling runs on this machine.
 
 .DESCRIPTION
-  Steps (all idempotent — safe to re-run):
+  Steps (all idempotent - safe to re-run):
     1. Install + start OpenSSH Server   -> Mac can `ssh` in to build & tunnel CDP.
     2. Share the repo folder over SMB   -> Mac mounts it and edits files in place.
     3. Allow SSH (22) on Private LAN    -> firewall rule, private profile only.
     4. git core.autocrlf = false        -> Mac's LF edits don't fight CRLF.
 
   After this runs, the Mac mounts  \\<this-ip>\<ShareName>  and SSHes to this box.
-  The CDP debug port is NOT opened here — it stays on 127.0.0.1 when you launch
+  The CDP debug port is NOT opened here - it stays on 127.0.0.1 when you launch
   the app via build-launch-perf-win.ps1, and the Mac reaches it through an SSH
   tunnel. Nothing wallet-sensitive is exposed to the LAN.
 
@@ -102,7 +102,7 @@ if ($rule) {
     -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22 -Profile Private | Out-Null
   Write-Host "  created firewall rule for TCP 22 (Private profile)"
 }
-Write-Warning "  SMB (445) is exposed to the LAN by sharing — keep this machine on a TRUSTED private network only."
+Write-Warning "  SMB (445) is exposed to the LAN by sharing - keep this machine on a TRUSTED private network only."
 
 # 4. Line endings ---------------------------------------------------------------
 Write-Step 4 "Set git core.autocrlf=false on the repo (so Mac LF edits stay clean)"

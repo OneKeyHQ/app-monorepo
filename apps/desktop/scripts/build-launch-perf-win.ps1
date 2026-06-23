@@ -6,7 +6,7 @@
 
 .DESCRIPTION
   A Release build intentionally strips the dev-only Chromium switches
-  (see app/app.ts: "Dev-only switches — NEVER run in production builds"),
+  (see app/app.ts: "Dev-only switches - NEVER run in production builds"),
   so --remote-debugging-port is NOT baked in. Electron still honors the switch
   when passed on the command line at launch, which is what this script does
   against the unpacked release exe (build-electron\win-unpacked\OneKey.exe).
@@ -58,7 +58,7 @@ Set-Location $desktopDir
 Write-Host "[perf] desktop dir: $desktopDir" -ForegroundColor Cyan
 
 if (-not $NoBuild) {
-  Write-Host "[perf] building Windows release (yarn build:win) — this takes a while..." -ForegroundColor Cyan
+  Write-Host "[perf] building Windows release (yarn build:win) - this takes a while..." -ForegroundColor Cyan
   # build:win = clean:build + build:renderer + build:main + install-app-deps + electron-builder -w
   yarn build:win
   if ($LASTEXITCODE -ne 0) { throw "yarn build:win failed (exit $LASTEXITCODE)" }

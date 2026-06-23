@@ -33,7 +33,7 @@ if (-not (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
 }
 
 $cfg = "C:\ProgramData\ssh\sshd_config"
-if (-not (Test-Path $cfg)) { throw "sshd_config not found at $cfg — is OpenSSH Server installed?" }
+if (-not (Test-Path $cfg)) { throw "sshd_config not found at $cfg - is OpenSSH Server installed?" }
 
 # 1. Ensure 'Port <Port>' is set at the very top -------------------------------
 Write-Host "[1] Setting sshd Port $Port in $cfg" -ForegroundColor Cyan
@@ -69,7 +69,7 @@ if (Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue) {
 Write-Host "[4] Listeners on port ${Port}:" -ForegroundColor Cyan
 $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if (-not $listeners) {
-  Write-Host "    NONE — sshd is not listening on $Port. Check sshd_config / Get-WinEvent -LogName OpenSSH/Operational" -ForegroundColor Red
+  Write-Host "    NONE - sshd is not listening on $Port. Check sshd_config / Get-WinEvent -LogName OpenSSH/Operational" -ForegroundColor Red
   exit 1
 }
 $ok4 = $false; $ok6 = $false
@@ -82,13 +82,13 @@ foreach ($l in $listeners) {
 
 Write-Host "`n==================== RESULT ====================" -ForegroundColor Green
 if ($ok4) {
-  Write-Host "OK: sshd is listening on IPv4 0.0.0.0:$Port — the Mac can connect with:" -ForegroundColor Green
+  Write-Host "OK: sshd is listening on IPv4 0.0.0.0:$Port - the Mac can connect with:" -ForegroundColor Green
   $ip = (Get-NetIPAddress -AddressFamily IPv4 |
          Where-Object { $_.IPAddress -notlike '169.*' -and $_.IPAddress -ne '127.0.0.1' } |
          Select-Object -ExpandProperty IPAddress) -join ', '
   Write-Host "    ssh -p $Port <user>@<this-ip>     (this machine's IPs: $ip)"
 } else {
-  Write-Host "WARN: still no IPv4 listener on $Port. Something may hold 0.0.0.0:$Port too — try another port:" -ForegroundColor Yellow
+  Write-Host "WARN: still no IPv4 listener on $Port. Something may hold 0.0.0.0:$Port too - try another port:" -ForegroundColor Yellow
   Write-Host "    powershell -ExecutionPolicy Bypass -File scripts\fix-sshd-port-win.ps1 -Port 2299"
 }
 Write-Host "===============================================" -ForegroundColor Green

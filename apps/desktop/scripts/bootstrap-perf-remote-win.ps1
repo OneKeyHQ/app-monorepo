@@ -13,7 +13,7 @@
 
   Order of operations:
     1. Verify Git / Node / Yarn / Python.
-    2. Verify MSVC C++ build tools (via vswhere) — node-gyp needs them.
+    2. Verify MSVC C++ build tools (via vswhere) - node-gyp needs them.
     3. yarn install at the repo root (unless -SkipInstall).
     4. Verify electron-builder is resolvable under apps\desktop.
 
@@ -58,7 +58,7 @@ Write-Host "Repo root: $RepoPath" -ForegroundColor Green
 Write-Step 1 "Core toolchain (Git / Node / Yarn / Python)"
 
 $git = Get-CmdVersion git '--version'
-if ($git) { Ok "git: $git" } else { Bad "git not found — install Git for Windows" }
+if ($git) { Ok "git: $git" } else { Bad "git not found - install Git for Windows" }
 
 $node = Get-CmdVersion node '--version'
 if ($node) {
@@ -66,15 +66,15 @@ if ($node) {
   # Surface a soft hint if it looks far from the repo's expectation.
   $nvmrc = Join-Path $RepoPath '.nvmrc'
   if (Test-Path $nvmrc) { Warn "repo .nvmrc says: $(Get-Content $nvmrc -First 1) (match major version)" }
-} else { Bad "node not found — install Node.js (match the team's version)" }
+} else { Bad "node not found - install Node.js (match the team's version)" }
 
 $yarn = Get-CmdVersion yarn '--version'
-if ($yarn) { Ok "yarn: $yarn" } else { Bad "yarn not found — 'corepack enable' or 'npm i -g yarn'" }
+if ($yarn) { Ok "yarn: $yarn" } else { Bad "yarn not found - 'corepack enable' or 'npm i -g yarn'" }
 
 # node-gyp wants python3
 $py = Get-CmdVersion python '--version'
 if (-not $py) { $py = Get-CmdVersion python3 '--version' }
-if ($py) { Ok "python: $py" } else { Bad "python not found — node-gyp needs Python 3 (install from python.org or 'winget install Python.Python.3.12')" }
+if ($py) { Ok "python: $py" } else { Bad "python not found - node-gyp needs Python 3 (install from python.org or 'winget install Python.Python.3.12')" }
 
 # 2. MSVC C++ build tools -------------------------------------------------------
 Write-Step 2 "MSVC C++ build tools (node-gyp compiles native modules)"
@@ -90,16 +90,16 @@ if (Test-Path $vswhere) {
     Bad "Visual Studio found but the 'Desktop development with C++' workload / VC.Tools is missing. Install it, or 'winget install Microsoft.VisualStudio.2022.BuildTools' with the C++ workload."
   }
 } else {
-  Bad "No Visual Studio Installer (vswhere) found — install 'Visual Studio Build Tools' with the C++ workload (better-sqlite3 will not compile otherwise)."
+  Bad "No Visual Studio Installer (vswhere) found - install 'Visual Studio Build Tools' with the C++ workload (better-sqlite3 will not compile otherwise)."
 }
 
 # 3. Install deps ---------------------------------------------------------------
 if ($SkipInstall) {
-  Write-Step 3 "yarn install — SKIPPED (-SkipInstall)"
+  Write-Step 3 "yarn install - SKIPPED (-SkipInstall)"
 } elseif ($problems.Count -gt 0) {
-  Write-Step 3 "yarn install — SKIPPED (fix the toolchain problems above first)"
+  Write-Step 3 "yarn install - SKIPPED (fix the toolchain problems above first)"
 } else {
-  Write-Step 3 "yarn install at repo root (native modules compile here — can take a while)"
+  Write-Step 3 "yarn install at repo root (native modules compile here - can take a while)"
   Push-Location $RepoPath
   try {
     yarn
@@ -117,8 +117,8 @@ $eb = $ebCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if ($eb) {
   Ok "electron-builder present: $eb"
 } else {
-  if ($SkipInstall) { Warn "electron-builder not found (expected — install was skipped)" }
-  else { Bad "electron-builder not found under node_modules\.bin — did yarn install finish?" }
+  if ($SkipInstall) { Warn "electron-builder not found (expected - install was skipped)" }
+  else { Bad "electron-builder not found under node_modules\.bin - did yarn install finish?" }
 }
 
 # Summary -----------------------------------------------------------------------
@@ -129,7 +129,7 @@ if ($problems.Count -eq 0) {
   Write-Host "  2.         scripts\build-launch-perf-win.ps1    # build + launch with debug port"
   Write-Host "  Then drive it from the Mac via development\scripts\windows-perf-build-deploy.sh"
 } else {
-  Write-Host "Found $($problems.Count) problem(s) — fix before building:" -ForegroundColor Red
+  Write-Host "Found $($problems.Count) problem(s) - fix before building:" -ForegroundColor Red
   $problems | ForEach-Object { Write-Host "   - $_" -ForegroundColor Red }
   exit 1
 }
