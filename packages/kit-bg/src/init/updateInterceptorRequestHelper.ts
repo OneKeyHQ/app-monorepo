@@ -15,11 +15,13 @@ import {
  * separately via updateInterceptorRequestHelperWithIpTable (separate file).
  */
 export function updateInterceptorRequestHelper() {
+  const getIpTableConfig = requestHelper.getIpTableConfig;
+
   requestHelper.overrideMethods({
     checkIsOneKeyDomain,
     getDevSettingsPersistAtom: async () => devSettingsPersistAtom.get(),
     getSettingsPersistAtom: async () => settingsPersistAtom.get(),
     getSettingsValuePersistAtom: async () => settingsValuePersistAtom.get(),
-    getIpTableConfig: async () => null,
+    getIpTableConfig,
   });
 }
