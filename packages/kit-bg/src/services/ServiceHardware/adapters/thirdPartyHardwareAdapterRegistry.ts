@@ -12,6 +12,55 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import type { IThirdPartyHardwareAdapter } from './types';
+import type { IHardwareBridge } from '@onekeyfe/hwk-adapter-core';
+
+type IHwkSdkLogEvent = {
+  type: string;
+  message?: string;
+};
+
+type ITrezorAdapterModule = typeof import('@onekeyfe/hwk-trezor-adapter') & {
+  onSdkEvent?: (listener: (event: IHwkSdkLogEvent) => void) => () => void;
+};
+
+let unsubscribeTrezorSdkEvent: (() => void) | undefined;
+
+export function resetTrezorSdkLogSubscriptionForTesting(): void {
+  unsubscribeTrezorSdkEvent?.();
+  unsubscribeTrezorSdkEvent = undefined;
+}
+
+function ensureTrezorSdkLogSubscription(
+  trezorAdapterModule: ITrezorAdapterModule,
+): (() => void) | undefined {
+  if (!unsubscribeTrezorSdkEvent) {
+    unsubscribeTrezorSdkEvent = trezorAdapterModule.onSdkEvent?.((event) => {
+      if (event.type === 'log') {
+        defaultLogger.hardware.sdkLog.log(`[hwk] ${event.message ?? ''}`);
+      }
+    });
+  }
+  return () => {
+    unsubscribeTrezorSdkEvent?.();
+    unsubscribeTrezorSdkEvent = undefined;
+  };
+}
+
+function isTrezorThpCredential(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false;
+  const credential = value as {
+    credential?: unknown;
+    host_static_key?: unknown;
+    trezor_static_public_key?: unknown;
+  };
+  return (
+    typeof credential.credential === 'string' &&
+    typeof credential.host_static_key === 'string' &&
+    typeof credential.trezor_static_public_key === 'string'
+  );
+}
 
 /**
  * Factory that lazily constructs an IThirdPartyHardwareAdapter for one vendor.
@@ -29,6 +78,104 @@ export type IThirdPartyHardwareAdapterFactory =
  * by appending an entry with a dynamic-import factory.
  */
 export const thirdPartyHardwareAdapterRegistry = {
+  [EHardwareVendor.trezor]: async () => {
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] trezor factory start',
+    );
+    const { TrezorAdapter } = await import('./TrezorAdapter');
+    // webpack resolves this to the platform-specific variant:
+    //   - ext Service Worker (MV3) → `trezor.ext-bg-v3.ts` (bridges to offscreen)
+    //   - desktop / native / web   → `trezor.desktop.ts` / `.native.ts` / `.ts`
+    const { createTrezorConnector } =
+      await import('@onekeyhq/shared/src/hardware/connector-loader/trezor');
+    const trezorAdapterModule =
+      (await import('@onekeyfe/hwk-trezor-adapter')) as ITrezorAdapterModule;
+    const { TrezorAdapter: HwkTrezorAdapter } = trezorAdapterModule;
+    const disposeSdkEvents =
+      ensureTrezorSdkLogSubscription(trezorAdapterModule);
+    // Temporary transport switch for desktop. Other platform loaders take no
+    // arguments, so they ignore the hint. Set in DevTools:
+    //   localStorage.setItem('debug.trezor.transport', 'ble')   // switch to BLE
+    //   localStorage.removeItem('debug.trezor.transport')       // back to USB
+    // Once the proper UI transport picker lands this hack goes away.
+    let transportHint: 'ble' | undefined;
+    try {
+      if (
+        typeof globalThis !== 'undefined' &&
+        (globalThis as { localStorage?: Storage }).localStorage?.getItem(
+          'debug.trezor.transport',
+        ) === 'ble'
+      ) {
+        transportHint = 'ble';
+      }
+    } catch {
+      // Ignored: kit-bg might run somewhere without DOM (worker/SW).
+    }
+    defaultLogger.hardware.sdkLog.log(
+      `[3rdPartyHW][Registry] trezor transport hint=${transportHint ?? 'default(all)'}`,
+    );
+    let connector: Awaited<ReturnType<typeof createTrezorConnector>>;
+    if (platformEnv.isExtensionBackground) {
+      const { getOffscreenHardwareBridgeClient } =
+        await import('./offscreenHardwareBridgeClient');
+      connector = await (
+        createTrezorConnector as (options: {
+          bridge: IHardwareBridge;
+        }) => ReturnType<typeof createTrezorConnector>
+      )({ bridge: getOffscreenHardwareBridgeClient() });
+    } else {
+      connector = await (
+        createTrezorConnector as (
+          t?: 'usb' | 'ble',
+        ) => ReturnType<typeof createTrezorConnector>
+      )(transportHint);
+    }
+
+    // Warm-load persisted THP credentials before the first session. Credentials
+    // now live per-device in each Trezor's IDBDevice settings (so forget-device
+    // clears them for free), so gather them across all devices and seed the
+    // connector. On the extension path setKnownCredentials round-trips into the
+    // offscreen connector via the bridge; on other platforms it sets directly.
+    // Either way, the next `ThpHandshakeInitRequest` ships these to the device
+    // and the device routes to autoconnect, skipping CodeEntry / QrCode / NFC.
+    try {
+      const localDbModule =
+        await import('@onekeyhq/kit-bg/src/dbs/local/localDb');
+      const localDb = localDbModule.default;
+      const { devices } = await localDb.getAllDevices();
+      // Only Trezor devices ever store thpCredentials, so presence is enough.
+      const stored = devices.flatMap(
+        (device) => device.settings?.thpCredentials ?? [],
+      );
+      const validStored = stored.filter(isTrezorThpCredential);
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] trezor warm-load credentials count=${stored.length} valid=${validStored.length}`,
+      );
+      const hasSetKnownCredentials =
+        typeof connector.setKnownCredentials === 'function';
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] trezor warm-load setKnownCredentials=${String(
+          hasSetKnownCredentials,
+        )} count=${validStored.length}`,
+      );
+      await connector.setKnownCredentials?.(validStored);
+    } catch (error) {
+      defaultLogger.hardware.sdkLog.log(
+        `[3rdPartyHW][Registry] trezor warm-load failed: ${
+          (error as Error)?.message ?? String(error)
+        }`,
+      );
+    }
+
+    const HwkTrezorAdapterCtor = HwkTrezorAdapter as unknown as new (
+      adapterConnector: typeof connector,
+    ) => InstanceType<typeof HwkTrezorAdapter>;
+    const hw = new HwkTrezorAdapterCtor(connector);
+    defaultLogger.hardware.sdkLog.log(
+      '[3rdPartyHW][Registry] trezor adapter ready',
+    );
+    return new TrezorAdapter(hw, disposeSdkEvents);
+  },
   [EHardwareVendor.ledger]: async () => {
     defaultLogger.hardware.sdkLog.log(
       '[3rdPartyHW][Registry] ledger factory start',

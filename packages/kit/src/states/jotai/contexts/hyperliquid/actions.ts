@@ -2273,7 +2273,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
     this.canceledOrderIds.clear();
     this.canceledTwapIds.clear();
-    await this.changeActiveAsset.call(set, { coin: 'ETH', force: true });
+    await this.changeActiveAsset.call(set, { coin: 'xyz:NVDA', force: true });
   });
 
   updateTradingForm = contextAtomMethod(
@@ -2435,6 +2435,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 slTriggerPx: formData.hasTpsl
                   ? formData.slTriggerPx
                   : undefined,
+                reduceOnly: formData.reduceOnly,
                 slippage,
               });
             return result;

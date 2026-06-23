@@ -276,6 +276,9 @@ export interface ITradingFormData {
   bboPriceMode?: IBBOPriceMode;
   limitTif?: HL.ITIF;
 
+  // Standard-limit reduce-only; trigger/scale/twap have their own fields below.
+  reduceOnly?: boolean;
+
   // Take Profit / Stop Loss
   hasTpsl: boolean;
   tpTriggerPx: string; // TP Price

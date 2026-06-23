@@ -18,7 +18,9 @@ export const PERPS_TV_MESSAGE_METHODS = {
   READY: 'tradingview_perpsReady',
   LINE_DRAG_COMMIT: 'tradingview_lineDragCommit',
   ORDER_CANCEL: 'tradingview_perpsOrderCancel',
+  // Legacy in-chart place-order draft path; kept only for old-chart version skew.
   ORDER_DRAFT_CREATE: 'tradingview_perpsOrderDraftCreate',
+  CHART_ORDER_INTENT: 'tradingview_perpsChartOrderIntent',
   ORDER_PRICE_UPDATE: 'tradingview_perpsOrderPriceUpdate',
   CHART_EXPAND: 'tradingview_chartExpand',
 } as const;

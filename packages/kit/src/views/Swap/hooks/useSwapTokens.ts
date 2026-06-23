@@ -6,7 +6,10 @@ import { debounce } from 'lodash';
 import { useIsOverlayPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,11 +26,14 @@ import {
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ESwapCrossChainStatus,
-  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
+  ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
@@ -45,6 +51,10 @@ import {
   isSwapNetworkCacheCompatible,
   isSwapNetworkCacheReadyForBasicList,
 } from '../utils/swapNetworkCacheUtils';
+import {
+  getSwapAnalyticsTokenListType,
+  getSwapAnalyticsTokenRole,
+} from '../utils/swapStockAnalytics';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import { shouldUseSwapAddressForTokenFetch } from './useSwapAccount.utils';
@@ -55,19 +65,29 @@ export function useSwapTokenList(
   keywords?: string,
   from?: ESwapTabSwitchType,
   lpToken?: boolean,
+  analyticsOverride?: {
+    tokenRole?: string;
+    tokenListType?: string;
+  },
+  supportNetworksOverride?: ISwapNetwork[],
 ) {
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const swapSupportAllAccountsRef = useRef<IAllNetworkAccountInfo[]>([]);
   const [swapNetworks] = useSwapNetworksAtom();
-  const [swapSupportAllNetworks] = useSwapNetworksIncludeAllNetworkAtom();
+  const [swapSupportAllNetworksBase] = useSwapNetworksIncludeAllNetworkAtom();
+  const swapSupportAllNetworks =
+    supportNetworksOverride ?? swapSupportAllNetworksBase;
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
     useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(selectTokenModalType);
   const [swapTokenFetching] = useSwapTokenFetchingAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
+  const [{ currencyInfo }] = useSettingsPersistAtom();
   const [lpTokenRequestLoading, setLpTokenRequestLoading] = useState(false);
+  const requestCurrency = currencyInfo.id;
   const latestLpTokenRef = useRef(lpToken);
+  const shouldFetchStaticStockTokens = from === ESwapTabSwitchType.STOCK;
   const searchLogStateRef = useRef<{
     key: string;
     phase: 'idle' | 'fetching' | 'done';
@@ -105,37 +125,50 @@ export function useSwapTokenList(
       resolvedAddressNetworkId: swapAddressInfo.networkId,
       targetNetworkId,
     });
-    if (findNetInfo?.apiAddress) {
+    if (!shouldFetchStaticStockTokens && findNetInfo?.apiAddress) {
       return {
+        protocol: from,
         networkId: targetNetworkId,
         keywords,
         accountAddress: findNetInfo.apiAddress,
         accountNetworkId: findNetInfo.networkId,
         accountId: findNetInfo.accountId,
         lpToken,
+        currency: requestCurrency,
       };
     }
 
-    if (shouldUseCurrentAccountAddress) {
+    if (!shouldFetchStaticStockTokens && shouldUseCurrentAccountAddress) {
       return {
+        protocol: from,
         networkId: targetNetworkId,
         keywords,
         accountAddress: swapAddressInfo?.address,
         accountNetworkId: swapAddressInfo?.networkId,
         accountId: swapAddressInfo?.accountInfo?.account?.id,
         lpToken,
+        currency: requestCurrency,
       };
     }
     return {
+      protocol: from,
       networkId: targetNetworkId,
       keywords,
-      accountAddress: findNetInfo?.apiAddress,
-      accountNetworkId: findNetInfo?.networkId,
-      accountId: findNetInfo?.accountId,
+      accountAddress: shouldFetchStaticStockTokens
+        ? undefined
+        : findNetInfo?.apiAddress,
+      accountNetworkId: shouldFetchStaticStockTokens
+        ? undefined
+        : findNetInfo?.networkId,
+      accountId: shouldFetchStaticStockTokens
+        ? undefined
+        : findNetInfo?.accountId,
       lpToken,
+      currency: requestCurrency,
     };
   }, [
     currentNetworkId,
+    from,
     swapAddressInfo.networkId,
     swapAddressInfo?.address,
     swapAddressInfo?.activeAccount?.network?.id,
@@ -143,6 +176,8 @@ export function useSwapTokenList(
     keywords,
     currentSelectNetwork?.networkId,
     lpToken,
+    requestCurrency,
+    shouldFetchStaticStockTokens,
   ]);
   const isTokenFetchAllNetworks = networkUtils.isAllNetwork({
     networkId: tokenFetchParams.networkId,
@@ -161,30 +196,34 @@ export function useSwapTokenList(
       isTokenFetchAllNetworks ? buildSwapNetworkReadyKey(swapNetworks) : '',
     [isTokenFetchAllNetworks, swapNetworks],
   );
-  const tokenListFetchEffectKey = useMemo(
-    () =>
-      JSON.stringify({
-        tokenFetchParams,
-        allNetworkSwapNetworksReadyKey: isTokenFetchAllNetworks
-          ? allNetworkSwapNetworksReadyKey
-          : undefined,
-        allNetworkIndexedAccountId: isTokenFetchAllNetworks
-          ? swapAddressInfo?.accountInfo?.indexedAccount?.id
-          : undefined,
-        allNetworkOtherWalletTypeAccountId: isTokenFetchAllNetworks
-          ? (swapAddressInfo?.accountInfo?.account?.id ??
-            swapAddressInfo?.accountInfo?.dbAccount?.id)
-          : undefined,
-      }),
-    [
-      allNetworkSwapNetworksReadyKey,
-      isTokenFetchAllNetworks,
-      swapAddressInfo?.accountInfo?.account?.id,
-      swapAddressInfo?.accountInfo?.dbAccount?.id,
-      swapAddressInfo?.accountInfo?.indexedAccount?.id,
+  const tokenListFetchEffectKey = useMemo(() => {
+    const shouldIncludeAllNetworkAccountKey =
+      isTokenFetchAllNetworks && !shouldFetchStaticStockTokens;
+    const allNetworkIndexedAccountId = shouldIncludeAllNetworkAccountKey
+      ? swapAddressInfo?.accountInfo?.indexedAccount?.id
+      : undefined;
+    const allNetworkOtherWalletTypeAccountId = shouldIncludeAllNetworkAccountKey
+      ? (swapAddressInfo?.accountInfo?.account?.id ??
+        swapAddressInfo?.accountInfo?.dbAccount?.id)
+      : undefined;
+
+    return JSON.stringify({
       tokenFetchParams,
-    ],
-  );
+      allNetworkSwapNetworksReadyKey: isTokenFetchAllNetworks
+        ? allNetworkSwapNetworksReadyKey
+        : undefined,
+      allNetworkIndexedAccountId,
+      allNetworkOtherWalletTypeAccountId,
+    });
+  }, [
+    allNetworkSwapNetworksReadyKey,
+    isTokenFetchAllNetworks,
+    swapAddressInfo?.accountInfo?.account?.id,
+    swapAddressInfo?.accountInfo?.dbAccount?.id,
+    swapAddressInfo?.accountInfo?.indexedAccount?.id,
+    shouldFetchStaticStockTokens,
+    tokenFetchParams,
+  ]);
   const latestTokenListFetchEffectKeyRef = useRef('');
 
   const swapAllNetworkTokenListCacheKey = useMemo(
@@ -196,9 +235,11 @@ export function useSwapTokenList(
           swapAddressInfo?.accountInfo?.dbAccount?.id ??
           'noAccountId',
         lpToken,
+        currency: requestCurrency,
       }),
     [
       lpToken,
+      requestCurrency,
       swapAddressInfo?.accountInfo?.indexedAccount?.id,
       swapAddressInfo?.accountInfo?.account?.id,
       swapAddressInfo?.accountInfo?.dbAccount?.id,
@@ -258,7 +299,11 @@ export function useSwapTokenList(
       swapAllNetRecommend?: ISwapToken[];
       swapSearchTokens?: ISwapToken[];
     }) => {
-      if (swapAllNetRecommend?.length && !swapAllNetworkTokenList) {
+      if (
+        !shouldFetchStaticStockTokens &&
+        swapAllNetRecommend?.length &&
+        !swapAllNetworkTokenList
+      ) {
         return [];
       }
       const allNetworkTokenList = filterSupportedAllNetworkTokens(
@@ -281,6 +326,11 @@ export function useSwapTokenList(
           return false;
         }) ?? [];
       if (swapAllNetRecommend) {
+        if (shouldFetchStaticStockTokens) {
+          return sortAllNetworkTokens(
+            filterSupportedAllNetworkTokens(swapAllNetRecommend),
+          );
+        }
         const filterRecommendTokenList = filterSupportedAllNetworkTokens(
           swapAllNetRecommend?.filter(
             (token) =>
@@ -305,6 +355,11 @@ export function useSwapTokenList(
         return sortAllNetworkTokens(allNetTokens ?? []);
       }
       if (swapSearchTokens) {
+        if (shouldFetchStaticStockTokens) {
+          return sortAllNetworkTokens(
+            filterSupportedAllNetworkTokens(swapSearchTokens),
+          );
+        }
         const allNetSearchTokens = filterSupportedAllNetworkTokens(
           swapSearchTokens.map((token) => {
             const balanceToken = haveBalanceTokenList.find(
@@ -325,6 +380,7 @@ export function useSwapTokenList(
     },
     [
       filterSupportedAllNetworkTokens,
+      shouldFetchStaticStockTokens,
       sortAllNetworkTokens,
       swapAllNetworkTokenList,
       swapNetworks,
@@ -366,6 +422,7 @@ export function useSwapTokenList(
         await Promise.all([
           tokenFetchParams.networkId &&
           !keywords &&
+          !shouldFetchStaticStockTokens &&
           isTokenFetchAllNetworks &&
           allNetworkTokenListReady
             ? swapLoadAllNetworkTokenList(
@@ -375,6 +432,7 @@ export function useSwapTokenList(
                       swapAddressInfo?.accountInfo?.dbAccount?.id)
                   : undefined,
                 lpToken,
+                requestCurrency,
               )
             : undefined,
           tokenListFetchAction(tokenFetchParams),
@@ -395,11 +453,13 @@ export function useSwapTokenList(
     allNetworkTokenListReady,
     isTokenFetchAllNetworks,
     swapLoadAllNetworkTokenList,
+    shouldFetchStaticStockTokens,
     tokenFetchParams,
     tokenListFetchEffectKey,
     tokenListFetchAction,
     keywords,
     lpToken,
+    requestCurrency,
   ]);
 
   useEffect(() => {
@@ -414,7 +474,13 @@ export function useSwapTokenList(
     }
 
     const networkId = currentSelectNetwork?.networkId ?? '';
-    const key = `${keywords}__${networkId}__${selectTokenModalType}`;
+    const key = [
+      keywords,
+      networkId,
+      selectTokenModalType,
+      analyticsOverride?.tokenRole ?? '',
+      analyticsOverride?.tokenListType ?? '',
+    ].join('__');
 
     if (!searchLogStateRef.current || searchLogStateRef.current.key !== key) {
       searchLogStateRef.current = { key, phase: 'idle' };
@@ -443,8 +509,17 @@ export function useSwapTokenList(
         networkName: currentSelectNetwork?.isAllNetworks
           ? 'All Networks'
           : (currentSelectNetwork?.name ?? ''),
+        network: currentSelectNetwork?.isAllNetworks
+          ? 'All Networks'
+          : (currentSelectNetwork?.name ?? networkId),
         direction: selectTokenModalType,
         from,
+        tokenRole:
+          analyticsOverride?.tokenRole ??
+          getSwapAnalyticsTokenRole(selectTokenModalType),
+        tokenListType:
+          analyticsOverride?.tokenListType ??
+          getSwapAnalyticsTokenListType({ from }),
       });
 
       searchLogStateRef.current = { key, phase: 'done' };
@@ -455,6 +530,8 @@ export function useSwapTokenList(
     currentSelectNetwork?.name,
     currentSelectNetwork?.isAllNetworks,
     from,
+    analyticsOverride?.tokenListType,
+    analyticsOverride?.tokenRole,
     selectTokenModalType,
     swapTokenFetching,
   ]);
@@ -482,7 +559,8 @@ export function useSwapTokenList(
     fetchLoading:
       (swapTokenFetching && currentTokens.length === 0) ||
       (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-        (!allNetworkTokenListReady || !swapAllNetworkTokenList)),
+        (!allNetworkTokenListReady ||
+          (!shouldFetchStaticStockTokens && !swapAllNetworkTokenList))),
     lpTokenRequestLoading,
     currentTokens,
   };

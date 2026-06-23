@@ -28,11 +28,16 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
+import { TradingViewNativeChartControls } from './TradingViewNativeChartControls';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type {
   ICustomReceiveHandlerData,
+  ITradingViewIntervalConfigData,
+  ITradingViewNativeChartControlsConfigData,
+  ITradingViewPriceMarketCapMode,
+  ITradingViewPriceScaleMode,
   ITradingViewPriceUpdateData,
 } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -49,6 +54,13 @@ const MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES = [
   { left: '$2', top: '$2' },
   { right: '$2', top: '$2' },
 ] as const;
+const TRADINGVIEW_INTERVAL_CHANGE_MESSAGE = 'TRADINGVIEW_INTERVAL_CHANGE';
+const TRADINGVIEW_INDICATOR_SELECT_MESSAGE = 'TRADINGVIEW_INDICATOR_SELECT';
+const TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE = 'TRADINGVIEW_CHART_TYPE_CHANGE';
+const TRADINGVIEW_RESET_LAYOUT_MESSAGE = 'TRADINGVIEW_RESET_LAYOUT';
+const TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE = 'TRADINGVIEW_PRICE_SCALE_CHANGE';
+const TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE =
+  'TRADINGVIEW_PRICE_MARKET_CAP_CHANGE';
 
 function formatMockEmptyKLineIntervals(
   intervals: ITradingViewKLineMockEmptyInterval[] | undefined,
@@ -69,6 +81,7 @@ interface IBaseTradingViewV2Props {
   accountAddress?: string;
   onTouchScroll?: (deltaY: number) => void;
   onIndicatorsDialogOpenChange?: (isOpen: boolean) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
   forceEmptyKLineData?: boolean;
@@ -77,6 +90,8 @@ interface IBaseTradingViewV2Props {
   primaryKLineDataUnavailable?: boolean;
   onPrimaryKLineDataUnavailable?: () => void;
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
+  enableNativeChartControls?: boolean;
+  enableNativeIntervalSelector?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -88,6 +103,10 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const [activeKLineResolution, setActiveKLineResolution] = useState(
     DEFAULT_TRADING_VIEW_KLINE_RESOLUTION,
   );
+  const [intervalConfig, setIntervalConfig] =
+    useState<ITradingViewIntervalConfigData | null>(null);
+  const [nativeChartControlsConfig, setNativeChartControlsConfig] =
+    useState<ITradingViewNativeChartControlsConfigData | null>(null);
   const theme = useThemeVariant();
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
@@ -108,6 +127,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     accountAddress,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
     disabledFeatures,
     storageNamespace,
     forceEmptyKLineData,
@@ -116,9 +136,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
+    enableNativeChartControls: enableNativeChartControlsProp,
+    enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
     onLoadStart,
     ...stackStyle
   } = props;
+  const enableNativeChartControls = Boolean(enableNativeChartControlsProp);
+  const enableNativeIntervalSelector =
+    enableNativeIntervalSelectorProp || enableNativeChartControls;
 
   const { handleNavigation } = useNavigationHandler();
   const handleCurrentKLineResolutionChange = useCallback(
@@ -129,6 +154,140 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       setActiveKLineResolution((prev) =>
         prev === normalizedResolution ? prev : normalizedResolution,
       );
+    },
+    [],
+  );
+  const handleIntervalConfigChange = useCallback(
+    (data: ITradingViewIntervalConfigData) => {
+      setIntervalConfig(data);
+      handleCurrentKLineResolutionChange(data.activeInterval);
+    },
+    [handleCurrentKLineResolutionChange],
+  );
+  const handleNativeIntervalChange = useCallback(
+    (interval: string) => {
+      setIntervalConfig((prev) =>
+        prev
+          ? {
+              ...prev,
+              activeInterval: interval,
+            }
+          : prev,
+      );
+      handleCurrentKLineResolutionChange(interval);
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_INTERVAL_CHANGE_MESSAGE,
+        payload: {
+          interval,
+        },
+      });
+    },
+    [handleCurrentKLineResolutionChange],
+  );
+  const handleNativeChartControlsConfigChange = useCallback(
+    (data: ITradingViewNativeChartControlsConfigData) => {
+      setNativeChartControlsConfig(data);
+      if (data.intervals?.length && data.activeInterval) {
+        setIntervalConfig({
+          intervals: data.intervals,
+          activeInterval: data.activeInterval,
+          timestamp: data.timestamp,
+        });
+        handleCurrentKLineResolutionChange(data.activeInterval);
+      }
+    },
+    [handleCurrentKLineResolutionChange],
+  );
+  const handleNativeIndicatorSelect = useCallback(
+    (indicatorName: string, desiredActive: boolean) => {
+      setNativeChartControlsConfig((prev) =>
+        prev
+          ? {
+              ...prev,
+              indicators: prev.indicators.map((indicator) =>
+                indicator.value === indicatorName
+                  ? {
+                      ...indicator,
+                      active: desiredActive,
+                    }
+                  : indicator,
+              ),
+            }
+          : prev,
+      );
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_INDICATOR_SELECT_MESSAGE,
+        payload: {
+          indicatorName,
+          desiredActive,
+        },
+      });
+    },
+    [],
+  );
+  const handleNativeChartTypeChange = useCallback((chartType: number) => {
+    setNativeChartControlsConfig((prev) =>
+      prev
+        ? {
+            ...prev,
+            activeChartType: chartType,
+          }
+        : prev,
+    );
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_CHART_TYPE_CHANGE_MESSAGE,
+      payload: {
+        chartType,
+      },
+    });
+  }, []);
+  const handleNativeResetLayout = useCallback(() => {
+    webRef.current?.sendMessageViaInjectedScript({
+      type: TRADINGVIEW_RESET_LAYOUT_MESSAGE,
+      payload: {},
+    });
+  }, []);
+  const handleNativePriceScaleModeChange = useCallback(
+    (priceScaleMode: ITradingViewPriceScaleMode) => {
+      setNativeChartControlsConfig((prev) =>
+        prev?.priceScale
+          ? {
+              ...prev,
+              priceScale: {
+                ...prev.priceScale,
+                activeMode: priceScaleMode,
+              },
+            }
+          : prev,
+      );
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_PRICE_SCALE_CHANGE_MESSAGE,
+        payload: {
+          priceScaleMode,
+        },
+      });
+    },
+    [],
+  );
+  const handleNativePriceMarketCapModeChange = useCallback(
+    (priceMarketCapMode: ITradingViewPriceMarketCapMode) => {
+      setNativeChartControlsConfig((prev) =>
+        prev?.priceMarketCap
+          ? {
+              ...prev,
+              priceMarketCap: {
+                ...prev.priceMarketCap,
+                activeMode: priceMarketCapMode,
+              },
+            }
+          : prev,
+      );
+      webRef.current?.sendMessageViaInjectedScript({
+        type: TRADINGVIEW_PRICE_MARKET_CAP_CHANGE_MESSAGE,
+        payload: {
+          priceMarketCapMode,
+        },
+      });
     },
     [],
   );
@@ -144,12 +303,19 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onCurrentKLineResolutionChange: handleCurrentKLineResolutionChange,
     onTouchScroll,
     onIndicatorsDialogOpenChange,
+    onInteractionOverlayOpenChange,
     forceEmptyKLineData,
     emptyKLineDataOnError,
     kLineDataFallback,
     primaryKLineDataUnavailable,
     onPrimaryKLineDataUnavailable,
     onPriceUpdate,
+    onIntervalConfigChange: enableNativeIntervalSelector
+      ? handleIntervalConfigChange
+      : undefined,
+    onNativeChartControlsConfigChange: enableNativeChartControls
+      ? handleNativeChartControlsConfigChange
+      : undefined,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -181,11 +347,15 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       symbol: chartSymbol,
       type: 'market',
       storageNamespace: finalStorageNamespace,
+      ...(enableNativeIntervalSelector ? { nativeIntervalSelector: '1' } : {}),
+      ...(enableNativeChartControls ? { nativeChartControls: '1' } : {}),
       ...(useHyperLiquid ? { scene: 'market-hyperliquid' } : {}),
     };
   }, [
     chartSymbol,
     decimal,
+    enableNativeChartControls,
+    enableNativeIntervalSelector,
     networkId,
     storageNamespace,
     tokenAddress,
@@ -209,6 +379,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
+    symbol: chartSymbol,
     enabled:
       isVisible &&
       effectiveDataSource !== 'websocket' &&
@@ -237,6 +408,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !mockEmptyKLineEnabled &&
       !forceEmptyKLineData,
     chartType: activeKLineResolution,
+    symbol: chartSymbol,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds
@@ -335,29 +507,40 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onIndicatorsDialogOpenChange?.(false);
   }, [onIndicatorsDialogOpenChange]);
 
+  const resetInteractionOverlayOpen = useCallback(() => {
+    onInteractionOverlayOpenChange?.(false);
+  }, [onInteractionOverlayOpenChange]);
+
+  const resetInteractionLocks = useCallback(() => {
+    resetIndicatorsDialogOpen();
+    resetInteractionOverlayOpen();
+  }, [resetIndicatorsDialogOpen, resetInteractionOverlayOpen]);
+
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) => {
-      resetIndicatorsDialogOpen();
+      setIntervalConfig(null);
+      setNativeChartControlsConfig(null);
+      resetInteractionLocks();
       onLoadStart?.(event);
     },
-    [onLoadStart, resetIndicatorsDialogOpen],
+    [onLoadStart, resetInteractionLocks],
   );
 
   const handleWebViewRef = useCallback(
     (ref: IWebViewRef | null) => {
       if (!ref) {
-        resetIndicatorsDialogOpen();
+        resetInteractionLocks();
       }
       webRef.current = ref;
     },
-    [resetIndicatorsDialogOpen, webRef],
+    [resetInteractionLocks, webRef],
   );
 
   useEffect(() => {
     return () => {
-      resetIndicatorsDialogOpen();
+      resetInteractionLocks();
     };
-  }, [resetIndicatorsDialogOpen]);
+  }, [resetInteractionLocks]);
 
   const handleMockEmptyKLineBadgePress = useCallback(() => {
     setMockEmptyKLineBadgePositionIndex(
@@ -404,41 +587,56 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
 
   return (
-    <Stack position="relative" flex={1} {...stackStyle}>
-      {webView}
-
-      {mockEmptyKLineEnabled ? (
-        <Stack
-          position="absolute"
-          zIndex={2}
-          px="$2"
-          py="$1"
-          borderRadius="$1"
-          bg="#D92D20"
-          cursor="pointer"
-          maxWidth={220}
-          onPress={handleMockEmptyKLineBadgePress}
-          {...MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES[
-            mockEmptyKLineBadgePositionIndex
-          ]}
-        >
-          <SizableText size="$bodyXsMedium" color="white" numberOfLines={2}>
-            {mockEmptyKLineBadgeText}
-          </SizableText>
-        </Stack>
-      ) : null}
-
-      {platformEnv.isNativeIOS ? (
-        <Stack
-          position="absolute"
-          left={0}
-          top={50}
-          bottom={0}
-          width={15}
-          zIndex={1}
-          pointerEvents="auto"
+    <Stack flex={1} {...stackStyle}>
+      {enableNativeIntervalSelector ? (
+        <TradingViewNativeChartControls
+          intervalConfig={intervalConfig}
+          nativeChartControlsConfig={nativeChartControlsConfig}
+          onIntervalChange={handleNativeIntervalChange}
+          onIndicatorSelect={handleNativeIndicatorSelect}
+          onChartTypeChange={handleNativeChartTypeChange}
+          onResetLayout={handleNativeResetLayout}
+          onPriceScaleModeChange={handleNativePriceScaleModeChange}
+          onPriceMarketCapModeChange={handleNativePriceMarketCapModeChange}
         />
       ) : null}
+
+      <Stack position="relative" flex={1}>
+        {webView}
+
+        {mockEmptyKLineEnabled ? (
+          <Stack
+            position="absolute"
+            zIndex={2}
+            px="$2"
+            py="$1"
+            borderRadius="$1"
+            bg="#D92D20"
+            cursor="pointer"
+            maxWidth={220}
+            onPress={handleMockEmptyKLineBadgePress}
+            {...MOCK_EMPTY_KLINE_BADGE_POSITION_STYLES[
+              mockEmptyKLineBadgePositionIndex
+            ]}
+          >
+            <SizableText size="$bodyXsMedium" color="white" numberOfLines={2}>
+              {mockEmptyKLineBadgeText}
+            </SizableText>
+          </Stack>
+        ) : null}
+
+        {platformEnv.isNativeIOS ? (
+          <Stack
+            position="absolute"
+            left={0}
+            top={0}
+            bottom={0}
+            width={15}
+            zIndex={1}
+            pointerEvents="auto"
+          />
+        ) : null}
+      </Stack>
     </Stack>
   );
 };

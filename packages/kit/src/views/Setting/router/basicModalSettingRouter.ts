@@ -65,6 +65,11 @@ const PageDevUnitTests = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
 );
 
+const DevSesHardenRuntimeCheck = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
+);
+
 const DesktopApiProxyTestDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
@@ -239,6 +244,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevUnitTestsModal,
     component: PageDevUnitTests,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+    component: DevSesHardenRuntimeCheck,
   },
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,

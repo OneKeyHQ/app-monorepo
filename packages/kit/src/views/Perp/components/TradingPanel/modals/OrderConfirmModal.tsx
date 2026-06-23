@@ -9,12 +9,15 @@ import {
   Checkbox,
   Dialog,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  type ITradingFormData,
   useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -75,6 +78,15 @@ interface IOrderConfirmContentProps {
     context: IOrderConfirmEnableTradingBeforeConfirmContext,
   ) => Promise<IEnableTradingWithDepositFallbackResult>;
   enableTradingAccountKey?: string;
+  // Independent (chart-popover) order data. When set, display and submit use
+  // this instead of the global tradingFormAtom; submit bypasses useOrderConfirm.
+  formDataOverride?: ITradingFormData;
+  priceOverride?: string;
+  // Coin the override ticket was built for; submit aborts if the live active
+  // instrument no longer matches (active-asset switch between press and confirm).
+  expectedCoin?: string;
+  // Fired only after a successful override submit (chart popover closes itself).
+  onConfirmSuccess?: () => void;
 }
 
 type IOrderConfirmAccountForKey = {
@@ -101,6 +113,10 @@ function OrderConfirmContent({
   overrideSide,
   enableTradingBeforeConfirm,
   enableTradingAccountKey,
+  formDataOverride,
+  priceOverride,
+  expectedCoin,
+  onConfirmSuccess,
 }: IOrderConfirmContentProps) {
   const [isPreparingEnableTrading, setIsPreparingEnableTrading] =
     useState(false);
@@ -134,22 +150,58 @@ function OrderConfirmContent({
     [],
   );
 
-  const { isSubmitting, handleConfirm: confirmOrder } = useOrderConfirm({
-    onSuccess: () => {
-      closeDialog();
-    },
-    onError: () => {
-      closeDialog();
-    },
-  });
+  const hyperliquidActions = useHyperliquidActions();
+  const [isOverrideSubmitting, setIsOverrideSubmitting] = useState(false);
+  const { isSubmitting: atomIsSubmitting, handleConfirm: confirmOrder } =
+    useOrderConfirm({
+      onSuccess: () => {
+        closeDialog();
+      },
+      onError: () => {
+        closeDialog();
+      },
+    });
+  const isSubmitting = formDataOverride
+    ? isOverrideSubmitting
+    : atomIsSubmitting;
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
-  const [formData] = useTradingFormAtom();
+  const [atomFormData] = useTradingFormAtom();
+  const formData = useMemo(
+    () =>
+      formDataOverride
+        ? {
+            ...formDataOverride,
+            price: priceOverride ?? formDataOverride.price,
+          }
+        : atomFormData,
+    [atomFormData, formDataOverride, priceOverride],
+  );
   const [activeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeInstrument.mode === 'spot';
   const effectiveSide = overrideSide || formData.side;
-  const { computedSizeForSide, orderValue } =
-    useTradingCalculationsForSide(effectiveSide);
+  const {
+    computedSizeForSide: atomComputedSizeForSide,
+    orderValue: atomOrderValue,
+  } = useTradingCalculationsForSide(effectiveSide);
+  // The independent popover holds its own size/price, so calculations derived
+  // from the global atom must be overridden for an accurate confirm display.
+  const computedSizeForSide = useMemo(
+    () =>
+      formDataOverride
+        ? new BigNumber(formDataOverride.size || '0')
+        : atomComputedSizeForSide,
+    [atomComputedSizeForSide, formDataOverride],
+  );
+  const orderValue = useMemo(
+    () =>
+      formDataOverride
+        ? computedSizeForSide.multipliedBy(
+            new BigNumber((priceOverride ?? formDataOverride.price) || '0'),
+          )
+        : atomOrderValue,
+    [atomOrderValue, computedSizeForSide, formDataOverride, priceOverride],
+  );
   const szDecimals =
     activeInstrument.mode === 'spot'
       ? (activeInstrument.universe?.baseSzDecimals ?? 2)
@@ -360,8 +412,62 @@ function OrderConfirmContent({
 
   const isConfirmLoading = isSubmitting || isPreparingEnableTrading;
 
+  const submitOverrideOrder = useCallback(async () => {
+    if (!formDataOverride) {
+      return;
+    }
+    if (activeInstrument.assetId === undefined) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_info_not_found__msg,
+        }),
+      });
+      return;
+    }
+    // Active asset may have switched between pressing buy/sell and confirming;
+    // never submit the snapshot ticket against a different live coin. Mirrors
+    // the keyless string submitOrder itself throws (actions.ts) — no i18n key.
+    if (expectedCoin && activeInstrument.coin !== expectedCoin) {
+      Toast.error({
+        title: 'Trading market changed. Please review and submit again.',
+      });
+      closeDialog();
+      return;
+    }
+    setIsOverrideSubmitting(true);
+    try {
+      await hyperliquidActions.current.submitOrder({
+        assetId: activeInstrument.assetId,
+        formData: formDataOverride,
+        price: priceOverride ?? formDataOverride.price,
+      });
+      onConfirmSuccess?.();
+      closeDialog();
+    } catch {
+      // Errors are surfaced via withToast inside submitOrder.
+      closeDialog();
+    } finally {
+      setIsOverrideSubmitting(false);
+    }
+  }, [
+    activeInstrument.assetId,
+    activeInstrument.coin,
+    closeDialog,
+    expectedCoin,
+    formDataOverride,
+    hyperliquidActions,
+    intl,
+    onConfirmSuccess,
+    priceOverride,
+  ]);
+
   const handleConfirm = useCallback(async () => {
     if (isConfirmLoading) {
+      return;
+    }
+
+    if (formDataOverride) {
+      await submitOverrideOrder();
       return;
     }
 
@@ -403,9 +509,11 @@ function OrderConfirmContent({
     closeDialog,
     confirmOrder,
     enableTradingBeforeConfirm,
+    formDataOverride,
     isConfirmLoading,
     overrideSide,
     shouldIgnoreEnableTradingResult,
+    submitOverrideOrder,
   ]);
 
   const savedFeeDisplay = useMemo(() => {
@@ -770,6 +878,10 @@ export function showOrderConfirmDialog({
   intl,
   enableTradingBeforeConfirm,
   enableTradingAccountKey,
+  formData,
+  price,
+  expectedCoin,
+  onConfirmSuccess,
 }: {
   overrideSide?: 'long' | 'short';
   intl: IntlShape;
@@ -777,6 +889,14 @@ export function showOrderConfirmDialog({
     context: IOrderConfirmEnableTradingBeforeConfirmContext,
   ) => Promise<IEnableTradingWithDepositFallbackResult>;
   enableTradingAccountKey?: string;
+  // Independent (chart-popover) order data. When provided, the confirm content
+  // displays and submits this instead of the global tradingFormAtom.
+  formData?: ITradingFormData;
+  price?: string;
+  // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
+  expectedCoin?: string;
+  // Fired only after a successful override submit (chart popover closes itself).
+  onConfirmSuccess?: () => void;
 }) {
   const dialogInstance = Dialog.show({
     title: intl.formatMessage({
@@ -792,6 +912,10 @@ export function showOrderConfirmDialog({
             overrideSide={overrideSide}
             enableTradingBeforeConfirm={enableTradingBeforeConfirm}
             enableTradingAccountKey={enableTradingAccountKey}
+            formDataOverride={formData}
+            priceOverride={price}
+            expectedCoin={expectedCoin}
+            onConfirmSuccess={onConfirmSuccess}
           />
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
