@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
@@ -32,6 +33,22 @@ const swapNetworksIncludeAllNetwork = [
     supportSingleSwap: true,
   },
 ] as ISwapNetwork[];
+
+function buildSwapNetwork({
+  isAllNetworks,
+  networkId,
+  supportStock,
+}: {
+  isAllNetworks?: boolean;
+  networkId: string;
+  supportStock?: boolean;
+}): ISwapNetwork {
+  return {
+    isAllNetworks,
+    networkId,
+    supportStock,
+  } as ISwapNetwork;
+}
 
 describe('SwapTokenSelectModal.utils', () => {
   it('detects bridge-only source networks', () => {
@@ -110,6 +127,49 @@ describe('SwapTokenSelectModal.utils', () => {
         resolvedStockMetadataTokenKey: 'evm--56:0x123',
       }),
     ).toBe(false);
+  });
+
+  it('does not insert unsupported default networks into Stock selector', () => {
+    const stockNetworksBase = [
+      buildSwapNetwork({ isAllNetworks: true, networkId: 'onekeyall--0' }),
+      buildSwapNetwork({ networkId: 'evm--56', supportStock: true }),
+    ];
+
+    expect(
+      buildSwapStockSelectableNetworks({
+        isSwapStockSelectTarget: true,
+        rawSwapNetworks: [
+          buildSwapNetwork({ networkId: 'evm--1', supportStock: false }),
+          buildSwapNetwork({ networkId: 'evm--56', supportStock: true }),
+        ],
+        stockSelectDefaultNetworkId: 'evm--1',
+        swapNetworksIncludeAllNetworkBase: stockNetworksBase,
+      }),
+    ).toBe(stockNetworksBase);
+  });
+
+  it('inserts supported Stock default networks after All Networks', () => {
+    const allNetwork = buildSwapNetwork({
+      isAllNetworks: true,
+      networkId: 'onekeyall--0',
+    });
+    const bscNetwork = buildSwapNetwork({
+      networkId: 'evm--56',
+      supportStock: true,
+    });
+    const polygonNetwork = buildSwapNetwork({
+      networkId: 'evm--137',
+      supportStock: true,
+    });
+
+    expect(
+      buildSwapStockSelectableNetworks({
+        isSwapStockSelectTarget: true,
+        rawSwapNetworks: [bscNetwork, polygonNetwork],
+        stockSelectDefaultNetworkId: 'evm--137',
+        swapNetworksIncludeAllNetworkBase: [allNetwork, bscNetwork],
+      }),
+    ).toEqual([allNetwork, polygonNetwork, bscNetwork]);
   });
 
   it('uses stock subtitle before token source suffix fallback', () => {

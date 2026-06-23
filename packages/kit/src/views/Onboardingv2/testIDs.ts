@@ -113,10 +113,6 @@ export const OnboardingTestIDs = {
   createOrImportWalletOptionBtn: (key: string) =>
     `onboarding-create-or-import-wallet-option-${key}-btn`,
 
-  // Keyless wallet
-  keylessWalletCreationPage: 'onboarding-keyless-wallet-creation-page',
-  keylessWalletRecoveryPage: 'onboarding-keyless-wallet-recovery-page',
-
   // Connect QR code
   connectQRCodePage: 'onboarding-connect-qr-code-page',
   connectQRCodeScanBtn: 'onboarding-connect-qr-code-scan-btn',

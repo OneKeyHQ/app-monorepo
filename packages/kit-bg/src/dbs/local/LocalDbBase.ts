@@ -51,7 +51,6 @@ import {
   DEFAULT_VERIFY_STRING,
   WALLET_NO_EXTERNAL,
   WALLET_NO_IMPORTED,
-  WALLET_NO_KEYLESS,
   WALLET_NO_WATCHING,
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_HD,
@@ -168,7 +167,6 @@ import type {
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHwWalletParams,
-  IDBCreateKeylessWalletParams,
   IDBCreateQRWalletParams,
   IDBCredentialBase,
   IDBDevice,
@@ -4626,67 +4624,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
     this.runPostPasswordVerifiedLazyUpgrade({ password });
     return result;
-  }
-
-  async createKeylessWallet(params: IDBCreateKeylessWalletParams): Promise<{
-    wallet: IDBWallet;
-    indexedAccount: IDBIndexedAccount | undefined;
-  }> {
-    const { password, name, avatar: initAvatarInfo, packSetId } = params;
-    await this.getContext({ verifyPassword: password });
-    const walletId = accountUtils.buildKeylessWalletId({
-      sharePackSetId: packSetId,
-    });
-    const defaultWalletName = `KeylessWallet`;
-    const initWalletName = name || defaultWalletName;
-
-    const firstAccountIndex = 0;
-
-    let addedHdAccountIndex = -1;
-
-    const avatarInfo = initAvatarInfo ?? randomAvatar();
-
-    const walletToCreate: IDBWallet = {
-      id: walletId,
-      name: initWalletName,
-      hash: undefined,
-      xfp: undefined, // keyless wallet doesn't have xfp
-      avatar: JSON.stringify(avatarInfo),
-      type: WALLET_TYPE_HD,
-      backuped: true, // keyless wallet is always backed up
-      nextIds: {
-        accountHdIndex: firstAccountIndex,
-      },
-      accounts: [],
-      walletNo: WALLET_NO_KEYLESS, // Keyless wallet uses a fixed walletNo and doesn't participate in nextWalletNo increment
-      deprecated: false,
-    };
-
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      // add db wallet
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Wallet,
-        records: [walletToCreate],
-        skipIfExists: true,
-      });
-
-      // add first indexed account
-      const { nextIndex } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId,
-        onlyAddFirst: true,
-        skipServerSyncFlow: true, // Keyless wallet doesn't need cloud sync
-      });
-      addedHdAccountIndex = nextIndex;
-
-      // Keyless wallet doesn't increment nextWalletNo
-    });
-
-    return this.buildCreateHDAndHWWalletResult({
-      walletId,
-      addedHdAccountIndex,
-    });
   }
 
   async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
