@@ -24,7 +24,7 @@ const removeSecureItem = async (key: string) =>
   globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
 const supportSecureStorage = async () => {
-  if (platformEnv.isDesktop && platformEnv.isDev) {
+  if (platformEnv.isDesktop && platformEnv.isDev && !platformEnv.isE2E) {
     return false;
   }
   const available =

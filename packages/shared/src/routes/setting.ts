@@ -1,5 +1,10 @@
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+export type ILocalSecretEnvelopeSelfTestKind =
+  | 'debug'
+  | 'restore'
+  | 'diagnostic';
+
 export enum EModalSettingRoutes {
   SettingListModal = 'SettingListModal',
   SettingListSubModal = 'SettingListSubModal',
@@ -27,6 +32,7 @@ export enum EModalSettingRoutes {
   SettingDevAuthGalleryModal = 'SettingDevAuthGalleryModal',
   SettingDevKeylessWalletGallery = 'SettingDevKeylessWalletGallery',
   SettingDevStorageGalleryModal = 'SettingDevStorageGalleryModal',
+  SettingDevLocalSecretEnvelopeSelfTestModal = 'SettingDevLocalSecretEnvelopeSelfTestModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -89,6 +95,9 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevCloudBackupGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevAuthGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevStorageGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal]: {
+    testKind: ILocalSecretEnvelopeSelfTestKind;
+  };
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
