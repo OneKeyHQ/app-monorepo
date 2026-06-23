@@ -34,6 +34,28 @@
   on the foreground process. Used by the Mac-side deploy script so the SSH call
   returns after the build + launch (the app keeps running on Windows).
 
+.PARAMETER TraceStartup
+  Record a Chromium STARTUP trace from t=0 (process spawn), covering the browser
+  and every renderer spawned during boot. This is the only way to capture the
+  earliest ~1-3s of startup, which a CDP "attach-then-record" approach misses.
+  Writes a single trace file to build-electron\perf\ and prints its path as
+  "TRACE_STARTUP_FILE=<path>" so the Mac-side deploy script can scp it back.
+
+.PARAMETER TraceDuration
+  Seconds to record when -TraceStartup is set. Default 30 (covers boot + the
+  Home-screen settle window). The file is finalized after this many seconds.
+
+.PARAMETER TraceFormat
+  'proto' (default; small, load in ui.perfetto.dev) or 'json' (legacy
+  chrome://tracing format; bigger but grep-able).
+
+.PARAMETER TraceCategories
+  Chromium trace categories. Default targets a JS flamegraph + main-thread tasks
+  + loading, which is what distinguishes "slow boot" from a "render storm".
+
+.PARAMETER TraceFile
+  Explicit output path. Defaults to build-electron\perf\startup-<timestamp>.<ext>.
+
 .EXAMPLE
   # Full build, then launch with the debug port on localhost:
   powershell -ExecutionPolicy Bypass -File scripts\build-launch-perf-win.ps1
@@ -41,13 +63,23 @@
 .EXAMPLE
   # Just relaunch the existing build (no rebuild), expose to LAN, with logs:
   powershell -ExecutionPolicy Bypass -File scripts\build-launch-perf-win.ps1 -NoBuild -Bind 0.0.0.0 -EnableLogging
+
+.EXAMPLE
+  # Relaunch (no rebuild) and record a 30s startup trace from t=0:
+  powershell -ExecutionPolicy Bypass -File scripts\build-launch-perf-win.ps1 -NoBuild -Detach -TraceStartup
 #>
 param(
   [switch]$NoBuild,
   [int]$Port = 9222,
   [string]$Bind = '127.0.0.1',
   [switch]$EnableLogging,
-  [switch]$Detach
+  [switch]$Detach,
+  [switch]$TraceStartup,
+  [int]$TraceDuration = 30,
+  [ValidateSet('proto', 'json')]
+  [string]$TraceFormat = 'proto',
+  [string]$TraceCategories = 'disabled-by-default-v8.cpu_profiler,v8,blink,blink.user_timing,toplevel,sequence_manager,loading',
+  [string]$TraceFile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,6 +107,29 @@ $args = @(
 )
 if ($EnableLogging) {
   $args += @('--enable-logging', '--v=1')
+}
+
+if ($TraceStartup) {
+  $perfDir = Join-Path $desktopDir 'build-electron\perf'
+  New-Item -ItemType Directory -Force -Path $perfDir | Out-Null
+  if ([string]::IsNullOrEmpty($TraceFile)) {
+    $ext = if ($TraceFormat -eq 'json') { 'json' } else { 'pftrace' }
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $TraceFile = Join-Path $perfDir "startup-$stamp.$ext"
+  }
+  # Chromium/Electron startup tracing: records from process spawn (t=0) across
+  # the browser + every renderer spawned during boot, then writes the file once
+  # -trace-startup-duration elapses. The app keeps running afterwards.
+  $args += @(
+    "--trace-startup=$TraceCategories",
+    "--trace-startup-duration=$TraceDuration",
+    "--trace-startup-format=$TraceFormat",
+    "--trace-startup-file=$TraceFile"
+  )
+  Write-Host "[perf] startup trace: $TraceDuration s, format=$TraceFormat" -ForegroundColor Yellow
+  Write-Host "[perf] cats: $TraceCategories" -ForegroundColor DarkYellow
+  # Machine-parseable line for the Mac-side deploy script to scp the file back.
+  Write-Host "TRACE_STARTUP_FILE=$TraceFile"
 }
 
 Write-Host "[perf] launching: $exe" -ForegroundColor Green

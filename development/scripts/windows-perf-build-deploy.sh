@@ -16,9 +16,16 @@
 #   launch   - Relaunch the already-built exe on Windows (no rebuild)
 #   tunnel   - Open the CDP SSH tunnel (localhost:$CDP_PORT -> Windows 127.0.0.1)
 #   capture  - Screenshot + console errors via CDP through the tunnel
+#   trace    - Launch with a t=0 Chromium startup trace, pull it back via scp
+#              ('trace build' rebuilds first; else reuses the current build)
+#   cdp ...  - Pass through to win-perf-cdp.mjs (targets|profile|heapstats|heap|console)
 #   all      - build -> tunnel -> capture (default), leaves the tunnel running
 #   stop     - Close the tunnel and stop the remote app
 #   doctor   - Check SSH reachability + remote repo + tooling
+#
+# Config extras:
+#   TRACE_DURATION  startup trace length in seconds        (default: 30)
+#   TRACE_FORMAT    proto (Perfetto) or json (chrome://tracing)  (default: proto)
 #
 # Config (env vars, or a local development/scripts/.windows-perf.env file):
 #   WIN_HOST     Windows LAN IP or hostname            (required)
@@ -52,6 +59,9 @@ WIN_REPO="${WIN_REPO:-C:\\app-monorepo}"
 CDP_PORT="${CDP_PORT:-9222}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/.tmp/win-perf}"
 TUNNEL_PID_FILE="$REPO_ROOT/.tmp/win-perf/.tunnel.pid"
+TRACE_DURATION="${TRACE_DURATION:-30}"
+TRACE_FORMAT="${TRACE_FORMAT:-proto}"
+CDP_PERF="$REPO_ROOT/development/scripts/win-perf-cdp.mjs"
 
 # Build-launch script path on Windows (Windows-style, under the remote repo).
 WIN_BUILD_SCRIPT="$WIN_REPO\\apps\\desktop\\scripts\\build-launch-perf-win.ps1"
@@ -179,6 +189,83 @@ cmd_capture() {
   echo "   (Performance record / Heap snapshot), or point any CDP perf script at that port."
 }
 
+# --- trace: build/launch with a t=0 startup trace, then pull it back ---
+# Captures the earliest ~1-3s of boot that a CDP "attach-then-record" misses.
+# Usage: trace [build]   ('build' rebuilds first; default reuses current build)
+cmd_trace() {
+  require_host
+  mkdir -p "$OUT_DIR"
+
+  local NOBUILD="-NoBuild"
+  if [ "${2:-}" = "build" ]; then
+    NOBUILD=""
+    echo "$(timestamp) 📦 Remote build + traced launch on $WIN_HOST (full build, slow)..."
+  else
+    echo "$(timestamp) 🚀 Traced relaunch on $WIN_HOST (no rebuild)..."
+  fi
+
+  # Launch with --trace-startup; PS1 prints TRACE_STARTUP_FILE=<win path>.
+  local PS_OUT
+  PS_OUT=$(win_ps "& '$WIN_BUILD_SCRIPT' -Port $CDP_PORT -Detach -EnableLogging -TraceStartup -TraceDuration $TRACE_DURATION -TraceFormat $TRACE_FORMAT $NOBUILD")
+  echo "$PS_OUT"
+
+  local WIN_TRACE
+  WIN_TRACE=$(echo "$PS_OUT" | grep -o 'TRACE_STARTUP_FILE=.*' | head -1 | sed 's/^TRACE_STARTUP_FILE=//' | tr -d '\r')
+  if [ -z "$WIN_TRACE" ]; then
+    echo "❌ Could not find TRACE_STARTUP_FILE in launch output. Did the PS1 update land on Windows?"
+    exit 1
+  fi
+  echo "$(timestamp) 🎬 Recording startup trace for ${TRACE_DURATION}s -> $WIN_TRACE"
+
+  # The trace file is finalized only after -TraceDuration elapses; wait + buffer.
+  sleep $((TRACE_DURATION + 8))
+
+  # Verify the file exists on Windows before scp (fallback signal if
+  # --trace-startup is a no-op in this Electron build).
+  if ! win_ps "Test-Path '$WIN_TRACE'" | grep -qi true; then
+    echo "❌ Trace file was NOT written on Windows ($WIN_TRACE)."
+    echo "   => --trace-startup may be unsupported by this Electron. Fallback: use 'cdp' + Tracing/Profiler instead."
+    exit 1
+  fi
+
+  # Windows path -> scp-friendly forward-slash path.
+  local SCP_PATH
+  SCP_PATH=$(echo "$WIN_TRACE" | tr '\\' '/')
+  local LOCAL_TRACE="$OUT_DIR/$(basename "$SCP_PATH")"
+  echo "$(timestamp) ⬇️  Pulling trace via scp -> $LOCAL_TRACE"
+  scp -P "$WIN_SSH_PORT" "$WIN_USER@$WIN_HOST:\"$SCP_PATH\"" "$LOCAL_TRACE"
+
+  # Best-effort: pull the Chromium disk log (t=0 console; e.g. render-storm text).
+  local WIN_LOG
+  WIN_LOG=$(win_ps "(Get-ChildItem -Path \$env:APPDATA -Filter chrome_debug.log -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName" | tr -d '\r')
+  if [ -n "$WIN_LOG" ]; then
+    local SCP_LOG
+    SCP_LOG=$(echo "$WIN_LOG" | tr '\\' '/')
+    scp -P "$WIN_SSH_PORT" "$WIN_USER@$WIN_HOST:\"$SCP_LOG\"" "$OUT_DIR/chrome_debug.log" 2>/dev/null \
+      && echo "$(timestamp) ⬇️  Pulled Chromium log -> $OUT_DIR/chrome_debug.log" \
+      || echo "   (Chromium disk log not pulled; use 'cdp console' instead)"
+  fi
+
+  echo ""
+  echo "$(timestamp) ✅ Startup trace: $LOCAL_TRACE"
+  if [ "$TRACE_FORMAT" = "proto" ]; then
+    echo "   Load in https://ui.perfetto.dev  (drag the .pftrace in)"
+  else
+    echo "   Load in chrome://tracing  (Load -> pick the .json)"
+  fi
+  echo "   App is still running + debug port open. Tunnel then run 'cdp' for CPU/heap."
+}
+
+# --- cdp: pass through to the Mac-side CDP perf script over the tunnel ---
+cmd_cdp() {
+  if [ ! -f "$CDP_PERF" ]; then
+    echo "❌ $CDP_PERF not found."
+    exit 1
+  fi
+  shift || true # drop the 'cdp' arg
+  CDP_URL="http://127.0.0.1:$CDP_PORT" node "$CDP_PERF" "$@"
+}
+
 # --- stop: tear down tunnel + remote app ---
 cmd_stop() {
   if [ -f "$TUNNEL_PID_FILE" ]; then
@@ -206,6 +293,8 @@ case "$COMMAND" in
   launch)  cmd_launch ;;
   tunnel)  cmd_tunnel ;;
   capture) cmd_capture ;;
+  trace)   cmd_trace "$@" ;;
+  cdp)     cmd_cdp "$@" ;;
   stop)    cmd_stop ;;
   doctor)  cmd_doctor ;;
   all)
@@ -218,7 +307,9 @@ case "$COMMAND" in
     echo "   When done: '$0 stop'"
     ;;
   *)
-    echo "Usage: $0 [build|launch|tunnel|capture|all|stop|doctor]"
+    echo "Usage: $0 [build|launch|tunnel|capture|trace|cdp|all|stop|doctor]"
+    echo "  trace [build]   record a t=0 startup trace (proto/json), pull it back"
+    echo "  cdp <targets|profile|heapstats|heap|console> [--target ..] [--duration ..] [--out ..]"
     exit 1
     ;;
 esac
