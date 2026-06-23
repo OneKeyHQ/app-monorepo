@@ -153,6 +153,7 @@ export function useSwapStockPayTokens({
   payToken,
   selectPayToken,
   stockNetworkId,
+  syncPayTokenDetail,
 }: {
   currentStockToken?: ISwapToken;
   currentStockTokenKey: string;
@@ -161,6 +162,7 @@ export function useSwapStockPayTokens({
   payToken?: ISwapToken;
   selectPayToken: (token: IToken, manual?: boolean) => void;
   stockNetworkId: string;
+  syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
@@ -467,13 +469,13 @@ export function useSwapStockPayTokens({
         nextToken: activeSelectablePayToken,
       })
     ) {
-      selectPayToken(activeSelectablePayToken, false);
+      syncPayTokenDetail(activeSelectablePayToken);
     }
   }, [
     activeSelectablePayToken,
     payToken,
     payTokenDetailsReady,
-    selectPayToken,
+    syncPayTokenDetail,
   ]);
 
   useEffect(() => {
