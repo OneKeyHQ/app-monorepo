@@ -268,6 +268,7 @@ function getResolvedActionKey(action: IResolvedDeFiPositionAction) {
     action.networkId,
     action.positionCategory,
     action.assetCategory ?? '',
+    action.debtCategory ?? '',
     action.rewardCategory ?? '',
     action.action,
   ].join('-');
@@ -285,6 +286,10 @@ function isRewardsPlacementAction(action: EDeFiPositionAction) {
   return action === EDeFiPositionAction.Claim;
 }
 
+function isDebtPlacementAction(action: EDeFiPositionAction) {
+  return action === EDeFiPositionAction.Repay;
+}
+
 function isVisibleInPlacement({
   action,
   placement,
@@ -295,6 +300,7 @@ function isVisibleInPlacement({
   if (placement === 'all') return true;
   if (placement === 'balance') return isBalancePlacementAction(action);
   if (placement === 'rewards') return isRewardsPlacementAction(action);
+  if (placement === 'debt') return isDebtPlacementAction(action);
   return false;
 }
 
@@ -302,19 +308,21 @@ function getVisibleDeFiPositionActions<
   T extends { action: EDeFiPositionAction },
 >({
   actions,
-  hasAaveDebt,
   placement,
 }: {
   actions: T[];
-  hasAaveDebt: boolean;
   placement: NonNullable<IProtocolPositionActionButtonProps['placement']>;
 }) {
-  const actionsForPosition = hasAaveDebt
-    ? actions.filter((action) => action.action !== EDeFiPositionAction.Withdraw)
-    : actions;
-  return actionsForPosition.filter((action) =>
+  return actions.filter((action) =>
     isVisibleInPlacement({ action: action.action, placement }),
   );
+}
+
+function getManageActionTypeAction(type: EManagePositionType) {
+  if (type === EManagePositionType.Repay) {
+    return EDeFiPositionAction.Repay;
+  }
+  return EDeFiPositionAction.Withdraw;
 }
 
 // Manage actions sit under the asset they act on, like the other inline
@@ -453,27 +461,56 @@ const ProtocolPositionActionButton = memo(
       () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
       [manageAsset, position, protocol],
     );
+    const matchedDeFiActions = useMemo(
+      () =>
+        isActionAccount
+          ? [
+              ...actions,
+              ...defiActionUtils.resolveDeFiPositionActionDebugCandidates({
+                protocol,
+                position,
+                supportedActions,
+              }),
+            ]
+          : [],
+      [actions, isActionAccount, position, protocol, supportedActions],
+    );
     const visibleActions = useMemo(
       () =>
         getVisibleDeFiPositionActions({
           actions,
-          hasAaveDebt,
           placement,
         }),
-      [actions, hasAaveDebt, placement],
+      [actions, placement],
     );
     const visibleUnavailableActions = useMemo(
       () =>
         getVisibleDeFiPositionActions({
           actions: unavailableActions,
-          hasAaveDebt,
           placement,
         }),
-      [hasAaveDebt, placement, unavailableActions],
+      [placement, unavailableActions],
     );
-    const manageActionTypes = getManageActionTypesForPlacement(placement);
+    const deFiManageActions = useMemo(
+      () =>
+        new Set(
+          getVisibleDeFiPositionActions({
+            actions: matchedDeFiActions,
+            placement,
+          }).map((action) => action.action),
+        ),
+      [matchedDeFiActions, placement],
+    );
+    const manageActionTypes = getManageActionTypesForPlacement(
+      placement,
+    ).filter(
+      (manageType) =>
+        !deFiManageActions.has(getManageActionTypeAction(manageType)),
+    );
     const shouldShowManage =
-      manageActionTypes.length > 0 && Boolean(borrowManageParams);
+      hasAaveDebt &&
+      manageActionTypes.length > 0 &&
+      Boolean(borrowManageParams);
     // Position-level resolved actions render once per position; a per-asset
     // caller suppresses them on every row but the first.
     const renderedActions: IRenderedDeFiPositionAction[] = showResolvedActions
@@ -496,6 +533,7 @@ const ProtocolPositionActionButton = memo(
           selectedAsset &&
           action.assets.length === 1 &&
           action.action !== EDeFiPositionAction.Withdraw &&
+          action.action !== EDeFiPositionAction.Repay &&
           action.action !== EDeFiPositionAction.RemoveLiquidity
         ) {
           const actionKey = getResolvedActionKey(action);

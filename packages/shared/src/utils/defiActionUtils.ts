@@ -33,6 +33,7 @@ type IDeFiPositionActionKeySource = Pick<
   | 'networkId'
   | 'positionCategory'
   | 'assetCategory'
+  | 'debtCategory'
   | 'rewardCategory'
   | 'action'
 >;
@@ -112,6 +113,7 @@ function getDeFiPositionActionKey(action: IDeFiPositionActionKeySource) {
     action.networkId,
     action.positionCategory,
     action.assetCategory ?? '',
+    action.debtCategory ?? '',
     action.rewardCategory ?? '',
     action.action,
   ].join('-');
@@ -169,6 +171,10 @@ function isPoolAddressRequired({
 
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
     return ['polygon_staking', 'ethena'].includes(normalizedProtocolId);
+  }
+
+  if (action === EDeFiPositionAction.Repay) {
+    return ['aave_pool_v3'].includes(normalizedProtocolId);
   }
 
   return false;
@@ -528,7 +534,26 @@ function getSupportedAssetCategory(
   if (supportedAction.action === EDeFiPositionAction.Claim) {
     return supportedAction.rewardCategory ?? supportedAction.assetCategory;
   }
+  if (supportedAction.action === EDeFiPositionAction.Repay) {
+    return supportedAction.debtCategory ?? supportedAction.assetCategory;
+  }
   return supportedAction.assetCategory;
+}
+
+function getCandidateAssetList({
+  sourcePosition,
+  supportedAction,
+}: {
+  sourcePosition: IDeFiPosition;
+  supportedAction: IDeFiSupportedProtocolAction;
+}) {
+  if (supportedAction.action === EDeFiPositionAction.Claim) {
+    return sourcePosition.rewards;
+  }
+  if (supportedAction.action === EDeFiPositionAction.Repay) {
+    return sourcePosition.debts;
+  }
+  return sourcePosition.assets;
 }
 
 function getCandidateAssets({
@@ -546,10 +571,10 @@ function getCandidateAssets({
       return [];
     }
 
-    const candidates =
-      supportedAction.action === EDeFiPositionAction.Claim
-        ? sourcePosition.rewards
-        : sourcePosition.assets;
+    const candidates = getCandidateAssetList({
+      sourcePosition,
+      supportedAction,
+    });
     const positiveCandidates = candidates.filter(
       (asset) => isPositiveAmount(asset.amount) && !hasProxyDetail(asset),
     );
@@ -599,6 +624,12 @@ function buildResolvedAsset({
     ...asset.extraParams,
   });
   const groupId = sourcePosition?.groupId?.trim();
+  if (
+    groupId?.includes('#') &&
+    isNormalizedProtocolId(protocolId, 'aave_pool_v3')
+  ) {
+    return undefined;
+  }
   if (groupId) {
     extraParams = mergeExtraParams(extraParams, { groupId });
   }
@@ -690,6 +721,7 @@ function buildResolvedDeFiPositionAction({
     networkId: supportedAction.networkId,
     positionCategory: supportedAction.positionCategory,
     assetCategory: supportedAction.assetCategory,
+    debtCategory: supportedAction.debtCategory,
     rewardCategory: supportedAction.rewardCategory,
     assets,
   };

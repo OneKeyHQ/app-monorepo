@@ -56,19 +56,21 @@ function makeSourcePosition(
 function makePosition(
   sourcePosition: IDeFiPosition,
 ): IDeFiProtocol['positions'][number] {
-  const withAssetType = (asset: IDeFiAsset) => ({
-    ...asset,
-    type: EDeFiAssetType.ASSET,
-  });
+  const withAssetType =
+    (type: EDeFiAssetType) =>
+    (asset: IDeFiAsset): IDeFiAsset & { type: EDeFiAssetType } => ({
+      ...asset,
+      type,
+    });
 
   return {
     groupId: sourcePosition.groupId,
     category: sourcePosition.category,
     poolName: sourcePosition.name,
     poolFullName: sourcePosition.name,
-    assets: sourcePosition.assets.map(withAssetType),
-    debts: sourcePosition.debts.map(withAssetType),
-    rewards: sourcePosition.rewards.map(withAssetType),
+    assets: sourcePosition.assets.map(withAssetType(EDeFiAssetType.ASSET)),
+    debts: sourcePosition.debts.map(withAssetType(EDeFiAssetType.DEBT)),
+    rewards: sourcePosition.rewards.map(withAssetType(EDeFiAssetType.REWARD)),
     value: '1',
     sourcePositions: [sourcePosition],
   };
@@ -272,6 +274,132 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(1);
     expect(actions[0].protocolId).toBe('morphoblue');
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xpool');
+  });
+
+  it('resolves Aave repay from debtCategory debts instead of collateral assets', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'aave-v3',
+      protocolName: 'Aave V3',
+      category: 'lending',
+      groupId: 'aave-v3-lending',
+      name: 'Aave V3 Lending',
+      poolAddress: '0xaavepool',
+      assets: [
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc',
+          amount: '100',
+          category: 'collateral',
+        }),
+      ],
+      debts: [
+        makeAsset({
+          symbol: 'DAI',
+          address: '0xdai',
+          amount: '25',
+          category: 'variable-debt',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'aave-v3',
+        networkId: 'evm--1',
+        positionCategory: 'lending',
+        assetCategory: 'collateral',
+        action: EDeFiPositionAction.Withdraw,
+      },
+      {
+        protocolId: 'aave-v3',
+        networkId: 'evm--1',
+        positionCategory: 'lending',
+        debtCategory: 'variable-debt',
+        action: EDeFiPositionAction.Repay,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'aave-v3',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+    const repayAction = actions.find(
+      (action) => action.action === EDeFiPositionAction.Repay,
+    );
+
+    expect(repayAction).toEqual(
+      expect.objectContaining({
+        debtCategory: 'variable-debt',
+      }),
+    );
+    expect(repayAction?.assets).toHaveLength(1);
+    expect(repayAction?.assets[0]).toEqual(
+      expect.objectContaining({
+        amount: '25',
+        symbol: 'DAI',
+        tokenAddress: '0xdai',
+        extraParams: expect.objectContaining({
+          poolAddress: '0xaavepool',
+        }),
+      }),
+    );
+  });
+
+  it('hides Aave actions that the service rejects for Safe group ids', () => {
+    const sourcePosition = makeSourcePosition({
+      protocol: 'aave-v3',
+      protocolName: 'Aave V3',
+      category: 'lending',
+      groupId: 'aave-v3#safe',
+      name: 'Aave V3 Safe Lending',
+      poolAddress: '0xaavepool',
+      assets: [
+        makeAsset({
+          symbol: 'USDC',
+          address: '0xusdc',
+          amount: '100',
+          category: 'collateral',
+        }),
+      ],
+      debts: [
+        makeAsset({
+          symbol: 'DAI',
+          address: '0xdai',
+          amount: '25',
+          category: 'variable-debt',
+        }),
+      ],
+    });
+    const supportedActions: IDeFiSupportedProtocolAction[] = [
+      {
+        protocolId: 'aave-v3',
+        networkId: 'evm--1',
+        positionCategory: 'lending',
+        assetCategory: 'collateral',
+        action: EDeFiPositionAction.Withdraw,
+      },
+      {
+        protocolId: 'aave-v3',
+        networkId: 'evm--1',
+        positionCategory: 'lending',
+        debtCategory: 'variable-debt',
+        action: EDeFiPositionAction.Repay,
+      },
+    ];
+
+    const actions = defiActionUtils.resolveDeFiPositionActions({
+      protocol: {
+        networkId: 'evm--1',
+        protocol: 'aave-v3',
+      },
+      position: makePosition(sourcePosition),
+      supportedActions,
+    });
+
+    expect(actions).toHaveLength(0);
   });
 
   it('hides actions for proxy positions that cannot finish in App', () => {

@@ -179,6 +179,7 @@ export type IDeFiProtocol = {
 
 export enum EDeFiPositionAction {
   Withdraw = 'withdraw',
+  Repay = 'repay',
   Claim = 'claim',
   ClaimWithdrawal = 'claimWithdrawal',
   Permit = 'permit',
@@ -190,6 +191,7 @@ export type IDeFiSupportedProtocolAction = {
   networkId: string;
   positionCategory: string;
   assetCategory?: string;
+  debtCategory?: string;
   rewardCategory?: string;
   action: EDeFiPositionAction;
 };
@@ -249,6 +251,7 @@ export type IResolvedDeFiPositionAction = {
   networkId: string;
   positionCategory: string;
   assetCategory?: string;
+  debtCategory?: string;
   rewardCategory?: string;
   assets: IResolvedDeFiPositionActionAsset[];
 };

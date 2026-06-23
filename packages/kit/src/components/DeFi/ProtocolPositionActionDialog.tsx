@@ -57,6 +57,7 @@ function normalizeActionPercent(percent?: number) {
 function isPercentageAction(action: EDeFiPositionAction) {
   return (
     action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.Repay ||
     action === EDeFiPositionAction.RemoveLiquidity
   );
 }
@@ -70,6 +71,9 @@ function getActionLabel({
 }) {
   if (action === EDeFiPositionAction.Withdraw) {
     return intl.formatMessage({ id: ETranslations.global_withdraw });
+  }
+  if (action === EDeFiPositionAction.Repay) {
+    return intl.formatMessage({ id: ETranslations.defi_repay });
   }
   if (action === EDeFiPositionAction.Claim) {
     return intl.formatMessage({ id: ETranslations.earn_claim });
@@ -430,6 +434,9 @@ function getActionSourceLabel({
   if (action === EDeFiPositionAction.ClaimWithdrawal) {
     return intl.formatMessage({ id: ETranslations.earn_claimable });
   }
+  if (action === EDeFiPositionAction.Repay) {
+    return intl.formatMessage({ id: ETranslations.defi_borrowed });
+  }
   return intl.formatMessage({ id: ETranslations.global_current });
 }
 
@@ -443,6 +450,9 @@ function getActionResultLabel({
   intl: ReturnType<typeof useIntl>;
 }) {
   if (action === EDeFiPositionAction.Claim) {
+    return actionLabel;
+  }
+  if (action === EDeFiPositionAction.Repay) {
     return actionLabel;
   }
   if (isPercentageAction(action)) {
@@ -516,9 +526,12 @@ function getDeFiActionEarnLabel(action: EDeFiPositionAction) {
   }
   if (
     action === EDeFiPositionAction.Withdraw ||
+    action === EDeFiPositionAction.Repay ||
     action === EDeFiPositionAction.RemoveLiquidity
   ) {
-    return EEarnLabels.Withdraw;
+    return action === EDeFiPositionAction.Repay
+      ? EEarnLabels.Repay
+      : EEarnLabels.Withdraw;
   }
   return EEarnLabels.Unknown;
 }
