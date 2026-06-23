@@ -40,6 +40,37 @@ export function normalizeSwapKLineWalletChartTimestamp(timestamp: number) {
   return Math.floor(timestamp);
 }
 
+export function normalizeSwapKLineWalletChartData({
+  chartData,
+  timeFrom,
+  timeTo,
+}: {
+  chartData?: IMarketTokenChart;
+  timeFrom?: number;
+  timeTo?: number;
+}): IMarketTokenChart {
+  const pointsByTimestamp = new Map<number, number>();
+
+  for (const [timestamp, price] of chartData ?? []) {
+    const normalizedTimestamp =
+      normalizeSwapKLineWalletChartTimestamp(timestamp);
+    const normalizedPrice = Number(price);
+
+    if (
+      Number.isFinite(normalizedTimestamp) &&
+      Number.isFinite(normalizedPrice) &&
+      (timeFrom === undefined || normalizedTimestamp >= timeFrom) &&
+      (timeTo === undefined || normalizedTimestamp <= timeTo)
+    ) {
+      pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
+    }
+  }
+
+  return Array.from(pointsByTimestamp.entries()).toSorted(
+    (a, b) => a[0] - b[0],
+  );
+}
+
 export function convertSwapKLineWalletChartToKLineResponse({
   chartData,
   timeFrom,
@@ -49,27 +80,14 @@ export function convertSwapKLineWalletChartToKLineResponse({
   timeFrom: number;
   timeTo: number;
 }): IMarketTokenKLineResponse | null {
-  const pointsByTimestamp = new Map<number, { t: number; c: number }>();
-
-  for (const [timestamp, price] of chartData ?? []) {
-    const point = {
-      t: normalizeSwapKLineWalletChartTimestamp(timestamp),
-      c: Number(price),
-    };
-
-    if (
-      Number.isFinite(point.t) &&
-      Number.isFinite(point.c) &&
-      point.t >= timeFrom &&
-      point.t <= timeTo
-    ) {
-      pointsByTimestamp.set(point.t, point);
-    }
-  }
-
-  const normalizedPoints = Array.from(pointsByTimestamp.values()).toSorted(
-    (a, b) => a.t - b.t,
-  );
+  const normalizedPoints = normalizeSwapKLineWalletChartData({
+    chartData,
+    timeFrom,
+    timeTo,
+  }).map(([timestamp, price]) => ({
+    t: timestamp,
+    c: price,
+  }));
 
   if (!normalizedPoints.length) {
     return null;

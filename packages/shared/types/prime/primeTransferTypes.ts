@@ -133,12 +133,24 @@ export type IPrimeTransferPrivateData = {
   // };
 };
 
+export type IPrimeTransferUnavailableCredential = {
+  credentialId: string;
+  // Best-effort human label (wallet/account name), falls back to credentialId.
+  label: string;
+};
+
 export type IPrimeTransferData = {
   privateData: IPrimeTransferPrivateData;
   publicData: IPrimeTransferPublicData | undefined;
   isEmptyData: boolean;
   isWatchingOnly: boolean;
   appVersion: string;
+  // Credentials skipped while building this payload because the local secret
+  // envelope layer (keychain / secure storage / IndexedDB CryptoKey) was
+  // transiently unavailable. The wallet/account is omitted from privateData so
+  // the rest can still transfer; the sender UI surfaces these for confirmation
+  // before sending. Not set for cloud backup (that path fails fast instead).
+  unavailableCredentials?: IPrimeTransferUnavailableCredential[];
 };
 
 export type IPrimeTransferSelectedItemMapInfo = {

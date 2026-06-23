@@ -19,13 +19,20 @@ interface IBBOSelectorProps {
   onChange: (mode: IBBOPriceMode) => void;
   disabled?: boolean;
   isMobile?: boolean;
+  inputLike?: boolean;
 }
 
 const BBO_LEVEL = 1; // Currently only Level 1 (native BBO) is supported
 
 export const BBOSelector = memo<IBBOSelectorProps>(
   // eslint-disable-next-line react/prop-types
-  ({ value, onChange, disabled = false, isMobile = false }) => {
+  ({
+    value,
+    onChange,
+    disabled = false,
+    isMobile = false,
+    inputLike = false,
+  }) => {
     const intl = useIntl();
 
     const bboOptions = useMemo(
@@ -88,11 +95,12 @@ export const BBOSelector = memo<IBBOSelectorProps>(
     );
 
     const currentValue = serializeBBOPriceMode(value);
+    const containerBg = inputLike ? '$bgStrong' : '$bgSubdued';
 
     if (isMobile) {
       return (
         <YStack
-          bg="$bgSubdued"
+          bg={containerBg}
           borderRadius="$2"
           borderWidth="$px"
           borderColor="$transparent"
@@ -148,7 +156,7 @@ export const BBOSelector = memo<IBBOSelectorProps>(
         })}
         renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
           <YStack
-            bg="$bgSubdued"
+            bg={containerBg}
             borderRadius="$3"
             py="$1"
             pl="$1"

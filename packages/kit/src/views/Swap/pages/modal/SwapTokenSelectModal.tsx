@@ -30,6 +30,7 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { TokenSelectorLpTokenSwitch } from '@onekeyhq/kit/src/components/TokenSelectorFilter';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
@@ -40,6 +41,7 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { StockSourceLogo } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
@@ -62,6 +64,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 import {
   swapNetworksCommonCount,
   swapNetworksCommonCountMD,
@@ -90,12 +93,38 @@ import {
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import {
+  buildSwapStockMetadataKey,
   buildSwapTokenSelectorDisableNetworks,
+  getSwapStockTokenDisplayName,
+  isSwapStockMetadataPending,
   isSwapTokenSelectorFromNetworkBridgeOnly,
 } from './SwapTokenSelectModal.utils';
 
 import type { RouteProp } from '@react-navigation/core';
 import type { FlatList } from 'react-native';
+
+type ISwapTokenWithStock = ISwapToken & {
+  stock?: IMarketStockInfo;
+};
+
+type IStockMetadataRequest = {
+  tokenAddressEntries: [
+    string,
+    {
+      contractAddress: string;
+      chainId: string;
+      isNative: boolean;
+    },
+  ][];
+  tokenKey: string;
+};
+
+const getRawSwapToken = (item: ISwapToken | IFuseResult<ISwapToken>) =>
+  (item as IFuseResult<ISwapToken>).item
+    ? (item as IFuseResult<ISwapToken>).item
+    : (item as ISwapToken);
+
+const EMPTY_SWAP_TOKEN_LIST: (ISwapToken | IFuseResult<ISwapToken>)[] = [];
 
 const SwapTokenSelectPage = ({
   autoSearch = false,
@@ -377,15 +406,117 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
+  const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
+    if (!isSwapStockSelectTarget) {
+      return { tokenAddressEntries: [], tokenKey: '' };
+    }
+    const tokenAddressMap = new Map<
+      string,
+      {
+        contractAddress: string;
+        chainId: string;
+        isNative: boolean;
+      }
+    >();
+    for (const item of currentTokens) {
+      const rawItem = getRawSwapToken(item);
+      const key = buildSwapStockMetadataKey({
+        contractAddress: rawItem.contractAddress,
+        networkId: rawItem.networkId,
+      });
+      if (key && !tokenAddressMap.has(key)) {
+        tokenAddressMap.set(key, {
+          chainId: rawItem.networkId,
+          contractAddress: rawItem.contractAddress,
+          isNative: rawItem.isNative ?? false,
+        });
+      }
+    }
+    const tokenAddressEntries = Array.from(tokenAddressMap.entries());
+    return {
+      tokenAddressEntries,
+      tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
+    };
+  }, [currentTokens, isSwapStockSelectTarget]);
+  const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
+    stockMetadataRequestSnapshot,
+  );
+  if (
+    stockMetadataRequestRef.current.tokenKey !==
+    stockMetadataRequestSnapshot.tokenKey
+  ) {
+    stockMetadataRequestRef.current = stockMetadataRequestSnapshot;
+  }
+  const stockMetadataRequest = stockMetadataRequestRef.current;
+  const stockMetadataTokenKey = stockMetadataRequest.tokenKey;
+  const { result: stockMetadataResult, isLoading: stockMetadataLoading } =
+    usePromiseResult(
+      async () => {
+        if (!isSwapStockSelectTarget || !stockMetadataTokenKey) {
+          return {
+            metadataMap: {},
+            tokenKey: stockMetadataTokenKey,
+          };
+        }
+        const response = await (async () => {
+          try {
+            return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
+              {
+                requestLocale: settingsPersistAtom.locale,
+                tokenAddressList: stockMetadataRequest.tokenAddressEntries.map(
+                  ([, token]) => token,
+                ),
+              },
+            );
+          } catch {
+            return { list: [] };
+          }
+        })();
+        const metadataMap: Record<string, IMarketStockInfo> = {};
+        response.list.forEach((token, index) => {
+          const requestKey =
+            stockMetadataRequest.tokenAddressEntries[index]?.[0];
+          if (requestKey && token?.stock) {
+            metadataMap[requestKey] = token.stock;
+          }
+        });
+        return {
+          metadataMap,
+          tokenKey: stockMetadataTokenKey,
+        };
+      },
+      [
+        isSwapStockSelectTarget,
+        settingsPersistAtom.locale,
+        stockMetadataRequest,
+        stockMetadataTokenKey,
+      ],
+      {
+        initResult: {
+          metadataMap: {},
+          tokenKey: '',
+        },
+        watchLoading: isSwapStockSelectTarget,
+      },
+    );
+  const stockMetadataMap = stockMetadataResult.metadataMap;
+  const stockMetadataPending = isSwapStockMetadataPending({
+    isSwapStockSelectTarget,
+    resolvedStockMetadataTokenKey: stockMetadataResult.tokenKey,
+    stockMetadataLoading,
+    stockMetadataTokenKey,
+  });
+  const displayTokens = stockMetadataPending
+    ? EMPTY_SWAP_TOKEN_LIST
+    : currentTokens;
+  const tokenListLoading = fetchLoading || stockMetadataPending;
   const alertIndex = useMemo(
     () =>
-      currentTokens.findIndex((item) => {
-        const rawItem = (item as IFuseResult<ISwapToken>).item
-          ? (item as IFuseResult<ISwapToken>).item
-          : (item as ISwapToken);
+      displayTokens.findIndex((item) => {
+        const rawItem = getRawSwapToken(item);
         return !rawItem.price || new BigNumber(rawItem.price).isZero();
       }),
-    [currentTokens],
+    [displayTokens],
   );
 
   const checkRiskToken = useCallback(
@@ -532,9 +663,20 @@ const SwapTokenSelectPage = ({
       item: ISwapToken | IFuseResult<ISwapToken>;
       index: number;
     }) => {
-      const rawItem = (item as IFuseResult<ISwapToken>).item
-        ? (item as IFuseResult<ISwapToken>).item
-        : (item as ISwapToken);
+      const rawItem = getRawSwapToken(item);
+      const stock =
+        isSwapStockSelectTarget && rawItem.contractAddress
+          ? ((rawItem as ISwapTokenWithStock).stock ??
+            stockMetadataMap?.[
+              buildSwapStockMetadataKey({
+                contractAddress: rawItem.contractAddress,
+                networkId: rawItem.networkId,
+              })
+            ])
+          : undefined;
+      const displayItem: ISwapTokenWithStock = stock
+        ? { ...rawItem, stock }
+        : rawItem;
       const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
       const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
       const contractAddressDisplay = md
@@ -566,14 +708,24 @@ const SwapTokenSelectPage = ({
       }
 
       const tokenItem: ITokenListItemProps = {
-        isSearch: !!requestedSearchKeyword,
+        isSearch: isSwapStockSelectTarget ? false : !!requestedSearchKeyword,
         tokenImageSrc: rawItem.logoURI,
-        tokenName: rawItem.name,
+        tokenName: isSwapStockSelectTarget
+          ? getSwapStockTokenDisplayName({
+              stock,
+              tokenName: rawItem.name,
+            })
+          : rawItem.name,
         tokenSymbol: rawItem.symbol,
         networkImageSrc: rawItem.networkLogoURI,
-        tokenContrastAddress: requestedSearchKeyword
-          ? contractAddressDisplay
-          : undefined,
+        tokenSymbolAccessory:
+          isSwapStockSelectTarget && stock?.sourceLogoUri ? (
+            <StockSourceLogo stock={stock} />
+          ) : undefined,
+        tokenContrastAddress:
+          requestedSearchKeyword && !isSwapStockSelectTarget
+            ? contractAddressDisplay
+            : undefined,
         balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
         valueProps:
           rawItem.fiatValue && !fiatValueBN.isZero()
@@ -583,7 +735,7 @@ const SwapTokenSelectPage = ({
               }
             : undefined,
         onPress: !disableNetworks.includes(rawItem.networkId)
-          ? () => onSelectToken(rawItem)
+          ? () => onSelectToken(displayItem)
           : () => disableNetworksOnClick(),
         disabled: disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
@@ -665,6 +817,8 @@ const SwapTokenSelectPage = ({
       onSelectToken,
       requestedSearchKeyword,
       settingsPersistAtom.currencyInfo.symbol,
+      isSwapStockSelectTarget,
+      stockMetadataMap,
       type,
     ],
   );
@@ -829,7 +983,7 @@ const SwapTokenSelectPage = ({
           <ListView
             useFlashList={platformEnv.isNative}
             ref={listViewRef}
-            data={currentTokens}
+            data={displayTokens}
             renderItem={renderItem}
             estimatedItemSize={60}
             ListHeaderComponent={
@@ -849,7 +1003,7 @@ const SwapTokenSelectPage = ({
             }
             ListFooterComponent={<Stack h={bottom || '$2'} />}
             ListEmptyComponent={
-              fetchLoading ? (
+              tokenListLoading ? (
                 <>
                   {Array.from({ length: 5 }).map((_, index) => (
                     <ListItem key={String(index)}>

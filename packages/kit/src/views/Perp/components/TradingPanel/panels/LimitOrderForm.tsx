@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   type IBBOPriceMode,
@@ -20,12 +21,18 @@ import {
   useBboForOrderPrice,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  perpsActiveAccountStatusAtom,
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountEnableTradingModeAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   calculateLiquidationPrice,
@@ -36,22 +43,28 @@ import {
 import type { ITIF } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  useConfirmHyperliquidTerms,
+  useRequestEnableTradingWithDepositFallback,
+} from '../../../hooks/useEnableTradingWithDepositFallback';
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import { PERP_TRADE_BUTTON_COLORS } from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
-import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
+import { showEnableTradingStepsDialog } from '../modals/EnableTradingStepsDialog';
 import { showOrderConfirmDialog } from '../modals/OrderConfirmModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
@@ -79,13 +92,21 @@ export function LimitOrderForm({
   const themeVariant = useThemeVariant();
 
   const [activeAsset] = usePerpsActiveAssetAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [isAssetCtxReady] = usePerpsActiveAssetCtxReadyAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
   const marketDataFreshness = usePerpsMarketDataFreshness();
+  const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   // The form reads the live active asset, but `symbol` is the coin snapshotted
   // when the ticket opened. A programmatic active-asset switch (chart
@@ -107,7 +128,6 @@ export function LimitOrderForm({
   const [sizePercent, setSizePercent] = useState(0);
   const [limitTif, setLimitTif] = useState<ITIF>('Gtc');
   const [bboPriceMode, setBboPriceMode] = useState<IBBOPriceMode>(null);
-  const [reduceOnly, setReduceOnly] = useState(false);
   const [hasTpsl, setHasTpsl] = useState(false);
   const [tpType, setTpType] = useState<'price' | 'percentage'>('price');
   const [tpValue, setTpValue] = useState('');
@@ -116,7 +136,6 @@ export function LimitOrderForm({
   // Bumped whenever TP/SL inputs are programmatically re-seeded (TpSlFormInput
   // does not re-sync its internalValue on prop change).
   const [tpslSeedKey, setTpslSeedKey] = useState(0);
-  const [inlineError, setInlineError] = useState<string | undefined>(undefined);
 
   const isBBOActive = Boolean(bboPriceMode);
 
@@ -188,11 +207,6 @@ export function LimitOrderForm({
     ],
   );
 
-  const previewSizeBN = useMemo(
-    () => computeSizeBN(side, referencePriceBN),
-    [computeSizeBN, referencePriceBN, side],
-  );
-
   const currentCoinPosition = useMemo(
     () =>
       perpsPositions.filter(
@@ -200,46 +214,65 @@ export function LimitOrderForm({
       )?.[0]?.position,
     [perpsPositions, activeAsset?.coin],
   );
+  const sideStats = useMemo(() => {
+    const buildStats = (targetSide: ITradeSide) => {
+      const sidePriceBN = resolvePriceForSide(targetSide).price;
+      const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
+      const sideMarginRequiredBN =
+        !sideSizeBN.isFinite() ||
+        sideSizeBN.lte(0) ||
+        !sidePriceBN.isFinite() ||
+        sidePriceBN.lte(0)
+          ? new BigNumber(0)
+          : sideSizeBN.multipliedBy(sidePriceBN).dividedBy(leverage || 1);
 
-  const liquidationPriceBN = useMemo(() => {
-    if (!activeAssetData?.leverage?.type) {
-      return null;
-    }
-    if (
-      !previewSizeBN.isFinite() ||
-      previewSizeBN.lte(0) ||
-      !referencePriceBN.isFinite() ||
-      referencePriceBN.lte(0)
-    ) {
-      return null;
-    }
-    const totalValue = previewSizeBN.multipliedBy(referencePriceBN);
-    const result = calculateLiquidationPrice({
-      totalValue,
-      referencePrice: referencePriceBN,
-      clampToCurrentMark: true,
-      markPrice: activeAssetCtx?.ctx?.markPrice
-        ? new BigNumber(activeAssetCtx.ctx.markPrice)
-        : undefined,
-      positionSize: previewSizeBN,
-      side,
-      leverage,
-      mode: activeAssetData.leverage.type,
-      marginTiers: activeAsset?.margin?.marginTiers,
-      maxLeverage: activeAsset?.universe?.maxLeverage || 1,
-      crossMarginUsed: new BigNumber(accountSummary?.crossAccountValue || '0'),
-      crossMaintenanceMarginUsed: new BigNumber(
-        accountSummary?.crossMaintenanceMarginUsed || '0',
-      ),
-      existingPositionSize: currentCoinPosition
-        ? new BigNumber(currentCoinPosition.szi)
-        : undefined,
-      existingEntryPrice: currentCoinPosition
-        ? new BigNumber(currentCoinPosition.entryPx)
-        : undefined,
-      newOrderSide: side,
-    });
-    return result?.gt(0) ? result : null;
+      const sideLiquidationPriceBN =
+        !activeAssetData?.leverage?.type ||
+        !sideSizeBN.isFinite() ||
+        sideSizeBN.lte(0) ||
+        !sidePriceBN.isFinite() ||
+        sidePriceBN.lte(0)
+          ? null
+          : calculateLiquidationPrice({
+              totalValue: sideSizeBN.multipliedBy(sidePriceBN),
+              referencePrice: sidePriceBN,
+              clampToCurrentMark: true,
+              markPrice: activeAssetCtx?.ctx?.markPrice
+                ? new BigNumber(activeAssetCtx.ctx.markPrice)
+                : undefined,
+              positionSize: sideSizeBN,
+              side: targetSide,
+              leverage,
+              mode: activeAssetData.leverage.type,
+              marginTiers: activeAsset?.margin?.marginTiers,
+              maxLeverage: activeAsset?.universe?.maxLeverage || 1,
+              crossMarginUsed: new BigNumber(
+                accountSummary?.crossAccountValue || '0',
+              ),
+              crossMaintenanceMarginUsed: new BigNumber(
+                accountSummary?.crossMaintenanceMarginUsed || '0',
+              ),
+              existingPositionSize: currentCoinPosition
+                ? new BigNumber(currentCoinPosition.szi)
+                : undefined,
+              existingEntryPrice: currentCoinPosition
+                ? new BigNumber(currentCoinPosition.entryPx)
+                : undefined,
+              newOrderSide: targetSide,
+            });
+
+      return {
+        liquidationPriceBN: sideLiquidationPriceBN?.gt(0)
+          ? sideLiquidationPriceBN
+          : null,
+        marginRequiredBN: sideMarginRequiredBN,
+      };
+    };
+
+    return {
+      long: buildStats('long'),
+      short: buildStats('short'),
+    };
   }, [
     accountSummary?.crossAccountValue,
     accountSummary?.crossMaintenanceMarginUsed,
@@ -247,46 +280,93 @@ export function LimitOrderForm({
     activeAsset?.universe?.maxLeverage,
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.leverage?.type,
+    computeSizeBN,
     currentCoinPosition,
     leverage,
-    previewSizeBN,
-    referencePriceBN,
-    side,
+    resolvePriceForSide,
   ]);
 
-  const marginRequiredBN = useMemo(() => {
-    if (
-      !previewSizeBN.isFinite() ||
-      previewSizeBN.lte(0) ||
-      !referencePriceBN.isFinite() ||
-      referencePriceBN.lte(0)
-    ) {
-      return new BigNumber(0);
-    }
-    return previewSizeBN
-      .multipliedBy(referencePriceBN)
-      .dividedBy(leverage > 0 ? leverage : 1);
-  }, [leverage, previewSizeBN, referencePriceBN]);
+  const shouldShowEnableTrading = useMemo(
+    () => isAgentReady === false || !perpsAccountStatus.canTrade,
+    [isAgentReady, perpsAccountStatus.canTrade],
+  );
+  const isTradingActionLoading = Boolean(
+    perpsAccountLoading.selectAccountLoading ||
+    perpsAccountLoading.enableTradingLoading,
+  );
+  const shouldDisableActionButtons = Boolean(
+    isTradingActionLoading || perpsAccountStatus.accountNotSupport,
+  );
 
-  const availableToTrade = useMemo(() => {
-    const available = activeAssetData?.availableToTrade;
-    if (!available) {
-      return '0';
+  const ensureEnableTrading = useCallback(async () => {
+    if (!shouldShowEnableTrading || shouldDisableActionButtons) {
+      return true;
     }
-    const longValue = Number(available[0] ?? 0);
-    const shortValue = Number(available[1] ?? 0);
-    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
-      2,
-      BigNumber.ROUND_DOWN,
-    );
-  }, [activeAssetData?.availableToTrade]);
+
+    if (enableTradingMode.requiresExplicitEnableTrading) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        return false;
+      }
+      const latestPerpsAccountStatus =
+        (await perpsActiveAccountStatusAtom.get()) ?? perpsAccountStatus;
+      const confirmDecision = getEnableTradingDialogConfirmDecision(
+        latestPerpsAccountStatus,
+      );
+
+      if (confirmDecision === 'continue') {
+        return true;
+      }
+
+      if (confirmDecision === 'deposit') {
+        await showDepositWithdrawModal('deposit');
+        return false;
+      }
+
+      const result = await showEnableTradingStepsDialog({
+        accountStatus: latestPerpsAccountStatus,
+        onConfirm: async ({ closeDialog }) => {
+          const didAcceptTerms = await confirmHyperliquidTerms();
+          if (!didAcceptTerms) {
+            return {
+              shouldContinue: false,
+              status: undefined,
+            };
+          }
+          return requestEnableTradingWithDepositFallback({
+            beforeDeposit: closeDialog,
+          });
+        },
+      });
+
+      return Boolean(result?.shouldContinue);
+    }
+
+    const didAcceptTerms = await confirmHyperliquidTerms();
+    if (!didAcceptTerms) {
+      return false;
+    }
+
+    const result = await requestEnableTradingWithDepositFallback();
+    return Boolean(result.shouldContinue);
+  }, [
+    confirmHyperliquidTerms,
+    enableTradingMode.requiresExplicitEnableTrading,
+    perpsAccountStatus,
+    requestEnableTradingWithDepositFallback,
+    shouldDisableActionButtons,
+    shouldShowEnableTrading,
+    showDepositWithdrawModal,
+  ]);
 
   // Size/slider/mode coordination replicates PerpTradingForm, in local state.
   const handleManualSizeChange = useCallback((value: string) => {
     setSize(value);
     setSizeInputMode(EPerpsSizeInputMode.MANUAL);
     setSizePercent(0);
-    setInlineError(undefined);
   }, []);
 
   const switchToManual = useCallback(() => {
@@ -308,7 +388,6 @@ export function LimitOrderForm({
       setSizeInputMode(EPerpsSizeInputMode.SLIDER);
       setSizePercent(clamped);
       setSize('');
-      setInlineError(undefined);
     },
     [],
   );
@@ -325,7 +404,6 @@ export function LimitOrderForm({
       return;
     }
     setPrice(formatPriceToSignificantDigits(midPrice, szDecimals));
-    setInlineError(undefined);
   }, [midPrice, szDecimals]);
 
   const handleBBOToggle = useCallback(() => {
@@ -344,7 +422,12 @@ export function LimitOrderForm({
   }, []);
 
   const handlePlace = useCallback(
-    (pressedSide: ITradeSide) => {
+    async (pressedSide: ITradeSide) => {
+      const isTradingReady = await ensureEnableTrading();
+      if (!isTradingReady) {
+        return;
+      }
+
       // Abort if the active coin drifted from the snapshot — the form computes
       // off the live asset, so a stale ticket must not submit against it.
       if (!activeAsset?.coin || activeAsset.coin !== symbol) {
@@ -369,11 +452,11 @@ export function LimitOrderForm({
 
       const orderPrice = resolvePriceForSide(pressedSide);
       if (orderPrice.error || !orderPrice.isValid || orderPrice.price.lte(0)) {
-        setInlineError(
-          intl.formatMessage({
+        Toast.message({
+          title: intl.formatMessage({
             id: ETranslations.perp_trade_price_place_holder,
           }),
-        );
+        });
         return;
       }
       const resolvedPriceBN = orderPrice.price;
@@ -384,11 +467,11 @@ export function LimitOrderForm({
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
-        setInlineError(
-          intl.formatMessage({
+        Toast.message({
+          title: intl.formatMessage({
             id: ETranslations.perp_trade_amount_place_holder,
           }),
-        );
+        });
         return;
       }
 
@@ -403,12 +486,12 @@ export function LimitOrderForm({
         orderValueBN.gt(0) &&
         orderValueBN.lt(10)
       ) {
-        setInlineError(
-          intl.formatMessage(
+        Toast.message({
+          title: intl.formatMessage(
             { id: ETranslations.perp_size_least },
             { amount: '$10' },
           ),
-        );
+        });
         return;
       }
 
@@ -420,11 +503,11 @@ export function LimitOrderForm({
         leverage > 0 ? leverage : 1,
       );
       if (marginRequiredForOrderBN.gt(sideAvailableBN)) {
-        setInlineError(
-          intl.formatMessage({
+        Toast.message({
+          title: intl.formatMessage({
             id: ETranslations.perp_insufficient_margin__title,
           }),
-        );
+        });
         return;
       }
 
@@ -439,8 +522,6 @@ export function LimitOrderForm({
         leverage,
       });
 
-      setInlineError(undefined);
-
       // Normalize to a concrete manual token size so the confirm dialog display
       // and the submitted order stay consistent (slider sizes resolve to 0 in
       // the confirm content otherwise).
@@ -454,7 +535,7 @@ export function LimitOrderForm({
         leverage,
         bboPriceMode: bboPriceMode ?? null,
         limitTif,
-        reduceOnly,
+        reduceOnly: false,
         hasTpsl,
         tpTriggerPx: tpTriggerPx ?? '',
         tpGainPercent: '',
@@ -481,13 +562,13 @@ export function LimitOrderForm({
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
+      ensureEnableTrading,
       hasTpsl,
       intl,
       leverage,
       limitTif,
       marketDataFreshness,
       onClose,
-      reduceOnly,
       resolvePriceForSide,
       slType,
       slValue,
@@ -509,31 +590,39 @@ export function LimitOrderForm({
       <XStack alignItems="center" gap="$2.5">
         {isBBOActive ? (
           <YStack flex={1}>
-            <BBOSelector value={bboPriceMode} onChange={setBboPriceMode} />
+            <BBOSelector
+              value={bboPriceMode}
+              onChange={setBboPriceMode}
+              inputLike
+            />
           </YStack>
         ) : (
           <YStack flex={1}>
             <PriceInput
               value={price}
-              onChange={(value) => {
-                setPrice(value);
-                setInlineError(undefined);
-              }}
+              onChange={setPrice}
               onUseMidPrice={midPrice ? handleUseMidPrice : undefined}
               szDecimals={szDecimals}
             />
           </YStack>
         )}
-        <DashText
-          size="$bodyMdMedium"
-          dashColor="$text"
-          dashThickness={0.5}
+        <XStack
+          borderRadius="$2"
+          bg="$bgStrong"
+          borderWidth="$px"
+          borderColor="$transparent"
+          px="$3"
+          h={40}
+          alignItems="center"
           cursor="pointer"
+          hoverStyle={{ bg: '$bgStrong' }}
+          pressStyle={{ bg: '$bgStrong' }}
           onPress={handleBBOToggle}
-          alignSelf="center"
         >
-          {intl.formatMessage({ id: ETranslations.Perps_BBO_button_title })}
-        </DashText>
+          <DashText size="$bodyMdMedium" dashColor="$text" dashThickness={0.5}>
+            {intl.formatMessage({ id: ETranslations.Perps_BBO_button_title })}
+          </DashText>
+        </XStack>
       </XStack>
 
       {/* Size + slider */}
@@ -562,34 +651,36 @@ export function LimitOrderForm({
         sliderHeight={4}
       />
 
-      {/* Reduce only */}
-      <XStack alignItems="center">
-        <Checkbox
-          testID="chart-limit-reduce-only-checkbox"
-          value={reduceOnly}
-          onChange={(checked) => setReduceOnly(!!checked)}
-          label={intl.formatMessage({ id: ETranslations.perps_reduce_only })}
-          containerProps={{ p: 0, alignItems: 'center', cursor: 'pointer' }}
-          labelProps={{ fontSize: '$bodyMdMedium', color: '$text' }}
-        />
-      </XStack>
-
-      {/* Time in force */}
-      <XStack justifyContent="flex-end">
-        <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
-      </XStack>
-
       {/* TP/SL */}
-      <XStack alignItems="center" gap="$2">
-        <Checkbox
-          testID="chart-limit-tpsl-checkbox"
-          value={hasTpsl}
-          onChange={(checked) => handleTpslCheckboxChange(!!checked)}
-          containerProps={{ p: 0, alignItems: 'center', cursor: 'pointer' }}
-        />
-        <SizableText size="$bodyMd" color="$text">
-          {intl.formatMessage({ id: ETranslations.perp_position_tp_sl })}
-        </SizableText>
+      <XStack
+        width="100%"
+        alignItems="center"
+        justifyContent="space-between"
+        gap="$3"
+        mb="$2"
+      >
+        <XStack alignItems="center" gap="$2">
+          <Checkbox
+            testID="chart-limit-tpsl-checkbox"
+            value={hasTpsl}
+            onChange={(checked) => handleTpslCheckboxChange(!!checked)}
+            containerProps={{ p: 0, alignItems: 'center', cursor: 'pointer' }}
+          />
+          <DashText
+            size="$bodyMd"
+            dashColor="$textDisabled"
+            dashThickness={0.5}
+            tooltip={intl.formatMessage({
+              id: ETranslations.perp_tp_sl_tooltip,
+            })}
+            tooltipTitle={intl.formatMessage({
+              id: ETranslations.perp_position_tp_sl,
+            })}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_position_tp_sl })}
+          </DashText>
+        </XStack>
+        <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
       </XStack>
       {hasTpsl ? (
         <YStack gap="$2">
@@ -622,84 +713,163 @@ export function LimitOrderForm({
         </YStack>
       ) : null}
 
-      {/* Footer: cost / liq price / available */}
-      <YStack gap="$1.5">
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.perp_cost })}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
-            {marginRequiredBN.gt(0)
-              ? `$${marginRequiredBN.toFixed(2, BigNumber.ROUND_DOWN)}`
-              : '--'}
-          </SizableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
-            {liquidationPriceBN
-              ? `$${formatPriceToSignificantDigits(
-                  liquidationPriceBN,
-                  szDecimals,
-                )}`
-              : '--'}
-          </SizableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
-            {`$${availableToTrade}`}
-          </SizableText>
-        </XStack>
-      </YStack>
-
-      {inlineError ? (
-        <SizableText size="$bodySm" color="$textCritical">
-          {inlineError}
-        </SizableText>
-      ) : null}
-
       {/* Buy / Sell */}
-      <TradingGuardWrapper>
-        <XStack gap="$2.5">
+      <XStack gap="$2.5">
+        <YStack flex={1} gap="$2">
           <Button
             testID="chart-limit-long-button"
-            flex={1}
             size="medium"
             childrenAsText={false}
             borderRadius="$4"
             bg={longColors.long}
-            hoverStyle={{ bg: longColors.longHover }}
-            pressStyle={{ bg: longColors.longPress }}
-            onPress={() => handlePlace('long')}
+            hoverStyle={
+              shouldDisableActionButtons
+                ? undefined
+                : { bg: longColors.longHover }
+            }
+            pressStyle={
+              shouldDisableActionButtons
+                ? undefined
+                : { bg: longColors.longPress }
+            }
+            onPress={() => void handlePlace('long')}
+            disabled={shouldDisableActionButtons}
+            loading={isTradingActionLoading}
+            h={36}
           >
             <SizableText size="$bodyMdMedium" color="$textOnColor">
               {intl.formatMessage({ id: ETranslations.perp_trade_long })}
             </SizableText>
           </Button>
+          <YStack gap="$1.5">
+            <XStack gap="$2" justifyContent="flex-start">
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_cost,
+                })}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_cost })}
+              </DashText>
+              <SizableText size="$bodySm" color="$text">
+                {sideStats.long.marginRequiredBN.gt(0)
+                  ? `$${sideStats.long.marginRequiredBN.toFixed(
+                      2,
+                      BigNumber.ROUND_DOWN,
+                    )}`
+                  : '$0.00'}
+              </SizableText>
+            </XStack>
+            <XStack gap="$2" justifyContent="flex-start">
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price_tooltip,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
+              </DashText>
+              <SizableText size="$bodySm" color="$text">
+                {sideStats.long.liquidationPriceBN
+                  ? `$${formatPriceToSignificantDigits(
+                      sideStats.long.liquidationPriceBN,
+                      szDecimals,
+                    )}`
+                  : '--'}
+              </SizableText>
+            </XStack>
+          </YStack>
+        </YStack>
+        <YStack flex={1} gap="$2">
           <Button
             testID="chart-limit-short-button"
-            flex={1}
             size="medium"
             childrenAsText={false}
             borderRadius="$4"
             bg={longColors.short}
-            hoverStyle={{ bg: longColors.shortHover }}
-            pressStyle={{ bg: longColors.shortPress }}
-            onPress={() => handlePlace('short')}
+            hoverStyle={
+              shouldDisableActionButtons
+                ? undefined
+                : { bg: longColors.shortHover }
+            }
+            pressStyle={
+              shouldDisableActionButtons
+                ? undefined
+                : { bg: longColors.shortPress }
+            }
+            onPress={() => void handlePlace('short')}
+            disabled={shouldDisableActionButtons}
+            loading={isTradingActionLoading}
+            h={36}
           >
             <SizableText size="$bodyMdMedium" color="$textOnColor">
               {intl.formatMessage({ id: ETranslations.perp_trade_short })}
             </SizableText>
           </Button>
-        </XStack>
-      </TradingGuardWrapper>
+          <YStack gap="$1.5">
+            <XStack gap="$2" justifyContent="flex-end">
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_cost,
+                })}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_cost })}
+              </DashText>
+              <SizableText size="$bodySm" color="$text">
+                {sideStats.short.marginRequiredBN.gt(0)
+                  ? `$${sideStats.short.marginRequiredBN.toFixed(
+                      2,
+                      BigNumber.ROUND_DOWN,
+                    )}`
+                  : '$0.00'}
+              </SizableText>
+            </XStack>
+            <XStack gap="$2" justifyContent="flex-end">
+              <DashText
+                size="$bodySm"
+                color="$textSubdued"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price_tooltip,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
+              </DashText>
+              <SizableText size="$bodySm" color="$text">
+                {sideStats.short.liquidationPriceBN
+                  ? `$${formatPriceToSignificantDigits(
+                      sideStats.short.liquidationPriceBN,
+                      szDecimals,
+                    )}`
+                  : '--'}
+              </SizableText>
+            </XStack>
+          </YStack>
+        </YStack>
+      </XStack>
     </YStack>
   );
 }

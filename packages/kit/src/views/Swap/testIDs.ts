@@ -49,6 +49,7 @@ export const SwapTestIDs = {
   limitOrderItem: (index: number) => `swap-limit-order-${index}`,
 
   // History
+  historyButton: 'swap-history-button',
   pendingHistoryList: 'swap-pending-history-list',
 
   // Incognito / recipient

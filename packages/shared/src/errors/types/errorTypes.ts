@@ -57,6 +57,8 @@ export enum EOneKeyErrorClassNames {
   DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
   DeviceNotFound = 'DeviceNotFound',
   KeylessDataCorruptedError = 'KeylessDataCorruptedError',
+  LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
+  WrongPassword = 'WrongPassword',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;
