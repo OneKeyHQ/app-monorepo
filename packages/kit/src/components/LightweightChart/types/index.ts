@@ -31,6 +31,7 @@ export interface ILightweightChartConfig {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
@@ -58,6 +59,7 @@ export interface ILightweightChartProps {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
   priceFormatterTickStep?: number;
   fontSize?: number;

@@ -29,6 +29,9 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
+
+import { isQuoteResultForStockTrade } from './swapStockQuoteUtils';
 import {
   ESwapStockChannelAsyncStatus,
   ESwapStockTradeSide,
@@ -237,16 +240,19 @@ function useStockInputTokenBalance({
 }
 
 export function useSwapStockEstimatedReceiveState({
+  forceHideQuote,
   quoteResult,
   quoteLoading,
   quoteEventFetching,
   stockChannel,
 }: {
+  forceHideQuote?: boolean;
   quoteResult?: IFetchQuoteResult;
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   stockChannel: IUseSwapStockChannelReturn;
 }) {
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -263,22 +269,25 @@ export function useSwapStockEstimatedReceiveState({
       : stockChannel.currentStockToken;
   const quoteMatchesStockTrade = useMemo(
     () =>
-      Boolean(
-        quoteResult &&
-        equalTokenNoCaseSensitive({
-          token1: quoteResult.fromTokenInfo,
-          token2: sendToken,
-        }) &&
-        equalTokenNoCaseSensitive({
-          token1: quoteResult.toTokenInfo,
-          token2: receiveToken,
-        }),
-      ),
-    [quoteResult, receiveToken, sendToken],
+      !forceHideQuote &&
+      isQuoteResultForStockTrade({
+        quoteResult,
+        receiveToken,
+        sendAmount: fromTokenAmount.value,
+        sendToken,
+      }),
+    [
+      forceHideQuote,
+      fromTokenAmount.value,
+      quoteResult,
+      receiveToken,
+      sendToken,
+    ],
   );
   const quoteToAmount = quoteMatchesStockTrade ? quoteResult?.toAmount : '';
   const receiveAmount =
-    quoteToAmount || (!quoteResult ? toTokenAmount.value : '');
+    quoteToAmount ||
+    (!quoteResult && !forceHideQuote ? toTokenAmount.value : '');
   const isLoading = quoteLoading || quoteEventFetching;
   const isSellSide = stockChannel.tradeSide === ESwapStockTradeSide.Sell;
   const canSelectReceiveToken =
@@ -313,6 +322,30 @@ export function useSwapStockEstimatedReceiveState({
     quoteResult?.toTokenInfo,
     receiveToken,
     settingsPersistAtom.currencyInfo.id,
+  ]);
+  const rateDifference = useMemo(() => {
+    if (!quoteMatchesStockTrade) {
+      return undefined;
+    }
+    return buildSwapRateDifference({
+      fromTokenPrice:
+        getStockTokenUsdPrice(quoteResult?.fromTokenInfo) ??
+        getStockTokenUsdPrice(sendToken),
+      toTokenPrice:
+        getStockTokenUsdPrice(quoteResult?.toTokenInfo) ??
+        getStockTokenUsdPrice(receiveToken),
+      defaultTokenCurrency: STOCK_PRICE_SOURCE_CURRENCY,
+      currencyMap,
+      instantRate: quoteResult?.instantRate,
+    });
+  }, [
+    currencyMap,
+    quoteMatchesStockTrade,
+    quoteResult?.fromTokenInfo,
+    quoteResult?.instantRate,
+    quoteResult?.toTokenInfo,
+    receiveToken,
+    sendToken,
   ]);
   const onReceiveTokenPress = useCallback(
     (token: IToken) => {
@@ -349,6 +382,7 @@ export function useSwapStockEstimatedReceiveState({
     isSellSide,
     isReceiveTokenPopoverOpen,
     onReceiveTokenPress,
+    rateDifference,
     receiveAmount,
     receiveFiatValue,
     receiveToken,
@@ -457,6 +491,34 @@ export function useSwapStockAmountInputState({
     },
     [inputToken?.decimals, setFromTokenAmount],
   );
+  const setInputAmount = useCallback(
+    (amount: BigNumber) => {
+      if (!inputToken || !amount.isFinite() || amount.isNaN()) {
+        return;
+      }
+      const amountValue = amount
+        .decimalPlaces(Number(inputToken.decimals ?? 6), BigNumber.ROUND_DOWN)
+        .toFixed();
+      if (!validateAmountInput(amountValue, inputToken.decimals)) {
+        return;
+      }
+      setFromTokenAmount({
+        value: amountValue,
+        isInput: true,
+      });
+    },
+    [inputToken, setFromTokenAmount],
+  );
+  const onBalanceMaxPress = useCallback(() => {
+    setInputAmount(new BigNumber(displayBalance ?? '0'));
+  }, [displayBalance, setInputAmount]);
+  const onSelectPercentageStage = useCallback(
+    (stage: number) => {
+      const balanceBN = new BigNumber(displayBalance ?? '0');
+      setInputAmount(balanceBN.multipliedBy(stage / 100));
+    },
+    [displayBalance, setInputAmount],
+  );
 
   useEffect(() => {
     if (!inputTokenReady || stockInputTokenBalance.loading) {
@@ -485,7 +547,9 @@ export function useSwapStockAmountInputState({
     inputTokenNetworkLogoURI,
     inputValue: fromTokenAmount.value,
     isBuySide,
+    onBalanceMaxPress,
     onAmountChange,
+    onSelectPercentageStage,
     payToken,
     payTokenOptionsLoading,
     payTokens,
