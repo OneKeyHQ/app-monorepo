@@ -829,6 +829,7 @@ function StockAmountInput({
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
 }) {
   const intl = useIntl();
+  const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     amountFiatValue,
     balanceLoading,
@@ -856,6 +857,18 @@ function StockAmountInput({
     defaultNetworkId: inputToken?.networkId,
     storeName,
   });
+  const handleAmountInputFocus = useCallback(() => {
+    setInAppNotification((value) => ({
+      ...value,
+      swapPercentageInputStageShowForNative: true,
+    }));
+  }, [setInAppNotification]);
+  const handleAmountInputBlur = useCallback(() => {
+    setInAppNotification((value) => ({
+      ...value,
+      swapPercentageInputStageShowForNative: false,
+    }));
+  }, [setInAppNotification]);
 
   if (shouldRenderSkeleton) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -893,6 +906,8 @@ function StockAmountInput({
           inputAccessoryViewID: platformEnv.isNativeIOS
             ? SwapAmountInputAccessoryViewID
             : undefined,
+          onFocus: handleAmountInputFocus,
+          onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
         }}
         tokenSelectorTriggerProps={{
