@@ -10,7 +10,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -356,18 +355,11 @@ export function AddressRiskMoreAnalysis({
         });
       setDetails(data);
     } catch {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.global_an_error_occurred,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.global_an_error_occurred_desc,
-        }),
-      });
+      // The background proxy already shows the server-provided error toast.
     } finally {
       setIsLoading(false);
     }
-  }, [networkId, address, intl]);
+  }, [networkId, address]);
 
   if (!details) {
     return (
