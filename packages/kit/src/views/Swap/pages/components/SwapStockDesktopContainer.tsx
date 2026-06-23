@@ -165,6 +165,28 @@ type IStockChartHoverData = {
   y: number;
 };
 
+function useOpenStockTokenSelector({
+  defaultNetworkId,
+  storeName,
+}: {
+  defaultNetworkId?: string;
+  storeName: EJotaiContextStoreNames;
+}) {
+  const navigation = useAppNavigation();
+  return useCallback(() => {
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapTokenSelect,
+      params: {
+        type: ESwapDirectionType.FROM,
+        storeName,
+        selectTarget: 'swapStock',
+        defaultNetworkId,
+      },
+    });
+  }, [defaultNetworkId, navigation, storeName]);
+}
+
 function getStockChartTokenDetailCoinGeckoId(
   tokenDetail?: IStockMarketTokenDetail,
 ) {
@@ -791,7 +813,8 @@ function StockAmountInputSkeleton({ isBuySide }: { isBuySide: boolean }) {
 function StockAmountInput({
   fetchLoading,
   amountInputState,
-}: Pick<ISwapStockDesktopContainerProps, 'fetchLoading'> & {
+  storeName,
+}: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
 }) {
   const intl = useIntl();
@@ -814,6 +837,13 @@ function StockAmountInput({
     selectPayToken,
     shouldRenderSkeleton,
   } = amountInputState;
+  const canOpenSellStockTokenSelector = !isBuySide && Boolean(inputToken);
+  const canOpenBuyPayTokenSelector =
+    isBuySide && selectablePayTokens.length > 1;
+  const handleOpenStockTokenSelector = useOpenStockTokenSelector({
+    defaultNetworkId: inputToken?.networkId,
+    storeName,
+  });
 
   if (shouldRenderSkeleton) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -859,9 +889,13 @@ function StockAmountInput({
           selectedNetworkImageUri: inputTokenNetworkLogoURI,
           selectedTokenSymbol: inputToken?.symbol,
           showNetworkIconBorder: false,
-          disabled: !isBuySide || selectablePayTokens.length <= 1,
+          disabled:
+            !canOpenBuyPayTokenSelector && !canOpenSellStockTokenSelector,
+          onPress: canOpenSellStockTokenSelector
+            ? handleOpenStockTokenSelector
+            : undefined,
           popover:
-            isBuySide && payTokens.length > 1
+            canOpenBuyPayTokenSelector && payTokens.length > 1
               ? {
                   title: intl.formatMessage({
                     id: ETranslations.dexmarket_select_token,
@@ -885,6 +919,7 @@ function StockAmountInput({
 
 function StockTradeTicket({
   fetchLoading,
+  storeName,
   onPreSwap,
   onToAnotherAddressModal,
   onOpenProviderList,
@@ -899,7 +934,7 @@ function StockTradeTicket({
   compact,
 }: Omit<
   ISwapStockDesktopContainerProps,
-  'headerContent' | 'marketPresetToken' | 'storeName' | 'supportNetworksList'
+  'headerContent' | 'marketPresetToken' | 'supportNetworksList'
 > & {
   stockChannel: IUseSwapStockChannelReturn;
   tradeSide: ESwapStockTradeSide;
@@ -913,6 +948,7 @@ function StockTradeTicket({
       <StockAmountInput
         fetchLoading={fetchLoading}
         amountInputState={amountInputState}
+        storeName={storeName}
       />
       <StockEstimatedReceive
         quoteResult={quoteResult}
@@ -968,25 +1004,16 @@ function StockMarketTokenHeader({
   storeName: EJotaiContextStoreNames;
 }) {
   const { tokenDetail, networkId } = useTokenDetail();
-  const navigation = useAppNavigation();
   const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId: stockTokenNetworkId,
   });
   const stock = tokenDetail?.stock;
-  const handleOpenStockTokenSelector = useCallback(() => {
-    dismissKeyboard();
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapTokenSelect,
-      params: {
-        type: ESwapDirectionType.FROM,
-        storeName,
-        selectTarget: 'swapStock',
-        defaultNetworkId: stockTokenNetworkId,
-      },
-    });
-  }, [navigation, stockTokenNetworkId, storeName]);
+  const handleOpenStockTokenSelector = useOpenStockTokenSelector({
+    defaultNetworkId: stockTokenNetworkId,
+    storeName,
+  });
 
   if (!tokenDetail) {
     return <StockMarketHeaderSkeleton />;
@@ -1000,20 +1027,20 @@ function StockMarketTokenHeader({
       h="$13"
       w="100%"
       gap="$3"
+      cursor="pointer"
+      borderRadius="$full"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={handleOpenStockTokenSelector}
     >
       <XStack
         flex={1}
         minWidth={0}
         gap="$2.5"
         alignItems="center"
-        cursor="pointer"
         bg="$transparent"
         px="$0"
         py="$0"
-        borderRadius="$full"
-        hoverStyle={{ bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={handleOpenStockTokenSelector}
       >
         <Token
           size="md"
@@ -1674,6 +1701,7 @@ function SwapStockDesktopContent({
               <StockTradeTicket
                 onSelectToken={onSelectToken}
                 fetchLoading={fetchLoading}
+                storeName={storeName}
                 onSelectPercentageStage={onSelectPercentageStage}
                 onBalanceMaxPress={onBalanceMaxPress}
                 onPreSwap={onPreSwap}
@@ -1755,6 +1783,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
+          storeName={props.storeName}
           onSelectPercentageStage={props.onSelectPercentageStage}
           onBalanceMaxPress={props.onBalanceMaxPress}
           onPreSwap={props.onPreSwap}
