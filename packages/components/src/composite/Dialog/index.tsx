@@ -146,7 +146,15 @@ const useSafeKeyboardAnimationStyle = () => {
       keyboardHeightValue.value = 0;
     },
   });
-  return platformEnv.isNative ? animatedStyles : undefined;
+  // On web there is no reanimated keyboard tracking, but notched iOS
+  // Safari/PWA still reports a bottom inset via env(safe-area-inset-bottom).
+  // The frame must apply it as a static paddingBottom so bottom-sheet dialogs
+  // clear the home indicator there too — footers only carry their design
+  // padding now, and rely on the frame for the inset on every platform.
+  if (!platformEnv.isNative) {
+    return bottom ? { paddingBottom: bottom } : undefined;
+  }
+  return animatedStyles;
 };
 
 /**
