@@ -27,7 +27,6 @@ import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
 } from '@onekeyhq/shared/src/routes/assetDetails';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IKytRiskFactor } from '@onekeyhq/shared/types/kyt';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
@@ -219,8 +218,16 @@ function KytRiskDetail() {
     if (!canViewReport || !riskDetail.reportUrl) {
       return;
     }
-    openUrlExternal(riskDetail.reportUrl);
-  }, [canViewReport, riskDetail.reportUrl]);
+    navigation.pushModal(EModalRoutes.WebViewModal, {
+      screen: EModalWebViewRoutes.WebView,
+      params: {
+        url: riskDetail.reportUrl,
+        title: intl.formatMessage({
+          id: ETranslations.kyt_view_report__action,
+        }),
+      },
+    });
+  }, [canViewReport, intl, navigation, riskDetail.reportUrl]);
 
   const headerRight = useCallback(
     () => (

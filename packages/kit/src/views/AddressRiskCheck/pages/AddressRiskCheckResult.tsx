@@ -17,15 +17,16 @@ import {
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalWebViewRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   EModalAddressRiskCheckRoutes,
   IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
@@ -74,6 +75,7 @@ const ADDRESS_RISK_LEVEL_CONTENT: Record<
 
 function AddressRiskCheckResult() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
   const route =
     useRoute<
@@ -115,8 +117,16 @@ function AddressRiskCheckResult() {
     if (!canViewReport || !result.reportUrl) {
       return;
     }
-    openUrlExternal(result.reportUrl);
-  }, [canViewReport, result.reportUrl]);
+    navigation.pushModal(EModalRoutes.WebViewModal, {
+      screen: EModalWebViewRoutes.WebView,
+      params: {
+        url: result.reportUrl,
+        title: intl.formatMessage({
+          id: ETranslations.kyt_view_report__action,
+        }),
+      },
+    });
+  }, [canViewReport, intl, navigation, result.reportUrl]);
 
   const handleCopyAddress = useCallback(() => {
     copyText(result.address);
