@@ -42,6 +42,7 @@ export function shouldSyncStockPayTokenDetail({
   return (
     currentToken.balanceParsed !== nextToken.balanceParsed ||
     currentToken.balance !== nextToken.balance ||
+    currentToken.currency !== nextToken.currency ||
     currentToken.fiatValue !== nextToken.fiatValue ||
     currentToken.price !== nextToken.price
   );

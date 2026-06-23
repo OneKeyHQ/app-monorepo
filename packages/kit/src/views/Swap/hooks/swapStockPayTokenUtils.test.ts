@@ -112,4 +112,26 @@ describe('swapStockPayTokenUtils', () => {
       }),
     ).toBe(false);
   });
+
+  it('syncs selected pay token detail when the price currency is added', () => {
+    expect(
+      shouldSyncStockPayTokenDetail({
+        currentToken: {
+          ...usdcToken,
+          balance: '2',
+          balanceParsed: '2',
+          fiatValue: '2',
+          price: '1',
+        },
+        nextToken: {
+          ...usdcToken,
+          balance: '2',
+          balanceParsed: '2',
+          currency: 'usd',
+          fiatValue: '2',
+          price: '1',
+        },
+      }),
+    ).toBe(true);
+  });
 });

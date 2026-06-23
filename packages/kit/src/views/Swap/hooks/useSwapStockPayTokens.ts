@@ -27,6 +27,7 @@ import {
   findTokenFromCandidates,
   getTokenIdentityKey,
 } from './swapStockChannelUtils';
+import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
 import {
   shouldRefreshStockPayTokensForHistoryEvent,
   shouldSyncStockPayTokenDetail,
@@ -102,17 +103,20 @@ function buildStockPayToken({
   token: IToken;
   detail?: ISwapToken;
 }): IStockPayToken {
-  const balanceParsed = detail?.balanceParsed ?? token.balanceParsed ?? '0';
-  const price = detail?.price ?? token.price;
-  const fiatValue = detail?.fiatValue ?? token.fiatValue;
+  const usdDetail = markStockUsdPriceCurrency(detail);
+  const balanceParsed = usdDetail?.balanceParsed ?? token.balanceParsed ?? '0';
+  const price = usdDetail?.price ?? token.price;
+  const fiatValue = usdDetail?.fiatValue ?? token.fiatValue;
+  const currency = usdDetail?.currency ?? token.currency;
   const tokenWithValue = {
     ...token,
-    ...detail,
+    ...usdDetail,
     balanceParsed,
+    currency,
     price,
     fiatValue,
     speedSwapDefaultAmount:
-      token.speedSwapDefaultAmount ?? detail?.speedSwapDefaultAmount ?? [],
+      token.speedSwapDefaultAmount ?? usdDetail?.speedSwapDefaultAmount ?? [],
   };
   const valueBN = getTokenValueBN(tokenWithValue);
   return {
