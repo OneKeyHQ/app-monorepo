@@ -1,5 +1,9 @@
 import { normalizeTokenContractAddress } from './tokenUtils';
 
+const MARKET_WATCHLIST_NATIVE_PLACEHOLDER_ADDRESSES = new Set([
+  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+]);
+
 export type IMarketWatchListItemIdentity = {
   chainId?: string;
   contractAddress?: string;
@@ -12,6 +16,22 @@ export type IMarketWatchListItemRequiredIdentity =
     chainId: string;
     contractAddress: string;
   };
+
+export function isMarketWatchListNativePlaceholderAddress(
+  contractAddress: string | undefined,
+) {
+  return MARKET_WATCHLIST_NATIVE_PLACEHOLDER_ADDRESSES.has(
+    contractAddress?.trim().toLowerCase() ?? '',
+  );
+}
+
+function isMarketWatchListNativeItem(item: IMarketWatchListItemIdentity) {
+  return (
+    item.isNative === true ||
+    (item.isNative === undefined &&
+      isMarketWatchListNativePlaceholderAddress(item.contractAddress))
+  );
+}
 
 export function buildMarketWatchListItemKey(
   item: IMarketWatchListItemIdentity,
@@ -27,13 +47,14 @@ export function buildMarketWatchListItemKey(
     return ['perps', item.perpsCoin].join(delimiter);
   }
   const chainId = item.chainId ?? '';
-  const contractAddress =
-    normalizeNativeAddress && item.isNative
-      ? ''
-      : (normalizeTokenContractAddress({
-          networkId: chainId,
-          contractAddress: item.contractAddress,
-        }) ?? '');
+  const shouldUseNativeAddressKey =
+    normalizeNativeAddress && isMarketWatchListNativeItem(item);
+  const contractAddress = shouldUseNativeAddressKey
+    ? ''
+    : (normalizeTokenContractAddress({
+        networkId: chainId,
+        contractAddress: item.contractAddress,
+      }) ?? '');
   return [chainId, contractAddress].join(delimiter);
 }
 
@@ -53,4 +74,22 @@ export function isSameMarketWatchListItem(
   return (
     buildMarketWatchListItemKey(item1) === buildMarketWatchListItemKey(item2)
   );
+}
+
+export function dedupeMarketWatchListItems<
+  T extends IMarketWatchListItemIdentity,
+>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+
+  items.forEach((item) => {
+    const key = buildMarketWatchListItemKey(item);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    result.push(item);
+  });
+
+  return result;
 }

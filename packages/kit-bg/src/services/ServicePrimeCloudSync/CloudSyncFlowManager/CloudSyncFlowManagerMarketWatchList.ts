@@ -4,15 +4,11 @@ import { cloneDeep } from 'lodash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  type IMarketWatchListItemIdentity,
-  type IMarketWatchListItemRequiredIdentity,
-  buildMarketWatchListItemKey,
-  isSameMarketWatchListItem,
-} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
-import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
-  ICloudSyncCredential,
   ICloudSyncPayloadMarketWatchList,
   ICloudSyncTargetMarketWatchList,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -21,15 +17,17 @@ import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
 import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 
-function buildItemKey(item: IMarketWatchListItemIdentity) {
-  return buildMarketWatchListItemKey(item, { delimiter: '_' });
-}
-
-function buildLegacyItemKey(item: IMarketWatchListItemIdentity) {
-  return buildMarketWatchListItemKey(item, {
-    delimiter: '_',
-    normalizeNativeAddress: false,
-  });
+function buildItemKey(item: IMarketWatchListItemV2) {
+  if (item.perpsCoin) {
+    return `perps_${item.perpsCoin}`;
+  }
+  return [
+    item.chainId,
+    normalizeTokenContractAddress({
+      networkId: item.chainId,
+      contractAddress: item.contractAddress,
+    }) || '',
+  ].join('_');
 }
 
 export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBase<
@@ -44,29 +42,6 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     target: ICloudSyncTargetMarketWatchList;
   }): Promise<string> {
     return Promise.resolve(buildItemKey(params.target.watchListItem));
-  }
-
-  async buildLegacySyncItemByDBQuery({
-    dbRecord,
-    isDeleted,
-    dataTime,
-    syncCredential,
-  }: {
-    dbRecord: IMarketWatchListItemRequiredIdentity;
-    isDeleted: boolean | undefined;
-    dataTime: number | undefined;
-    syncCredential: ICloudSyncCredential | undefined;
-  }) {
-    return this.buildSyncItem({
-      target: {
-        targetId: buildLegacyItemKey(dbRecord),
-        dataType: EPrimeCloudSyncDataType.MarketWatchList,
-        watchListItem: dbRecord as IMarketWatchListItemV2,
-      },
-      dataTime,
-      syncCredential,
-      isDeleted,
-    });
   }
 
   override async buildSyncPayload({
@@ -137,7 +112,6 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
           await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
             chainId: payload.chainId,
             contractAddress,
-            isNative: payload.isNative,
             perpsCoin: payload.perpsCoin,
           });
         return !removedItemExists;
@@ -153,7 +127,6 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
           chainId: payload.chainId,
           contractAddress,
-          isNative: payload.isNative,
           perpsCoin: payload.perpsCoin,
         });
       return !!addedItemExists;
@@ -169,10 +142,15 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     const result = payload.perpsCoin
       ? watchList.data.find((i) => i.perpsCoin === payload.perpsCoin)
       : watchList.data.find((i) =>
-          isSameMarketWatchListItem(i, {
-            chainId: payload.chainId,
-            contractAddress: payload.contractAddress,
-            isNative: payload.isNative,
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: i.chainId,
+              contractAddress: i.contractAddress,
+            },
+            token2: {
+              networkId: payload.chainId,
+              contractAddress: payload.contractAddress,
+            },
           }),
         );
     return cloneDeep(result);

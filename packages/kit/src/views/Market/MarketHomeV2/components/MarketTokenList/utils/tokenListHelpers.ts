@@ -1,20 +1,24 @@
 import BigNumber from 'bignumber.js';
 
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { isMarketWatchListNativePlaceholderAddress } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
 // Helper function to check if token is native and get normalized address for matching
-// Only uses fallback address length check when isNative field is not present (undefined)
-// This ensures online data with isNative field won't use fallback logic
+// Only uses fallback checks when isNative field is not present (undefined).
+// This ensures online data with isNative field won't use fallback logic.
 export function getNativeTokenInfo(
   isNativeField: boolean | undefined,
   address: string | undefined,
 ) {
   const isNative =
-    isNativeField !== undefined ? isNativeField : (address?.length ?? 0) < 30;
+    isNativeField !== undefined
+      ? isNativeField
+      : (address?.length ?? 0) < 30 ||
+        isMarketWatchListNativePlaceholderAddress(address);
   const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
   return { isNative, normalizedAddress };
 }

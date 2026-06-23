@@ -310,7 +310,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               {
                 chainId: record.chainId,
                 contractAddress: record.contractAddress,
-                isNative: record.isNative,
               },
             ],
             callerName: 'PopularTrading',
@@ -831,7 +830,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               : {
                   chainId: record.chainId,
                   contractAddress: record.contractAddress,
-                  isNative: record.isNative,
                 },
           ],
           callerName: 'PopularTrading',

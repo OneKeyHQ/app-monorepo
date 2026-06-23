@@ -457,7 +457,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
 
       // Asynchronously call API without waiting for result
       await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
-        items: [removeItem],
+        items: [{ chainId, contractAddress: normalizedContractAddress }],
         callerName: 'jotaiContextActions_removeFromWatchListV2',
       });
       await this.refreshWatchListV2.call(set);

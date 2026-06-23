@@ -1,4 +1,5 @@
 import {
+  getNativeTokenInfo,
   getStockMarketCapValue,
   getStockPeRatioValue,
   getStockVolume24hValue,
@@ -7,6 +8,29 @@ import {
   shouldUseStockMetadataColumnsForTokens,
   transformApiItemToToken,
 } from './tokenListHelpers';
+
+describe('getNativeTokenInfo', () => {
+  test('treats known native placeholder address as native when isNative is missing', () => {
+    expect(
+      getNativeTokenInfo(
+        undefined,
+        '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      ),
+    ).toEqual({
+      isNative: true,
+      normalizedAddress: '',
+    });
+  });
+
+  test('respects explicit non-native flag for placeholder-like addresses', () => {
+    expect(
+      getNativeTokenInfo(false, '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'),
+    ).toEqual({
+      isNative: false,
+      normalizedAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+    });
+  });
+});
 
 describe('stock metadata values', () => {
   test('normalizes numeric metadata values', () => {
