@@ -359,12 +359,20 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           `[${scope as string}] ProviderApi loader is not found.`,
         );
       }
-      loading = loader().then((module) => {
-        const ProviderApiClass = module.default;
-        const instance = new ProviderApiClass({ backgroundApi: this });
-        this.providers[scope] = instance;
-        return instance;
-      });
+      loading = loader()
+        .then((module) => {
+          const ProviderApiClass = module.default;
+          const instance = new ProviderApiClass({ backgroundApi: this });
+          this.providers[scope] = instance;
+          return instance;
+        })
+        .catch((error) => {
+          // Drop the rejected promise so a transient load failure (e.g. a
+          // failed webpack chunk request on web) doesn't permanently poison
+          // the cache and leave the provider unavailable for the session.
+          delete this.providerApiLoadingCache[scope];
+          throw error;
+        });
       this.providerApiLoadingCache[scope] = loading;
     }
     return loading;

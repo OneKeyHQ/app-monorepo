@@ -1,4 +1,5 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
+import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
 import { debounce, isEqual, pick } from 'lodash';
 
@@ -68,13 +69,10 @@ import ServiceBase from './ServiceBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IDBAccount } from '../dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '../dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type ProviderApiBase from '../providers/ProviderApiBase';
 import type ProviderApiEthereum from '../providers/ProviderApiEthereum';
 import type { IAddEthereumChainParameter } from '../providers/ProviderApiEthereum';
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 import type { IAccountDeriveTypes, ITransferInfo } from '../vaults/types';
-import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,
