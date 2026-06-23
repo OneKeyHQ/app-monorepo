@@ -1,8 +1,8 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IActionCenterParamList } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { EActionCenterPages } from '@onekeyhq/shared/src/routes/fullScreenPush';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const ActionCenter = LazyLoadPage(() => import('../pages/ActionCenter'));
 

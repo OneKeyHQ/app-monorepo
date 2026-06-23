@@ -101,7 +101,7 @@ type IGlassHeaderItem = {
 type IHeaderItemsFn = (props: any) => IGlassHeaderItem[];
 
 // A custom native bar item whose React element is rendered inside the system
-// glass capsule, bare-ified via GlassHeaderProvider (so the inner IconButton
+// glass capsule, stripped via GlassHeaderProvider (so the inner IconButton
 // drops its own background/press instead of doubling up on the glass). Use this
 // for every `unstable_*Items` custom item that wants a OneKey glyph in glass —
 // it keeps the provider-wrap (the load-bearing detail) in one place so call
@@ -118,7 +118,7 @@ function isEmptyRender(rendered: ReactNode): boolean {
   // capsule — when the rendered element is non-null. Preserving these falsy
   // results avoids drawing a hollow glass capsule for conditionally-hidden
   // header buttons.
-  return rendered == null || rendered === false;
+  return rendered === null || rendered === undefined || rendered === false;
 }
 
 // Memoizes a transform of a header render fn, keyed by the source fn, so the

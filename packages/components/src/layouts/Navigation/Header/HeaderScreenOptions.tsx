@@ -105,7 +105,7 @@ export function makeHeaderScreenOptions({
           // background/press so it doesn't double up on the glass.
           unstable_headerLeftItems: () => [
             glassBarItem(
-              <NavCloseButton onPress={() => currentNavigation?.goBack?.()} />,
+              <NavCloseButton onPress={currentNavigation?.goBack} />,
             ),
           ],
         };
