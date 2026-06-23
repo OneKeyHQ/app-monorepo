@@ -388,8 +388,19 @@ class EvmApiProvider extends BaseApiProvider {
       networkId: params.networkId,
     });
     if (network.feeMeta.isEIP1559FeeEnabled) {
-      return this.getGasPriceEIP1559({ network });
+      const gasPriceEIP1559 = await this.getGasPriceEIP1559({ network });
+      if (gasPriceEIP1559.gasEIP1559?.length) {
+        return gasPriceEIP1559;
+      }
     }
+
+    return this.getGasPriceLegacy({ network });
+  }
+
+  protected async getGasPriceLegacy(params: {
+    network: IServerNetwork;
+  }): Promise<IServerGasPriceResponse> {
+    const { network } = params;
     const [gasPrice] = await this.client.batchCall<[string, string, any]>([
       ['eth_gasPrice', []],
     ]);
