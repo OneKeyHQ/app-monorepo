@@ -200,3 +200,21 @@ export function ensureRunOnNative() {
     throw new OneKeyLocalError('this code can not run on non-native');
   }
 }
+
+// The local DB (Realm) must only be opened on the background runtime. In a
+// two-runtime native build (enableNativeBackgroundThread), the UI/main thread
+// must reach the DB through backgroundApiProxy and never open Realm itself, so
+// the wrapping-key / credential write path always converges on a single writer.
+// In the single-runtime fallback there is no separate background thread, so the
+// sole runtime legitimately opens the DB and this guard is a no-op.
+export function ensureLocalDbNotOnNativeMainThread() {
+  if (
+    !platformEnv.isJest &&
+    platformEnv.enableNativeBackgroundThread &&
+    platformEnv.isNativeMainThread
+  ) {
+    throw new OneKeyLocalError(
+      'LocalDb (Realm) must be opened on the background runtime, not the native UI/main thread',
+    );
+  }
+}
