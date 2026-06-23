@@ -596,27 +596,17 @@ export default class ServiceSwap extends ServiceBase {
     }
     const targetNetworkId = networkId ?? getNetworkIdsMap().onekeyall;
     const requestProtocol = getProtocolOfExchangeFromSwapTab(protocol);
-    const shouldFetchStaticStockTokens =
-      requestProtocol === EProtocolOfExchange.STOCK;
     const params: IFetchTokenListParams = {
       protocol: requestProtocol,
       networkId: targetNetworkId,
       keywords,
       limit,
-      accountAddress:
-        !shouldFetchStaticStockTokens &&
-        !networkUtils.isAllNetwork({
-          networkId: targetNetworkId,
-        })
-          ? accountAddress
-          : undefined,
-      accountNetworkId: shouldFetchStaticStockTokens
-        ? undefined
-        : accountNetworkId,
+      accountAddress: !networkUtils.isAllNetwork({ networkId: targetNetworkId })
+        ? accountAddress
+        : undefined,
+      accountNetworkId,
       skipReservationValue: true,
-      onlyAccountTokens: shouldFetchStaticStockTokens
-        ? undefined
-        : onlyAccountTokens,
+      onlyAccountTokens,
       ...(shouldSendSwapLpTokenParam(lpToken) ? { lpToken } : {}),
     };
     if (!isAllNetworkFetchAccountTokens) {
@@ -628,10 +618,12 @@ export default class ServiceSwap extends ServiceBase {
       (await settingsPersistAtom.get())?.currencyInfo?.id ??
       USD_CURRENCY_ID;
     if (
-      !shouldFetchStaticStockTokens &&
       accountId &&
       accountAddress &&
-      networkId
+      networkId &&
+      !networkUtils.isAllNetwork({
+        networkId,
+      })
     ) {
       try {
         const accountAddressForAccountId =
@@ -650,23 +642,27 @@ export default class ServiceSwap extends ServiceBase {
           // endpoint treats accountAddress as optional and should not receive
           // another network's address.
           params.accountAddress = undefined;
+          params.accountNetworkId = undefined;
+          params.accountXpub = undefined;
         }
       } catch (e) {
         console.error(e);
       }
 
-      const inscriptionProtection =
-        await this.backgroundApi.serviceSetting.getInscriptionProtection();
-      const checkInscriptionProtectionEnabled =
-        await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
-          {
-            networkId,
-            accountId,
-          },
-        );
-      const withCheckInscription =
-        checkInscriptionProtectionEnabled && inscriptionProtection;
-      params.withCheckInscription = withCheckInscription;
+      if (requestProtocol !== EProtocolOfExchange.STOCK) {
+        const inscriptionProtection =
+          await this.backgroundApi.serviceSetting.getInscriptionProtection();
+        const checkInscriptionProtectionEnabled =
+          await this.backgroundApi.serviceSetting.checkInscriptionProtectionEnabled(
+            {
+              networkId,
+              accountId,
+            },
+          );
+        const withCheckInscription =
+          checkInscriptionProtectionEnabled && inscriptionProtection;
+        params.withCheckInscription = withCheckInscription;
+      }
     }
     try {
       const { data } = await client.get<IFetchResponse<ISwapToken[]>>(
