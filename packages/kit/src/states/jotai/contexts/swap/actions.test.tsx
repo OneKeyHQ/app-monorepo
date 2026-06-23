@@ -9,7 +9,11 @@ import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IFetchQuotesParams,
+  ISwapQuoteEvent,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapQuoteKind,
@@ -23,6 +27,8 @@ import {
   swapFromTokenAmountAtom,
   swapNetworks,
   swapQuoteActionLockAtom,
+  swapQuoteEventTotalCountAtom,
+  swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapStockExecutionTokenSyncIdAtom,
@@ -422,6 +428,73 @@ describe('useSwapActions', () => {
           userAddress: '0xabc',
         }),
       ),
+    );
+  });
+
+  it('normalizes quote event results with the dispatch-time input amount', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapQuoteEventTotalCountAtom(), {
+        eventId: 'event-1',
+        count: 1,
+      });
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    const quoteEvent = {
+      data: JSON.stringify({
+        data: [
+          {
+            eventId: 'event-1',
+            info: {
+              provider: 'stock',
+              providerName: 'Stock',
+            },
+            fromTokenInfo: usdcToken,
+            toAmount: '10',
+            toTokenInfo: stockTokenA,
+            protocol: ESwapTabSwitchType.STOCK,
+          },
+        ],
+      }),
+    } as ISwapQuoteEvent;
+    const quoteParams: IFetchQuotesParams = {
+      fromNetworkId: usdcToken.networkId,
+      fromTokenAddress: usdcToken.contractAddress,
+      fromTokenAmount: '1',
+      protocol: ESwapTabSwitchType.STOCK,
+      slippagePercentage: 0.5,
+      toNetworkId: stockTokenA.networkId,
+      toTokenAddress: stockTokenA.contractAddress,
+    };
+
+    await act(async () => {
+      result.current.actions.quoteEventHandler({
+        event: quoteEvent,
+        type: 'message',
+        params: quoteParams,
+        tokenPairs: {
+          fromToken: usdcToken,
+          toToken: stockTokenA,
+        },
+      });
+    });
+
+    expect(store.get(swapQuoteListAtom())[0]).toEqual(
+      expect.objectContaining({
+        fromAmount: '1',
+      }),
     );
   });
 });

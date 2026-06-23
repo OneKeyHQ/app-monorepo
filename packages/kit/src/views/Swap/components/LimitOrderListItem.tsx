@@ -9,6 +9,7 @@ import LimitOrderCard from './LimitOrderCard';
 interface ILimitOrderListItemProps {
   item: IFetchLimitOrderRes;
   cancelLoading?: boolean;
+  testID?: string;
   onClickCell: (item: IFetchLimitOrderRes) => void;
   onCancel: (item: IFetchLimitOrderRes) => void;
 }
@@ -18,11 +19,13 @@ const LimitOrderListItem = ({
   onClickCell,
   onCancel,
   cancelLoading,
+  testID,
 }: ILimitOrderListItemProps) => {
   const { gtMd } = useMedia();
   return (
     <XStack mb="$2">
       <LimitOrderCard
+        testID={testID}
         item={item}
         hiddenCreateTime
         onPress={() => onClickCell(item)}

@@ -168,6 +168,7 @@ export interface ISwapTokenBase {
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
+  isStock?: boolean;
 }
 
 export interface IFreeFeeTokenItem {

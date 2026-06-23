@@ -1,6 +1,8 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildStockSwapTokenFromMarketDetail,
+  buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   resolveStockChannelToken,
 } from './swapStockChannelUtils';
@@ -72,5 +74,35 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('marks only stock market tokens as stock swap tokens', () => {
+    expect(
+      buildStockSwapTokenFromMarketListToken({
+        address: '0xaapl',
+        networkId: 'evm--56',
+        symbol: 'AAPL',
+        name: 'Apple',
+        decimals: 18,
+        stock: {
+          subtitle: 'Stock',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      })?.isStock,
+    ).toBe(true);
+
+    expect(
+      buildStockSwapTokenFromMarketDetail({
+        tokenDetail: {
+          address: '0xusdc',
+          networkId: 'evm--56',
+          symbol: 'USDC',
+          name: 'USDC',
+          decimals: 6,
+          logoUrl: '',
+        },
+      })?.isStock,
+    ).toBe(false);
   });
 });
