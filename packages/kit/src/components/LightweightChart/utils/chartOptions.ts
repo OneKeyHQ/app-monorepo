@@ -14,6 +14,7 @@ export function createChartOptions(
   fontSize?: number,
   priceScaleMargins?: { top: number; bottom: number },
   showTimeScale = true,
+  priceScaleEntireTextOnly = false,
 ): DeepPartial<ChartOptions> {
   return {
     layout: {
@@ -47,6 +48,7 @@ export function createChartOptions(
     rightPriceScale: {
       visible: showPriceScale,
       borderVisible: false,
+      entireTextOnly: priceScaleEntireTextOnly,
       ...(priceScaleMargins && { scaleMargins: priceScaleMargins }),
     },
     leftPriceScale: {

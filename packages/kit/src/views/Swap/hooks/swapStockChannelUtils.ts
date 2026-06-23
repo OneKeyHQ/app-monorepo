@@ -77,6 +77,7 @@ export function buildStockSwapTokenFromMarketToken(
     networkLogoURI: token.networkLogoUri,
     isNative: !!token.isNative,
     price: token.price ? token.price.toString() : undefined,
+    isStock: Boolean(token.stock),
   };
 }
 
@@ -96,6 +97,7 @@ export function buildStockSwapTokenFromMarketListToken(
     logoURI: token.logoUrl,
     isNative: !!token.isNative,
     price: token.price,
+    isStock: Boolean(token.stock),
   };
 }
 
@@ -124,6 +126,7 @@ export function buildStockSwapTokenFromMarketDetail({
     logoURI: tokenDetail.logoUrl,
     isNative: !!(isNative ?? tokenDetail.isNative),
     price: tokenDetail.price ?? tokenDetail.priceConverted,
+    isStock: Boolean(tokenDetail.stock),
   };
 }
 
