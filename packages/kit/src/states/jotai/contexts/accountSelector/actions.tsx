@@ -509,12 +509,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const currentActiveAccount =
           get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
         const markActiveAccountInitDone = () => {
-          if (get(accountSelectorStorageInitDoneAtom())) {
-            set(accountSelectorActiveAccountInitDoneAtom(), {
-              ...get(accountSelectorActiveAccountInitDoneAtom()),
-              [num]: true,
-            });
-          }
+          set(accountSelectorActiveAccountInitDoneAtom(), {
+            ...get(accountSelectorActiveAccountInitDoneAtom()),
+            [num]: true,
+          });
         };
         if (
           shouldKeepCurrentActiveAccountForIncompleteSelection({
