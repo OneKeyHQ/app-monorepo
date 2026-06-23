@@ -4,7 +4,6 @@ import type {
   IBackupDataManifest,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
-  ICloudBackupKeylessWalletPayload,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 
 /**
@@ -65,19 +64,6 @@ export interface IOneKeyBackupProvider {
   backupData(
     payload: IBackupDataEncryptedPayload,
   ): Promise<{ recordID: string; content: string }>;
-
-  backupKeylessWalletData(
-    payload: ICloudBackupKeylessWalletPayload,
-  ): Promise<{ recordID: string; content: string; meta: string }>;
-
-  downloadKeylessWalletData(params: { recordID: string }): Promise<{
-    payload: ICloudBackupKeylessWalletPayload;
-    content: string;
-  } | null>;
-
-  getKeylessWalletBackupRecordID(params: {
-    packSetId: string;
-  }): Promise<{ recordID: string; packSetId: string } | null>;
 
   downloadData(params: {
     recordId: string;

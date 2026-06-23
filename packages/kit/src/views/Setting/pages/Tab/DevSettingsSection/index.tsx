@@ -479,6 +479,27 @@ const BaseDevSettingsSection = () => {
     });
   }, []);
 
+  const handleOpenLocalSecretEnvelopeSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'debug' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeRestoreSelfTest = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'restore' },
+    );
+  }, [navigation]);
+
+  const handleOpenLocalSecretEnvelopeMigrationDiagnostic = useCallback(() => {
+    navigation.push(
+      EModalSettingRoutes.SettingDevLocalSecretEnvelopeSelfTestModal,
+      { testKind: 'diagnostic' },
+    );
+  }, [navigation]);
+
   const handleTriggerReferralBindGuardIn10s = useCallback(() => {
     Toast.message({
       title: 'Referral bind guard will trigger in 10s.',
@@ -632,7 +653,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1018,6 +1039,41 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      <SectionPressItem
+                        icon="ShieldKeyholeOutline"
+                        title="Local Secret Envelope Self-Test"
+                        subtitle="Per-checkpoint non-destructive LSE verification for CryptoKey / secureStorage layers"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB self-test"
+                        onPress={handleOpenLocalSecretEnvelopeSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="CloudOutline"
+                        title="LSE Restore Self-Test"
+                        subtitle="Per-checkpoint non-destructive restore/export guard verification for Cloud Backup and Prime Transfer"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeRestoreSelfTestButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE restore Cloud Backup Prime Transfer portable credential self-test"
+                        onPress={handleOpenLocalSecretEnvelopeRestoreSelfTest}
+                      />
+
+                      <SectionPressItem
+                        icon="SearchOutline"
+                        title="LSE Migration Diagnostic"
+                        subtitle="Read-only scan: encryption method + KDF iterations (confirmed/inferred) per record, no secret exposed"
+                        testID={
+                          SettingTestIDs.localSecretEnvelopeMigrationDiagnosticButton
+                        }
+                        searchKeywords="Local Secret Envelope LSE migration diagnostic encryption method KDF iterations scan inventory"
+                        onPress={
+                          handleOpenLocalSecretEnvelopeMigrationDiagnostic
+                        }
+                      />
 
                       <SectionPressItem
                         icon="SwitchHorOutline"
