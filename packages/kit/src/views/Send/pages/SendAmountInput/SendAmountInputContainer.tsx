@@ -3460,7 +3460,9 @@ function SendAmountInputContainer() {
           <SendAutoSizeAmountInput
             ref={amountInputRef}
             tokenSymbol={isUseFiat ? undefined : tokenSymbol}
-            reversible={!isInvoiceAmountLocked && (hasUsablePrice || isUseFiat)}
+            reversible={Boolean(
+              !isInvoiceAmountLocked && (hasUsablePrice || isUseFiat),
+            )}
             valueProps={{
               currency: isUseFiat ? undefined : currencySymbol,
               tokenSymbol: isUseFiat ? tokenSymbol : undefined,
