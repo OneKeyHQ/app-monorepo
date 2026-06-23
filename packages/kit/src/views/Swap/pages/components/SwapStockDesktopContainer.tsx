@@ -735,16 +735,23 @@ function StockActionGate({
   );
 
   return (
-    <Button
-      testID={SwapTestIDs.swapButton}
-      size="large"
-      variant="primary"
-      disabled
-      borderRadius="$full"
-      {...disabledButtonProps}
-    >
-      {disabledLabel}
-    </Button>
+    <>
+      <Button
+        testID={SwapTestIDs.swapButton}
+        size="large"
+        variant="primary"
+        disabled
+        borderRadius="$full"
+        {...disabledButtonProps}
+      >
+        {disabledLabel}
+      </Button>
+      {!platformEnv.isNativeIOS ? (
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      ) : null}
+    </>
   );
 }
 
