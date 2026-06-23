@@ -170,6 +170,9 @@ function createWrapperWithStore(
       symbol: 'ETH',
       logoURI: '',
       shortcode: 'eth',
+      supportSingleSwap: true,
+      supportCrossChainSwap: true,
+      supportLimit: true,
     },
     {
       networkId: 'evm--56',
@@ -177,6 +180,9 @@ function createWrapperWithStore(
       symbol: 'BNB',
       logoURI: '',
       shortcode: 'bsc',
+      supportSingleSwap: true,
+      supportCrossChainSwap: true,
+      supportStock: true,
     },
   ]);
   setup?.(store);
@@ -308,6 +314,51 @@ describe('useSwapActions', () => {
       symbol: 'AAPL',
       contractAddress: '0xaapl',
     });
+  });
+
+  it('restores Limit defaults after leaving Stock with cleared tokens', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.resetSwapTokenData(ESwapDirectionType.FROM);
+      await result.current.actions.resetSwapTokenData(ESwapDirectionType.TO);
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--56',
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+        symbol: 'WETH',
+      }),
+    );
+    expect(store.get(swapSelectToTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        symbol: 'USDC',
+      }),
+    );
   });
 
   it('blocks Stock quote before Stock execution tokens own the selected pair', async () => {
