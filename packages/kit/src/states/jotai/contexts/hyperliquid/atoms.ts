@@ -322,6 +322,7 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     leverage: 1,
     bboPriceMode: null,
     limitTif: 'Gtc',
+    reduceOnly: false,
     hasTpsl: false,
     tpTriggerPx: '',
     tpGainPercent: '',
