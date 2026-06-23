@@ -104,6 +104,18 @@ type ISwapKLineTokenUsdFallbackPriceResult = {
   updatedAt?: number;
 };
 
+function isSwapKLineStockToken({
+  token,
+  tokenMarketDetail,
+}: {
+  token?: ISwapToken;
+  tokenMarketDetail?: IMarketTokenDetail;
+}) {
+  return Boolean(
+    token?.isStock || tokenMarketDetail?.stock?.underlyingAssetTicker,
+  );
+}
+
 function getSwapKLineTokenKey(token?: ISwapToken) {
   if (!token?.networkId) {
     return '';
@@ -284,17 +296,20 @@ function useSwapKLineWalletMarketInfo(
 function useSwapKLineChartDataSource({
   token,
   coinGeckoId,
+  useCoinGeckoOnly,
 }: {
   token?: ISwapToken;
   coinGeckoId?: string;
+  useCoinGeckoOnly?: boolean;
 }) {
   const tokenKey = getSwapKLineTokenKey(token);
+  const shouldUseCoinGeckoOnly = Boolean(useCoinGeckoOnly);
   const chartDataCacheRef = useRef(
     new Map<string, Promise<IMarketTokenChart>>(),
   );
   const [primaryUnavailableTokenKeys, setPrimaryUnavailableTokenKeys] =
     useState<ReadonlySet<string>>(() => new Set());
-  const kLineDataFallback = useMemo<
+  const coinGeckoKLineDataSource = useMemo<
     ITradingViewV2KLineDataFallback | undefined
   >(() => {
     if (!coinGeckoId) {
@@ -326,10 +341,17 @@ function useSwapKLineChartDataSource({
     };
   }, [coinGeckoId]);
   const primaryKLineDataUnavailable = Boolean(
-    tokenKey && primaryUnavailableTokenKeys.has(tokenKey),
+    (shouldUseCoinGeckoOnly && coinGeckoId) ||
+    (tokenKey && primaryUnavailableTokenKeys.has(tokenKey)),
   );
+  const isCoinGeckoDataSourcePending = Boolean(
+    shouldUseCoinGeckoOnly && !coinGeckoId,
+  );
+  const chartDataSourceKey = shouldUseCoinGeckoOnly
+    ? `coingecko:${coinGeckoId ?? 'pending'}`
+    : `market:${tokenKey}`;
   const handlePrimaryKLineDataUnavailable = useCallback(() => {
-    if (!tokenKey) {
+    if (!tokenKey || shouldUseCoinGeckoOnly) {
       return;
     }
 
@@ -342,17 +364,21 @@ function useSwapKLineChartDataSource({
       next.add(tokenKey);
       return next;
     });
-  }, [tokenKey]);
+  }, [shouldUseCoinGeckoOnly, tokenKey]);
 
   return useMemo(
     () => ({
-      kLineDataFallback,
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
+      isCoinGeckoDataSourcePending,
       primaryKLineDataUnavailable,
       handlePrimaryKLineDataUnavailable,
     }),
     [
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
       handlePrimaryKLineDataUnavailable,
-      kLineDataFallback,
+      isCoinGeckoDataSourcePending,
       primaryKLineDataUnavailable,
     ],
   );
@@ -593,7 +619,8 @@ type ISwapKLineContentState = {
   toToken?: ISwapToken;
   selectedToken?: ISwapToken;
   walletMarketInfo?: ISwapKLineWalletMarketInfo;
-  kLineDataFallback?: ITradingViewV2KLineDataFallback;
+  chartDataSourceKey: string;
+  coinGeckoKLineDataSource?: ITradingViewV2KLineDataFallback;
   primaryKLineDataUnavailable: boolean;
   resolvedSelectedSide?: ESwapDirectionType;
   shouldForceEmptyKLineData: boolean;
@@ -651,16 +678,24 @@ function useSwapKLineContentState(): ISwapKLineContentState {
   const walletMarketInfo = useSwapKLineWalletMarketInfo(selectedToken);
   const { tokenMarketDetail, updatedAt: tokenMarketDetailUpdatedAt } =
     useSwapKLineTokenMarketInfo(selectedToken);
+  const preferCoinGeckoKLineData = isSwapKLineStockToken({
+    token: selectedToken,
+    tokenMarketDetail,
+  });
   const {
-    kLineDataFallback,
+    chartDataSourceKey,
+    coinGeckoKLineDataSource,
+    isCoinGeckoDataSourcePending,
     primaryKLineDataUnavailable,
     handlePrimaryKLineDataUnavailable,
   } = useSwapKLineChartDataSource({
     token: selectedToken,
     coinGeckoId: walletMarketInfo?.coinGeckoId,
+    useCoinGeckoOnly: preferCoinGeckoKLineData,
   });
   const shouldForceEmptyKLineData =
-    isKnownSwapKLineUnsupportedToken(selectedToken);
+    isKnownSwapKLineUnsupportedToken(selectedToken) ||
+    isCoinGeckoDataSourcePending;
   const { tokenUsdFallbackPrice, updatedAt: tokenUsdFallbackPriceUpdatedAt } =
     useSwapKLineTokenUsdFallbackPrice(
       selectedToken,
@@ -762,7 +797,8 @@ function useSwapKLineContentState(): ISwapKLineContentState {
       toToken,
       selectedToken,
       walletMarketInfo,
-      kLineDataFallback,
+      chartDataSourceKey,
+      coinGeckoKLineDataSource,
       isResolvingSelectedToken,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
@@ -777,11 +813,12 @@ function useSwapKLineContentState(): ISwapKLineContentState {
     [
       displayPrice,
       fromToken,
+      chartDataSourceKey,
       handleChartPriceUpdate,
       handlePrimaryKLineDataUnavailable,
       handleSelectedSideChange,
       isResolvingSelectedToken,
-      kLineDataFallback,
+      coinGeckoKLineDataSource,
       primaryKLineDataUnavailable,
       resolvedSelectedSide,
       selectedToken,
@@ -1068,7 +1105,7 @@ function SwapKLineContentBody({
       <TradingViewV2
         key={`${chartNetworkId}:${chartTokenAddress}:${
           selectedToken?.symbol ?? ''
-        }`}
+        }:${state.chartDataSourceKey}`}
         symbol={selectedToken?.symbol ?? ''}
         tokenAddress={chartTokenAddress}
         networkId={chartNetworkId}
@@ -1078,7 +1115,7 @@ function SwapKLineContentBody({
         storageNamespace={SWAP_KLINE_TRADING_VIEW_STORAGE_NAMESPACE}
         forceEmptyKLineData={state.shouldForceEmptyKLineData}
         emptyKLineDataOnError
-        kLineDataFallback={state.kLineDataFallback}
+        kLineDataFallback={state.coinGeckoKLineDataSource}
         primaryKLineDataUnavailable={state.primaryKLineDataUnavailable}
         onPrimaryKLineDataUnavailable={state.handlePrimaryKLineDataUnavailable}
         onPriceUpdate={state.handleChartPriceUpdate}
