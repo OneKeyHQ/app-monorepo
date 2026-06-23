@@ -41,6 +41,7 @@ export enum EPrimeFeatures {
   BlockaidSiteScan = 'BlockaidSiteScan',
   ExtendedHistory = 'ExtendedHistory',
   ReceiveRiskMonitoring = 'ReceiveRiskMonitoring',
+  AddressRiskCheck = 'AddressRiskCheck',
 }
 
 export type IPrimeParamList = {
