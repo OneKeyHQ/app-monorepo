@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ensureLocalDbNotOnNativeMainThread } from '@onekeyhq/shared/src/utils/assertUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { REALM_DB_NAME, REALM_DB_VERSION } from '../consts';
@@ -33,6 +34,11 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
 
   // ---------------------------------------------- private methods
   private async _openDb() {
+    // Explicit runtime fence: in a two-runtime native build, Realm must only be
+    // opened on the background runtime. This turns the previously implicit
+    // "main thread never opens Realm" convention into an enforced guard so a
+    // future refactor cannot accidentally open the DB on the UI/main thread.
+    ensureLocalDbNotOnNativeMainThread();
     const realm = await Realm.open({
       path: REALM_DB_NAME,
       schema: realmDBSchemas as any,
@@ -74,6 +80,9 @@ export abstract class LocalDbRealmBase extends LocalDbBase {
         nextHD: 1,
         nextWalletNo: 1,
         verifyString: DEFAULT_VERIFY_STRING,
+        localSecretEnvelopeCredentialMigrated: false,
+        localSecretEnvelopeCredentialMigratedTargetVersion: 0,
+        localSecretEnvelopeCredentialMigrationLastScannedCredentialId: '',
         backupUUID: generateUUID(),
         nextSignatureMessageId: 1,
         nextSignatureTransactionId: 1,

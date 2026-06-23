@@ -1371,7 +1371,9 @@ class ServiceKeylessWallet extends ServiceBase {
     password: string;
   }): Promise<string> {
     const { walletId, password } = params;
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const rs = await decryptRevealableSeed({
       rs: credential.credential,
       password,
@@ -2130,7 +2132,9 @@ class ServiceKeylessWallet extends ServiceBase {
       throw new OneKeyLocalError('Keyless wallet not found.');
     }
 
-    const credential = await localDb.getCredential(keylessWallet.id);
+    const credential = await localDb.getCredentialInner({
+      credentialId: keylessWallet.id,
+    });
     defaultLogger.wallet.keyless.resetKeylessCredentialVerified();
 
     const rs = await decryptRevealableSeed({

@@ -666,7 +666,7 @@ export const { target: perpsActiveAssetAtom, use: usePerpsActiveAssetAtom } =
     name: EAtomNames.perpsActiveAssetAtom,
     persist: true,
     initialValue: {
-      coin: 'ETH',
+      coin: 'xyz:NVDA',
       assetId: undefined,
       universe: undefined,
       margin: undefined,
