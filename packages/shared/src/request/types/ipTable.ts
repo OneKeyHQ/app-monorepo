@@ -43,12 +43,23 @@ export interface IIpTableRemoteConfig {
 /**
  * IP Table runtime state
  */
+export interface IIpTableQuarantinedIp {
+  lastFailureTime: number;
+  hostname?: string;
+  error?: string;
+}
+
 export interface IIpTableRuntime {
   enabled: boolean;
   lastUpdated: number;
   lastRegionCheck: number;
   selections: {
     [domain: string]: string; // Currently selected IP for each domain
+  };
+  quarantinedIps?: {
+    [domain: string]: {
+      [ip: string]: IIpTableQuarantinedIp;
+    };
   };
 }
 

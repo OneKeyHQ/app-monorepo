@@ -16,7 +16,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS,
   IP_TABLE_PERFORMANCE_IMPROVEMENT_THRESHOLD,
+  IP_TABLE_SNI_FAILURE_QUARANTINE_MS,
   IP_TABLE_SNI_FAILURE_THRESHOLD,
+  IP_TABLE_SNI_QUARANTINE_FAILURE_THRESHOLD,
   IP_TABLE_SPEED_TEST_COOLDOWN_MS,
   IP_TABLE_SPEED_TEST_DELAY_MS,
   IP_TABLE_SPEED_TEST_ITERATIONS,
@@ -33,6 +35,7 @@ import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import type {
   IIpTableConfigWithRuntime,
   IIpTableRemoteConfig,
+  IIpTableRuntime,
 } from '@onekeyhq/shared/src/request/types/ipTable';
 import {
   isSupportIpTablePlatform,
@@ -441,6 +444,27 @@ class ServiceIpTable extends ServiceBase {
     return avgLatency;
   }
 
+  private getActiveQuarantinedIps(
+    runtime: IIpTableRuntime | undefined,
+    domain: string,
+    now = Date.now(),
+  ): Set<string> {
+    const domainQuarantines = runtime?.quarantinedIps?.[domain];
+    if (!domainQuarantines) {
+      return new Set();
+    }
+
+    return new Set(
+      Object.entries(domainQuarantines)
+        .filter(
+          ([, quarantine]) =>
+            now - quarantine.lastFailureTime <
+            IP_TABLE_SNI_FAILURE_QUARANTINE_MS,
+        )
+        .map(([ip]) => ip),
+    );
+  }
+
   /**
    * Clean up health statistics after speed test
    * Removes health data for IPs that are no longer selected (memory optimization)
@@ -532,29 +556,40 @@ class ServiceIpTable extends ServiceBase {
 
       // 2. Test all IPs with SNI
       const ipResults = new Map<string, number>();
+      const activeQuarantinedIps = this.getActiveQuarantinedIps(
+        configWithRuntime.runtime,
+        domain,
+      );
 
       for (const endpoint of domainConfig.endpoints) {
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] Testing IP: ${endpoint.ip} for ${domain}`,
-        });
+        if (activeQuarantinedIps.has(endpoint.ip)) {
+          defaultLogger.ipTable.request.warn({
+            info: `[IpTable] Skipping quarantined IP during speed test: ${domain} -> ${endpoint.ip}`,
+          });
+          ipResults.set(endpoint.ip, Infinity);
+        } else {
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] Testing IP: ${endpoint.ip} for ${domain}`,
+          });
 
-        const ipLatency = await this.testMultipleTimes(() =>
-          testIpSpeed(
-            endpoint.ip,
-            domain,
-            ONEKEY_HEALTH_CHECK_URL,
-            IP_TABLE_SPEED_TEST_TIMEOUT_MS,
-          ),
-        );
+          const ipLatency = await this.testMultipleTimes(() =>
+            testIpSpeed(
+              endpoint.ip,
+              domain,
+              ONEKEY_HEALTH_CHECK_URL,
+              IP_TABLE_SPEED_TEST_TIMEOUT_MS,
+            ),
+          );
 
-        ipResults.set(endpoint.ip, ipLatency);
+          ipResults.set(endpoint.ip, ipLatency);
 
-        defaultLogger.ipTable.request.info({
-          info: `[IpTable] IP test result: ${endpoint.ip} -> ${ipLatency}ms`,
-        });
+          defaultLogger.ipTable.request.info({
+            info: `[IpTable] IP test result: ${endpoint.ip} -> ${ipLatency}ms`,
+          });
+        }
       }
 
-      // 3. Find best IP
+      // 3. Find the fastest non-quarantined IP
       let bestIp = '';
       let bestIpLatency = Infinity;
 
@@ -580,16 +615,17 @@ class ServiceIpTable extends ServiceBase {
         } else {
           // All tests failed
           defaultLogger.ipTable.request.info({
-            info: `[IpTable] All tests failed for ${domain}`,
+            info: `[IpTable] All tests failed for ${domain}, using domain`,
           });
+          await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
         }
         return;
       }
 
       if (bestIpLatency === Infinity) {
-        // All IP tests failed, use domain
+        // All IP tests failed or all candidate IPs are quarantined, use domain
         defaultLogger.ipTable.request.info({
-          info: `[IpTable] All IP tests failed, using domain: ${domain}`,
+          info: `[IpTable] No available IP passed speed test, using domain: ${domain}`,
         });
         await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
         return;
@@ -691,6 +727,10 @@ class ServiceIpTable extends ServiceBase {
     domain: string,
     requestType: 'ip' | 'domain',
     target: string,
+    params?: {
+      hostname?: string;
+      error?: string;
+    },
   ): Promise<void> {
     // Check if IP Table is enabled
     if (!(await this.isIpTableEnabled())) {
@@ -717,6 +757,38 @@ class ServiceIpTable extends ServiceBase {
         endpointHealth.consecutiveFailures
       }) for ${domain} (${target})`,
     });
+
+    if (requestType === 'ip') {
+      if (
+        endpointHealth.consecutiveFailures <
+        IP_TABLE_SNI_QUARANTINE_FAILURE_THRESHOLD
+      ) {
+        defaultLogger.ipTable.request.info({
+          info: `[IpTable] IP quarantine not triggered: ${endpointHealth.consecutiveFailures}/${IP_TABLE_SNI_QUARANTINE_FAILURE_THRESHOLD} consecutive failures for ${domain} (${target})`,
+        });
+        return;
+      }
+
+      await this.backgroundApi.simpleDb.ipTable.markIpQuarantined(
+        domain,
+        target,
+        {
+          hostname: params?.hostname,
+          error: params?.error,
+          timestamp: now,
+        },
+      );
+      await this.backgroundApi.simpleDb.ipTable.updateSelection(domain, '');
+
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] Quarantined failed IP and switched to domain: ${domain} -> ${target}`,
+      });
+
+      stats.lastSpeedTestTime = now;
+      endpointHealth.consecutiveFailures = 0;
+      void this.selectBestEndpointForDomain(domain);
+      return;
+    }
 
     // Check if speed test should be triggered
     const shouldTrigger = await this.shouldTriggerSpeedTest(domain, stats);
@@ -767,9 +839,17 @@ class ServiceIpTable extends ServiceBase {
     }, IP_TABLE_INITIAL_SPEED_TEST_DELAY_MS);
   }
 
-  private async hasRuntimeSelections(): Promise<boolean> {
+  private async hasRuntimeSelectionForDomain(domain: string): Promise<boolean> {
     const configWithRuntime = await this.getConfig();
-    return Object.keys(configWithRuntime.runtime?.selections ?? {}).length > 0;
+    return configWithRuntime.runtime?.selections?.[domain] !== undefined;
+  }
+
+  private async getCurrentDomain(): Promise<string> {
+    const { enabled: devSettingEnabled, settings } =
+      await devSettingsPersistAtom.get();
+    return devSettingEnabled && settings?.enableTestEndpoint
+      ? ONEKEY_TEST_API_HOST
+      : ONEKEY_API_HOST;
   }
 
   @backgroundMethod()
@@ -785,9 +865,16 @@ class ServiceIpTable extends ServiceBase {
     });
 
     // Register request failure callback (handles both IP and domain failures)
-    setReportRequestFailureCallback(({ domain, requestType, target }) => {
-      void this.reportRequestFailure(domain, requestType, target);
-    });
+    setReportRequestFailureCallback(
+      ({ domain, requestType, target, hostname, error }) => {
+        void this.reportRequestFailure(domain, requestType, target, {
+          hostname,
+          error,
+        });
+      },
+    );
+
+    const domain = await this.getCurrentDomain();
 
     // Try to refresh CDN config if needed
     const shouldRefresh = await this.shouldRefreshConfig();
@@ -813,7 +900,7 @@ class ServiceIpTable extends ServiceBase {
       defaultLogger.ipTable.request.info({
         info: '[IpTable] CDN config is up to date',
       });
-      needSpeedTest = !(await this.hasRuntimeSelections());
+      needSpeedTest = !(await this.hasRuntimeSelectionForDomain(domain));
     }
 
     // Execute speed test if needed

@@ -1,5 +1,9 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { DEFAULT_IP_TABLE_CONFIG } from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
+import {
+  DEFAULT_IP_TABLE_CONFIG,
+  IP_TABLE_SNI_FAILURE_QUARANTINE_MS,
+} from '@onekeyhq/shared/src/request/constants/ipTableDefaults';
+import { clearSelectedIpForHostCache } from '@onekeyhq/shared/src/request/helpers/ipTableAdapter';
 import type {
   IIpTableConfigWithRuntime,
   IIpTableRemoteConfig,
@@ -43,6 +47,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
       ...data,
       version: 1,
     }));
+    clearSelectedIpForHostCache();
   }
 
   /**
@@ -74,6 +79,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         lastUpdated: Date.now(),
       },
     }));
+    clearSelectedIpForHostCache();
   }
 
   /**
@@ -103,6 +109,58 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         version: data?.version ?? 1,
       };
     });
+    clearSelectedIpForHostCache();
+  }
+
+  @backgroundMethod()
+  async markIpQuarantined(
+    domain: string,
+    ip: string,
+    params?: {
+      hostname?: string;
+      error?: string;
+      timestamp?: number;
+    },
+  ): Promise<void> {
+    const timestamp = params?.timestamp ?? Date.now();
+    await this.setRawData((data) => {
+      const runtime = data?.runtime ?? {
+        enabled: true,
+        lastUpdated: 0,
+        lastRegionCheck: 0,
+        selections: {},
+      };
+      const domainQuarantines = runtime.quarantinedIps?.[domain] ?? {};
+      const activeDomainQuarantines = Object.fromEntries(
+        Object.entries(domainQuarantines).filter(
+          ([, quarantine]) =>
+            timestamp - quarantine.lastFailureTime <
+            IP_TABLE_SNI_FAILURE_QUARANTINE_MS,
+        ),
+      );
+
+      return {
+        ...data,
+        config: data?.config ?? null,
+        currentRegion: data?.currentRegion ?? 'AUTO',
+        runtime: {
+          ...runtime,
+          quarantinedIps: {
+            ...runtime.quarantinedIps,
+            [domain]: {
+              ...activeDomainQuarantines,
+              [ip]: {
+                lastFailureTime: timestamp,
+                hostname: params?.hostname,
+                error: params?.error,
+              },
+            },
+          },
+        },
+        version: data?.version ?? 1,
+      };
+    });
+    clearSelectedIpForHostCache();
   }
 
   @backgroundMethod()
@@ -119,6 +177,7 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
         enabled,
       },
     }));
+    clearSelectedIpForHostCache();
   }
 
   @backgroundMethod()
@@ -151,5 +210,12 @@ export class SimpleDbEntityIpTable extends SimpleDbEntityBase<ISimpleDbIpTableDa
       },
       version: 1,
     });
+    clearSelectedIpForHostCache();
+  }
+
+  @backgroundMethod()
+  override async clearRawData(): Promise<void> {
+    await super.clearRawData();
+    clearSelectedIpForHostCache();
   }
 }

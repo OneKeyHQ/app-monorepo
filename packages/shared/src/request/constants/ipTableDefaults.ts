@@ -12,6 +12,21 @@ export const CDN_SIGNER_ADDRESS = '0x3eaf57d1aD767CA3aFeDbF8D82C1De610c6F6519';
  */
 export const IP_TABLE_SNI_FAILURE_THRESHOLD = 10;
 
+export const IP_TABLE_SNI_QUARANTINE_FAILURE_THRESHOLD = 2;
+
+export const IP_TABLE_SNI_FAILURE_QUARANTINE_MS = timerUtils.getTimeDurationMs({
+  minute: 30,
+});
+
+export const IP_TABLE_SNI_FAILURE_IN_MEMORY_QUARANTINE_MS =
+  timerUtils.getTimeDurationMs({
+    seconds: 10,
+  });
+
+export const IP_TABLE_SELECTED_IP_CACHE_MS = timerUtils.getTimeDurationMs({
+  seconds: 1,
+});
+
 export const IP_TABLE_SPEED_TEST_COOLDOWN_MS = timerUtils.getTimeDurationMs({
   minute: 2,
 });

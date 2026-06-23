@@ -1,13 +1,19 @@
-import axios, { AxiosHeaders } from 'axios';
+import axios, { AxiosError, AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { defaultLogger } from '../../logger/logger';
 import { memoizee } from '../../utils/cacheUtils';
+import {
+  IP_TABLE_SELECTED_IP_CACHE_MS,
+  IP_TABLE_SNI_FAILURE_IN_MEMORY_QUARANTINE_MS,
+  IP_TABLE_SNI_FAILURE_QUARANTINE_MS,
+} from '../constants/ipTableDefaults';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
 import { isSniSupported, sniRequest } from './sniRequest';
 
+import type { IIpTableRuntime } from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -44,13 +50,23 @@ interface IRequestFailureParams {
   requestType: 'ip' | 'domain';
   /** IP address for SNI request, or hostname for domain request */
   target: string;
+  /** Actual request hostname that failed */
+  hostname?: string;
   /** Error message */
   error: string;
+}
+
+interface ISelectedIpInfo {
+  ip: string;
+  lookupDomain: string;
+  rootDomain: string;
 }
 
 let reportRequestFailureCallback:
   | ((params: IRequestFailureParams) => void)
   | null = null;
+
+const inMemoryQuarantinedIps = new Map<string, Map<string, number>>();
 
 /**
  * Extract root domain from hostname
@@ -95,6 +111,36 @@ async function getMappedDomainForIpLookup(
   }
 }
 
+function isIpQuarantined(
+  runtime: IIpTableRuntime | undefined,
+  domain: string,
+  ip: string,
+): boolean {
+  const inMemoryQuarantineTime = inMemoryQuarantinedIps.get(domain)?.get(ip);
+  if (
+    inMemoryQuarantineTime &&
+    Date.now() - inMemoryQuarantineTime <
+      IP_TABLE_SNI_FAILURE_IN_MEMORY_QUARANTINE_MS
+  ) {
+    return true;
+  }
+
+  const quarantine = runtime?.quarantinedIps?.[domain]?.[ip];
+  if (!quarantine) {
+    return false;
+  }
+  return (
+    Date.now() - quarantine.lastFailureTime < IP_TABLE_SNI_FAILURE_QUARANTINE_MS
+  );
+}
+
+function markIpQuarantinedInMemory(domain: string, ip: string): void {
+  const domainQuarantines = inMemoryQuarantinedIps.get(domain) ?? new Map();
+  domainQuarantines.set(ip, Date.now());
+  inMemoryQuarantinedIps.set(domain, domainQuarantines);
+  clearSelectedIpForHostCache();
+}
+
 /**
  * Check if IP Table should be used based on environment and dev settings
  * @returns true if IP Table should be used, false otherwise
@@ -130,14 +176,14 @@ async function shouldUseIpTable(): Promise<boolean> {
  *
  * Selection priority:
  * 1. runtime.selections[domain] - User selected IP or explicit domain choice (empty string)
- * 2. Strict mode fallback - First IP from config.domains[domain].endpoints (if forceIpTableStrict enabled)
+ * 2. Strict mode fallback - First non-quarantined IP from config.domains[domain].endpoints
  * 3. null - Use original axios adapter (domain request)
  *
- * @returns IP address if found and enabled, null otherwise (empty string in selections means use domain directly)
+ * @returns IP selection info if found and enabled, null otherwise (empty string in selections means use domain directly)
  */
-async function getSelectedIpForHostInternal(
+async function getSelectedIpInfoForHostInternal(
   hostname: string,
-): Promise<string | null> {
+): Promise<ISelectedIpInfo | null> {
   try {
     // Check environment-based permission first
     const hasPermission = await shouldUseIpTable();
@@ -166,7 +212,7 @@ async function getSelectedIpForHostInternal(
       );
     }
 
-    // Check strict mode first
+    // Check strict mode before selection handling because it can override explicit domain choice.
     const devSettings = await requestHelper.getDevSettingsPersistAtom();
     const strictMode = devSettings?.settings?.forceIpTableStrict;
 
@@ -175,14 +221,24 @@ async function getSelectedIpForHostInternal(
 
     // If selectedIp exists (not undefined), use it
     if (selectedIp) {
-      debugLog(
-        `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
-      );
-      return selectedIp;
+      if (isIpQuarantined(runtime, lookupDomain, selectedIp)) {
+        debugLog(
+          `[IpTableAdapter] Selected IP is quarantined, using fallback: ${lookupDomain} -> ${selectedIp}`,
+        );
+      } else {
+        debugLog(
+          `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
+        );
+        return {
+          ip: selectedIp,
+          lookupDomain,
+          rootDomain,
+        };
+      }
     }
 
     // Empty string means explicitly use domain (not IP)
-    // In strict mode, override this and use fallback IP from config
+    // In strict mode, override this and use fallback IP from config.
     if (selectedIp === '') {
       if (!strictMode) {
         debugLog(
@@ -193,15 +249,20 @@ async function getSelectedIpForHostInternal(
       debugLog(
         `[IpTableAdapter] Strict mode: overriding domain choice for ${lookupDomain}`,
       );
-      // Fall through to strict mode fallback logic below
     }
 
-    // If no selection (or strict mode overriding domain choice), fallback to first available IP from config
+    // If no selection (or strict mode overriding domain choice), fallback to the first non-quarantined IP.
     if (strictMode && config.domains[lookupDomain]) {
       const endpoints = config.domains[lookupDomain].endpoints;
-      if (endpoints && endpoints.length > 0) {
-        const fallbackIp = endpoints[0].ip;
-        return fallbackIp;
+      const fallbackEndpoint = endpoints.find(
+        (endpoint) => !isIpQuarantined(runtime, lookupDomain, endpoint.ip),
+      );
+      if (fallbackEndpoint) {
+        return {
+          ip: fallbackEndpoint.ip,
+          lookupDomain,
+          rootDomain,
+        };
       }
     }
 
@@ -217,12 +278,26 @@ async function getSelectedIpForHostInternal(
   }
 }
 
-const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
+const getSelectedIpInfoForHost = memoizee(getSelectedIpInfoForHostInternal, {
   promise: true,
-  maxAge: 5000, // 5 seconds cache
+  maxAge: IP_TABLE_SELECTED_IP_CACHE_MS,
   max: 100, // Max 100 hostname cached
   primitive: true, // hostname is a string primitive, use simple equality check
 });
+
+export function clearSelectedIpForHostCache(): void {
+  getSelectedIpInfoForHost.clear();
+}
+
+export function clearInMemoryQuarantinedIps(): void {
+  inMemoryQuarantinedIps.clear();
+  clearSelectedIpForHostCache();
+}
+
+async function getSelectedIpForHost(hostname: string): Promise<string | null> {
+  const selectedIpInfo = await getSelectedIpInfoForHost(hostname);
+  return selectedIpInfo?.ip ?? null;
+}
 
 /**
  * Convert AxiosHeaders to plain object
@@ -267,6 +342,28 @@ function axiosHeadersToPlainObject(
   }
 
   return {};
+}
+
+function settleAxiosResponse(response: AxiosResponse): AxiosResponse {
+  const validateStatus = response.config.validateStatus;
+  if (!response.status || !validateStatus || validateStatus(response.status)) {
+    return response;
+  }
+
+  let errorCode: string | undefined;
+  if (response.status >= 500) {
+    errorCode = AxiosError.ERR_BAD_RESPONSE;
+  } else if (response.status >= 400) {
+    errorCode = AxiosError.ERR_BAD_REQUEST;
+  }
+
+  throw new AxiosError(
+    `Request failed with status code ${response.status}`,
+    errorCode,
+    response.config,
+    response.request,
+    response,
+  );
 }
 
 /**
@@ -446,7 +543,8 @@ export function createIpTableAdapter(
     const rootDomain = extractRootDomain(hostname);
 
     // Get selected IP for this hostname (async call)
-    const selectedIp = await getSelectedIpForHost(hostname);
+    const selectedIpInfo = await getSelectedIpInfoForHost(hostname);
+    const selectedIp = selectedIpInfo?.ip;
 
     // If no IP mapping found, use original adapter (direct domain request, not fallback)
     if (!selectedIp) {
@@ -543,107 +641,125 @@ export function createIpTableAdapter(
       requestBody ? requestBody.substring(0, 200) : 'null',
     );
 
-    try {
-      const sniResponse = await sniRequest({
-        ip: selectedIp,
-        hostname,
-        path: fullPath,
-        headers: requestHeaders,
-        method: (config.method || 'GET').toUpperCase(),
-        body: requestBody,
-        timeout: config.timeout || 60_000,
-        port: 443, // HTTPS port
-      });
-
-      // If SNI request fails, use original adapter
-      if (!sniResponse) {
-        debugLog('[IpTableAdapter] SNI request returned null, using fallback');
-        // Report IP failure
+    const sniResponse = await (async () => {
+      try {
+        return await sniRequest({
+          ip: selectedIp,
+          hostname,
+          path: fullPath,
+          headers: requestHeaders,
+          method: (config.method || 'GET').toUpperCase(),
+          body: requestBody,
+          timeout: config.timeout || 60_000,
+          port: 443, // HTTPS port
+        });
+      } catch (error) {
+        // Report IP failure if callback is registered
+        if (selectedIpInfo) {
+          markIpQuarantinedInMemory(selectedIpInfo.lookupDomain, selectedIp);
+        } else {
+          clearSelectedIpForHostCache();
+        }
         if (reportRequestFailureCallback) {
           reportRequestFailureCallback({
-            domain: rootDomain,
+            domain: selectedIpInfo?.lookupDomain ?? rootDomain,
             requestType: 'ip',
             target: selectedIp,
-            error: 'SNI response null',
+            hostname,
+            error: error instanceof Error ? error.message : String(error),
           });
         }
+
+        // If SNI request throws error, use original adapter
+        debugWarn(
+          '[IpTableAdapter] SNI request failed, falling back to original adapter:',
+          error,
+        );
+        defaultLogger.ipTable.request.error({
+          info: `[IpTableAdapter] SNI request failed for ${hostname} (${selectedIp}), falling back: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        });
         // Fallback to domain (isFallback = true, so domain failure won't be counted)
-        return await callOriginalAdapter({
+        return callOriginalAdapter({
           config,
           isFallback: true,
           hostname,
           rootDomain,
         });
       }
+    })();
 
-      // Convert SNI response to Axios response format
-      debugLog(
-        `[IpTableAdapter] SNI request successful: ${sniResponse.statusCode}`,
-      );
-
-      // Parse response body
-      let responseData: any = null;
-      if (sniResponse.body) {
-        try {
-          // Check if body is already an object or a string
-          if (typeof sniResponse.body === 'string') {
-            responseData = JSON.parse(sniResponse.body);
-          } else {
-            responseData = sniResponse.body;
-          }
-        } catch (parseError) {
-          debugWarn(
-            '[IpTableAdapter] Failed to parse response body:',
-            parseError,
-          );
-          defaultLogger.ipTable.request.warn({
-            info: `[IpTableAdapter] Failed to parse response body: ${
-              parseError instanceof Error ? parseError.message : 'Unknown error'
-            }`,
-          });
-          responseData = sniResponse.body;
-        }
+    // If SNI request fails, use original adapter
+    if (!sniResponse) {
+      debugLog('[IpTableAdapter] SNI request returned null, using fallback');
+      if (selectedIpInfo) {
+        markIpQuarantinedInMemory(selectedIpInfo.lookupDomain, selectedIp);
+      } else {
+        clearSelectedIpForHostCache();
       }
-
-      debugLog('[IpTableAdapter] Response data:', responseData);
-
-      return {
-        data: responseData,
-        status: sniResponse.statusCode,
-        statusText: '', // SNI response doesn't provide statusText
-        headers: sniResponse.headers,
-        config,
-        request: {},
-      };
-    } catch (error) {
-      // Report IP failure if callback is registered
+      // Report IP failure
       if (reportRequestFailureCallback) {
         reportRequestFailureCallback({
-          domain: rootDomain,
+          domain: selectedIpInfo?.lookupDomain ?? rootDomain,
           requestType: 'ip',
           target: selectedIp,
-          error: error instanceof Error ? error.message : String(error),
+          hostname,
+          error: 'SNI response null',
         });
       }
-
-      // If SNI request throws error, use original adapter
-      debugWarn(
-        '[IpTableAdapter] SNI request failed, falling back to original adapter:',
-        error,
-      );
-      defaultLogger.ipTable.request.error({
-        info: `[IpTableAdapter] SNI request failed for ${hostname} (${selectedIp}), falling back: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`,
-      });
       // Fallback to domain (isFallback = true, so domain failure won't be counted)
-      return callOriginalAdapter({
+      return await callOriginalAdapter({
         config,
         isFallback: true,
         hostname,
         rootDomain,
       });
     }
+
+    if ('status' in sniResponse && 'config' in sniResponse) {
+      return sniResponse;
+    }
+
+    // Convert SNI response to Axios response format
+    debugLog(
+      `[IpTableAdapter] SNI request successful: ${sniResponse.statusCode}`,
+    );
+
+    // Parse response body
+    let responseData: any = null;
+    if (sniResponse.body) {
+      try {
+        // Check if body is already an object or a string
+        if (typeof sniResponse.body === 'string') {
+          responseData = JSON.parse(sniResponse.body);
+        } else {
+          responseData = sniResponse.body;
+        }
+      } catch (parseError) {
+        debugWarn(
+          '[IpTableAdapter] Failed to parse response body:',
+          parseError,
+        );
+        defaultLogger.ipTable.request.warn({
+          info: `[IpTableAdapter] Failed to parse response body: ${
+            parseError instanceof Error ? parseError.message : 'Unknown error'
+          }`,
+        });
+        responseData = sniResponse.body;
+      }
+    }
+
+    debugLog('[IpTableAdapter] Response data:', responseData);
+
+    return settleAxiosResponse({
+      data: responseData,
+      status: sniResponse.statusCode,
+      statusText: '', // SNI response doesn't provide statusText
+      headers: sniResponse.headers,
+      config,
+      request: {},
+    });
   };
 }
 
@@ -661,11 +777,8 @@ export function createAxiosWithIpTable(axiosConfig: AxiosRequestConfig = {}) {
 
 // ========== Speed Test Utilities ==========
 
-/**
- * Test endpoint speed using domain directly (no IP Table)
- */
-export async function testDomainSpeed(
-  domain: string,
+export async function testHostSpeed(
+  hostname: string,
   path: string,
   timeout = 3000,
 ): Promise<number> {
@@ -677,8 +790,7 @@ export async function testDomainSpeed(
 
     const headers = await getRequestHeaders();
 
-    // Build full URL: https://wallet.{domain}/wallet/v1/health
-    const fullUrl = `https://wallet.${domain}${path}`;
+    const fullUrl = `https://${hostname}${path}`;
 
     await plainAxios.get(fullUrl, {
       timeout,
@@ -692,9 +804,9 @@ export async function testDomainSpeed(
     });
     return latency;
   } catch (error) {
-    debugWarn(`[IpTableAdapter] Domain test failed for ${domain}:`, error);
+    debugWarn(`[IpTableAdapter] Domain test failed for ${hostname}:`, error);
     defaultLogger.ipTable.request.warn({
-      info: `[IpTable] Domain speed test failed for ${domain}: ${
+      info: `[IpTable] Domain speed test failed for ${hostname}: ${
         error instanceof Error ? error.message : 'Unknown error'
       }`,
     });
@@ -703,11 +815,19 @@ export async function testDomainSpeed(
 }
 
 /**
- * Test endpoint speed using IP with SNI
+ * Test endpoint speed using domain directly (no IP Table)
  */
-export async function testIpSpeed(
-  ip: string,
+export async function testDomainSpeed(
   domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  return testHostSpeed(`wallet.${domain}`, path, timeout);
+}
+
+export async function testIpHostSpeed(
+  ip: string,
+  hostname: string,
   path: string,
   timeout = 3000,
 ): Promise<number> {
@@ -723,12 +843,9 @@ export async function testIpSpeed(
     // Get OneKey request headers
     const headers = await getRequestHeaders();
 
-    // SNI hostname should be: wallet.{domain}
-    const sniHostname = `wallet.${domain}`;
-
     const response = await sniRequest({
       ip,
-      hostname: sniHostname,
+      hostname,
       path,
       method: 'GET',
       timeout,
@@ -745,12 +862,22 @@ export async function testIpSpeed(
       return Infinity;
     }
 
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      debugWarn(
+        `[IpTableAdapter] IP test returned HTTP ${response.statusCode} for ${ip}`,
+      );
+      defaultLogger.ipTable.request.warn({
+        info: `[IpTable] IP speed test failed for ${ip}: HTTP ${response.statusCode}`,
+      });
+      return Infinity;
+    }
+
     const latency = Date.now() - startTime;
     debugLog(
-      `[IpTableAdapter] IP test: ${ip} -> ${sniHostname}${path} -> ${latency}ms`,
+      `[IpTableAdapter] IP test: ${ip} -> ${hostname}${path} -> ${latency}ms`,
     );
     defaultLogger.ipTable.request.info({
-      info: `[IpTable] IP speed test successful: ${ip} -> ${sniHostname}${path} : ${latency} ms`,
+      info: `[IpTable] IP speed test successful: ${ip} -> ${hostname}${path} : ${latency} ms`,
     });
     return latency;
   } catch (error) {
@@ -762,6 +889,18 @@ export async function testIpSpeed(
     });
     return Infinity;
   }
+}
+
+/**
+ * Test endpoint speed using IP with SNI
+ */
+export async function testIpSpeed(
+  ip: string,
+  domain: string,
+  path: string,
+  timeout = 3000,
+): Promise<number> {
+  return testIpHostSpeed(ip, `wallet.${domain}`, path, timeout);
 }
 
 // ========== Request Failure Reporting ==========
