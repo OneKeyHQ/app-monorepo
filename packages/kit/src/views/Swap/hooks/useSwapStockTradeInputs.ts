@@ -519,6 +519,22 @@ export function useSwapStockAmountInputState({
     },
     [displayBalance, setInputAmount],
   );
+  const hasBalanceError = useMemo(() => {
+    if (!isBuySide || !inputToken) {
+      return false;
+    }
+    const balanceBN = new BigNumber(displayBalance ?? '0');
+    const amountBN = new BigNumber(fromTokenAmount.value ?? '0');
+    if (
+      balanceBN.isNaN() ||
+      amountBN.isNaN() ||
+      !balanceBN.isFinite() ||
+      !amountBN.isFinite()
+    ) {
+      return false;
+    }
+    return amountBN.gt(balanceBN);
+  }, [displayBalance, fromTokenAmount.value, inputToken, isBuySide]);
 
   useEffect(() => {
     if (!inputTokenReady || stockInputTokenBalance.loading) {
@@ -543,6 +559,7 @@ export function useSwapStockAmountInputState({
     currencySymbol,
     disableNativePayToken,
     displayBalance,
+    hasBalanceError,
     inputToken,
     inputTokenNetworkLogoURI,
     inputValue: fromTokenAmount.value,

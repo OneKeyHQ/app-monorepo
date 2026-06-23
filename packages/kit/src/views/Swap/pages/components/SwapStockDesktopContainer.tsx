@@ -31,6 +31,7 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { LightweightChart } from '@onekeyhq/kit/src/components/LightweightChart';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -90,6 +91,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
   ESwapStockChannelStage,
@@ -109,6 +111,7 @@ import {
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
+import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
@@ -838,6 +841,7 @@ function StockAmountInput({
     currencySymbol,
     disableNativePayToken,
     displayBalance,
+    hasBalanceError,
     inputToken,
     inputTokenNetworkLogoURI,
     inputValue,
@@ -859,7 +863,11 @@ function StockAmountInput({
     defaultNetworkId: inputToken?.networkId,
     storeName,
   });
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const [percentageInputStageShow, setPercentageInputStageShow] =
+    useState(false);
   const handleAmountInputFocus = useCallback(() => {
+    setPercentageInputStageShow(true);
     setInAppNotification((value) => ({
       ...value,
       swapPercentageInputStageShowForNative: true,
@@ -870,7 +878,32 @@ function StockAmountInput({
       ...value,
       swapPercentageInputStageShowForNative: false,
     }));
+    setTimeout(() => {
+      setPercentageInputStageShow(false);
+    }, 200);
   }, [setInAppNotification]);
+  const showPercentageInput = useMemo(
+    () => Boolean(inputToken && (percentageInputStageShow || inputValue)),
+    [inputToken, inputValue, percentageInputStageShow],
+  );
+  const showPercentageInputDebounce = useDebounce(showPercentageInput, 100, {
+    leading: true,
+  });
+  const showActionBuy = useMemo(
+    () =>
+      isBuySide &&
+      Boolean(
+        swapFromAddressInfo.accountInfo?.account?.id &&
+        inputToken &&
+        hasBalanceError,
+      ),
+    [
+      hasBalanceError,
+      inputToken,
+      isBuySide,
+      swapFromAddressInfo.accountInfo?.account?.id,
+    ],
+  );
 
   if (shouldRenderSkeleton) {
     return <StockAmountInputSkeleton isBuySide={isBuySide} />;
@@ -878,11 +911,27 @@ function StockAmountInput({
 
   return (
     <YStack h={124} bg="$bgSubdued" borderRadius="$4" overflow="hidden">
-      <SizableText pt="$3.5" px="$3.5" size="$bodyMd" color="$textSubdued">
-        {intl.formatMessage({
-          id: isBuySide ? ETranslations.global_pay : ETranslations.global_sell,
-        })}
-      </SizableText>
+      <XStack
+        pt="$3.5"
+        px="$3.5"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage({
+            id: isBuySide
+              ? ETranslations.global_pay
+              : ETranslations.global_sell,
+          })}
+        </SizableText>
+        <SwapInputActions
+          fromToken={inputToken}
+          accountInfo={swapFromAddressInfo.accountInfo}
+          showPercentageInput={showPercentageInputDebounce}
+          showActionBuy={showActionBuy}
+          onSelectStage={onSelectPercentageStage}
+        />
+      </XStack>
       <AmountInput
         value={inputValue}
         onChange={onAmountChange}
