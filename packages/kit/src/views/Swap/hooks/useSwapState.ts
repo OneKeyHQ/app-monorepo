@@ -12,8 +12,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  ESwapProviderSort,
   swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -43,9 +45,11 @@ import {
   useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventCompletedAtom,
+  useSwapQuoteEventErrorAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteIntervalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -62,6 +66,7 @@ import {
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
   isSwapZeroProviderQuoteCompleted,
+  selectSwapPreviousActionableQuote,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
 import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
@@ -171,6 +176,90 @@ export function useSwapQuoteProgressState() {
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteList] = useSwapQuoteListAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+
+  const scopedPreviousQuoteList = useMemo(() => {
+    const list = quoteList.filter((quote) => {
+      if (!fromToken || !toToken) {
+        return false;
+      }
+      if (
+        !equalTokenNoCaseSensitive({
+          token1: quote.fromTokenInfo,
+          token2: fromToken,
+        }) ||
+        !equalTokenNoCaseSensitive({
+          token1: quote.toTokenInfo,
+          token2: toToken,
+        })
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+        quote.protocol !== EProtocolOfExchange.STOCK
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+        quote.protocol !== EProtocolOfExchange.LIMIT
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK &&
+        swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        (quote.protocol === EProtocolOfExchange.STOCK ||
+          quote.protocol === EProtocolOfExchange.LIMIT)
+      ) {
+        return false;
+      }
+      if (quote.kind === ESwapQuoteKind.BUY) {
+        return Boolean(
+          toTokenAmount.value && quote.toAmount === toTokenAmount.value,
+        );
+      }
+      return Boolean(
+        fromTokenAmount.value && quote.fromAmount === fromTokenAmount.value,
+      );
+    });
+    return sortSwapQuotes(list, {
+      sort: ESwapProviderSort.RECOMMENDED,
+      fromTokenAmount: fromTokenAmount.value,
+    });
+  }, [
+    fromToken,
+    fromTokenAmount.value,
+    quoteList,
+    swapTypeSwitch,
+    toToken,
+    toTokenAmount.value,
+  ]);
+
+  const previousQuote = useMemo(
+    () =>
+      selectSwapPreviousActionableQuote({
+        quotes: scopedPreviousQuoteList,
+        quoteEventTotalCount,
+        quoteLoading,
+        quoteEventFetching,
+      }),
+    [
+      quoteEventFetching,
+      quoteEventTotalCount,
+      quoteLoading,
+      scopedPreviousQuoteList,
+    ],
+  );
 
   return useMemo(
     () =>
@@ -178,8 +267,20 @@ export function useSwapQuoteProgressState() {
         quoteLoading,
         quoteEventFetching,
         quoteCurrentSelect,
+        previousQuote,
+        quoteEventTotalCount,
+        quoteEventCompleted,
+        quoteEventError,
       }),
-    [quoteCurrentSelect, quoteEventFetching, quoteLoading],
+    [
+      quoteCurrentSelect,
+      quoteEventCompleted,
+      quoteEventError,
+      quoteEventFetching,
+      quoteEventTotalCount,
+      quoteLoading,
+      previousQuote,
+    ],
   );
 }
 

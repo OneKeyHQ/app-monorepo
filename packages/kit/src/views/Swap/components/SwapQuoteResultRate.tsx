@@ -37,6 +37,7 @@ interface ISwapQuoteResultRateProps {
   providerName?: string;
   quoting?: boolean;
   isLoading?: boolean;
+  showNoProvider?: boolean;
   onOpenResult?: () => void;
   refreshAction: (manual?: boolean) => void;
   openResult?: boolean;
@@ -53,6 +54,7 @@ const SwapQuoteResultRate = ({
   toToken,
   providerIcon,
   isLoading,
+  showNoProvider,
   onOpenResult,
   openResult,
   refreshAction,
@@ -65,7 +67,7 @@ const SwapQuoteResultRate = ({
     return !rateBN.isZero();
   }, [rate]);
   const rateContent = useMemo(() => {
-    if (!onOpenResult || !fromToken || !toToken) {
+    if (showNoProvider || !fromToken || !toToken) {
       return (
         <SizableText size="$bodyMdMedium" flexShrink={1} minWidth={0}>
           {intl.formatMessage({
@@ -132,9 +134,9 @@ const SwapQuoteResultRate = ({
     fromToken,
     intl,
     isReverse,
-    onOpenResult,
     rate,
     rateIsExit,
+    showNoProvider,
     toToken,
     shouldUseInlineSlippageLayout,
   ]);
