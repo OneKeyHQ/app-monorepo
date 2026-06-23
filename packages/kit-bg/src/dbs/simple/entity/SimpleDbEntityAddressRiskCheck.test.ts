@@ -33,19 +33,31 @@ function recentItem(overrides: {
 }
 
 describe('SimpleDbEntityAddressRiskCheck.getRecentChecks', () => {
-  test('orders by local query time (updatedAt) desc and honors the limit', async () => {
+  test('orders by server check time (checkedAt) desc and honors the limit', async () => {
     const { entity } = setupEntity({
       recentChecks: {
         a: {
-          ...recentItem({ networkId: 'evm--1', address: '0xa' }),
+          ...recentItem({
+            networkId: 'evm--1',
+            address: '0xa',
+            checkedAt: 100,
+          }),
           updatedAt: 100,
         },
         b: {
-          ...recentItem({ networkId: 'evm--1', address: '0xb' }),
-          updatedAt: 300,
+          ...recentItem({
+            networkId: 'evm--1',
+            address: '0xb',
+            checkedAt: 300,
+          }),
+          updatedAt: 100,
         },
         c: {
-          ...recentItem({ networkId: 'evm--1', address: '0xc' }),
+          ...recentItem({
+            networkId: 'evm--1',
+            address: '0xc',
+            checkedAt: 200,
+          }),
           updatedAt: 200,
         },
       },
@@ -64,24 +76,36 @@ describe('SimpleDbEntityAddressRiskCheck.addCheck', () => {
     jest.restoreAllMocks();
   });
 
-  test('stamps updatedAt and bumps a re-checked address back to the top', async () => {
+  test('stamps updatedAt without bumping a cached older check above newer checks', async () => {
     const { entity, getStore } = setupEntity({
       recentChecks: {
         'evm--1_0xold': {
-          ...recentItem({ networkId: 'evm--1', address: '0xold' }),
+          ...recentItem({
+            networkId: 'evm--1',
+            address: '0xold',
+            checkedAt: 100,
+          }),
           updatedAt: 1,
+        },
+        'evm--1_0xnewer': {
+          ...recentItem({
+            networkId: 'evm--1',
+            address: '0xnewer',
+            checkedAt: 300,
+          }),
+          updatedAt: 2,
         },
       },
     });
 
     jest.spyOn(Date, 'now').mockReturnValue(5000);
     await entity.addCheck(
-      recentItem({ networkId: 'evm--1', address: '0xnew' }),
+      recentItem({ networkId: 'evm--1', address: '0xold', checkedAt: 100 }),
     );
 
     const items = await entity.getRecentChecks();
-    expect(items[0].address).toBe('0xnew');
-    expect(items[0].updatedAt).toBe(5000);
+    expect(items.map((i) => i.address)).toEqual(['0xnewer', '0xold']);
+    expect(items[1].updatedAt).toBe(5000);
     expect(Object.keys(getStore().recentChecks)).toHaveLength(2);
   });
 
@@ -115,14 +139,18 @@ describe('SimpleDbEntityAddressRiskCheck.addCheck', () => {
     expect(Object.keys(getStore().recentChecks)).toHaveLength(2);
   });
 
-  test('trims to the 50 most recent records by local query time', async () => {
+  test('trims to the 50 most recent records by server check time', async () => {
     const { entity, getStore } = setupEntity();
 
     for (let i = 0; i < 60; i += 1) {
       jest.spyOn(Date, 'now').mockReturnValue(i + 1);
       // eslint-disable-next-line no-await-in-loop
       await entity.addCheck(
-        recentItem({ networkId: 'evm--1', address: `0x${i}` }),
+        recentItem({
+          networkId: 'evm--1',
+          address: `0x${i}`,
+          checkedAt: i + 1,
+        }),
       );
     }
 

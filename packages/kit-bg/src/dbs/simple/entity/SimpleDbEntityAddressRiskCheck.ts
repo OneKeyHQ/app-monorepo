@@ -11,6 +11,17 @@ export interface IAddressRiskCheckDBStruct {
   recentChecks: Record<string, IAddressRiskCheckRecentItem>;
 }
 
+function compareByCheckedAtDesc(
+  a: IAddressRiskCheckRecentItem,
+  b: IAddressRiskCheckRecentItem,
+) {
+  const checkedAtDiff = b.checkedAt - a.checkedAt;
+  if (checkedAtDiff !== 0) {
+    return checkedAtDiff;
+  }
+  return b.updatedAt - a.updatedAt;
+}
+
 function buildKey({
   networkId,
   address,
@@ -39,14 +50,14 @@ export class SimpleDbEntityAddressRiskCheck extends SimpleDbEntityBase<IAddressR
     const rawData = await this.getRawData();
     const recentChecks = rawData?.recentChecks ?? {};
     return Object.values(recentChecks)
-      .toSorted((a, b) => b.updatedAt - a.updatedAt)
+      .toSorted(compareByCheckedAtDesc)
       .slice(0, limit);
   }
 
   @backgroundMethod()
   async addCheck(item: Omit<IAddressRiskCheckRecentItem, 'updatedAt'>) {
-    // Stamp the local query time so re-checking an existing address bumps it
-    // back to the top of the list, independent of the server's checkedAt.
+    // Stamp the local write time for deterministic tie-breaking and migration
+    // compatibility. The list is primarily ordered by the server check time.
     const record: IAddressRiskCheckRecentItem = {
       ...item,
       updatedAt: Date.now(),
@@ -54,9 +65,9 @@ export class SimpleDbEntityAddressRiskCheck extends SimpleDbEntityBase<IAddressR
     await this.setRawData((rawData) => {
       const recentChecks = rawData?.recentChecks ?? {};
       recentChecks[buildKey(record)] = record;
-      // Trim to the most recent N records by local query time.
+      // Trim to the most recent N records by the displayed server check time.
       const trimmed = Object.entries(recentChecks)
-        .toSorted(([, a], [, b]) => b.updatedAt - a.updatedAt)
+        .toSorted(([, a], [, b]) => compareByCheckedAtDesc(a, b))
         .slice(0, RECENT_CHECKS_CAP);
       return { recentChecks: Object.fromEntries(trimmed) };
     });
