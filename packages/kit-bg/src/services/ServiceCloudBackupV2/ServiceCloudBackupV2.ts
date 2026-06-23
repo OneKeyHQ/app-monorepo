@@ -10,7 +10,6 @@ import type {
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
   IBackupProviderInfo,
-  ICloudBackupKeylessWalletPayload,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -318,40 +317,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
       },
     );
     return result;
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async downloadKeylessWallet(params: { recordID: string }): Promise<{
-    payload: ICloudBackupKeylessWalletPayload;
-    content: string;
-  } | null> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    const result = await provider.downloadKeylessWalletData(params);
-    return result;
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async getKeylessWalletBackupRecordID(params: { packSetId: string }): Promise<{
-    recordID: string;
-    packSetId: string;
-  } | null> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    const result = await provider.getKeylessWalletBackupRecordID(params);
-    return result;
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async backupKeylessWalletData(
-    payload: ICloudBackupKeylessWalletPayload,
-  ): Promise<{ recordID: string; content: string; meta: string }> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    return provider.backupKeylessWalletData(payload);
   }
 
   @backgroundMethod()

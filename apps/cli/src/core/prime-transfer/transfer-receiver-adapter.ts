@@ -459,7 +459,7 @@ export class TransferReceiverAdapter {
     {
       endpointEnv = 'test',
       timeoutMs = DEFAULT_TRANSFER_PAIRING_TIMEOUT_MS,
-      transferType = EPrimeTransferDataType.keylessWallet,
+      transferType = EPrimeTransferDataType.allWallet,
       serverType = EPrimeTransferServerType.OFFICIAL,
       customServerUrl,
     }: ICreateTransferPairingSessionParams = {},

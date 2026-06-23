@@ -20,8 +20,6 @@ import ICloudBackupDetails from '../pages/ICloudBackupDetails';
 import { ImportKeyTag } from '../pages/ImportKeyTag';
 import ImportPhraseOrPrivateKey from '../pages/ImportPhraseOrPrivateKey';
 import ImportWatchedAccount from '../pages/ImportWatchedAccountV2';
-import KeylessWalletCreation from '../pages/KeylessWalletCreation';
-import KeylessWalletRecovery from '../pages/KeylessWalletRecovery';
 import NewPinCreated from '../pages/NewPinCreatedPage';
 import OneKeyIDLogin from '../pages/OneKeyIDLoginPage';
 import PickYourDevice from '../pages/PickYourDevice';
@@ -146,16 +144,6 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportKeyTag,
     component: ImportKeyTag,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.KeylessWalletRecovery,
-    component: KeylessWalletRecovery,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.KeylessWalletCreation,
-    component: KeylessWalletCreation,
     options: hiddenHeaderOptions,
   },
   {
