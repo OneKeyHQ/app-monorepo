@@ -206,6 +206,7 @@ buf
 Buf
 bufs
 bundler
+bypassable
 bytesize
 bytify
 cacheable

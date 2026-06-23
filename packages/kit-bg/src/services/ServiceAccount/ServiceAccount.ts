@@ -75,6 +75,7 @@ import {
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   InvalidMnemonic,
+  LocalSecretEnvelopeUnavailable,
   OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
@@ -152,6 +153,10 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
+import {
+  normalizePortableCredential,
+  shouldUnwrapCredentialForPortableExport,
+} from '../../dbs/local/localSecretEnvelope';
 import {
   EIndexedDBBucketNames,
   type IDBAccount,
@@ -894,13 +899,60 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async dumpCredentials() {
+  async dumpCredentials(): Promise<{
+    credentials: Record<string, string>;
+    // Credential ids skipped because the local secret envelope layer was
+    // transiently unavailable while unwrapping them (see caller handling).
+    unavailableCredentialIds: string[];
+  }> {
     const { credentials } = await this.getAllCredentials();
-    return credentials.reduce(
-      (mapping, { id, credential }) =>
-        Object.assign(mapping, { [id]: credential }),
-      {},
+    const unavailableCredentialIds: string[] = [];
+    const entries = await Promise.all(
+      credentials.map(async ({ credential: rawCredential, id }) => {
+        const rawPortableCredential = normalizePortableCredential({
+          credential: rawCredential,
+        });
+        if (rawPortableCredential) {
+          return [id, rawPortableCredential] as const;
+        }
+
+        if (!shouldUnwrapCredentialForPortableExport(rawCredential)) {
+          return undefined;
+        }
+
+        try {
+          const credential = await localDb.getCredentialInner({
+            credentialId: id,
+          });
+          const portableCredential = normalizePortableCredential({
+            credential: credential.credential,
+          });
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [id, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable (keychain busy / pre-first-unlock on native; IndexedDB
+          // CryptoKey missing or unreadable on web-ext) instead of aborting the
+          // entire export via Promise.all. Genuine ciphertext corruption and any
+          // other error still propagate so they are not silently dropped.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(id);
+            return undefined;
+          }
+          throw error;
+        }
+      }),
     );
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
+      ),
+      unavailableCredentialIds,
+    };
   }
 
   @backgroundMethod()
@@ -929,7 +981,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const dbCredential = await localDb.getCredential(credentialId);
+    const dbCredential = await localDb.getCredentialInner({ credentialId });
     const { mnemonic, rs } = await this.getCredentialDecryptFromCredential({
       password,
       credential: dbCredential.credential,
@@ -4493,7 +4545,9 @@ class ServiceAccount extends ServiceBase {
       xfp: string;
     };
   }> {
-    const parentCredential = await localDb.getCredential(parentKeylessWalletId);
+    const parentCredential = await localDb.getCredentialInner({
+      credentialId: parentKeylessWalletId,
+    });
     let parentMnemonic: string | undefined;
     let realMnemonic: string | undefined;
 
@@ -5233,7 +5287,9 @@ class ServiceAccount extends ServiceBase {
         reason,
         hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
       });
-    const credential = await localDb.getCredential(walletId);
+    const credential = await localDb.getCredentialInner({
+      credentialId: walletId,
+    });
     const mnemonicRaw = await mnemonicFromEntropy(
       credential.credential,
       password,
@@ -5257,11 +5313,11 @@ class ServiceAccount extends ServiceBase {
         accountId,
         reason: EReasonForNeedPassword.Security,
       });
-    const credential = await localDb.getCredential(
-      accountUtils.buildTonMnemonicCredentialId({
+    const credential = await localDb.getCredentialInner({
+      credentialId: accountUtils.buildTonMnemonicCredentialId({
         accountId,
       }),
-    );
+    });
     const mnemonicRaw = await tonMnemonicFromEntropy(
       credential.credential,
       password,
@@ -5276,7 +5332,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async hasTonImportedAccountMnemonic({ accountId }: { accountId: string }) {
     try {
-      const credential = await localDb.getCredential(
+      const credential = await localDb.getCredentialRaw(
         accountUtils.buildTonMnemonicCredentialId({
           accountId,
         }),
@@ -6184,7 +6240,9 @@ class ServiceAccount extends ServiceBase {
             // eslint-disable-next-line no-continue
             continue;
           }
-          const credentialInfo = await localDb.getCredential(wallet.id);
+          const credentialInfo = await localDb.getCredentialInner({
+            credentialId: wallet.id,
+          });
           if (!credentialInfo) {
             // eslint-disable-next-line no-continue
             continue;

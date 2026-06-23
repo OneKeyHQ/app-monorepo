@@ -16,6 +16,7 @@ const mainPath = path.join(desktopDir, 'app', 'dist', 'app.js');
 const artifactDir =
   process.env.DESKTOP_E2E_ARTIFACT_DIR ||
   path.join(repoRoot, '.tmp', 'desktop-e2e');
+const desktopE2EFlow = process.env.DESKTOP_E2E_FLOW || 'browser-open-url';
 const targetInput = process.env.DESKTOP_E2E_OPEN_URL || 'apple.com';
 const targetUrl = toUrl(targetInput);
 const expectedHost = stripWww(new URL(targetUrl).hostname);
@@ -36,6 +37,7 @@ const DESKTOP_SHORTCUT_IPC_CHANNEL = 'app/shortcut';
 const DESKTOP_BROWSER_SHORTCUT_EVENT = 'TabBrowser';
 const desktopE2EEnv = {
   DESKTOP_E2E_MODE: 'true',
+  E2E_MODE: 'true',
 };
 
 function log(message) {
@@ -87,6 +89,24 @@ function toUrl(input) {
 
 function stripWww(hostname) {
   return hostname.replace(/^www\./i, '').toLowerCase();
+}
+
+function getDevOnlyPassword() {
+  const now = new Date();
+  const year = String(now.getFullYear());
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}${month}${day}-onekey-debug`;
+}
+
+function assertIncludesAll(actual, expected, label) {
+  const actualSet = new Set(actual);
+  for (const value of expected) {
+    assert(
+      actualSet.has(value),
+      `${label} should include ${value}, got ${JSON.stringify(actual)}`,
+    );
+  }
 }
 
 function appendOutput(buffer, chunk) {
@@ -465,6 +485,122 @@ async function runBrowserOpenUrlFlow(app, page) {
   );
 }
 
+async function runLocalSecretEnvelopeFlow(page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: APP_TIMEOUT_MS });
+  await waitForLocator(
+    page,
+    ['[data-testid="Desktop-AppSideBar-Container"]'],
+    APP_TIMEOUT_MS,
+    'Desktop app sidebar',
+  );
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
+          ?.runLocalSecretEnvelopeSelfTest &&
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E
+          ?.runLocalSecretEnvelopeRestoreSelfTest,
+      ),
+    undefined,
+    { timeout: APP_TIMEOUT_MS },
+  );
+
+  const result = await page.evaluate(
+    async ({ devOnlyPassword }) => {
+      const serviceE2E =
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
+      if (!serviceE2E?.runLocalSecretEnvelopeSelfTest) {
+        throw new Error(
+          'serviceE2E.runLocalSecretEnvelopeSelfTest unavailable',
+        );
+      }
+      if (!serviceE2E.runLocalSecretEnvelopeRestoreSelfTest) {
+        throw new Error(
+          'serviceE2E.runLocalSecretEnvelopeRestoreSelfTest unavailable',
+        );
+      }
+      return serviceE2E.runLocalSecretEnvelopeSelfTest(
+        {
+          $$devOnlyPassword: devOnlyPassword,
+        },
+        {
+          expectedCredentialLayerKinds: [
+            'indexeddb-cryptokey',
+            'secure-storage',
+          ],
+          expectedRuntimePlatform: 'desktop',
+          expectedStrength: 'secure-storage-bound',
+        },
+      );
+    },
+    {
+      devOnlyPassword: getDevOnlyPassword(),
+    },
+  );
+
+  assert.equal(result.runtimePlatform, 'desktop');
+  assert.equal(result.verifyStringIsLse, true);
+  assert.equal(result.credentialStrength, 'secure-storage-bound');
+  assert.equal(result.verifyStringStrength, 'secure-storage-bound');
+  assert.equal(result.cryptoKeyDeletionBlocksUnwrap, true);
+  assert.equal(result.secureStorageDeletionBlocksUnwrap, true);
+  assertIncludesAll(
+    result.credentialLayerKinds,
+    ['indexeddb-cryptokey', 'secure-storage'],
+    'credential layers',
+  );
+  assertIncludesAll(
+    result.verifyStringLayerKinds,
+    ['indexeddb-cryptokey', 'secure-storage'],
+    'verifyString layers',
+  );
+
+  const restoreResult = await page.evaluate(
+    async ({ devOnlyPassword }) => {
+      const serviceE2E =
+        globalThis.$$appGlobals?.$backgroundApiProxy?.serviceE2E;
+      return serviceE2E.runLocalSecretEnvelopeRestoreSelfTest(
+        {
+          $$devOnlyPassword: devOnlyPassword,
+        },
+        {
+          expectedCredentialLayerKinds: [
+            'indexeddb-cryptokey',
+            'secure-storage',
+          ],
+          expectedRuntimePlatform: 'desktop',
+          expectedStrength: 'secure-storage-bound',
+        },
+      );
+    },
+    {
+      devOnlyPassword: getDevOnlyPassword(),
+    },
+  );
+
+  assert.equal(restoreResult.passed, true);
+  assert.equal(restoreResult.runtimePlatform, 'desktop');
+  const restoreSummary = restoreResult.summary || {};
+  assert.equal(restoreSummary.rawCredentialIsLse, true);
+  assert.equal(restoreSummary.credentialStrength, 'secure-storage-bound');
+  assertIncludesAll(
+    restoreSummary.credentialLayerKinds,
+    ['indexeddb-cryptokey', 'secure-storage'],
+    'restore credential layers',
+  );
+  assert.equal(restoreSummary.innerCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.backupPortableCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.primeTransferPortableCredentialPrefix, '|PK|');
+  assert.equal(restoreSummary.backupRejectsRawLocalSecretEnvelope, true);
+  assert.equal(restoreSummary.primeTransferRejectsRawLocalSecretEnvelope, true);
+
+  log(
+    `local secret envelope self-test passed (${result.credentialLayerKinds.join(
+      ' + ',
+    )} + restore)`,
+  );
+}
+
 async function main() {
   fs.mkdirSync(artifactDir, { recursive: true });
 
@@ -511,10 +647,19 @@ async function main() {
       timeout: APP_TIMEOUT_MS,
     });
 
-    await runBrowserOpenUrlFlow(app, page);
+    if (desktopE2EFlow === 'browser-open-url') {
+      await runBrowserOpenUrlFlow(app, page);
+    } else if (desktopE2EFlow === 'local-secret-envelope') {
+      await runLocalSecretEnvelopeFlow(page);
+    } else {
+      throw new Error(`Unknown desktop E2E flow: ${desktopE2EFlow}`);
+    }
   } catch (error) {
     if (page) {
-      const screenshotPath = path.join(artifactDir, 'open-url-failure.png');
+      const screenshotPath = path.join(
+        artifactDir,
+        `${desktopE2EFlow}-failure.png`,
+      );
       await page
         .screenshot({ path: screenshotPath, fullPage: true })
         .catch(() => {});
