@@ -37,7 +37,10 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { isSameMarketWatchListItem } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
+import {
+  dedupeMarketWatchListItems,
+  isSameMarketWatchListItem,
+} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -773,7 +776,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     if (selectedTokens.length === 0) return;
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
+      const uniqueSelectedTokens = dedupeMarketWatchListItems(selectedTokens);
+      const nextWatchListItems = uniqueSelectedTokens.map((token, index) => ({
         chainId: token.chainId,
         contractAddress: token.contractAddress,
         isNative: token.isNative,
@@ -786,7 +790,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       });
 
       // Log analytics for each token added to watchlist
-      selectedTokens.forEach((token) => {
+      uniqueSelectedTokens.forEach((token) => {
         defaultLogger.dex.watchlist.dexAddToWatchlist({
           network: token.chainId,
           tokenSymbol: token.symbol || '',

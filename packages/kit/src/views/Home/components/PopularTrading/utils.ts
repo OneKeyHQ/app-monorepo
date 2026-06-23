@@ -1,3 +1,4 @@
+import { buildMarketWatchListItemKey } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -16,12 +17,10 @@ const EMPTY_MARKET_VALUE = '--';
 function getTokenKey(token: {
   chainId: string;
   contractAddress: string;
+  isNative?: boolean;
   perpsCoin?: string;
 }) {
-  if (token.perpsCoin) {
-    return `perps:${token.perpsCoin}`;
-  }
-  return `${token.chainId}:${token.contractAddress}`;
+  return buildMarketWatchListItemKey(token);
 }
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
