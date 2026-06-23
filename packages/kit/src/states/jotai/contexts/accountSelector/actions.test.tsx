@@ -204,4 +204,26 @@ describe('useAccountSelectorActions', () => {
       true,
     );
   });
+
+  it('marks storage init done when storage loading fails', async () => {
+    mockGetSelectedAccountsMap.mockRejectedValue(
+      new Error('storage loading failed'),
+    );
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.initFromStorage({
+          sceneName: EAccountSelectorSceneName.home,
+        }),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(store.get(accountSelectorStorageReadyAtom())).toBe(true);
+    expect(store.get(accountSelectorStorageInitDoneAtom())).toBe(true);
+  });
 });

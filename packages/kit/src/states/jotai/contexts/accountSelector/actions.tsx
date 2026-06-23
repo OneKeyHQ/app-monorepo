@@ -2158,165 +2158,177 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) => {
       set(accountSelectorStorageInitDoneAtom(), () => false);
       set(accountSelectorActiveAccountInitDoneAtom(), {});
-      const { serviceAccountSelector } = backgroundApiProxy;
-      let selectedAccountsMapInDB:
-        | IAccountSelectorSelectedAccountsMap
-        | undefined =
-        await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap(
-          {
-            sceneName,
-            sceneUrl,
-          },
-        );
-
-      defaultLogger.accountSelector.listData.simpleDbSelectedAccountsMap({
-        selectedAccountsMap: selectedAccountsMapInDB,
-      });
-
-      // fix discover account from dappConnection
-      if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
-        const connectionMap =
-          await backgroundApiProxy.simpleDb.dappConnection.getAccountSelectorMap(
+      try {
+        const { serviceAccountSelector } = backgroundApiProxy;
+        let selectedAccountsMapInDB:
+          | IAccountSelectorSelectedAccountsMap
+          | undefined =
+          await backgroundApiProxy.simpleDb.accountSelector.getSelectedAccountsMap(
             {
+              sceneName,
               sceneUrl,
             },
           );
-        defaultLogger.accountSelector.listData.simpleDbDappConnectionSelectedAccountsMap(
-          {
-            connectionMap,
-          },
-        );
-        if (connectionMap) {
-          const map: IAccountSelectorSelectedAccountsMap = {};
-          Object.entries(connectionMap).forEach(([num, v]) => {
-            map[Number(num)] = {
-              walletId: v.walletId,
-              indexedAccountId: v.indexedAccountId,
-              othersWalletAccountId: v.othersWalletAccountId,
-              networkId: v.networkId,
-              deriveType: v.deriveType,
-              focusedWallet: v.focusedWallet,
-            };
-            map[Number(num)] = omitBy(map[Number(num)], isUndefined) as any;
-          });
-          selectedAccountsMapInDB = map;
-          defaultLogger.accountSelector.listData.initFromStorageDiscoverySelectedAccountsMapMerged(
+
+        defaultLogger.accountSelector.listData.simpleDbSelectedAccountsMap({
+          selectedAccountsMap: selectedAccountsMapInDB,
+        });
+
+        // fix discover account from dappConnection
+        if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
+          const connectionMap =
+            await backgroundApiProxy.simpleDb.dappConnection.getAccountSelectorMap(
+              {
+                sceneUrl,
+              },
+            );
+          defaultLogger.accountSelector.listData.simpleDbDappConnectionSelectedAccountsMap(
+            {
+              connectionMap,
+            },
+          );
+          if (connectionMap) {
+            const map: IAccountSelectorSelectedAccountsMap = {};
+            Object.entries(connectionMap).forEach(([num, v]) => {
+              map[Number(num)] = {
+                walletId: v.walletId,
+                indexedAccountId: v.indexedAccountId,
+                othersWalletAccountId: v.othersWalletAccountId,
+                networkId: v.networkId,
+                deriveType: v.deriveType,
+                focusedWallet: v.focusedWallet,
+              };
+              map[Number(num)] = omitBy(map[Number(num)], isUndefined) as any;
+            });
+            selectedAccountsMapInDB = map;
+            defaultLogger.accountSelector.listData.initFromStorageDiscoverySelectedAccountsMapMerged(
+              {
+                selectedAccountsMap: selectedAccountsMapInDB,
+              },
+            );
+          }
+        }
+
+        if (selectedAccountsMapInDB) {
+          selectedAccountsMapInDB = cloneDeep(selectedAccountsMapInDB);
+        }
+
+        // fix swap account from home
+        if (sceneName === EAccountSelectorSceneName.swap) {
+          selectedAccountsMapInDB =
+            await serviceAccountSelector.mergeHomeDataToSwapMap({
+              swapMap: selectedAccountsMapInDB,
+            });
+          console.log('mergeHomeDataToSwapMap ', selectedAccountsMapInDB);
+        }
+
+        // fix derive type from global
+        if (selectedAccountsMapInDB) {
+          selectedAccountsMapInDB =
+            await backgroundApiProxy.serviceAccountSelector.fixDeriveTypesForInitAccountSelectorMap(
+              {
+                selectedAccountsMapInDB,
+                sceneName,
+                sceneUrl,
+              },
+            );
+          defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMapResult(
             {
               selectedAccountsMap: selectedAccountsMapInDB,
             },
           );
         }
-      }
 
-      if (selectedAccountsMapInDB) {
-        selectedAccountsMapInDB = cloneDeep(selectedAccountsMapInDB);
-      }
-
-      // fix swap account from home
-      if (sceneName === EAccountSelectorSceneName.swap) {
-        selectedAccountsMapInDB =
-          await serviceAccountSelector.mergeHomeDataToSwapMap({
-            swapMap: selectedAccountsMapInDB,
+        const recentSelectionCache =
+          this.getRecentAccountSelectorSelectionCache({
+            sceneName,
+            sceneUrl,
           });
-        console.log('mergeHomeDataToSwapMap ', selectedAccountsMapInDB);
-      }
-
-      // fix derive type from global
-      if (selectedAccountsMapInDB) {
-        selectedAccountsMapInDB =
-          await backgroundApiProxy.serviceAccountSelector.fixDeriveTypesForInitAccountSelectorMap(
-            {
-              selectedAccountsMapInDB,
-              sceneName,
-              sceneUrl,
+        if (
+          recentSelectionCache &&
+          this.shouldKeepColdStartSelectedAccounts({
+            selectedAccountsMap: recentSelectionCache.selectedAccountsMap,
+            selectedAccountsMapInDB,
+            updateMeta: recentSelectionCache.updateMeta,
+          })
+        ) {
+          this.setSelectedAccountsAtom(
+            set,
+            () => recentSelectionCache.selectedAccountsMap,
+            'initFromRecentSelectionCache',
+          );
+          set(accountSelectorUpdateMetaAtom(), (v) => ({
+            ...v,
+            ...recentSelectionCache.updateMeta,
+          }));
+          set(accountSelectorStorageReadyAtom(), () => true);
+          set(accountSelectorStorageInitDoneAtom(), () => true);
+          Object.entries(recentSelectionCache.selectedAccountsMap).forEach(
+            ([num, selectedAccount]) => {
+              if (
+                selectedAccount &&
+                !isEqual(selectedAccount, defaultSelectedAccount())
+              ) {
+                void this.saveToStorage
+                  .call(set, {
+                    selectedAccount,
+                    sceneName,
+                    sceneUrl,
+                    num: Number(num),
+                    selectedAccountUpdatedAt:
+                      recentSelectionCache.updateMeta[Number(num)]?.updatedAt,
+                  })
+                  .catch(() => undefined);
+              }
             },
           );
-        defaultLogger.accountSelector.listData.fixDeriveTypesForInitAccountSelectorMapResult(
-          {
-            selectedAccountsMap: selectedAccountsMapInDB,
-          },
-        );
-      }
+          return;
+        }
 
-      const recentSelectionCache = this.getRecentAccountSelectorSelectionCache({
-        sceneName,
-        sceneUrl,
-      });
-      if (
-        recentSelectionCache &&
-        this.shouldKeepColdStartSelectedAccounts({
-          selectedAccountsMap: recentSelectionCache.selectedAccountsMap,
-          selectedAccountsMapInDB,
-          updateMeta: recentSelectionCache.updateMeta,
-        })
-      ) {
-        this.setSelectedAccountsAtom(
-          set,
-          () => recentSelectionCache.selectedAccountsMap,
-          'initFromRecentSelectionCache',
-        );
-        set(accountSelectorUpdateMetaAtom(), (v) => ({
-          ...v,
-          ...recentSelectionCache.updateMeta,
-        }));
+        const selectedAccountsMap = get(selectedAccountsAtom());
+        const updateMeta = get(accountSelectorUpdateMetaAtom());
+        if (
+          this.shouldKeepColdStartSelectedAccounts({
+            selectedAccountsMap,
+            selectedAccountsMapInDB,
+            updateMeta,
+          })
+        ) {
+          set(accountSelectorStorageReadyAtom(), () => true);
+          set(accountSelectorStorageInitDoneAtom(), () => true);
+          return;
+        }
+
+        if (
+          selectedAccountsMapInDB &&
+          !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
+        ) {
+          this.setSelectedAccountsAtom(
+            set,
+            (v) => {
+              const r = selectedAccountsMapInDB || v;
+              defaultLogger.accountSelector.listData.initFromStorageSelectedAccountsMapResult(
+                {
+                  selectedAccountsMap: r,
+                },
+              );
+              return r;
+            },
+            'initFromStorage',
+          );
+        }
         set(accountSelectorStorageReadyAtom(), () => true);
         set(accountSelectorStorageInitDoneAtom(), () => true);
-        Object.entries(recentSelectionCache.selectedAccountsMap).forEach(
-          ([num, selectedAccount]) => {
-            if (
-              selectedAccount &&
-              !isEqual(selectedAccount, defaultSelectedAccount())
-            ) {
-              void this.saveToStorage
-                .call(set, {
-                  selectedAccount,
-                  sceneName,
-                  sceneUrl,
-                  num: Number(num),
-                  selectedAccountUpdatedAt:
-                    recentSelectionCache.updateMeta[Number(num)]?.updatedAt,
-                })
-                .catch(() => undefined);
-            }
-          },
+      } catch (error) {
+        defaultLogger.app.error.log(
+          `initFromStorage failed: ${
+            (error as Error)?.message || String(error)
+          }`,
         );
-        return;
-      }
-
-      const selectedAccountsMap = get(selectedAccountsAtom());
-      const updateMeta = get(accountSelectorUpdateMetaAtom());
-      if (
-        this.shouldKeepColdStartSelectedAccounts({
-          selectedAccountsMap,
-          selectedAccountsMapInDB,
-          updateMeta,
-        })
-      ) {
+      } finally {
         set(accountSelectorStorageReadyAtom(), () => true);
         set(accountSelectorStorageInitDoneAtom(), () => true);
-        return;
       }
-
-      if (
-        selectedAccountsMapInDB &&
-        !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
-      ) {
-        this.setSelectedAccountsAtom(
-          set,
-          (v) => {
-            const r = selectedAccountsMapInDB || v;
-            defaultLogger.accountSelector.listData.initFromStorageSelectedAccountsMapResult(
-              {
-                selectedAccountsMap: r,
-              },
-            );
-            return r;
-          },
-          'initFromStorage',
-        );
-      }
-      set(accountSelectorStorageReadyAtom(), () => true);
-      set(accountSelectorStorageInitDoneAtom(), () => true);
     },
   );
 
