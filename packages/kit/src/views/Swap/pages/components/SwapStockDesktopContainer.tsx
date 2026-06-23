@@ -14,6 +14,7 @@ import {
   Keyboard,
   NumberSizeableText,
   Popover,
+  ScrollView,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -1657,110 +1658,112 @@ function SwapStockDesktopContent({
   }, [navigation, storeName]);
 
   return (
-    <YStack
-      width="100%"
-      alignItems="center"
-      pb="$5"
-      pt={headerContent ? undefined : '$5'}
-    >
-      {headerContent ? (
-        <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
-      ) : null}
-      <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
-        <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
-          <YStack p="$5" flexBasis="50%" minWidth={0}>
-            <YStack
-              width="100%"
-              minWidth={0}
-              minHeight={466}
-              p="$6"
-              borderWidth={1}
-              borderColor="$borderSubdued"
-              borderRadius="$6"
-              bg="$bgApp"
-              elevationAndroid="$1"
-              $platform-web={{
-                boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
-              }}
-              style={{
-                shadowColor: 'rgba(0, 0, 0, 0.08)',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 1,
-                shadowRadius: 24,
-              }}
-              gap="$5"
-            >
-              <XStack alignItems="center" justifyContent="space-between">
-                <SizableText size="$headingLg" color="$text">
-                  {intl.formatMessage({
-                    id: ETranslations.perps_token_selector_stocks,
-                  })}
-                </SizableText>
-                {historyBadgeCount > 0 ? (
-                  <Stack
-                    testID="swap-stock-history-button"
-                    w="$5"
-                    h="$5"
-                    userSelect="none"
-                    borderRadius="$full"
-                    borderColor="$icon"
-                    borderWidth={1.2}
-                    alignItems="center"
-                    justifyContent="center"
-                    hoverStyle={{
-                      bg: '$bgHover',
-                    }}
-                    pressStyle={{
-                      bg: '$bgActive',
-                    }}
-                    focusVisibleStyle={{
-                      outlineColor: '$focusRing',
-                      outlineWidth: 2,
-                      outlineStyle: 'solid',
-                      outlineOffset: 0,
-                    }}
-                    onPress={onOpenHistoryListModal}
-                  >
-                    <SizableText color="$text" size="$bodySm">
-                      {`${historyBadgeCount}`}
-                    </SizableText>
-                  </Stack>
-                ) : (
-                  <HeaderIconButton
-                    testID="swap-stock-history-button"
-                    icon="ClockTimeHistoryOutline"
-                    size="small"
-                    iconProps={{ color: '$iconStrong' }}
-                    onPress={onOpenHistoryListModal}
-                  />
-                )}
-              </XStack>
-              <StockTradeTicket
-                onSelectToken={onSelectToken}
-                fetchLoading={fetchLoading}
-                storeName={storeName}
-                onSelectPercentageStage={onSelectPercentageStage}
-                onBalanceMaxPress={onBalanceMaxPress}
-                onPreSwap={onPreSwap}
-                onToAnotherAddressModal={onToAnotherAddressModal}
-                onOpenProviderList={onOpenProviderList}
-                refreshAction={refreshAction}
-                quoteResult={quoteResult}
-                quoteLoading={quoteLoading}
-                quoteEventFetching={quoteEventFetching}
-                alerts={alerts}
-                stockChannel={stockChannel}
-                tradeSide={stockChannel.tradeSide}
-                onTradeSideChange={handleTradeSideChange}
-              />
+    <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <YStack
+        width="100%"
+        alignItems="center"
+        pb="$5"
+        pt={headerContent ? undefined : '$5'}
+      >
+        {headerContent ? (
+          <YStack {...STOCK_DESKTOP_HEADER_SLOT_PROPS}>{headerContent}</YStack>
+        ) : null}
+        <YStack width="100%" maxWidth={STOCK_DESKTOP_CONTENT_MAX_WIDTH}>
+          <XStack width="100%" gap="$1" px="$5" alignItems="flex-start">
+            <YStack p="$5" flexBasis="50%" minWidth={0}>
+              <YStack
+                width="100%"
+                minWidth={0}
+                minHeight={466}
+                p="$6"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                borderRadius="$6"
+                bg="$bgApp"
+                elevationAndroid="$1"
+                $platform-web={{
+                  boxShadow: '0px 0px 24px 0px rgba(0, 0, 0, 0.06)',
+                }}
+                style={{
+                  shadowColor: 'rgba(0, 0, 0, 0.08)',
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 1,
+                  shadowRadius: 24,
+                }}
+                gap="$5"
+              >
+                <XStack alignItems="center" justifyContent="space-between">
+                  <SizableText size="$headingLg" color="$text">
+                    {intl.formatMessage({
+                      id: ETranslations.perps_token_selector_stocks,
+                    })}
+                  </SizableText>
+                  {historyBadgeCount > 0 ? (
+                    <Stack
+                      testID="swap-stock-history-button"
+                      w="$5"
+                      h="$5"
+                      userSelect="none"
+                      borderRadius="$full"
+                      borderColor="$icon"
+                      borderWidth={1.2}
+                      alignItems="center"
+                      justifyContent="center"
+                      hoverStyle={{
+                        bg: '$bgHover',
+                      }}
+                      pressStyle={{
+                        bg: '$bgActive',
+                      }}
+                      focusVisibleStyle={{
+                        outlineColor: '$focusRing',
+                        outlineWidth: 2,
+                        outlineStyle: 'solid',
+                        outlineOffset: 0,
+                      }}
+                      onPress={onOpenHistoryListModal}
+                    >
+                      <SizableText color="$text" size="$bodySm">
+                        {`${historyBadgeCount}`}
+                      </SizableText>
+                    </Stack>
+                  ) : (
+                    <HeaderIconButton
+                      testID="swap-stock-history-button"
+                      icon="ClockTimeHistoryOutline"
+                      size="small"
+                      iconProps={{ color: '$iconStrong' }}
+                      onPress={onOpenHistoryListModal}
+                    />
+                  )}
+                </XStack>
+                <StockTradeTicket
+                  onSelectToken={onSelectToken}
+                  fetchLoading={fetchLoading}
+                  storeName={storeName}
+                  onSelectPercentageStage={onSelectPercentageStage}
+                  onBalanceMaxPress={onBalanceMaxPress}
+                  onPreSwap={onPreSwap}
+                  onToAnotherAddressModal={onToAnotherAddressModal}
+                  onOpenProviderList={onOpenProviderList}
+                  refreshAction={refreshAction}
+                  quoteResult={quoteResult}
+                  quoteLoading={quoteLoading}
+                  quoteEventFetching={quoteEventFetching}
+                  alerts={alerts}
+                  stockChannel={stockChannel}
+                  tradeSide={stockChannel.tradeSide}
+                  onTradeSideChange={handleTradeSideChange}
+                />
+              </YStack>
             </YStack>
-          </YStack>
-          <YStack p="$5" flexBasis="50%" minWidth={0}>
-            <StockMarketContextPanel storeName={storeName} />
-          </YStack>
-        </XStack>
+            <YStack p="$5" flexBasis="50%" minWidth={0}>
+              <StockMarketContextPanel storeName={storeName} />
+            </YStack>
+          </XStack>
+        </YStack>
       </YStack>
-    </YStack>
+    </ScrollView>
   );
 }
 
