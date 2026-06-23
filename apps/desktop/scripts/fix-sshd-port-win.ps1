@@ -66,7 +66,7 @@ if (Get-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue) {
 }
 
 # 4. Verify listeners -----------------------------------------------------------
-Write-Host "[4] Listeners on port $Port:" -ForegroundColor Cyan
+Write-Host "[4] Listeners on port ${Port}:" -ForegroundColor Cyan
 $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if (-not $listeners) {
   Write-Host "    NONE — sshd is not listening on $Port. Check sshd_config / Get-WinEvent -LogName OpenSSH/Operational" -ForegroundColor Red
