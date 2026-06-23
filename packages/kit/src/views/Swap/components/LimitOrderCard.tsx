@@ -27,6 +27,7 @@ import {
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getLimitOrderDisplayAmounts } from './LimitOrderCard.utils';
 import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
@@ -38,6 +39,7 @@ const LimitOrderCard = ({
   onCancel,
   hiddenHoverBg = false,
   cancelLoading = false,
+  testID,
 }: {
   item: IFetchLimitOrderRes;
   hiddenCreateTime?: boolean;
@@ -47,6 +49,7 @@ const LimitOrderCard = ({
   onCancel?: () => void;
   cancelLoading?: boolean;
   hiddenHoverBg?: boolean;
+  testID?: string;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
@@ -134,8 +137,22 @@ const LimitOrderCard = ({
       toAmount: new BigNumber(item?.toAmount ?? '0').shiftedBy(
         -(item?.toTokenInfo?.decimals ?? 0),
       ),
+      ...getLimitOrderDisplayAmounts({
+        executedBuyAmount: item.executedBuyAmount,
+        executedSellAmount: item.executedSellAmount,
+        fromAmount: item.fromAmount,
+        fromTokenInfo: {
+          decimals: item.fromTokenInfo?.decimals ?? 0,
+        },
+        toAmount: item.toAmount,
+        toTokenInfo: {
+          decimals: item.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      item?.executedBuyAmount,
+      item?.executedSellAmount,
       item?.fromAmount,
       item?.fromTokenInfo?.decimals,
       item?.toAmount,
@@ -178,9 +195,11 @@ const LimitOrderCard = ({
 
   const renderAmount = useCallback(() => {
     const fromAmountFormatted = formatBalance(
-      decimalsAmount.fromAmount.toFixed(),
+      decimalsAmount.displayFromAmount.toFixed(),
     );
-    const toAmountFormatted = formatBalance(decimalsAmount.toAmount.toFixed());
+    const toAmountFormatted = formatBalance(
+      decimalsAmount.displayToAmount.toFixed(),
+    );
 
     return (
       <YStack gap="$1.5" w={gtMd ? 200 : 240} justifyContent="flex-start">
@@ -344,6 +363,7 @@ const LimitOrderCard = ({
 
   return (
     <YStack
+      testID={testID}
       flex={1}
       userSelect="none"
       {...(!hiddenHoverBg && {
