@@ -1,4 +1,5 @@
 import { logHwk } from '../hwkLogger';
+import { getTrezorThpIdentity } from '../trezorThpIdentity';
 
 import type { IConnector } from '@onekeyfe/hwk-adapter-core';
 
@@ -12,14 +13,15 @@ export const createTrezorConnector = async (): Promise<IConnector> => {
     import('react-native-ble-plx'),
   ]);
   const manager = new BleManager();
+  const thpIdentity = getTrezorThpIdentity();
   return createTrezorRnBleConnector({
     // Wire the same redacting logger as desktop so the rn-ble transport's
     // scan/connect dumps AND its native BLE logs surface in the hardware SDK
     // logger. Without it the connector is silent by construction.
     transportOptions: { manager: manager as never, logger: logHwk },
     thp: {
-      hostName: 'OneKey',
-      appName: 'OneKey Wallet',
+      hostName: thpIdentity.hostName,
+      appName: thpIdentity.appName,
       logger: logHwk,
     },
   });

@@ -752,7 +752,6 @@ export class TrezorAdapter
     options?: IThirdPartyHardwareSearchOptions,
   ): Promise<DeviceInfo[]> {
     const startedAt = Date.now();
-    defaultLogger.hardware.sdkLog.log('[3rdPartyHW][Trezor] searchDevices()');
     if (options?.resetSession) {
       (
         this.hw as IHardwareWallet & {
@@ -774,6 +773,23 @@ export class TrezorAdapter
             (device) => device.connectionType === options.transportType,
           )
         : devices;
+      if (filteredDevices.length !== devices.length) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW][Trezor] searchDevices.filtered ${stringifyTrezorSearchDebugValue(
+            {
+              transportType: options?.transportType,
+              rawCount: devices.length,
+              filteredCount: filteredDevices.length,
+              dropped: devices
+                .filter(
+                  (device) => device.connectionType !== options?.transportType,
+                )
+                .map(summarizeTrezorSearchDevice),
+              kept: filteredDevices.map(summarizeTrezorSearchDevice),
+            },
+          )}`,
+        );
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] searchDevices -> count=${
           filteredDevices.length
@@ -948,5 +964,35 @@ export class TrezorAdapter
     this._disposeSdkEvents?.();
     this._disposeSdkEvents = undefined;
     void this.hw.dispose();
+  }
+}
+
+function summarizeTrezorSearchDevice(
+  device: DeviceInfo,
+): Record<string, unknown> {
+  const extra = device as DeviceInfo & {
+    name?: unknown;
+    raw?: { transport?: unknown };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    name: extra.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof extra.raw?.transport === 'string'
+        ? extra.raw.transport
+        : undefined,
+  };
+}
+
+function stringifyTrezorSearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
   }
 }

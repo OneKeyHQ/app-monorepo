@@ -63,6 +63,44 @@ function createThirdPartyAdapterNotRegisteredError(vendor: EHardwareVendor) {
   });
 }
 
+function stringifyThirdPartySearchDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+function summarizeThirdPartySearchDevice(
+  value: unknown,
+): Record<string, unknown> {
+  const device = value as {
+    connectId?: unknown;
+    deviceId?: unknown;
+    uuid?: unknown;
+    name?: unknown;
+    model?: unknown;
+    connectionType?: unknown;
+    raw?: {
+      transport?: unknown;
+    };
+  };
+  return {
+    connectId: device.connectId,
+    deviceId: device.deviceId,
+    uuid: device.uuid,
+    name: device.name,
+    model: device.model,
+    connectionType: device.connectionType,
+    rawTransport:
+      typeof device.raw?.transport === 'string'
+        ? device.raw.transport
+        : undefined,
+  };
+}
+
 /**
  * ServiceThirdPartyHardware — owns the third-party (Trezor / Ledger) hardware
  * adapter lifecycle and the third-party-only methods, extracted from
@@ -493,22 +531,40 @@ class ServiceThirdPartyHardware extends ServiceBase {
         throw createThirdPartyAdapterNotRegisteredError(params.vendor);
       }
       const adapterStartedAt = Date.now();
-      const devices = await adapter.searchDevices(
+      const adapterSearchOptions =
         params.resetSession ||
-          params.waitForAllTransports ||
-          params.transportType
+        params.waitForAllTransports ||
+        params.transportType
           ? {
               resetSession: params.resetSession,
               waitForAllTransports: params.waitForAllTransports,
               transportType: params.transportType,
             }
-          : undefined,
-      );
+          : undefined;
+      const devices = await adapter.searchDevices(adapterSearchOptions);
       const filteredDevices = params.transportType
         ? devices.filter(
             (device) => device.connectionType === params.transportType,
           )
         : devices;
+      if (filteredDevices.length !== devices.length) {
+        defaultLogger.hardware.sdkLog.log(
+          `[3rdPartyHW] searchDevices.filtered ${stringifyThirdPartySearchDebugValue(
+            {
+              vendor: params.vendor,
+              transportType: params.transportType,
+              rawCount: devices.length,
+              filteredCount: filteredDevices.length,
+              dropped: devices
+                .filter(
+                  (device) => device.connectionType !== params.transportType,
+                )
+                .map(summarizeThirdPartySearchDevice),
+              kept: filteredDevices.map(summarizeThirdPartySearchDevice),
+            },
+          )}`,
+        );
+      }
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW] searchDevices vendor=${params.vendor} rawCount=${
           devices.length

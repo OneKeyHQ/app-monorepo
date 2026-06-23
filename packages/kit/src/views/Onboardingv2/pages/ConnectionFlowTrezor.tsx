@@ -20,6 +20,7 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { ThirdPartyWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
@@ -49,6 +50,16 @@ enum EConnectionStatus {
   init = 'init',
   searching = 'searching',
   listing = 'listing',
+}
+
+function stringifyTrezorScanDebugValue(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return JSON.stringify({
+      stringifyError: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function DevicePlaceholder({ isBle }: { isBle: boolean }) {
@@ -175,6 +186,19 @@ export default function TrezorConnectionFlow() {
 
     let pollsCompleted = 0;
     const transportType = getTrezorSearchTransportType(forceTransportType);
+    defaultLogger.hardware.sdkLog.log(
+      `[TrezorOnboardingTrace][flow.scan.request.detail] ${stringifyTrezorScanDebugValue(
+        {
+          vendor,
+          tabValue,
+          forceTransportType,
+          transportType,
+          resetSession: true,
+          pollIntervalMs: TREZOR_SCAN_POLL_INTERVAL_MS,
+          maxTryCount: TREZOR_SCAN_MAX_TRY_COUNT,
+        },
+      )}`,
+    );
 
     isSearchingRef.current = true;
     setScanTimedOut(false);
@@ -182,6 +206,14 @@ export default function TrezorConnectionFlow() {
       (response) => {
         pollsCompleted += 1;
         if (!response.success) {
+          defaultLogger.hardware.sdkLog.log(
+            `[TrezorOnboardingTrace][flow.scan.response.error.detail] ${stringifyTrezorScanDebugValue(
+              {
+                pollsCompleted,
+                payload: response.payload,
+              },
+            )}`,
+          );
           const error = convertDeviceError(response.payload, {
             vendor: EHardwareVendor.trezor,
           });
@@ -218,6 +250,14 @@ export default function TrezorConnectionFlow() {
           isSearchingRef.current = false;
           setConnectStatus(EConnectionStatus.init);
           setScanTimedOut(true);
+          defaultLogger.hardware.sdkLog.log(
+            `[TrezorOnboardingTrace][flow.scan.timeout] ${stringifyTrezorScanDebugValue(
+              {
+                pollsCompleted,
+                transportType,
+              },
+            )}`,
+          );
           deviceScanner.stopScan();
         } else if (pollsCompleted >= TREZOR_SCAN_MAX_TRY_COUNT) {
           isSearchingRef.current = false;
