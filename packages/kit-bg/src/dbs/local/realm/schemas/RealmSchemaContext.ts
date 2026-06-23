@@ -21,6 +21,12 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
 
   public localPasswordKdfUpgradeLastScannedCredentialId?: string;
 
+  public localSecretEnvelopeCredentialMigrated?: boolean;
+
+  public localSecretEnvelopeCredentialMigratedTargetVersion?: number;
+
+  public localSecretEnvelopeCredentialMigrationLastScannedCredentialId?: string;
+
   public networkOrderChanged?: boolean;
 
   public backupUUID!: string;
@@ -45,6 +51,18 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
         type: 'string',
         default: '',
       },
+      localSecretEnvelopeCredentialMigrated: {
+        type: 'bool',
+        default: false,
+      },
+      localSecretEnvelopeCredentialMigratedTargetVersion: {
+        type: 'int',
+        default: 0,
+      },
+      localSecretEnvelopeCredentialMigrationLastScannedCredentialId: {
+        type: 'string',
+        default: '',
+      },
       networkOrderChanged: { type: 'bool', default: false },
       backupUUID: { type: 'string', default: '' },
       nextSignatureMessageId: { type: 'int', default: 1 },
@@ -64,6 +82,13 @@ class RealmSchemaContext extends RealmObjectBase<IDBContext> {
         this.localPasswordKdfUpgradedTargetIterations || 0,
       localPasswordKdfUpgradeLastScannedCredentialId:
         this.localPasswordKdfUpgradeLastScannedCredentialId || '',
+      localSecretEnvelopeCredentialMigrated:
+        this.localSecretEnvelopeCredentialMigrated || false,
+      localSecretEnvelopeCredentialMigratedTargetVersion:
+        this.localSecretEnvelopeCredentialMigratedTargetVersion || 0,
+      localSecretEnvelopeCredentialMigrationLastScannedCredentialId:
+        this.localSecretEnvelopeCredentialMigrationLastScannedCredentialId ||
+        '',
       networkOrderChanged: this.networkOrderChanged || false,
       backupUUID: this.backupUUID,
       nextSignatureMessageId: this.nextSignatureMessageId,

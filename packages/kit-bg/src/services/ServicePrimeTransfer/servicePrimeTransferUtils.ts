@@ -1,5 +1,14 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type {
+  IPrimeTransferData,
+  IPrimeTransferPrivateData,
+  IPrimeTransferUnavailableCredential,
+} from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import {
+  type IPortableCredentialInput,
+  normalizePortableCredential,
+} from '../../dbs/local/localSecretEnvelope';
 
 import type { IDBWallet } from '../../dbs/local/types';
 
@@ -74,4 +83,56 @@ export function getCliBotWalletTransferWalletId({
   }
   const [walletId] = walletIds;
   return accountUtils.isBotWallet({ walletId }) ? walletId : undefined;
+}
+
+export function normalizePrimeTransferCredential(
+  credential: IPortableCredentialInput,
+) {
+  return normalizePortableCredential({
+    credential,
+  });
+}
+
+// For each credential skipped during transfer-payload build (its local secret
+// envelope layer was transiently unavailable), resolve a human label and then
+// remove the orphaned wallet/account entry from `privateData` so no wallet or
+// account without its credential reaches the receiver.
+//
+// NOTE: mutates `privateData` (prunes `wallets` / `importedAccounts`). Labels
+// are resolved BEFORE pruning. A credentialId maps to one of: an HD wallet id,
+// an imported account id, or a TON mnemonic credential id (which is derived
+// from an imported account id).
+export function collectAndPruneUnavailableTransferCredentials({
+  privateData,
+  unavailableCredentialIds,
+}: {
+  privateData: Pick<IPrimeTransferPrivateData, 'wallets' | 'importedAccounts'>;
+  unavailableCredentialIds: string[];
+}): IPrimeTransferUnavailableCredential[] {
+  const unavailableCredentials: IPrimeTransferUnavailableCredential[] =
+    unavailableCredentialIds.map((credentialId) => {
+      const tonAccountId = accountUtils.isTonMnemonicCredentialId(credentialId)
+        ? accountUtils.getAccountIdFromTonMnemonicCredentialId({ credentialId })
+        : undefined;
+      const label =
+        privateData.wallets[credentialId]?.name ||
+        privateData.importedAccounts[credentialId]?.name ||
+        (tonAccountId
+          ? privateData.importedAccounts[tonAccountId]?.name
+          : undefined) ||
+        credentialId;
+      return { credentialId, label };
+    });
+
+  for (const credentialId of unavailableCredentialIds) {
+    delete privateData.wallets[credentialId];
+    delete privateData.importedAccounts[credentialId];
+    if (accountUtils.isTonMnemonicCredentialId(credentialId)) {
+      delete privateData.importedAccounts[
+        accountUtils.getAccountIdFromTonMnemonicCredentialId({ credentialId })
+      ];
+    }
+  }
+
+  return unavailableCredentials;
 }
