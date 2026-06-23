@@ -5,9 +5,14 @@ import BigNumber from 'bignumber.js';
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 
 import { RestAPIClient } from './clientRestApi';
+import { MAX_ORPHAN_TX_MASS } from './constant';
 import { privateKeyFromOriginPrivateKey } from './privatekey';
 import { publicKeyFromOriginPubkey } from './publickey';
-import { signTransaction, submitTransactionFromString } from './transaction';
+import {
+  signTransaction,
+  submitTransactionFromString,
+  toTransaction,
+} from './transaction';
 import { UnspentOutput } from './types';
 import { queryConfirmUTXOs, selectUTXOs } from './utxo';
 
@@ -15,6 +20,7 @@ import type {
   IKaspaSubmitTransactionRequest,
   IKaspaUnspentOutputInfo,
 } from './types';
+import type { IEncodedTxKaspa } from '../types';
 import type { PublicKey } from '@onekeyfe/kaspa-core-lib';
 
 jest.setTimeout(3 * 60 * 1000);
@@ -354,6 +360,84 @@ describe('Kaspa transaction Tests', () => {
     const selectedUTXOs = selectUTXOs(confirmUTXOs, new BigNumber(100_000));
 
     process.stdout.write(`pubkeyInfos: ${JSON.stringify(selectedUTXOs)}\n`);
+  });
+
+  it('kaspa KRC20 commit folds sub-dust change to keep storage mass under the limit', () => {
+    // A KRC20 commit pays a fixed 1.3 KAS into the P2SH output and returns the
+    // rest as change. With an input of 1.37 KAS the change is ~0.07 KAS, which
+    // makes the KIP-0009 storage mass (≈ STORAGE_MASS / change_value) blow past
+    // the node's max-allowed mass, reproducing the on-chain rejection
+    // "storage mass ... is larger than max allowed size of 100000".
+    const commitEncodedTx: IEncodedTxKaspa = {
+      utxoIds: [],
+      inputs: [
+        {
+          txid: '6d4bc796e16cb6278ce1dfeb9cb89aabf702f9292d6ddc463131c1cd2faa82d0',
+          address: to,
+          vout: 0,
+          scriptPubKey:
+            '2088a88e27e7337ecdcd535f2e5dce132508270e3ce1f7662fee99711d625b2eeeac',
+          scriptPublicKeyVersion: 0,
+          satoshis: 137_000_000,
+          blockDaaScore: 44_431_383,
+        },
+      ],
+      outputs: [{ address: to, value: '130000000' }],
+      mass: 1000,
+      hasMaxSend: false,
+      feeInfo: { price: '1', limit: '1000' },
+      changeAddress: from,
+    };
+
+    // Without folding: the small change output blows up the storage mass.
+    const withChange = toTransaction(commitEncodedTx);
+    expect(withChange.outputs.length).toBe(2);
+    expect(withChange.getMassAndSize().mass).toBeGreaterThan(
+      MAX_ORPHAN_TX_MASS,
+    );
+
+    // With folding: the change is dropped into the fee, leaving a single output
+    // whose storage mass collapses well under the limit.
+    const folded = toTransaction({ ...commitEncodedTx, dropChangeToFee: true });
+    expect(folded.outputs.length).toBe(1);
+    expect(folded.outputs[0].satoshis.toString()).toBe('130000000');
+    expect(folded.getMassAndSize().mass).toBeLessThan(MAX_ORPHAN_TX_MASS);
+  });
+
+  it('kaspa commit prices fee on compute mass, not inflated storage mass', () => {
+    // Regression for the storage-mass spiral: an inflated `mass` (carrying the
+    // KIP-0009 storage mass) fed as the fee basis would push the fee to ~1.25
+    // KAS, shrink the change to ~0.07 KAS and make the node reject the commit
+    // ("transaction storage mass of 144941 is larger than max allowed").
+    // toTransaction must price the fee on the compute mass and keep the tx
+    // standard regardless of the inflated mass.
+    const inflatedEncodedTx: IEncodedTxKaspa = {
+      utxoIds: [],
+      inputs: [
+        {
+          txid: '6d4bc796e16cb6278ce1dfeb9cb89aabf702f9292d6ddc463131c1cd2faa82d0',
+          address: to,
+          vout: 0,
+          scriptPubKey:
+            '2088a88e27e7337ecdcd535f2e5dce132508270e3ce1f7662fee99711d625b2eeeac',
+          scriptPublicKeyVersion: 0,
+          satoshis: 262_720_408,
+          blockDaaScore: 44_431_383,
+        },
+      ],
+      outputs: [{ address: to, value: '130000000' }],
+      // Inflated mass that previously spiraled the fee to ~125_631_000 sompi.
+      mass: 144_941,
+      hasMaxSend: false,
+      feeInfo: { price: '100', limit: '144941' },
+      changeAddress: from,
+    };
+
+    const txn = toTransaction(inflatedEncodedTx);
+    // Fee must be priced on compute mass (~11.4k grams), not on 144941.
+    expect(new BigNumber(txn.getFee()).isLessThan(2_000_000)).toBe(true);
+    // The change output stays large, so storage mass stays well under the limit.
+    expect(txn.getMassAndSize().mass).toBeLessThan(MAX_ORPHAN_TX_MASS);
   });
 
   it('kaspa selector UTXO Amount overflow', async () => {

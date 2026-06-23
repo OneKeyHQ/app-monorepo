@@ -5,6 +5,10 @@ import { useTheme } from '@tamagui/core';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { DEFAULT_CHART_COLORS } from '../utils/constants';
+import {
+  resolveSerializablePriceFormatterTickStep,
+  resolveSerializablePriceFormatterType,
+} from '../utils/priceFormatterType';
 
 import type { ILightweightChartConfig, ILightweightChartTime } from '../types';
 import type { BaselineSeriesPartialOptions } from 'lightweight-charts';
@@ -14,6 +18,7 @@ interface IUseChartConfigProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  textSubduedColor?: string;
   secondaryLineData?: IMarketTokenChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
@@ -21,11 +26,15 @@ interface IUseChartConfigProps {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
-  priceFormatterType?: 'usd' | 'percent';
+  priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline';
+  seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
+  showLastValue?: boolean;
+  showLastPointMarker?: boolean;
+  showTimeScale?: boolean;
 }
 
 export function useChartConfig({
@@ -33,6 +42,7 @@ export function useChartConfig({
   lineColor = DEFAULT_CHART_COLORS.lineColor,
   topColor = DEFAULT_CHART_COLORS.topColor,
   bottomColor = DEFAULT_CHART_COLORS.bottomColor,
+  textSubduedColor,
   secondaryLineData,
   secondaryLineColor,
   secondaryLineWidth,
@@ -40,20 +50,33 @@ export function useChartConfig({
   showPriceScale = false,
   showHorzGridLines = false,
   priceScaleMargins,
+  priceScaleEntireTextOnly,
   priceFormatter,
-  priceFormatterType,
+  priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
   seriesType,
   baselineOptions,
+  showLastValue,
+  showLastPointMarker,
+  showTimeScale = true,
 }: IUseChartConfigProps): ILightweightChartConfig {
   const theme = useTheme();
+  const resolvedSeriesType = seriesType ?? 'area';
+  const priceFormatterType = resolveSerializablePriceFormatterType({
+    seriesType: resolvedSeriesType,
+    priceFormatter,
+  });
+  const priceFormatterTickStep = resolveSerializablePriceFormatterTickStep({
+    seriesType: resolvedSeriesType,
+    priceFormatterTickStep: priceFormatterTickStepProp,
+  });
 
   return useMemo(
     () => ({
       theme: {
         bgColor: 'transparent',
-        textColor: theme.text?.val || '#000000',
-        textSubduedColor: theme.textSubdued?.val || '#666666',
+        textSubduedColor:
+          textSubduedColor ?? theme.textSubdued?.val ?? '#666666',
         lineColor,
         topColor,
         bottomColor,
@@ -62,6 +85,7 @@ export function useChartConfig({
       showPriceScale,
       showHorzGridLines,
       priceScaleMargins,
+      priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
       data: data.map(([time, value]: [number, number]) => ({
@@ -77,32 +101,40 @@ export function useChartConfig({
       secondaryLineColor,
       secondaryLineWidth,
       priceFormatter,
-      priceFormatterType:
-        priceFormatterType ?? (priceFormatter ? 'usd' : 'percent'),
+      priceFormatterType,
+      priceFormatterTickStep,
       fontSize,
-      seriesType,
+      seriesType: resolvedSeriesType,
       baselineOptions,
+      showLastValue,
+      showLastPointMarker,
+      showTimeScale,
     }),
     [
       data,
       secondaryLineData,
-      theme.text?.val,
       theme.textSubdued?.val,
       theme.borderSubdued?.val,
       lineColor,
       topColor,
       bottomColor,
+      textSubduedColor,
       secondaryLineColor,
       secondaryLineWidth,
       lineWidth,
       showPriceScale,
       showHorzGridLines,
       priceScaleMargins,
+      priceScaleEntireTextOnly,
       priceFormatter,
       priceFormatterType,
+      priceFormatterTickStep,
       fontSize,
-      seriesType,
+      resolvedSeriesType,
       baselineOptions,
+      showLastValue,
+      showLastPointMarker,
+      showTimeScale,
     ],
   );
 }

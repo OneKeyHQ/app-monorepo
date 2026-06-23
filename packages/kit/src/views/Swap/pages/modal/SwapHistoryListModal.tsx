@@ -32,7 +32,6 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
@@ -41,6 +40,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  filterSwapMarketHistoryItems,
   getSwapMarketPendingHistoryCount,
   getSwapMarketPendingHistoryKey,
 } from '../../utils/swapMarketHistory';
@@ -63,13 +63,18 @@ const SwapHistoryListModal = ({
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
     >();
   const { type } = route.params;
-  const [historyType, setHistoryType] = useState<EProtocolOfExchange>(
-    type ?? EProtocolOfExchange.SWAP,
-  );
+  const initialHistoryType =
+    type === EProtocolOfExchange.LIMIT ? type : EProtocolOfExchange.SWAP;
+  const [historyType, setHistoryType] =
+    useState<EProtocolOfExchange>(initialHistoryType);
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const marketPendingKey = useMemo(
-    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
+    () =>
+      getSwapMarketPendingHistoryKey(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
     [swapHistoryPendingList],
   );
 
@@ -88,9 +93,10 @@ const SwapHistoryListModal = ({
   );
   const swapMarketTxHistoryList = useMemo(
     () =>
-      (swapTxHistoryList ?? []).filter(
-        (item) => !isPrivateSendSwapHistoryItem(item),
-      ),
+      filterSwapMarketHistoryItems({
+        items: swapTxHistoryList ?? [],
+        protocol: EProtocolOfExchange.SWAP,
+      }),
     [swapTxHistoryList],
   );
 
@@ -99,7 +105,12 @@ const SwapHistoryListModal = ({
 
   // Calculate cumulative savings from all completed successful orders
   const cumulativeSavings = useMemo(() => {
-    if (!swapMarketTxHistoryList.length) return '$0';
+    if (
+      historyType !== EProtocolOfExchange.SWAP ||
+      !swapMarketTxHistoryList.length
+    ) {
+      return '$0';
+    }
 
     let total = new BigNumber(0);
 
@@ -130,13 +141,16 @@ const SwapHistoryListModal = ({
       formatter: 'value',
       formatterOptions: { currency: '$' },
     });
-  }, [swapMarketTxHistoryList]);
+  }, [historyType, swapMarketTxHistoryList]);
 
-  const marketPendingHistoryCount = useMemo(
-    () => getSwapMarketPendingHistoryCount(swapHistoryPendingList),
+  const swapMarketPendingHistoryCount = useMemo(
+    () =>
+      getSwapMarketPendingHistoryCount(
+        swapHistoryPendingList,
+        EProtocolOfExchange.SWAP,
+      ),
     [swapHistoryPendingList],
   );
-
   const limitPendingHistoryCount = useMemo(
     () =>
       swapLimitOrders.filter(
@@ -148,18 +162,22 @@ const SwapHistoryListModal = ({
   );
 
   const showHistoryInfoDot =
-    marketPendingHistoryCount + limitPendingHistoryCount > 0;
+    swapMarketPendingHistoryCount + limitPendingHistoryCount > 0;
 
-  const historyTypeTitle = useMemo(
-    () =>
-      historyType === EProtocolOfExchange.LIMIT
-        ? intl.formatMessage({
-            id: ETranslations.swap_page_limit_dialog_title,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_market,
-          }),
-    [historyType, intl],
+  const historyTypeTitle = useMemo(() => {
+    if (historyType === EProtocolOfExchange.LIMIT) {
+      return intl.formatMessage({
+        id: ETranslations.swap_page_limit_dialog_title,
+      });
+    }
+    return intl.formatMessage({
+      id: ETranslations.perp_trade_market,
+    });
+  }, [historyType, intl]);
+
+  const cleanExcludeProtocols = useMemo(
+    () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],
+    [],
   );
 
   const renderHistoryTypeBadge = useCallback((count: number) => {
@@ -202,10 +220,10 @@ const SwapHistoryListModal = ({
             id: ETranslations.perp_trade_market,
           })}
         </SizableText>
-        {renderHistoryTypeBadge(marketPendingHistoryCount)}
+        {renderHistoryTypeBadge(swapMarketPendingHistoryCount)}
       </XStack>
     ),
-    [intl, marketPendingHistoryCount, renderHistoryTypeBadge],
+    [intl, renderHistoryTypeBadge, swapMarketPendingHistoryCount],
   );
 
   const renderLimitHistoryTypeLabel = useCallback(
@@ -294,7 +312,7 @@ const SwapHistoryListModal = ({
       }),
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
-          excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND],
+          excludeProtocols: cleanExcludeProtocols,
         });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -311,7 +329,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapMarketTxHistoryList.length]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList.length]);
 
   const onDeletePendingHistory = useCallback(() => {
     // dialog
@@ -332,7 +350,7 @@ const SwapHistoryListModal = ({
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
           [ESwapTxHistoryStatus.PENDING],
-          { excludeProtocols: [EProtocolOfExchange.PRIVATE_SEND] },
+          { excludeProtocols: cleanExcludeProtocols },
         );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,
@@ -343,7 +361,7 @@ const SwapHistoryListModal = ({
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, swapMarketTxHistoryList]);
+  }, [cleanExcludeProtocols, intl, swapMarketTxHistoryList]);
 
   const savingsPopoverContent = useMemo(
     () => (
@@ -526,7 +544,7 @@ const SwapHistoryListModal = ({
     if (
       cumulativeSavings === '$0' ||
       gtMd ||
-      historyType === EProtocolOfExchange.LIMIT
+      historyType !== EProtocolOfExchange.SWAP
     ) {
       return null;
     }
@@ -601,7 +619,7 @@ const SwapHistoryListModal = ({
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList />
+          <SwapMarketHistoryList protocol={EProtocolOfExchange.SWAP} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />

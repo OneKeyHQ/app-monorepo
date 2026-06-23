@@ -1,5 +1,6 @@
 import { HardwareErrorCode as ThirdPartyHwErrorCode } from '@onekeyfe/hwk-adapter-core';
 
+import { EHardwareVendor } from '../../../types/device';
 import * as ThirdPartyErrors from '../errors/thirdPartyHardwareErrors';
 
 import type {
@@ -10,6 +11,7 @@ import type {
 interface IThirdPartyErrorContext {
   vendor?: string;
   chain?: string;
+  silentMode?: boolean;
 }
 
 const LEDGER_INVALID_FIRMWARE_METADATA_RESPONSE_TAG =
@@ -110,6 +112,20 @@ export function convertThirdPartyDeviceError(
     case ThirdPartyHwErrorCode.UserAborted:
       return new ThirdPartyErrors.ThirdPartyUserAborted(props);
 
+    case ThirdPartyHwErrorCode.PinInvalid:
+      return new ThirdPartyErrors.ThirdPartyPinInvalid(props);
+
+    case ThirdPartyHwErrorCode.PinCancelled:
+      return new ThirdPartyErrors.ThirdPartyPinCancelled(props);
+
+    case ThirdPartyHwErrorCode.PassphraseStateMismatch:
+      return new ThirdPartyErrors.ThirdPartyPassphraseStateMismatch(props);
+
+    case ThirdPartyHwErrorCode.PassphraseRejected:
+      // User rejected the passphrase prompt on the device — surface a proper
+      // user-reject error instead of falling through to the generic Unknown.
+      return new ThirdPartyErrors.ThirdPartyUserRejected(props);
+
     case ThirdPartyErrors.THIRD_PARTY_HW_INSTALL_APP_USER_CANCEL_CODE:
       return new ThirdPartyErrors.ThirdPartyInstallAppUserCancelled(props);
 
@@ -148,6 +164,12 @@ export function convertThirdPartyDeviceError(
 
     case ThirdPartyHwErrorCode.BlePairingTimeout:
       return new ThirdPartyErrors.ThirdPartyBlePairingTimeout(props);
+
+    case ThirdPartyHwErrorCode.BleBondInvalid:
+      return new ThirdPartyErrors.ThirdPartyBleBondInvalid(props);
+
+    case ThirdPartyHwErrorCode.ThpPairingFailed:
+      return new ThirdPartyErrors.ThirdPartyThpPairingFailed(props);
 
     case ThirdPartyHwErrorCode.MethodNotSupported:
       return new ThirdPartyErrors.ThirdPartyMethodNotSupported(props);
@@ -205,6 +227,18 @@ export function classifyThirdPartyHwCreateFailures<
     return true;
   });
   return { allAppNotInstalled, genuineFailures };
+}
+
+export function shouldOfferLedgerCoreAppInstallForCreateFailures(params: {
+  vendor: EHardwareVendor | undefined;
+  allAppNotInstalled: boolean;
+  isAutoCreateMultiNetwork: boolean;
+}): boolean {
+  return (
+    params.vendor === EHardwareVendor.ledger &&
+    params.allAppNotInstalled &&
+    params.isAutoCreateMultiNetwork
+  );
 }
 
 export function filterThirdPartyHwCreateFailureToasts<

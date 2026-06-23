@@ -7,9 +7,10 @@ import type {
   UTCTimestamp,
 } from 'lightweight-charts';
 
+export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
+
 export interface ILightweightChartTheme {
   bgColor: string;
-  textColor: string;
   textSubduedColor: string;
   lineColor: string;
   topColor: string;
@@ -30,15 +31,18 @@ export interface ILightweightChartConfig {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   horzLineColor?: string;
   horzLineStyle?: number;
   priceFormatter?: (price: number) => string;
-  /** Serializable formatter type for WebView (native) — 'usd' or 'percent' */
-  priceFormatterType?: 'usd' | 'percent';
+  priceFormatterType?: ILightweightChartPriceFormatterType;
+  priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline';
+  seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
+  showTimeScale?: boolean;
 }
 
 export interface ILightweightChartProps {
@@ -47,6 +51,7 @@ export interface ILightweightChartProps {
   lineColor?: string;
   topColor?: string;
   bottomColor?: string;
+  textSubduedColor?: string;
   secondaryLineData?: IMarketTokenChart;
   secondaryLineColor?: string;
   secondaryLineWidth?: number;
@@ -54,11 +59,15 @@ export interface ILightweightChartProps {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
+  priceFormatterTickStep?: number;
   fontSize?: number;
-  seriesType?: 'area' | 'baseline';
+  seriesType?: 'area' | 'baseline' | 'dotted-area';
   baselineOptions?: BaselineSeriesPartialOptions;
   showLastValue?: boolean;
+  showLastPointMarker?: boolean;
+  showTimeScale?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;

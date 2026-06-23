@@ -153,6 +153,14 @@ export interface ITVOrderPriceUpdatePayload {
   timestamp: number;
 }
 
+export interface ITVChartOrderIntentPayload {
+  symbol: string;
+  price: string;
+  intent: 'limitEntry' | 'positionTpSl';
+  tpsl?: 'tp' | 'sl';
+  positionSide?: 'long' | 'short';
+}
+
 export interface ITVOrderPriceUpdateRejectedPayload {
   requestId: string;
   lineId: string;

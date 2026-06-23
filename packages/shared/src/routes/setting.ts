@@ -19,6 +19,7 @@ export enum EModalSettingRoutes {
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
+  SettingDevSesHardenRuntimeCheckModal = 'SettingDevSesHardenRuntimeCheckModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
   SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
   SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
@@ -81,6 +82,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
+  [EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
   [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
   [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;

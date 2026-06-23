@@ -5,7 +5,7 @@ import { View } from 'react-native';
 import WebView from 'react-native-webview';
 
 import { Skeleton, Stack, XStack, YStack } from '@onekeyhq/components';
-import { LIGHTWEIGHT_CHARTS_CDN } from '@onekeyhq/kit/src/components/LightweightChart/utils/constants';
+import { getLightweightChartsRuntimeScriptTag } from '@onekeyhq/kit/src/components/LightweightChart/utils/lightweightChartsRuntime';
 
 import {
   BASE_TIMESTAMP,
@@ -54,7 +54,7 @@ function generateChartHTML(config: IChartConfig): string {
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <script src="${LIGHTWEIGHT_CHARTS_CDN}"></script>
+  ${getLightweightChartsRuntimeScriptTag()}
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -86,6 +86,7 @@ function generateChartHTML(config: IChartConfig): string {
         layout: {
           background: { color: config.theme.bgColor },
           textColor: config.theme.textSubduedColor,
+          attributionLogo: false,
         },
         grid: {
           vertLines: { visible: false },
@@ -139,7 +140,7 @@ function generateChartHTML(config: IChartConfig): string {
       });
 
       // Add supply series
-      const supplySeries = chart.addAreaSeries({
+      const supplySeries = chart.addSeries(LightweightCharts.AreaSeries, {
         topColor: config.theme.supplyTopColor,
         bottomColor: config.theme.supplyBottomColor,
         lineColor: config.theme.supplyLineColor,
@@ -154,7 +155,7 @@ function generateChartHTML(config: IChartConfig): string {
       supplySeries.setData(config.supplyData);
 
       // Add borrow series
-      const borrowSeries = chart.addAreaSeries({
+      const borrowSeries = chart.addSeries(LightweightCharts.AreaSeries, {
         topColor: config.theme.borrowTopColor,
         bottomColor: config.theme.borrowBottomColor,
         lineColor: config.theme.borrowLineColor,
@@ -182,7 +183,7 @@ function generateChartHTML(config: IChartConfig): string {
         const lineStartTime = Math.max(minTime, currentUtilTime - lineTimeDelta);
         const lineEndTime = Math.min(maxTime, currentUtilTime + lineTimeDelta);
 
-        const verticalLineSeries = chart.addLineSeries({
+        const verticalLineSeries = chart.addSeries(LightweightCharts.LineSeries, {
           color: config.theme.verticalLineColor,
           lineWidth: 2,
           priceLineVisible: false,
@@ -207,9 +208,11 @@ function generateChartHTML(config: IChartConfig): string {
 
       // Subscribe to crosshair move for tooltip
       chart.subscribeCrosshairMove((param) => {
-        if (param.time && param.point && param.seriesPrices && param.seriesPrices.size > 0) {
-          const supplyPrice = param.seriesPrices.get(supplySeries);
-          const borrowPrice = param.seriesPrices.get(borrowSeries);
+        if (param.time && param.point && param.seriesData && param.seriesData.size > 0) {
+          const supplyData = param.seriesData.get(supplySeries);
+          const borrowData = param.seriesData.get(borrowSeries);
+          const supplyPrice = supplyData && typeof supplyData.value === 'number' ? supplyData.value : undefined;
+          const borrowPrice = borrowData && typeof borrowData.value === 'number' ? borrowData.value : undefined;
           
           if (supplyPrice !== undefined && borrowPrice !== undefined) {
             const util = convertTimeToUtilization(param.time);

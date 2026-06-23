@@ -9,6 +9,8 @@ import v8 from 'v8';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
+import { TREZOR_BLE_CHANNELS } from '@onekeyfe/hwk-trezor-connector-electron-ble';
+import { initTrezorBleSupport } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 import {
   BrowserWindow,
   Menu,
@@ -39,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { sanitizeTrezorThpModuleLogData } from '@onekeyhq/shared/src/hardware/trezorThpLogRedact';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { isAllowedWebViewUrl } from '@onekeyhq/shared/src/utils/webViewUrlSafety';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
@@ -77,6 +80,8 @@ import { startServices } from './service';
 import { setMainWindowForOAuthServer } from './service/oauthLocalServer/oauthLocalServer';
 import { destroyTrayManager, initTrayManager } from './tray/TrayManager';
 import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
+
+import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
 initSentry();
 
@@ -1578,6 +1583,57 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   ];
   nobleBleChannels.forEach((channel) => ipcMain.removeHandler(channel));
   void initNobleBleSupport(browserWindow.webContents);
+
+  // Third-party BLE wiring — exposed to the renderer as the vendor-neutral
+  // `window.desktopApi.thirdPartyBle`. Today it's backed by the SDK's
+  // `initTrezorBleSupport`, whose IPC channels live in their own
+  // namespace ($onekey-trezor-ble-*) so they coexist with OneKey's
+  // own `nobleBle` without colliding. When we add other 3rd-party BLE
+  // vendors, they should plug into the same `thirdPartyBle` surface
+  // rather than each adding a parallel object.
+  Object.values(TREZOR_BLE_CHANNELS).forEach((channel) =>
+    ipcMain.removeHandler(channel),
+  );
+  // The SDK registers its BLE IPC handlers ignoring `event.sender`. DApp
+  // webviews share the same preload (`desktopApi.thirdPartyBle`) and could
+  // otherwise drive BLE scan/connect/write. Gate every channel to the main
+  // window renderer, matching the DESKTOP_API_CALL sender check.
+  const trezorBleSenderGatedIpcMain: IpcMainLike = {
+    handle: (channel, listener) => {
+      ipcMain.handle(channel, (event, ...args) => {
+        if (event.sender.id !== browserWindow.webContents.id) {
+          logger.warn(
+            '[TrezorBLE] Rejected IPC from non-main renderer',
+            channel,
+            event.sender.id,
+          );
+          throw new OneKeyLocalError(
+            'Trezor BLE IPC is only allowed from the main window',
+          );
+        }
+        return listener(event, ...args);
+      });
+    },
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+  };
+  initTrezorBleSupport(browserWindow.webContents, {
+    ipcMain: trezorBleSenderGatedIpcMain,
+    logger: (entry) => {
+      const message = `[hwk:${entry.scope}] ${entry.event}`;
+      // THP debug payloads can carry handshake packets / pairing credentials /
+      // static keys — redact before anything reaches the on-disk file log.
+      const data = sanitizeTrezorThpModuleLogData(entry.data) ?? '';
+      if (entry.level === 'error') {
+        logger.error(message, data);
+        return;
+      }
+      if (entry.level === 'warn') {
+        logger.warn(message, data);
+        return;
+      }
+      logger.info(message, data);
+    },
+  });
 
   return browserWindow;
 }

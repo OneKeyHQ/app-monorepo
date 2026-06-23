@@ -434,6 +434,87 @@ const coldStartDirtyKeys = new Set<string>();
 /** Debounce timer for batched MMKV writes */
 let coldStartSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
+const ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX = 'store:accountSelector@';
+const RECENT_ACCOUNT_SWITCH_COLD_START_MS = 5 * 60 * 1000;
+const ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION = 1;
+
+type IAccountSelectorRecentSelectionCacheItem = {
+  version: typeof ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION;
+  updatedAt: number;
+  selectedAccountsMap?: unknown;
+  updateMeta?: unknown;
+};
+
+type IAccountSelectorRecentSelectionCache = Record<
+  string,
+  IAccountSelectorRecentSelectionCacheItem | undefined
+>;
+
+function getRecentAccountSelectorColdStartValue({
+  coldStartScopeKey,
+  coldStartCacheKey,
+}: {
+  coldStartScopeKey: string;
+  coldStartCacheKey: IContextAtomColdStartCacheKey;
+}) {
+  if (!coldStartScopeKey.startsWith(ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX)) {
+    return undefined;
+  }
+  const sceneId = coldStartScopeKey.slice(
+    ACCOUNT_SELECTOR_COLD_START_SCOPE_PREFIX.length,
+  );
+  if (!sceneId) {
+    return undefined;
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { coldStartCacheStorage } =
+      require('@onekeyhq/shared/src/storage/instance/syncStorageInstance') as typeof import('@onekeyhq/shared/src/storage/instance/syncStorageInstance');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { EAppSyncStorageKeys } =
+      require('@onekeyhq/shared/src/storage/syncStorageKeys') as typeof import('@onekeyhq/shared/src/storage/syncStorageKeys');
+
+    const cache =
+      coldStartCacheStorage.getObject<IAccountSelectorRecentSelectionCache>(
+        EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      );
+    const item = cache?.[sceneId];
+    const now = Date.now();
+    if (
+      item?.version !== ACCOUNT_SELECTOR_RECENT_SELECTION_CACHE_VERSION ||
+      !item.updatedAt ||
+      now - item.updatedAt < 0 ||
+      now - item.updatedAt > RECENT_ACCOUNT_SWITCH_COLD_START_MS
+    ) {
+      return undefined;
+    }
+
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.selectedAccountsAtom
+    ) {
+      return item.selectedAccountsMap;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorUpdateMetaAtom
+    ) {
+      return item.updateMeta;
+    }
+    if (
+      coldStartCacheKey ===
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom
+    ) {
+      return true;
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  return undefined;
+}
+
 function flushColdStartCache() {
   if (coldStartDirtyKeys.size === 0) return;
   coldStartLog(
@@ -490,6 +571,60 @@ function scheduleColdStartSave(name: string) {
   }, 2000);
 }
 
+async function flushWebColdStartCacheNowIfNeeded() {
+  if (!platformEnv.isWeb && !platformEnv.isDesktop) {
+    return;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { flushColdStartCacheNow } =
+      require('@onekeyhq/shared/src/storage/instance/webColdStartStorage') as typeof import('@onekeyhq/shared/src/storage/instance/webColdStartStorage');
+    await flushColdStartCacheNow();
+  } catch {
+    /* webColdStartStorage may not be loaded on extension UI */
+  }
+}
+
+export async function writeContextAtomColdStartCacheValues({
+  entries,
+  flushImmediately,
+}: {
+  entries: {
+    coldStartScopeKey: string;
+    coldStartCacheKey: IContextAtomColdStartCacheKey;
+    value: unknown;
+  }[];
+  flushImmediately?: boolean;
+}) {
+  if (entries.length === 0) {
+    return;
+  }
+
+  let lastScopedKey = '';
+  for (const { coldStartScopeKey, coldStartCacheKey, value } of entries) {
+    const scopedKey = buildColdStartScopedKey({
+      coldStartScopeKey,
+      coldStartCacheKey,
+    });
+    lastScopedKey = scopedKey;
+    coldStartValuesMap.set(scopedKey, value);
+    coldStartDirtyKeys.add(scopedKey);
+    coldStartLog(`writeNow: ${scopedKey}`);
+  }
+
+  if (flushImmediately) {
+    if (coldStartSaveTimer) {
+      clearTimeout(coldStartSaveTimer);
+      coldStartSaveTimer = undefined;
+    }
+    flushColdStartCache();
+    await flushWebColdStartCacheNowIfNeeded();
+    return;
+  }
+
+  scheduleColdStartSave(lastScopedKey);
+}
+
 let coldStartAppStateListenerRegistered = false;
 function ensureColdStartAppStateListener() {
   if (coldStartAppStateListenerRegistered) return;
@@ -543,20 +678,26 @@ export function hydrateContextColdStartCacheForProvider({
     const snapshot = (globalThis as any).__ONEKEY_CTX_ATOM_SNAPSHOT__ as
       | Record<string, unknown>
       | undefined;
-    if (!snapshot) {
-      return;
-    }
 
     for (const [
       cacheKey,
       { atom: atomBuilder },
     ] of contextAtomSnapshotRegistry) {
       const typedCacheKey = cacheKey as IContextAtomColdStartCacheKey;
-      const cached = getScopedColdStartSnapshotValue({
-        snapshot,
-        coldStartScopeKey: scope,
-        coldStartCacheKey: typedCacheKey,
-      });
+      const recentAccountSelectorCached =
+        getRecentAccountSelectorColdStartValue({
+          coldStartScopeKey: scope,
+          coldStartCacheKey: typedCacheKey,
+        });
+      const cached =
+        recentAccountSelectorCached ??
+        (snapshot
+          ? getScopedColdStartSnapshotValue({
+              snapshot,
+              coldStartScopeKey: scope,
+              coldStartCacheKey: typedCacheKey,
+            })
+          : undefined);
       if (cached !== undefined && cached !== null) {
         const scopedCacheKey = buildColdStartScopedKey({
           coldStartScopeKey: scope,

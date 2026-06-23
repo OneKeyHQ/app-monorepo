@@ -1,4 +1,5 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types';
 import type {
   ESwapTabSwitchType,
   IFetchQuoteResult,
@@ -218,6 +219,8 @@ export type IBuildSwapReviewStateInput = {
   supportPreBuild: boolean;
   slippage?: number;
   rateDifference?: ISwapPreSwapData['rateDifference'];
+  defaultTokenCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
   texts: ISwapReviewStepTexts;
 };
 
@@ -235,6 +238,8 @@ export function buildSwapReviewState({
   supportPreBuild,
   slippage,
   rateDifference,
+  defaultTokenCurrency,
+  currencyMap,
   texts,
 }: IBuildSwapReviewStateInput): {
   batchTransferType: ESwapBatchTransferType;
@@ -266,6 +271,10 @@ export function buildSwapReviewState({
     buildSwapRateDifference({
       fromTokenPrice: fromToken?.price,
       toTokenPrice: toToken?.price,
+      fromTokenCurrency: fromToken?.currency,
+      toTokenCurrency: toToken?.currency,
+      defaultTokenCurrency,
+      currencyMap,
       instantRate: quoteResult?.instantRate,
     });
 
@@ -316,6 +325,14 @@ export function buildSwapReviewState({
     });
   }
 
+  const shouldHideSlippage =
+    quoteResult?.protocol === EProtocolOfExchange.LIMIT ||
+    quoteResult?.protocol === EProtocolOfExchange.STOCK ||
+    quoteResult?.unSupportSlippage;
+  const hasNetworkFeeStep = steps.some(
+    (step) => step.type !== ESwapStepType.SIGN_MESSAGE,
+  );
+
   const preSwapData: ISwapPreSwapData = {
     swapType,
     fromToken,
@@ -327,21 +344,19 @@ export function buildSwapReviewState({
     supportPreBuild,
     needFetchGas,
     minToAmount: quoteResult?.minToAmount,
-    slippage:
-      quoteResult?.protocol === EProtocolOfExchange.LIMIT ||
-      quoteResult?.unSupportSlippage
-        ? undefined
-        : slippage,
+    slippage: shouldHideSlippage ? undefined : slippage,
     rateDifference:
       quoteResult?.protocol === EProtocolOfExchange.LIMIT
         ? undefined
         : reviewRateDifference,
-    unSupportSlippage: quoteResult?.unSupportSlippage ?? false,
+    unSupportSlippage: Boolean(
+      quoteResult?.unSupportSlippage ||
+      quoteResult?.protocol === EProtocolOfExchange.STOCK,
+    ),
     isHWAndExBatchTransfer: shouldSignEveryTime,
     fee: quoteResult?.fee,
     allowanceResult: quoteResult?.allowanceResult,
-    ...(steps.length > 0 &&
-    steps[steps.length - 1].type !== ESwapStepType.SIGN_MESSAGE
+    ...(steps.length > 0 && hasNetworkFeeStep
       ? {
           supportNetworkFeeLevel: true,
         }

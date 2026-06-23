@@ -5,7 +5,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IBackgroundApiInternalCallMessage } from '../apis/IBackgroundApi';
 import type { ConnectorEventType } from '@onekeyfe/hwk-adapter-core';
-import type { SdkEvent } from '@onekeyfe/hwk-ledger-adapter';
+
+export type IHwkSdkLogEvent = {
+  type: 'log';
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+};
+
+export type IHwkSdkEvent = IHwkSdkLogEvent;
 
 /**
  * Typed one-way push channel from the offscreen document to the Service Worker.
@@ -48,11 +55,11 @@ export interface IOffscreenEventMap {
   };
 
   /**
-   * Forward of `SdkEvent` from the offscreen copy of hwk-ledger-adapter.
-   * SW subscribes separately; SdkEvent's discriminated union scales to
-   * new variants without needing new IPC routes.
+   * Forward of third-party HWK SDK events from offscreen.
+   * SW subscribes separately; this generic event union scales across Ledger,
+   * Trezor, and future vendors without needing new IPC routes.
    */
-  hwkSdkEvent: SdkEvent;
+  hwkSdkEvent: IHwkSdkEvent;
 }
 
 export type IOffscreenEventType = keyof IOffscreenEventMap;
