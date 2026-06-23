@@ -216,7 +216,6 @@ function BookmarkListModal() {
           id: ETranslations.explore_bookmarks,
         })}
         headerRight={headerRight}
-        headerRightNoGlass
       />
       <Page.Body>
         <SortableListView

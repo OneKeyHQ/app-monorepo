@@ -466,11 +466,7 @@ function TxConfirm() {
       safeAreaEnabled
       testID={SignatureConfirmTestIDs.TxConfirmPage}
     >
-      <Page.Header
-        title={txConfirmTitle}
-        headerRight={renderHeaderRight}
-        headerRightNoGlass
-      />
+      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID={SignatureConfirmTestIDs.TxConfirmBody} px="$5">
         {renderTxQueueController()}
         {renderTxConfirmContent()}

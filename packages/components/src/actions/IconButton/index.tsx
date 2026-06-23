@@ -9,7 +9,10 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
-import { useInGlassHeader } from '../../primitives/Button/GlassHeaderContext';
+import {
+  GLASS_HEADER_BAREIFY_RESET,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { Tooltip } from '../Tooltip';
@@ -102,20 +105,11 @@ export function IconButton(props: IIconButtonProps) {
         })}
         {...sharedFrameStyles}
         {...rest}
-        // Inside an iOS 26 Liquid Glass header, the system bar-button
-        // capsule owns the container shape and the press/hover feedback.
-        // Strip our own background/press styles so they don't double up,
-        // and reset the tertiary negative margin so the icon sits at the
-        // capsule's true center. Only ever applies to buttons actually
-        // injected into the native glass bar (see GlassHeaderContext).
-        {...(inGlassHeader && {
-          m: 0,
-          bg: '$transparent',
-          borderColor: '$transparent',
-          hoverStyle: undefined,
-          pressStyle: undefined,
-          focusVisibleStyle: undefined,
-        })}
+        // Inside the iOS 26 glass capsule, drop our self-drawn background/press
+        // and the tertiary negative margin so we don't double up on the system
+        // glass. Only ever true for buttons injected into the native glass bar
+        // (see GlassHeaderContext / GLASS_HEADER_BAREIFY_RESET).
+        {...(inGlassHeader && GLASS_HEADER_BAREIFY_RESET)}
         onPress={onPress}
         onLongPress={onLongPress}
       >

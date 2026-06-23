@@ -336,7 +336,6 @@ function RiskTokenManager() {
           id: ETranslations.wallet_risk_assets,
         })}
         headerRight={headerRight}
-        headerRightNoGlass
         headerSearchBarOptions={{
           onChangeText: debounce(
             (e: NativeSyntheticEvent<TextInputFocusEventData>) =>

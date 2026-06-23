@@ -82,7 +82,6 @@ function ConnectionList() {
           id: ETranslations.explore_dapp_connections,
         })}
         headerRight={() => renderHeaderRight()}
-        headerRightNoGlass
       />
       <Page.Body>
         <ListView

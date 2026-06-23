@@ -34,6 +34,21 @@ export function useInGlassHeader(): boolean {
   return useContext(GlassHeaderContext);
 }
 
+// The frame-style reset a header button applies once it detects (via
+// `useInGlassHeader`) that it sits inside the iOS 26 system glass capsule. The
+// capsule already owns the container shape and the press/hover feedback, so we
+// strip our self-drawn background/border/press styles and the tertiary negative
+// margin to avoid doubling up on the glass. Shared by Button and IconButton so
+// the two stay byte-for-byte identical.
+export const GLASS_HEADER_BAREIFY_RESET = {
+  m: 0,
+  bg: '$transparent',
+  borderColor: '$transparent',
+  hoverStyle: undefined,
+  pressStyle: undefined,
+  focusVisibleStyle: undefined,
+} as const;
+
 // The iOS 26 Liquid Glass nav bar is transparent (headerTransparent), so screen
 // content renders *under* it for the glass to refract it. The standard iOS
 // inline nav bar is 44pt tall below the safe-area top; the extra gap keeps

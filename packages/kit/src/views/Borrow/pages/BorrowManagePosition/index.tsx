@@ -100,7 +100,6 @@ const BorrowManagePosition = () => {
           intl.formatMessage({ id: ETranslations.defi_manage_position })
         }
         headerRight={headerRight}
-        headerRightNoGlass
       />
       <Page.Body>
         <ManagePositionContent
