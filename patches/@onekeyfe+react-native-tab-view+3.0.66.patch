@@ -1,0 +1,376 @@
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
+index f83f505..79bfa4b 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
++++ b/node_modules/@onekeyfe/react-native-tab-view/android/src/main/java/com/rcttabview/RCTTabViewManager.kt
+@@ -193,6 +193,9 @@ class RCTTabViewManager(context: ReactApplicationContext) :
+   }
+ 
+   // iOS-only props (no-ops on Android)
++  // selectedIcons feeds UITabBarItem.selectedImage on iOS; Android keeps
++  // swapping the icon in JS via the focusedKey-driven `icons` array.
++  override fun setSelectedIcons(view: ReactBottomNavigationView?, value: ReadableArray?) {}
+   override fun setTranslucent(view: ReactBottomNavigationView?, value: Boolean) {}
+   override fun setSidebarAdaptable(view: ReactBottomNavigationView?, value: Boolean) {}
+   override fun setScrollEdgeAppearance(view: ReactBottomNavigationView?, value: String?) {}
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
+index b3cc975..6ccad7e 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewComponentView.mm
+@@ -239,6 +239,19 @@ - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &
+     [_containerView setValue:iconsArray forKey:@"icons"];
+   }
+ 
++  if (oldViewProps.selectedIcons != newViewProps.selectedIcons) {
++    auto selectedIconsArray = [[NSMutableArray alloc] init];
++    for (auto &source: newViewProps.selectedIcons) {
++      NSMutableDictionary *iconDict = [NSMutableDictionary dictionary];
++      iconDict[@"uri"] = [NSString stringWithUTF8String:source.uri.c_str()];
++      iconDict[@"width"] = @(source.size.width);
++      iconDict[@"height"] = @(source.size.height);
++      iconDict[@"scale"] = @(source.scale);
++      [selectedIconsArray addObject:iconDict];
++    }
++    [_containerView setValue:selectedIconsArray forKey:@"selectedIcons"];
++  }
++
+   if (oldViewProps.sidebarAdaptable != newViewProps.sidebarAdaptable) {
+     [_containerView setValue:@(newViewProps.sidebarAdaptable) forKey:@"sidebarAdaptable"];
+   }
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+index 119453f..4505879 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
++++ b/node_modules/@onekeyfe/react-native-tab-view/ios/RCTTabViewContainerView.swift
+@@ -56,6 +56,11 @@ class RCTTabViewContainerView: UIView {
+   private var childViews: [UIView] = []
+   private var bottomAccessoryView: UIView?
+   private var loadedIcons: [Int: UIImage] = [:]
++  // Solid/focused icons shown for the selected tab via UITabBarItem.selectedImage.
++  // Loaded once and swapped natively by UIKit on selection, so the focused
++  // artwork rides the system selection animation instead of waiting for a JS
++  // round-trip + async reload.
++  private var loadedSelectedIcons: [Int: UIImage] = [:]
+   private var imageLoader: RCTImageLoaderProtocol?
+   private let iconSize = CGSize(width: 27, height: 27)
+   private var longPressHandler: LongPressGestureHandler?
+@@ -76,6 +81,10 @@ class RCTTabViewContainerView: UIView {
+     didSet { loadIconsFromSources() }
+   }
+ 
++  @objc var selectedIcons: [NSDictionary]? {
++    didSet { loadSelectedIconsFromSources() }
++  }
++
+   @objc var labeled: NSNumber? {
+     didSet { rebuildViewControllers() }
+   }
+@@ -109,11 +118,13 @@ class RCTTabViewContainerView: UIView {
+   }
+ 
+   @objc var activeTintColor: UIColor? {
+-    didSet { updateTintColors() }
++    // Rebuild so the baked selectedImage tint follows light/dark theme changes.
++    didSet { updateTintColors(); rebuildViewControllers() }
+   }
+ 
+   @objc var inactiveTintColor: UIColor? {
+-    didSet { updateTabBarAppearance() }
++    // Rebuild so the baked unselected-image tint follows theme changes.
++    didSet { updateTabBarAppearance(); rebuildViewControllers() }
+   }
+ 
+   @objc var rippleColor: UIColor? // Android only
+@@ -291,6 +302,7 @@ class RCTTabViewContainerView: UIView {
+ 
+       // Configure tab bar item
+       let icon = loadedIcons[originalIndex]
++      let selectedIcon = loadedSelectedIcons[originalIndex]
+       let sfSymbol = tabData.sfSymbol ?? ""
+ 
+       var tabImage: UIImage?
+@@ -300,9 +312,29 @@ class RCTTabViewContainerView: UIView {
+         tabImage = UIImage(systemName: sfSymbol)
+       }
+ 
++      // Focused (solid) artwork for the selected state. Fall back to the
++      // unfocused image when no selected icon was provided so the selected
++      // tab still renders something.
++      var selectedTabImage: UIImage?
++      if let selectedIcon {
++        selectedTabImage = selectedIcon
++      } else if !sfSymbol.isEmpty {
++        selectedTabImage = UIImage(systemName: sfSymbol)
++      }
++
++      // Bake the inactive/active colors directly into the images as
++      // .alwaysOriginal. iOS 26 Liquid Glass ignores appearance.normal.iconColor
++      // and washes every icon to a single near-white tint, which is why the
++      // unselected tabs never render the gray `iconSubdued`. Pre-tinting the
++      // artwork and marking it .alwaysOriginal stops the system from re-tinting,
++      // restoring the gray(unselected) → active(selected) color change natively.
++      let normalImage = bakeTint(tabImage, inactiveTintColor)
++      let selectedImage = bakeTint(selectedTabImage ?? tabImage, activeTintColor)
++
+       let isLabeled = labeled?.boolValue ?? true
+       let title = isLabeled ? tabData.title : nil
+-      vc.tabBarItem = UITabBarItem(title: title, image: tabImage, tag: originalIndex)
++      vc.tabBarItem = UITabBarItem(title: title, image: normalImage, selectedImage: selectedImage)
++      vc.tabBarItem.tag = originalIndex
+       vc.tabBarItem.badgeValue = tabData.badge
+       vc.tabBarItem.accessibilityIdentifier = tabData.testID
+ 
+@@ -359,6 +391,21 @@ class RCTTabViewContainerView: UIView {
+     let filtered = filteredItems
+     guard let index = filtered.firstIndex(where: { $0.key == selectedPage }) else { return }
+ 
++    // Common case: the user tapped the tab. UIKit's delegate already selected
++    // it optimistically and started the iOS 26 Liquid Glass capsule animation.
++    // Re-assigning selectedIndex here — especially wrapped in
++    // performWithoutAnimation — would cancel that in-flight animation, which is
++    // what made the icon/color change lag a beat behind the glass. When the
++    // selection is already correct, just refresh tint and leave the native
++    // animation alone.
++    if tbc.selectedIndex == index {
++      updateTintColors()
++      return
++    }
++
++    // Programmatic selection (deep link, external navigation, preventsDefault
++    // tabs): keep the existing no-animation behavior to avoid the historically
++    // reverted tab-switch animation regression.
+     if disablePageAnimations {
+       UIView.performWithoutAnimation {
+         tbc.selectedIndex = index
+@@ -525,11 +572,25 @@ class RCTTabViewContainerView: UIView {
+     }
+   }
+ 
++  // MARK: - Icon tinting
++
++  /// Returns a copy of `image` recolored to `color` and marked
++  /// `.alwaysOriginal`, so iOS 26 Liquid Glass won't override the icon color.
++  /// Falls back to the untinted image when no color is provided.
++  private func bakeTint(_ image: UIImage?, _ color: UIColor?) -> UIImage? {
++    guard let image else { return nil }
++    guard let color else { return image }
++    return image
++      .withRenderingMode(.alwaysTemplate)
++      .withTintColor(color, renderingMode: .alwaysOriginal)
++  }
++
+   // MARK: - Icon loading
+ 
+   @objc func setImageLoader(_ loader: RCTImageLoaderProtocol) {
+     self.imageLoader = loader
+     loadIconsFromSources()
++    loadSelectedIconsFromSources()
+   }
+ 
+   private func loadIconsFromSources() {
+@@ -566,6 +627,40 @@ class RCTTabViewContainerView: UIView {
+     }
+   }
+ 
++  private func loadSelectedIconsFromSources() {
++    guard let imageLoader, let iconDicts = selectedIcons else { return }
++
++    let iconSources = iconDicts.map { IconSource(dict: $0) }
++
++    for (index, source) in iconSources.enumerated() {
++      guard !source.uri.isEmpty else { continue }
++
++      let url = URL(string: source.uri)
++      guard let url else { continue }
++
++      let request = URLRequest(url: url)
++      let size = CGSize(width: source.width, height: source.height)
++      let scale = CGFloat(source.scale)
++
++      imageLoader.loadImage(
++        with: request,
++        size: size,
++        scale: scale,
++        clipped: true,
++        resizeMode: RCTResizeMode.contain,
++        progressBlock: { _, _ in },
++        partialLoad: { _ in },
++        completionBlock: { [weak self] error, image in
++          if error != nil { return }
++          guard let image, let self else { return }
++          DispatchQueue.main.async {
++            self.loadedSelectedIcons[index] = image.resizeImageTo(size: self.iconSize)
++            self.rebuildViewControllers()
++          }
++        })
++    }
++  }
++
+   // MARK: - Tab delegate callbacks
+ 
+   func handleTabSelected(at index: Int) {
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
+index 6f57ee4..303e638 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
++++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabView.js
+@@ -90,10 +90,26 @@ const TabView = ({
+   if (!loaded.includes(focusedKey)) {
+     setLoaded(loaded => [...loaded, focusedKey]);
+   }
+-  const icons = React.useMemo(() => trimmedRoutes.map(route => getIcon({
++  const isIOS = Platform.OS === 'ios';
++  // Unfocused (outline) icons — stable across tab switches (no focusedKey dep).
++  const unfocusedIcons = React.useMemo(() => trimmedRoutes.map(route => getIcon({
++    route,
++    focused: false
++  })), [getIcon, trimmedRoutes]);
++  // Focused (solid) icons — also stable; handed to iOS as selectedImage.
++  const focusedIcons = React.useMemo(() => trimmedRoutes.map(route => getIcon({
++    route,
++    focused: true
++  })), [getIcon, trimmedRoutes]);
++  // Legacy single array driven by focusedKey (Android swaps the icon in JS).
++  const focusKeyedIcons = React.useMemo(() => trimmedRoutes.map(route => getIcon({
+     route,
+     focused: route.key === focusedKey
+   })), [focusedKey, getIcon, trimmedRoutes]);
++  // iOS hands both states to UIKit (image + selectedImage) so the focused
++  // artwork swaps natively in sync with the selection animation; Android keeps
++  // the focusedKey-driven array.
++  const icons = isIOS ? unfocusedIcons : focusKeyedIcons;
+   const items = React.useMemo(() => trimmedRoutes.map((route, index) => {
+     const icon = icons[index];
+     const isSfSymbol = isAppleSymbol(icon);
+@@ -153,6 +169,25 @@ const TabView = ({
+       scale: 1
+     };
+   }), [icons]);
++  // Focused (solid) assets passed to iOS as selectedImage (iOS only).
++  const resolvedSelectedIconAssets = React.useMemo(() => focusedIcons.map(icon => {
++    if (icon && !isAppleSymbol(icon)) {
++      // @ts-ignore - resolveAssetSource accepts ImageSourcePropType
++      const resolved = Image.resolveAssetSource(icon);
++      return {
++        uri: resolved?.uri ?? '',
++        width: resolved?.width ?? 0,
++        height: resolved?.height ?? 0,
++        scale: resolved?.scale ?? 1
++      };
++    }
++    return {
++      uri: '',
++      width: 0,
++      height: 0,
++      scale: 1
++    };
++  }), [focusedIcons]);
+   const jumpTo = useLatestCallback(key => {
+     const index = trimmedRoutes.findIndex(route => route.key === key);
+     if (index === -1) {
+@@ -203,6 +238,7 @@ const TabView = ({
+       style: styles.fullWidth,
+       items: items,
+       icons: renderCustomTabBar ? undefined : resolvedIconAssets,
++      selectedIcons: isIOS && !renderCustomTabBar ? resolvedSelectedIconAssets : undefined,
+       selectedPage: focusedKey,
+       tabBarHidden: props.tabBarHidden ?? !!renderCustomTabBar,
+       onTabLongPress: handleTabLongPress,
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabViewNativeComponent.ts b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabViewNativeComponent.ts
+index d2f745a..b904426 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabViewNativeComponent.ts
++++ b/node_modules/@onekeyfe/react-native-tab-view/lib/module/TabViewNativeComponent.ts
+@@ -44,6 +44,7 @@ export interface TabViewProps extends ViewProps {
+   onTabBarMeasured?: DirectEventHandler<OnTabBarMeasured>;
+   onNativeLayout?: DirectEventHandler<OnNativeLayout>;
+   icons?: ReadonlyArray<ImageSource>;
++  selectedIcons?: ReadonlyArray<ImageSource>;
+   tabBarHidden?: boolean;
+   labeled?: boolean;
+   sidebarAdaptable?: boolean;
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
+index c990391..ad7afed 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
++++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabView.tsx
+@@ -260,7 +260,22 @@ const TabView = <Route extends BaseRoute>({
+     setLoaded((loaded) => [...loaded, focusedKey]);
+   }
+ 
+-  const icons = React.useMemo(
++  const isIOS = Platform.OS === 'ios';
++
++  // Unfocused (outline) icons — independent of focusedKey so the array stays
++  // stable across tab switches and the native side never reloads on switch.
++  const unfocusedIcons = React.useMemo(
++    () => trimmedRoutes.map((route) => getIcon({ route, focused: false })),
++    [getIcon, trimmedRoutes]
++  );
++  // Focused (solid) icons — also stable; handed to iOS as selectedImage.
++  const focusedIcons = React.useMemo(
++    () => trimmedRoutes.map((route) => getIcon({ route, focused: true })),
++    [getIcon, trimmedRoutes]
++  );
++  // Legacy single array driven by focusedKey. Android still swaps the icon in
++  // JS (it has no selectedImage equivalent).
++  const focusKeyedIcons = React.useMemo(
+     () =>
+       trimmedRoutes.map((route) =>
+         getIcon({
+@@ -271,6 +286,11 @@ const TabView = <Route extends BaseRoute>({
+     [focusedKey, getIcon, trimmedRoutes]
+   );
+ 
++  // iOS hands both states to UIKit (image + selectedImage) so the focused
++  // artwork swaps natively, in sync with the selection animation, instead of
++  // waiting for a JS round-trip. Android keeps the focusedKey-driven array.
++  const icons = isIOS ? unfocusedIcons : focusKeyedIcons;
++
+   const items: TabViewItems[number][] = React.useMemo(
+     () =>
+       trimmedRoutes.map((route, index) => {
+@@ -336,6 +356,26 @@ const TabView = <Route extends BaseRoute>({
+     [icons]
+   );
+ 
++  // Focused (solid) assets passed to iOS as selectedImage. iOS only — Android
++  // ignores selectedIcons and keeps swapping via the focusedKey array above.
++  const resolvedSelectedIconAssets = React.useMemo(
++    () =>
++      focusedIcons.map((icon) => {
++        if (icon && !isAppleSymbol(icon)) {
++          // @ts-ignore - resolveAssetSource accepts ImageSourcePropType
++          const resolved = Image.resolveAssetSource(icon);
++          return {
++            uri: resolved?.uri ?? '',
++            width: resolved?.width ?? 0,
++            height: resolved?.height ?? 0,
++            scale: resolved?.scale ?? 1,
++          };
++        }
++        return { uri: '', width: 0, height: 0, scale: 1 };
++      }),
++    [focusedIcons]
++  );
++
+   const jumpTo = useLatestCallback((key: string) => {
+     const index = trimmedRoutes.findIndex((route) => route.key === key);
+     if (index === -1) {
+@@ -394,6 +434,9 @@ const TabView = <Route extends BaseRoute>({
+         style={styles.fullWidth}
+         items={items}
+         icons={renderCustomTabBar ? undefined : resolvedIconAssets}
++        selectedIcons={
++          isIOS && !renderCustomTabBar ? resolvedSelectedIconAssets : undefined
++        }
+         selectedPage={focusedKey}
+         tabBarHidden={props.tabBarHidden ?? !!renderCustomTabBar}
+         onTabLongPress={handleTabLongPress}
+diff --git a/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts b/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
+index d2f745a..b904426 100644
+--- a/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
++++ b/node_modules/@onekeyfe/react-native-tab-view/src/TabViewNativeComponent.ts
+@@ -44,6 +44,7 @@ export interface TabViewProps extends ViewProps {
+   onTabBarMeasured?: DirectEventHandler<OnTabBarMeasured>;
+   onNativeLayout?: DirectEventHandler<OnNativeLayout>;
+   icons?: ReadonlyArray<ImageSource>;
++  selectedIcons?: ReadonlyArray<ImageSource>;
+   tabBarHidden?: boolean;
+   labeled?: boolean;
+   sidebarAdaptable?: boolean;
