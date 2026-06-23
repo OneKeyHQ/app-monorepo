@@ -225,7 +225,6 @@ function MarketWatchlistTokenList({
                   await actions.current.removeFromWatchListV2(
                     item.networkId,
                     item.address,
-                    item.isNative,
                   );
                 }
                 Toast.success({
@@ -280,7 +279,6 @@ function MarketWatchlistTokenList({
                     void actions.current.removeFromWatchListV2(
                       item.networkId,
                       item.address,
-                      item.isNative,
                     );
                   }
                 },

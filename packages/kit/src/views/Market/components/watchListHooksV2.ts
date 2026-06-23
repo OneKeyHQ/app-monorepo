@@ -17,12 +17,8 @@ export const useWatchListV2Action = () => {
   const [{ data: watchListData, isMounted }] = useMarketWatchListV2Atom();
 
   const removeFromWatchListV2 = useCallback(
-    (chainId: string, contractAddress: string, isNative?: boolean) => {
-      void actions.current.removeFromWatchListV2(
-        chainId,
-        contractAddress,
-        isNative,
-      );
+    (chainId: string, contractAddress: string) => {
+      void actions.current.removeFromWatchListV2(chainId, contractAddress);
     },
     [actions],
   );
@@ -64,8 +60,8 @@ export const useWatchListV2Action = () => {
   );
 
   const isInWatchListV2 = useCallback(
-    (chainId: string, contractAddress: string, isNative?: boolean) =>
-      actions.current.isInWatchListV2(chainId, contractAddress, isNative),
+    (chainId: string, contractAddress: string) =>
+      actions.current.isInWatchListV2(chainId, contractAddress),
     [actions],
   );
 
