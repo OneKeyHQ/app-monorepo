@@ -482,31 +482,41 @@ export default class Vault extends VaultBase {
         (await this.getAccountAddress()),
     );
 
+    // max-send leaves no coin objects for gas, so build() throws "No valid gas
+    // coins"; fall back to a gasless build (empty gas payment) so the dry-run
+    // can still return the estimated fee.
+    let transactionBlock: Awaited<ReturnType<typeof tx.build>>;
+    try {
+      transactionBlock = await tx.build({ client });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message?.includes('No valid gas coins')
+      ) {
+        tx.setGasPayment([]);
+        transactionBlock = await tx.build({ client });
+      } else {
+        throw error;
+      }
+    }
+
     const [gasPrice, dryRun] = await Promise.all([
       client.getReferenceGasPrice(),
-      client.dryRunTransactionBlock({
-        transactionBlock: await tx.build({ client }),
-      }),
+      client.dryRunTransactionBlock({ transactionBlock }),
     ]);
 
     const { computationCost, storageCost, storageRebate } =
       dryRun.effects.gasUsed;
 
-    // Mirror @mysten/sui core-resolver computeGasBudget so the estimated budget
-    // matches what the SDK actually reserves at signing time.
-    // GAS_SAFE_OVERHEAD = 1000n
-    const safeOverhead = BigInt(1000) * gasPrice;
-    const baseComputationCostWithOverhead =
-      BigInt(computationCost) + safeOverhead;
-    const computedBudget =
-      baseComputationCostWithOverhead +
-      BigInt(storageCost) -
-      BigInt(storageRebate);
-    const budget = (
-      computedBudget > baseComputationCostWithOverhead
-        ? computedBudget
-        : baseComputationCostWithOverhead
-    ).toString();
+    // budget mirrors @mysten/sui computeGasBudget (GAS_SAFE_OVERHEAD = 1000)
+    const gasPriceBN = new BigNumber(gasPrice.toString());
+    const baseWithOverhead = new BigNumber(computationCost).plus(
+      gasPriceBN.times(1000),
+    );
+    const budget = BigNumber.maximum(
+      baseWithOverhead.plus(storageCost).minus(storageRebate),
+      baseWithOverhead,
+    ).toFixed(0);
 
     return {
       data: {
@@ -519,7 +529,7 @@ export default class Vault extends VaultBase {
           feeBudget: [
             {
               budget,
-              gasPrice: gasPrice.toString(),
+              gasPrice: gasPriceBN.toFixed(0),
               computationCost,
               storageCost,
               storageRebate,
