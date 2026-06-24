@@ -257,7 +257,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
     return {
       id: HOME_PERPS_HOT_CATEGORY_ID,
-      name: 'Perps',
+      name: apiHotCategory.name,
     };
   }, [perpsCategories]);
 
