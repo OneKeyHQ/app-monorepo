@@ -1,4 +1,11 @@
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -16,6 +23,7 @@ import {
 import type { ETableSortType, ITableColumn } from '@onekeyhq/components';
 import type { IDragEndParamsWithItem } from '@onekeyhq/components/src/layouts/SortableListView/types';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -28,11 +36,14 @@ import type {
 } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { DesktopStickyHeaderContext } from '../../layouts/DesktopStickyHeaderContext';
 import { StickyHeaderPortal } from '../StickyHeaderPortal';
 
+import {
+  applyMarketTokenListLiveOverrides,
+  useMarketHomeTokenListWebSocket,
+} from './hooks/useMarketHomeTokenListWebSocket';
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
 import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
@@ -41,7 +52,14 @@ import {
   shouldUseStockMetadataColumnsForTokens,
 } from './utils/tokenListHelpers';
 
+import type { IMarketTokenListLiveOverride } from './hooks/useMarketHomeTokenListWebSocket';
+
 const SPINNER_HEIGHT = 52;
+const MARKET_HOME_WS_ROW_HEIGHT_PX = 60;
+const MARKET_HOME_WS_OVERSCAN_ROWS = 5;
+const MARKET_HOME_WS_MAX_SUBSCRIPTIONS = 80;
+const MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS = 120;
+const MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG = 'rgba(255, 72, 72, 0.12)';
 // Watchlist mode: only these 3 columns are sortable (server-side sort)
 const SORTABLE_COLUMNS = {
   liquidity: 'liquidity',
@@ -72,6 +90,111 @@ const STOCK_METADATA_COLUMN_DATA_INDEXES = new Set([
   'turnover',
 ]);
 
+type IMarketHomeSubscriptionRange = {
+  start: number;
+  end: number;
+};
+
+function isSameSubscriptionRange(
+  a: IMarketHomeSubscriptionRange,
+  b: IMarketHomeSubscriptionRange,
+) {
+  return a.start === b.start && a.end === b.end;
+}
+
+function getMarketHomeScrollContainer(element: HTMLElement | null) {
+  return element?.closest?.('.onekey-tabs-container') as HTMLElement | null;
+}
+
+function getLimitedSubscriptionRange({
+  tokenCount,
+  visibleStartIndex,
+  visibleEndIndex,
+}: {
+  tokenCount: number;
+  visibleStartIndex: number;
+  visibleEndIndex: number;
+}): IMarketHomeSubscriptionRange {
+  if (tokenCount <= 0) {
+    return { start: 0, end: 0 };
+  }
+
+  const normalizedVisibleStart = Math.min(
+    Math.max(0, visibleStartIndex),
+    tokenCount - 1,
+  );
+  const normalizedVisibleEnd = Math.min(
+    Math.max(normalizedVisibleStart + 1, visibleEndIndex),
+    tokenCount,
+  );
+  const visibleCount = normalizedVisibleEnd - normalizedVisibleStart;
+  const maxCount = Math.min(MARKET_HOME_WS_MAX_SUBSCRIPTIONS, tokenCount);
+
+  let start = Math.max(
+    0,
+    normalizedVisibleStart - MARKET_HOME_WS_OVERSCAN_ROWS,
+  );
+  let end = Math.min(
+    tokenCount,
+    normalizedVisibleEnd + MARKET_HOME_WS_OVERSCAN_ROWS,
+  );
+
+  if (end - start > maxCount) {
+    const beforeCount = Math.max(0, Math.floor((maxCount - visibleCount) / 2));
+    start = Math.max(0, normalizedVisibleStart - beforeCount);
+    end = Math.min(tokenCount, start + maxCount);
+    start = Math.max(0, end - maxCount);
+  }
+
+  return { start, end };
+}
+
+function getMarketHomeVisibleSubscriptionRange({
+  rootElement,
+  tokenCount,
+}: {
+  rootElement: HTMLElement | null;
+  tokenCount: number;
+}): IMarketHomeSubscriptionRange {
+  if (tokenCount <= 0) {
+    return { start: 0, end: 0 };
+  }
+
+  const fallbackRange = getLimitedSubscriptionRange({
+    tokenCount,
+    visibleStartIndex: 0,
+    visibleEndIndex: MARKET_HOME_WS_MAX_SUBSCRIPTIONS,
+  });
+
+  if (platformEnv.isNative || !rootElement) {
+    return fallbackRange;
+  }
+
+  const scrollContainer = getMarketHomeScrollContainer(rootElement);
+  if (!scrollContainer) {
+    return fallbackRange;
+  }
+
+  const viewportHeight =
+    scrollContainer.clientHeight || globalThis.window?.innerHeight || 0;
+  if (!viewportHeight) {
+    return fallbackRange;
+  }
+
+  const containerRect = scrollContainer.getBoundingClientRect();
+  const rootRect = rootElement.getBoundingClientRect();
+  const scrollTop = scrollContainer.scrollTop;
+  const rootTopInScrollContent = rootRect.top - containerRect.top + scrollTop;
+  const visibleTop = scrollTop - rootTopInScrollContent;
+  const visibleBottom = visibleTop + viewportHeight;
+
+  return getLimitedSubscriptionRange({
+    tokenCount,
+    visibleStartIndex: Math.floor(visibleTop / MARKET_HOME_WS_ROW_HEIGHT_PX),
+    visibleEndIndex: Math.ceil(visibleBottom / MARKET_HOME_WS_ROW_HEIGHT_PX),
+  });
+}
+
 export type IMarketTokenListResult = {
   data: IMarketToken[];
   isLoading: boolean | undefined;
@@ -86,22 +209,6 @@ export type IMarketTokenListResult = {
   currentSortBy?: string;
   currentSortType?: 'asc' | 'desc';
 };
-
-export type IMarketTokenListLiveOverride = Partial<
-  Pick<
-    IMarketToken,
-    | 'price'
-    | 'change24h'
-    | 'marketCap'
-    | 'liquidity'
-    | 'transactions'
-    | 'uniqueTraders'
-    | 'holders'
-    | 'turnover'
-    | 'walletInfo'
-  >
-> &
-  Pick<IMarketToken, 'networkId' | 'address'>;
 
 type IMarketTokenListBaseProps = {
   networkId?: string;
@@ -133,6 +240,7 @@ type IMarketTokenListBaseProps = {
   hiddenDesktopColumns?: readonly string[];
   change24hColumnTitle?: string;
   liveTokenOverride?: IMarketTokenListLiveOverride;
+  enableWebSocket?: boolean;
   rowBg?: string;
   testID?: string;
 };
@@ -161,6 +269,7 @@ function MarketTokenListBase({
   hiddenDesktopColumns,
   change24hColumnTitle,
   liveTokenOverride,
+  enableWebSocket,
   rowBg,
   testID,
 }: IMarketTokenListBaseProps) {
@@ -168,6 +277,10 @@ function MarketTokenListBase({
   const toMarketDetailPage = useToDetailPage();
   const { navigateToPerps } = usePerpsNavigation();
   const { md } = useMedia();
+  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
+  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
+  const listRootRef = useRef<HTMLElement | null>(null);
+  const [devSettings] = useDevSettingsPersistAtom();
 
   const {
     data: rawData,
@@ -183,6 +296,118 @@ function MarketTokenListBase({
     currentSortBy,
     currentSortType,
   } = result;
+  const webSocketEnabled = Boolean(
+    enableWebSocket && isTabFocused && !platformEnv.isNative && !md,
+  );
+  const orderedData = useMemo(() => {
+    if (!clientSort || !currentSortBy || !currentSortType) {
+      return rawData;
+    }
+
+    const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
+    if (!field) {
+      return rawData;
+    }
+
+    return [...rawData].toSorted((a, b) => {
+      const aVal = (a[field] as number) ?? 0;
+      const bVal = (b[field] as number) ?? 0;
+      return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [clientSort, currentSortBy, currentSortType, rawData]);
+  const [subscriptionRange, setSubscriptionRange] =
+    useState<IMarketHomeSubscriptionRange>({ start: 0, end: 0 });
+  const updateSubscriptionRange = useCallback(() => {
+    const nextRange = webSocketEnabled
+      ? getMarketHomeVisibleSubscriptionRange({
+          rootElement: listRootRef.current,
+          tokenCount: orderedData.length,
+        })
+      : { start: 0, end: 0 };
+
+    setSubscriptionRange((prev) =>
+      isSameSubscriptionRange(prev, nextRange) ? prev : nextRange,
+    );
+  }, [orderedData.length, webSocketEnabled]);
+
+  useEffect(() => {
+    updateSubscriptionRange();
+
+    if (!webSocketEnabled || orderedData.length === 0 || platformEnv.isNative) {
+      return;
+    }
+
+    const scrollContainer = getMarketHomeScrollContainer(listRootRef.current);
+    if (!scrollContainer) {
+      return;
+    }
+
+    let syncTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleSubscriptionRangeUpdate = () => {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+      }
+      syncTimer = setTimeout(
+        updateSubscriptionRange,
+        MARKET_HOME_WS_SCROLL_SYNC_DELAY_MS,
+      );
+    };
+
+    scrollContainer.addEventListener(
+      'scroll',
+      scheduleSubscriptionRangeUpdate,
+      {
+        passive: true,
+      },
+    );
+    const globalWindow = globalThis.window;
+    if (globalWindow) {
+      globalWindow.addEventListener('resize', scheduleSubscriptionRangeUpdate);
+    }
+
+    return () => {
+      if (syncTimer) {
+        clearTimeout(syncTimer);
+      }
+      scrollContainer.removeEventListener(
+        'scroll',
+        scheduleSubscriptionRangeUpdate,
+      );
+      if (globalWindow) {
+        globalWindow.removeEventListener(
+          'resize',
+          scheduleSubscriptionRangeUpdate,
+        );
+      }
+    };
+  }, [orderedData.length, updateSubscriptionRange, webSocketEnabled]);
+
+  const subscriptionTokens = useMemo(
+    () => orderedData.slice(subscriptionRange.start, subscriptionRange.end),
+    [orderedData, subscriptionRange.end, subscriptionRange.start],
+  );
+  const showMarketHomeWsDebug = Boolean(
+    devSettings.enabled &&
+    devSettings.settings?.showMarketHomeWsDebug &&
+    !platformEnv.isNative,
+  );
+  const showWebSocketDebugRows = showMarketHomeWsDebug && webSocketEnabled;
+  const [webSocketSubscriptionCount, setWebSocketSubscriptionCount] =
+    useState(0);
+  const websocketData = useMarketHomeTokenListWebSocket({
+    tokens: orderedData,
+    subscriptionTokens,
+    enabled: webSocketEnabled,
+    onSubscriptionCountChange: showMarketHomeWsDebug
+      ? setWebSocketSubscriptionCount
+      : undefined,
+  });
+
+  useEffect(() => {
+    if (!showMarketHomeWsDebug || !webSocketEnabled) {
+      setWebSocketSubscriptionCount(0);
+    }
+  }, [showMarketHomeWsDebug, webSocketEnabled]);
 
   const hasStock = useMemo(
     () => rawData.some((item) => !!item.stock),
@@ -216,80 +441,16 @@ function MarketTokenListBase({
     useStockMetadataColumns,
   );
 
-  // Client-side sorting: sort data locally when clientSort is enabled
   const data = useMemo(() => {
-    let nextData = rawData;
-
-    if (clientSort && currentSortBy && currentSortType) {
-      const field = CLIENT_SORT_FIELD_MAP[currentSortBy];
-      if (field) {
-        nextData = [...rawData].toSorted((a, b) => {
-          const aVal = (a[field] as number) ?? 0;
-          const bVal = (b[field] as number) ?? 0;
-          return currentSortType === 'asc' ? aVal - bVal : bVal - aVal;
-        });
-      }
+    if (!liveTokenOverride) {
+      return websocketData;
     }
 
-    if (
-      !liveTokenOverride?.networkId ||
-      liveTokenOverride.address === undefined
-    ) {
-      return nextData;
-    }
-
-    let hasMatchedToken = false;
-    const dataWithLiveOverride = nextData.map((item) => {
-      const isMatchedToken = equalTokenNoCaseSensitive({
-        token1: {
-          networkId: item.networkId,
-          contractAddress: item.address,
-        },
-        token2: {
-          networkId: liveTokenOverride.networkId,
-          contractAddress: liveTokenOverride.address,
-        },
-      });
-
-      if (!isMatchedToken) {
-        return item;
-      }
-
-      hasMatchedToken = true;
-      return {
-        ...item,
-        ...(liveTokenOverride.price !== undefined && {
-          price: liveTokenOverride.price,
-        }),
-        ...(liveTokenOverride.change24h !== undefined && {
-          change24h: liveTokenOverride.change24h,
-        }),
-        ...(liveTokenOverride.marketCap !== undefined && {
-          marketCap: liveTokenOverride.marketCap,
-        }),
-        ...(liveTokenOverride.liquidity !== undefined && {
-          liquidity: liveTokenOverride.liquidity,
-        }),
-        ...(liveTokenOverride.transactions !== undefined && {
-          transactions: liveTokenOverride.transactions,
-        }),
-        ...(liveTokenOverride.uniqueTraders !== undefined && {
-          uniqueTraders: liveTokenOverride.uniqueTraders,
-        }),
-        ...(liveTokenOverride.holders !== undefined && {
-          holders: liveTokenOverride.holders,
-        }),
-        ...(liveTokenOverride.turnover !== undefined && {
-          turnover: liveTokenOverride.turnover,
-        }),
-        ...(liveTokenOverride.walletInfo !== undefined && {
-          walletInfo: liveTokenOverride.walletInfo,
-        }),
-      };
+    return applyMarketTokenListLiveOverrides({
+      tokens: websocketData,
+      liveTokenOverrides: [liveTokenOverride],
     });
-
-    return hasMatchedToken ? dataWithLiveOverride : nextData;
-  }, [clientSort, rawData, currentSortBy, currentSortType, liveTokenOverride]);
+  }, [websocketData, liveTokenOverride]);
 
   // Listen to MarketWatchlistOnlyChanged event to update sort settings
   // Skip for clientSort mode — banner detail pages manage their own sort state
@@ -415,32 +576,55 @@ function MarketTokenListBase({
   onItemLongPressRef.current = onItemLongPress;
   const onItemContextMenuRef = useRef(onItemContextMenu);
   onItemContextMenuRef.current = onItemContextMenu;
+  const debugSubscriptionRangeStart = showWebSocketDebugRows
+    ? subscriptionRange.start
+    : 0;
+  const debugSubscriptionRangeEnd = showWebSocketDebugRows
+    ? subscriptionRange.end
+    : 0;
 
   const stableOnRow = useCallback(
-    (item: IMarketToken, index: number) => ({
-      onPress: onItemPressRef.current
-        ? () => onItemPressRef.current!(item)
-        : () => {
-            if (item.perpsCoin) {
-              navigateToPerps(item.perpsCoin);
-              return;
-            }
-            void toMarketDetailPage({
-              symbol: item.symbol,
-              tokenAddress: item.address,
-              networkId: item.networkId,
-              isNative: item.isNative,
-            });
-          },
-      onLongPress: onItemLongPressRef.current
-        ? () => onItemLongPressRef.current!(item, index)
-        : undefined,
-      onContextMenu: onItemContextMenuRef.current
-        ? (position?: { x: number; y: number }) =>
-            onItemContextMenuRef.current!(item, index, position)
-        : undefined,
-    }),
-    [navigateToPerps, toMarketDetailPage],
+    (item: IMarketToken, index: number) => {
+      return {
+        onPress: onItemPressRef.current
+          ? () => onItemPressRef.current!(item)
+          : () => {
+              if (item.perpsCoin) {
+                navigateToPerps(item.perpsCoin);
+                return;
+              }
+              void toMarketDetailPage({
+                symbol: item.symbol,
+                tokenAddress: item.address,
+                networkId: item.networkId,
+                isNative: item.isNative,
+              });
+            },
+        onLongPress: onItemLongPressRef.current
+          ? () => onItemLongPressRef.current!(item, index)
+          : undefined,
+        onContextMenu: onItemContextMenuRef.current
+          ? (position?: { x: number; y: number }) =>
+              onItemContextMenuRef.current!(item, index, position)
+          : undefined,
+        rowProps:
+          showWebSocketDebugRows &&
+          !item.perpsCoin &&
+          !!item.networkId &&
+          !!item.address &&
+          index >= debugSubscriptionRangeStart &&
+          index < debugSubscriptionRangeEnd
+            ? { bg: MARKET_HOME_WS_DEBUG_SUBSCRIPTION_ROW_BG }
+            : undefined,
+      };
+    },
+    [
+      debugSubscriptionRangeEnd,
+      debugSubscriptionRangeStart,
+      navigateToPerps,
+      showWebSocketDebugRows,
+      toMarketDetailPage,
+    ],
   );
 
   // Show skeleton only when there's no data to display.
@@ -522,9 +706,7 @@ function MarketTokenListBase({
 
   // Desktop sticky header: portal the column header + toolbar into the
   // renderTabBar area so they stick when scrolling in the collapsible tab.
-  const stickyHeaderCtx = useContext(DesktopStickyHeaderContext);
   const stickyPortalTarget = stickyHeaderCtx?.portalTarget ?? null;
-  const isTabFocused = !tabName || stickyHeaderCtx?.activeTabName === tabName;
   const useDesktopPortal = webTabIntegrated && !!stickyPortalTarget && !md;
 
   const portalContent = useMemo(() => {
@@ -572,9 +754,18 @@ function MarketTokenListBase({
           ? SPINNER_HEIGHT * 2
           : tabBarHeight,
       };
+  const showWebSocketDebugOverlay = showMarketHomeWsDebug && webSocketEnabled;
+  const webSocketDebugOverlayStyle = useMemo(
+    () => ({
+      position: 'fixed' as const,
+      right: 20,
+      bottom: 20,
+    }),
+    [],
+  );
 
   return (
-    <Stack flex={1} width="100%" testID={testID}>
+    <Stack ref={listRootRef as any} flex={1} width="100%" testID={testID}>
       {portalContent}
       {/* render custom toolbar if provided (only when not in desktop portal mode) */}
       {!useDesktopPortal ? toolbar : null}
@@ -643,8 +834,26 @@ function MarketTokenListBase({
           ) : null}
         </Stack>
       </Stack>
+      {showWebSocketDebugOverlay ? (
+        <Stack
+          style={webSocketDebugOverlayStyle}
+          zIndex={9999}
+          pointerEvents="none"
+          bg="rgba(255, 72, 72, 0.88)"
+          px="$3"
+          py="$2"
+          borderRadius="$2"
+          borderWidth={1}
+          borderColor="rgba(255, 255, 255, 0.32)"
+        >
+          <SizableText size="$bodySmMedium" color="$textOnColor">
+            {`当前订阅: ${webSocketSubscriptionCount}`}
+          </SizableText>
+        </Stack>
+      ) : null}
     </Stack>
   );
 }
 
 export { MarketTokenListBase };
+export type { IMarketTokenListLiveOverride };
