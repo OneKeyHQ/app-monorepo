@@ -650,12 +650,11 @@ class ServiceSend extends ServiceBase {
           targetNonce: replaceTargetNonce,
         });
         if (consumed) {
-          await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx({
+          await this.cleanupStaleReplaceTxAndThrow({
             accountId,
             networkId,
             replaceHistoryId: replaceTxInfo.replaceHistoryId,
           });
-          throw this.buildReplaceTxNonceConsumedError();
         }
       }
     }
@@ -703,14 +702,11 @@ class ServiceSend extends ServiceBase {
             replaceTxInfo &&
             this.isReplaceTxNonceAlreadyUsedServerError(error)
           ) {
-            await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx(
-              {
-                accountId,
-                networkId,
-                replaceHistoryId: replaceTxInfo.replaceHistoryId,
-              },
-            );
-            throw this.buildReplaceTxNonceConsumedError();
+            await this.cleanupStaleReplaceTxAndThrow({
+              accountId,
+              networkId,
+              replaceHistoryId: replaceTxInfo.replaceHistoryId,
+            });
           }
           throw error;
         }
@@ -921,6 +917,27 @@ class ServiceSend extends ServiceBase {
         id: ETranslations.global_nonce_error_lower,
       }),
     });
+  }
+
+  // Drop the stale local pending tx (its nonce was already consumed on-chain)
+  // and throw the friendly, localized replace-nonce-consumed error. Always
+  // throws — shared by the pre-broadcast nonce check and the backend-40024
+  // safety net so both paths clean up and surface the same message.
+  private async cleanupStaleReplaceTxAndThrow({
+    accountId,
+    networkId,
+    replaceHistoryId,
+  }: {
+    accountId: string;
+    networkId: string;
+    replaceHistoryId?: string;
+  }): Promise<never> {
+    await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx({
+      accountId,
+      networkId,
+      replaceHistoryId,
+    });
+    throw this.buildReplaceTxNonceConsumedError();
   }
 
   @backgroundMethod()

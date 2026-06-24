@@ -118,7 +118,6 @@ function useReplaceTx({
           accountId,
           networkId,
           historyTx,
-          replaceType,
         });
       if (!availability.available) {
         if (availability.reason === 'nonceConsumed') {

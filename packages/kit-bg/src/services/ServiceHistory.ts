@@ -3018,7 +3018,6 @@ class ServiceHistory extends ServiceBase {
     accountId: string;
     networkId: string;
     historyTx: IAccountHistoryTx;
-    replaceType: EReplaceTxType;
   }): Promise<{
     available: boolean;
     reason?: 'notReplaceable' | 'notEarliestPending' | 'nonceConsumed';
