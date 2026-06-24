@@ -9,6 +9,10 @@ import {
   Stack,
   getSharedButtonStyles,
 } from '../../primitives';
+import {
+  GLASS_HEADER_BAREIFY_RESET,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 import { useSharedPress } from '../../primitives/Button/useEvent';
 import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { Tooltip } from '../Tooltip';
@@ -79,6 +83,9 @@ export function IconButton(props: IIconButtonProps) {
 
   const { onPress, onLongPress } = useSharedPress(rest);
 
+  const inGlassHeader = useInGlassHeader();
+  const resolvedIconColor = iconProps?.color ?? iconColor;
+
   const onKeyDown = useCallback((event: GestureResponderEvent) => {
     event.preventDefault();
   }, []);
@@ -98,6 +105,11 @@ export function IconButton(props: IIconButtonProps) {
         })}
         {...sharedFrameStyles}
         {...rest}
+        // Inside the iOS 26 glass capsule, drop our self-drawn background/press
+        // and the tertiary negative margin so we don't double up on the system
+        // glass. Only ever true for buttons injected into the native glass bar
+        // (see GlassHeaderContext / GLASS_HEADER_BAREIFY_RESET).
+        {...(inGlassHeader && GLASS_HEADER_BAREIFY_RESET)}
         onPress={onPress}
         onLongPress={onLongPress}
       >
@@ -107,14 +119,26 @@ export function IconButton(props: IIconButtonProps) {
               m: '$0.5',
             })}
           >
-            <Spinner color={iconColor} size="small" />
+            <Spinner color={inGlassHeader ? '$text' : iconColor} size="small" />
           </Stack>
         ) : (
           <Icon
-            color={iconColor}
             name={icon}
             size={iconSize || (size === 'small' ? '$5' : '$6')}
             {...iconProps}
+            // In a glass header the neutral default icon colors ($icon /
+            // $iconSubdued) look washed out on the capsule, so raise them to
+            // high-contrast $text. Placed after {...iconProps} so it wins over a
+            // caller-set default (e.g. the address-security shield's $iconSubdued,
+            // or the Trade header actions which pass $icon). Semantic colors set
+            // by the caller (success/critical/…) are preserved.
+            color={
+              inGlassHeader &&
+              (resolvedIconColor === '$iconSubdued' ||
+                resolvedIconColor === '$icon')
+                ? '$text'
+                : resolvedIconColor
+            }
           />
         )}
       </ButtonFrame>
@@ -126,12 +150,14 @@ export function IconButton(props: IIconButtonProps) {
       iconColor,
       iconProps,
       iconSize,
+      inGlassHeader,
       loading,
       negativeMargin,
       onKeyDown,
       onLongPress,
       onPress,
       p,
+      resolvedIconColor,
       rest,
       sharedFrameStyles,
       size,
