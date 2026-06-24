@@ -77,6 +77,26 @@ describe('swapStockChannelUtils', () => {
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {
+    const stockToken = buildStockSwapTokenFromMarketListToken({
+      address: '0xaapl',
+      networkId: 'evm--56',
+      symbol: 'AAPL',
+      name: 'Apple',
+      decimals: 18,
+      price: '100',
+      stock: {
+        subtitle: 'Stock',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'AAPL',
+      },
+    });
+
+    expect(stockToken?.isStock).toBe(true);
+    expect(stockToken).toMatchObject({
+      price: '100',
+      currency: 'usd',
+    });
+
     expect(
       buildStockSwapTokenFromMarketListToken({
         address: '0xaapl',
@@ -104,5 +124,30 @@ describe('swapStockChannelUtils', () => {
         },
       })?.isStock,
     ).toBe(false);
+  });
+
+  it('keeps market detail stock prices in USD basis for review display', () => {
+    expect(
+      buildStockSwapTokenFromMarketDetail({
+        tokenDetail: {
+          address: '0xaapl',
+          networkId: 'evm--56',
+          symbol: 'AAPL',
+          name: 'Apple',
+          decimals: 18,
+          logoUrl: '',
+          price: '100',
+          priceConverted: '676',
+          stock: {
+            subtitle: 'Stock',
+            sourceLogoUri: '',
+            underlyingAssetTicker: 'AAPL',
+          },
+        },
+      }),
+    ).toMatchObject({
+      price: '100',
+      currency: 'usd',
+    });
   });
 });
