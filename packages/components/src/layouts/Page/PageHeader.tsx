@@ -8,6 +8,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsOverlayPage } from '../../hocs';
 import { useTheme } from '../../hooks';
+import {
+  toNoGlassHeaderItems,
+  wrapHeaderRenderInGlass,
+} from '../../primitives/Button/GlassHeaderContext';
 import HeaderSearchBar from '../Navigation/Header/HeaderSearchBar';
 
 import type {
@@ -16,7 +20,15 @@ import type {
 } from '../Navigation';
 
 export type IPageHeaderProps = IStackNavigationOptions &
-  IModalNavigationOptions;
+  IModalNavigationOptions & {
+    // iOS 26 only: render this header slot WITHOUT the system Liquid Glass
+    // capsule (hidesSharedBackground). Use when the content isn't a single icon
+    // button — e.g. a text Button — where the glass pill looks wrong (extra
+    // width + the button's own press style showing through). No-op on other
+    // platforms / iOS < 26.
+    headerLeftNoGlass?: boolean;
+    headerRightNoGlass?: boolean;
+  };
 
 // `reload()` returns a flat options object whose values are reference-stable by
 // convention (callers wrap header render functions in `useCallback`). A shallow
@@ -56,10 +68,41 @@ const usePageHeaderReloadOptions = () => {
         headerSearchBarOptions,
         headerTransparent,
         headerStyle,
+        headerLeftNoGlass,
+        headerRightNoGlass,
         ...restProps
       } = props;
+      // toNoGlassHeaderItems returns undefined off iOS 26, so these are truthy
+      // only when the slot opted out of glass AND we're on an iOS 26 glass bar
+      // — no separate platform gate needed.
+      const noGlassLeftItems = headerLeftNoGlass
+        ? toNoGlassHeaderItems(restProps.headerLeft)
+        : undefined;
+      const noGlassRightItems = headerRightNoGlass
+        ? toNoGlassHeaderItems(restProps.headerRight)
+        : undefined;
       return {
         ...restProps,
+        // iOS 26 header buttons: by default wrap the render fn so the button
+        // detects it's in the native glass bar and drops its self-drawn
+        // background/press (see GlassHeaderContext). When the slot opts out via
+        // headerLeft/RightNoGlass (used for text Buttons), route it through an
+        // `unstable_*Items` custom item carrying hidesSharedBackground so UIKit
+        // draws no glass capsule. Both are no-ops on other platforms / iOS < 26.
+        ...(restProps.headerLeft &&
+          (noGlassLeftItems
+            ? {
+                headerLeft: undefined,
+                unstable_headerLeftItems: noGlassLeftItems,
+              }
+            : { headerLeft: wrapHeaderRenderInGlass(restProps.headerLeft) })),
+        ...(restProps.headerRight &&
+          (noGlassRightItems
+            ? {
+                headerRight: undefined,
+                unstable_headerRightItems: noGlassRightItems,
+              }
+            : { headerRight: wrapHeaderRenderInGlass(restProps.headerRight) })),
         ...(headerTransparent && {
           headerStyle: [headerStyle ?? {}, { backgroundColor: 'transparent' }],
         }),
