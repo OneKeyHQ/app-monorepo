@@ -2,6 +2,7 @@ import path from 'path';
 
 import { rspack } from '@rspack/core';
 
+import { RetryChunkLoadRspackPlugin } from './plugins/RetryChunkLoadRspackPlugin';
 import { getOutputFolder } from './utils';
 
 import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
@@ -24,7 +25,7 @@ export function createProductionConfig({
   basePath,
 }: IProdConfigOptions): RspackOptions {
   const isExt = platform === developmentConsts.platforms.ext;
-  const _isWeb = platform === developmentConsts.platforms.web;
+  const isWeb = platform === developmentConsts.platforms.web;
   const rootPath = isExt
     ? path.join(basePath, 'build', getOutputFolder())
     : path.join(basePath, 'web-build');
@@ -43,11 +44,25 @@ export function createProductionConfig({
           '__CURRENT_FILE_PATH__--not-available-in-production',
         ),
       }),
+      // web-only: rspack-native equivalent of webpack-retry-chunk-load-plugin
+      // (the npm plugin is incompatible with rspack's Compilation). ext keeps
+      // its own code-splitting and is unaffected (guard drops to `false`).
+      isWeb &&
+        new RetryChunkLoadRspackPlugin({ retryDelay: 3000, maxRetries: 5 }),
     ].filter(Boolean) as RspackPluginInstance[],
     optimization: {
+      // Diagnostic escape hatch: RSPACK_NO_MINIFY=1 disables minification to
+      // isolate SWC-minifier issues (e.g. parse errors on concatenated vendor
+      // modules) from the rest of the pipeline. Off by default.
+      minimize: process.env.RSPACK_NO_MINIFY === '1' ? false : undefined,
       minimizer: [
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
+            compress: {
+              // web prod parity with babel-plugin-transform-remove-console.
+              // ext console output is preserved (guard is web-only).
+              drop_console: isWeb,
+            },
             mangle: {
               keep_classnames: true,
               keep_fnames: true,

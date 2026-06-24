@@ -17,6 +17,7 @@
     "@onekeyhq/shared": "*"
   },
   "devDependencies": {
+    "@aaroon/workbox-rspack-plugin": "^1.0.1",
     "rimraf": "3.0.2"
   },
   "private": true

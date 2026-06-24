@@ -22,6 +22,62 @@ const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
   resolveCommitSha: () => string;
 };
 
+// Single source of truth for the client-exposed env vars. Mirrors the webpack
+// `transform-inline-environment-variables` plugin so the same ~42 vars are
+// inlined under rspack (otherwise WALLETCONNECT_PROJECT_ID / SENTRY_DSN_WEB /
+// SUPABASE_* / etc. would be `undefined` at runtime).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const envExposedToClient = require('../envExposedToClient') as {
+  buildEnvExposedToClientDangerously: (opts: { platform: string }) => string[];
+};
+// Single source of truth for the platformEnv.* booleans = buildTimeEnv.js.
+// buildTimeEnv derives every flag from process.env.ONEKEY_PLATFORM, which is
+// NOT set at rspack config-eval time (webpack works because babelTools sets it
+// before requiring it). So we set it for `platform` and fresh-require, exactly
+// mirroring development/babelTools.js. NOTE: platformEnv is an *imported*
+// binding in source, so rspack.DefinePlugin CANNOT fold `platformEnv.isNative`
+// member expressions (it only folds free globals) — these MUST be folded via
+// babel-plugin-transform-define (AST-based), like the webpack chain does.
+interface IBuildTimeEnv {
+  isJest: boolean;
+  isDev: boolean;
+  isE2E: boolean;
+  isProduction: boolean;
+  isWeb: boolean;
+  isWebEmbed: boolean;
+  isDesktop: boolean;
+  isExtension: boolean;
+  isNative: boolean;
+  isExtChrome: boolean;
+  isExtFirefox: boolean;
+  enableNativeBackgroundThread: boolean;
+}
+function loadBuildTimeEnv(platform: string): IBuildTimeEnv {
+  process.env.ONEKEY_PLATFORM = platform;
+  const p = require.resolve('../../packages/shared/src/buildTimeEnv');
+  delete require.cache[p];
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('../../packages/shared/src/buildTimeEnv') as IBuildTimeEnv;
+}
+// transform-define map identical to development/babelTools.js (12 keys).
+function buildPlatformEnvDefineMap(platform: string): Record<string, boolean> {
+  const e = loadBuildTimeEnv(platform);
+  return {
+    'platformEnv.isJest': e.isJest,
+    'platformEnv.isDev': e.isDev,
+    'platformEnv.isE2E': e.isE2E,
+    'platformEnv.isProduction': e.isProduction,
+    'platformEnv.isWeb': e.isWeb,
+    'platformEnv.isWebEmbed': e.isWebEmbed,
+    'platformEnv.isDesktop': e.isDesktop,
+    'platformEnv.isExtension': e.isExtension,
+    'platformEnv.isNative': e.isNative,
+    'platformEnv.isExtChrome': e.isExtChrome,
+    'platformEnv.isExtFirefox': e.isExtFirefox,
+    'platformEnv.enableNativeBackgroundThread': e.enableNativeBackgroundThread,
+  };
+}
+
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
 
 const COMMIT_SHA = resolveCommitSha();
@@ -132,10 +188,30 @@ const baseResolve = ({
   fullySpecified: false,
 });
 
-const buildBasePlugins: (
+// Builds the full DefinePlugin map = webpack `transform-inline-environment-variables`
+// (env vars) + `transform-define` (platformEnv.* booleans) + the original
+// explicit/build-derived keys. Collapsing all three into one map; overlapping
+// keys are resolved by spread order — `explicitDefines` is spread LAST so the
+// pinned build-derived values win (parity with the previous hand-written map:
+// e.g. NODE_ENV stays pinned to `nodeEnv`, not the raw process.env value).
+function buildDefineMap(
   platform: string,
-) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
-  new rspack.DefinePlugin({
+): ConstructorParameters<typeof rspack.DefinePlugin>[0] {
+  // (1) env vars — single source of truth = envExposedToClient.js
+  const envKeys = envExposedToClient.buildEnvExposedToClientDangerously({
+    platform,
+  });
+  const envDefines: Record<string, string> = {};
+  for (const key of envKeys) {
+    envDefines[`process.env.${key}`] = JSON.stringify(process.env[key]);
+  }
+  // (2) platformEnv.* booleans are folded by babel-plugin-transform-define
+  //     (see buildPlatformEnvDefineMap + the first-party babel-loader rule),
+  //     NOT here: rspack.DefinePlugin does not replace member expressions on
+  //     the imported `platformEnv` binding.
+  // (3) explicit / build-derived (win last) + EXPO_OS (web only, parity with
+  //     babel-preset-expo which sets process.env.EXPO_OS).
+  const explicitDefines = {
     __DEV__: isDev,
     'process.env.ONEKEY_PROXY': JSON.stringify(onekeyProxy),
     'process.env.ONEKEY_PLATFORM': JSON.stringify(platform),
@@ -152,7 +228,17 @@ const buildBasePlugins: (
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
     'process.env.GITHUB_SHA': JSON.stringify(COMMIT_SHA),
-  }),
+    ...(platform === 'web'
+      ? { 'process.env.EXPO_OS': JSON.stringify('web') }
+      : {}),
+  };
+  return { ...envDefines, ...explicitDefines };
+}
+
+const buildBasePlugins: (
+  platform: string,
+) => (RspackPluginInstance | false | null | undefined)[] = (platform) => [
+  new rspack.DefinePlugin(buildDefineMap(platform)),
   new rspack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
     process: require.resolve('process/browser'),
@@ -197,6 +283,9 @@ export function createBaseConfig({
   basePath,
   configName,
 }: IBaseConfigOptions): RspackOptions {
+  // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
+  // the first-party babel-loader pass below.
+  const platformEnvDefineMap = buildPlatformEnvDefineMap(platform);
   return {
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
@@ -265,6 +354,10 @@ export function createBaseConfig({
     ],
     module: {
       rules: [
+        // `.text-js` = JS source imported as a RAW STRING (default export = the
+        // file contents), matching babel-plugin-inline-import in the webpack
+        // chain. MUST be first so no later asset rule can claim `.text-js`.
+        { test: /\.text-js$/, type: 'asset/source' },
         // cspell:ignore emscripten Skia skia's
         // Canvaskit ships a prebuilt wasm loaded at runtime by emscripten;
         // emit it as a URL asset so react-native-skia's LoadSkiaWeb can fetch
@@ -379,6 +472,19 @@ export function createBaseConfig({
                 env: {
                   targets: 'defaults',
                 },
+                // lodash cherry-pick, mirrors babel-plugin-import in the webpack
+                // chain (`import { x } from 'lodash'` -> `import x from 'lodash/x'`).
+                // camelToDashComponentName:false mirrors camel2DashComponentName:false.
+                rspackExperiments: {
+                  import: [
+                    {
+                      libraryName: 'lodash',
+                      customName: 'lodash/{{ member }}',
+                      camelToDashComponentName: false,
+                      transformToDefaultImport: true,
+                    },
+                  ],
+                },
               },
             },
             {
@@ -393,6 +499,11 @@ export function createBaseConfig({
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',
+                  // Fold platformEnv.* to literals so platform branches are
+                  // dead-code-eliminated (parity with webpack babelTools). Must
+                  // be a babel plugin: rspack.DefinePlugin cannot fold member
+                  // expressions on the imported `platformEnv` binding.
+                  ['transform-define', platformEnvDefineMap],
                 ],
               },
             },
