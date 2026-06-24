@@ -88,8 +88,9 @@ export function Switch({
         false: theme.neutral5.val,
         // On iOS the on-state uses the brand green ($bgAccent) so "activated"
         // reads unmistakably — a saturated color cue, not just a darker/lighter
-        // track — and the forced-white native thumb pops on green in both light
-        // and dark mode. Non-iOS keeps the monochrome $bgPrimary fill.
+        // track. The native thumb is $bg (white in light mode, near-black in
+        // dark mode); both sit at high contrast on the green track. Non-iOS
+        // keeps the monochrome $bgPrimary fill.
         true: platformEnv.isNativeIOS
           ? theme.bgAccent.val
           : theme.bgPrimary.val,

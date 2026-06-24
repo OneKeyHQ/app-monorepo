@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 
@@ -63,14 +63,23 @@ export function OnboardingNavigator() {
   if (platformEnv.isNativeIOS26Plus) {
     setGlassHeaderUIStyle(isFocused ? 'dark' : appGlassStyle);
   }
+  // The render-time write above already handles focus AND blur (useIsFocused
+  // re-renders on both, relinquishing to appGlassStyle when not focused). The
+  // ONLY case it can't reach is unmount-without-blur (onboarding replaced by
+  // main), so the effect cleanup exists purely for that. Keep it unmount-only
+  // ([] deps) and read the latest app style from a ref — an [appGlassStyle]
+  // dep would fire the cleanup on every theme toggle with the STALE captured
+  // value, writing it back over the render-time variant a frame later.
+  const appGlassStyleRef = useRef<'light' | 'dark'>(appGlassStyle);
+  appGlassStyleRef.current = appGlassStyle;
   useEffect(() => {
     if (!platformEnv.isNativeIOS26Plus) {
       return undefined;
     }
     return () => {
-      setGlassHeaderUIStyle(appGlassStyle);
+      setGlassHeaderUIStyle(appGlassStyleRef.current);
     };
-  }, [appGlassStyle]);
+  }, []);
   return (
     <Theme name="dark">
       <RootModalNavigator<EOnboardingV2Routes>
