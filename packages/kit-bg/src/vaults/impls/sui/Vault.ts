@@ -31,6 +31,10 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type {
+  IEstimateGasParams,
+  IServerEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
+import type {
   IInternalDappTxParams,
   IStakeTxSui,
 } from '@onekeyhq/shared/types/staking';
@@ -72,9 +76,25 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type {
+  SuiJsonRpcClientOptions,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui/client';
+} from '@mysten/sui/jsonRpc';
+
+type ISuiKnownClientNetwork = 'mainnet' | 'testnet' | 'devnet' | 'localnet';
+
+const SUI_KNOWN_CLIENT_NETWORKS = new Set<ISuiKnownClientNetwork>([
+  'mainnet',
+  'testnet',
+  'devnet',
+  'localnet',
+]);
+
+function isSuiKnownClientNetwork(
+  network: string,
+): network is ISuiKnownClientNetwork {
+  return SUI_KNOWN_CLIENT_NETWORKS.has(network as ISuiKnownClientNetwork);
+}
 
 function getTransferActionAddress(addresses: string[]) {
   const uniqueAddresses = Array.from(new Set(addresses.filter(Boolean)));
@@ -103,12 +123,18 @@ export default class Vault extends VaultBase {
     return this.getClientCache();
   }
 
-  getSuiClient() {
+  async getSuiClientNetwork(): Promise<SuiJsonRpcClientOptions['network']> {
+    const chainId = await this.getNetworkChainId();
+    return chainId && isSuiKnownClientNetwork(chainId) ? chainId : 'mainnet';
+  }
+
+  async getSuiClient() {
     const transport = new OneKeySuiTransport({
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
     });
     return new OneKeySuiClient({
+      network: await this.getSuiClientNetwork(),
       transport,
     });
   }
@@ -170,7 +196,9 @@ export default class Vault extends VaultBase {
     });
 
     return {
-      rawTx: transaction.serialize(),
+      // resolve coinWithBalance intents locally so rawTx only contains
+      // standard commands for downstream consumers (fee estimation, signing)
+      rawTx: await transaction.toJSON({ client }),
       sender: account.address,
     };
   }
@@ -183,7 +211,7 @@ export default class Vault extends VaultBase {
     const { swapInfo } = unsignedTx;
 
     const tx = Transaction.from(encodedTx.rawTx);
-    tx.setSender(tx.blockData.sender ?? (await this.getAccountAddress()));
+    tx.setSender(tx.getData().sender ?? (await this.getAccountAddress()));
 
     const transactionType = transactionUtils.analyzeTransactionType(tx);
 
@@ -373,18 +401,24 @@ export default class Vault extends VaultBase {
         throw new OneKeyInternalError('Invalid transfer object');
       }
 
+      // maxSendAmount is human-readable; convert to base units (MIST)
+      const network = await this.getNetwork();
+      const maxSendAmountValue = new BigNumber(nativeAmountInfo.maxSendAmount)
+        .shiftedBy(network.decimals)
+        .toFixed(0, BigNumber.ROUND_FLOOR);
+
       // max send logic
       const newTx = await transactionUtils.createTokenTransaction({
         client,
-        sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
+        sender: oldTx.getData().sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
-        amount: nativeAmountInfo.maxSendAmount,
+        amount: maxSendAmountValue,
         coinType: SUI_TYPE_ARG,
         maxSendNativeToken: true,
       });
       const newEncodedTx = {
         ...encodedTx,
-        rawTx: newTx.serialize(),
+        rawTx: await newTx.toJSON({ client }),
       };
       return {
         ...unsignedTx,
@@ -392,15 +426,14 @@ export default class Vault extends VaultBase {
       };
     }
 
-    if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
+    if (feeInfo?.feeBudget?.budget && feeInfo?.feeBudget?.gasPrice) {
       const newTx = Transaction.from(encodedTx.rawTx);
-      newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
-      newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
-      // newTx.setGasPrice(new BigNumber(feeInfo.gas.gasPrice).toNumber());
-      // newTx.setGasBudget(new BigNumber(feeInfo.gas.gasLimit).toNumber());
+      // feeBudget values are integer MIST; setGas* strictly validate u64 since @mysten/sui 2.x
+      newTx.setGasPrice(BigInt(feeInfo.feeBudget.gasPrice));
+      newTx.setGasBudget(BigInt(feeInfo.feeBudget.budget));
       const newEncodedTx = {
         ...encodedTx,
-        rawTx: newTx.serialize(),
+        rawTx: await newTx.toJSON({ client }),
       };
       return {
         ...unsignedTx,
@@ -409,6 +442,102 @@ export default class Vault extends VaultBase {
     }
 
     return Promise.resolve(unsignedTx);
+  }
+
+  override async estimateFee(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const customRpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+    if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+      return this.estimateFeeByRpc(params, customRpcInfo.rpc);
+    }
+
+    return this.estimateFeeByApi(params);
+  }
+
+  // Estimate the Sui gas budget through RPC when the active network requires it.
+  override async estimateFeeByRpc(
+    params: IEstimateGasParams,
+    rpcUrl?: string,
+  ): Promise<IServerEstimateFeeResponse> {
+    const encodedTx = params.encodedTx as IEncodedTxSui;
+    if (!encodedTx?.rawTx) {
+      throw new OneKeyLocalError('estimateFeeByRpc: encodedTx is required');
+    }
+    const client = rpcUrl
+      ? new OneKeySuiClient({
+          network: await this.getSuiClientNetwork(),
+          url: rpcUrl,
+        })
+      : await this.getClient();
+    const network = await this.getNetwork();
+
+    const tx = Transaction.from(encodedTx.rawTx);
+    tx.setSender(
+      tx.getData().sender ??
+        encodedTx.sender ??
+        (await this.getAccountAddress()),
+    );
+
+    // max-send leaves no coin objects for gas, so build() throws "No valid gas
+    // coins"; fall back to a gasless build (empty gas payment) so the dry-run
+    // can still return the estimated fee.
+    let transactionBlock: Awaited<ReturnType<typeof tx.build>>;
+    try {
+      transactionBlock = await tx.build({ client });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message?.includes('No valid gas coins')
+      ) {
+        tx.setGasPayment([]);
+        transactionBlock = await tx.build({ client });
+      } else {
+        throw error;
+      }
+    }
+
+    const [gasPrice, dryRun] = await Promise.all([
+      client.getReferenceGasPrice(),
+      client.dryRunTransactionBlock({ transactionBlock }),
+    ]);
+
+    const { computationCost, storageCost, storageRebate } =
+      dryRun.effects.gasUsed;
+
+    // budget mirrors @mysten/sui computeGasBudget (GAS_SAFE_OVERHEAD = 1000)
+    const gasPriceBN = new BigNumber(gasPrice.toString());
+    const baseWithOverhead = new BigNumber(computationCost).plus(
+      gasPriceBN.times(1000),
+    );
+    const budget = BigNumber.maximum(
+      baseWithOverhead.plus(storageCost).minus(storageRebate),
+      baseWithOverhead,
+    ).toFixed(0);
+
+    return {
+      data: {
+        data: {
+          isEIP1559: false,
+          feeDecimals: network.decimals,
+          feeSymbol: network.symbol,
+          nativeDecimals: network.decimals,
+          nativeSymbol: network.symbol,
+          feeBudget: [
+            {
+              budget,
+              gasPrice: gasPriceBN.toFixed(0),
+              computationCost,
+              storageCost,
+              storageRebate,
+            },
+          ],
+        },
+      },
+    };
   }
 
   override async broadcastTransaction(
@@ -515,6 +644,7 @@ export default class Vault extends VaultBase {
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
     const client = new OneKeySuiClient({
+      network: await this.getSuiClientNetwork(),
       url: params.rpcUrl,
     });
     const start = performance.now();
@@ -544,7 +674,10 @@ export default class Vault extends VaultBase {
         throw new OneKeyLocalError('publicKey is empty');
       }
 
-      const client = new OneKeySuiClient({ url: rpcUrl });
+      const client = new OneKeySuiClient({
+        network: await this.getSuiClientNetwork(),
+        url: rpcUrl,
+      });
 
       const response = await client.executeTransactionBlock({
         transactionBlock: rawTx,
