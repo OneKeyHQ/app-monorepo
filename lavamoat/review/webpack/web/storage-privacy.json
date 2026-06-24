@@ -1,0 +1,245 @@
+{
+  "description": "浏览器存储、剪贴板、cookie、文件读取等隐私相关 API",
+  "resources": {
+    "@onekeyhq/core>@alephium/web3": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3>cross-fetch": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "@onekeyhq/core>@magiceden-oss/open_creator_protocol>@project-serum/anchor": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/keystores-browser": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>@near-js/wallet-account": {
+      "globals": {
+        "localStorage.getItem": true,
+        "localStorage.removeItem": true,
+        "localStorage.setItem": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "localStorage.getItem": true,
+        "localStorage.setItem": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "indexedDB": true,
+        "localStorage": true,
+        "sessionStorage.clear": true
+      }
+    },
+    "@onekeyhq/kit-bg>idb": {
+      "globals": {
+        "indexedDB.deleteDatabase": true,
+        "indexedDB.open": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>react-native-web>react-dom": {
+      "globals": {
+        "clipboardData": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "FileReader": true,
+        "indexedDB": true,
+        "localStorage": true
+      }
+    },
+    "@onekeyhq/shared>localforage": {
+      "globals": {
+        "FileReader": true,
+        "indexedDB": true,
+        "localStorage": true,
+        "mozIndexedDB": true,
+        "msIndexedDB": true,
+        "OIndexedDB": true,
+        "webkitIndexedDB": true
+      }
+    },
+    "@onekeyhq/shared>posthog-js": {
+      "globals": {
+        "localStorage.getItem": true,
+        "localStorage.key": true,
+        "localStorage.length": true,
+        "localStorage.removeItem": true,
+        "localStorage.setItem": true
+      }
+    },
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
+      "globals": {
+        "document.cookie": true,
+        "FileReader": true,
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
+      "globals": {
+        "localStorage.setItem": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
+      "globals": {
+        "localStorage.getItem": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "FileReader": true,
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js": {
+      "globals": {
+        "localStorage.clear": true,
+        "localStorage.getItem": true,
+        "localStorage.key": true,
+        "localStorage.length": true,
+        "localStorage.removeItem": true,
+        "localStorage.setItem": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": {
+      "globals": {
+        "navigator.clipboard.writeText": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/@sentry/browser/build/npm/esm/transports/offline.js": {
+      "globals": {
+        "indexedDB.open": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/locks.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/keyvaluestorage/dist/index.es.js": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+      "globals": {
+        "localStorage.getItem": true
+      }
+    },
+    "external:../../node_modules/engine.io-parser/build/esm/encodePacket.browser.js": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/expo-clipboard/build/web/ClipboardModule.js": {
+      "globals": {
+        "clipboardData.getData": true,
+        "ClipboardItem": true,
+        "navigator.clipboard": true
+      }
+    },
+    "external:../../node_modules/expo-clipboard/build/web/Utils.js": {
+      "globals": {
+        "FileReader": true,
+        "navigator.permissions.query": true
+      }
+    },
+    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/expo-image-picker/build/ExponentImagePicker.web.js": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/idb-keyval/dist/index.js": {
+      "globals": {
+        "indexedDB.open": true
+      }
+    },
+    "external:../../node_modules/jotai/esm/vanilla/utils.mjs": {
+      "globals": {
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/jszip/dist/jszip.min.js": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/loglevel/lib/loglevel.js": {
+      "globals": {
+        "document.cookie": true,
+        "localStorage": true
+      }
+    },
+    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
+      "globals": {
+        "FileReader": true
+      }
+    },
+    "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js": {
+      "globals": {
+        "localStorage": true
+      }
+    }
+  }
+}

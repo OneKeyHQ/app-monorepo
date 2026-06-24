@@ -144,7 +144,27 @@
     "keyless:mock-server:start": "yarn keyless:mock-server:build && node packages/kit-bg/dist/keyless-cloud-sync-mock-server/cli.js",
     "onekeyhq:modules:upgrade": "node development/scripts/upgrade-modules.js",
     "check:release-age": "npx tsx development/scripts/minimum-release-age/run.ts diff",
-    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full"
+    "check:release-age:full": "npx tsx development/scripts/minimum-release-age/run.ts full",
+    "lavamoat:policy:web:raw": "yarn workspace @onekeyhq/web lavamoat:policy",
+    "lavamoat:policy:web": "yarn copy:inject && yarn lavamoat:policy:web:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
+    "lavamoat:policy:desktop-renderer:raw": "yarn workspace @onekeyhq/desktop lavamoat:policy:renderer",
+    "lavamoat:policy:desktop-renderer": "yarn copy:inject && yarn lavamoat:policy:desktop-renderer:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
+    "lavamoat:policy:all": "yarn copy:inject && yarn lavamoat:policy:web:raw && yarn lavamoat:policy:desktop-renderer:raw && yarn lavamoat:normalize-policies && yarn lavamoat:review",
+    "lavamoat:build:web:raw": "yarn workspace @onekeyhq/web build:lavamoat",
+    "lavamoat:build:web": "yarn copy:inject && yarn lavamoat:build:web:raw",
+    "lavamoat:build:desktop-renderer:raw": "yarn workspace @onekeyhq/desktop build:renderer:lavamoat",
+    "lavamoat:build:desktop-renderer": "yarn copy:inject && yarn lavamoat:build:desktop-renderer:raw",
+    "lavamoat:build:all": "yarn copy:inject && yarn lavamoat:build:web:raw && yarn lavamoat:build:desktop-renderer:raw",
+    "lavamoat:review": "node development/lavamoat/split-policy-for-review.cjs",
+    "lavamoat:normalize-policies": "node development/lavamoat/normalize-policy-artifacts.cjs",
+    "lavamoat:validate-artifacts": "node development/lavamoat/validate-policy-artifacts.cjs",
+    "lavamoat:validate-generated-scope": "node development/lavamoat/check-generated-file-scope.cjs",
+    "lavamoat:validate-webpack-integration": "node development/lavamoat/validate-webpack-integration.cjs",
+    "lavamoat:test-tooling": "node development/lavamoat/test-tooling.cjs && yarn lavamoat:validate-webpack-integration",
+    "lavamoat:diff": "node development/lavamoat/check-policy-diff.cjs",
+    "lavamoat:ci:validate": "yarn lavamoat:test-tooling && yarn lavamoat:policy:all && yarn lavamoat:validate-artifacts && yarn lavamoat:validate-generated-scope && yarn lavamoat:diff",
+    "lavamoat:ci:build": "yarn lavamoat:build:all",
+    "lavamoat:ci:all": "yarn lavamoat:ci:validate && yarn lavamoat:ci:build"
   },
   "minimumReleaseAge": {
     "days": 7,
@@ -416,7 +436,8 @@
     "workbox-webpack-plugin": "^7.4.0",
     "worker-loader": "^3.0.8",
     "worker-rspack-loader": "3.1.5",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.0",
+    "@lavamoat/webpack": "2.2.3"
   },
   "resolutions": {
     "react-native-nitro-modules": "0.37.0",

@@ -1,0 +1,102 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/components": {
+      "globals": {
+        "desktopApi.addIpcEventListener": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.remove": true,
+        "chrome.storage.local.set": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "chrome.idle.onStateChanged.addListener": true,
+        "chrome.idle.onStateChanged.removeListener": true,
+        "chrome.idle.setDetectionInterval": true,
+        "desktopApi": true,
+        "desktopApiProxy.dev.collectLoggerDigest": true,
+        "desktopApiProxy.dev.exportLoggerZip": true,
+        "desktopApiProxy.dev.uploadLoggerBundle": true,
+        "desktopApiProxy.system.changeLanguage": true,
+        "desktopApiProxy.system.quitApp": true,
+        "desktopApiProxy.system.reload": true,
+        "desktopApiProxy.webview.setAllowedPhishingUrls": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "chrome.contextMenus.create": true,
+        "chrome.contextMenus.onClicked.addListener": true,
+        "chrome.contextMenus.removeAll": true,
+        "chrome.contextMenus.update": true,
+        "chrome.runtime.getURL": true,
+        "chrome.scripting.executeScript": true,
+        "chrome.sidePanel.open": true,
+        "chrome.sidePanel.setOptions": true,
+        "chrome.storage.local.clear": true,
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.set": true,
+        "chrome.storage.session.clear": true,
+        "chrome.tabs.get": true,
+        "chrome.tabs.onActivated.addListener": true,
+        "chrome.tabs.query": true,
+        "desktopApi.nobleBle.checkAvailability": true,
+        "desktopApiBridge.call": true,
+        "desktopApiProxy": "write"
+      }
+    },
+    "@onekeyhq/kit>lightweight-charts": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "browser.windows.getLastFocused": true,
+        "chrome": true,
+        "desktopApi.arch": true,
+        "desktopApi.channel": true,
+        "desktopApi.deskChannel": true,
+        "desktopApi.isFocused": true,
+        "desktopApi.isMas": true,
+        "desktopApi.markBootSuccess": true,
+        "desktopApi.on": true,
+        "desktopApi.onAppState": true,
+        "desktopApi.platform": true,
+        "desktopApi.setConsecutiveBootFailCount": true,
+        "desktopApi.systemVersion": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@sentry/electron": {
+      "globals": {
+        "__SENTRY_IPC__": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
+      "globals": {
+        "desktopApi": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": {
+      "globals": {
+        "chrome": true
+      }
+    }
+  }
+}

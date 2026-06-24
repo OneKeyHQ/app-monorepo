@@ -1,0 +1,379 @@
+{
+  "description": "加密、随机数、密钥相关 API",
+  "resources": {
+    "@onekeyhq/core": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@alephium/web3>crypto-browserify>randomfill": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@aptos-labs/siwa": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "@onekeyhq/core>@aptos-labs/ts-sdk>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@glif/filecoin-message>multiformats": {
+      "globals": {
+        "crypto.subtle.digest": true
+      }
+    },
+    "@onekeyhq/core>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@noble/secp256k1": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect>bs58check>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-core-lib>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js>@noble/curves>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@solana/web3.js>jayson>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@stellar/stellar-base": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives": {
+      "globals": {
+        "crypto.getRandomValues": true,
+        "crypto.subtle.deriveBits": true,
+        "crypto.subtle.digest": true,
+        "crypto.subtle.importKey": true,
+        "crypto.subtle.sign": true
+      }
+    },
+    "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>algosdk>tweetnacl": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>bip32>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>bip322-js>bitcoinjs-lib>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>bip39>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>bs58check>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>pbkdf2": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>ecpair>randombytes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>elliptic>brorand": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>js-conflux-sdk": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>tonweb-mnemonic": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>ethereum-cryptography": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>xrpl>bignumber.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit-bg>eth-url-parser": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit-bg>miscreant": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/shared>posthog-js": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/uuid/dist/esm-browser/native.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/uuid/dist/esm-browser/rng.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/native.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/rng.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": {
+      "globals": {
+        "crypto.randomUUID": true
+      }
+    },
+    "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {
+      "globals": {
+        "crypto.randomUUID": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@supabase/auth-js/dist/module/lib/helpers.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+      "globals": {
+        "crypto.subtle.digest": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/crypto-js/core.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/ox/_esm/core/Bytes.js": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "external:../../node_modules/reflect-metadata/Reflect.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/shamir-secret-sharing/esm/csprng.js": {
+      "globals": {
+        "crypto.getRandomValues": true
+      }
+    },
+    "external:../../node_modules/tonweb/src/utils/Utils.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/uuid/lib/rng-browser.js": {
+      "globals": {
+        "crypto": true
+      }
+    }
+  }
+}

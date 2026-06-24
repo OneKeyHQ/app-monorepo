@@ -41,7 +41,9 @@
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
     "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 yarn run -T rspack build --config-loader jiti",
     "test:e2e:browser": "node e2e/open-url.e2e.js",
-    "test:e2e:sni-request": "cross-env DESKTOP_E2E_FLOW=sni-request node e2e/open-url.e2e.js"
+    "test:e2e:sni-request": "cross-env DESKTOP_E2E_FLOW=sni-request node e2e/open-url.e2e.js",
+    "build:renderer:lavamoat": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
+    "lavamoat:policy:renderer": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
@@ -56,7 +58,13 @@
     "electron-updater": "6.8.9",
     "passport-desktop": "0.1.2",
     "passport-desktop-win32-x64-msvc": "0.1.2",
-    "semver": "7.5.4"
+    "semver": "7.5.4",
+    "@onekeyhq/components": "*",
+    "@onekeyhq/core": "*",
+    "@onekeyhq/kit": "*",
+    "@onekeyhq/kit-bg": "*",
+    "@onekeyhq/qr-wallet-sdk": "*",
+    "@onekeyhq/shared": "*"
   },
   "devDependencies": {
     "@electron/notarize": "2.3.2",
@@ -70,6 +78,7 @@
     "electron-builder": "26.4.0",
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
-    "rimraf": "3.0.2"
+    "rimraf": "3.0.2",
+    "webpack-cli": "5.1.4"
   }
 }

@@ -10,12 +10,17 @@
     "build": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production rspack build --config-loader jiti && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
     "build:webpack": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production webpack build -c ./webpack.config.kill-switch.js && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
     "stats": "cross-env NODE_ENV=production RSPACK_FULL_STATS=1 rspack build --config-loader jiti --json=web-build/stats.json",
-    "check:startup-graph-budget": "node scripts/check-startup-graph-budget.js"
+    "check:startup-graph-budget": "node scripts/check-startup-graph-budget.js",
+    "build:lavamoat": "yarn clean && node ./scripts/fetch-market-home-token-seed.js && cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 NODE_OPTIONS=--max-old-space-size=10240 webpack build -c ./webpack.config.kill-switch.js && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",
+    "lavamoat:policy": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=10240 webpack build -c ./webpack.config.kill-switch.js"
   },
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "@onekeyhq/shared": "*"
+    "@onekeyhq/shared": "*",
+    "@onekeyhq/core": "*",
+    "@onekeyhq/kit-bg": "*",
+    "@onekeyhq/qr-wallet-sdk": "*"
   },
   "devDependencies": {
     "@aaroon/workbox-rspack-plugin": "^1.0.1",

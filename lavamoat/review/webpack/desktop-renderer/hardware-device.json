@@ -1,0 +1,36 @@
+{
+  "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
+  "resources": {
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "navigator.usb": true
+      }
+    },
+    "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": {
+      "globals": {
+        "process.env.NODE_USB_PATH": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/lib/esm/api/transport/WebHidTransport.js": {
+      "globals": {
+        "navigator.hid": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js": {
+      "globals": {
+        "navigator.bluetooth": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": {
+      "globals": {
+        "navigator.usb.addEventListener": true,
+        "navigator.usb.removeEventListener": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
+      "globals": {
+        "navigator.usb": true
+      }
+    }
+  }
+}

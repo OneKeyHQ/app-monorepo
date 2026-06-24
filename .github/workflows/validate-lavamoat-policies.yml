@@ -1,0 +1,107 @@
+name: validate-lavamoat-policies
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - onekey
+      - x
+      - hotfix/*
+      - release/*
+  push:
+    branches:
+      - onekey
+      - x
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Keep validation read-only. packages:read is required for yarn install from
+# npm.pkg.github.com via NODE_AUTH_TOKEN.
+permissions:
+  contents: read
+  packages: read
+
+env:
+  YARN_ENABLE_GLOBAL_CACHE: true
+
+jobs:
+  validate:
+    name: validate-lavamoat-policies
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Use Node.js 24.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: 'yarn'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@onekeyhq'
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: yarn install --immutable
+
+      - name: Validate LavaMoat tooling
+        run: yarn lavamoat:test-tooling
+
+      - name: Generate all LavaMoat policies
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:policy:all
+
+      - name: Validate LavaMoat policy artifacts
+        run: yarn lavamoat:validate-artifacts
+
+      - name: Validate generated file scope
+        run: yarn lavamoat:validate-generated-scope
+
+      - name: Summarize LavaMoat policy review
+        run: cat lavamoat/review/README.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check working tree
+        id: check-working-tree
+        run: |
+          if ! node development/lavamoat/check-policy-diff.cjs --output lavamoat-policy-diff-all.patch; then
+            if [ -f lavamoat-policy-diff-all.patch ]; then
+              git diff --stat -- lavamoat
+              git ls-files --others --exclude-standard -- lavamoat
+              wc -c lavamoat-policy-diff-all.patch
+            else
+              echo "No LavaMoat policy diff patch was produced."
+            fi
+            echo "::error::LavaMoat policy files are not up to date."
+            exit 1
+          fi
+
+      - name: Build LavaMoat protected Web target
+        timeout-minutes: 30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:web
+
+      - name: Build LavaMoat protected Desktop Renderer target
+        timeout-minutes: 30
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: yarn lavamoat:build:desktop-renderer
+
+      - name: Upload policy diff on failure
+        if: ${{ failure() && steps.check-working-tree.outcome == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lavamoat-policy-diff-all
+          path: lavamoat-policy-diff-all.patch
+          if-no-files-found: ignore
