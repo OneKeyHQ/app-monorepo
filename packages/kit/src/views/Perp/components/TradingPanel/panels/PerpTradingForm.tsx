@@ -2635,6 +2635,15 @@ function PerpTradingForm({
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
         {shouldHideMobileTpsl ? null : (
+          <XStack alignItems="center">
+            {renderReduceOnlyCheckbox({
+              testID: PerpTestIDs.StandardReduceOnlyCheckbox,
+              value: formData.reduceOnly ?? false,
+              onChange: (checked) => updateForm({ reduceOnly: checked }),
+            })}
+          </XStack>
+        )}
+        {shouldHideMobileTpsl ? null : (
           <XStack
             width="100%"
             alignItems="center"

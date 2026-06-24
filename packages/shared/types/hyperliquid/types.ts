@@ -128,7 +128,11 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?: { limit: { tif: ITIF } };
+  orderType?:
+    | { limit: { tif: ITIF } }
+    | { trigger: { isMarket: boolean; triggerPx: string; tpsl: 'tp' | 'sl' } };
+  // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
+  allowZeroSize?: boolean;
 }
 
 export interface IWithdrawParams extends IWithdraw3Request {
