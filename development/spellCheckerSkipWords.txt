@@ -1495,3 +1495,12 @@ unpair
 bareify
 subview
 headerless
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable
