@@ -1516,6 +1516,68 @@ describe('ServiceAppUpdate state transitions', () => {
     });
   });
 
+  describe('refreshDownloadUrlForRetry', () => {
+    test('forces a server re-sign so the sync throttle cannot serve the dead URL — calls fetchAppUpdateInfo(true)', async () => {
+      // The dead-URL refresh fires on a 401/403 download retry, which can land
+      // inside the normal sync-throttle window. It MUST force: with the
+      // non-forced path, isNeedSyncAppUpdateInfo short-circuits to the cached
+      // (still-dead) URL, nothing is re-signed, and the retry gives up as
+      // urlDead. This locks the force flag in (mutation guard: flip to `false`
+      // and this test goes red).
+      resetAtom({
+        downloadUrl: 'https://dl.onekey.so/app?token=stale',
+        jsBundle: {
+          downloadUrl: 'https://dl.onekey.so/bundle.zip?token=stale',
+          sha256: 'abc',
+        },
+      });
+      const fetchSpy = jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockImplementation(async () => {
+          // Simulate the server re-signing and writing fresh URLs back into
+          // the persist atom (only reachable when the throttle is bypassed).
+          atomValue = {
+            ...atomValue,
+            downloadUrl: 'https://dl.onekey.so/app?token=fresh',
+            jsBundle: {
+              downloadUrl: 'https://dl.onekey.so/bundle.zip?token=fresh',
+              sha256: 'abc',
+            },
+          };
+          return atomValue;
+        });
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(fetchSpy).toHaveBeenCalledWith(true);
+      expect(result.refreshed).toBe(true);
+      expect(result.downloadUrl).toBe('https://dl.onekey.so/app?token=fresh');
+      expect(result.jsBundleDownloadUrl).toBe(
+        'https://dl.onekey.so/bundle.zip?token=fresh',
+      );
+    });
+
+    test('reports refreshed=false when the re-fetch leaves the URL unchanged', async () => {
+      resetAtom({ downloadUrl: 'https://dl.onekey.so/app?token=same' });
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(result.refreshed).toBe(false);
+    });
+
+    test('reports refreshed=false when the forced re-fetch throws', async () => {
+      resetAtom({ downloadUrl: 'https://dl.onekey.so/app?token=stale' });
+      jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockRejectedValue(new Error('network down'));
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(result.refreshed).toBe(false);
+    });
+  });
+
   // =========================================================================
   // fetchAppUpdateInfo integration
   // =========================================================================

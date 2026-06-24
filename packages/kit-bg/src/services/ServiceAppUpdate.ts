@@ -1032,7 +1032,15 @@ class ServiceAppUpdate extends ServiceBase {
     try {
       // Re-fetch release info; this re-signs the download URL(s) server-side
       // and writes them back into the persist atom.
-      await this.fetchAppUpdateInfo(false);
+      //
+      // Must force (`true`): the dead URL refresh fires on a 401/403 download
+      // retry, which can land inside the normal sync throttle window. With
+      // `false`, `isNeedSyncAppUpdateInfo` short-circuits to the cached atom
+      // (reason `skip_sync`) and never re-signs the URL, so `after.downloadUrl`
+      // stays the dead one and the retry gives up as `urlDead`. `true` bypasses
+      // both the sync gate and `getAppLatestInfo`'s 5-min cache so the server
+      // actually re-signs.
+      await this.fetchAppUpdateInfo(true);
     } catch (e) {
       defaultLogger.app.appUpdate.log(
         `refreshDownloadUrlForRetry: fetchAppUpdateInfo failed: ${
