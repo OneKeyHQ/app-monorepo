@@ -418,12 +418,13 @@ function ChartSettingsSegmentedControl<
             borderWidth={1}
             borderRadius="$full"
             borderCurve="continuous"
-            borderColor={isActive ? '$borderStrong' : 'transparent'}
+            borderColor={isActive ? '$bgReverse' : 'transparent'}
             alignItems="center"
             justifyContent="center"
-            bg={isActive ? '$bgStrong' : '$transparent'}
-            hoverStyle={{ bg: isActive ? '$bgStrongHover' : '$bgHover' }}
-            pressStyle={{ bg: isActive ? '$bgStrongActive' : '$bgActive' }}
+            bg="$bgStrong"
+            overflow="hidden"
+            hoverStyle={{ bg: '$bgStrongHover' }}
+            pressStyle={{ bg: '$bgStrongActive' }}
             cursor="pointer"
             userSelect="none"
             onPress={() => {
