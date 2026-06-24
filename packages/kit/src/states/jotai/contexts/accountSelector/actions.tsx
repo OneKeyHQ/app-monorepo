@@ -2328,6 +2328,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       } finally {
         set(accountSelectorStorageReadyAtom(), () => true);
         set(accountSelectorStorageInitDoneAtom(), () => true);
+        // Home reads account selector num 0. Finalize it here so an init error
+        // after a warm-cache reload cannot leave the no-wallet page blank.
+        set(accountSelectorActiveAccountInitDoneAtom(), (v) => ({
+          ...v,
+          0: true,
+        }));
       }
     },
   );
