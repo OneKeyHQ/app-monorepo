@@ -697,7 +697,9 @@ function RewardCenterDetails() {
               })
         }
         headerRight={renderHeaderRight}
+        headerRightNoGlass
         headerLeft={showAccountSelector ? renderHeaderLeft : undefined}
+        headerLeftNoGlass
       />
       <Page.Body px="$5">
         <Alert
