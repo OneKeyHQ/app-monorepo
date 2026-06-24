@@ -14,6 +14,7 @@ import {
   swapDefaultSetTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -793,6 +794,39 @@ export function shouldSkipSwapDefaultSelectedTokenSync({
   initialSelectedTokensSynced: boolean;
 }) {
   return initialSelectedTokensSynced && !hasImportParams && hasSelectedTokens;
+}
+
+function buildSwapInitTokenConsumptionKey(token?: ISwapToken) {
+  if (!token) {
+    return '';
+  }
+
+  return [
+    token.networkId ?? '',
+    token.contractAddress ?? '',
+    token.isNative ? 'native' : 'token',
+    token.symbol ?? '',
+  ].join(':');
+}
+
+export function buildSwapInitParamsConsumptionKey(params?: ISwapInitParams) {
+  if (
+    !params?.fromAmount &&
+    !params?.importFromToken &&
+    !params?.importToToken &&
+    !params?.importNetworkId
+  ) {
+    return undefined;
+  }
+
+  return [
+    params.fromAmount ?? '',
+    buildSwapInitTokenConsumptionKey(params.importFromToken),
+    buildSwapInitTokenConsumptionKey(params.importToToken),
+    params.importNetworkId ?? '',
+    params.swapTabSwitchType ?? '',
+    params.swapSource ?? '',
+  ].join('|');
 }
 
 export function shouldMarkSwapInitialSelectedTokensSynced({
