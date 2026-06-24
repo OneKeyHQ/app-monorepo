@@ -105,6 +105,7 @@ module.exports = async () => {
     modulePathIgnorePatterns: [
       '<rootDir>/.claude/worktrees/',
       '<rootDir>/.worktree/',
+      '<rootDir>/.worktrees/',
       '<rootDir>/ignore/',
     ],
     testPathIgnorePatterns: [
@@ -115,6 +116,7 @@ module.exports = async () => {
       '-smoke\\.test\\.ts$',
       '<rootDir>/\\.claude/worktrees/',
       '<rootDir>/\\.worktree/',
+      '<rootDir>/\\.worktrees/',
       '<rootDir>/ignore/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',

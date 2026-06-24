@@ -2,6 +2,7 @@
  * @jest-environment jsdom
  */
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return, import/first, vars-on-top, no-var */
+// cspell:ignore OCDS
 // UpdateReminder hooks tests
 //
 // Tests the update flow orchestration logic in hooks.tsx:
@@ -43,6 +44,13 @@ jest.mock('../../background/instance/backgroundApiProxy', () => {
     updateLastDialogShownAt: jest.fn(),
     setCurrentUpdateAttemptId: jest.fn(),
     pruneStaleArtifacts: jest.fn().mockResolvedValue(undefined),
+    // OCDS §5.11 persisted-budget hooks (now wired into downloadPackage).
+    getDownloadAttemptBudget: jest.fn().mockResolvedValue({ givenUp: false }),
+    recordDownloadAttempt: jest.fn().mockResolvedValue({ givenUp: false }),
+    resetDownloadAttemptBudget: jest.fn().mockResolvedValue(undefined),
+    refreshDownloadUrlForRetry: jest
+      .fn()
+      .mockResolvedValue({ refreshed: false }),
   };
   const dev = {
     getSkipBundleGPGVerification: jest.fn(),
@@ -265,9 +273,17 @@ jest.mock('@onekeyhq/shared/src/routes', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/errors', () => ({
-  OneKeyError: class OneKeyError extends Error {},
-}));
+jest.mock('@onekeyhq/shared/src/errors', () => {
+  class OneKeyError extends Error {}
+  // updateRetry.ts now defines `class DownloadGaveUpError extends
+  // OneKeyLocalError` at module load, so the mock must export
+  // OneKeyLocalError as a constructable base or the import is undefined.
+  // Aliased to the same class to stay within max-classes-per-file.
+  return {
+    OneKeyError,
+    OneKeyLocalError: OneKeyError,
+  };
+});
 
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
@@ -293,6 +309,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import {
+  DownloadGaveUpError,
+  type IDownloadRetryOptions,
+  isSingleStreamFallbackFailure,
+} from './updateRetry';
+import {
   computeDownloadRetryDelayMs,
   extractUpdateErrorCode,
   getUpdateReminderActionLabelId,
@@ -305,6 +326,10 @@ import {
   sanitizeUpdateErrorMessage,
   useDownloadPackage,
 } from './useAppUpdate';
+// DownloadGaveUpError + the budget-hook option type are not re-exported via
+// useAppUpdate (they are part of the retry-internal contract), so import them
+// directly from the module under test.
+// eslint-disable-next-line import/order
 
 // Keep a reference to the shared React so isolated modules can reuse it
 (globalThis as any).__sharedReact = React;
@@ -361,6 +386,12 @@ function resetAllMocks() {
   svc.verifyPackageFailed.mockResolvedValue(undefined);
   svc.readyToInstall.mockResolvedValue(undefined);
   svc.updateDownloadedEvent.mockResolvedValue(undefined);
+  // OCDS §5.11 persisted-budget hooks: default to a fresh (non-exhausted)
+  // budget so download tests proceed; give-up cases override per-test.
+  svc.getDownloadAttemptBudget.mockResolvedValue({ givenUp: false });
+  svc.recordDownloadAttempt.mockResolvedValue({ givenUp: false });
+  svc.resetDownloadAttemptBudget.mockResolvedValue(undefined);
+  svc.refreshDownloadUrlForRetry.mockResolvedValue({ refreshed: false });
   svc.fetchAppUpdateInfo.mockResolvedValue(mockAtomHolder.value);
   svc.refreshUpdateStatus.mockResolvedValue(undefined);
   svc.reset.mockResolvedValue(undefined);
@@ -619,6 +650,187 @@ describe('runDownloadWithRetry', () => {
     expect(op).toHaveBeenCalledTimes(2);
     // Restore default for sibling tests.
     netInfo.currentState = () => ({ isInternetReachable: null });
+  });
+
+  // -----------------------------------------------------------------------
+  // OCDS v1.1 §5.11 — persisted cross-restart budget + terminal outcomes.
+  // The budget hooks model ServiceAppUpdate's persisted MMKV counter.
+  // -----------------------------------------------------------------------
+  test('entry guard: already-exhausted persisted budget is terminal without any attempt', async () => {
+    const op = jest.fn().mockResolvedValue('ok');
+    const options: IDownloadRetryOptions = {
+      getBudget: jest
+        .fn()
+        .mockResolvedValue({ givenUp: true, reason: 'maxAttempts' }),
+      recordAttempt: jest.fn(),
+    };
+    const err = await runDownloadWithRetry(op, 'test', options).catch(
+      (e: unknown) => e as DownloadGaveUpError,
+    );
+    expect(err).toBeInstanceOf(DownloadGaveUpError);
+    expect((err as DownloadGaveUpError).reason).toBe('maxAttempts');
+    // Never ran the operation, never recorded an attempt.
+    expect(op).not.toHaveBeenCalled();
+    expect(options.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  test('records each attempt and goes terminal when the persisted counter trips', async () => {
+    const op = jest.fn().mockRejectedValue(new Error('NSURLErrorDomain -1009'));
+    let calls = 0;
+    const options: IDownloadRetryOptions = {
+      getBudget: jest.fn().mockResolvedValue({ givenUp: false }),
+      recordAttempt: jest.fn().mockImplementation(() => {
+        calls += 1;
+        // Trip the persisted budget on the 3rd recorded attempt.
+        return Promise.resolve(
+          calls >= 3
+            ? { givenUp: true, reason: 'deadline' }
+            : { givenUp: false },
+        );
+      }),
+    };
+    const promise = runDownloadWithRetry(op, 'test', options).catch(
+      (e: unknown) => e as DownloadGaveUpError,
+    );
+    await flush();
+    await flush();
+    const err = await promise;
+    expect(err).toBeInstanceOf(DownloadGaveUpError);
+    expect((err as DownloadGaveUpError).reason).toBe('deadline');
+    // attempt0 ran (rejected), attempt1 ran (rejected), attempt2's
+    // recordAttempt tripped givenUp before running the op → op ran twice.
+    expect(op).toHaveBeenCalledTimes(2);
+    expect(options.recordAttempt).toHaveBeenCalledTimes(3);
+  });
+
+  test('success resets the persisted budget', async () => {
+    const op = jest.fn().mockResolvedValue('ok');
+    const resetBudget = jest.fn().mockResolvedValue(undefined);
+    const options: IDownloadRetryOptions = {
+      getBudget: jest.fn().mockResolvedValue({ givenUp: false }),
+      recordAttempt: jest.fn().mockResolvedValue({ givenUp: false }),
+      resetBudget,
+    };
+    const result = await runDownloadWithRetry(op, 'test', options);
+    expect(result).toBe('ok');
+    expect(resetBudget).toHaveBeenCalledTimes(1);
+  });
+
+  test('401/403 refreshes the signed URL once, then retries against the fresh URL', async () => {
+    const op = jest
+      .fn<Promise<string>, []>()
+      .mockRejectedValueOnce(new Error('HTTP 403'))
+      .mockResolvedValueOnce('ok');
+    const refreshUrl = jest.fn().mockResolvedValue(true);
+    const options: IDownloadRetryOptions = {
+      getBudget: jest.fn().mockResolvedValue({ givenUp: false }),
+      recordAttempt: jest.fn().mockResolvedValue({ givenUp: false }),
+      refreshUrl,
+    };
+    const promise = runDownloadWithRetry(op, 'test', options).catch((e) => e);
+    await flush();
+    const result = await promise;
+    expect(result).toBe('ok');
+    expect(refreshUrl).toHaveBeenCalledTimes(1);
+    expect(op).toHaveBeenCalledTimes(2);
+  });
+
+  test('401/403 with no fresh URL available is terminal (urlDead)', async () => {
+    const op = jest.fn().mockRejectedValue(new Error('HTTP 401'));
+    const refreshUrl = jest.fn().mockResolvedValue(false);
+    const options: IDownloadRetryOptions = {
+      getBudget: jest.fn().mockResolvedValue({ givenUp: false }),
+      recordAttempt: jest.fn().mockResolvedValue({ givenUp: false }),
+      refreshUrl,
+    };
+    const err = await runDownloadWithRetry(op, 'test', options).catch(
+      (e: unknown) => e as DownloadGaveUpError,
+    );
+    expect(err).toBeInstanceOf(DownloadGaveUpError);
+    expect((err as DownloadGaveUpError).reason).toBe('urlDead');
+    expect(refreshUrl).toHaveBeenCalledTimes(1);
+    // Only the first attempt ran (URL refresh failed → no second attempt).
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  // -----------------------------------------------------------------------
+  // OCDS v1.1 §5.11 — single-stream fallback failure IS the terminal failure.
+  // 'fallbackFailed' must have a real producer, not be a dead enum member.
+  // -----------------------------------------------------------------------
+  test('isSingleStreamFallbackFailure recognizes native fallback-failure shapes', () => {
+    expect(
+      isSingleStreamFallbackFailure(new Error('single-stream fallback failed')),
+    ).toBe(true);
+    expect(
+      isSingleStreamFallbackFailure(new Error('fallback download error')),
+    ).toBe(true);
+    expect(isSingleStreamFallbackFailure({ code: 'FALLBACK_FAILED' })).toBe(
+      true,
+    );
+    expect(
+      isSingleStreamFallbackFailure({ code: 'SINGLE_STREAM_FAILED' }),
+    ).toBe(true);
+    // A plain transient network error is NOT a fallback failure.
+    expect(
+      isSingleStreamFallbackFailure(new Error('NSURLErrorDomain -1009')),
+    ).toBe(false);
+  });
+
+  test('unrecoverable error from the single-stream fallback surfaces fallbackFailed', async () => {
+    // SHA mismatch is unrecoverable (bails on attempt 0); marking it as a
+    // fallback failure must wrap it as DownloadGaveUpError('fallbackFailed').
+    const cause = new Error('Bundle SHA256 verification failed: MISMATCH');
+    const op = jest.fn().mockRejectedValue(cause);
+    const options: IDownloadRetryOptions = {
+      isFallbackFailure: () => true,
+    };
+    const err = await runDownloadWithRetry(op, 'test', options).catch(
+      (e: unknown) => e as DownloadGaveUpError,
+    );
+    expect(err).toBeInstanceOf(DownloadGaveUpError);
+    expect((err as DownloadGaveUpError).reason).toBe('fallbackFailed');
+    expect((err as DownloadGaveUpError).downloadCause).toBe(cause);
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('exhausted retries on a fallback failure surface fallbackFailed (default detector)', async () => {
+    // A transient error whose message marks it as a fallback failure: the loop
+    // retries it like any transient error, and once attempts are exhausted the
+    // terminal outcome is fallbackFailed (via the built-in default detector,
+    // no isFallbackFailure hook supplied).
+    const cause = new Error('single-stream fallback failed: HTTP 503');
+    const op = jest.fn().mockRejectedValue(cause);
+    const promise = runDownloadWithRetry(op, 'test').catch(
+      (e: unknown) => e as DownloadGaveUpError,
+    );
+    for (let i = 0; i < 8; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await flush();
+    }
+    const err = await promise;
+    expect(err).toBeInstanceOf(DownloadGaveUpError);
+    expect((err as DownloadGaveUpError).reason).toBe('fallbackFailed');
+    expect((err as DownloadGaveUpError).downloadCause).toBe(cause);
+    // initial + 5 retries = 6 attempts before going terminal.
+    expect(op).toHaveBeenCalledTimes(6);
+  });
+
+  test('a non-fallback terminal error still propagates raw (no fallbackFailed wrapping)', async () => {
+    // Guard: the default detector must NOT misclassify an ordinary unrecoverable
+    // error as a fallback failure.
+    const err = new Error('HTTP 404');
+    const op = jest.fn().mockRejectedValue(err);
+    await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+    expect(op).toHaveBeenCalledTimes(1);
+  });
+
+  test('without budget hooks, behaves exactly like the legacy loop (no terminal wrapping)', async () => {
+    // Regression guard: existing callers that pass no options keep the old
+    // contract — the raw transport error propagates, not DownloadGaveUpError.
+    const err = new Error('Bundle SHA256 verification failed: MISMATCH');
+    const op = jest.fn().mockRejectedValue(err);
+    await expect(runDownloadWithRetry(op, 'test')).rejects.toBe(err);
+    expect(op).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -996,6 +1208,37 @@ describe('useDownloadPackage', () => {
       expect(svc.updateDownloadedEvent).toHaveBeenCalled();
       // Chain continues to downloadASC
       expect(svc.downloadASC).toHaveBeenCalled();
+    });
+
+    test('OCDS §5.11: an exhausted persisted budget gives up without re-downloading (wired)', async () => {
+      svc.getUpdateInfo.mockResolvedValue({
+        latestVersion: '2.0.0',
+        downloadUrl: 'https://example.com/app.zip',
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      // The persisted cross-restart budget for this target is already spent.
+      svc.getDownloadAttemptBudget.mockResolvedValue({
+        givenUp: true,
+        reason: 'maxAttempts',
+      });
+
+      const { result } = renderHook(() => useDownloadPackage());
+      await act(async () => {
+        await result.current.downloadPackage();
+      });
+
+      // Wired: the entry-guard consulted ServiceAppUpdate's persisted budget for
+      // this target (key = `${appVersion}:${bundleVersion ?? fileType}`).
+      expect(svc.getDownloadAttemptBudget).toHaveBeenCalledWith({
+        targetKey: expect.stringMatching(/^2\.0\.0:/),
+      });
+      // Terminal give-up: the native download is NEVER invoked (no re-download
+      // on this relaunch), and the failure surfaces as a DownloadGaveUpError.
+      expect(appUpd.downloadPackage).not.toHaveBeenCalled();
+      const failArg = (svc.downloadPackageFailed as jest.Mock).mock
+        .calls[0]?.[0];
+      expect(failArg).toBeInstanceOf(DownloadGaveUpError);
+      expect((failArg as DownloadGaveUpError).reason).toBe('maxAttempts');
     });
 
     test('rotates attemptId AND persists it via setCurrentUpdateAttemptId so the post-relaunch success event can re-emit the same id', async () => {
