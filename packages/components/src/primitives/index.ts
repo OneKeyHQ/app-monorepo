@@ -6,6 +6,7 @@ import {
 
 export * from './Anchor';
 export * from './Button';
+export * from './Button/GlassHeaderContext';
 export * from './ButtonGroup';
 export * from './Group';
 export * from './Haptics';
