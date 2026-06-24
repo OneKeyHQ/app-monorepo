@@ -49,6 +49,25 @@ If a product or QA question asks why an action is not visible, first inspect the
 current position payload and the supported-protocols row. Most cases are backend
 payload/category-contract issues, not button layout issues.
 
+## Detail Route And Account Context
+
+DeFi Portfolio action details can be opened from Home/Portfolio rows into the
+AssetDetails modal stack. Do not assume that modal is wrapped by the Home
+account-selector provider or any other source-route context.
+
+When an action button needs account identity, preserve it in one of these stable
+sources:
+
+- the original `protocol` / `sourcePositions` payload
+- typed route params such as `accountId` and `indexedAccountId`
+- an explicitly mounted provider mirror on the target stack
+
+Prefer explicit route params or payload fields for AssetDetails modal pages.
+Do not add `useActiveAccount` or similar context hooks in a modal page unless
+that stack is proven to mount `AccountSelectorProviderMirror` for the same
+scene. If a missing provider produces a loading screen or RedBox, fix the route
+contract before adding local loading guards.
+
 ## Build Transaction Responses
 
 `/earn/v1/defi/build-transaction` may return transaction-like fields as JSON
@@ -89,6 +108,8 @@ Before marking a portfolio action ready:
   build-transaction DTOs.
 - Capture or inspect a real `/wallet/v1/portfolio/positions` payload for the
   affected protocol/account.
+- Reopen the action detail route from its real source surface and verify its
+  account context survives without relying on Home-only providers.
 - Verify the action resolver sees the original source position metadata after
   any UI grouping.
 - Exercise both the visible action path and the missing-metadata path.
