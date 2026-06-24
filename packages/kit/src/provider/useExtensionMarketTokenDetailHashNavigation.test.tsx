@@ -103,7 +103,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -112,6 +112,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         tokenAddress: '0xabc',
         isNative: false,
         from: 'ExtensionSidePanel',
+        showFavoriteButton: false,
       },
     });
   });

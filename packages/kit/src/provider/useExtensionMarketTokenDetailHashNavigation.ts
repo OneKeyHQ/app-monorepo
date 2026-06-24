@@ -41,6 +41,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   try {
     const searchParams = new URLSearchParams(query);
     const isNativeParam = searchParams.get('isNative');
+    const showFavoriteButtonParam = searchParams.get('showFavoriteButton');
     const from = searchParams.get('from');
     const network = decodeURIComponent(segments[2]);
     const tokenAddress = segments[3]
@@ -54,6 +55,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           network,
           isNative: true,
           ...(from ? { from: from as EEnterWay } : undefined),
+          ...(showFavoriteButtonParam === null
+            ? undefined
+            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
         },
       };
     }
@@ -67,6 +71,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ? undefined
           : { isNative: isNativeParam === 'true' }),
         ...(from ? { from: from as EEnterWay } : undefined),
+        ...(showFavoriteButtonParam === null
+          ? undefined
+          : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
       },
     };
   } catch {
