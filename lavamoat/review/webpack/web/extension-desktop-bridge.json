@@ -1,0 +1,77 @@
+{
+  "description": "浏览器插件、Electron、Desktop bridge 等跨权限边界 API",
+  "resources": {
+    "@onekeyhq/components": {
+      "globals": {
+        "desktopApi.addIpcEventListener": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.remove": true,
+        "chrome.storage.local.set": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "chrome.idle.onStateChanged.addListener": true,
+        "chrome.idle.onStateChanged.removeListener": true,
+        "chrome.idle.setDetectionInterval": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@onekeyhq/kit-bg": {
+      "globals": {
+        "chrome.contextMenus.create": true,
+        "chrome.contextMenus.onClicked.addListener": true,
+        "chrome.contextMenus.removeAll": true,
+        "chrome.contextMenus.update": true,
+        "chrome.runtime.getURL": true,
+        "chrome.scripting": true,
+        "chrome.sidePanel": true,
+        "chrome.storage.local.clear": true,
+        "chrome.storage.local.get": true,
+        "chrome.storage.local.set": true,
+        "chrome.storage.session.clear": true,
+        "chrome.tabs": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "@onekeyhq/kit>lightweight-charts": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "browser.windows.getLastFocused": true,
+        "chrome": true,
+        "desktopApi": true,
+        "desktopApiProxy": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport-web-device/dist/index.js": {
+      "globals": {
+        "desktopApi": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "chrome": true
+      }
+    },
+    "external:../../node_modules/react-virtualized/dist/es/Grid/utils/maxElementSize.js": {
+      "globals": {
+        "chrome": true
+      }
+    }
+  }
+}

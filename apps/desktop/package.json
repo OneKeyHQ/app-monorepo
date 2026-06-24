@@ -19,6 +19,7 @@
     "build:main:dev": "rimraf ./app/dist && cross-env node scripts/build.js",
     "build:main": "rimraf ./app/dist && cross-env NODE_ENV=production node scripts/build.js",
     "build:renderer": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
+    "build:renderer:lavamoat": "cross-env NODE_ENV=production yarn clean:build && cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build && node scripts/finalize-renderer-assets.js",
     "build:electron": "electron-builder build -ml --config electron-builder.config.js",
     "build:electron:win": "electron-builder build -w --config electron-builder-win.config.js",
     "build:electron:winms": "electron-builder build -w --config electron-builder-ms.config.js",
@@ -35,10 +36,17 @@
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
     "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build",
+    "lavamoat:policy:renderer": "cross-env NODE_ENV=production ONEKEY_LAVAMOAT=1 ONEKEY_LAVAMOAT_GENERATE_POLICY=1 NODE_OPTIONS=--max-old-space-size=8192 webpack build",
     "test:e2e:browser": "node e2e/open-url.e2e.js"
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
+    "@onekeyhq/components": "*",
+    "@onekeyhq/core": "*",
+    "@onekeyhq/kit": "*",
+    "@onekeyhq/kit-bg": "*",
+    "@onekeyhq/qr-wallet-sdk": "*",
+    "@onekeyhq/shared": "*",
     "@sentry/electron": "5.8.0",
     "@stoprocent/noble": "2.3.16",
     "adm-zip": "0.5.17",
@@ -66,6 +74,7 @@
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
     "rimraf": "3.0.2",
-    "webpack": "5.90.3"
+    "webpack": "5.90.3",
+    "webpack-cli": "5.1.4"
   }
 }

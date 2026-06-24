@@ -8,6 +8,10 @@ const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 const babelTools = require('../babelTools');
 
 const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
+const {
+  createLavaMoatWebpackPlugin,
+  createLavaMoatWebpackRules,
+} = require('./lavamoat');
 const analyzerConfig = require('./webpack.analyzer.config');
 const baseConfig = require('./webpack.base.config');
 const developmentConfig = require('./webpack.development.config');
@@ -153,9 +157,16 @@ module.exports = ({
           output: {
             crossOriginLoading: 'anonymous',
           },
+          module: {
+            rules: createLavaMoatWebpackRules(),
+          },
           plugins: [
             new SubresourceIntegrityPlugin(),
             BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
+            createLavaMoatWebpackPlugin({
+              basePath,
+              target: 'desktop-renderer',
+            }),
           ].filter(Boolean),
         },
       );

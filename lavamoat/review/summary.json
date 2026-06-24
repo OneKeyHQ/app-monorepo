@@ -1,0 +1,95 @@
+{
+  "policies": [
+    {
+      "sourcePolicy": "lavamoat/webpack/web/policy.json",
+      "sourceOverride": "lavamoat/webpack/web/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 4816,
+      "generatedResources": 4816,
+      "highRiskResources": 244,
+      "highRiskEntries": 450,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 73,
+          "entries": 91
+        },
+        "storage-privacy": {
+          "resources": 42,
+          "entries": 72
+        },
+        "extension-desktop-bridge": {
+          "resources": 10,
+          "entries": 32
+        },
+        "hardware-device": {
+          "resources": 5,
+          "entries": 6
+        },
+        "crypto-random": {
+          "resources": 74,
+          "entries": 78
+        },
+        "code-execution": {
+          "resources": 20,
+          "entries": 30
+        },
+        "dom-injection-navigation": {
+          "resources": 89,
+          "entries": 141
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 868
+    },
+    {
+      "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
+      "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
+      "reviewMode": "effective-policy",
+      "totalResources": 4659,
+      "generatedResources": 4659,
+      "highRiskResources": 243,
+      "highRiskEntries": 470,
+      "deniedOverrides": 0,
+      "categoryCounts": {
+        "network": {
+          "resources": 74,
+          "entries": 92
+        },
+        "storage-privacy": {
+          "resources": 40,
+          "entries": 66
+        },
+        "extension-desktop-bridge": {
+          "resources": 11,
+          "entries": 53
+        },
+        "hardware-device": {
+          "resources": 6,
+          "entries": 7
+        },
+        "crypto-random": {
+          "resources": 74,
+          "entries": 78
+        },
+        "code-execution": {
+          "resources": 20,
+          "entries": 30
+        },
+        "dom-injection-navigation": {
+          "resources": 89,
+          "entries": 144
+        },
+        "node-system": {
+          "resources": 0,
+          "entries": 0
+        }
+      },
+      "packageEdgesToRiskyResources": 872
+    }
+  ],
+  "totalPolicies": 2
+}
