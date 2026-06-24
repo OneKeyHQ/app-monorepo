@@ -91,7 +91,9 @@ async function pickPage(browser, match) {
   const urls = pages.map((p) => p.url());
   console.error(`pages: ${urls.map((u, i) => `[${i}] ${u}`).join('  ')}`);
   if (!match || match === true) return pages[0];
-  const idx = urls.findIndex((u) => u.toLowerCase().includes(String(match).toLowerCase()));
+  const idx = urls.findIndex((u) =>
+    u.toLowerCase().includes(String(match).toLowerCase()),
+  );
   if (idx === -1) {
     console.error(`No page URL contains "${match}". Pick from the list above.`);
     process.exit(1);
@@ -125,7 +127,9 @@ async function cmdProfile(args) {
   fs.writeFileSync(out, JSON.stringify(profile));
   // Quick top-of-stack summary so we get signal without opening DevTools.
   summarizeCpuProfile(profile);
-  console.error(`cpu profile -> ${path.resolve(out)} (open in DevTools > Performance > Load profile)`);
+  console.error(
+    `cpu profile -> ${path.resolve(out)} (open in DevTools > Performance > Load profile)`,
+  );
   await session.detach().catch(() => {});
 }
 
@@ -140,14 +144,19 @@ function summarizeCpuProfile(profile) {
     const id = samples[i];
     const dt = timeDeltas?.[i] ?? 0;
     const node = byId.get(id);
-    if (!node) continue;
-    const cf = node.callFrame || {};
-    const key = `${cf.functionName || '(anonymous)'} @ ${shortUrl(cf.url)}:${cf.lineNumber ?? '?'}`;
-    selfUs.set(key, (selfUs.get(key) || 0) + dt);
+    if (node) {
+      const cf = node.callFrame || {};
+      const key = `${cf.functionName || '(anonymous)'} @ ${shortUrl(cf.url)}:${cf.lineNumber ?? '?'}`;
+      selfUs.set(key, (selfUs.get(key) || 0) + dt);
+    }
   }
   const total = [...selfUs.values()].reduce((a, b) => a + b, 0) || 1;
-  const top = [...selfUs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15);
-  console.error(`\n  top self-time frames (of ${(total / 1000).toFixed(0)}ms sampled):`);
+  const top = [...selfUs.entries()]
+    .toSorted((a, b) => b[1] - a[1])
+    .slice(0, 15);
+  console.error(
+    `\n  top self-time frames (of ${(total / 1000).toFixed(0)}ms sampled):`,
+  );
   for (const [k, us] of top) {
     const pct = ((us / total) * 100).toFixed(1).padStart(5);
     console.error(`   ${pct}%  ${(us / 1000).toFixed(0).padStart(6)}ms  ${k}`);
@@ -171,13 +180,26 @@ async function cmdHeapStats(args) {
   const browser = await connect();
   const page = await pickPage(browser, args.target);
   const session = await page.context().newCDPSession(page);
-  const metrics = await session.send('Performance.getMetrics').catch(() => null);
+  const metrics = await session
+    .send('Performance.getMetrics')
+    .catch(() => null);
   if (metrics) {
-    const wanted = new Set(['JSHeapUsedSize', 'JSHeapTotalSize', 'Nodes', 'JSEventListeners', 'Documents', 'Frames', 'LayoutCount', 'RecalcStyleCount']);
+    const wanted = new Set([
+      'JSHeapUsedSize',
+      'JSHeapTotalSize',
+      'Nodes',
+      'JSEventListeners',
+      'Documents',
+      'Frames',
+      'LayoutCount',
+      'RecalcStyleCount',
+    ]);
     console.log('Performance.getMetrics:');
     for (const m of metrics.metrics) {
       if (wanted.has(m.name)) {
-        const v = /Heap/.test(m.name) ? `${(m.value / 1048576).toFixed(1)} MB` : m.value;
+        const v = /Heap/.test(m.name)
+          ? `${(m.value / 1_048_576).toFixed(1)} MB`
+          : m.value;
         console.log(`  ${m.name.padEnd(20)} ${v}`);
       }
     }
@@ -194,9 +216,9 @@ async function cmdHeapStats(args) {
     const m = JSON.parse(usage.result.value);
     if (m) {
       console.log('performance.memory:');
-      console.log(`  used  ${(m.used / 1048576).toFixed(1)} MB`);
-      console.log(`  total ${(m.total / 1048576).toFixed(1)} MB`);
-      console.log(`  limit ${(m.limit / 1048576).toFixed(1)} MB`);
+      console.log(`  used  ${(m.used / 1_048_576).toFixed(1)} MB`);
+      console.log(`  total ${(m.total / 1_048_576).toFixed(1)} MB`);
+      console.log(`  limit ${(m.limit / 1_048_576).toFixed(1)} MB`);
     }
   }
   await session.detach().catch(() => {});
@@ -216,10 +238,15 @@ async function cmdHeap(args) {
   });
   await session.send('HeapProfiler.enable');
   console.error('taking heap snapshot (may be large) ...');
-  await session.send('HeapProfiler.takeHeapSnapshot', { reportProgress: false, captureNumericValue: false });
+  await session.send('HeapProfiler.takeHeapSnapshot', {
+    reportProgress: false,
+    captureNumericValue: false,
+  });
   stream.end();
   await new Promise((r) => stream.on('finish', r));
-  console.error(`heap snapshot -> ${path.resolve(out)} (${(bytes / 1048576).toFixed(1)} MB; open in DevTools > Memory > Load)`);
+  console.error(
+    `heap snapshot -> ${path.resolve(out)} (${(bytes / 1_048_576).toFixed(1)} MB; open in DevTools > Memory > Load)`,
+  );
   await session.detach().catch(() => {});
 }
 

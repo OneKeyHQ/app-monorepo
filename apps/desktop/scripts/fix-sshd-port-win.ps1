@@ -16,6 +16,17 @@
 .PARAMETER Port
   Port to move sshd to. Default 2222.
 
+.NOTES
+  SCOPE: Local developer perf-lab tooling ONLY. Not referenced by any CI
+  workflow or package.json script — it never runs in CI and never ships in any
+  product bundle. Run manually, elevated, on a developer-owned Windows box.
+
+  The -Profile Any firewall rule is intentional for a lab box whose Windows
+  network category is Public; SSH access stays key/password authenticated. If
+  the machine lives on an untrusted network, prefer reclassifying the network
+  (Set-NetConnectionProfile -NetworkCategory Private) and scoping the rule to
+  -Profile Private,Domain instead of exposing the port on Public.
+
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\fix-sshd-port-win.ps1
 #>

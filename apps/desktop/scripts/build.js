@@ -1,6 +1,7 @@
 require('../../../development/env');
 
 const childProcess = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const { build } = require('esbuild');
@@ -18,8 +19,6 @@ const gitRevision = childProcess
   .trim();
 
 const hrstart = process.hrtime();
-
-const fs = require('fs');
 
 // Perf: keep the ~13MB of per-language translation JSON OUT of the main-process
 // bundle (app.js). esbuild has no code-splitting for the CJS/node format, so the
@@ -200,7 +199,6 @@ build({
 })
   .then((result) => {
     // Copy static assets (recovery.html) to dist
-    const fs = require('fs');
     if (result && result.metafile) {
       fs.writeFileSync(
         path.join(__dirname, '..', 'app/dist', 'meta.json'),

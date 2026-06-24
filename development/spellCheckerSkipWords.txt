@@ -1504,3 +1504,8 @@ pems
 Reqs
 unparseable
 unsalvageable
+# Desktop main-bundle slim perf tooling
+openpgp
+whatwg
+IDNA
+heapstats

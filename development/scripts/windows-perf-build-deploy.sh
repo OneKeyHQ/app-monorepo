@@ -8,6 +8,21 @@
 #
 #     remote build + launch  ->  open CDP tunnel  ->  capture performance
 #
+# SCOPE / SECURITY MODEL — READ BEFORE FILING INJECTION REPORTS:
+#   * Local developer perf tooling ONLY. It is NOT referenced by any
+#     package.json script or GitHub Actions workflow, so it never runs in CI
+#     and never ships in any product bundle. The OneKey desktop app does not
+#     contain or execute this file.
+#   * Trusted-operator tool: the developer running it owns both the Mac and the
+#     LAN-local Windows box, and authors the gitignored `.windows-perf.env`.
+#     Inputs (the env file, the Windows box's stdout) are trusted by design, so
+#     `source`-ing the env file and interpolating remote output into `win_ps`
+#     are intentional, not an exposed attack surface. A "malicious
+#     .windows-perf.env" or "compromised Windows box" precondition already
+#     implies full control of an endpoint and crosses no new boundary (the
+#     interpolated remote output is only ever sent back to that same Windows
+#     box, never executed on the Mac). Do not feed this script untrusted input.
+#
 # Usage:
 #   ./development/scripts/windows-perf-build-deploy.sh [command]
 #
@@ -47,6 +62,9 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SCRIPT_START_TIME=$(date +%s)
 
 # --- Load optional local config (not committed) ---
+# `source` (vs key=value parse) is intentional: this gitignored file is authored
+# by the operator running the tool. See the SCOPE / SECURITY MODEL header — this
+# is local dev tooling, never CI/product, and inputs are trusted by design.
 CONFIG_FILE="$REPO_ROOT/development/scripts/.windows-perf.env"
 if [ -f "$CONFIG_FILE" ]; then
   # shellcheck disable=SC1090
@@ -83,6 +101,9 @@ require_host() {
 }
 
 # Run a PowerShell command on Windows over SSH.
+# String interpolation into -Command is by design: args come from operator-owned
+# config / this script's own constants, and the command runs on the same trusted
+# LAN-local Windows box. See the SCOPE / SECURITY MODEL header (dev-only tool).
 win_ps() {
   ssh -p "$WIN_SSH_PORT" "$WIN_USER@$WIN_HOST" "powershell -ExecutionPolicy Bypass -Command \"$1\""
 }
@@ -209,6 +230,9 @@ cmd_trace() {
   PS_OUT=$(win_ps "& '$WIN_BUILD_SCRIPT' -Port $CDP_PORT -Detach -EnableLogging -TraceStartup -TraceDuration $TRACE_DURATION -TraceFormat $TRACE_FORMAT $NOBUILD")
   echo "$PS_OUT"
 
+  # WIN_TRACE is parsed from the Windows box's own stdout and only ever sent
+  # BACK to that same box (win_ps Test-Path / scp). It never executes on the
+  # Mac, so a tampered value crosses no trust boundary. Dev-only tool; see header.
   local WIN_TRACE
   WIN_TRACE=$(echo "$PS_OUT" | grep -o 'TRACE_STARTUP_FILE=.*' | head -1 | sed 's/^TRACE_STARTUP_FILE=//' | tr -d '\r')
   if [ -z "$WIN_TRACE" ]; then
