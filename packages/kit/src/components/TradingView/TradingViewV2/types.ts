@@ -39,6 +39,7 @@ export interface ITradingViewPriceUpdateData {
 export interface ITradingViewIntervalOption {
   label: string;
   value: string;
+  disabled?: boolean;
 }
 
 export interface ITradingViewIntervalConfigData {
