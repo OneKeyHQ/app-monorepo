@@ -206,20 +206,13 @@ function getPerpsAccountActionType({
   accountAddress,
   accountNotSupport,
   canCreateAddress,
-  canTrade,
-  shouldEnableTradingBeforeOrder,
 }: {
   accountAddress?: string | null;
   accountNotSupport?: boolean;
   canCreateAddress?: boolean;
-  canTrade?: boolean;
-  shouldEnableTradingBeforeOrder: boolean;
 }) {
   if (!accountAddress || accountNotSupport) {
     return canCreateAddress ? 'createAddress' : 'connectWallet';
-  }
-  if (!canTrade && shouldEnableTradingBeforeOrder) {
-    return 'enableTrading';
   }
   return null;
 }
@@ -520,15 +513,11 @@ function SideButtonInternal({
         accountAddress: perpsAccount?.accountAddress,
         accountNotSupport: perpsAccountStatus.accountNotSupport,
         canCreateAddress: perpsAccountStatus.canCreateAddress,
-        canTrade: perpsAccountStatus.canTrade,
-        shouldEnableTradingBeforeOrder,
       }),
     [
       perpsAccount?.accountAddress,
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
-      perpsAccountStatus.canTrade,
-      shouldEnableTradingBeforeOrder,
     ],
   );
 
@@ -1447,42 +1436,6 @@ function SideButtonInternal({
       trailing: false,
     },
   );
-  const handleEnableTradingOnly = useDebouncedCallback(
-    async (): Promise<void> => {
-      const enableTradingAccountKey = perpsAccountKey;
-      const enableTradingSide = side;
-      const enableTradingOrderContextKey = orderContextKey;
-      const shouldIgnoreEnableTradingResult = () =>
-        Boolean(
-          enableTradingAccountKey &&
-          perpsAccountKeyRef.current !== enableTradingAccountKey,
-        );
-
-      const result = await requestOrderPanelEnableTrading({
-        shouldIgnoreResult: shouldIgnoreEnableTradingResult,
-        showLoadingToast: shouldAutoEnableTrading,
-      });
-      const postEnableState = latestOrderPanelStateRef.current;
-      const postEnableTradingResult = getPerpsOrderPanelPostEnableTradingResult(
-        {
-          enableTradingShouldContinue: result?.shouldContinue,
-          shouldIgnoreEnableTradingResult: shouldIgnoreEnableTradingResult(),
-          isOrderContextChanged:
-            postEnableState.side !== enableTradingSide ||
-            postEnableState.orderContextKey !== enableTradingOrderContextKey,
-          isNoEnoughMargin: postEnableState.isNoEnoughMargin,
-        },
-      );
-      if (postEnableTradingResult === 'noEnoughMargin') {
-        showNoEnoughMarginToast(postEnableState.isSpot);
-      }
-    },
-    1000,
-    {
-      leading: true,
-      trailing: false,
-    },
-  );
   useEffect(() => {
     if (!isMobile) {
       return;
@@ -1646,45 +1599,6 @@ function SideButtonInternal({
           >
             {intl.formatMessage({
               id: ETranslations.global_connect_wallet,
-            })}
-          </SizableText>
-        </Button>
-      );
-    }
-
-    if (accountActionType === 'enableTrading') {
-      return (
-        <Button
-          testID={`${PerpTestIDs.EnableTradingButton}-${side}`}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.hoverBg }
-              : undefined
-          }
-          pressStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.pressBg }
-              : undefined
-          }
-          disabled={accountActionButtonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          onPress={handleEnableTradingOnly}
-          h={36}
-        >
-          <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
-            color="$textOnColor"
-            numberOfLines={1}
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_button_enable_trading,
             })}
           </SizableText>
         </Button>
@@ -1955,15 +1869,11 @@ function EmptySizeSideButton({
         accountAddress: perpsAccount?.accountAddress,
         accountNotSupport: perpsAccountStatus.accountNotSupport,
         canCreateAddress: perpsAccountStatus.canCreateAddress,
-        canTrade: perpsAccountStatus.canTrade,
-        shouldEnableTradingBeforeOrder,
       }),
     [
       perpsAccount?.accountAddress,
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
-      perpsAccountStatus.canTrade,
-      shouldEnableTradingBeforeOrder,
     ],
   );
 
@@ -2266,26 +2176,6 @@ function EmptySizeSideButton({
       trailing: false,
     },
   );
-  const handleEnableTradingOnly = useDebouncedCallback(
-    async (): Promise<void> => {
-      const enableTradingAccountKey = perpsAccountKey;
-      const shouldIgnoreEnableTradingResult = () =>
-        Boolean(
-          enableTradingAccountKey &&
-          perpsAccountKeyRef.current !== enableTradingAccountKey,
-        );
-      await requestEmptySizeEnableTrading({
-        shouldIgnoreResult: shouldIgnoreEnableTradingResult,
-        showLoadingToast: shouldAutoEnableTrading,
-      });
-    },
-    1000,
-    {
-      leading: true,
-      trailing: false,
-    },
-  );
-
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       if (!isMobile) {
@@ -2360,47 +2250,6 @@ function EmptySizeSideButton({
             >
               {intl.formatMessage({
                 id: ETranslations.global_connect_wallet,
-              })}
-            </SizableText>
-          </YStack>
-        </Button>
-      );
-    }
-
-    if (accountActionType === 'enableTrading') {
-      return (
-        <Button
-          testID={`${PerpTestIDs.EnableTradingButton}-${side}`}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.hoverBg }
-              : undefined
-          }
-          pressStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.pressBg }
-              : undefined
-          }
-          disabled={accountActionButtonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          onPress={handleEnableTradingOnly}
-          h={36}
-        >
-          <YStack alignItems="center" gap={2}>
-            <SizableText
-              size="$bodyMdMedium"
-              lineHeight={18}
-              color="$textOnColor"
-              numberOfLines={1}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_button_enable_trading,
               })}
             </SizableText>
           </YStack>
