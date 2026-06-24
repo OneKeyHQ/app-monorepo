@@ -1,0 +1,28 @@
+diff --git a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
+index 0fef884..881bc9b 100644
+--- a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
++++ b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
+@@ -139,7 +139,11 @@ open class SecureStoreModule : Module() {
+               "An entry was found for key $key under keychain ${options.keychainService}, but there is no corresponding KeyStore key. " +
+                 "This situation occurs when the app is reinstalled. The value will be removed to avoid future errors. Returning null"
+             )
+-            deleteItemImpl(key, options)
++            // OneKey patch: do NOT delete on read failure. A transiently-unready AndroidKeyStore
++            // (e.g. first cold start after an OS upgrade) flips containsAlias() to false; deleting
++            // would permanently lose a still-recoverable wrapping key and brick the wallet.
++            // Returning null lets the caller retry (LocalSecretEnvelopeUnavailable).
++            // deleteItemImpl(key, options)
+             return null
+           }
+           return mAESEncryptor.decryptItem(key, encryptedItem, secretKeyEntry, options, authenticationHelper)
+@@ -164,7 +168,9 @@ open class SecureStoreModule : Module() {
+         "Failed to decrypt the entry for $key under keychain ${options.keychainService}. " +
+           "The entry in shared preferences is out of sync with the keystore. It will be removed, returning null."
+       )
+-      deleteItemImpl(key, options)
++      // OneKey patch: never destroy data on a read failure; return null and let the caller retry
++      // (a later successful write overwrites the stale entry).
++      // deleteItemImpl(key, options)
+       return null
+     } catch (e: GeneralSecurityException) {
+       throw (DecryptException(e.message, key, options.keychainService, e))

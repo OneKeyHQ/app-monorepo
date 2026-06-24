@@ -14,6 +14,10 @@ const KEYCHAIN_SERVICE = 'Onekey Wallet Secure Store';
 
 const keychainOptions = {
   // keychainService: KEYCHAIN_SERVICE,
+  // Bind secure-store items to this device only so they are excluded from
+  // encrypted iTunes/Finder/iCloud backups and never migrate to a new device.
+  // iOS-only; ignored on Android.
+  keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
 
 // Options applied when WRITING secrets to secure storage.

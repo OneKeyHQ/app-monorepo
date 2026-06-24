@@ -29,7 +29,6 @@ import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
-import { KeylessWalletContainerLazy } from './KeylessWalletContainer';
 import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConnectHashCleanupContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
@@ -69,7 +68,6 @@ function DetailRouter() {
       <HardwareUiStateContainer />
       <ThirdPartyHardwareUiStateContainer />
       <PrimeLoginContainerLazy />
-      <KeylessWalletContainerLazy />
       <KeylessWebAutoConnectHashCleanupContainer />
       <DialogLoadingContainer />
       <DiskFullWarningDialogContainer />

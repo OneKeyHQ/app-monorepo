@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react';
 
 import {
+  Button,
   Checkbox,
   Input,
   SizableText,
   Stack,
+  Switch,
   XStack,
 } from '@onekeyhq/components';
 import {
@@ -50,8 +52,19 @@ const DISABLED_FEATURE_OPTIONS: {
   },
 ];
 
-const DEFAULT_DISABLED_FEATURES = DISABLED_FEATURE_OPTIONS.map(
+const DEFAULT_ENABLED_NATIVE_CONTROL_FEATURES =
+  new Set<ITradingViewDisabledFeature>([
+    TRADING_VIEW_DISABLED_FEATURES.PRICE_SCALE,
+    TRADING_VIEW_DISABLED_FEATURES.PRICE_MARKET_CAP_TOGGLE,
+    TRADING_VIEW_DISABLED_FEATURES.INDICATORS,
+    TRADING_VIEW_DISABLED_FEATURES.CHART_TYPE,
+    TRADING_VIEW_DISABLED_FEATURES.RESET_LAYOUT,
+  ]);
+const ALL_DISABLED_FEATURES = DISABLED_FEATURE_OPTIONS.map(
   (option) => option.value,
+);
+const DEFAULT_DISABLED_FEATURES = ALL_DISABLED_FEATURES.filter(
+  (feature) => !DEFAULT_ENABLED_NATIVE_CONTROL_FEATURES.has(feature),
 );
 const DEFAULT_STORAGE_NAMESPACE = 'tradingview-v2-demo';
 
@@ -62,6 +75,8 @@ const TradingViewV2Gallery = () => {
   const [storageNamespace, setStorageNamespace] = useState(
     DEFAULT_STORAGE_NAMESPACE,
   );
+  const [enableNativeChartControls, setEnableNativeChartControls] =
+    useState(true);
 
   const handleDisabledFeatureChange = useCallback(
     (feature: ITradingViewDisabledFeature, checked: boolean) => {
@@ -80,6 +95,14 @@ const TradingViewV2Gallery = () => {
     [],
   );
 
+  const handleClearDisabledFeatures = useCallback(() => {
+    setDisabledFeatures([]);
+  }, []);
+
+  const handleSelectAllDisabledFeatures = useCallback(() => {
+    setDisabledFeatures([...ALL_DISABLED_FEATURES]);
+  }, []);
+
   return (
     <MarketWatchListProviderMirrorV2
       storeName={EJotaiContextStoreNames.marketWatchListV2}
@@ -89,7 +112,7 @@ const TradingViewV2Gallery = () => {
         componentName="TradingViewV2"
         elements={[
           {
-            title: 'Market Hyperliquid BTC',
+            title: 'Market USDC',
             element: (
               <Stack gap="$3">
                 <Stack gap="$2">
@@ -105,9 +128,47 @@ const TradingViewV2Gallery = () => {
                     {`storageNamespace=${storageNamespace || 'default'}`}
                   </SizableText>
 
-                  <SizableText size="$bodySmMedium">
-                    Disabled features
+                  <XStack alignItems="center" gap="$2">
+                    <Switch
+                      value={enableNativeChartControls}
+                      onChange={setEnableNativeChartControls}
+                    />
+                    <SizableText size="$bodySm">
+                      Native chart controls
+                    </SizableText>
+                  </XStack>
+                  <SizableText size="$bodySm">
+                    {`nativeChartControls=${
+                      enableNativeChartControls ? 'on' : 'off'
+                    }`}
                   </SizableText>
+
+                  <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    flexWrap="wrap"
+                    gap="$2"
+                  >
+                    <SizableText size="$bodySmMedium">
+                      Disabled features
+                    </SizableText>
+                    <XStack gap="$2" flexWrap="wrap">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onPress={handleClearDisabledFeatures}
+                      >
+                        Clear all
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        onPress={handleSelectAllDisabledFeatures}
+                      >
+                        Select all
+                      </Button>
+                    </XStack>
+                  </XStack>
                   <XStack flexWrap="wrap" gap="$3">
                     {DISABLED_FEATURE_OPTIONS.map((option) => (
                       <XStack key={option.value} alignItems="center" gap="$2">
@@ -131,14 +192,31 @@ const TradingViewV2Gallery = () => {
 
                 <Stack h={500} w="100%">
                   <TradingViewV2
-                    symbol="BTC"
-                    decimal={8}
-                    networkId="btc--0"
-                    tokenAddress=""
+                    symbol="USDC"
+                    decimal={6}
+                    networkId="evm--1"
+                    tokenAddress="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
                     disabledFeatures={disabledFeatures}
                     storageNamespace={storageNamespace}
+                    enableNativeChartControls={enableNativeChartControls}
                   />
                 </Stack>
+              </Stack>
+            ),
+          },
+          {
+            title: 'Market Hyperliquid BTC',
+            element: (
+              <Stack h={500} w="100%">
+                <TradingViewV2
+                  symbol="BTC"
+                  decimal={8}
+                  networkId="btc--0"
+                  tokenAddress=""
+                  disabledFeatures={disabledFeatures}
+                  storageNamespace={`${storageNamespace}-btc`}
+                  enableNativeChartControls={enableNativeChartControls}
+                />
               </Stack>
             ),
           },

@@ -168,6 +168,7 @@ export interface ISwapTokenBase {
   logoURI?: string;
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
+  isStock?: boolean;
 }
 
 export interface IFreeFeeTokenItem {
@@ -223,6 +224,7 @@ export interface IFetchTokensParams {
   onlyAccountTokens?: boolean;
   isAllNetworkFetchAccountTokens?: boolean;
   lpToken?: boolean;
+  currency?: string;
 }
 
 export interface IFetchTokenListParams {

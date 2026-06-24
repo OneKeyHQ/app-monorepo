@@ -26,6 +26,7 @@ interface IUseChartConfigProps {
   showPriceScale?: boolean;
   showHorzGridLines?: boolean;
   priceScaleMargins?: { top: number; bottom: number };
+  priceScaleEntireTextOnly?: boolean;
   priceFormatter?: (price: number) => string;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -49,6 +50,7 @@ export function useChartConfig({
   showPriceScale = false,
   showHorzGridLines = false,
   priceScaleMargins,
+  priceScaleEntireTextOnly,
   priceFormatter,
   priceFormatterTickStep: priceFormatterTickStepProp,
   fontSize,
@@ -83,6 +85,7 @@ export function useChartConfig({
       showPriceScale,
       showHorzGridLines,
       priceScaleMargins,
+      priceScaleEntireTextOnly,
       horzLineColor: theme.borderSubdued?.val || '#E5E5EA',
       horzLineStyle: 2,
       data: data.map(([time, value]: [number, number]) => ({
@@ -122,6 +125,7 @@ export function useChartConfig({
       showPriceScale,
       showHorzGridLines,
       priceScaleMargins,
+      priceScaleEntireTextOnly,
       priceFormatter,
       priceFormatterType,
       priceFormatterTickStep,

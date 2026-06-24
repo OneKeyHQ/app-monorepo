@@ -9,14 +9,12 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 //   market: Pick<ISimpleDbEntityMarktData, 'favorites'>;
 // };
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { IDeviceKeyPack } from '@onekeyhq/shared/src/keylessWallet/keylessWalletTypes';
 import type { ICliBotWalletEncryptedCredential } from '@onekeyhq/shared/src/types/cliBotWallet';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import type { IAllWalletAvatarImageNamesWithoutDividers } from '../../src/utils/avatarUtils';
 
 export enum EPrimeTransferDataType {
-  keylessWallet = 'keylessWallet',
   allWallet = 'allWallet',
 }
 
@@ -121,8 +119,6 @@ export type IPrimeTransferPrivateData = {
   watchingAccounts: Record<string, IPrimeTransferAccount>;
   // UUID -> ImportableHDWallet
   wallets: Record<string, IPrimeTransferHDWallet>;
-  // DeviceKeyPack for keyless wallet transfer
-  deviceKeyPack?: IDeviceKeyPack;
   // Bot Wallet -> CLI remote-key-protection payload. When present, CLI must
   // persist this payload through the bot-wallet vault path instead of the
   // legacy decryptedCredentials path.
@@ -133,12 +129,24 @@ export type IPrimeTransferPrivateData = {
   // };
 };
 
+export type IPrimeTransferUnavailableCredential = {
+  credentialId: string;
+  // Best-effort human label (wallet/account name), falls back to credentialId.
+  label: string;
+};
+
 export type IPrimeTransferData = {
   privateData: IPrimeTransferPrivateData;
   publicData: IPrimeTransferPublicData | undefined;
   isEmptyData: boolean;
   isWatchingOnly: boolean;
   appVersion: string;
+  // Credentials skipped while building this payload because the local secret
+  // envelope layer (keychain / secure storage / IndexedDB CryptoKey) was
+  // transiently unavailable. The wallet/account is omitted from privateData so
+  // the rest can still transfer; the sender UI surfaces these for confirmation
+  // before sending. Not set for cloud backup (that path fails fast instead).
+  unavailableCredentials?: IPrimeTransferUnavailableCredential[];
 };
 
 export type IPrimeTransferSelectedItemMapInfo = {

@@ -2,16 +2,10 @@ import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
 import {
   getNativeTokenInfo,
-  getStockMarketCapValue,
-  getStockPeRatioValue,
-  getStockVolume24hValue,
   normalizeStockMetadataValue,
-  shouldUseStockMetadataColumnsForTokens,
 } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 
 import type { IFavoriteTokenDisplay } from './types';
-
-const EMPTY_MARKET_VALUE = '--';
 
 function getTokenKey(token: {
   chainId: string;
@@ -25,45 +19,6 @@ function getTokenKey(token: {
 }
 
 const EMPTY_DISPLAY_TOKENS: IFavoriteTokenDisplay[] = [];
-
-function getDefaultMarketValue(value?: number) {
-  return value ? value : EMPTY_MARKET_VALUE;
-}
-
-function getStockPreferredDisplayValue(
-  stockValue: string | undefined,
-  fallbackValue?: number,
-) {
-  return stockValue ?? getDefaultMarketValue(fallbackValue);
-}
-
-function getVolume24hValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? getStockPreferredDisplayValue(
-        getStockVolume24hValue(record),
-        record.volume24h,
-      )
-    : getDefaultMarketValue(record.volume24h);
-}
-
-function getMarketCapValue(
-  record: IFavoriteTokenDisplay,
-  useStockMetadataColumns?: boolean,
-) {
-  return useStockMetadataColumns
-    ? getStockPreferredDisplayValue(
-        getStockMarketCapValue(record),
-        record.marketCap,
-      )
-    : getDefaultMarketValue(record.marketCap);
-}
-
-function getPeRatioValue(record: IFavoriteTokenDisplay) {
-  return getStockPeRatioValue(record) ?? EMPTY_MARKET_VALUE;
-}
 
 function parseMarketValue(value?: string | number | null) {
   const normalizedValue = normalizeStockMetadataValue(value);
@@ -133,15 +88,10 @@ function mapMarketTokenToDisplay(
 
 export {
   EMPTY_DISPLAY_TOKENS,
-  EMPTY_MARKET_VALUE,
-  getMarketCapValue,
   getMarketTokenDisplayMarketCap,
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
-  getPeRatioValue,
   getTokenKey,
-  getVolume24hValue,
   mapMarketTokenToDisplay,
-  shouldUseStockMetadataColumnsForTokens,
 };
