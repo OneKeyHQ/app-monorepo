@@ -617,24 +617,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       },
     ) => {
       set(swapStockExecutionTokenSyncIdAtom(), syncId);
-
-      const networkIds = Array.from(
-        new Set(
-          [fromToken?.networkId, toToken?.networkId].filter(
-            (networkId): networkId is string => !!networkId,
-          ),
-        ),
-      );
-      for (const networkId of networkIds) {
-        await this.syncNetworksSort.call(set, networkId);
-        if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
-          return;
-        }
-      }
-
-      if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
-        return;
-      }
       if (fromToken) {
         set(swapSelectFromTokenAtom(), fromToken);
       }
@@ -649,6 +631,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
       } else {
         set(swapStockExecutionTokensAtom(), undefined);
+      }
+
+      const networkIds = Array.from(
+        new Set(
+          [fromToken?.networkId, toToken?.networkId].filter(
+            (networkId): networkId is string => !!networkId,
+          ),
+        ),
+      );
+      for (const networkId of networkIds) {
+        await this.syncNetworksSort.call(set, networkId);
+        if (get(swapStockExecutionTokenSyncIdAtom()) !== syncId) {
+          return;
+        }
       }
     },
   );

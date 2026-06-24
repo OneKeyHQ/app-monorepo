@@ -792,8 +792,8 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   const syncDefaultSelectedToken = useCallback(async () => {
     const isStockDefaultTokenFlow =
-      (params?.swapTabSwitchType ?? swapTypeSwitchRef.current) ===
-      ESwapTabSwitchType.STOCK;
+      swapTypeSwitchRef.current === ESwapTabSwitchType.STOCK ||
+      params?.swapTabSwitchType === ESwapTabSwitchType.STOCK;
     if (
       params?.fromAmount &&
       (!fromTokenAmount.isInput || fromTokenAmount.value !== params.fromAmount)
