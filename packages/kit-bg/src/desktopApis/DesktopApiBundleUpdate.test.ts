@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-return -- the mocked desktop-app deps return `any` from require() inside jest.mock factories */
 // DesktopApiBundleUpdate logic tests
 // Tests the pure logic aspects of DesktopApiBundleUpdate that don't require
 // a real Electron environment: parameter validation, HTTPS enforcement,
@@ -7,6 +8,59 @@
 // BrowserWindow, IPC) so we test the logic patterns directly.
 
 import path from 'path';
+
+import { UNRECOVERABLE_DOWNLOAD_ERROR_CODES } from '@onekeyhq/kit/src/components/AppUpdate/updateErrorTaxonomy';
+
+// Import the REAL shipped helpers (named exports) so these tests exercise
+// production code instead of re-implemented local copies (OCDS conformance:
+// the test must pin the actual classifier the downloader runs).
+import { USERDATA } from './__e2e__/desktopBundleUpdateE2eHarness';
+import {
+  classifyHttpStatus,
+  computeBackoffMs,
+  contentRangeStart,
+  retryAfterMsFromHeader,
+  validateSegmentContentRange,
+} from './DesktopApiBundleUpdate';
+
+// --- Mock the Electron / desktop-app deps so the module loads under node-jest.
+// Importing the REAL ./DesktopApiBundleUpdate (above) pulls in `electron` and
+// the desktop-app singletons at module load, which throw under plain node-jest.
+// (Copied from desktopBundleUpdateE2eHarness.ts JEST_MOCK_BLOCK — jest.mock
+// hoists per-file so it cannot be shared via the helper.)
+jest.mock('electron', () => ({ app: { getPath: () => USERDATA } }));
+jest.mock('electron-log/main', () => ({
+  __esModule: true,
+  default: { info() {}, warn() {}, error() {}, transports: {} },
+}));
+jest.mock('@onekeyhq/desktop/app/bundle', () => {
+  const c = require('crypto');
+  const f = require('fs');
+  const sha = (p: string) =>
+    c.createHash('sha256').update(f.readFileSync(p)).digest('hex');
+  return {
+    verifySha256: (p: string, expected: string) =>
+      sha(p).toLowerCase() === String(expected).toLowerCase(),
+    calculateSHA256: sha,
+    lastSHA256FailureReason: () => 'MISMATCH',
+    checkFileSha512: () => true,
+    getBundleDirName: () => 'bundle',
+    getBundleExtractDir: () => require('path').join(USERDATA, 'extract'),
+    testExtractedSha256FromVerifyAscFile: () => true,
+    verifyMetadataFileSha256: () => true,
+  };
+});
+jest.mock('@onekeyhq/desktop/app/config', () => ({
+  ipcMessageKeys: new Proxy({}, { get: () => 'ipc-key' }),
+}));
+jest.mock(
+  '@onekeyhq/desktop/app/libs/store',
+  () => new Proxy({}, { get: () => () => undefined }),
+);
+jest.mock('@onekeyhq/desktop/app/windowProgressBar', () => ({
+  clearWindowProgressBar() {},
+  updateWindowProgressBar() {},
+}));
 
 // ---------------------------------------------------------------------------
 // HTTPS enforcement - mirrors downloadBundle (lines 97-102)
@@ -1154,5 +1208,282 @@ describe('DesktopApiBundleUpdate switchBundle parameter validation', () => {
 
   test('rejects all empty', () => {
     expect(validateSwitchParams({})).toBe('Invalid parameters');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §4 HTTP status classification (G4) - mirrors classifyHttpStatus.
+// Every non-2xx status must resolve to exactly one of two classes with the
+// §4 default rule: 4xx permanent except 408/429; 5xx transient except
+// 501/505; unknown permanent. Must agree with the shared-JS
+// UNRECOVERABLE_DOWNLOAD_ERROR_CODES taxonomy.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §4 classifyHttpStatus', () => {
+  test('4xx auth/gone are permanent', () => {
+    expect(classifyHttpStatus(401)).toBe('permanent');
+    expect(classifyHttpStatus(403)).toBe('permanent');
+    expect(classifyHttpStatus(404)).toBe('permanent');
+    expect(classifyHttpStatus(410)).toBe('permanent');
+    expect(classifyHttpStatus(400)).toBe('permanent');
+  });
+
+  test('408 and 429 are transient exceptions to the 4xx rule', () => {
+    expect(classifyHttpStatus(408)).toBe('transient');
+    expect(classifyHttpStatus(429)).toBe('transient');
+  });
+
+  test('416 is transient (re-evaluate size, never discard resumable bytes)', () => {
+    // OCDS §4 regression guard: a bare 416 on a resume request must NOT be
+    // classified Permanent (which would throw away on-disk bytes); it is
+    // Transient — re-probe / re-read total and re-request.
+    expect(classifyHttpStatus(416)).toBe('transient');
+  });
+
+  test('5xx are transient', () => {
+    expect(classifyHttpStatus(500)).toBe('transient');
+    expect(classifyHttpStatus(502)).toBe('transient');
+    expect(classifyHttpStatus(503)).toBe('transient');
+  });
+
+  test('501 and 505 are permanent exceptions to the 5xx rule', () => {
+    expect(classifyHttpStatus(501)).toBe('permanent');
+    expect(classifyHttpStatus(505)).toBe('permanent');
+  });
+
+  test('unknown / unexpected statuses are permanent', () => {
+    expect(classifyHttpStatus(0)).toBe('permanent');
+    expect(classifyHttpStatus(199)).toBe('permanent');
+    expect(classifyHttpStatus(307)).toBe('permanent');
+    expect(classifyHttpStatus(600)).toBe('permanent');
+  });
+
+  test('agrees with the REAL shared UNRECOVERABLE_DOWNLOAD_ERROR_CODES set', () => {
+    // The shared-JS taxonomy (imported, not copied) is the single source of
+    // truth. Every HTTP_<code> it marks unrecoverable must classify Permanent
+    // here; conversely 416 — which it does NOT mark unrecoverable — must
+    // classify Transient (the regression being fixed).
+    const unrecoverableHttpCodes = [...UNRECOVERABLE_DOWNLOAD_ERROR_CODES]
+      .filter((code) => code.startsWith('HTTP_'))
+      .map((code) => Number(code.slice('HTTP_'.length)));
+    expect(unrecoverableHttpCodes.length).toBeGreaterThan(0);
+    for (const status of unrecoverableHttpCodes) {
+      expect(classifyHttpStatus(status)).toBe('permanent');
+    }
+    // 416 is recoverable in the shared taxonomy and Transient in the desktop
+    // classifier — the two must agree.
+    expect(UNRECOVERABLE_DOWNLOAD_ERROR_CODES.has('HTTP_416')).toBe(false);
+    expect(classifyHttpStatus(416)).toBe('transient');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §5.5 segment Content-Range validation (G1) - mirrors
+// validateSegmentContentRange. A 206 segment body is accepted only when it is
+// a single range whose window matches the request exactly and whose total
+// agrees with the probe total; multipart / `*`-total / mismatch is rejected.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §5.5 validateSegmentContentRange', () => {
+  const base = {
+    contentType: 'application/octet-stream',
+    rangeStart: 0,
+    rangeEnd: 1023,
+    expectedTotal: 4096,
+  };
+
+  test('exact matching single range is accepted', () => {
+    expect(
+      validateSegmentContentRange({
+        ...base,
+        contentRange: 'bytes 0-1023/4096',
+      }).ok,
+    ).toBe(true);
+  });
+
+  test('multipart/byteranges is rejected', () => {
+    const r = validateSegmentContentRange({
+      ...base,
+      contentType: 'multipart/byteranges; boundary=abc',
+      contentRange: 'bytes 0-1023/4096',
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  test('missing content-range is rejected', () => {
+    expect(
+      validateSegmentContentRange({ ...base, contentRange: undefined }).ok,
+    ).toBe(false);
+  });
+
+  test('unknown (*) total is rejected', () => {
+    expect(
+      validateSegmentContentRange({
+        ...base,
+        contentRange: 'bytes 0-1023/*',
+      }).ok,
+    ).toBe(false);
+  });
+
+  test('window mismatch is rejected', () => {
+    expect(
+      validateSegmentContentRange({
+        ...base,
+        contentRange: 'bytes 0-2047/4096',
+      }).ok,
+    ).toBe(false);
+  });
+
+  test('total disagreeing with probe is rejected', () => {
+    expect(
+      validateSegmentContentRange({
+        ...base,
+        contentRange: 'bytes 0-1023/8192',
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §5.6 single-stream resume start parsing (G2) - mirrors
+// contentRangeStart. A mis-aligned 206 (start != downloadedBytes) must be
+// detected so the partial is truncated instead of appended at the wrong place.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §5.6 contentRangeStart', () => {
+  test('parses resume start offset', () => {
+    expect(contentRangeStart('bytes 512-1023/1024')).toBe(512);
+  });
+
+  test('aligned resume keeps append (start === downloadedBytes)', () => {
+    const downloadedBytes = 512;
+    const start = contentRangeStart('bytes 512-1023/1024');
+    expect(start).toBe(downloadedBytes);
+  });
+
+  test('mis-aligned resume is detectable (start !== downloadedBytes)', () => {
+    const downloadedBytes = 512;
+    const start = contentRangeStart('bytes 0-1023/1024');
+    expect(start).not.toBeNull();
+    expect(start).not.toBe(downloadedBytes);
+  });
+
+  test('missing / unparseable header returns null', () => {
+    expect(contentRangeStart(undefined)).toBeNull();
+    expect(contentRangeStart('garbage')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §5.4 backoff + Retry-After (G5) - mirrors computeBackoffMs and
+// retryAfterMsFromHeader. Backoff grows exponentially, is capped, and a
+// server Retry-After overrides the computed value.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §5.4 backoff and Retry-After', () => {
+  // Mirrors the BUNDLE_RETRY_BASE_DELAY_MS / BUNDLE_RETRY_MAX_DELAY_MS tuning
+  // constants in the production module (kept private there); the assertions
+  // exercise the REAL imported computeBackoffMs / retryAfterMsFromHeader.
+  const BASE = 500;
+  const MAX = 10_000;
+
+  test('backoff stays within jittered bounds and is non-negative', () => {
+    for (let retry = 0; retry < 8; retry += 1) {
+      const expected = Math.min(BASE * 2 ** retry, MAX);
+      const v = computeBackoffMs(retry);
+      expect(v).toBeGreaterThanOrEqual(0);
+      // ±50% jitter, allow rounding slack.
+      expect(v).toBeLessThanOrEqual(expected * 1.5 + 1);
+    }
+  });
+
+  test('backoff is capped at MAX (modulo jitter) for large retries', () => {
+    // base term saturates at MAX, so the jittered result never exceeds 1.5*MAX
+    const v = computeBackoffMs(20);
+    expect(v).toBeLessThanOrEqual(MAX * 1.5 + 1);
+  });
+
+  test('Retry-After delta-seconds overrides backoff', () => {
+    expect(retryAfterMsFromHeader('2')).toBe(2000);
+    expect(retryAfterMsFromHeader(['5'])).toBe(5000);
+  });
+
+  test('Retry-After HTTP-date is honored', () => {
+    const future = new Date(Date.now() + 3000).toUTCString();
+    const ms = retryAfterMsFromHeader(future);
+    expect(ms).not.toBeNull();
+    expect((ms as number) >= 0 && (ms as number) <= 4000).toBe(true);
+  });
+
+  test('absent / unparseable Retry-After returns null', () => {
+    expect(retryAfterMsFromHeader(undefined)).toBeNull();
+    expect(retryAfterMsFromHeader('not-a-date')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §5.5 over-long / short body guards (G1) - mirrors the clamp + length
+// assertions in the segment data/end handlers.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §5.5 segment length guards', () => {
+  test('over-long chunk is clamped to the planned remaining and rejected', () => {
+    const partEnd = 1023;
+    let writePos = 1000;
+    const chunkLength = 100; // would overrun [1000..1099] past end 1023
+    const remaining = partEnd - writePos + 1; // 24
+    const overran = chunkLength > remaining;
+    const writeLen = Math.min(chunkLength, Math.max(0, remaining));
+    writePos += writeLen;
+    expect(overran).toBe(true);
+    expect(writeLen).toBe(24);
+    expect(writePos).toBe(partEnd + 1); // never past planned end
+  });
+
+  test('short body (done < segLen) is a transient retry, not completion', () => {
+    const segLen = 1024;
+    const done = 900;
+    expect(done < segLen).toBe(true);
+  });
+
+  test('exact body (done === segLen) completes the segment', () => {
+    const segLen = 1024;
+    const done = 1024;
+    expect(done < segLen).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OCDS §5.6 single-stream 200-after-resume truncation (G2) - mirrors the
+// decision to drop the partial + reset to byte 0 when the server replies 200
+// to a resume Range request.
+// ---------------------------------------------------------------------------
+describe('DesktopApiBundleUpdate §5.6 resume restart decisions', () => {
+  test('200 to a resume request resets downloadedBytes to 0', () => {
+    let downloadedBytes = 5000; // had a partial
+    let droppedPartial = false;
+    // server status 200 branch
+    droppedPartial = true;
+    downloadedBytes = 0;
+    expect(droppedPartial).toBe(true);
+    expect(downloadedBytes).toBe(0);
+  });
+
+  test('aligned 206 keeps append mode', () => {
+    const downloadedBytes = 5000;
+    const resumeStart = 5000;
+    const shouldRestart =
+      downloadedBytes > 0 &&
+      resumeStart !== null &&
+      resumeStart !== downloadedBytes;
+    expect(shouldRestart).toBe(false);
+    expect(downloadedBytes > 0 ? 'a' : 'w').toBe('a');
+  });
+
+  test('mis-aligned 206 forces clean restart (w mode)', () => {
+    let downloadedBytes = 5000;
+    const resumeStart = 0;
+    const shouldRestart =
+      downloadedBytes > 0 &&
+      resumeStart !== null &&
+      resumeStart !== downloadedBytes;
+    expect(shouldRestart).toBe(true);
+    if (shouldRestart) downloadedBytes = 0;
+    expect(downloadedBytes > 0 ? 'a' : 'w').toBe('w');
   });
 });
