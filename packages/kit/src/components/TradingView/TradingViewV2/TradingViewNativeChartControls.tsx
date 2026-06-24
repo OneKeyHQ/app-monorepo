@@ -130,6 +130,35 @@ const MAIN_CHART_INDICATOR_LABEL_SET = new Set<string>(
   MAIN_CHART_INDICATOR_LABELS,
 );
 
+function getAppNativeIndicatorValue(indicator: ITradingViewIndicatorOption) {
+  if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.label)) {
+    return indicator.label;
+  }
+
+  if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.value)) {
+    return indicator.value;
+  }
+
+  return null;
+}
+
+function getActiveIndicatorValueSet(
+  indicators: ITradingViewIndicatorOption[] | undefined,
+) {
+  const activeValues = new Set<string>();
+  indicators?.forEach((indicator) => {
+    if (!indicator.active) {
+      return;
+    }
+
+    const indicatorValue = getAppNativeIndicatorValue(indicator);
+    if (indicatorValue) {
+      activeValues.add(indicatorValue);
+    }
+  });
+  return activeValues;
+}
+
 function getIndicatorSections(indicators: ITradingViewIndicatorOption[]) {
   const mainIndicators: ITradingViewIndicatorOption[] = [];
   const subIndicators: ITradingViewIndicatorOption[] = [];
@@ -552,20 +581,23 @@ export const TradingViewNativeChartControls = memo(
     const [activeIndicatorValues, setActiveIndicatorValues] = useState(
       () => new Set<string>(),
     );
+    const pendingIndicatorActiveStateRef = useRef(new Map<string, boolean>());
     useEffect(() => {
-      const activeValues = new Set<string>();
-      nativeChartControlsConfig?.indicators.forEach((indicator) => {
-        if (!indicator.active) {
-          return;
+      const activeValues = getActiveIndicatorValueSet(
+        nativeChartControlsConfig?.indicators,
+      );
+      const pendingActiveState = pendingIndicatorActiveStateRef.current;
+      pendingActiveState.forEach((desiredActive, indicatorValue) => {
+        if (activeValues.has(indicatorValue) === desiredActive) {
+          pendingActiveState.delete(indicatorValue);
         }
+      });
 
-        if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.label)) {
-          activeValues.add(indicator.label);
-          return;
-        }
-
-        if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.value)) {
-          activeValues.add(indicator.value);
+      pendingActiveState.forEach((desiredActive, indicatorValue) => {
+        if (desiredActive) {
+          activeValues.add(indicatorValue);
+        } else {
+          activeValues.delete(indicatorValue);
         }
       });
       setActiveIndicatorValues(activeValues);
@@ -633,6 +665,10 @@ export const TradingViewNativeChartControls = memo(
 
     const handleNativeIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
+        pendingIndicatorActiveStateRef.current.set(
+          indicatorName,
+          desiredActive,
+        );
         setActiveIndicatorValues((currentValues) => {
           const nextValues = new Set(currentValues);
           if (desiredActive) {

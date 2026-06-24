@@ -515,6 +515,10 @@ function IntervalsDialogContent({
     () => getOptionsByValues(preferredValues, options),
     [options, preferredValues],
   );
+  const reconciledDraftPreferredValues = useMemo(
+    () => reconcileIntervalValues(draftPreferredValues, editableOptions),
+    [draftPreferredValues, editableOptions],
+  );
 
   const handleIntervalPress = useCallback(
     (option: ITradingViewIntervalOption) => {
@@ -552,20 +556,21 @@ function IntervalsDialogContent({
   }, [defaultPreferredValues]);
 
   const handleConfirmPress = useCallback(() => {
-    const reconciledValues = reconcileIntervalValues(
-      draftPreferredValues,
-      editableOptions,
-    );
-    if (reconciledValues.length) {
+    if (reconciledDraftPreferredValues.length) {
       onPreferredValuesChange(
-        sortIntervalValues(reconciledValues, editableOptions).slice(
-          0,
-          MAX_PREFERRED_INTERVAL_COUNT,
-        ),
+        sortIntervalValues(
+          reconciledDraftPreferredValues,
+          editableOptions,
+        ).slice(0, MAX_PREFERRED_INTERVAL_COUNT),
       );
       void dialog.close();
     }
-  }, [dialog, draftPreferredValues, editableOptions, onPreferredValuesChange]);
+  }, [
+    dialog,
+    editableOptions,
+    onPreferredValuesChange,
+    reconciledDraftPreferredValues,
+  ]);
 
   if (isEditing) {
     return (
@@ -598,7 +603,7 @@ function IntervalsDialogContent({
             size="large"
             variant="primary"
             testID="trading-view-native-intervals-confirm-button"
-            disabled={!draftPreferredValues.length}
+            disabled={!reconciledDraftPreferredValues.length}
             onPress={handleConfirmPress}
           >
             {intl.formatMessage({ id: ETranslations.global_confirm })}
