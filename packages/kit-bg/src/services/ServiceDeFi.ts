@@ -415,6 +415,32 @@ class ServiceDeFi extends ServiceBase {
     this._deFiForceRefreshTimers.delete(key);
   }
 
+  private _scheduleDeFiForceRefresh(
+    key: string,
+    params: {
+      accountId: string;
+      indexedAccountId?: string;
+      networkId: string;
+    },
+  ) {
+    // Coalesce multiple refresh triggers: reset the schedule to the latest one.
+    this._cancelDeFiForceRefresh(key);
+
+    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
+    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
+      setTimeout(() => {
+        void this._runDeFiForceRefresh(params);
+        // After the last scheduled offset fires, drop the Map entry so it
+        // does not linger once every timer has run.
+        if (offset === maxOffset) {
+          this._deFiForceRefreshTimers.delete(key);
+        }
+      }, offset),
+    );
+
+    this._deFiForceRefreshTimers.set(key, timers);
+  }
+
   @backgroundMethod()
   public async isNetworkDeFiEnabled(networkId: string): Promise<boolean> {
     if (!networkId) return false;
@@ -437,27 +463,11 @@ class ServiceDeFi extends ServiceBase {
     if (!(await this.isNetworkDeFiEnabled(networkId))) return;
 
     const key = this._buildDeFiForceRefreshKey(accountId, networkId);
-
-    // Coalesce multiple confirmed txs: reset the schedule to the latest one.
-    this._cancelDeFiForceRefresh(key);
-
-    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
-    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
-      setTimeout(() => {
-        void this._runDeFiForceRefresh({
-          accountId,
-          indexedAccountId,
-          networkId,
-        });
-        // After the last scheduled offset fires, drop the Map entry so it
-        // does not linger once every timer has run.
-        if (offset === maxOffset) {
-          this._deFiForceRefreshTimers.delete(key);
-        }
-      }, offset),
-    );
-
-    this._deFiForceRefreshTimers.set(key, timers);
+    this._scheduleDeFiForceRefresh(key, {
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
   }
 
   private async _runDeFiForceRefresh(params: {
@@ -581,21 +591,11 @@ class ServiceDeFi extends ServiceBase {
 
     // The submitted tx may not be indexed yet, so refresh once immediately
     // for visible feedback and then retry on the existing post-tx schedule.
-    this._cancelDeFiForceRefresh(key);
-    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
-    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
-      setTimeout(() => {
-        void this._runDeFiForceRefresh({
-          accountId,
-          indexedAccountId,
-          networkId,
-        });
-        if (offset === maxOffset) {
-          this._deFiForceRefreshTimers.delete(key);
-        }
-      }, offset),
-    );
-    this._deFiForceRefreshTimers.set(key, timers);
+    this._scheduleDeFiForceRefresh(key, {
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
 
     return this._runDeFiForceRefresh({
       accountId,

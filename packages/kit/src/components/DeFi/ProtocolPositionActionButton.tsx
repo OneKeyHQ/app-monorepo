@@ -461,19 +461,9 @@ const ProtocolPositionActionButton = memo(
       () => getAaveBorrowManageParams({ protocol, position, manageAsset }),
       [manageAsset, position, protocol],
     );
-    const matchedDeFiActions = useMemo(
-      () =>
-        isActionAccount
-          ? [
-              ...actions,
-              ...defiActionUtils.resolveDeFiPositionActionDebugCandidates({
-                protocol,
-                position,
-                supportedActions,
-              }),
-            ]
-          : [],
-      [actions, isActionAccount, position, protocol, supportedActions],
+    const fallbackBlockingActions = useMemo(
+      () => (isActionAccount ? [...actions, ...unavailableActions] : []),
+      [actions, isActionAccount, unavailableActions],
     );
     const visibleActions = useMemo(
       () =>
@@ -495,11 +485,11 @@ const ProtocolPositionActionButton = memo(
       () =>
         new Set(
           getVisibleDeFiPositionActions({
-            actions: matchedDeFiActions,
+            actions: fallbackBlockingActions,
             placement,
           }).map((action) => action.action),
         ),
-      [matchedDeFiActions, placement],
+      [fallbackBlockingActions, placement],
     );
     const manageActionTypes = getManageActionTypesForPlacement(
       placement,
