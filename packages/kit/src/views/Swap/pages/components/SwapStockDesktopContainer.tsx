@@ -21,6 +21,7 @@ import {
   Stack,
   XStack,
   YStack,
+  resetToRoute,
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -68,7 +69,13 @@ import {
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -685,25 +692,57 @@ function StockEstimatedReceive({
 }
 
 function StockActionGate({
+  alerts,
   stockChannel,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
+  alerts: ISwapStockDesktopContainerProps['alerts'];
   stockChannel: IUseSwapStockChannelReturn;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const accountInfo = swapFromAddressInfo.accountInfo;
+  const isWebDappModeWithNoWallet = Boolean(
+    platformEnv.isWebDappMode &&
+    accountInfo &&
+    !accountInfo.wallet &&
+    !accountInfo.accountName,
+  );
+  const shouldShowConnectWalletAction =
+    alerts.states.some((item) => item.noConnectWallet) ||
+    isWebDappModeWithNoWallet ||
+    Boolean(accountInfo?.ready && !accountInfo.wallet);
+  const handleConnectWalletPress = useCallback(() => {
+    if (platformEnv.isWebDappMode) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectWalletOptions,
+      });
+      return;
+    }
+    resetToRoute(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.GetStarted,
+      },
+    });
+  }, [navigation]);
+  const keyboardPercentageStage = !platformEnv.isNativeIOS ? (
+    <PercentageStageOnKeyboard
+      onSelectPercentageStage={onSelectPercentageStage}
+    />
+  ) : null;
+  const isStockChannelInitializing =
+    stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
+    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
-      case ESwapStockChannelStage.InitializingStock:
-      case ESwapStockChannelStage.CheckingMarketStatus:
-      case ESwapStockChannelStage.InitializingPayToken:
-        return intl.formatMessage({
-          id: ETranslations.swap_page_button_enter_amount,
-        });
       case ESwapStockChannelStage.MissingStock:
         return intl.formatMessage({
           id: ETranslations.swap_page_button_select_token,
@@ -724,6 +763,25 @@ function StockActionGate({
     }
   }, [intl, stockChannel.channelStage]);
 
+  if (shouldShowConnectWalletAction) {
+    return (
+      <>
+        <Button
+          testID={SwapTestIDs.swapButton}
+          onPress={handleConnectWalletPress}
+          size="large"
+          variant="primary"
+          borderRadius="$full"
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_connect_wallet,
+          })}
+        </Button>
+        {keyboardPercentageStage}
+      </>
+    );
+  }
+
   if (stockChannel.readyForQuote) {
     return (
       <SwapActionsState
@@ -731,6 +789,22 @@ function StockActionGate({
         onOpenRecipientAddress={onToAnotherAddressModal}
         onSelectPercentageStage={onSelectPercentageStage}
       />
+    );
+  }
+
+  if (isStockChannelInitializing) {
+    return (
+      <>
+        <Button
+          testID={SwapTestIDs.swapButton}
+          size="large"
+          variant="primary"
+          disabled
+          loading
+          borderRadius="$full"
+        />
+        {keyboardPercentageStage}
+      </>
     );
   }
 
@@ -750,11 +824,7 @@ function StockActionGate({
       >
         {disabledLabel}
       </Button>
-      {!platformEnv.isNativeIOS ? (
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      ) : null}
+      {keyboardPercentageStage}
     </>
   );
 }
@@ -1045,6 +1115,7 @@ function StockTradeTicket({
         stockChannel={stockChannel}
       />
       <StockActionGate
+        alerts={alerts}
         stockChannel={stockChannel}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
