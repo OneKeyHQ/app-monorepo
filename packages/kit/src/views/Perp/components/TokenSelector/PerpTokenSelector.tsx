@@ -109,6 +109,7 @@ import {
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
+  sortPerpTokenSelectorItemsByServerOrder,
 } from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
@@ -986,17 +987,22 @@ function BasePerpTokenSelectorContent({
       const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
         const tokenSet = new Set(dynamicTab.tokens);
-        const matchingIds = new Set<string>();
+        const tokenNameById = new Map<string, string>();
         (assetsByDex || []).forEach((assets, dexIndex) => {
           assets?.forEach((asset) => {
             if (tokenSet.has(asset.name)) {
-              matchingIds.add(`${dexIndex}-${asset.assetId}`);
+              tokenNameById.set(`${dexIndex}-${asset.assetId}`, asset.name);
             }
           });
         });
-        result = perpSortedList.filter((item) =>
-          matchingIds.has(`${item.dexIndex}-${item.assetId}`),
-        );
+        result = sortPerpTokenSelectorItemsByServerOrder({
+          items: perpSortedList.filter((item) =>
+            tokenNameById.has(`${item.dexIndex}-${item.assetId}`),
+          ),
+          tokenOrder: dynamicTab.tokens,
+          getTokenName: (item) =>
+            tokenNameById.get(`${item.dexIndex}-${item.assetId}`),
+        });
       } else {
         result = perpSortedList;
       }
