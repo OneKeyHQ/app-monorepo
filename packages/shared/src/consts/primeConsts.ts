@@ -32,8 +32,6 @@ export enum EPrimeCloudSyncDataType {
 export enum EPrimeEmailOTPScene {
   UpdateRebateWithdrawAddress = 'UpdateReabteWithdrawAddress',
   DeleteOneKeyId = 'DeleteAccount',
-  CreateKeylessAuthShare = 'CreateKeylessAuthShare',
-  GetKeylessAuthShare = 'GetKeylessAuthShare',
 }
 
 export const CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID =

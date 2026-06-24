@@ -384,11 +384,6 @@ const CloudSyncGallery = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CloudSyncGallery'),
 );
 
-const KeylessWalletGallery = LazyLoadPage(
-  () =>
-    import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/KeylessWalletGallery'),
-);
-
 const TradingViewGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TradingView'),
@@ -774,10 +769,6 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCloudSync,
     component: CloudSyncGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentKeylessWallet,
-    component: KeylessWalletGallery,
   },
   {
     name: EGalleryRoutes.ComponentOrderBook,

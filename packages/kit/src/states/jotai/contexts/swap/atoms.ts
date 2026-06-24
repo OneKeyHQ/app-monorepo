@@ -162,6 +162,7 @@ export const {
   use: useSwapLastNonLimitSelectedTokensAtom,
 } = contextAtom<
   | {
+      sourceSwapType?: ESwapTabSwitchType;
       fromToken?: ISwapToken;
       toToken?: ISwapToken;
     }

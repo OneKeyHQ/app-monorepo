@@ -9,6 +9,10 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSwapStockPayTokenPreferenceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -23,6 +27,11 @@ import {
   findTokenFromCandidates,
   getTokenIdentityKey,
 } from './swapStockChannelUtils';
+import { markStockUsdPriceCurrency } from './swapStockFiatValueUtils';
+import {
+  shouldRefreshStockPayTokensForHistoryEvent,
+  shouldSyncStockPayTokenDetail,
+} from './swapStockPayTokenUtils';
 
 const defaultSpeedSwapConfig: ISpeedSwapConfig = {
   provider: '',
@@ -94,17 +103,20 @@ function buildStockPayToken({
   token: IToken;
   detail?: ISwapToken;
 }): IStockPayToken {
-  const balanceParsed = detail?.balanceParsed ?? token.balanceParsed ?? '0';
-  const price = detail?.price ?? token.price;
-  const fiatValue = detail?.fiatValue ?? token.fiatValue;
+  const usdDetail = markStockUsdPriceCurrency(detail);
+  const balanceParsed = usdDetail?.balanceParsed ?? token.balanceParsed ?? '0';
+  const price = usdDetail?.price ?? token.price;
+  const fiatValue = usdDetail?.fiatValue ?? token.fiatValue;
+  const currency = usdDetail?.currency ?? token.currency;
   const tokenWithValue = {
     ...token,
-    ...detail,
+    ...usdDetail,
     balanceParsed,
+    currency,
     price,
     fiatValue,
     speedSwapDefaultAmount:
-      token.speedSwapDefaultAmount ?? detail?.speedSwapDefaultAmount ?? [],
+      token.speedSwapDefaultAmount ?? usdDetail?.speedSwapDefaultAmount ?? [],
   };
   const valueBN = getTokenValueBN(tokenWithValue);
   return {
@@ -141,6 +153,7 @@ export function useSwapStockPayTokens({
   payToken,
   selectPayToken,
   stockNetworkId,
+  syncPayTokenDetail,
 }: {
   currentStockToken?: ISwapToken;
   currentStockTokenKey: string;
@@ -149,6 +162,7 @@ export function useSwapStockPayTokens({
   payToken?: ISwapToken;
   selectPayToken: (token: IToken, manual?: boolean) => void;
   stockNetworkId: string;
+  syncPayTokenDetail: (token: IToken) => void;
 }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const [payTokenPreferenceByScope, setPayTokenPreferenceByScope] =
@@ -248,118 +262,122 @@ export function useSwapStockPayTokens({
   }:${rawPayTokenKeys}:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
-  const { result: payTokenDetailsState, isLoading: payTokenDetailsLoading } =
-    usePromiseResult(
-      async () => {
-        if (!shouldLoadPayTokenDetails) {
-          return {
-            scope: payTokenDetailsScope,
-            tokens: [] as IStockPayToken[],
-            balances: {} as Record<string, string | undefined>,
-          };
-        }
-        if (!hasActiveAccount) {
-          const tokens = sortStockPayTokens(
-            rawPayTokens.map((token) => buildStockPayToken({ token })),
-          );
-          return {
-            scope: payTokenDetailsScope,
-            tokens,
-            balances: tokens.reduce<Record<string, string | undefined>>(
-              (acc, token) => {
-                acc[getTokenIdentityKey(token)] = token.balanceParsed ?? '0';
-                return acc;
-              },
-              {},
-            ),
-          };
-        }
-
-        const accountRequestMap = new Map<
-          string,
-          Promise<
-            | {
-                id?: string;
-                address?: string;
-              }
-            | undefined
-          >
-        >();
-        const getNetworkAccount = (tokenNetworkId: string) => {
-          const cachedRequest = accountRequestMap.get(tokenNetworkId);
-          if (cachedRequest) {
-            return cachedRequest;
-          }
-          const request = (async () => {
-            const defaultDeriveType =
-              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
-                {
-                  networkId: tokenNetworkId,
-                },
-              );
-            return backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: activeAccount?.indexedAccount?.id
-                ? undefined
-                : activeAccount?.account?.id,
-              indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-              networkId: tokenNetworkId,
-              deriveType: defaultDeriveType ?? 'default',
-            });
-          })();
-          accountRequestMap.set(tokenNetworkId, request);
-          return request;
-        };
-
-        const tokens = await Promise.all(
-          rawPayTokens.map(async (token) => {
-            try {
-              const networkAccount = await getNetworkAccount(token.networkId);
-              if (!networkAccount?.id || !networkAccount?.address) {
-                return buildStockPayToken({ token });
-              }
-              const details =
-                await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                  networkId: token.networkId,
-                  contractAddress: token.contractAddress,
-                  accountId: networkAccount.id,
-                  accountAddress: networkAccount.address,
-                  currency: 'usd',
-                });
-              return buildStockPayToken({ token, detail: details?.[0] });
-            } catch {
-              return buildStockPayToken({ token });
-            }
-          }),
-        );
-        const sortedTokens = sortStockPayTokens(tokens);
+  const {
+    result: payTokenDetailsState,
+    isLoading: payTokenDetailsLoading,
+    run: reloadPayTokenDetails,
+  } = usePromiseResult(
+    async () => {
+      if (!shouldLoadPayTokenDetails) {
         return {
           scope: payTokenDetailsScope,
-          tokens: sortedTokens,
-          balances: Object.fromEntries(
-            sortedTokens.map((token) => [
-              getTokenIdentityKey(token),
-              token.balanceParsed ?? '0',
-            ]),
-          ),
-        };
-      },
-      [
-        activeAccount?.account?.id,
-        activeAccount?.indexedAccount?.id,
-        hasActiveAccount,
-        payTokenDetailsScope,
-        rawPayTokens,
-        shouldLoadPayTokenDetails,
-      ],
-      {
-        initResult: {
-          scope: '',
           tokens: [] as IStockPayToken[],
           balances: {} as Record<string, string | undefined>,
-        },
-        watchLoading: shouldLoadPayTokenDetails,
+        };
+      }
+      if (!hasActiveAccount) {
+        const tokens = sortStockPayTokens(
+          rawPayTokens.map((token) => buildStockPayToken({ token })),
+        );
+        return {
+          scope: payTokenDetailsScope,
+          tokens,
+          balances: tokens.reduce<Record<string, string | undefined>>(
+            (acc, token) => {
+              acc[getTokenIdentityKey(token)] = token.balanceParsed ?? '0';
+              return acc;
+            },
+            {},
+          ),
+        };
+      }
+
+      const accountRequestMap = new Map<
+        string,
+        Promise<
+          | {
+              id?: string;
+              address?: string;
+            }
+          | undefined
+        >
+      >();
+      const getNetworkAccount = (tokenNetworkId: string) => {
+        const cachedRequest = accountRequestMap.get(tokenNetworkId);
+        if (cachedRequest) {
+          return cachedRequest;
+        }
+        const request = (async () => {
+          const defaultDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: tokenNetworkId,
+              },
+            );
+          return backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: activeAccount?.indexedAccount?.id
+              ? undefined
+              : activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+            networkId: tokenNetworkId,
+            deriveType: defaultDeriveType ?? 'default',
+          });
+        })();
+        accountRequestMap.set(tokenNetworkId, request);
+        return request;
+      };
+
+      const tokens = await Promise.all(
+        rawPayTokens.map(async (token) => {
+          try {
+            const networkAccount = await getNetworkAccount(token.networkId);
+            if (!networkAccount?.id || !networkAccount?.address) {
+              return buildStockPayToken({ token });
+            }
+            const details =
+              await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                networkId: token.networkId,
+                contractAddress: token.contractAddress,
+                accountId: networkAccount.id,
+                accountAddress: networkAccount.address,
+                currency: 'usd',
+              });
+            return buildStockPayToken({ token, detail: details?.[0] });
+          } catch {
+            return buildStockPayToken({ token });
+          }
+        }),
+      );
+      const sortedTokens = sortStockPayTokens(tokens);
+      return {
+        scope: payTokenDetailsScope,
+        tokens: sortedTokens,
+        balances: Object.fromEntries(
+          sortedTokens.map((token) => [
+            getTokenIdentityKey(token),
+            token.balanceParsed ?? '0',
+          ]),
+        ),
+      };
+    },
+    [
+      activeAccount?.account?.id,
+      activeAccount?.indexedAccount?.id,
+      hasActiveAccount,
+      payTokenDetailsScope,
+      rawPayTokens,
+      shouldLoadPayTokenDetails,
+    ],
+    {
+      initResult: {
+        scope: '',
+        tokens: [] as IStockPayToken[],
+        balances: {} as Record<string, string | undefined>,
       },
-    );
+      watchLoading: shouldLoadPayTokenDetails,
+      revalidateOnFocus: true,
+    },
+  );
   const payTokenDetailsReady =
     payTokenDetailsState.scope === payTokenDetailsScope;
   const payTokens = payTokenDetailsReady
@@ -385,6 +403,39 @@ export function useSwapStockPayTokens({
     : undefined;
 
   useEffect(() => {
+    if (!shouldLoadPayTokenDetails) {
+      return;
+    }
+    const handleSwapHistoryStatusUpdate = ({
+      fromToken,
+      toToken,
+    }: {
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }) => {
+      if (
+        shouldRefreshStockPayTokensForHistoryEvent({
+          fromToken,
+          rawPayTokens,
+          toToken,
+        })
+      ) {
+        void reloadPayTokenDetails();
+      }
+    };
+    appEventBus.on(
+      EAppEventBusNames.SwapTxHistoryStatusUpdate,
+      handleSwapHistoryStatusUpdate,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        handleSwapHistoryStatusUpdate,
+      );
+    };
+  }, [rawPayTokens, reloadPayTokenDetails, shouldLoadPayTokenDetails]);
+
+  useEffect(() => {
     const manualPayTokenKey = manualStockPayTokenKeyRef.current;
     if (!stockPayTokenPreferenceScope || !manualPayTokenKey || !payToken) {
       return;
@@ -406,6 +457,25 @@ export function useSwapStockPayTokens({
     payToken,
     setPayTokenPreferenceByScope,
     stockPayTokenPreferenceScope,
+  ]);
+
+  useEffect(() => {
+    if (!payTokenDetailsReady || !activeSelectablePayToken) {
+      return;
+    }
+    if (
+      shouldSyncStockPayTokenDetail({
+        currentToken: payToken,
+        nextToken: activeSelectablePayToken,
+      })
+    ) {
+      syncPayTokenDetail(activeSelectablePayToken);
+    }
+  }, [
+    activeSelectablePayToken,
+    payToken,
+    payTokenDetailsReady,
+    syncPayTokenDetail,
   ]);
 
   useEffect(() => {
