@@ -22,15 +22,10 @@ import {
   Tooltip,
   XStack,
   YStack,
-  resetToRoute,
 } from '@onekeyhq/components';
-import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
@@ -56,17 +51,8 @@ import {
   usePerpsTradingPreferencesAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EOnboardingPages,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
 import {
   SCALE_ORDER_MAX_COUNT,
   SCALE_ORDER_MIN_COUNT,
@@ -202,21 +188,6 @@ function getPerpsAccountKey(account: {
   return `${accountId ?? ''}:${account.accountAddress ?? ''}`;
 }
 
-function getPerpsAccountActionType({
-  accountAddress,
-  accountNotSupport,
-  canCreateAddress,
-}: {
-  accountAddress?: string | null;
-  accountNotSupport?: boolean;
-  canCreateAddress?: boolean;
-}) {
-  if (!accountAddress || accountNotSupport) {
-    return canCreateAddress ? 'createAddress' : 'connectWallet';
-  }
-  return null;
-}
-
 function hasPerpsOrderSizeInput(
   formData: Pick<ITradingFormData, 'sizeInputMode' | 'size' | 'sizePercent'>,
 ) {
@@ -288,8 +259,6 @@ function SideButtonInternal({
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -507,20 +476,6 @@ function SideButtonInternal({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
     });
-  const accountActionType = useMemo(
-    () =>
-      getPerpsAccountActionType({
-        accountAddress: perpsAccount?.accountAddress,
-        accountNotSupport: perpsAccountStatus.accountNotSupport,
-        canCreateAddress: perpsAccountStatus.canCreateAddress,
-      }),
-    [
-      perpsAccount?.accountAddress,
-      perpsAccountStatus.accountNotSupport,
-      perpsAccountStatus.canCreateAddress,
-    ],
-  );
-
   const buttonDisabled = useMemo(() => {
     return shouldDisablePerpsOrderPanelTradingButton({
       isTradingStatusDisabled,
@@ -540,11 +495,6 @@ function SideButtonInternal({
     priceError,
     isServerActionDisabled,
   ]);
-  const accountActionButtonDisabled =
-    isLiveStatusPending ||
-    shouldDisableForAccountLoading ||
-    isSubmitting ||
-    isServerActionDisabled;
 
   const buttonSecondaryText = useMemo(() => {
     if (isMobile && formData.orderMode === 'scale') {
@@ -1239,68 +1189,6 @@ function SideButtonInternal({
     };
   }, [isLong, shouldShowButtonLoading, themeVariant]);
 
-  const handleConnectWallet = useCallback(async () => {
-    if (platformEnv.isWebDappMode) {
-      navigation.pushModal(EModalRoutes.OnboardingModal, {
-        screen: EOnboardingPages.ConnectWalletOptions,
-      });
-    } else {
-      resetToRoute(ERootRoutes.Onboarding, {
-        screen: EOnboardingV2Routes.OnboardingV2,
-        params: {
-          screen: EOnboardingPagesV2.GetStarted,
-        },
-      });
-    }
-  }, [navigation]);
-
-  const createAddressAccount = useMemo(
-    () => ({
-      ...selectedAccount,
-      deriveType: perpsAccount.deriveType,
-      indexedAccountId:
-        perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
-      networkId: getNetworkIdsMap().onekeyall,
-    }),
-    [perpsAccount.deriveType, perpsAccount.indexedAccountId, selectedAccount],
-  );
-
-  const createAddressButtonRender = useCallback(
-    (props: IButtonProps) => (
-      <Button
-        testID={`perp-create-address-btn-${side}`}
-        size="medium"
-        childrenAsText={false}
-        borderRadius="$4"
-        bg={buttonStyles.bg}
-        hoverStyle={
-          !accountActionButtonDisabled
-            ? { bg: buttonStyles.hoverBg }
-            : undefined
-        }
-        pressStyle={
-          !accountActionButtonDisabled
-            ? { bg: buttonStyles.pressBg }
-            : undefined
-        }
-        disabled={accountActionButtonDisabled}
-        disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-        }
-        h={36}
-        {...props}
-      />
-    ),
-    [
-      accountActionButtonDisabled,
-      buttonStyles.bg,
-      buttonStyles.hoverBg,
-      buttonStyles.pressBg,
-      shouldPreserveDisabledButtonStyle,
-      side,
-    ],
-  );
-
   const handlePress = useDebouncedCallback(
     async (): Promise<void> => {
       if (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade) {
@@ -1555,56 +1443,6 @@ function SideButtonInternal({
     [intl],
   );
   const actionButton = (() => {
-    if (accountActionType === 'createAddress') {
-      return (
-        <AccountSelectorCreateAddressButton
-          autoCreateAddress={false}
-          num={0}
-          account={createAddressAccount}
-          buttonRender={createAddressButtonRender}
-        />
-      );
-    }
-
-    if (accountActionType === 'connectWallet') {
-      return (
-        <Button
-          testID={`${PerpTestIDs.ConnectWalletButton}-${side}`}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.hoverBg }
-              : undefined
-          }
-          pressStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.pressBg }
-              : undefined
-          }
-          disabled={accountActionButtonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          onPress={handleConnectWallet}
-          h={36}
-        >
-          <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
-            color="$textOnColor"
-            numberOfLines={1}
-          >
-            {intl.formatMessage({
-              id: ETranslations.global_connect_wallet,
-            })}
-          </SizableText>
-        </Button>
-      );
-    }
-
     return (
       <Button
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
@@ -1785,8 +1623,6 @@ function EmptySizeSideButton({
   justifyContent = 'flex-start',
 }: Omit<ISideButtonProps, 'handleConfirm' | 'marketDataFreshness'>) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -1852,30 +1688,12 @@ function EmptySizeSideButton({
     isSubmitting ||
     isServerActionDisabled ||
     (!shouldEnableTradingBeforeOrder && !perpsAccountStatus.canTrade);
-  const accountActionButtonDisabled =
-    isLiveStatusPending ||
-    shouldDisableForAccountLoading ||
-    isSubmitting ||
-    isServerActionDisabled;
   const shouldPreserveDisabledButtonStyle =
     shouldPreserveAccountLoadingButtonVisualState ||
     shouldPreserveColdStartButtonVisualState({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
     });
-  const accountActionType = useMemo(
-    () =>
-      getPerpsAccountActionType({
-        accountAddress: perpsAccount?.accountAddress,
-        accountNotSupport: perpsAccountStatus.accountNotSupport,
-        canCreateAddress: perpsAccountStatus.canCreateAddress,
-      }),
-    [
-      perpsAccount?.accountAddress,
-      perpsAccountStatus.accountNotSupport,
-      perpsAccountStatus.canCreateAddress,
-    ],
-  );
 
   const spotTradeSymbol = useMemo(() => {
     if (!isSpot || activeTradeInstrument.mode !== 'spot') {
@@ -1955,68 +1773,6 @@ function EmptySizeSideButton({
       pressBg: getPressBgColor(),
     };
   }, [isLong, shouldShowButtonLoading, themeVariant]);
-
-  const handleConnectWallet = useCallback(async () => {
-    if (platformEnv.isWebDappMode) {
-      navigation.pushModal(EModalRoutes.OnboardingModal, {
-        screen: EOnboardingPages.ConnectWalletOptions,
-      });
-    } else {
-      resetToRoute(ERootRoutes.Onboarding, {
-        screen: EOnboardingV2Routes.OnboardingV2,
-        params: {
-          screen: EOnboardingPagesV2.GetStarted,
-        },
-      });
-    }
-  }, [navigation]);
-
-  const createAddressAccount = useMemo(
-    () => ({
-      ...selectedAccount,
-      deriveType: perpsAccount.deriveType,
-      indexedAccountId:
-        perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
-      networkId: getNetworkIdsMap().onekeyall,
-    }),
-    [perpsAccount.deriveType, perpsAccount.indexedAccountId, selectedAccount],
-  );
-
-  const createAddressButtonRender = useCallback(
-    (props: IButtonProps) => (
-      <Button
-        testID={`perp-create-address-btn-${side}`}
-        size="medium"
-        childrenAsText={false}
-        borderRadius="$4"
-        bg={buttonStyles.bg}
-        hoverStyle={
-          !accountActionButtonDisabled
-            ? { bg: buttonStyles.hoverBg }
-            : undefined
-        }
-        pressStyle={
-          !accountActionButtonDisabled
-            ? { bg: buttonStyles.pressBg }
-            : undefined
-        }
-        disabled={accountActionButtonDisabled}
-        disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-        }
-        h={36}
-        {...props}
-      />
-    ),
-    [
-      accountActionButtonDisabled,
-      buttonStyles.bg,
-      buttonStyles.hoverBg,
-      buttonStyles.pressBg,
-      shouldPreserveDisabledButtonStyle,
-      side,
-    ],
-  );
 
   const requestEmptySizeEnableTrading = useCallback(
     async ({
@@ -2205,58 +1961,6 @@ function EmptySizeSideButton({
   );
 
   const button = (() => {
-    if (accountActionType === 'createAddress') {
-      return (
-        <AccountSelectorCreateAddressButton
-          autoCreateAddress={false}
-          num={0}
-          account={createAddressAccount}
-          buttonRender={createAddressButtonRender}
-        />
-      );
-    }
-
-    if (accountActionType === 'connectWallet') {
-      return (
-        <Button
-          testID={`${PerpTestIDs.ConnectWalletButton}-${side}`}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.hoverBg }
-              : undefined
-          }
-          pressStyle={
-            !accountActionButtonDisabled
-              ? { bg: buttonStyles.pressBg }
-              : undefined
-          }
-          disabled={accountActionButtonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          onPress={handleConnectWallet}
-          h={36}
-        >
-          <YStack alignItems="center" gap={2}>
-            <SizableText
-              size="$bodyMdMedium"
-              lineHeight={18}
-              color="$textOnColor"
-              numberOfLines={1}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_connect_wallet,
-              })}
-            </SizableText>
-          </YStack>
-        </Button>
-      );
-    }
-
     return (
       <Button
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
