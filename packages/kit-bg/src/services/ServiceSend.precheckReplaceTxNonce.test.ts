@@ -47,11 +47,11 @@ jest.mock('@onekeyhq/shared/src/locale/appLocale', () => ({
   },
 }));
 
-// eslint-disable-next-line import/order, import/first
+// eslint-disable-next-line import-js/order, import/first
 import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineConsts';
-// eslint-disable-next-line import/first
+// eslint-disable-next-line import-js/order, import/first
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-// eslint-disable-next-line import/first
+// eslint-disable-next-line import-js/order, import/first
 import ServiceSend from './ServiceSend';
 
 function makeService(overrides: {
