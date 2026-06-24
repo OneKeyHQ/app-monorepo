@@ -1,13 +1,50 @@
-import * as Sentry from '@sentry/electron/main';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
 
+// Perf: `@sentry/electron` is marked external (see scripts/build.js) so its ~5MB
+// (Sentry Node SDK + OpenTelemetry backend instrumentations) is NOT parsed as part
+// of app.js on cold start. It is require()'d lazily here, and initSentry() itself
+// is deferred (see app.ts) so the load happens off the synchronous module-init path.
+type ISentryMain = typeof import('@sentry/electron/main');
+
+// @sentry/node ships auto-instrumentation for backend libraries (MongoDB, Kafka,
+// SQL Server, Express, Fastify, RabbitMQ, Redis, GraphQL, Prisma, …) that a desktop
+// wallet main process never uses. Drop them from the active integration set so they
+// are not registered/loaded at runtime (error capture + tracing are preserved).
+const UNUSED_BACKEND_INTEGRATIONS = [
+  'express',
+  'fastify',
+  'koa',
+  'hapi',
+  'connect',
+  'nestjs',
+  'graphql',
+  'apollo',
+  'mongo',
+  'mongoose',
+  'mysql',
+  'postgres',
+  'redis',
+  'ioredis',
+  'kafka',
+  'amqplib',
+  'knex',
+  'tedious',
+  'prisma',
+  'dataloader',
+  'genericpool',
+  'lrumemoizer',
+  'vercelai',
+];
+
 export const initSentry = () => {
   if (isDev) {
     return;
   }
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const Sentry: ISentryMain = require('@sentry/electron/main');
   let dsn = process.env.SENTRY_DSN_DESKTOP;
   if (process.mas) {
     dsn = process.env.SENTRY_DSN_MAS;
@@ -33,9 +70,14 @@ export const initSentry = () => {
       maxQueueSize: 60,
     },
     integrations: (defaultIntegrations) => [
-      ...defaultIntegrations.filter(
-        (i) => !i.name.toLowerCase().includes('minidump'),
-      ),
+      ...defaultIntegrations.filter((i) => {
+        const name = i.name.toLowerCase();
+        if (name.includes('minidump')) {
+          return false;
+        }
+        // strip unused backend-framework auto-instrumentations
+        return !UNUSED_BACKEND_INTEGRATIONS.some((n) => name.includes(n));
+      }),
       Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
         breadcrumbs: [
@@ -88,5 +130,3 @@ export const initSentry = () => {
   Sentry.setTag('arch', process.arch);
   Sentry.setTag('electron_version', process.versions.electron);
 };
-
-export { Sentry };

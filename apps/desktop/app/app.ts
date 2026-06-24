@@ -83,7 +83,10 @@ import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
-initSentry();
+// Perf: defer Sentry init off the synchronous module-init path. `@sentry/electron`
+// is external (~5MB); requiring + initializing it on the next tick keeps it out of
+// the cold-start parse/eval window while still initializing before the first window.
+setImmediate(initSentry);
 
 const isPerfCiMode = process.env.PERF_CI_MODE === '1';
 const isDesktopE2EMode = process.env.DESKTOP_E2E_MODE === 'true';

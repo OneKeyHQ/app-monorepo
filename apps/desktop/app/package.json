@@ -10,9 +10,18 @@
   },
   "dependencies": {
     "@onekeyfe/electron-mac-icloud": "1.2.6",
+    "@sentry/electron": "5.8.0",
     "@stoprocent/noble": "2.3.16",
+    "adm-zip": "0.5.10",
     "electron-check-biometric-auth-changed": "1.0.0",
+    "electron-updater": "6.7.3",
+    "iconv-lite": "0.6.3",
+    "mime-db": "1.52.0",
+    "openpgp": "5.11.3",
     "passport-desktop": "0.1.2",
-    "passport-desktop-win32-x64-msvc": "0.1.2"
+    "passport-desktop-win32-x64-msvc": "0.1.2",
+    "systeminformation": "5.31.6",
+    "tr46": "0.0.3",
+    "validator": "13.15.23"
   }
 }

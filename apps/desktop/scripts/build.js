@@ -19,6 +19,42 @@ const gitRevision = childProcess
 
 const hrstart = process.hrtime();
 
+const fs = require('fs');
+
+// Perf: keep the ~13MB of per-language translation JSON OUT of the main-process
+// bundle (app.js). esbuild has no code-splitting for the CJS/node format, so the
+// `() => import('./json/xx.json')` entries in localeJsonMap.ts would otherwise be
+// inlined into app.js and fully parsed by V8 on every cold start. Instead we copy
+// each locale JSON to `dist/locale-json/` (shipped via baseFiles `dist/**/*`) and
+// replace each import with a tiny fs-read shim, so only the ACTIVE locale is read
+// (and parsed by Node's fast JSON parser) at runtime. Desktop-main build only —
+// localeJsonMap.ts is shared with web/native and is left untouched.
+const localeJsonOutDir = path.join(__dirname, '..', 'app/dist', 'locale-json');
+const externalizeLocaleJsonPlugin = {
+  name: 'externalize-locale-json',
+  setup(pluginBuild) {
+    pluginBuild.onLoad(
+      { filter: /[\\/]locale[\\/]json[\\/][^\\/]+\.json$/ },
+      (args) => {
+        const base = path.basename(args.path);
+        fs.mkdirSync(localeJsonOutDir, { recursive: true });
+        fs.copyFileSync(args.path, path.join(localeJsonOutDir, base));
+        // __dirname resolves to dist/ at runtime (app.js lives in dist/). In a
+        // packaged app this is inside app.asar; Electron's fs can read it.
+        const contents = `const fs = require('fs');
+const path = require('path');
+module.exports = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'locale-json', ${JSON.stringify(
+    base,
+  )}), 'utf8'),
+);
+`;
+        return { contents, loader: 'js' };
+      },
+    );
+  },
+};
+
 // Get all .js files in service directory
 const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
@@ -41,6 +77,8 @@ build({
   platform: 'node',
   bundle: true,
   target: 'node16',
+  metafile: !!process.env.ESBUILD_METAFILE,
+  plugins: [externalizeLocaleJsonPlugin],
   loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
   // Help esbuild locate missing dependencies.
@@ -77,6 +115,26 @@ build({
     '@stoprocent/bluetooth-hci-socket',
     'bufferutil',
     'utf-8-validate',
+    // Perf: keep these heavy, non-critical deps OUT of app.js so V8 does not
+    // parse them on every cold start. They are shipped as node_modules inside
+    // the asar (see app/package.json dependencies) and required on demand.
+    // @sentry/electron (~4.3MB) pulls the whole Sentry Node SDK + OpenTelemetry
+    // backend instrumentations; openpgp/systeminformation/iconv-lite are only
+    // needed for specific, non-boot-critical features.
+    '@sentry/electron',
+    'openpgp',
+    'systeminformation',
+    'iconv-lite',
+    // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
+    // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
+    // XML stack, js-yaml) out of app.js parse.
+    'electron-updater',
+    'adm-zip',
+    // Tier 2: large lookup-table deps reached transitively via node-fetch /
+    // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
+    'tr46',
+    'mime-db',
+    'validator',
     ...Object.keys(pkg.dependencies),
   ],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
@@ -140,9 +198,16 @@ build({
     ),
   },
 })
-  .then(() => {
+  .then((result) => {
     // Copy static assets (recovery.html) to dist
     const fs = require('fs');
+    if (result && result.metafile) {
+      fs.writeFileSync(
+        path.join(__dirname, '..', 'app/dist', 'meta.json'),
+        JSON.stringify(result.metafile),
+      );
+      console.log('[Electron Build] Wrote metafile');
+    }
     const recoveryHtmlSrc = path.join(electronSource, 'recovery.html');
     const recoveryHtmlDst = path.join(
       __dirname,
