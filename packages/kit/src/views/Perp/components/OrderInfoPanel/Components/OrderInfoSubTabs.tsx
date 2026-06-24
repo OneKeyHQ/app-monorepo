@@ -47,6 +47,7 @@ function OrderInfoSubTabs<T extends string>({
             return (
               <YStack
                 key={tab.key}
+                h={isPillVariant ? undefined : 36}
                 px={isPillVariant ? '$2' : '$0'}
                 py={isPillVariant ? '$1' : '$0'}
                 onPress={() => onChange(tab.key)}
