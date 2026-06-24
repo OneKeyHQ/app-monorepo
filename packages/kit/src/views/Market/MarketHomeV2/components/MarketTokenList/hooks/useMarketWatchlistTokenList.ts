@@ -9,6 +9,7 @@ import {
 import { useCarouselIndex } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { dedupeMarketWatchListItems } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
@@ -70,14 +71,19 @@ export function useMarketWatchlistTokenList({
 
   const pageIndex = useCarouselIndex();
 
-  // Split watchlist into spot and perps items
-  const spotItems = useMemo(
-    () => watchlist.filter((item) => !item.perpsCoin && item.chainId),
+  const displayWatchlist = useMemo(
+    () => dedupeMarketWatchListItems(watchlist),
     [watchlist],
   );
+
+  // Split watchlist into spot and perps items
+  const spotItems = useMemo(
+    () => displayWatchlist.filter((item) => !item.perpsCoin && item.chainId),
+    [displayWatchlist],
+  );
   const perpsItems = useMemo(
-    () => watchlist.filter((item) => !!item.perpsCoin),
-    [watchlist],
+    () => displayWatchlist.filter((item) => !!item.perpsCoin),
+    [displayWatchlist],
   );
 
   // ── Spot data fetching (existing logic) ──
@@ -87,7 +93,7 @@ export function useMarketWatchlistTokenList({
     run: refetchData,
   } = usePromiseResult(
     async () => {
-      if (!watchlist || watchlist.length === 0) {
+      if (displayWatchlist.length === 0) {
         if (isInitialLoad) {
           await new Promise((resolve) => setTimeout(resolve, 300));
         }
@@ -107,7 +113,7 @@ export function useMarketWatchlistTokenList({
         });
       return response;
     },
-    [watchlist, spotItems, isInitialLoad],
+    [displayWatchlist.length, spotItems, isInitialLoad],
     {
       pollingInterval,
       watchLoading: true,
@@ -221,7 +227,7 @@ export function useMarketWatchlistTokenList({
     }
 
     // Build result array in watchlist order to maintain correct sorting
-    const merged = watchlist
+    const merged = displayWatchlist
       .map((watchlistItem) => {
         // Perps item — look up from perpsTokenMap
         if (watchlistItem.perpsCoin) {
@@ -256,7 +262,7 @@ export function useMarketWatchlistTokenList({
     if (isInitialLoad) {
       setIsInitialLoad(false);
     }
-  }, [apiResult, watchlist, spotItems, perpsTokenMap, isInitialLoad]);
+  }, [apiResult, displayWatchlist, spotItems, perpsTokenMap, isInitialLoad]);
 
   // Sorting
   const sortedData = useMemo(() => {

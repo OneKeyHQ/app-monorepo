@@ -9,6 +9,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { buildMarketWatchListItemKey } from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import {
   equalTokenNoCaseSensitive,
@@ -38,15 +39,7 @@ import {
 
 export const homeResettingFlags: Record<string, number> = {};
 
-const uniqByFn = (i: IMarketWatchListItemV2) =>
-  i.perpsCoin
-    ? `perps:${i.perpsCoin}`
-    : `${i.chainId}:${
-        normalizeTokenContractAddress({
-          networkId: i.chainId,
-          contractAddress: i.contractAddress,
-        }) || ''
-      }`;
+const uniqByFn = (i: IMarketWatchListItemV2) => buildMarketWatchListItemKey(i);
 
 const CHART_PRICE_FRESHNESS_MS = 10_000;
 

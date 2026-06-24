@@ -4,10 +4,40 @@ import {
   getMarketTokenDisplayPrice,
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
+  getTokenKey,
   mapMarketTokenToDisplay,
 } from './utils';
 
 describe('PopularTrading market token display utils', () => {
+  test('builds the same token key for case-insensitive EVM addresses', () => {
+    expect(
+      getTokenKey({
+        chainId: 'evm--1',
+        contractAddress: '0x390A684EF9CaDe28A7AD0DfA61AB1eB3842618c4',
+      }),
+    ).toBe(
+      getTokenKey({
+        chainId: 'evm--1',
+        contractAddress: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+      }),
+    );
+  });
+
+  test('builds the same token key for legacy native placeholder addresses', () => {
+    expect(
+      getTokenKey({
+        chainId: 'evm--1',
+        contractAddress: '',
+        isNative: true,
+      }),
+    ).toBe(
+      getTokenKey({
+        chainId: 'evm--1',
+        contractAddress: '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+      }),
+    );
+  });
+
   test('normalizes placeholder market values instead of returning NaN', () => {
     const item: IMarketTokenListItem = {
       networkId: 'evm--56',

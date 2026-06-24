@@ -34,10 +34,13 @@ import {
   ETabMarketRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import {
+  dedupeMarketWatchListItems,
+  isSameMarketWatchListItem,
+} from '@onekeyhq/shared/src/utils/marketWatchListUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
@@ -287,15 +290,10 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const isTokenInWatchList = useCallback(
     (record: IFavoriteTokenDisplay) =>
       watchListItems.some((item) =>
-        equalTokenNoCaseSensitive({
-          token1: {
-            networkId: record.chainId,
-            contractAddress: record.contractAddress,
-          },
-          token2: {
-            networkId: item.chainId,
-            contractAddress: item.contractAddress,
-          },
+        isSameMarketWatchListItem(item, {
+          chainId: record.chainId,
+          contractAddress: record.contractAddress,
+          isNative: record.isNative,
         }),
       ),
     [watchListItems],
@@ -670,7 +668,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     if (selectedTokens.length === 0) return;
 
     try {
-      const nextWatchListItems = selectedTokens.map((token, index) => ({
+      const uniqueSelectedTokens = dedupeMarketWatchListItems(selectedTokens);
+      const nextWatchListItems = uniqueSelectedTokens.map((token, index) => ({
         chainId: token.chainId,
         contractAddress: token.contractAddress,
         isNative: token.isNative,
@@ -683,7 +682,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       });
 
       // Log analytics for each token added to watchlist
-      selectedTokens.forEach((token) => {
+      uniqueSelectedTokens.forEach((token) => {
         defaultLogger.dex.watchlist.dexAddToWatchlist({
           network: token.chainId,
           tokenSymbol: token.symbol || '',
