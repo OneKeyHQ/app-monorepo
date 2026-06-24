@@ -1,4 +1,7 @@
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsTokenFromServer,
+  IMarketTokenListItem,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   getNativeTokenInfo,
@@ -86,6 +89,30 @@ function mapMarketTokenToDisplay(
   };
 }
 
+function mapMarketPerpsTokenToDisplay({
+  token,
+  subtitle,
+}: {
+  token: IMarketPerpsTokenFromServer;
+  subtitle?: string;
+}): IFavoriteTokenDisplay {
+  return {
+    chainId: '',
+    contractAddress: '',
+    isNative: false,
+    symbol: token.displayName,
+    name: token.displayName,
+    logoUrl: token.tokenImageUrl ?? '',
+    price: parseMarketValue(token.markPrice) ?? 0,
+    priceChange24h: parseMarketValue(token.change24hPercent) ?? 0,
+    marketCap: 0,
+    volume24h: parseMarketValue(token.volume24h) ?? 0,
+    perpsCoin: token.name,
+    perpsSubtitle: subtitle,
+    maxLeverage: token.maxLeverage,
+  };
+}
+
 export {
   EMPTY_DISPLAY_TOKENS,
   getMarketTokenDisplayMarketCap,
@@ -93,5 +120,6 @@ export {
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
+  mapMarketPerpsTokenToDisplay,
   mapMarketTokenToDisplay,
 };

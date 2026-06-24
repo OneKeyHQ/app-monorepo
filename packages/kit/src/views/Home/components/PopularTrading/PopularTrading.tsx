@@ -56,6 +56,8 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_PERPS_HOT_CATEGORY_ID,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
   HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
@@ -192,6 +194,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     isLoading: isMarketBasicConfigLoading,
     minLiquidity,
     homeTab: apiHomeTabs,
+    perpsCategories,
     spotCategories: apiSpotCategories,
   } = useMarketBasicConfig();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
@@ -206,7 +209,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     IMarketWatchListItemV2[]
   >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    FAVORITES_CATEGORY_ID,
+    HOME_PERPS_HOT_CATEGORY_ID,
   );
 
   const initializedRef = useRef(false);
@@ -245,9 +248,35 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [intl],
   );
 
+  const homePerpsHotCategory = useMemo<IMarketCategoryItem | undefined>(() => {
+    const apiHotCategory = perpsCategories.find(
+      (category) => category.categoryId === HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+    );
+    if (!apiHotCategory) {
+      return undefined;
+    }
+    return {
+      id: HOME_PERPS_HOT_CATEGORY_ID,
+      name: intl.formatMessage({ id: ETranslations.global_perp }),
+    };
+  }, [intl, perpsCategories]);
+
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
+    const buildWithPerpsHotCategory = (categories: IMarketCategoryItem[]) => {
+      if (!homePerpsHotCategory) {
+        return categories;
+      }
+
+      const [firstCategory, ...restCategories] = categories;
+      if (firstCategory?.id === FAVORITES_CATEGORY_ID) {
+        return [firstCategory, homePerpsHotCategory, ...restCategories];
+      }
+
+      return [homePerpsHotCategory, ...categories];
+    };
+
     if (apiHomeTabs.length > 0) {
-      return apiHomeTabs.map((tab) => {
+      const categories = apiHomeTabs.map((tab) => {
         if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
           return {
             ...favoritesCategory,
@@ -261,10 +290,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           icon: tab.icon,
         };
       });
+
+      return buildWithPerpsHotCategory(categories);
     }
 
-    return [favoritesCategory, ...marketCategories];
-  }, [apiHomeTabs, favoritesCategory, marketCategories]);
+    return buildWithPerpsHotCategory([favoritesCategory, ...marketCategories]);
+  }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
     if (homeCategories.some((category) => category.id === selectedCategoryId)) {
@@ -285,8 +316,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   });
 
   const isTokenInWatchList = useCallback(
-    (record: IFavoriteTokenDisplay) =>
-      watchListItems.some((item) =>
+    (record: IFavoriteTokenDisplay) => {
+      if (record.perpsCoin) {
+        return watchListItems.some(
+          (item) => item.perpsCoin === record.perpsCoin,
+        );
+      }
+
+      return watchListItems.some((item) =>
         equalTokenNoCaseSensitive({
           token1: {
             networkId: record.chainId,
@@ -297,7 +334,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             contractAddress: item.contractAddress,
           },
         }),
-      ),
+      );
+    },
     [watchListItems],
   );
 
@@ -306,6 +344,50 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const checked = isTokenInWatchList(record);
 
       try {
+        const firstSortIndex =
+          watchListItems.length > 0
+            ? (watchListItems[0].sortIndex ?? 1000)
+            : 1000;
+
+        if (record.perpsCoin) {
+          if (checked) {
+            await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+              items: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                },
+              ],
+              callerName: 'PopularTrading',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'remove',
+            });
+          } else {
+            await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+              watchList: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                  sortIndex: firstSortIndex - 1,
+                },
+              ],
+              callerName: 'PopularTrading',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'add',
+            });
+          }
+
+          appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
+          await refreshDataRef.current();
+          return;
+        }
+
         if (checked) {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [
@@ -324,11 +406,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             removeFrom: EWatchlistFrom.Homepage,
           });
         } else {
-          const firstSortIndex =
-            watchListItems.length > 0
-              ? (watchListItems[0].sortIndex ?? 1000)
-              : 1000;
-
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: [
               {
@@ -625,7 +702,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const isMarketConfigInitialLoading =
     isMarketBasicConfigLoading !== false &&
     apiHomeTabs.length === 0 &&
-    apiSpotCategories.length === 0;
+    apiSpotCategories.length === 0 &&
+    perpsCategories.length === 0;
   const isFavoritesInitialLoading =
     !selectedMarketCategoryId && !initializedRef.current && isLoading !== false;
   const isCategoryInitialLoading =
@@ -851,6 +929,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
+      navigateToMarketTab({ tabToSelect: EMarketHomeTab.Perps });
+      return;
+    }
+
     if (selectedMarketCategoryId) {
       navigateToMarketTab({ spotCategoryToSelect: selectedMarketCategoryId });
       return;
