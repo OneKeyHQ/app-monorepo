@@ -27,6 +27,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  ESwapQuoteUiPhase,
+  isSwapQuoteActionable,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap/quoteProgress';
+import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -93,13 +97,19 @@ const SwapQuoteResult = ({
   const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
     useSwapLimitPartiallyFillAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
-  const { isWaitingActionableQuote } = useSwapQuoteProgressState();
+  const {
+    displayQuote,
+    isWaitingActionableQuote,
+    phase: quoteUiPhase,
+  } = useSwapQuoteProgressState();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
+  const quoteResultForDisplay = quoteResult ?? displayQuote;
+  const hasQuoteResultForDisplay = isSwapQuoteActionable(quoteResultForDisplay);
   const quoteDuration = formatSwapQuoteDuration({
-    estTime: quoteResult?.estTime,
-    estimatedTime: quoteResult?.estimatedTime,
+    estTime: quoteResultForDisplay?.estTime,
+    estimatedTime: quoteResultForDisplay?.estimatedTime,
   });
   const mobileCustomSlippageInfo = useMemo(() => {
     if (
@@ -199,6 +209,12 @@ const SwapQuoteResult = ({
 
   const { limitOrderExpiryStepMap, limitOrderPartiallyFillStepMap } =
     useSwapLimitConfigMaps();
+  const isWaitingForQuote =
+    quoteUiPhase === ESwapQuoteUiPhase.Waiting && !hasQuoteResultForDisplay;
+  const isStaleRefreshing = quoteUiPhase === ESwapQuoteUiPhase.StaleRefreshing;
+  const showNoProvider =
+    quoteUiPhase === ESwapQuoteUiPhase.ZeroProvider &&
+    !hasQuoteResultForDisplay;
 
   const onValueChange = useCallback((value: string) => {
     if (value === SWAP_ACCORDION_VALUE) {
@@ -231,50 +247,54 @@ const SwapQuoteResult = ({
       />
     );
   }
-  if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    if (isWaitingActionableQuote) {
-      return (
-        <XStack alignItems="center">
-          <XStack gap="$2">
-            <SizableText size="$bodyMd" color="$text">
-              {intl.formatMessage({
-                id: ETranslations.swap_loading_content,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack flex={1} justifyContent="flex-end">
-            <LottieView
-              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
-              autoPlay
-              loop
-              style={{
-                width: 48,
-                height: 20,
-              }}
-            />
-          </XStack>
+  if (isWaitingForQuote) {
+    return (
+      <XStack alignItems="center">
+        <XStack gap="$2">
+          <SizableText size="$bodyMd" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.swap_loading_content,
+            })}
+          </SizableText>
         </XStack>
-      );
-    }
+        <XStack flex={1} justifyContent="flex-end">
+          <LottieView
+            source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+            autoPlay
+            loop
+            style={{
+              width: 48,
+              height: 20,
+            }}
+          />
+        </XStack>
+      </XStack>
+    );
+  }
+  if (quoteUiPhase === ESwapQuoteUiPhase.Error && !quoteResultForDisplay) {
+    return null;
+  }
+  if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (
-      quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
-      !quoteResult?.isWrapped
+      quoteResultForDisplay?.protocol === EProtocolOfExchange.LIMIT &&
+      !quoteResultForDisplay?.isWrapped
     ) {
-      return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
+      return !quoteResultForDisplay?.shouldWrappedToken &&
+        quoteResultForDisplay?.info.provider ? (
         <YStack gap="$3">
           <SwapProviderInfoItem
             testID={SwapTestIDs.providerSelector}
-            providerIcon={quoteResult?.info.providerLogo ?? ''}
-            providerName={quoteResult?.info.providerName ?? ''}
-            isBest={quoteResult?.isBest}
+            providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''}
+            providerName={quoteResultForDisplay?.info.providerName ?? ''}
+            isBest={quoteResultForDisplay?.isBest}
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             toToken={toToken}
-            showLock={!!quoteResult?.allowanceResult}
-            percentageFee={quoteResult?.fee?.percentageFee}
-            percentOriginFee={quoteResult?.fee?.percentOriginFee}
+            showLock={!!quoteResultForDisplay?.allowanceResult}
+            percentageFee={quoteResultForDisplay?.fee?.percentageFee}
+            percentOriginFee={quoteResultForDisplay?.fee?.percentOriginFee}
             onPress={
-              quoteResult?.info.provider &&
+              quoteResultForDisplay?.info.provider &&
               swapQuoteList?.length > 1 &&
               onOpenProviderList
                 ? () => {
@@ -308,7 +328,9 @@ const SwapQuoteResult = ({
     }
   }
   if (
-    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || quoteResult?.isWrapped) &&
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT ||
+      quoteResultForDisplay?.isWrapped ||
+      showNoProvider) &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
@@ -323,24 +345,31 @@ const SwapQuoteResult = ({
             bg="$transparent"
             p="$0"
             cursor="pointer"
-            disabled={!quoteResult?.info.provider || swapQuoteLoading}
+            disabled={
+              !quoteResultForDisplay?.info.provider ||
+              swapQuoteLoading ||
+              isStaleRefreshing
+            }
           >
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
-                rate={quoteResult?.instantRate}
+                rate={quoteResultForDisplay?.instantRate}
                 quoting={quoting}
                 fromToken={fromToken}
                 toToken={toToken}
-                isBest={quoteResult?.isBest}
+                isBest={quoteResultForDisplay?.isBest}
                 showBestBadge={!platformEnv.isNative}
                 customSlippageValue={mobileCustomSlippageInfo?.value}
                 customSlippageTextColor={mobileCustomSlippageInfo?.textColor}
                 customSlippageIconColor={mobileCustomSlippageInfo?.iconColor}
-                providerIcon={quoteResult?.info.providerLogo ?? ''}
+                providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''}
                 isLoading={swapQuoteLoading}
+                showNoProvider={showNoProvider}
                 refreshAction={refreshAction}
                 onOpenResult={
-                  quoteResult?.info.provider && !swapQuoteLoading
+                  quoteResultForDisplay?.info.provider &&
+                  !swapQuoteLoading &&
+                  !isStaleRefreshing
                     ? () => setOpenResult(!openResult)
                     : undefined
                 }
@@ -357,26 +386,28 @@ const SwapQuoteResult = ({
               exitStyle={{ opacity: 0 }}
             >
               <Divider mt="$4" />
-              {quoteResult?.allowanceResult ? (
+              {quoteResultForDisplay?.allowanceResult ? (
                 <SwapApproveAllowanceSelectContainer
-                  allowanceResult={quoteResult?.allowanceResult}
+                  allowanceResult={quoteResultForDisplay?.allowanceResult}
                   fromTokenSymbol={fromToken?.symbol ?? ''}
                   isLoading={swapQuoteLoading}
                 />
               ) : null}
-              {quoteResult?.info.provider ? (
+              {quoteResultForDisplay?.info.provider ? (
                 <SwapProviderInfoItem
-                  providerIcon={quoteResult?.info.providerLogo ?? ''} // TODO default logo
-                  providerName={quoteResult?.info.providerName ?? ''}
-                  isBest={quoteResult?.isBest}
+                  providerIcon={quoteResultForDisplay?.info.providerLogo ?? ''} // TODO default logo
+                  providerName={quoteResultForDisplay?.info.providerName ?? ''}
+                  isBest={quoteResultForDisplay?.isBest}
                   isLoading={swapQuoteLoading}
                   fromToken={fromToken}
                   toToken={toToken}
-                  showLock={!!quoteResult?.allowanceResult}
-                  percentageFee={quoteResult?.fee?.percentageFee}
-                  percentOriginFee={quoteResult?.fee?.percentOriginFee}
+                  showLock={!!quoteResultForDisplay?.allowanceResult}
+                  percentageFee={quoteResultForDisplay?.fee?.percentageFee}
+                  percentOriginFee={
+                    quoteResultForDisplay?.fee?.percentOriginFee
+                  }
                   onPress={
-                    quoteResult?.info.provider && onOpenProviderList
+                    quoteResultForDisplay?.info.provider && onOpenProviderList
                       ? () => {
                           onOpenProviderList();
                         }
@@ -393,25 +424,25 @@ const SwapQuoteResult = ({
                   value={quoteDuration}
                 />
               ) : null}
-              {quoteResult?.toAmount &&
-              !quoteResult?.unSupportSlippage &&
-              !quoteResult.isWrapped ? (
+              {quoteResultForDisplay?.toAmount &&
+              !quoteResultForDisplay?.unSupportSlippage &&
+              !quoteResultForDisplay.isWrapped ? (
                 <SwapSlippageTriggerContainer
                   isLoading={swapQuoteLoading}
                   onPress={onSlippageHandleClick}
                   slippageItem={slippageItem}
                 />
               ) : null}
-              {(quoteResult?.fee?.estimatedFeeFiatValue ||
-                quoteResult?.fee?.isFreeNetworkFee) &&
-              !quoteResult?.allowanceResult ? (
+              {(quoteResultForDisplay?.fee?.estimatedFeeFiatValue ||
+                quoteResultForDisplay?.fee?.isFreeNetworkFee) &&
+              !quoteResultForDisplay?.allowanceResult ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.swap_page_provider_est_network_fee,
                   })}
                   isLoading={swapQuoteLoading}
                   valueComponent={
-                    quoteResult?.fee?.isFreeNetworkFee ? (
+                    quoteResultForDisplay?.fee?.isFreeNetworkFee ? (
                       <XStack gap="$1" alignItems="center">
                         <Icon
                           name="PartyCelebrateSolid"
@@ -433,7 +464,7 @@ const SwapQuoteResult = ({
                           currency: settingsPersistAtom.currencyInfo.symbol,
                         }}
                       >
-                        {quoteResult.fee?.estimatedFeeFiatValue}
+                        {quoteResultForDisplay?.fee?.estimatedFeeFiatValue}
                       </NumberSizeableText>
                     )
                   }

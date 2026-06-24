@@ -80,6 +80,40 @@ export function isSwapTokenSelectorFromNetworkBridgeOnly({
   );
 }
 
+export function buildSwapStockSelectableNetworks({
+  isSwapStockSelectTarget,
+  rawSwapNetworks,
+  stockSelectDefaultNetworkId,
+  swapNetworksIncludeAllNetworkBase,
+}: {
+  isSwapStockSelectTarget: boolean;
+  rawSwapNetworks: ISwapNetwork[];
+  stockSelectDefaultNetworkId?: string;
+  swapNetworksIncludeAllNetworkBase: ISwapNetwork[];
+}) {
+  if (!isSwapStockSelectTarget || !stockSelectDefaultNetworkId) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  if (
+    swapNetworksIncludeAllNetworkBase.some(
+      (network) => network.networkId === stockSelectDefaultNetworkId,
+    )
+  ) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  const stockNetwork = rawSwapNetworks.find(
+    (network) => network.networkId === stockSelectDefaultNetworkId,
+  );
+  if (!stockNetwork?.supportStock) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  const [allNetwork, ...networks] = swapNetworksIncludeAllNetworkBase;
+  if (!allNetwork) {
+    return [stockNetwork, ...networks];
+  }
+  return [allNetwork, stockNetwork, ...networks];
+}
+
 export function buildSwapTokenSelectorDisableNetworks({
   type,
   swapTypeSwitch,
