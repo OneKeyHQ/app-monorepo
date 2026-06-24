@@ -23,7 +23,6 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   type ILocalizedProtocolPositionItem,
   buildLocalizedProtocolPositionItems,
@@ -80,13 +79,15 @@ function DeFiProtocolDetails() {
         EModalAssetDetailRoutes.DeFiProtocolDetails
       >
     >();
-  const { protocol, protocolInfo } = route.params;
+  const {
+    protocol,
+    protocolInfo,
+    accountId: routeAccountId,
+    indexedAccountId: routeIndexedAccountId,
+  } = route.params;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
   const { result: supportedActions = [] } = usePromiseResult(async () => {
     try {
       return await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
@@ -95,9 +96,9 @@ function DeFiProtocolDetails() {
       return [];
     }
   }, []);
-  const actionAccountId = protocol.accountId ?? account?.id;
+  const actionAccountId = protocol.accountId ?? routeAccountId;
   const actionIndexedAccountId =
-    protocol.indexedAccountId ?? account?.indexedAccountId;
+    protocol.indexedAccountId ?? routeIndexedAccountId;
   const handleActionSuccess = useCallback(
     ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
       appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);

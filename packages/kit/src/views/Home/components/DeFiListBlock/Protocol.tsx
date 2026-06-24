@@ -230,7 +230,11 @@ const ProtocolDesktopLayout = memo(
 );
 ProtocolDesktopLayout.displayName = 'ProtocolDesktopLayout';
 
-function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
+function useProtocolViewModel({
+  protocol,
+  accountId,
+  indexedAccountId,
+}: Pick<IProtocolProps, 'protocol' | 'accountId' | 'indexedAccountId'>) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [settings] = useSettingsPersistAtom();
@@ -290,9 +294,11 @@ function useProtocolViewModel({ protocol }: Pick<IProtocolProps, 'protocol'>) {
       params: {
         protocol,
         protocolInfo,
+        accountId,
+        indexedAccountId,
       },
     });
-  }, [navigation, protocol, protocolInfo]);
+  }, [accountId, indexedAccountId, navigation, protocol, protocolInfo]);
 
   return {
     categoryGroups,
@@ -319,7 +325,11 @@ const Protocol = forwardRef<IProtocolHandle, IProtocolProps>(
     }: IProtocolProps,
     forwardedRef,
   ) => {
-    const viewModel = useProtocolViewModel({ protocol });
+    const viewModel = useProtocolViewModel({
+      protocol,
+      accountId,
+      indexedAccountId,
+    });
 
     if (!tableLayout) {
       // Small-screen list has no Accordion/anchor to drive. forwardedRef
