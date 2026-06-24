@@ -13,11 +13,16 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  HISTORY_CONSTS,
+  SEND_TX_SERVER_ERROR_CODES,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   OneKeyLocalError,
   PendingQueueTooLong,
+  ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   GasAccountSubmitCancelledError,
   MAX_GAS_ACCOUNT_RETRY_ATTEMPTS,
@@ -31,6 +36,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
@@ -629,6 +636,30 @@ class ServiceSend extends ServiceBase {
     const effectiveGasAccountSubmitId =
       isMultiTxs || isPrivateSend ? undefined : gasAccountSubmitId;
 
+    // Replace (speed up / cancel) txs reuse the original pending tx's nonce.
+    // Re-validate that nonce against the on-chain nonce at the last moment
+    // before signing: if the original tx was already confirmed/replaced, abort
+    // and clean up the stale local pending tx instead of broadcasting a doomed
+    // tx (which the backend rejects with code 40024).
+    if (replaceTxInfo && !isMultiTxs) {
+      const replaceTargetNonce = unsignedTxs[0]?.nonce;
+      if (!isNil(replaceTargetNonce)) {
+        const { consumed } = await this.precheckReplaceTxNonceConsumed({
+          accountId,
+          networkId,
+          targetNonce: replaceTargetNonce,
+        });
+        if (consumed) {
+          await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx({
+            accountId,
+            networkId,
+            replaceHistoryId: replaceTxInfo.replaceHistoryId,
+          });
+          throw this.buildReplaceTxNonceConsumedError();
+        }
+      }
+    }
+
     const result: ISendTxOnSuccessData[] = [];
     for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
       let unsignedTx = unsignedTxs[i];
@@ -641,24 +672,48 @@ class ServiceSend extends ServiceBase {
         if (isMultiTxs && i > 0) {
           unsignedTx = await vault.refreshUnsignedTxBeforeBatchSign(unsignedTx);
         }
-        const signedTx = signOnly
-          ? await this.signTransaction({
-              unsignedTx,
-              accountId,
-              networkId,
-              signOnly: true,
-            })
-          : await this.signAndSendTransaction({
-              unsignedTx,
-              networkId,
-              accountId,
-              signOnly: false,
-              tronResourceRentalInfo,
-              gasAccountUiState: effectiveGasAccountUiState,
-              gasAccountSubmitId: effectiveGasAccountSubmitId,
-              isPrivateSend,
-              useDefaultRpc,
-            });
+        const buildSignedTx = () =>
+          signOnly
+            ? this.signTransaction({
+                unsignedTx,
+                accountId,
+                networkId,
+                signOnly: true,
+              })
+            : this.signAndSendTransaction({
+                unsignedTx,
+                networkId,
+                accountId,
+                signOnly: false,
+                tronResourceRentalInfo,
+                gasAccountUiState: effectiveGasAccountUiState,
+                gasAccountSubmitId: effectiveGasAccountSubmitId,
+                isPrivateSend,
+                useDefaultRpc,
+              });
+        let signedTx: Awaited<ReturnType<typeof buildSignedTx>>;
+        try {
+          signedTx = await buildSignedTx();
+        } catch (error) {
+          // Safety net for the residual race between the pre-broadcast nonce
+          // check and the actual broadcast: the backend rejected the replace
+          // because the nonce is already used. Clean up the stale pending tx and
+          // surface a friendly message instead of the raw backend error.
+          if (
+            replaceTxInfo &&
+            this.isReplaceTxNonceAlreadyUsedServerError(error)
+          ) {
+            await this.backgroundApi.serviceHistory.resolveStalePendingReplaceTx(
+              {
+                accountId,
+                networkId,
+                replaceHistoryId: replaceTxInfo.replaceHistoryId,
+              },
+            );
+            throw this.buildReplaceTxNonceConsumedError();
+          }
+          throw error;
+        }
         const decodedTx = await this.buildDecodedTx({
           networkId,
           accountId,
@@ -804,6 +859,68 @@ class ServiceSend extends ServiceBase {
     }
 
     return nextNonce;
+  }
+
+  // Re-validate a replace (speed up / cancel) tx's reused nonce against the
+  // current on-chain nonce. Returns consumed=true when the target nonce has
+  // already been used on-chain (original tx confirmed/replaced), meaning the
+  // replacement would be rejected by the backend (code 40024).
+  //
+  // Fail-open: any error (or non-nonce chain) returns consumed=false so a flaky
+  // pre-check never blocks a legitimate replace; the backend 40024 is the safety
+  // net. NEVER overwrite the nonce here — doing so would turn a replace into a
+  // brand-new transaction.
+  @backgroundMethod()
+  public async precheckReplaceTxNonceConsumed({
+    accountId,
+    networkId,
+    targetNonce,
+  }: {
+    accountId: string;
+    networkId: string;
+    targetNonce: number;
+  }): Promise<{ consumed: boolean; onChainNextNonce?: number }> {
+    try {
+      if (isNil(targetNonce)) {
+        return { consumed: false };
+      }
+      const { nonceRequired } =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      if (!nonceRequired) {
+        return { consumed: false };
+      }
+      const { nonce: onChainNextNonce } =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountId,
+          withNonce: true,
+        });
+      if (isNil(onChainNextNonce)) {
+        return { consumed: false };
+      }
+      return {
+        consumed: new BigNumber(targetNonce).lt(onChainNextNonce),
+        onChainNextNonce,
+      };
+    } catch {
+      return { consumed: false };
+    }
+  }
+
+  isReplaceTxNonceAlreadyUsedServerError(error: unknown): boolean {
+    const e = error as { className?: string; code?: number } | undefined;
+    return (
+      e?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
+      e?.code === SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED
+    );
+  }
+
+  buildReplaceTxNonceConsumedError() {
+    return new ReplaceTxNonceConsumedError({
+      message: appLocale.intl.formatMessage({
+        id: ETranslations.global_nonce_error_lower,
+      }),
+    });
   }
 
   @backgroundMethod()
