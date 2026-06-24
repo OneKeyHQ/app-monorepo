@@ -65,9 +65,9 @@ import {
   getSelectedTokensColdStartChannelSupport,
   getSwapDefaultToTokenForSwapType,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapSelectedTokensHomeAccountSyncAction,
   isSwapColdStartAllNetworkContextNetworkId,
   isSwapSelectedTokensColdStartContextMatched,
-  shouldClearSwapSelectedTokensBeforeHomeAccountSync,
   shouldMarkSwapInitialSelectedTokensSynced,
   shouldPreserveSwapUserInputAmountOnAccountSwitch,
   shouldPreserveSwapUserInputOnAccountSwitch,
@@ -467,17 +467,30 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
 
       let clearedSelectedTokens = false;
-      if (
-        swapTypeSwitchRef.current !== ESwapTabSwitchType.STOCK &&
-        shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+      const selectedTokensSyncAction =
+        getSwapSelectedTokensHomeAccountSyncAction({
           cachedContext: selectedTokensColdStartContextRef.current,
           hasSelectedTokens,
           homeSelectedAccount,
           initialSelectedTokensSynced: initialSelectedTokensSyncedRef.current,
           preserveSelectedTokens: shouldPreserveUserInputAmount(),
           swapSelectedAccount: swapSelectedAccountRef.current,
-        })
-      ) {
+          swapType: swapTypeSwitchRef.current,
+        });
+      if (selectedTokensSyncAction.type === 'replace-with-defaults') {
+        const { defaultTokens } = selectedTokensSyncAction;
+        fromTokenRef.current = defaultTokens.fromToken;
+        toTokenRef.current = defaultTokens.toToken;
+        selectedTokensColdStartContextRef.current = defaultTokens.context;
+        setSwapFromToken(defaultTokens.fromToken);
+        setToToken(defaultTokens.toToken);
+        setSelectedTokensColdStartContext(defaultTokens.context);
+        switchSwapTypeIfNeeded(
+          defaultTokens.swapType,
+          defaultTokens.fromToken?.networkId ??
+            defaultTokens.toToken?.networkId,
+        );
+      } else if (selectedTokensSyncAction.type === 'clear') {
         clearedSelectedTokens = true;
         const homeNetworkDefaultTokens = homeSelectedAccount.networkId
           ? swapDefaultSetTokens[homeSelectedAccount.networkId]
@@ -511,6 +524,10 @@ export function useSwapInit(params?: ISwapInitParams) {
     [
       clearSelectedTokensColdStartCache,
       shouldPreserveUserInputAmount,
+      setSelectedTokensColdStartContext,
+      setSwapFromToken,
+      setToToken,
+      switchSwapTypeIfNeeded,
       updateSelectedAccount,
     ],
   );

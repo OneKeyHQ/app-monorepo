@@ -424,6 +424,59 @@ export function getSwapDefaultToTokenForSwapType({
   return toToken ?? getBridgeDefaultToTokenForFromToken(fromToken);
 }
 
+export function buildSwapDefaultSelectedTokensForNetwork({
+  networkId,
+  swapType: preferredSwapType,
+}: {
+  networkId?: string;
+  swapType?: ESwapTabSwitchType;
+}) {
+  if (!networkId || preferredSwapType === ESwapTabSwitchType.STOCK) {
+    return undefined;
+  }
+
+  const defaultTokens = swapDefaultSetTokens[networkId];
+  const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
+  const fromToken = useLimitDefaults
+    ? defaultTokens?.limitFromToken
+    : defaultTokens?.fromToken;
+  const toToken = getSwapDefaultToTokenForSwapType({
+    fromToken,
+    homeNetworkId: networkId,
+    preferredSwapType,
+    toToken: useLimitDefaults
+      ? defaultTokens?.limitToToken
+      : defaultTokens?.toToken,
+  });
+  if (!fromToken && !toToken) {
+    return undefined;
+  }
+
+  return {
+    fromToken,
+    toToken,
+    swapType: useLimitDefaults
+      ? ESwapTabSwitchType.LIMIT
+      : getDefaultSelectedTokensSwapType({ fromToken, toToken }),
+  };
+}
+
+export function buildSwapDefaultLimitSelectedTokens() {
+  const defaultLimitNetworkId = Object.keys(swapDefaultSetTokens).find(
+    (networkId) => {
+      const defaultTokenSet = swapDefaultSetTokens[networkId];
+      return Boolean(
+        defaultTokenSet?.limitFromToken && defaultTokenSet?.limitToToken,
+      );
+    },
+  );
+
+  return buildSwapDefaultSelectedTokensForNetwork({
+    networkId: defaultLimitNetworkId,
+    swapType: ESwapTabSwitchType.LIMIT,
+  });
+}
+
 export function getSwapSelectedTokensColdStartContextNetworkId({
   accountNetworkId,
   fromTokenNetworkId,
@@ -459,29 +512,18 @@ export function buildSwapDefaultSelectedTokensFromHomeAccount({
     return undefined;
   }
 
-  const defaultTokens = swapDefaultSetTokens[homeNetworkId];
   if (preferredSwapType === ESwapTabSwitchType.STOCK) {
     return undefined;
   }
-  const useLimitDefaults = preferredSwapType === ESwapTabSwitchType.LIMIT;
-  const fromToken = useLimitDefaults
-    ? defaultTokens?.limitFromToken
-    : defaultTokens?.fromToken;
-  const toToken = getSwapDefaultToTokenForSwapType({
-    fromToken,
-    homeNetworkId,
-    preferredSwapType,
-    toToken: useLimitDefaults
-      ? defaultTokens?.limitToToken
-      : defaultTokens?.toToken,
+  const selectedTokens = buildSwapDefaultSelectedTokensForNetwork({
+    networkId: homeNetworkId,
+    swapType: preferredSwapType,
   });
-  if (!fromToken && !toToken) {
+  if (!selectedTokens) {
     return undefined;
   }
+  const { fromToken, toToken, swapType } = selectedTokens;
 
-  const swapType = useLimitDefaults
-    ? ESwapTabSwitchType.LIMIT
-    : getDefaultSelectedTokensSwapType({ fromToken, toToken });
   const contextNetworkId = getSwapSelectedTokensColdStartContextNetworkId({
     accountNetworkId: homeNetworkId,
     fromTokenNetworkId: fromToken?.networkId,
@@ -679,6 +721,66 @@ export function shouldClearSwapSelectedTokensBeforeHomeAccountSync({
   }
 
   return true;
+}
+
+export function getSwapSelectedTokensHomeAccountSyncAction({
+  cachedContext,
+  hasSelectedTokens,
+  homeSelectedAccount,
+  initialSelectedTokensSynced,
+  preserveSelectedTokens,
+  swapSelectedAccount,
+  swapType,
+  now,
+}: {
+  cachedContext?: ISwapSelectedTokensColdStartContext;
+  hasSelectedTokens: boolean;
+  homeSelectedAccount?: IAccountSelectorSelectedAccount;
+  initialSelectedTokensSynced?: boolean;
+  preserveSelectedTokens?: boolean;
+  swapSelectedAccount?: IAccountSelectorSelectedAccount;
+  swapType: ESwapTabSwitchType;
+  now?: number;
+}):
+  | {
+      type: 'preserve';
+    }
+  | {
+      type: 'replace-with-defaults';
+      defaultTokens: NonNullable<
+        ReturnType<typeof buildSwapDefaultSelectedTokensFromHomeAccount>
+      >;
+    }
+  | {
+      type: 'clear';
+    } {
+  if (swapType === ESwapTabSwitchType.STOCK) {
+    return { type: 'preserve' };
+  }
+
+  const shouldClearSelectedTokens =
+    shouldClearSwapSelectedTokensBeforeHomeAccountSync({
+      cachedContext,
+      hasSelectedTokens,
+      homeSelectedAccount,
+      initialSelectedTokensSynced,
+      preserveSelectedTokens,
+      swapSelectedAccount,
+    });
+  if (!shouldClearSelectedTokens) {
+    return { type: 'preserve' };
+  }
+
+  const defaultTokens = buildSwapDefaultSelectedTokensFromHomeAccount({
+    homeSelectedAccount,
+    swapType,
+    now,
+  });
+  if (defaultTokens) {
+    return { type: 'replace-with-defaults', defaultTokens };
+  }
+
+  return { type: 'clear' };
 }
 
 export function shouldSkipSwapDefaultSelectedTokenSync({

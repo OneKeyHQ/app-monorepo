@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
   isUSMarketStatusStockTokenSource,
@@ -260,23 +261,35 @@ function hasLimitDefaultTokenPair(networkId?: string) {
 }
 
 function getLimitDefaultNetworkId({
+  allowStaticFallback,
   preferredNetworkId,
   swapSupportNetworks,
 }: {
+  allowStaticFallback?: boolean;
   preferredNetworkId?: string;
   swapSupportNetworks: ISwapNetwork[];
 }) {
   if (
     preferredNetworkId &&
     hasLimitDefaultTokenPair(preferredNetworkId) &&
-    swapSupportNetworks.some((net) => net.networkId === preferredNetworkId)
+    (allowStaticFallback ||
+      swapSupportNetworks.some((net) => net.networkId === preferredNetworkId))
   ) {
     return preferredNetworkId;
   }
 
-  return swapSupportNetworks.find((net) =>
+  const runtimeLimitDefaultNetworkId = swapSupportNetworks.find((net) =>
     hasLimitDefaultTokenPair(net.networkId),
   )?.networkId;
+  if (runtimeLimitDefaultNetworkId) {
+    return runtimeLimitDefaultNetworkId;
+  }
+
+  if (allowStaticFallback) {
+    return Object.keys(swapDefaultSetTokens).find(hasLimitDefaultTokenPair);
+  }
+
+  return undefined;
 }
 
 class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
@@ -2485,14 +2498,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const normalizedType = getVisibleSwapTabSwitchType(type) ?? type;
       let currentFromToken = get(swapSelectFromTokenAtom());
       let currentToToken = get(swapSelectToTokenAtom());
-      if (
+      const isSwitchingFromStockToNonStock =
         oldType === ESwapTabSwitchType.STOCK &&
-        normalizedType !== ESwapTabSwitchType.STOCK
-      ) {
-        currentFromToken = undefined;
-        currentToToken = undefined;
-        set(swapSelectFromTokenAtom(), undefined);
-        set(swapSelectToTokenAtom(), undefined);
+        normalizedType !== ESwapTabSwitchType.STOCK;
+      let stockExitDefaultTokens:
+        | ReturnType<typeof buildSwapDefaultSelectedTokensForNetwork>
+        | undefined;
+      if (isSwitchingFromStockToNonStock) {
+        const defaultNetworkId =
+          normalizedType === ESwapTabSwitchType.LIMIT
+            ? getLimitDefaultNetworkId({
+                allowStaticFallback: true,
+                preferredNetworkId: swapAccountNetworkId,
+                swapSupportNetworks: get(swapNetworks()),
+              })
+            : (swapAccountNetworkId ??
+              currentFromToken?.networkId ??
+              currentToToken?.networkId);
+        stockExitDefaultTokens = buildSwapDefaultSelectedTokensForNetwork({
+          networkId: defaultNetworkId,
+          swapType: normalizedType,
+        });
+        currentFromToken = stockExitDefaultTokens?.fromToken;
+        currentToToken = stockExitDefaultTokens?.toToken;
+        set(swapSelectFromTokenAtom(), currentFromToken);
+        set(swapSelectToTokenAtom(), currentToToken);
         set(swapFromTokenAmountAtom(), { value: '', isInput: false });
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
         set(swapSelectedTokensColdStartContextAtom(), undefined);
@@ -2500,6 +2530,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapLastNonLimitSelectedTokensAtom(), undefined);
       }
       if (
+        !isSwitchingFromStockToNonStock &&
         oldType !== ESwapTabSwitchType.LIMIT &&
         normalizedType === ESwapTabSwitchType.LIMIT &&
         (currentFromToken || currentToToken)
@@ -2584,6 +2615,19 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       let fromToken = get(swapSelectFromTokenAtom());
       let toToken = get(swapSelectToTokenAtom());
+      const isStockExitDefaultToken = (token?: ISwapToken) =>
+        Boolean(
+          token &&
+          stockExitDefaultTokens &&
+          (equalTokenNoCaseSensitive({
+            token1: token,
+            token2: stockExitDefaultTokens.fromToken,
+          }) ||
+            equalTokenNoCaseSensitive({
+              token1: token,
+              token2: stockExitDefaultTokens.toToken,
+            })),
+        );
       const defaultNetworkId =
         normalizedType === ESwapTabSwitchType.LIMIT
           ? getLimitDefaultNetworkId({
@@ -2594,6 +2638,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromNetworkDefault = swapDefaultSetTokens[defaultNetworkId ?? ''];
       if (
         fromToken &&
+        !isStockExitDefaultToken(fromToken) &&
         !swapSupportNetworks.some(
           (net) => net.networkId === fromToken?.networkId,
         )
@@ -2603,6 +2648,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       if (
         toToken &&
+        !isStockExitDefaultToken(toToken) &&
         !swapSupportNetworks.some((net) => net.networkId === toToken?.networkId)
       ) {
         void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
@@ -2619,6 +2665,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             !toToken?.isNative
           ) {
             set(swapSelectFromTokenAtom(), fromNetworkDefault?.fromToken);
+            fromToken = fromNetworkDefault.fromToken;
           }
           if (fromToken && !toToken) {
             const needChangeToToken = this.needChangeToken({
