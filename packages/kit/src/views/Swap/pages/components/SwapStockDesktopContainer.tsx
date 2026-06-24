@@ -13,6 +13,7 @@ import {
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   NumberSizeableText,
+  Page,
   Popover,
   ScrollView,
   SegmentControl,
@@ -22,6 +23,8 @@ import {
   XStack,
   YStack,
   resetToRoute,
+  useIsOverlayPage,
+  useMedia,
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -706,8 +709,11 @@ function StockActionGate({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isModalPage = useIsOverlayPage();
+  const { md } = useMedia();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const accountInfo = swapFromAddressInfo.accountInfo;
+  const isDesktopModalPage = isModalPage && !md;
   const isWebDappModeWithNoWallet = Boolean(
     platformEnv.isWebDappMode &&
     accountInfo &&
@@ -732,11 +738,39 @@ function StockActionGate({
       },
     });
   }, [navigation]);
-  const keyboardPercentageStage = !platformEnv.isNativeIOS ? (
-    <PercentageStageOnKeyboard
-      onSelectPercentageStage={onSelectPercentageStage}
-    />
-  ) : null;
+  const keyboardPercentageStage = useMemo(
+    () =>
+      !platformEnv.isNativeIOS ? (
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      ) : null,
+    [onSelectPercentageStage],
+  );
+  const renderActionButton = useCallback(
+    (button: ReactNode) => {
+      if (!isDesktopModalPage) {
+        return (
+          <>
+            {button}
+            {keyboardPercentageStage}
+          </>
+        );
+      }
+
+      return (
+        <Page.Footer>
+          <Stack p="$5" bg="$bgApp">
+            <XStack width="100%" justifyContent="flex-end">
+              {button}
+            </XStack>
+          </Stack>
+          {keyboardPercentageStage}
+        </Page.Footer>
+      );
+    },
+    [isDesktopModalPage, keyboardPercentageStage],
+  );
   const isStockChannelInitializing =
     stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
     stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
@@ -764,21 +798,18 @@ function StockActionGate({
   }, [intl, stockChannel.channelStage]);
 
   if (shouldShowConnectWalletAction) {
-    return (
-      <>
-        <Button
-          testID={SwapTestIDs.swapButton}
-          onPress={handleConnectWalletPress}
-          size="large"
-          variant="primary"
-          borderRadius="$full"
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_connect_wallet,
-          })}
-        </Button>
-        {keyboardPercentageStage}
-      </>
+    return renderActionButton(
+      <Button
+        testID={SwapTestIDs.swapButton}
+        onPress={handleConnectWalletPress}
+        size={isDesktopModalPage ? 'medium' : 'large'}
+        variant="primary"
+        borderRadius="$full"
+      >
+        {intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        })}
+      </Button>,
     );
   }
 
@@ -793,18 +824,15 @@ function StockActionGate({
   }
 
   if (isStockChannelInitializing) {
-    return (
-      <>
-        <Button
-          testID={SwapTestIDs.swapButton}
-          size="large"
-          variant="primary"
-          disabled
-          loading
-          borderRadius="$full"
-        />
-        {keyboardPercentageStage}
-      </>
+    return renderActionButton(
+      <Button
+        testID={SwapTestIDs.swapButton}
+        size={isDesktopModalPage ? 'medium' : 'large'}
+        variant="primary"
+        disabled
+        loading
+        borderRadius="$full"
+      />,
     );
   }
 
@@ -812,20 +840,17 @@ function StockActionGate({
     stockChannel.tradeSide,
   );
 
-  return (
-    <>
-      <Button
-        testID={SwapTestIDs.swapButton}
-        size="large"
-        variant="primary"
-        disabled
-        borderRadius="$full"
-        {...disabledButtonProps}
-      >
-        {disabledLabel}
-      </Button>
-      {keyboardPercentageStage}
-    </>
+  return renderActionButton(
+    <Button
+      testID={SwapTestIDs.swapButton}
+      size={isDesktopModalPage ? 'medium' : 'large'}
+      variant="primary"
+      disabled
+      borderRadius="$full"
+      {...disabledButtonProps}
+    >
+      {disabledLabel}
+    </Button>,
   );
 }
 
