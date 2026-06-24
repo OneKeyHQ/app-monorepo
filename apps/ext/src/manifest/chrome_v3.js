@@ -116,6 +116,11 @@ module.exports = {
     // '*://*.onekeytest.com/*',
     // '*://*.eth/',
     'identity',
+    // Native Messaging host bridge is dev-only for now (no production consumer
+    // yet). See packages/shared/src/consts/desktopNativeMessaging.ts header for
+    // the security model (same-user host impersonation risk) and the production
+    // checklist before making this unconditional.
+    ...(isDev ? ['nativeMessaging'] : []),
     'activeTab',
     'storage',
     'unlimitedStorage',

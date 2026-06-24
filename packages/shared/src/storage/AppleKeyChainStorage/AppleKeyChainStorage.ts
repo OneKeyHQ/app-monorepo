@@ -22,16 +22,24 @@ export class AppleKeyChainStorage implements IAppleKeyChainStorage {
   async setItem({
     key,
     value,
+    enableSync,
     label,
     description,
   }: {
     key: string;
     value: string;
+    enableSync?: boolean;
     label?: string;
     description?: string;
   }): Promise<void> {
     const keychainModule = this.getKeychainModule();
-    await keychainModule.setItem({ key, value, label, description });
+    await keychainModule.setItem({
+      key,
+      value,
+      enableSync,
+      label,
+      description,
+    });
   }
 
   async getItem({

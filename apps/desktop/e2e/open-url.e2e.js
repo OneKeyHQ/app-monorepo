@@ -12,7 +12,7 @@ const { _electron: electron } = require('playwright-core');
 
 const repoRoot = path.resolve(__dirname, '../../..');
 const desktopDir = path.join(repoRoot, 'apps', 'desktop');
-const mainPath = path.join(desktopDir, 'app', 'dist', 'app.js');
+const mainPath = path.join(desktopDir, 'app', 'dist', 'appEntry.js');
 const artifactDir =
   process.env.DESKTOP_E2E_ARTIFACT_DIR ||
   path.join(repoRoot, '.tmp', 'desktop-e2e');

@@ -75,6 +75,11 @@ const DesktopApiProxyTestDevSettings = LazyLoadPage(
     import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopApiProxyTestDevSettings'),
 );
 
+const DesktopNativeMessagingTestDevSettings = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/Tab/DevSettingsSection/DesktopNativeMessagingTestDevSettings'),
+);
+
 const PerpGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'),
@@ -257,6 +262,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevDesktopNativeMessagingTestModal,
+    component: DesktopNativeMessagingTestDevSettings,
   },
   {
     name: EModalSettingRoutes.SettingDevPerpGalleryModal,

@@ -66,6 +66,7 @@ import * as store from './libs/store';
 import { getBackgroundColor } from './libs/utils';
 // Logger initialization (file rotation, sanitization, rate limiting)
 import './logger';
+import { ensureDesktopNativeMessagingHostManifest } from './nativeMessagingHostInstall';
 import initProcess from './process';
 import { setMainWindowForHttpServer } from './process/HttpServer';
 import { createRecoveryWindow } from './recoveryWindow';
@@ -1680,6 +1681,9 @@ if (!singleInstance && !process.mas) {
     logger.info(
       `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
     );
+    void ensureDesktopNativeMessagingHostManifest().catch((error) => {
+      logger.warn('[NativeMessagingHost] failed to install manifest', error);
+    });
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
 

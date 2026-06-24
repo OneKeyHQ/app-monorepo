@@ -27,7 +27,8 @@ try {
 }
 
 // Check if APP_NAME is correctly set to "OneKey Wallet"
-const distAppPath = path.join(desktopPath, 'app', 'dist', 'app.js');
+const appPackageJson = require(path.join(desktopPath, 'app', 'package.json'));
+const distAppPath = path.join(desktopPath, 'app', appPackageJson.main);
 console.log(distAppPath);
 if (!fs.existsSync(distAppPath)) {
   throw new Error(`Build output file not found: ${distAppPath}`);
@@ -43,7 +44,7 @@ try {
   }
 } catch (grepError) {
   throw new Error(
-    `APP_NAME must be set to "OneKey Wallet" in the built app.js file. ` +
+    `APP_NAME must be set to "OneKey Wallet" in the built main file. ` +
       `Expected: ${expectedAppName}`,
     { cause: grepError },
   );

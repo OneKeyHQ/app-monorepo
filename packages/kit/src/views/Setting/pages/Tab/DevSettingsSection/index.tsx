@@ -1900,6 +1900,20 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
+                      {platformEnv.isExtension ? (
+                        <SectionPressItem
+                          icon="LaptopOutline"
+                          title="Desktop Native Messaging"
+                          subtitle="Test extension <-> desktop Native Messaging host"
+                          testID="desktop-native-messaging-test-menu"
+                          onPress={() => {
+                            navigation.push(
+                              EModalSettingRoutes.SettingDevDesktopNativeMessagingTestModal,
+                            );
+                          }}
+                        />
+                      ) : null}
+
                       <SectionPressItem
                         icon="ChartTrendingOutline"
                         title="PerpGallery"

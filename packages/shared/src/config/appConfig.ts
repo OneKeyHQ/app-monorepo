@@ -1,3 +1,8 @@
+import {
+  ONEKEY_EXTENSION_ID_CHROME_PROD,
+  ONEKEY_EXTENSION_ID_EDGE_PROD,
+} from '../consts/extensionIds';
+
 import type { EServiceEndpointEnum, IEndpointEnv } from '../../types/endpoint';
 
 export const HARDWARE_SDK_IFRAME_SRC_ONEKEYSO =
@@ -97,11 +102,9 @@ export function buildReferralUrl({
 }
 
 export const EXT_RATE_URL = {
-  'chrome':
-    'https://chrome.google.com/webstore/detail/onekey/jnmbobjmhlngoefaiojfljckilhhlhcj',
+  'chrome': `https://chrome.google.com/webstore/detail/onekey/${ONEKEY_EXTENSION_ID_CHROME_PROD}`,
   'firefox': 'https://addons.mozilla.org/zh-CN/firefox/addon/onekey/reviews/',
-  'edge':
-    'https://microsoftedge.microsoft.com/addons/detail/onekey/obffkkagpmohennipjokmpllocnlndac',
+  'edge': `https://microsoftedge.microsoft.com/addons/detail/onekey/${ONEKEY_EXTENSION_ID_EDGE_PROD}`,
 };
 
 const APP_STORE_BASE_LINK = 'itms-apps://apps.apple.com/app/id1609559473';

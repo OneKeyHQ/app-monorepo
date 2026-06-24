@@ -4,6 +4,7 @@ export interface IAppleKeyChainNativeModule {
    * @param params Object containing key, value, and optional display attributes
    * @param params.key The keychain key (account identifier)
    * @param params.value The value to store
+   * @param params.enableSync Optional iCloud Keychain sync toggle
    * @param params.label Optional label displayed in Keychain Access app
    * @param params.description Optional description for the keychain item
    * @returns Promise that resolves when the item is stored
@@ -11,6 +12,7 @@ export interface IAppleKeyChainNativeModule {
   setItem(params: {
     key: string;
     value: string;
+    enableSync?: boolean;
     label?: string;
     description?: string;
   }): Promise<void>;

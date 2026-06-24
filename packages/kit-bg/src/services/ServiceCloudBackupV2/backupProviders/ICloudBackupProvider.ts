@@ -138,6 +138,7 @@ export class ICloudBackupProvider implements IOneKeyBackupProvider {
     await appleKeyChainStorage.setItem({
       key: ICLOUD_KEYCHAIN_KEY,
       value: encryptionKey,
+      enableSync: true,
       label: ICLOUD_KEYCHAIN_LABEL,
       description: ICLOUD_KEYCHAIN_DESCRIPTION,
     });
