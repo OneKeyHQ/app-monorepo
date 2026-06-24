@@ -12,7 +12,7 @@ const getDuration = () => ((Date.now() - startTime) / 1000).toFixed(2);
 // Find all workspace package.json files (excluding node_modules and git worktrees)
 function findPackageJsonFiles(rootDir) {
   const result = execSync(
-    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.claude/worktrees/*"`,
+    `find "${rootDir}" -name "package.json" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.worktree/*" -not -path "*/.worktrees/*" -not -path "*/.claude/worktrees/*"`,
     { encoding: 'utf-8' },
   );
   return result
@@ -22,7 +22,12 @@ function findPackageJsonFiles(rootDir) {
     .filter((line) => {
       const relativePath = path.relative(rootDir, line);
 
-      return !relativePath.startsWith('.worktree/');
+      // Local git worktree checkouts (singular `.worktree/` and plural
+      // `.worktrees/`) are not part of the monorepo and must not be compared.
+      return (
+        !relativePath.startsWith('.worktree/') &&
+        !relativePath.startsWith('.worktrees/')
+      );
     });
 }
 
