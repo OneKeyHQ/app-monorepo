@@ -12,6 +12,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -136,6 +137,10 @@ class BackgroundApiProxy
   ) as ServiceDevSetting;
 
   serviceSetting = this._createProxyService('serviceSetting') as ServiceSetting;
+
+  serviceAddressRiskCheck = this._createProxyService(
+    'serviceAddressRiskCheck',
+  ) as ServiceAddressRiskCheck;
 
   serviceNetwork = this._createProxyService('serviceNetwork') as ServiceNetwork;
 
