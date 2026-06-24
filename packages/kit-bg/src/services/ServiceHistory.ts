@@ -3021,7 +3021,6 @@ class ServiceHistory extends ServiceBase {
   }): Promise<{
     available: boolean;
     reason?: 'notReplaceable' | 'notEarliestPending' | 'nonceConsumed';
-    onChainNextNonce?: number;
   }> {
     const { decodedTx } = historyTx;
     const { status, encodedTx, nonce, txid } = decodedTx;
@@ -3051,14 +3050,14 @@ class ServiceHistory extends ServiceBase {
     // target nonce has already been consumed on-chain, the original tx is
     // confirmed/replaced and can no longer be sped up or canceled.
     if (vaultSettings.nonceRequired && !isNil(nonce)) {
-      const { consumed, onChainNextNonce } =
+      const { consumed } =
         await this.backgroundApi.serviceSend.precheckReplaceTxNonceConsumed({
           accountId,
           networkId,
           targetNonce: nonce,
         });
       if (consumed) {
-        return { available: false, reason: 'nonceConsumed', onChainNextNonce };
+        return { available: false, reason: 'nonceConsumed' };
       }
     }
 
