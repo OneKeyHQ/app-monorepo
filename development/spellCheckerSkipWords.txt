@@ -1491,6 +1491,10 @@ RCTJS
 retryably
 unpair
 
+# iOS 26 Liquid Glass header vocabulary
+bareify
+subview
+headerless
 # OCDS desktop concurrent download conformance tests
 OCDS
 byteranges
