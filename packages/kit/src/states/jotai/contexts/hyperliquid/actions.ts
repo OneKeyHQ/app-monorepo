@@ -5,7 +5,6 @@ import { isEqual, isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { getTpSlKind } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/utils/lineBuilder';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
@@ -58,6 +57,7 @@ import {
   getPerpsOrderBookTickOptionsWithCache,
   setPerpsOrderBookTickOptionsCache,
 } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -3112,14 +3112,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           // Dragging a TP/SL line moves its trigger price; modify in place as a
           // trigger order so HL keeps its reduce-only / position-tpsl nature.
-          // Classify with the same helper the line builder uses to mark a line
-          // editable, so every draggable TP/SL (incl. 'Trigger'-prefixed
-          // position TP/SL) amends as a trigger instead of degrading to a limit.
-          const tpSlKind = getTpSlKind(existing);
-          const trigger = tpSlKind
+          // Classify with the shared helper (same one the line builder uses to
+          // mark a line editable) so every draggable TP/SL — incl. 'Trigger'-
+          // prefixed position TP/SL — amends as a trigger with the correct
+          // market/limit nature instead of degrading to a limit order.
+          const tpSlClassification = classifyTpSlOrder(existing);
+          const trigger = tpSlClassification
             ? {
-                isMarket: existing.orderType.includes('Market'),
-                tpsl: tpSlKind,
+                isMarket: tpSlClassification.isMarket,
+                tpsl: tpSlClassification.kind,
               }
             : undefined;
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(

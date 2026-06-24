@@ -22,6 +22,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   getValidPriceDecimals,
   parseDexCoin,
@@ -486,10 +487,13 @@ const PositionRowDesktopTPSL = memo(
 
       currentAssetOpenOrders.forEach((order) => {
         if (order.isPositionTpsl) {
-          if (order.orderType.startsWith('Take')) {
+          // Reuse the shared classifier so 'Trigger'-form position TP/SL (whose
+          // orderType is not Take/Stop-prefixed) is recognized here too, instead
+          // of showing --/-- while the chart line renders fine.
+          const kind = getTpSlKind(order);
+          if (kind === 'tp') {
             tpPrice = order.triggerPx;
-          }
-          if (order.orderType.startsWith('Stop')) {
+          } else if (kind === 'sl') {
             slPrice = order.triggerPx;
           }
         } else {
@@ -1077,10 +1081,12 @@ const PositionRowMobileTPSL = memo(({ coin }: { coin: string }) => {
     // Mobile only displays price, doesn't need showOrder logic
     currentAssetOpenOrders.forEach((order) => {
       if (order.isPositionTpsl) {
-        if (order.orderType.startsWith('Take')) {
+        // Same shared classifier as desktop so 'Trigger'-form position TP/SL
+        // is recognized instead of showing --/--.
+        const kind = getTpSlKind(order);
+        if (kind === 'tp') {
           tpPrice = order.triggerPx;
-        }
-        if (order.orderType.startsWith('Stop')) {
+        } else if (kind === 'sl') {
           slPrice = order.triggerPx;
         }
       }

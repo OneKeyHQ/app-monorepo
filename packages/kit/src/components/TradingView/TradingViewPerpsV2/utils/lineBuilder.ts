@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   formatHlSize,
   formatWithPrecision,
@@ -164,44 +165,6 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
   // Replace "above" with ">" and "below" with "<"
   // Using word boundary to be more precise
   return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
-}
-
-function inferTpSlKindFromTriggerOrder(
-  order: IPerpsFrontendOrder,
-): 'tp' | 'sl' | null {
-  if (!order.isPositionTpsl || !order.orderType.startsWith('Trigger')) {
-    return null;
-  }
-
-  const normalizedCondition = (order.triggerCondition || '').toLowerCase();
-  const isAbove = normalizedCondition.includes('above');
-  const isBelow = normalizedCondition.includes('below');
-
-  if (!isAbove && !isBelow) {
-    return null;
-  }
-
-  if (order.side === 'A') {
-    return isAbove ? 'tp' : 'sl';
-  }
-
-  if (order.side === 'B') {
-    return isBelow ? 'tp' : 'sl';
-  }
-
-  return null;
-}
-
-export function getTpSlKind(order: IPerpsFrontendOrder): 'tp' | 'sl' | null {
-  if (order.orderType.startsWith('Take Profit')) {
-    return 'tp';
-  }
-
-  if (order.orderType.startsWith('Stop')) {
-    return 'sl';
-  }
-
-  return inferTpSlKindFromTriggerOrder(order);
 }
 
 function isTriggerTpSlOrder(orderType: string): boolean {
