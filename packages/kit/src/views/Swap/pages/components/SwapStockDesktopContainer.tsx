@@ -1633,17 +1633,24 @@ function StockPriceChart({
 function StockMobilePositionsSection({
   onTokenPress,
   supportNetworksList,
+  storeName,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
+  const stockChannel = useSwapStockTradeContext();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { cachedPositionTokenList, hasCachedPositionTokenList } =
     useSwapProSupportNetworksTokenList(supportNetworksList);
+  const handleOpenStockTokenSelector = useOpenStockTokenSelector({
+    defaultNetworkId: stockChannel.stockNetworkId || undefined,
+    storeName,
+  });
   const filterToken = useMemo(() => {
     if (!swapProEnableCurrentSymbol) {
       return undefined;
@@ -1690,6 +1697,7 @@ function StockMobilePositionsSection({
       <YStack minHeight={180}>
         <SwapProPositionsList
           onTokenPress={handlePositionPress}
+          onSearchClick={handleOpenStockTokenSelector}
           filterToken={filterToken}
           cachedTokenList={cachedPositionTokenList}
           hasCachedTokenList={hasCachedPositionTokenList}
@@ -2014,6 +2022,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           <StockMobilePositionsSection
             onTokenPress={props.onTokenPress}
             supportNetworksList={props.supportNetworksList}
+            storeName={props.storeName}
           />
         </YStack>
       </YStack>
