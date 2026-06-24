@@ -257,9 +257,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     }
     return {
       id: HOME_PERPS_HOT_CATEGORY_ID,
-      name: apiHotCategory.name,
+      name: intl.formatMessage({ id: ETranslations.global_perp }),
     };
-  }, [perpsCategories]);
+  }, [intl, perpsCategories]);
 
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
     const buildWithPerpsHotCategory = (categories: IMarketCategoryItem[]) => {
