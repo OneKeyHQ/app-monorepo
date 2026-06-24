@@ -116,6 +116,17 @@ export default function PagePrimeTransfer() {
   ]);
 
   useEffect(() => {
+    void backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
+      transferType: routeParamsTransferType,
+    });
+    return () => {
+      void backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
+        transferType: undefined,
+      });
+    };
+  }, [routeParamsTransferType]);
+
+  useEffect(() => {
     if (platformEnv.isExtension) {
       // Start UI layer heartbeat - ping service immediately and then every 5 seconds
       void backgroundApiProxy.servicePrimeTransfer.pingService();
@@ -153,7 +164,6 @@ export default function PagePrimeTransfer() {
     if (primeTransferAtom.status === EPrimeTransferStatus.init) {
       return (
         <PrimeTransferHome
-          transferType={routeParamsTransferType}
           remotePairingCode={remotePairingCode}
           setRemotePairingCode={setRemotePairingCode}
           autoConnect={!!routeParamsCode}
@@ -172,7 +182,6 @@ export default function PagePrimeTransfer() {
           <PrimeTransferDirection
             remotePairingCode={remotePairingCode}
             botWalletId={routeParamsBotWalletId}
-            transferType={routeParamsTransferType}
           />
         </>
       );
@@ -183,7 +192,6 @@ export default function PagePrimeTransfer() {
     routeParamsServer,
     routeParamsBotWalletId,
     routeParamsDefaultTab,
-    routeParamsTransferType,
     primeTransferAtom.status,
     remotePairingCode,
   ]);

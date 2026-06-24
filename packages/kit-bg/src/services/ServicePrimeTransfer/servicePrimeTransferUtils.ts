@@ -47,11 +47,7 @@ export function shouldUseCliBotWalletEncryptedCredential({
   transferData: IPrimeTransferData;
   allowCliImportableCredentials?: boolean;
 }) {
-  if (
-    !allowCliImportableCredentials ||
-    transferData.isWatchingOnly ||
-    transferData.privateData.deviceKeyPack
-  ) {
+  if (!allowCliImportableCredentials || transferData.isWatchingOnly) {
     return false;
   }
 

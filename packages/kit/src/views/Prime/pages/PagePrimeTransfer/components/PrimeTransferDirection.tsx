@@ -38,11 +38,7 @@ import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { buildPrimeTransferVerificationCode } from '@onekeyhq/shared/src/utils/primeTransferVerificationCode';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  EPrimeTransferDataType,
-  type IE2EESocketUserInfo,
-  type IPrimeTransferData,
-} from '@onekeyhq/shared/types/prime/primeTransferTypes';
+import type { IE2EESocketUserInfo } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 
@@ -154,15 +150,10 @@ export function WaitingTransferCompleteAlert() {
 export function PrimeTransferDirection({
   remotePairingCode,
   botWalletId,
-  transferType,
 }: {
   remotePairingCode: string;
   botWalletId?: string;
-  transferType?: EPrimeTransferDataType;
 }) {
-  const [isKeylessWalletTransfer, setIsKeylessWalletTransfer] = useState(
-    transferType === EPrimeTransferDataType.keylessWallet,
-  );
   const isBotWalletExport = !!botWalletId;
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -171,35 +162,11 @@ export function PrimeTransferDirection({
   const [waitingAlertVisible, setWaitingAlertVisible] = useState(false);
   const [isSendingData, setIsSendingData] = useState(false);
 
-  // Set self transfer type for client-to-client API (receiver side)
-  useEffect(() => {
-    void (async () => {
-      const remoteTransferType =
-        await backgroundApiProxy.servicePrimeTransfer.getRemoteTransferType();
-      const isRemoteKeylessWallet =
-        remoteTransferType?.transferType ===
-        EPrimeTransferDataType.keylessWallet;
-      if (
-        isRemoteKeylessWallet ||
-        transferType === EPrimeTransferDataType.keylessWallet
-      ) {
-        setIsKeylessWalletTransfer(true);
-        await backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
-          transferType: EPrimeTransferDataType.keylessWallet,
-        });
-        await backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-        setTimeout(() => {
-          void backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-        }, 2000);
-      }
-    })();
-
-    return () => {
-      void backgroundApiProxy.servicePrimeTransfer.updateSelfTransferType({
-        transferType: undefined,
-      });
-    };
-  }, [transferType]);
+  // Self transfer type lifecycle is owned by the parent PagePrimeTransfer
+  // (set on mount, reset on page unmount). Intentionally NOT reset here: this
+  // screen unmounts on a paired -> init transition (e.g. disconnect), and a
+  // local reset would clear the parent-managed type without it being re-applied
+  // on re-pairing, leaving the peer with a missing transfer type.
 
   const getRoomUsers = useCallback(async () => {
     let result: IE2EESocketUserInfo[] = [];
@@ -443,90 +410,58 @@ export function PrimeTransferDirection({
         isClosedBySendData.current = true;
         void dialogRef.current?.close();
 
-        // Check if remote device is in keylessWallet mode (sender queries receiver)
-
-        // Handle keylessWallet transfer - either local or remote is in keylessWallet mode
-        // Bot wallet export uses buildTransferData with scoped walletIds, not deviceKeyPack
-        if (isKeylessWalletTransfer && !isBotWalletExport) {
-          const deviceKeyPack =
-            await backgroundApiProxy.serviceKeylessWallet.getKeylessDevicePackSafe();
-          if (!deviceKeyPack) {
-            Toast.error({
-              title: 'No DeviceKeyPack to transfer',
-            });
-            throw new OneKeyLocalError('No DeviceKeyPack to transfer');
-          }
-          // Send deviceKeyPack as transfer data
-          const keylessTransferData: IPrimeTransferData = {
-            privateData: {
-              credentials: undefined,
-              importedAccounts: {},
-              watchingAccounts: {},
-              wallets: {},
-              deviceKeyPack,
-            },
-            publicData: undefined,
-            isEmptyData: false,
-            isWatchingOnly: true, // Skip password verification
-            appVersion: '',
-          };
-          await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
-            transferData: keylessTransferData,
+        const transferData =
+          await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
+            walletIds: botWalletId ? [botWalletId] : undefined,
           });
-        } else {
-          const transferData =
-            await backgroundApiProxy.servicePrimeTransfer.buildTransferData({
-              walletIds: botWalletId ? [botWalletId] : undefined,
+        // Some credentials could not be read because the local secure storage
+        // layer was transiently unavailable; they were skipped. Confirm before
+        // sending the rest. Fixed English copy by design (rare edge case).
+        const unavailableCredentials = transferData?.unavailableCredentials;
+        if (unavailableCredentials?.length) {
+          // Cap the listed names: a transient secure-storage failure is
+          // usually global, so this list can be long (potentially every
+          // wallet). Show a few names + "and N more".
+          const maxNamesShown = 3;
+          const names = unavailableCredentials.map((c) => c.label);
+          const namesSummary =
+            names.length > maxNamesShown
+              ? `${names.slice(0, maxNamesShown).join(', ')} and ${
+                  names.length - maxNamesShown
+                } more`
+              : names.join(', ');
+          const confirmedToSkip = await new Promise<boolean>((resolve) => {
+            Dialog.show({
+              title: "Some items can't be transferred",
+              description: `Secure storage is temporarily unavailable, so these items can't be read and will be skipped: ${namesSummary}. They stay on this device — try again later to transfer them. Continue with the rest?`,
+              showCancelButton: true,
+              showConfirmButton: true,
+              onConfirmText: 'Continue',
+              onCancelText: 'Cancel',
+              disableDrag: true,
+              dismissOnOverlayPress: false,
+              onConfirm: () => resolve(true),
+              onCancel: () => resolve(false),
+              onClose: () => resolve(false),
             });
-          // Some credentials could not be read because the local secure storage
-          // layer was transiently unavailable; they were skipped. Confirm before
-          // sending the rest. Fixed English copy by design (rare edge case).
-          const unavailableCredentials = transferData?.unavailableCredentials;
-          if (unavailableCredentials?.length) {
-            // Cap the listed names: a transient secure-storage failure is
-            // usually global, so this list can be long (potentially every
-            // wallet). Show a few names + "and N more".
-            const maxNamesShown = 3;
-            const names = unavailableCredentials.map((c) => c.label);
-            const namesSummary =
-              names.length > maxNamesShown
-                ? `${names.slice(0, maxNamesShown).join(', ')} and ${
-                    names.length - maxNamesShown
-                  } more`
-                : names.join(', ');
-            const confirmedToSkip = await new Promise<boolean>((resolve) => {
-              Dialog.show({
-                title: "Some items can't be transferred",
-                description: `Secure storage is temporarily unavailable, so these items can't be read and will be skipped: ${namesSummary}. They stay on this device — try again later to transfer them. Continue with the rest?`,
-                showCancelButton: true,
-                showConfirmButton: true,
-                onConfirmText: 'Continue',
-                onCancelText: 'Cancel',
-                disableDrag: true,
-                dismissOnOverlayPress: false,
-                onConfirm: () => resolve(true),
-                onCancel: () => resolve(false),
-                onClose: () => resolve(false),
-              });
-            });
-            if (!confirmedToSkip) {
-              await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
-              throw new OneKeyLocalError('Transfer cancelled by user');
-            }
-          }
-          if (transferData?.isEmptyData) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.transfer_no_data,
-              }),
-            });
-            throw new OneKeyLocalError('No data to transfer');
-          }
-          await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
-            transferData,
-            allowCliImportableCredentials,
           });
+          if (!confirmedToSkip) {
+            await backgroundApiProxy.servicePrimeTransfer.cancelTransfer();
+            throw new OneKeyLocalError('Transfer cancelled by user');
+          }
         }
+        if (transferData?.isEmptyData) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.transfer_no_data,
+            }),
+          });
+          throw new OneKeyLocalError('No data to transfer');
+        }
+        await backgroundApiProxy.servicePrimeTransfer.sendTransferData({
+          transferData,
+          allowCliImportableCredentials,
+        });
 
         setWaitingAlertVisible(true);
         // resolve();
@@ -564,8 +499,6 @@ export function PrimeTransferDirection({
       intl,
       directionUserInfo?.toUser?.appPlatformName,
       exitTransferFlow,
-      isKeylessWalletTransfer,
-      isBotWalletExport,
       botWalletId,
       allowCliImportableCredentials,
     ],
@@ -675,12 +608,6 @@ export function PrimeTransferDirection({
       isClosedBySendData.current = true;
       void dialogRef.current?.close();
 
-      // Handle keylessWallet transfer - show deviceKeyPack in debug dialog
-      if (isKeylessWalletTransfer) {
-        exitTransferFlow(600, { skipCloseOnboardingPages: true });
-        return;
-      }
-
       const param: IPrimeParamList[EPrimePages.PrimeTransferPreview] = {
         directionUserInfo,
         transferData: data.data,
@@ -691,12 +618,7 @@ export function PrimeTransferDirection({
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeTransferDataReceived, fn);
     };
-  }, [
-    directionUserInfo,
-    navigation,
-    isKeylessWalletTransfer,
-    exitTransferFlow,
-  ]);
+  }, [directionUserInfo, navigation]);
 
   const debugButtons = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
@@ -725,35 +647,17 @@ export function PrimeTransferDirection({
             testID="prime-result-btn"
             onPress={() => {
               void (async () => {
-                const result =
-                  await backgroundApiProxy.servicePrimeTransfer.fixTransferDirectionForKeylessWallet();
-                Dialog.debugMessage({
-                  debugMessage: result,
-                  title: 'Fix Direction Result',
-                });
-              })();
-            }}
-          >
-            Fix Direction (Keyless)
-          </Button>
-          <Button
-            testID="prime-result-btn"
-            onPress={() => {
-              void (async () => {
                 await changeDirection();
               })();
             }}
           >
             Change Direction
           </Button>
-          <SizableText>
-            isKeylessWalletTransfer={isKeylessWalletTransfer.toString()}
-          </SizableText>
         </>
       );
     }
     return <></>;
-  }, [getRoomUsers, changeDirection, isKeylessWalletTransfer]);
+  }, [getRoomUsers, changeDirection]);
 
   return (
     <>
@@ -793,7 +697,7 @@ export function PrimeTransferDirection({
             px="$5"
             color="$iconSubdued"
             variant="tertiary"
-            disabled={isKeylessWalletTransfer || isBotWalletExport}
+            disabled={isBotWalletExport}
             onPress={changeDirection}
           />
         </XStack>
@@ -829,24 +733,3 @@ export function PrimeTransferDirection({
     </>
   );
 }
-
-/* Only show "I don't have a Keyless Wallet" for creation flow */
-/* - default: other data transfer, not related to Keyless Wallet */
-/* - createKeylessWallet: creating Keyless Wallet, user might not have one */
-/* - recoverKeylessWallet: recovering, user already has Keyless Wallet */
-/* 
-      {transferType === EPrimeTransferDataType.keylessWallet ? (
-        <Page.Footer>
-          <YStack p="$5">
-            <Button variant="tertiary" size="small" childrenAsText={false}>
-              <XStack gap="$2" alignItems="center">
-                <SizableText color="$textInteractive" size="$bodyMdMedium">
-                  I don't have a Keyless Wallet
-                </SizableText>
-                <Icon name="OpenOutline" color="$textInteractive" size="$4" />
-              </XStack>
-            </Button>
-          </YStack>
-        </Page.Footer>
-      ) : null}
-*/

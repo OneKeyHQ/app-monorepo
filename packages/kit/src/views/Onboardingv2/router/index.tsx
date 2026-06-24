@@ -125,18 +125,6 @@ const ImportKeyTag = LazyLoadPage(
   false,
   legacyLayoutFallback,
 );
-const KeylessWalletRecovery = LazyLoadPage(
-  () => import('../pages/KeylessWalletRecovery'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
-const KeylessWalletCreation = LazyLoadPage(
-  () => import('../pages/KeylessWalletCreation'),
-  undefined,
-  false,
-  legacyLayoutFallback,
-);
 const OneKeyIDLogin = LazyLoadPage(
   () => import('../pages/OneKeyIDLoginPage'),
   undefined,
@@ -283,16 +271,6 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ImportKeyTag,
     component: ImportKeyTag,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.KeylessWalletRecovery,
-    component: KeylessWalletRecovery,
-    options: hiddenHeaderOptions,
-  },
-  {
-    name: EOnboardingPagesV2.KeylessWalletCreation,
-    component: KeylessWalletCreation,
     options: hiddenHeaderOptions,
   },
   {

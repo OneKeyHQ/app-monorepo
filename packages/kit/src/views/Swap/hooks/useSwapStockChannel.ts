@@ -301,6 +301,13 @@ export function useSwapStockChannel({
     [syncStockExecutionTokens],
   );
 
+  const syncPayTokenDetail = useCallback((token: IToken) => {
+    // Detail-only refreshes should not rotate the Stock execution token sync id.
+    const nextPayToken = token as ISwapToken;
+    setPayTokenState(nextPayToken);
+    payTokenSnapshotRef.current = nextPayToken;
+  }, []);
+
   const {
     payTokenStatus,
     payTokenOptionsLoading,
@@ -315,6 +322,7 @@ export function useSwapStockChannel({
     payToken,
     selectPayToken,
     stockNetworkId,
+    syncPayTokenDetail,
   });
 
   const selectStockToken = useCallback(

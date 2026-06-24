@@ -200,21 +200,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const handleNativeIndicatorSelect = useCallback(
     (indicatorName: string, desiredActive: boolean) => {
-      setNativeChartControlsConfig((prev) =>
-        prev
-          ? {
-              ...prev,
-              indicators: prev.indicators.map((indicator) =>
-                indicator.value === indicatorName
-                  ? {
-                      ...indicator,
-                      active: desiredActive,
-                    }
-                  : indicator,
-              ),
-            }
-          : prev,
-      );
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_INDICATOR_SELECT_MESSAGE,
         payload: {
