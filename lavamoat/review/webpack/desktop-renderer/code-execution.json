@@ -1,0 +1,115 @@
+{
+  "description": "动态代码执行、worker、WebAssembly 等执行能力",
+  "resources": {
+    "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.instantiate": true,
+        "WebAssembly.instantiateStreaming": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b>blake2b-wasm": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
+      "globals": {
+        "WebAssembly": true,
+        "Worker": true
+      }
+    },
+    "@onekeyhq/core>cosmjs-types>long": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera": {
+      "globals": {
+        "Worker": true
+      }
+    },
+    "@onekeyhq/kit>zbar.wasm": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "@onekeyhq/shared": {
+      "globals": {
+        "ServiceWorker": true
+      }
+    },
+    "@sentry/electron>@sentry/browser": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay": {
+      "globals": {
+        "Worker": true
+      }
+    },
+    "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
+      "globals": {
+        "Worker": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-bridge/init.js": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "external:../../node_modules/@polkadot/util/has.js": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "external:../../node_modules/@polkadot/wasm-bridge/init.js": {
+      "globals": {
+        "WebAssembly": true
+      }
+    },
+    "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": {
+      "globals": {
+        "Worker": true
+      }
+    },
+    "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {
+      "globals": {
+        "WebAssembly.instantiate": true,
+        "WebAssembly.instantiateStreaming": true,
+        "WebAssembly.RuntimeError": true
+      }
+    },
+    "external:../../node_modules/long/index.js": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "external:../../node_modules/lottie-web/build/player/lottie.js": {
+      "globals": {
+        "Worker": true
+      }
+    }
+  }
+}
