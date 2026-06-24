@@ -316,10 +316,8 @@ class ServiceThirdPartyHardware extends ServiceBase {
   }
 
   /**
-   * Business-call Trezor USB→BLE fallback. When a saved Trezor has no
-   * `bleConnectId` yet, the keyring can request the same binding picker used by
-   * device management and wait for the selected BLE transport before retrying
-   * the current hardware operation.
+   * Business-call Trezor transport recovery. The picker may return a newly
+   * bound BLE connectId, or the known USB connectId if USB is restored.
    */
   async requestTrezorBleConnectIdForDevice({
     device,
@@ -358,6 +356,7 @@ class ServiceThirdPartyHardware extends ServiceBase {
           usbConnectId,
           featuresDeviceId,
           promiseId,
+          trezorBleBindingMode: 'auto-fallback',
         },
       });
     });

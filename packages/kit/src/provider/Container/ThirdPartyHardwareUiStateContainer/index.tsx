@@ -696,7 +696,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     if (!isTrezorBleBinding) {
       return;
     }
-    const { usbConnectId, featuresDeviceId, promiseId } =
+    const { usbConnectId, featuresDeviceId, promiseId, trezorBleBindingMode } =
       uiState?.payload ?? {};
     if (!usbConnectId || !featuresDeviceId || !promiseId) {
       // A malformed request may still carry a promiseId the keyring is awaiting.
@@ -726,6 +726,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     const instance = showTrezorBleBindingDialog({
       usbConnectId,
       featuresDeviceId,
+      mode: trezorBleBindingMode ?? 'auto-fallback',
       onBound: callbacks.onBound,
       onClose: callbacks.onClose,
     });

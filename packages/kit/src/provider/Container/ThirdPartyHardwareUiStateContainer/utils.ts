@@ -24,11 +24,11 @@ export function createTrezorBleBindingDialogCallbacks({
   clearState: () => Promise<void>;
 }) {
   return {
-    onBound: (bleConnectId: string) => {
+    onBound: (connectId: string) => {
       settledRef.current = true;
       void resolveCallback({
         id: promiseId,
-        data: bleConnectId,
+        data: connectId,
       });
       void clearState();
     },

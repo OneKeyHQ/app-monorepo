@@ -232,8 +232,10 @@ export type IThirdPartyHardwareUiState = {
     usbConnectId?: string;
     /** Trezor BLE binding: stable device_id read from Trezor features. */
     featuresDeviceId?: string;
-    /** Trezor BLE binding: servicePromise id resolved with the bound BLE connectId. */
+    /** Trezor BLE binding: servicePromise id resolved with the fallback connectId. */
     promiseId?: number;
+    /** Trezor BLE binding mode. */
+    trezorBleBindingMode?: 'manual-binding' | 'auto-fallback';
   };
 };
 
