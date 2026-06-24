@@ -34,6 +34,7 @@ export const PerpTestIDs = {
   TpInput: 'perp-tp-input',
   SlInput: 'perp-sl-input',
   TriggerReduceOnlyCheckbox: 'perp-trigger-reduce-only-checkbox',
+  StandardReduceOnlyCheckbox: 'perp-standard-reduce-only-checkbox',
 
   // -- Trading buttons: side toggle + place order --
   TradeSideToggle: 'perp-trade-side-toggle',
