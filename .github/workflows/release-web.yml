@@ -200,6 +200,33 @@ jobs:
         run: |
           yarn app:web:build
 
+      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
+      # sourcemaps are uploaded here via sentry-cli and then deleted from the
+      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
+      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      - name: Upload Web Sourcemaps to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: web
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN — skipping sourcemap upload."
+            exit 0
+          fi
+          RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
+          npx sentry-cli releases new "$RELEASE" || true
+          npx sentry-cli sourcemaps inject ./apps/web/web-build
+          npx sentry-cli sourcemaps upload --release "$RELEASE" ./apps/web/web-build
+          npx sentry-cli releases finalize "$RELEASE" || true
+
+      - name: Cleanup Web Sourcemaps and License Files
+        if: always()
+        run: |
+          find ./apps/web/web-build \
+            \( -name '*.js.map' -o -name '*.css.map' -o -name '*.LICENSE.txt' \) \
+            -type f -delete
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -342,6 +369,33 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           yarn app:web:build
+
+      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
+      # sourcemaps are uploaded here via sentry-cli and then deleted from the
+      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
+      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      - name: Upload Web Sourcemaps to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: web
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN — skipping sourcemap upload."
+            exit 0
+          fi
+          RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
+          npx sentry-cli releases new "$RELEASE" || true
+          npx sentry-cli sourcemaps inject ./apps/web/web-build
+          npx sentry-cli sourcemaps upload --release "$RELEASE" ./apps/web/web-build
+          npx sentry-cli releases finalize "$RELEASE" || true
+
+      - name: Cleanup Web Sourcemaps and License Files
+        if: always()
+        run: |
+          find ./apps/web/web-build \
+            \( -name '*.js.map' -o -name '*.css.map' -o -name '*.LICENSE.txt' \) \
+            -type f -delete
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
