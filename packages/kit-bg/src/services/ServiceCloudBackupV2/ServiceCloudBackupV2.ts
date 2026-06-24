@@ -410,7 +410,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         isFromCloudBackupRestore: true,
       });
 
-      const { success, errorsInfo } =
+      const { success, errorsInfo, taskUUID } =
         await this.backgroundApi.servicePrimeTransfer.startImport({
           selectedTransferData,
           includingDefaultNetworks: true,
@@ -421,6 +421,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
       await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
         errorsInfo,
+        taskUUID,
       });
 
       // TODO: Implement the restore flow similar to ServicePrimeTransfer
