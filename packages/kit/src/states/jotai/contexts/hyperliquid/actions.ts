@@ -5,6 +5,7 @@ import { isEqual, isNil } from 'lodash';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getTpSlKind } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/utils/lineBuilder';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
@@ -3111,16 +3112,14 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           // Dragging a TP/SL line moves its trigger price; modify in place as a
           // trigger order so HL keeps its reduce-only / position-tpsl nature.
-          const isTriggerTpSl =
-            existing.isTrigger &&
-            (existing.orderType.startsWith('Take') ||
-              existing.orderType.startsWith('Stop'));
-          const trigger = isTriggerTpSl
+          // Classify with the same helper the line builder uses to mark a line
+          // editable, so every draggable TP/SL (incl. 'Trigger'-prefixed
+          // position TP/SL) amends as a trigger instead of degrading to a limit.
+          const tpSlKind = getTpSlKind(existing);
+          const trigger = tpSlKind
             ? {
                 isMarket: existing.orderType.includes('Market'),
-                tpsl: existing.orderType.startsWith('Take')
-                  ? ('tp' as const)
-                  : ('sl' as const),
+                tpsl: tpSlKind,
               }
             : undefined;
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(

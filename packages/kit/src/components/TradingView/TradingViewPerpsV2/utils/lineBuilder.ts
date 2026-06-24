@@ -9,7 +9,7 @@ import type {
   IPerpsFrontendOrder,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import type { ITVLine, ITVLineKind, ITVLineSide } from '../types';
+import type { ITVLine, ITVLineSide } from '../types';
 
 let lineVersionCounter = 0;
 
@@ -168,7 +168,7 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
 
 function inferTpSlKindFromTriggerOrder(
   order: IPerpsFrontendOrder,
-): ITVLineKind | null {
+): 'tp' | 'sl' | null {
   if (!order.isPositionTpsl || !order.orderType.startsWith('Trigger')) {
     return null;
   }
@@ -192,7 +192,7 @@ function inferTpSlKindFromTriggerOrder(
   return null;
 }
 
-function getTpSlKind(order: IPerpsFrontendOrder): ITVLineKind | null {
+export function getTpSlKind(order: IPerpsFrontendOrder): 'tp' | 'sl' | null {
   if (order.orderType.startsWith('Take Profit')) {
     return 'tp';
   }
