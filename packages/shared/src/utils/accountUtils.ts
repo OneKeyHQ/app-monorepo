@@ -1160,14 +1160,6 @@ function isEnabledBtcFreshAddress({
   return false;
 }
 
-function buildKeylessWalletId({
-  sharePackSetId,
-}: {
-  sharePackSetId: string;
-}): string {
-  return `${WALLET_TYPE_HD}-keyless-${sharePackSetId}`;
-}
-
 function buildHdWalletHash({ mnemonic }: { mnemonic: string }): string {
   const text = `${mnemonic}--${HD_WALLET_HASH_SALT}`;
   return bufferUtils.bytesToHex(
@@ -1206,16 +1198,6 @@ function isKeylessAccount({ accountId }: { accountId: string }): boolean {
   return isKeylessWallet({ walletId });
 }
 
-function getKeylessWalletPackSetId({ walletId }: { walletId: string }): string {
-  const packSetId = walletId.split(`${WALLET_TYPE_HD}-keyless-`)[1];
-  if (!packSetId) {
-    throw new OneKeyLocalError(
-      'getKeylessWalletPackSetId ERROR: packSetId is empty',
-    );
-  }
-  return packSetId;
-}
-
 // ---- Bot Wallet ID utilities ----
 
 function buildBotWalletId({
@@ -1242,14 +1224,6 @@ function isBotAccount({ accountId }: { accountId: string }): boolean {
 }
 
 // ---- End Bot Wallet ID utilities ----
-
-function buildKeylessDevicePackKey({
-  packSetId,
-}: {
-  packSetId: string;
-}): string {
-  return `OneKey_Keyless__${packSetId}`;
-}
 
 function buildKeylessMnemonicPasswordKey({
   ownerId,
@@ -1357,12 +1331,9 @@ export default {
   URL_ACCOUNT_ID,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 
-  getKeylessWalletPackSetId,
-  buildKeylessDevicePackKey,
   buildKeylessMnemonicPasswordKey,
   buildKeylessRefreshTokenKey,
   buildKeylessTokenKey,
-  buildKeylessWalletId,
   buildHdWalletHash,
   buildKeylessWalletIdV2,
   buildAccountValueKey,

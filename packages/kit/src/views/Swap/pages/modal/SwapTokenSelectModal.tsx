@@ -94,6 +94,7 @@ import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import {
   buildSwapStockMetadataKey,
+  buildSwapStockSelectableNetworks,
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
@@ -156,27 +157,12 @@ const SwapTokenSelectPage = ({
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
   const swapNetworksIncludeAllNetwork = useMemo(() => {
-    if (!isSwapStockSelectTarget || !stockSelectDefaultNetworkId) {
-      return swapNetworksIncludeAllNetworkBase;
-    }
-    if (
-      swapNetworksIncludeAllNetworkBase.some(
-        (network) => network.networkId === stockSelectDefaultNetworkId,
-      )
-    ) {
-      return swapNetworksIncludeAllNetworkBase;
-    }
-    const stockNetwork = rawSwapNetworks.find(
-      (network) => network.networkId === stockSelectDefaultNetworkId,
-    );
-    if (!stockNetwork) {
-      return swapNetworksIncludeAllNetworkBase;
-    }
-    const [allNetwork, ...networks] = swapNetworksIncludeAllNetworkBase;
-    if (!allNetwork) {
-      return [stockNetwork, ...networks];
-    }
-    return [allNetwork, stockNetwork, ...networks];
+    return buildSwapStockSelectableNetworks({
+      isSwapStockSelectTarget,
+      rawSwapNetworks,
+      stockSelectDefaultNetworkId,
+      swapNetworksIncludeAllNetworkBase,
+    });
   }, [
     isSwapStockSelectTarget,
     rawSwapNetworks,

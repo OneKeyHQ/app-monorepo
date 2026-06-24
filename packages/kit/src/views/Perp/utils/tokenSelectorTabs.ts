@@ -200,6 +200,37 @@ function sortPerpTokenSelectorItemsBySortValue<T>({
     .map(({ item }) => item);
 }
 
+function sortPerpTokenSelectorItemsByServerOrder<T>({
+  items,
+  tokenOrder,
+  getTokenName,
+}: {
+  items: T[];
+  tokenOrder: string[];
+  getTokenName: (item: T) => string | undefined;
+}) {
+  const tokenRank = new Map<string, number>();
+  tokenOrder.forEach((token, index) => {
+    if (!tokenRank.has(token)) {
+      tokenRank.set(token, index);
+    }
+  });
+  return items
+    .map((item, index) => {
+      const tokenName = getTokenName(item);
+      return {
+        item,
+        index,
+        rank:
+          tokenName && tokenRank.has(tokenName)
+            ? (tokenRank.get(tokenName) ?? Number.MAX_SAFE_INTEGER)
+            : Number.MAX_SAFE_INTEGER,
+      };
+    })
+    .toSorted((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ item }) => item);
+}
+
 function shouldRefreshPerpTokenSelectorSortSnapshot({
   lastSort,
   field,
@@ -231,6 +262,7 @@ export {
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
+  sortPerpTokenSelectorItemsByServerOrder,
   sortPerpTokenSelectorItemsBySortValue,
 };
 

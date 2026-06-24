@@ -1,16 +1,21 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
 import {
+  Button,
+  Dialog,
   Icon,
   SegmentControl,
-  Select,
   SizableText,
+  Stack,
   XStack,
+  YStack,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 
 import type {
   ITradingViewIntervalConfigData,
@@ -18,18 +23,45 @@ import type {
 } from './types';
 
 const MAX_VISIBLE_INTERVAL_COUNT = 3;
-
-const INTERVAL_UNIT_LABELS = {
-  m: 'minute',
-  h: 'hour',
-  d: 'day',
-  w: 'week',
-  M: 'month',
+const MAX_PREFERRED_INTERVAL_COUNT = 4;
+const INTERVAL_GRID_COLUMN_COUNT = 4;
+const INTERVAL_GRID_ITEM_LAYOUT_PROPS = {
+  flex: 1,
+  flexBasis: 0,
+  h: 32,
+  minWidth: 0,
+  px: '$3',
+  borderWidth: 1,
 } as const;
+const PREFERRED_INTERVAL_STORAGE_KEY =
+  'trading_view_native_preferred_intervals_v1';
+const DEFAULT_PREFERRED_INTERVAL_LABELS = ['1m', '15m', '1H', '4H'];
+const ALL_INTERVAL_OPTION_TEMPLATES = [
+  { label: '1m', fallbackValue: '1' },
+  { label: '3m', fallbackValue: '3' },
+  { label: '5m', fallbackValue: '5' },
+  { label: '15m', fallbackValue: '15' },
+  { label: '30m', fallbackValue: '30' },
+  { label: '1H', fallbackValue: '60' },
+  { label: '2H', fallbackValue: '120' },
+  { label: '4H', fallbackValue: '240' },
+  { label: '8H', fallbackValue: '480' },
+  { label: '12H', fallbackValue: '720' },
+  { label: '1D', fallbackValue: '1D' },
+  { label: '3D', fallbackValue: '3D' },
+  { label: '1W', fallbackValue: '1W' },
+  { label: '1M', fallbackValue: '1M' },
+] as const;
 
 interface ITradingViewNativeIntervalSelectorProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   onIntervalChange: (interval: string) => void;
+}
+
+function buildIntervalItemTestID(section: string, value: string): string {
+  return `trading-view-native-interval-${section}-${value
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 80)}`;
 }
 
 function normalizeIntervalOptions(
@@ -45,73 +77,591 @@ function normalizeIntervalOptions(
       }
 
       seenValues.add(value);
-      result.push({ label, value });
+      result.push({
+        label,
+        value,
+        ...(option.disabled === undefined ? {} : { disabled: option.disabled }),
+      });
       return result;
     },
     [],
   );
 }
 
-function getPluralizedIntervalUnit(
-  unit: keyof typeof INTERVAL_UNIT_LABELS,
-  count: number,
-) {
-  const unitLabel = INTERVAL_UNIT_LABELS[unit];
-  return count === 1 ? unitLabel : `${unitLabel}s`;
+function isIntervalOptionDisabled(option: ITradingViewIntervalOption) {
+  return option.disabled === true;
 }
 
-function getIntervalLabelParts(option: ITradingViewIntervalOption) {
-  const labelMatch = option.label.match(/^(\d+)\s*([mhdwHDWM])$/);
-  if (labelMatch) {
-    const count = Number(labelMatch[1]);
-    const rawUnit = labelMatch[2];
-    const unit = (
-      rawUnit === 'M' ? rawUnit : rawUnit.toLowerCase()
-    ) as keyof typeof INTERVAL_UNIT_LABELS;
-    if (Number.isFinite(count) && count > 0 && unit in INTERVAL_UNIT_LABELS) {
-      return { count, unit };
+function normalizeIntervalLabel(label: string) {
+  const normalizedLabel = label.replace(/\s/g, '');
+  const labelMatch = normalizedLabel.match(/^(\d+)([a-zA-Z]+)$/);
+  if (!labelMatch) {
+    return normalizedLabel;
+  }
+
+  const [, count, unit] = labelMatch;
+  if (unit === 'M') {
+    return `${count}M`;
+  }
+
+  const normalizedUnit = unit.toLowerCase();
+  if (normalizedUnit === 'm') {
+    return `${count}m`;
+  }
+  if (normalizedUnit === 'h') {
+    return `${count}H`;
+  }
+  if (normalizedUnit === 'd') {
+    return `${count}D`;
+  }
+  if (normalizedUnit === 'w') {
+    return `${count}W`;
+  }
+
+  return normalizedLabel;
+}
+
+function getAllIntervalOptions(options: ITradingViewIntervalOption[]) {
+  const optionsByLabel = new Map<string, ITradingViewIntervalOption>();
+  const optionsByValue = new Map<string, ITradingViewIntervalOption>();
+  options.forEach((option) => {
+    const normalizedLabel = normalizeIntervalLabel(option.label);
+    const existingOption = optionsByLabel.get(normalizedLabel);
+    if (!existingOption || isIntervalOptionDisabled(existingOption)) {
+      optionsByLabel.set(normalizedLabel, option);
     }
-  }
 
-  const valueMatch = option.value.match(/^(\d+)([HDWM])?$/);
-  if (!valueMatch) {
-    return null;
-  }
+    const existingValueOption = optionsByValue.get(option.value);
+    if (!existingValueOption || isIntervalOptionDisabled(existingValueOption)) {
+      optionsByValue.set(option.value, option);
+    }
+  });
 
-  const rawCount = Number(valueMatch[1]);
-  if (!Number.isFinite(rawCount) || rawCount <= 0) {
-    return null;
-  }
+  const seenValues = new Set<string>();
+  const seenLabels = new Set<string>();
+  const allOptions: ITradingViewIntervalOption[] =
+    ALL_INTERVAL_OPTION_TEMPLATES.map((template) => {
+      const normalizedLabel = normalizeIntervalLabel(template.label);
+      const matchedOption =
+        optionsByLabel.get(normalizedLabel) ??
+        optionsByValue.get(template.fallbackValue);
+      const option = matchedOption
+        ? {
+            ...matchedOption,
+            label: template.label,
+          }
+        : {
+            label: template.label,
+            value: template.fallbackValue,
+            disabled: true,
+          };
 
-  const valueUnit = valueMatch[2];
-  if (valueUnit === 'D') {
-    return { count: rawCount, unit: 'd' as const };
-  }
-  if (valueUnit === 'W') {
-    return { count: rawCount, unit: 'w' as const };
-  }
-  if (valueUnit === 'M') {
-    return { count: rawCount, unit: 'M' as const };
-  }
-  if (valueUnit === 'H') {
-    return { count: rawCount, unit: 'h' as const };
-  }
-  if (rawCount >= 60 && rawCount % 60 === 0) {
-    return { count: rawCount / 60, unit: 'h' as const };
-  }
-  return { count: rawCount, unit: 'm' as const };
+      seenLabels.add(normalizedLabel);
+      seenValues.add(option.value);
+      return option;
+    });
+
+  options.forEach((option) => {
+    const normalizedLabel = normalizeIntervalLabel(option.label);
+    if (seenLabels.has(normalizedLabel) || seenValues.has(option.value)) {
+      return;
+    }
+    seenLabels.add(normalizedLabel);
+    seenValues.add(option.value);
+    allOptions.push(option);
+  });
+
+  return allOptions;
 }
 
-function getFullIntervalLabel(option: ITradingViewIntervalOption) {
-  const labelParts = getIntervalLabelParts(option);
-  if (!labelParts) {
-    return option.label;
+function getDefaultPreferredIntervalValues(
+  options: ITradingViewIntervalOption[],
+) {
+  const defaultValues = DEFAULT_PREFERRED_INTERVAL_LABELS.reduce<string[]>(
+    (result, label) => {
+      const normalizedLabel = normalizeIntervalLabel(label);
+      const matchedOption = options.find(
+        (option) =>
+          !isIntervalOptionDisabled(option) &&
+          normalizeIntervalLabel(option.label) === normalizedLabel,
+      );
+      if (matchedOption && !result.includes(matchedOption.value)) {
+        result.push(matchedOption.value);
+      }
+      return result;
+    },
+    [],
+  );
+
+  options.forEach((option) => {
+    if (
+      defaultValues.length < MAX_PREFERRED_INTERVAL_COUNT &&
+      !isIntervalOptionDisabled(option) &&
+      !defaultValues.includes(option.value)
+    ) {
+      defaultValues.push(option.value);
+    }
+  });
+
+  return defaultValues.slice(0, MAX_PREFERRED_INTERVAL_COUNT);
+}
+
+function reconcileIntervalValues(
+  values: string[] | null | undefined,
+  options: ITradingViewIntervalOption[],
+) {
+  if (!values?.length) {
+    return [];
   }
 
-  return `${labelParts.count} ${getPluralizedIntervalUnit(
-    labelParts.unit,
-    labelParts.count,
-  )}`;
+  const optionValueSet = new Set(
+    options
+      .filter((option) => !isIntervalOptionDisabled(option))
+      .map((option) => option.value),
+  );
+  const seenValues = new Set<string>();
+  return values.reduce<string[]>((result, value) => {
+    const normalizedValue = value.trim();
+    if (
+      !normalizedValue ||
+      seenValues.has(normalizedValue) ||
+      !optionValueSet.has(normalizedValue)
+    ) {
+      return result;
+    }
+
+    seenValues.add(normalizedValue);
+    result.push(normalizedValue);
+    return result;
+  }, []);
+}
+
+function sortIntervalValues(
+  values: string[],
+  options: ITradingViewIntervalOption[],
+) {
+  const optionOrderMap = new Map<string, number>();
+  options.forEach((option, index) => {
+    optionOrderMap.set(option.value, index);
+  });
+
+  return values.toSorted(
+    (valueA, valueB) =>
+      (optionOrderMap.get(valueA) ?? Number.MAX_SAFE_INTEGER) -
+      (optionOrderMap.get(valueB) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
+function parseStoredPreferredIntervalValues(rawValue: string | null) {
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as
+      | { values?: unknown }
+      | unknown[];
+    const values = Array.isArray(parsedValue)
+      ? parsedValue
+      : parsedValue.values;
+    if (!Array.isArray(values)) {
+      return null;
+    }
+
+    return values.filter((value): value is string => typeof value === 'string');
+  } catch {
+    return null;
+  }
+}
+
+async function readStoredPreferredIntervalValues() {
+  try {
+    const rawValue = await appStorage.getItem(PREFERRED_INTERVAL_STORAGE_KEY);
+    return parseStoredPreferredIntervalValues(rawValue);
+  } catch {
+    return null;
+  }
+}
+
+async function saveStoredPreferredIntervalValues(values: string[]) {
+  try {
+    await appStorage.setItem(
+      PREFERRED_INTERVAL_STORAGE_KEY,
+      JSON.stringify({
+        values,
+      }),
+    );
+  } catch {
+    // UI preference only; keep the in-memory state if storage is unavailable.
+  }
+}
+
+function getOptionsByValues(
+  values: string[],
+  options: ITradingViewIntervalOption[],
+) {
+  return values
+    .map((value) => options.find((option) => option.value === value))
+    .filter((option): option is ITradingViewIntervalOption => Boolean(option));
+}
+
+function IntervalPill({
+  option,
+  section,
+  isActive,
+  isSelected,
+  showCheckMark,
+  disabled,
+  onPress,
+}: {
+  option: ITradingViewIntervalOption;
+  section: string;
+  isActive: boolean;
+  isSelected?: boolean;
+  showCheckMark?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const isHighlighted = isActive || Boolean(isSelected);
+  let textColor = '$textSubdued';
+  if (disabled) {
+    textColor = '$textDisabled';
+  } else if (isHighlighted) {
+    textColor = '$text';
+  }
+
+  return (
+    <Stack
+      key={option.value}
+      testID={buildIntervalItemTestID(section, option.value)}
+      position="relative"
+      {...INTERVAL_GRID_ITEM_LAYOUT_PROPS}
+      borderRadius="$full"
+      borderCurve="continuous"
+      borderColor={isHighlighted && !disabled ? '$bgReverse' : 'transparent'}
+      alignItems="center"
+      justifyContent="center"
+      bg="$bgStrong"
+      overflow="hidden"
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+      opacity={disabled ? 0.5 : 1}
+      cursor={disabled ? 'not-allowed' : 'pointer'}
+      userSelect="none"
+      onPress={disabled ? undefined : onPress}
+    >
+      <SizableText
+        size="$bodyLgMedium"
+        color={textColor}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+      >
+        {option.label}
+      </SizableText>
+      {showCheckMark && !disabled ? (
+        <Stack
+          position="absolute"
+          right={-1}
+          top={-1}
+          w={19}
+          h={19}
+          borderBottomLeftRadius={12}
+          borderCurve="continuous"
+          bg="$bgReverse"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon name="Checkmark1SmallOutline" size="$4" color="$iconInverse" />
+        </Stack>
+      ) : null}
+    </Stack>
+  );
+}
+
+function IntervalGrid({
+  options,
+  activeInterval,
+  selectedValues,
+  section,
+  showSelectedCheckMarks,
+  highlightActiveInterval = true,
+  maxSelectedCount,
+  onIntervalPress,
+}: {
+  options: ITradingViewIntervalOption[];
+  activeInterval: string;
+  selectedValues?: Set<string>;
+  section: string;
+  showSelectedCheckMarks?: boolean;
+  highlightActiveInterval?: boolean;
+  maxSelectedCount?: number;
+  onIntervalPress: (option: ITradingViewIntervalOption) => void;
+}) {
+  const isSelectionLimitReached =
+    maxSelectedCount !== undefined &&
+    (selectedValues?.size ?? 0) >= maxSelectedCount;
+  const rows = useMemo(() => {
+    const result: ITradingViewIntervalOption[][] = [];
+    for (
+      let index = 0;
+      index < options.length;
+      index += INTERVAL_GRID_COLUMN_COUNT
+    ) {
+      result.push(options.slice(index, index + INTERVAL_GRID_COLUMN_COUNT));
+    }
+    return result;
+  }, [options]);
+
+  return (
+    <YStack gap="$2.5">
+      {rows.map((row, rowIndex) => {
+        const placeholderCount = INTERVAL_GRID_COLUMN_COUNT - row.length;
+        return (
+          <XStack key={`${section}-row-${rowIndex}`} gap="$2.5">
+            {row.map((option) => {
+              const isSelected = selectedValues?.has(option.value) ?? false;
+              const isDisabled =
+                isIntervalOptionDisabled(option) ||
+                (isSelectionLimitReached && !isSelected);
+              return (
+                <IntervalPill
+                  key={option.value}
+                  option={option}
+                  section={section}
+                  isActive={
+                    highlightActiveInterval && option.value === activeInterval
+                  }
+                  isSelected={isSelected}
+                  showCheckMark={showSelectedCheckMarks && isSelected}
+                  disabled={isDisabled}
+                  onPress={() => {
+                    if (!isDisabled) {
+                      onIntervalPress(option);
+                    }
+                  }}
+                />
+              );
+            })}
+            {Array.from({ length: placeholderCount }).map((_, index) => (
+              <Stack
+                key={`${section}-placeholder-${rowIndex}-${index}`}
+                {...INTERVAL_GRID_ITEM_LAYOUT_PROPS}
+                borderColor="transparent"
+                opacity={0}
+                pointerEvents="none"
+              />
+            ))}
+          </XStack>
+        );
+      })}
+    </YStack>
+  );
+}
+
+function IntervalsDialogSection({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <YStack gap="$3">
+      <XStack alignItems="center" justifyContent="space-between">
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {title}
+        </SizableText>
+        {action}
+      </XStack>
+      {children}
+    </YStack>
+  );
+}
+
+function IntervalsDialogContent({
+  options,
+  editableOptions,
+  activeInterval,
+  preferredValues,
+  defaultPreferredValues,
+  onIntervalChange,
+  onPreferredValuesChange,
+}: {
+  options: ITradingViewIntervalOption[];
+  editableOptions: ITradingViewIntervalOption[];
+  activeInterval: string;
+  preferredValues: string[];
+  defaultPreferredValues: string[];
+  onIntervalChange: (interval: string) => void;
+  onPreferredValuesChange: (values: string[]) => void;
+}) {
+  const intl = useIntl();
+  const dialog = useDialogInstance();
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftPreferredValues, setDraftPreferredValues] =
+    useState(preferredValues);
+  const draftPreferredValueSet = useMemo(
+    () => new Set(draftPreferredValues),
+    [draftPreferredValues],
+  );
+  const preferredOptions = useMemo(
+    () => getOptionsByValues(preferredValues, options),
+    [options, preferredValues],
+  );
+  const reconciledDraftPreferredValues = useMemo(
+    () => reconcileIntervalValues(draftPreferredValues, editableOptions),
+    [draftPreferredValues, editableOptions],
+  );
+
+  const handleIntervalPress = useCallback(
+    (option: ITradingViewIntervalOption) => {
+      if (isIntervalOptionDisabled(option)) {
+        return;
+      }
+      onIntervalChange(option.value);
+      void dialog.close();
+    },
+    [dialog, onIntervalChange],
+  );
+
+  const handleDraftIntervalPress = useCallback(
+    (option: ITradingViewIntervalOption) => {
+      if (isIntervalOptionDisabled(option)) {
+        return;
+      }
+      setDraftPreferredValues((currentValues) => {
+        if (currentValues.includes(option.value)) {
+          return currentValues.filter((value) => value !== option.value);
+        }
+
+        if (currentValues.length >= MAX_PREFERRED_INTERVAL_COUNT) {
+          return currentValues;
+        }
+
+        return [...currentValues, option.value];
+      });
+    },
+    [],
+  );
+
+  const handleResetPress = useCallback(() => {
+    setDraftPreferredValues(defaultPreferredValues);
+  }, [defaultPreferredValues]);
+
+  const handleConfirmPress = useCallback(() => {
+    if (reconciledDraftPreferredValues.length) {
+      onPreferredValuesChange(
+        sortIntervalValues(
+          reconciledDraftPreferredValues,
+          editableOptions,
+        ).slice(0, MAX_PREFERRED_INTERVAL_COUNT),
+      );
+      void dialog.close();
+    }
+  }, [
+    dialog,
+    editableOptions,
+    onPreferredValuesChange,
+    reconciledDraftPreferredValues,
+  ]);
+
+  if (isEditing) {
+    return (
+      <YStack gap="$5">
+        <SizableText size="$bodyLg" color="$text">
+          {`Select preferred intervals ${draftPreferredValues.length}/${MAX_PREFERRED_INTERVAL_COUNT}`}
+        </SizableText>
+        <IntervalGrid
+          options={editableOptions}
+          activeInterval={activeInterval}
+          selectedValues={draftPreferredValueSet}
+          section="edit"
+          showSelectedCheckMarks
+          highlightActiveInterval={false}
+          maxSelectedCount={MAX_PREFERRED_INTERVAL_COUNT}
+          onIntervalPress={handleDraftIntervalPress}
+        />
+        <XStack gap="$3" pt="$2">
+          <Button
+            flex={1}
+            size="large"
+            variant="secondary"
+            testID="trading-view-native-intervals-reset-button"
+            onPress={handleResetPress}
+          >
+            {intl.formatMessage({ id: ETranslations.global_reset })}
+          </Button>
+          <Button
+            flex={1}
+            size="large"
+            variant="primary"
+            testID="trading-view-native-intervals-confirm-button"
+            disabled={!reconciledDraftPreferredValues.length}
+            onPress={handleConfirmPress}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
+        </XStack>
+      </YStack>
+    );
+  }
+
+  return (
+    <YStack gap="$6">
+      {preferredOptions.length ? (
+        <IntervalsDialogSection title="Preferred intervals">
+          <IntervalGrid
+            options={preferredOptions}
+            activeInterval={activeInterval}
+            section="preferred"
+            onIntervalPress={handleIntervalPress}
+          />
+        </IntervalsDialogSection>
+      ) : null}
+
+      <IntervalsDialogSection
+        title="All intervals"
+        action={
+          <XStack
+            testID="trading-view-native-intervals-edit-button"
+            alignItems="center"
+            gap="$1"
+            px="$1"
+            py="$1"
+            cursor="pointer"
+            userSelect="none"
+            onPress={() => {
+              setDraftPreferredValues(preferredValues);
+              setIsEditing(true);
+            }}
+          >
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_edit })}
+            </SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+        }
+      >
+        <IntervalGrid
+          options={options}
+          activeInterval={activeInterval}
+          section="all"
+          onIntervalPress={handleIntervalPress}
+        />
+      </IntervalsDialogSection>
+    </YStack>
+  );
 }
 
 export const TradingViewNativeIntervalSelector = memo(
@@ -120,11 +670,46 @@ export const TradingViewNativeIntervalSelector = memo(
     onIntervalChange,
   }: ITradingViewNativeIntervalSelectorProps) => {
     const intl = useIntl();
+    const [storedPreferredIntervalValues, setStoredPreferredIntervalValues] =
+      useState<string[] | null>(null);
+    const [
+      hasLoadedStoredPreferredIntervals,
+      setHasLoadedStoredPreferredIntervals,
+    ] = useState(false);
+    const hasUpdatedPreferredIntervalsRef = useRef(false);
+    const intervalsDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(
+      null,
+    );
+
+    const closeIntervalsDialog = useCallback(() => {
+      const dialogInstance = intervalsDialogRef.current;
+      intervalsDialogRef.current = null;
+      void dialogInstance?.close();
+    }, []);
 
     const options = useMemo(
       () => normalizeIntervalOptions(intervalConfig?.intervals),
       [intervalConfig?.intervals],
     );
+
+    useEffect(() => {
+      let isMounted = true;
+      void readStoredPreferredIntervalValues()
+        .then((values) => {
+          if (isMounted && !hasUpdatedPreferredIntervalsRef.current) {
+            setStoredPreferredIntervalValues(values);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setHasLoadedStoredPreferredIntervals(true);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, []);
 
     const activeInterval = useMemo(() => {
       const configuredInterval = intervalConfig?.activeInterval?.trim();
@@ -138,118 +723,192 @@ export const TradingViewNativeIntervalSelector = memo(
       return options[0]?.value ?? '';
     }, [intervalConfig?.activeInterval, options]);
 
+    const defaultPreferredIntervalValues = useMemo(
+      () => getDefaultPreferredIntervalValues(options),
+      [options],
+    );
+
+    const dialogOptions = useMemo(
+      () => getAllIntervalOptions(options),
+      [options],
+    );
+
+    const preferredIntervalValues = useMemo(() => {
+      const storedValues = hasLoadedStoredPreferredIntervals
+        ? storedPreferredIntervalValues
+        : null;
+      const reconciledStoredValues = reconcileIntervalValues(
+        storedValues,
+        options,
+      );
+      return reconciledStoredValues.length
+        ? sortIntervalValues(reconciledStoredValues, dialogOptions).slice(
+            0,
+            MAX_PREFERRED_INTERVAL_COUNT,
+          )
+        : defaultPreferredIntervalValues;
+    }, [
+      defaultPreferredIntervalValues,
+      hasLoadedStoredPreferredIntervals,
+      dialogOptions,
+      options,
+      storedPreferredIntervalValues,
+    ]);
+
+    const preferredOptions = useMemo(
+      () => getOptionsByValues(preferredIntervalValues, options),
+      [options, preferredIntervalValues],
+    );
+
     const segmentOptions = useMemo(
       () =>
-        options.slice(0, MAX_VISIBLE_INTERVAL_COUNT).map((option) => ({
+        preferredOptions.slice(0, MAX_VISIBLE_INTERVAL_COUNT).map((option) => ({
           label: option.label,
           value: option.value,
+          disabled: isIntervalOptionDisabled(option),
         })),
-      [options],
+      [preferredOptions],
     );
 
-    const dropdownShortOptions = useMemo(
-      () => options.slice(MAX_VISIBLE_INTERVAL_COUNT),
-      [options],
+    const visibleSegmentValueSet = useMemo(
+      () => new Set(segmentOptions.map((option) => option.value)),
+      [segmentOptions],
     );
 
-    const dropdownOptions = useMemo<ISelectItem[]>(
-      () =>
-        dropdownShortOptions.map((option) => ({
-          label: getFullIntervalLabel(option),
-          value: option.value,
-        })),
-      [dropdownShortOptions],
+    const activeOption = useMemo(
+      () => options.find((option) => option.value === activeInterval) ?? null,
+      [activeInterval, options],
     );
 
-    const activeDropdownOption = useMemo(
-      () =>
-        dropdownShortOptions.find(
-          (option) => option.value === activeInterval,
-        ) ?? null,
-      [activeInterval, dropdownShortOptions],
+    const handlePreferredValuesChange = useCallback(
+      (values: string[]) => {
+        const reconciledValues = reconcileIntervalValues(values, options);
+        const sortedValues = sortIntervalValues(
+          reconciledValues,
+          dialogOptions,
+        ).slice(0, MAX_PREFERRED_INTERVAL_COUNT);
+        hasUpdatedPreferredIntervalsRef.current = true;
+        setStoredPreferredIntervalValues(sortedValues);
+        setHasLoadedStoredPreferredIntervals(true);
+        void saveStoredPreferredIntervalValues(sortedValues);
+      },
+      [dialogOptions, options],
     );
 
     const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
-    const hasDropdownOptions = dropdownOptions.length > 0;
-    const isDropdownActive = Boolean(activeDropdownOption);
+    const isMoreTriggerActive =
+      Boolean(activeOption) && !visibleSegmentValueSet.has(activeInterval);
+    const moreTriggerLabel = isMoreTriggerActive
+      ? (activeOption?.label ?? moreLabel)
+      : moreLabel;
 
-    if (segmentOptions.length <= 1 || !activeInterval) {
+    const showIntervalsDialog = useCallback(() => {
+      closeIntervalsDialog();
+      const dialogInstance = Dialog.show({
+        title: 'Intervals',
+        showFooter: false,
+        testID: 'trading-view-native-intervals-dialog',
+        onClose: () => {
+          if (intervalsDialogRef.current === dialogInstance) {
+            intervalsDialogRef.current = null;
+          }
+        },
+        renderContent: (
+          <IntervalsDialogContent
+            options={options}
+            editableOptions={dialogOptions}
+            activeInterval={activeInterval}
+            preferredValues={preferredIntervalValues}
+            defaultPreferredValues={defaultPreferredIntervalValues}
+            onIntervalChange={onIntervalChange}
+            onPreferredValuesChange={handlePreferredValuesChange}
+          />
+        ),
+      });
+      intervalsDialogRef.current = dialogInstance;
+    }, [
+      activeInterval,
+      closeIntervalsDialog,
+      defaultPreferredIntervalValues,
+      dialogOptions,
+      handlePreferredValuesChange,
+      onIntervalChange,
+      options,
+      preferredIntervalValues,
+    ]);
+
+    useEffect(() => closeIntervalsDialog, [closeIntervalsDialog]);
+
+    if (options.length <= 1 || !activeInterval) {
       return null;
     }
 
     return (
       <XStack gap="$0" alignItems="center">
-        <SegmentControl
-          value={isDropdownActive ? '' : activeInterval}
-          options={segmentOptions}
-          onChange={(value) => {
-            if (typeof value === 'string') {
-              onIntervalChange(value);
-            }
-          }}
-          slotBackgroundColor="$transparent"
-          activeBackgroundColor="$bgStrong"
-          activeTextColor="$text"
-          inactiveTextColor="$textSubdued"
-          h={30}
-          p="$0.5"
-          segmentControlItemStyleProps={{
-            minWidth: 42,
-            px: '$2.5',
-            py: '$1',
-          }}
-        />
-        {hasDropdownOptions ? (
-          <Select
-            testID="trading-view-native-interval-selector-more-select"
-            title={moreLabel}
-            items={dropdownOptions}
+        {segmentOptions.length ? (
+          <SegmentControl
             value={
-              typeof activeDropdownOption?.value === 'string'
-                ? activeDropdownOption.value
-                : undefined
+              visibleSegmentValueSet.has(activeInterval) ? activeInterval : ''
             }
+            options={segmentOptions}
             onChange={(value) => {
-              if (typeof value === 'string') {
+              const nextOption = options.find(
+                (option) => option.value === value,
+              );
+              if (
+                typeof value === 'string' &&
+                nextOption &&
+                !isIntervalOptionDisabled(nextOption)
+              ) {
                 onIntervalChange(value);
               }
             }}
-            placement="bottom-start"
-            floatingPanelProps={{ width: '$32' }}
-            renderTrigger={({ onPress }) => (
-              <XStack
-                h={30}
-                px="$2.5"
-                gap="$1"
-                alignItems="center"
-                borderRadius="$full"
-                borderCurve="continuous"
-                bg={isDropdownActive ? '$bgStrong' : '$transparent'}
-                hoverStyle={{
-                  bg: isDropdownActive ? '$bgStrongHover' : '$bgHover',
-                }}
-                pressStyle={{
-                  bg: isDropdownActive ? '$bgStrongActive' : '$bgActive',
-                }}
-                onPress={onPress}
-                cursor="pointer"
-                userSelect="none"
-              >
-                <SizableText
-                  size="$bodyMdMedium"
-                  numberOfLines={1}
-                  color={isDropdownActive ? '$text' : '$textSubdued'}
-                >
-                  {activeDropdownOption?.label ?? moreLabel}
-                </SizableText>
-                <Icon
-                  name="ChevronDownSmallOutline"
-                  size="$4"
-                  color={isDropdownActive ? '$icon' : '$iconSubdued'}
-                />
-              </XStack>
-            )}
+            slotBackgroundColor="$transparent"
+            activeBackgroundColor="$bgStrong"
+            activeTextColor="$text"
+            inactiveTextColor="$textSubdued"
+            h={30}
+            p="$0.5"
+            segmentControlItemStyleProps={{
+              minWidth: 42,
+              px: '$2.5',
+              py: '$1',
+            }}
           />
+        ) : null}
+        {options.length > segmentOptions.length ? (
+          <XStack
+            testID="trading-view-native-interval-selector-more-select"
+            h={30}
+            px="$2.5"
+            gap="$1"
+            alignItems="center"
+            borderRadius="$full"
+            borderCurve="continuous"
+            bg={isMoreTriggerActive ? '$bgStrong' : '$transparent'}
+            hoverStyle={{
+              bg: isMoreTriggerActive ? '$bgStrongHover' : '$bgHover',
+            }}
+            pressStyle={{
+              bg: isMoreTriggerActive ? '$bgStrongActive' : '$bgActive',
+            }}
+            onPress={showIntervalsDialog}
+            cursor="pointer"
+            userSelect="none"
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              numberOfLines={1}
+              color={isMoreTriggerActive ? '$text' : '$textSubdued'}
+            >
+              {moreTriggerLabel}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              size="$4"
+              color={isMoreTriggerActive ? '$icon' : '$iconSubdued'}
+            />
+          </XStack>
         ) : null}
       </XStack>
     );

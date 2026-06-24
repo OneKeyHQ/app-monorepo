@@ -93,7 +93,7 @@ type ITokenSelectorHeaderRightProps = {
   isCustomNetwork?: IServerNetwork['isCustomNetwork'];
 };
 
-const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
+function TokenSelectorHeaderRightInner({
   showDeFiTokenSwitch,
   loading,
   onLpTokenFilterChange,
@@ -150,7 +150,9 @@ const TokenSelectorHeaderRight = memo(function TokenSelectorHeaderRight({
       ) : null}
     </XStack>
   );
-});
+}
+
+const TokenSelectorHeaderRight = memo(TokenSelectorHeaderRightInner);
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,
@@ -1001,6 +1003,7 @@ function TokenSelector() {
         }
         headerSearchBarOptions={headerSearchBarOptions}
         headerRight={headerRight}
+        headerRightNoGlass
       />
       <Page.Body>
         <TokenListView

@@ -1,9 +1,18 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
-import { EMPTY_DISPLAY_TOKENS, mapMarketTokenToDisplay } from './utils';
+import {
+  HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  HOME_PERPS_HOT_CATEGORY_ID,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+} from './constants';
+import {
+  EMPTY_DISPLAY_TOKENS,
+  mapMarketPerpsTokenToDisplay,
+  mapMarketTokenToDisplay,
+} from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
 import type { IMarketApiTimeFrame } from '../../../Market/MarketHomeV2/types';
@@ -52,6 +61,27 @@ function useHomeMarketCategoryTokens({
           return {
             requestKey: currentRequestKey,
             tokens: EMPTY_DISPLAY_TOKENS,
+          };
+        }
+
+        if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
+          const [response, tokenSearchAliases] = await Promise.all([
+            backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+              category: HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+            }),
+            backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases(),
+          ]);
+
+          return {
+            requestKey: currentRequestKey,
+            tokens: response.tokens
+              .map((token) =>
+                mapMarketPerpsTokenToDisplay({
+                  token,
+                  subtitle: getTokenSubtitle(token.name, tokenSearchAliases),
+                }),
+              )
+              .slice(0, HOME_MARKET_CATEGORY_REQUEST_LIMIT),
           };
         }
 

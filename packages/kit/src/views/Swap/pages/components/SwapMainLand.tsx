@@ -1370,6 +1370,19 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     return 'regular' as const;
   }, [pageType, swapTypeSwitch, showDesktopProviderPanel, gtLg]);
 
+  // Native iOS: zero top padding so the header row (given a fixed h=56 in
+  // SwapHeaderContainer) occupies [top, top+56] — structurally identical to the
+  // Wallet header's Row 1 (h=56, mt=top). Both then center their content at
+  // top+28, so the two tab headers align BY CONSTRUCTION, regardless of the
+  // tab/pill content heights (no tuned padding). Android keeps its original
+  // spacing; large screens already reset to $0 below.
+  let contentTopPadding = '$5';
+  if (pageType === EPageType.modal) {
+    contentTopPadding = '$2.5';
+  } else if (platformEnv.isNativeIOS) {
+    contentTopPadding = '$0';
+  }
+
   return (
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
@@ -1377,7 +1390,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           testID={SwapTestIDs.pageContainer}
           flex={1}
           width="100%"
-          pt={pageType !== EPageType.modal ? '$5' : '$2.5'}
+          pt={contentTopPadding}
           gap="$2"
           $gtMd={{
             flex: 'unset',

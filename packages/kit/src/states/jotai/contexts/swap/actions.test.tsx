@@ -10,11 +10,13 @@ import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useS
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
+  IFetchQuoteResult,
   IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
@@ -24,13 +26,20 @@ import {
 import { useSwapActions } from './actions';
 import {
   ProviderJotaiContextSwap,
+  swapAlertsAtom,
   swapFromTokenAmountAtom,
+  swapInitialSelectedTokensSyncedAtom,
+  swapLastNonLimitSelectedTokensAtom,
   swapNetworks,
   swapQuoteActionLockAtom,
+  swapQuoteCurrentEventProviderKeysAtom,
+  swapQuoteCurrentEventReceivedCountAtom,
+  swapQuoteEventCompletedAtom,
   swapQuoteEventTotalCountAtom,
   swapQuoteListAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
+  swapSelectedTokensColdStartContextAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
   swapTypeSwitchAtom,
@@ -170,6 +179,9 @@ function createWrapperWithStore(
       symbol: 'ETH',
       logoURI: '',
       shortcode: 'eth',
+      supportSingleSwap: true,
+      supportCrossChainSwap: true,
+      supportLimit: true,
     },
     {
       networkId: 'evm--56',
@@ -177,6 +189,9 @@ function createWrapperWithStore(
       symbol: 'BNB',
       logoURI: '',
       shortcode: 'bsc',
+      supportSingleSwap: true,
+      supportCrossChainSwap: true,
+      supportStock: true,
     },
   ]);
   setup?.(store);
@@ -307,6 +322,193 @@ describe('useSwapActions', () => {
     expect(result.current.toToken).toMatchObject({
       symbol: 'AAPL',
       contractAddress: '0xaapl',
+    });
+  });
+
+  it('checks warnings for a current-event quote while providers are still fetching', async () => {
+    const fromToken = {
+      ...ethToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const toToken = {
+      ...usdcToken,
+      price: '100',
+      currency: 'usd',
+    };
+    const quote = {
+      eventId: 'event-warning',
+      quoteId: 'quote-warning',
+      fromAmount: '1',
+      toAmount: '1.2',
+      kind: ESwapQuoteKind.SELL,
+      protocol: EProtocolOfExchange.SWAP,
+      instantRate: '1.2',
+      fromTokenInfo: fromToken,
+      toTokenInfo: toToken,
+      info: {
+        provider: 'mock',
+        providerName: 'mock',
+      },
+    } as IFetchQuoteResult;
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapSelectFromTokenAtom(), fromToken);
+      storeInstance.set(swapSelectToTokenAtom(), toToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '1',
+        isInput: true,
+      });
+      storeInstance.set(swapQuoteListAtom(), [quote]);
+      storeInstance.set(swapQuoteEventTotalCountAtom(), {
+        eventId: 'event-warning',
+        count: 2,
+      });
+      storeInstance.set(swapQuoteCurrentEventProviderKeysAtom(), ['mock-mock']);
+      storeInstance.set(swapQuoteCurrentEventReceivedCountAtom(), 1);
+      storeInstance.set(swapQuoteEventCompletedAtom(), false);
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.checkSwapWarning(
+        fromAddressInfo,
+        fromAddressInfo,
+      );
+    });
+
+    expect(store.get(swapAlertsAtom())).toMatchObject({
+      quoteId: 'quote-warning',
+      states: [
+        {
+          noConnectWallet: true,
+        },
+      ],
+    });
+  });
+
+  it('restores Limit defaults after leaving Stock with cleared tokens', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.resetSwapTokenData(ESwapDirectionType.FROM);
+      await result.current.actions.resetSwapTokenData(ESwapDirectionType.TO);
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--56',
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+        symbol: 'WETH',
+      }),
+    );
+    expect(store.get(swapSelectToTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        contractAddress: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+        symbol: 'USDC',
+      }),
+    );
+  });
+
+  it('does not carry Stock selected tokens through a direct Limit switch', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+      storeInstance.set(swapSelectFromTokenAtom(), usdcToken);
+      storeInstance.set(swapSelectToTokenAtom(), appleStockToken);
+      storeInstance.set(swapFromTokenAmountAtom(), {
+        value: '10',
+        isInput: true,
+      });
+      storeInstance.set(swapSelectedTokensColdStartContextAtom(), {
+        accountKey: 'test-account',
+        networkId: 'evm--56',
+        swapType: ESwapTabSwitchType.STOCK,
+        updatedAt: 1,
+      });
+      storeInstance.set(swapInitialSelectedTokensSyncedAtom(), true);
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.LIMIT,
+        'evm--56',
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.LIMIT);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'WETH',
+      }),
+    );
+    expect(store.get(swapSelectToTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: 'evm--1',
+        symbol: 'USDC',
+      }),
+    );
+    expect(store.get(swapSelectedTokensColdStartContextAtom())).toBeUndefined();
+    expect(store.get(swapInitialSelectedTokensSyncedAtom())).toBe(false);
+    expect(store.get(swapLastNonLimitSelectedTokensAtom())).toBeUndefined();
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        'evm--56',
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).not.toMatchObject({
+      contractAddress: usdcToken.contractAddress,
+    });
+    expect(store.get(swapSelectToTokenAtom())).not.toMatchObject({
+      contractAddress: appleStockToken.contractAddress,
     });
   });
 
