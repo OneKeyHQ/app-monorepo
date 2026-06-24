@@ -1,6 +1,6 @@
-import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { classifyTpSlOrder, getTpSlKind } from './perpsTpSlUtils';
 
+import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 // orderType is widened to string: some real runtime values (notably the bare
 // "Trigger" position TP/SL) are not in the SDK's orderType union but do occur
