@@ -1317,8 +1317,17 @@ class DesktopApiAppBundleUpdate {
                   }
                   // OCDS §5.6: only append when the server resumed at exactly
                   // the offset we asked for. A mis-aligned 206 (start !=
-                  // downloadedBytes) would append at the wrong position, so
-                  // discard the partial and restart cleanly from byte 0.
+                  // downloadedBytes) cannot be salvaged by truncate-and-continue
+                  // the way a 200 can: this response body begins at the server's
+                  // `resumeStart`, NOT at byte 0. Truncating the partial and
+                  // writing this stream from offset 0 would store
+                  // `object[resumeStart..end]` as `[0..]`, leaving the
+                  // `[0..resumeStart)` prefix permanently missing — a short,
+                  // corrupt file that only fails at SHA verification (and whose
+                  // leftover partial can compound on later resumes). So abort
+                  // this request, drop the partial, and reject with a transient
+                  // error; the outer retry loop then re-issues a fresh request
+                  // from byte 0 (no partial => no Range => clean 200/206).
                   const resumeStart = contentRangeStart(
                     response.headers['content-range'],
                   );
@@ -1335,6 +1344,11 @@ class DesktopApiAppBundleUpdate {
                       fs.rmSync(partialFilePath, { force: true });
                     }
                     downloadedBytes = 0;
+                    this.isDownloading = false;
+                    response.destroy();
+                    downloadRequest?.destroy();
+                    safeReject(new Error('206 resume mis-aligned'));
+                    return;
                   }
                 }
 
