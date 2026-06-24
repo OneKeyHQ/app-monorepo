@@ -1203,19 +1203,86 @@ function StockMarketTokenHeader({
     return <StockMarketHeaderSkeleton />;
   }
 
-  return (
+  const tokenIcon = (
+    <Token
+      size="md"
+      tokenImageUri={tokenDetail.logoUrl}
+      tokenImageUris={tokenDetail.logoUrls}
+      networkImageUri={effectiveNetworkLogoUri}
+      showNetworkIconBorder={false}
+      bg="$transparent"
+      fallbackIcon="CryptoCoinOutline"
+    />
+  );
+  const tokenSymbolRow = (
+    <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
+      <SizableText
+        size="$headingSm"
+        color="$text"
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxWidth={132}
+        flexShrink={1}
+      >
+        {tokenDetail.symbol}
+      </SizableText>
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+    </XStack>
+  );
+  const tokenLabelsRow = (
+    <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
+      {stock?.subtitle ? (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {stock.subtitle}
+        </SizableText>
+      ) : null}
+      <StockSourceLogo stock={stock} />
+      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+    </XStack>
+  );
+  const tokenInfoContent = (
     <XStack
       testID={SwapTestIDs.stockMarketTokenHeader}
       alignItems="center"
-      justifyContent="space-between"
-      h="$13"
-      w="100%"
-      gap="$3"
+      alignSelf="flex-start"
+      gap="$2.5"
+      maxWidth="100%"
+      minWidth={0}
+      flexShrink={1}
+      ml="$-3"
+      px="$3"
+      py="$1"
       cursor="pointer"
       borderRadius="$full"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       onPress={handleOpenStockTokenSelector}
+    >
+      {tokenIcon}
+      <YStack minWidth={0} flexShrink={1}>
+        {tokenSymbolRow}
+        {tokenLabelsRow}
+      </YStack>
+    </XStack>
+  );
+
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      h="$13"
+      w="100%"
+      gap="$3"
     >
       <XStack
         flex={1}
@@ -1226,49 +1293,7 @@ function StockMarketTokenHeader({
         px="$0"
         py="$0"
       >
-        <Token
-          size="md"
-          tokenImageUri={tokenDetail.logoUrl}
-          tokenImageUris={tokenDetail.logoUrls}
-          networkImageUri={effectiveNetworkLogoUri}
-          showNetworkIconBorder={false}
-          bg="$transparent"
-          fallbackIcon="CryptoCoinOutline"
-        />
-        <YStack flex={1} minWidth={0}>
-          <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%">
-            <SizableText
-              size="$headingSm"
-              color="$text"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              maxWidth={132}
-              flexShrink={1}
-            >
-              {tokenDetail.symbol}
-            </SizableText>
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-              flexShrink={0}
-            />
-          </XStack>
-          <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-            {stock?.subtitle ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {stock.subtitle}
-              </SizableText>
-            ) : null}
-            <StockSourceLogo stock={stock} />
-            {stock ? <StockIsOpenBadge stock={stock} /> : null}
-          </XStack>
-        </YStack>
+        {tokenInfoContent}
       </XStack>
       <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
         <BaseMarketTokenPrice
