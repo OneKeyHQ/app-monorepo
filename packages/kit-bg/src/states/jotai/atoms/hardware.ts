@@ -156,6 +156,9 @@ export enum EThirdPartyHardwareUiAction {
   // Trezor hidden wallet: host must collect passphrase or request on-device
   // entry. Standard-wallet calls keep using auto-empty passphrase.
   requestTrezorPassphrase = 'request-trezor-passphrase',
+  // Trezor old button devices: host collects the PIN as a matrix position
+  // string (touchscreen devices enter on-device via REQUEST_BUTTON instead).
+  requestTrezorPin = 'request-trezor-pin',
   // Trezor transport fallback: USB is unavailable and this DB device has not
   // yet learned its BLE connectId. UI scans BLE candidates, binds the matching
   // device_id, then resolves the waiting hardware call.

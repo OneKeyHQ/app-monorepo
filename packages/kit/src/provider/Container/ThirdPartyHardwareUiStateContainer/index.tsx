@@ -55,6 +55,7 @@ import { showTrezorBleBindingDialog } from '../../../components/Hardware/TrezorB
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { useInstallCancelVisibility } from './installCancelVisibility';
+import { TrezorPinMatrix } from './TrezorPinMatrix';
 import {
   buildThirdPartyHardwareUiResponse,
   cancelThirdPartyHardwareUiRequest,
@@ -542,6 +543,14 @@ function getDialogContent(
         message: '',
         showFooter: false,
       };
+    case EThirdPartyHardwareUiAction.requestTrezorPin:
+      // The matrix component owns its own header + Confirm key (mirrors the
+      // OneKey HD EnterPin), so no dialog footer.
+      return {
+        title: intl.formatMessage({ id: ETranslations.enter_pin_title }),
+        message: '',
+        showFooter: false,
+      };
     default:
       return { title: '', message: '', showFooter: false };
   }
@@ -812,6 +821,29 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorThpPairing;
   const isTrezorPassphrase =
     uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPassphrase;
+  const isTrezorPin =
+    uiState?.action === EThirdPartyHardwareUiAction.requestTrezorPin;
+
+  const sendTrezorPinResponse = useCallback(
+    async (pin: string) => {
+      const vendor = uiStateRef.current?.vendor;
+      const action = uiStateRef.current?.action;
+      if (!vendor || action !== EThirdPartyHardwareUiAction.requestTrezorPin) {
+        return;
+      }
+      const response = buildThirdPartyHardwareUiResponse(action, true, { pin });
+      if (response) {
+        await backgroundApiProxy.serviceThirdPartyHardware.thirdPartyHardwareUiResponse(
+          {
+            vendor,
+            response,
+          },
+        );
+      }
+      await clearCurrentUiState();
+    },
+    [clearCurrentUiState],
+  );
 
   const sendTrezorPassphraseResponse = useCallback(
     async ({
@@ -858,7 +890,17 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   const dialogContent = useMemo(() => {
     if (!uiState || isToastAction) return null;
-    const { message } = getDialogContent(uiState, intl);
+    const { message, title } = getDialogContent(uiState, intl);
+    if (isTrezorPin) {
+      return (
+        <TrezorPinMatrix
+          title={title}
+          onConfirm={(pin) => {
+            void sendTrezorPinResponse(pin);
+          }}
+        />
+      );
+    }
     if (isTrezorPassphrase) {
       return (
         <EnterPhase
@@ -914,6 +956,8 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     uiState,
     isToastAction,
     intl,
+    isTrezorPin,
+    sendTrezorPinResponse,
     isTrezorPassphrase,
     isThpPairing,
     sendTrezorPassphraseResponse,

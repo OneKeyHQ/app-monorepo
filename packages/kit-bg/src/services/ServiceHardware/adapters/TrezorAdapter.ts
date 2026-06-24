@@ -316,6 +316,20 @@ export class TrezorAdapter
       });
     });
 
+    // Old button devices prompt for the PIN on the host matrix → RECEIVE_PIN
+    // (touchscreen devices enter on-device via REQUEST_BUTTON instead).
+    this.hw.on(UI_REQUEST.REQUEST_PIN, (event) => {
+      const payload = event.payload as { connectId?: string; type?: string };
+      defaultLogger.hardware.sdkLog.log(
+        '[3rdPartyHW][Trezor] REQUEST_PIN -> host PIN matrix',
+      );
+      void thirdPartyHardwareUiStateAtom.set({
+        action: EThirdPartyHardwareUiAction.requestTrezorPin,
+        vendor: EHardwareVendor.trezor,
+        payload: payload.connectId ? { connectId: payload.connectId } : {},
+      });
+    });
+
     // THP lock — emitted as a REQUEST_BUTTON with code=ButtonRequest_PinEntry
     // by hwk-trezor-core when ThpDeviceLocked → tryToUnlock retry. Surface as
     // a toast; the SDK's THP read blocks on its own until the user enters
