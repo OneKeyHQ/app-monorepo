@@ -21,6 +21,7 @@ import type {
   ITradingViewIndicatorsDialogData,
   ITradingViewInteractionOverlayData,
   ITradingViewIntervalConfigData,
+  ITradingViewIntervalOption,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
@@ -265,6 +266,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function normalizeStringOptionDisabled(option: Record<string, unknown>) {
+  if (typeof option.disabled === 'boolean') {
+    return option.disabled;
+  }
+  if (typeof option.enabled === 'boolean') {
+    return !option.enabled;
+  }
+  if (typeof option.available === 'boolean') {
+    return !option.available;
+  }
+  if (typeof option.selectable === 'boolean') {
+    return !option.selectable;
+  }
+  return undefined;
+}
+
 function normalizeStringOptions(
   options: unknown,
 ): { label: string; value: string }[] | null {
@@ -290,6 +307,26 @@ function normalizeStringOptions(
   return normalizedOptions;
 }
 
+function normalizeIntervalOptions(
+  options: unknown,
+): ITradingViewIntervalOption[] | null {
+  const normalizedOptions = normalizeStringOptions(options);
+  if (!normalizedOptions) {
+    return null;
+  }
+
+  return normalizedOptions.map((option, index) => {
+    const rawOption = Array.isArray(options) ? options[index] : null;
+    const disabled = isRecord(rawOption)
+      ? normalizeStringOptionDisabled(rawOption)
+      : undefined;
+    return {
+      ...option,
+      ...(disabled === undefined ? {} : { disabled }),
+    };
+  });
+}
+
 function normalizeIntervalConfig(
   data: unknown,
 ): ITradingViewIntervalConfigData | null {
@@ -297,7 +334,7 @@ function normalizeIntervalConfig(
     return null;
   }
 
-  const intervals = normalizeStringOptions(data.intervals);
+  const intervals = normalizeIntervalOptions(data.intervals);
   const activeInterval =
     typeof data.activeInterval === 'string' ? data.activeInterval.trim() : '';
   if (!intervals?.length || !activeInterval) {
@@ -514,7 +551,7 @@ function normalizeNativeChartControlsConfig(
   const intervals =
     data.intervals === undefined
       ? undefined
-      : normalizeStringOptions(data.intervals);
+      : normalizeIntervalOptions(data.intervals);
   if (data.intervals !== undefined && !intervals) {
     return null;
   }
