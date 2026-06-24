@@ -80,7 +80,7 @@ function CustomTabItem({
       }}
       {...(isSelected
         ? {
-            bg: '$bgSubdued',
+            bg: '$bgStrong',
           }
         : {
             hoverStyle: {
@@ -360,7 +360,19 @@ const SwapHeaderContainer = ({
   );
 
   return (
-    <XStack alignItems="center" gap="$2" px="$5" py="$1">
+    <XStack
+      alignItems="center"
+      gap="$2"
+      px="$5"
+      py="$1"
+      // iOS: fixed 56pt height (== Wallet header Row 1) so this header centers
+      // its content at the same top+28 line as Wallet (see SwapMainLand
+      // contentTopPadding=$0). Android keeps its intrinsic height unchanged.
+      // zIndex lifts the header (and its glass capsule's shadow) above the
+      // sibling content below it (e.g. the Pro panel), which otherwise paints
+      // over and clips the glass shadow.
+      {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
+    >
       <Stack flex={1} minWidth={0}>
         <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
           {tabs}
