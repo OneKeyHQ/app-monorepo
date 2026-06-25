@@ -1570,7 +1570,7 @@ const BaseDevSettingsSection = () => {
                         icon="ChartColumnarOutline"
                         name="showUnavailableDeFiActionButtons"
                         title="Show unavailable DeFi action buttons"
-                        subtitle="Use supported-protocols to render unavailable actions as disabled buttons"
+                        subtitle="Use supported-protocols to show hidden actions, and let watch-only accounts open action UI"
                         searchKeywords="DeFi Earn Portfolio supported-protocols actions disabled buttons"
                       >
                         <Switch size={ESwitchSize.small} />
