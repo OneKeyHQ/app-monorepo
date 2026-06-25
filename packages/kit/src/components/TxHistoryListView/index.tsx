@@ -46,6 +46,7 @@ import AddressTypeSelector from '../AddressTypeSelector/AddressTypeSelector';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
+import { MAX_DISPLAYED_TRANSFERS } from '../TxAction/consts';
 
 import { TxHistoryListItem } from './TxHistoryListItem';
 
@@ -106,7 +107,15 @@ function getTransferChangeLineCount(item: IAccountHistoryTx): number {
     const { sends, receives } = action.assetTransfer;
     const distinctTokenCount = (transfers: typeof sends) =>
       new Set((transfers ?? []).map((t) => t.tokenIdOnNetwork)).size;
-    changeLineCount = distinctTokenCount(sends) + distinctTokenCount(receives);
+    const totalChangeLines =
+      distinctTokenCount(sends) + distinctTokenCount(receives);
+    // Mirror buildExpandedTransferView's cap: at most MAX_DISPLAYED_TRANSFERS
+    // lines plus a single "+N" overflow line. This keeps getWebRowHeight bounded
+    // so a many-transfer tx (e.g. thousands of NFTs) can't reserve a giant row.
+    changeLineCount =
+      totalChangeLines > MAX_DISPLAYED_TRANSFERS
+        ? MAX_DISPLAYED_TRANSFERS + 1
+        : totalChangeLines;
   }
   transferChangeLineCountCache.set(item, changeLineCount);
   return changeLineCount;
