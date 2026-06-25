@@ -381,6 +381,7 @@
     "jest": "^29.7.0",
     "jest-expo": "~53.0.8",
     "jest-html-reporter": "^3.10.2",
+    "lavamoat-core": "18.0.4",
     "metro": "0.83.2",
     "node-notifier": "^10.0.1",
     "oxfmt": "^0.24.0",

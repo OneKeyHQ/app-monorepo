@@ -10014,6 +10014,7 @@ __metadata:
     jotai: "npm:^2.5.0"
     js-md5: "npm:^0.8.3"
     juicebox-sdk: "npm:^0.3.4"
+    lavamoat-core: "npm:18.0.4"
     lightweight-charts: "npm:5.2.0"
     long: "npm:^5.2.1"
     lru-cache: "npm:^10.2.0"
@@ -35928,7 +35929,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"lavamoat-core@npm:^18.0.4":
+"lavamoat-core@npm:18.0.4, lavamoat-core@npm:^18.0.4":
   version: 18.0.4
   resolution: "lavamoat-core@npm:18.0.4"
   dependencies:
