@@ -49,7 +49,9 @@ export function serializeUnsignedTransaction({
     );
   }
   if (encodedTx.type === EAlphTxType.UnsignedTx) {
-    return builder.buildUnsignedTx(encodedTx.params as SignUnsignedTxParams);
+    return TransactionBuilder.buildUnsignedTx(
+      encodedTx.params as SignUnsignedTxParams,
+    );
   }
   return builder.buildTransferTx(
     encodedTx.params as SignTransferTxParams,

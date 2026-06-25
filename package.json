@@ -137,7 +137,7 @@
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
-    "@alephium/web3": "^1.5.2",
+    "@alephium/web3": "3.0.4",
     "@benfen/bfc.js": "0.2.7",
     "@cityofzion/neon-core": "^5.7.0",
     "@cowprotocol/contracts": "^1.7.0",
@@ -392,6 +392,9 @@
   },
   "resolutions": {
     "lodash": "4.18.1",
+    "@alephium/get-extension-wallet": "3.0.4",
+    "@alephium/walletconnect-provider": "3.0.4",
+    "@alephium/web3-wallet": "3.0.4",
     "@noble/curves": "1.9.7",
     "@ledgerhq/devices": "8.14.0",
     "@ledgerhq/hw-transport": "6.35.0",
