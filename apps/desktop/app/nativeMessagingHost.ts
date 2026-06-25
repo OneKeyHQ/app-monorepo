@@ -1,12 +1,6 @@
 import { app } from 'electron';
 
 import {
-  DesktopSafeStorageNativeError,
-  decryptDesktopSafeStorageString,
-  encryptDesktopSafeStorageString,
-  isDesktopSafeStorageAvailable,
-} from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiSafeStorageNative';
-import {
   ONEKEY_DESKTOP_NATIVE_MESSAGING_EXTENSION_IDS_ENV,
   getDesktopNativeMessagingAllowedExtensionIds,
   parseDesktopNativeMessagingExtensionOrigin,
@@ -19,6 +13,13 @@ import type {
   IDesktopNativeSafeStorageEncryptStringParams,
 } from '@onekeyhq/shared/src/desktopNativeMessaging/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import {
+  DesktopSafeStorageNativeError,
+  decryptDesktopSafeStorageString,
+  encryptDesktopSafeStorageString,
+  isDesktopSafeStorageAvailable,
+} from './nativeMessagingSafeStorage';
 
 type IDesktopNativeMessagingResponseError = Extract<
   IDesktopNativeMessagingResponse,

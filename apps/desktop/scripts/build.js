@@ -6,11 +6,13 @@ const path = require('path');
 const { build } = require('esbuild');
 const glob = require('glob');
 
-const pkg = require('../app/package.json');
+const {
+  electronSource,
+  getDesktopMainEsbuildResolveOptions,
+} = require('./desktopMainEsbuildConfig');
 
 const isProduction = process.env.NODE_ENV === 'production';
 console.log('building for', isProduction ? 'production' : 'development');
-const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
@@ -35,51 +37,11 @@ console.log('process.env.VERSION', process.env.VERSION);
 console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
 console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
+  ...getDesktopMainEsbuildResolveOptions(),
   entryPoints: ['appEntry.ts', 'preload.ts', ...serviceFiles].map((f) =>
     path.join(electronSource, f),
   ),
-  platform: 'node',
-  bundle: true,
-  target: 'node16',
-  loader: { '.text-js': 'text' },
   drop: isProduction ? ['console', 'debugger'] : [],
-  // Help esbuild locate missing dependencies.
-  alias: {
-    '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
-    'react-native': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-mock',
-    ),
-    '@react-native-async-storage/async-storage': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-async-storage-mock',
-    ),
-    'react-native-mmkv': path.join(
-      __dirname,
-      '../../desktop/app/libs/react-native-mmkv-desktop-main',
-    ),
-    '@sentry/react-native': path.join(
-      __dirname,
-      '../../desktop/app/libs/sentry-react-native-mock',
-    ),
-    'react-native-uuid': path.join(
-      __dirname,
-      '../../../node_modules/react-native-uuid/dist',
-    ),
-    'axios': path.join(
-      __dirname,
-      '../../../node_modules/axios/dist/esm/axios.js',
-    ),
-  },
-  external: [
-    'electron',
-    '@stoprocent/noble',
-    '@stoprocent/bluetooth-hci-socket',
-    'bufferutil',
-    'utf-8-validate',
-    ...Object.keys(pkg.dependencies),
-  ],
-  tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
     'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
