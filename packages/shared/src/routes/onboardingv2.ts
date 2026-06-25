@@ -20,12 +20,6 @@ export enum EOnboardingV2ImportPhraseOrPrivateKeyTab {
   PrivateKey = 'privateKey',
 }
 
-export enum EOnboardingV2KeylessWalletCreationMode {
-  Create = 'Create',
-  Restore = 'Restore',
-  View = 'View',
-}
-
 export enum EOnboardingV2OneKeyIDLoginMode {
   KeylessCreateOrRestore = 'KeylessCreateOrRestore',
   KeylessResetPin = 'KeylessResetPin',
@@ -52,8 +46,6 @@ export enum EOnboardingPagesV2 {
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
   ConnectExternalWallet = 'ConnectExternalWallet',
   ImportKeyTag = 'ImportKeyTag',
-  KeylessWalletRecovery = 'KeylessWalletRecovery',
-  KeylessWalletCreation = 'KeylessWalletCreation',
   OneKeyIDLogin = 'OneKeyIDLogin',
   CreatePin = 'CreatePin',
   ConfirmPin = 'ConfirmPin',
@@ -94,7 +86,6 @@ export type IOnboardingParamListV2 = {
     // per-session transport (via getForceTransportType) rather than the stale
     // persisted hardwareTransportType setting.
     tabValue?: EConnectDeviceChannel;
-    keylessPackSetId?: string;
     keylessOwnerId?: string;
     keylessDetailsInfo?: IKeylessWalletDetailsInfo;
   };
@@ -138,13 +129,6 @@ export type IOnboardingParamListV2 = {
     title: string;
   };
   [EOnboardingPagesV2.ImportKeyTag]: undefined;
-  [EOnboardingPagesV2.KeylessWalletRecovery]: {
-    email?: string;
-  };
-  [EOnboardingPagesV2.KeylessWalletCreation]: {
-    email?: string;
-    mode?: EOnboardingV2KeylessWalletCreationMode;
-  };
   [EOnboardingPagesV2.OneKeyIDLogin]: {
     mode: EOnboardingV2OneKeyIDLoginMode;
     provider?: EOAuthSocialLoginProvider;

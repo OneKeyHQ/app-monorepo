@@ -2,13 +2,14 @@ import { Transaction } from '@mysten/sui/transactions';
 import { SUI_TYPE_ARG, normalizeSuiAddress } from '@mysten/sui/utils';
 
 import type { IEncodedTxSui } from '@onekeyhq/core/src/chains/sui/types';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { OneKeySuiClient } from './ClientSui';
 import type {
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '@mysten/sui/client';
+} from '@mysten/sui/jsonRpc';
 
 export function normalizeSuiCoinType(coinType: string): string {
   if (coinType !== SUI_TYPE_ARG) {
@@ -39,9 +40,24 @@ export async function toTransaction(
     // If the sender has not yet been set on the transaction, then set it.
     // NOTE: This allows for signing transactions with miss matched senders, which is important for sponsored transactions.
     transaction.setSenderIfNotSet(sender);
-    transactionBytes = await transaction.build({
-      client,
-    });
+    try {
+      transactionBytes = await transaction.build({
+        client,
+      });
+    } catch (error) {
+      // SDK throws "No valid gas coins found for the transaction." when there is
+      // no spendable SUI to pay gas; surface a localized message instead.
+      if (
+        error instanceof Error &&
+        error.message?.includes('No valid gas coins')
+      ) {
+        throw new OneKeyInternalError({
+          key: ETranslations.insufficient_native_for_network_fees__msg,
+          info: { symbol: 'SUI' },
+        });
+      }
+      throw error;
+    }
   }
 
   return transactionBytes;

@@ -361,7 +361,6 @@ class ServicePrime extends ServiceBase {
         nickname: serverUserInfo?.nickname,
         email: userEmail, // TODO update from PrimeGlobalEffect
         displayEmail: userEmail,
-        keylessWalletId: serverUserInfo?.keylessWalletId,
         onekeyUserId: serverUserInfo?.userId,
         isEnablePrime: serverUserInfo?.isEnablePrime,
         isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
@@ -502,12 +501,6 @@ class ServicePrime extends ServiceBase {
       ...v,
       isServerMasterPasswordSet: false,
     }));
-    // Clear authPack cache when user logs out
-    try {
-      await this.backgroundApi.serviceKeylessWallet.clearAuthPackCache();
-    } catch {
-      // Ignore errors when clearing cache
-    }
   }
 
   @backgroundMethod()

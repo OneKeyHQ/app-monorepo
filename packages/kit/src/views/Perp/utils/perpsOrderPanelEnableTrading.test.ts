@@ -41,7 +41,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
     });
   });
 
-  it('routes cached external accounts through explicit enable-trading confirmation', () => {
+  it('routes cached external accounts through the order-panel enable dialog', () => {
     expect(
       getPerpsOrderPanelEnableTradingModeByAccount({
         accountId: 'external--60--injected--wallet',
@@ -49,7 +49,7 @@ describe('getPerpsOrderPanelEnableTradingModeByAccount', () => {
       }),
     ).toEqual({
       canAutoEnableInOrderPanel: false,
-      requiresEnableTradingDialogInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
       requiresExplicitEnableTrading: true,
     });
   });

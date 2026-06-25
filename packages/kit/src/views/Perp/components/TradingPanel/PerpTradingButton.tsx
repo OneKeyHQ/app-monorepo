@@ -5,14 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import {
-  Button,
-  SizableText,
-  Toast,
-  XStack,
-  YStack,
-  resetToRoute,
-} from '@onekeyhq/components';
+import { Button, SizableText, Toast, resetToRoute } from '@onekeyhq/components';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -23,7 +16,6 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
-  usePerpsShouldShowEnableTradingButtonAtom,
   useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -37,7 +29,6 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { useEnableTradingWithDepositFallback } from '../../hooks/useEnableTradingWithDepositFallback';
 import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
@@ -87,8 +78,6 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
-  const [shouldShowEnableTradingButton] =
-    usePerpsShouldShowEnableTradingButtonAtom();
   const [tradingMode] = useTradingModeAtom();
   const midPriceRef = useRef<string | undefined>(undefined);
   const marketDataFreshness = usePerpsMarketDataFreshness();
@@ -120,7 +109,6 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const enableTrading = useEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
   const handleDepositFromToast = useCallback(() => {
@@ -154,7 +142,6 @@ export function PerpTradingButton({
   const buttonDisabled = useMemo(() => {
     return (
       !computedSize.gt(0) ||
-      !perpsAccountStatus.canTrade ||
       isSubmitting ||
       isAccountLoading ||
       isMinimumOrderNotMet ||
@@ -223,15 +210,17 @@ export function PerpTradingButton({
     };
   }, [isAccountLoading, isLong, themeVariant]);
 
-  const createAddressButtonRender = useCallback((props: IButtonProps) => {
-    return (
+  const createAddressButtonRender = useCallback(
+    (props: IButtonProps) => (
       <Button
         testID="perp-create-address-btn"
         {...sharedButtonProps}
+        variant="primary"
         {...props}
       />
-    );
-  }, []);
+    ),
+    [],
+  );
 
   const getTpslErrorMessage = useCallback(
     (type: 'TP' | 'SL', direction: 'higher' | 'lower') => ({
@@ -380,48 +369,6 @@ export function PerpTradingButton({
           id: ETranslations.global_connect_wallet,
         })}
       </Button>
-    );
-  }
-
-  if (shouldShowEnableTradingButton) {
-    return (
-      <YStack
-        gap="$3"
-        h={126}
-        justifyContent="flex-end"
-        flex={1}
-        pointerEvents="box-none"
-      >
-        <XStack
-          gap="$3"
-          p="$3"
-          borderRadius="$3"
-          bg="$bgSubdued"
-          pointerEvents="box-none"
-        >
-          <SizableText size="$bodySm" color="$text" pointerEvents="box-none">
-            {intl.formatMessage({
-              id: ETranslations.perp_enable_trading_desc,
-            })}
-          </SizableText>
-        </XStack>
-        <Button
-          {...sharedButtonProps}
-          testID={PerpTestIDs.EnableTradingButton}
-          variant="primary"
-          disabled={isAccountLoading}
-          onPress={async () => {
-            await enableTrading();
-          }}
-          childrenAsText={false}
-        >
-          <SizableText size="$bodyMdMedium" color="$textInverse">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_button_enable_trading,
-            })}
-          </SizableText>
-        </Button>
-      </YStack>
     );
   }
 

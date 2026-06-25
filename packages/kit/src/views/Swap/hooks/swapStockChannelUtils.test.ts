@@ -1,6 +1,8 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  buildStockSwapTokenFromMarketDetail,
+  buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
   resolveStockChannelToken,
 } from './swapStockChannelUtils';
@@ -72,5 +74,80 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('marks only stock market tokens as stock swap tokens', () => {
+    const stockToken = buildStockSwapTokenFromMarketListToken({
+      address: '0xaapl',
+      networkId: 'evm--56',
+      symbol: 'AAPL',
+      name: 'Apple',
+      decimals: 18,
+      price: '100',
+      stock: {
+        subtitle: 'Stock',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'AAPL',
+      },
+    });
+
+    expect(stockToken?.isStock).toBe(true);
+    expect(stockToken).toMatchObject({
+      price: '100',
+      currency: 'usd',
+    });
+
+    expect(
+      buildStockSwapTokenFromMarketListToken({
+        address: '0xaapl',
+        networkId: 'evm--56',
+        symbol: 'AAPL',
+        name: 'Apple',
+        decimals: 18,
+        stock: {
+          subtitle: 'Stock',
+          sourceLogoUri: '',
+          underlyingAssetTicker: 'AAPL',
+        },
+      })?.isStock,
+    ).toBe(true);
+
+    expect(
+      buildStockSwapTokenFromMarketDetail({
+        tokenDetail: {
+          address: '0xusdc',
+          networkId: 'evm--56',
+          symbol: 'USDC',
+          name: 'USDC',
+          decimals: 6,
+          logoUrl: '',
+        },
+      })?.isStock,
+    ).toBe(false);
+  });
+
+  it('keeps market detail stock prices in USD basis for review display', () => {
+    expect(
+      buildStockSwapTokenFromMarketDetail({
+        tokenDetail: {
+          address: '0xaapl',
+          networkId: 'evm--56',
+          symbol: 'AAPL',
+          name: 'Apple',
+          decimals: 18,
+          logoUrl: '',
+          price: '100',
+          priceConverted: '676',
+          stock: {
+            subtitle: 'Stock',
+            sourceLogoUri: '',
+            underlyingAssetTicker: 'AAPL',
+          },
+        },
+      }),
+    ).toMatchObject({
+      price: '100',
+      currency: 'usd',
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useLiquidGlassHeaderTopInset,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -86,9 +87,26 @@ export default function PickYourDevice() {
 
   const scrollable = platformEnv.isNative || !gtMd;
   const { bottom: safeAreaBottom } = useSafeAreaInsets();
+  // iOS 26: host the header in the native Liquid Glass bar (like the other
+  // onboarding pages) so the language switcher gets the system glass capsule
+  // instead of a flat self-drawn pill.
+  const useNativeHeader = platformEnv.isNativeIOS26Plus;
+  // The transparent glass bar overlays the top of the content; reserve room for
+  // it via the shared inset (consistent across all onboarding glass pages).
+  const glassTopInset = useLiquidGlassHeaderTopInset();
+  const bodyTopInset = useNativeHeader ? glassTopInset : undefined;
+  const renderHeaderLanguage = useCallback(
+    () => <LayoutHeaderLanguageSelector />,
+    [],
+  );
+  const pickTitle = intl.formatMessage({ id: ETranslations.pick_your_device });
 
   const body = (
-    <YStack flex={1} pt="$2" $gtMd={{ pt: 0 }}>
+    <YStack
+      flex={1}
+      pt={bodyTopInset ?? '$2'}
+      $gtMd={{ pt: bodyTopInset ?? 0 }}
+    >
       <YStack
         gap="$5"
         flex={1}
@@ -274,23 +292,32 @@ export default function PickYourDevice() {
 
   return (
     <Page safeAreaEnabled={false}>
-      <YStack
-        $gtMd={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-        }}
-      >
-        <LayoutHeader>
-          <LayoutHeaderBack />
-          <LayoutHeaderTitle>
-            {intl.formatMessage({ id: ETranslations.pick_your_device })}
-          </LayoutHeaderTitle>
-          <LayoutHeaderLanguageSelector />
-        </LayoutHeader>
-      </YStack>
+      {useNativeHeader ? (
+        // Deeper onboarding screen: the navigator supplies the native system
+        // back (chevron); we only host the centered title + glass language
+        // switcher in the native bar.
+        <Page.Header
+          headerTitleAlign="center"
+          headerTitle={pickTitle}
+          headerRight={renderHeaderLanguage}
+        />
+      ) : (
+        <YStack
+          $gtMd={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+          }}
+        >
+          <LayoutHeader>
+            <LayoutHeaderBack />
+            <LayoutHeaderTitle>{pickTitle}</LayoutHeaderTitle>
+            <LayoutHeaderLanguageSelector />
+          </LayoutHeader>
+        </YStack>
+      )}
       {scrollable ? (
         <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
           {body}

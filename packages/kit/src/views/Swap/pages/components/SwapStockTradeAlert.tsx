@@ -1,18 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Alert, YStack } from '@onekeyhq/components';
-import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteEventErrorAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
@@ -29,6 +25,7 @@ import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalyti
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
+import { getStockMarketClosedDescription } from './SwapStockTradeAlert.utils';
 
 type IStockTradeAlerts = {
   states: ISwapAlertState[];
@@ -111,19 +108,12 @@ function BasicSwapStockTradeAlert({
   stockChannel,
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
-  const { perpsInfo } = useTokenDetail();
-  const { perpDisabled } = usePerpTabConfig();
-  const { navigateToPerps } = usePerpsNavigation(
-    EPerpPageEnterSource.MarketList,
-  );
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const stockAlertShownKeysRef = useRef(new Set<string>());
   const stockQuoteAlert = useStockQuoteAlert({ quoteResult, stockChannel });
   const notAvailableInRegionMessage = intl.formatMessage({
     id: ETranslations.trade_stock_not_available_in_region,
   });
-  const perpsTicker = perpsInfo?.hlTicker;
-  const canOpenPerps = Boolean(perpsTicker && !perpDisabled);
 
   const isCurrentStockQuoteEventError = useMemo(
     () =>
@@ -173,29 +163,6 @@ function BasicSwapStockTradeAlert({
     notAvailableInRegionMessage,
     quoteEventError?.isStock,
     quoteEventError?.message,
-  ]);
-
-  const onOpenPerps = useCallback(() => {
-    if (!canOpenPerps || !perpsTicker) {
-      return;
-    }
-    defaultLogger.swap.stockTradeAlert.stockTradeAlertActionClick({
-      ...getStockTradeAlertAnalyticsPayload({
-        alertType: 'marketClosed',
-        alertLevel: ESwapAlertLevel.WARNING,
-        tradeDisabled: true,
-        tradeSide: stockChannel.tradeSide,
-        stockToken: stockChannel.currentStockToken,
-      }),
-      action: 'perps',
-    });
-    navigateToPerps(perpsTicker);
-  }, [
-    canOpenPerps,
-    navigateToPerps,
-    perpsTicker,
-    stockChannel.currentStockToken,
-    stockChannel.tradeSide,
   ]);
 
   const shouldShowSwapAlerts =
@@ -297,10 +264,9 @@ function BasicSwapStockTradeAlert({
   ]);
 
   if (isStockMarketClosed) {
-    const description = canOpenPerps
-      ? intl.formatMessage({ id: ETranslations.trade_stock_trade_in_perps })
-      : (stockChannel.stockMarketStatus?.reason ??
-        intl.formatMessage({ id: ETranslations.trade_stock_wait_for_reopen }));
+    const description =
+      getStockMarketClosedDescription(stockChannel.stockMarketStatus?.reason) ??
+      intl.formatMessage({ id: ETranslations.trade_stock_wait_for_reopen });
 
     return (
       <Alert
@@ -311,17 +277,6 @@ function BasicSwapStockTradeAlert({
           id: ETranslations.trade_stock_market_closed,
         })}
         description={description}
-        action={
-          canOpenPerps
-            ? {
-                primary: intl.formatMessage({
-                  id: ETranslations.global_perp,
-                }),
-                primaryVariant: 'secondary',
-                onPrimaryPress: onOpenPerps,
-              }
-            : undefined
-        }
       />
     );
   }

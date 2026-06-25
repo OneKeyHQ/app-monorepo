@@ -31,6 +31,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
+import { parseBulkSendAddressLine } from '../../addressLineUtils';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea, {
@@ -102,7 +103,10 @@ function BulkSendReceiverAllowlistErrorMessage({ error }: IFieldErrorProps) {
       const lines = receiverAddresses.split('\n');
       const targetLine =
         typeof lineNumber === 'number' ? lines[lineNumber - 1]?.trim() : '';
-      const address = targetLine?.split(',')[0]?.trim();
+      const parsedLine = targetLine
+        ? parseBulkSendAddressLine(targetLine)
+        : undefined;
+      const address = parsedLine?.isValid ? parsedLine.address : undefined;
 
       if (!address || !selectedNetworkId) {
         return;
@@ -408,7 +412,7 @@ function SingleLineReceiverInput() {
     ],
   );
 
-  const debouncedValidate = useDebouncedValidation(handleValidateAddresses);
+  const debouncedValidation = useDebouncedValidation(handleValidateAddresses);
 
   return (
     <Form.Field
@@ -418,7 +422,7 @@ function SingleLineReceiverInput() {
       })}
       renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
       rules={{
-        validate: debouncedValidate,
+        validate: debouncedValidation.validate,
       }}
     >
       <LineNumberedTextArea
@@ -504,7 +508,7 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     [handleValidateAddresses, form, intl],
   );
 
-  const debouncedValidate = useDebouncedValidation(validate);
+  const debouncedValidation = useDebouncedValidation(validate);
 
   useEffect(() => {
     const previousSenderAddresses = previousSenderAddressesRef.current;
@@ -553,7 +557,9 @@ function ManyToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
-          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+          validate: platformEnv.isNativeAndroid
+            ? validate
+            : debouncedValidation.validate,
         }}
       >
         <LineNumberedTextArea
@@ -620,7 +626,7 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
     [handleValidateAddresses],
   );
 
-  const debouncedValidate = useDebouncedValidation(validate);
+  const debouncedValidation = useDebouncedValidation(validate);
 
   const warningMessages = useMemo(() => {
     const warnings = errors.filter(
@@ -647,7 +653,9 @@ function OneToManyReceiverInput({ maxLines }: { maxLines?: number }) {
         renderErrorMessage={renderBulkSendReceiverAllowlistErrorMessage}
         rules={{
           required: true,
-          validate: platformEnv.isNativeAndroid ? validate : debouncedValidate,
+          validate: platformEnv.isNativeAndroid
+            ? validate
+            : debouncedValidation.validate,
         }}
         description={intl.formatMessage({
           id: ETranslations.wallet_bulk_send_label_receiving_desc,

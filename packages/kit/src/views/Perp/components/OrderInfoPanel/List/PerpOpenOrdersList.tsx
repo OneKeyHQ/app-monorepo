@@ -510,6 +510,7 @@ function PerpOpenOrdersList({
         tabs={openOrdersSubTabs}
         activeTab={activeOpenOrdersSubTab}
         onChange={setActiveOpenOrdersSubTab}
+        variant="pill"
       />
       {/* Keep the filter checkbox visible after "hide other pairs" filters
           the current sub-tab to an empty list. */}

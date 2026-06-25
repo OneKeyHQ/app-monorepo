@@ -15,6 +15,13 @@ Route params must preserve enough identity to reload the surface from a fresh ap
 
 Do not rely on volatile local state when a route can be opened by share, deep link, browser handoff, or tab restore.
 
+AssetDetails modal routes are not guaranteed to share Home tab providers.
+When a DeFi position row opens an AssetDetails modal such as
+`DeFiProtocolDetails`, pass account and indexed-account identity through typed
+route params or the protocol payload itself. Do not read Home-only account
+selector context from the modal unless the target stack mounts the matching
+provider mirror.
+
 ## Native Host Rules
 
 Native Earn is hosted under Discovery. Desktop/web use the Earn tab route.

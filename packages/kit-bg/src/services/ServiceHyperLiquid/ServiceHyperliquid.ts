@@ -796,9 +796,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     ignoreCache = false,
   }: { ignoreCache?: boolean } = {}) {
     try {
-      return ignoreCache
-        ? await this.updatePerpsConfigByServer()
-        : await this.updatePerpsConfigByServerWithCache();
+      if (ignoreCache) {
+        await this._updatePerpsConfigByServerWithCache.clear();
+      }
+      return await this.updatePerpsConfigByServerWithCache();
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       console.warn('[ServiceHyperliquid] Failed to update perp config', error);
@@ -812,9 +813,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
     {
       max: 20,
-      // 10 min: fast enough to propagate server-side perp disable / builder
+      // 5 min: fast enough to propagate hot/newList and server-side perp disable / builder
       // config changes, while still deduping redundant focus-driven fetches.
-      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
       promise: true,
     },
   );
