@@ -19,11 +19,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapFromTokenAmountAtom,
-  useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
-  useSwapSelectedTokensColdStartContextAtom,
-  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -80,7 +76,7 @@ function CustomTabItem({
       }}
       {...(isSelected
         ? {
-            bg: '$bgSubdued',
+            bg: '$bgStrong',
           }
         : {
             hoverStyle: {
@@ -131,13 +127,7 @@ const SwapHeaderContainer = ({
   const { gtLg } = useMedia();
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [, setInitialSelectedTokensSynced] =
-    useSwapInitialSelectedTokensSyncedAtom();
-  const [, setSelectedTokensColdStartContext] =
-    useSwapSelectedTokensColdStartContextAtom();
-  const { resetSwapTokenData, swapTypeSwitchAction } = useSwapActions().current;
+  const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -172,25 +162,6 @@ const SwapHeaderContainer = ({
     [updateSelectedAccountNetwork],
   );
 
-  const clearStockTokensBeforeLeaving = useCallback(async () => {
-    if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
-      return;
-    }
-    await resetSwapTokenData(ESwapDirectionType.FROM);
-    await resetSwapTokenData(ESwapDirectionType.TO);
-    setFromTokenAmount({ value: '', isInput: false });
-    setToTokenAmount({ value: '', isInput: false });
-    setSelectedTokensColdStartContext(undefined);
-    setInitialSelectedTokensSynced(false);
-  }, [
-    resetSwapTokenData,
-    setFromTokenAmount,
-    setInitialSelectedTokensSynced,
-    setSelectedTokensColdStartContext,
-    setToTokenAmount,
-    swapTypeSwitch,
-  ]);
-
   const syncRouteTabParam = useCallback(
     (type: ESwapTabSwitchType) => {
       if (pageType === 'modal') {
@@ -217,9 +188,8 @@ const SwapHeaderContainer = ({
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-        await clearStockTokensBeforeLeaving();
-        void swapTypeSwitchAction(newType, networkId);
         syncRouteTabParam(newType);
+        await swapTypeSwitchAction(newType, networkId);
         return;
       }
 
@@ -240,7 +210,6 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
-      clearStockTokensBeforeLeaving,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
@@ -360,7 +329,19 @@ const SwapHeaderContainer = ({
   );
 
   return (
-    <XStack alignItems="center" gap="$2" px="$5" py="$1">
+    <XStack
+      alignItems="center"
+      gap="$2"
+      px="$5"
+      py="$1"
+      // iOS: fixed 56pt height (== Wallet header Row 1) so this header centers
+      // its content at the same top+28 line as Wallet (see SwapMainLand
+      // contentTopPadding=$0). Android keeps its intrinsic height unchanged.
+      // zIndex lifts the header (and its glass capsule's shadow) above the
+      // sibling content below it (e.g. the Pro panel), which otherwise paints
+      // over and clips the glass shadow.
+      {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
+    >
       <Stack flex={1} minWidth={0}>
         <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
           {tabs}

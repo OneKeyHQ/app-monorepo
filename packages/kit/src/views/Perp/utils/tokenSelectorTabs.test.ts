@@ -11,6 +11,7 @@ import {
   isPerpTokenSelectorPrimaryTab,
   isPerpTokenSelectorSpotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
+  sortPerpTokenSelectorItemsByServerOrder,
   sortPerpTokenSelectorItemsBySortValue,
 } from './tokenSelectorTabs';
 
@@ -208,6 +209,24 @@ describe('tokenSelectorTabs', () => {
     ).toEqual(['spot-btc', 'spot-eth', 'perp-btc']);
     expect(getValue).toHaveBeenCalledTimes(items.length);
   });
+
+  it('keeps dynamic tab items in server token order with stable fallback', () => {
+    const items = [
+      { id: 'btc', name: 'BTC' },
+      { id: 'eth', name: 'ETH' },
+      { id: 'sol', name: 'SOL' },
+      { id: 'unknown', name: undefined },
+    ];
+
+    expect(
+      sortPerpTokenSelectorItemsByServerOrder({
+        items,
+        tokenOrder: ['SOL', 'BTC', 'ETH', 'BTC'],
+        getTokenName: (item) => item.name,
+      }).map((item) => item.id),
+    ).toEqual(['sol', 'btc', 'eth', 'unknown']);
+  });
+
   it('only refreshes sort snapshots on sort changes or first data arrival', () => {
     expect(
       shouldRefreshPerpTokenSelectorSortSnapshot({

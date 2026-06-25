@@ -20,6 +20,7 @@ import {
   Image,
   LottieView,
   NavBackButton,
+  Page,
   Popover,
   ScrollView,
   SizableText,
@@ -27,6 +28,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  glassBarItem,
   rootNavigationRef,
   useIsDesktopModeUIInTabPages,
   useIsWebHorizontalLayout,
@@ -260,6 +262,48 @@ function MoreActionContentHeader({
       rootNavigationRef.current?.goBack();
     }
   }, []);
+
+  // iOS 26 page-level usage: render via the native UINavigationBar so the
+  // back chevron + right items get the system Liquid Glass material. Each
+  // right item is a OneKey SVG IconButton (custom subview) so the glyphs
+  // match the brand; iOS 26 wraps each in its own system glass capsule, and
+  // the GlassHeaderProvider lets the inner IconButton drop its self-drawn
+  // background/press. The body of MoreActionContentPage continues to render
+  // the rest of the page below the bar.
+  const buildNativeRightItems = useCallback(
+    () => [
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.settings_contact_us,
+          })}
+          icon="HelpSupportOutline"
+          onPress={handleCustomerSupport}
+        />,
+      ),
+      glassBarItem(
+        <HeaderIconButton
+          title={intl.formatMessage({
+            id: ETranslations.scan_scan_qr_code,
+          })}
+          icon="ScanOutline"
+          onPress={() => {
+            void handleScan();
+          }}
+        />,
+      ),
+    ],
+    [intl, handleCustomerSupport, handleScan],
+  );
+
+  if (platformEnv.isNativeIOS26Plus && showBackButton) {
+    return (
+      <Page.Header
+        headerShown
+        unstable_headerRightItems={buildNativeRightItems}
+      />
+    );
+  }
 
   return (
     <XStack

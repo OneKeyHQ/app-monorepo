@@ -3,6 +3,8 @@
 import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { EPageType } from '../../hocs';
+
 import { makeHeaderScreenOptions } from './Header';
 
 import type { IScreenOptionsInfo } from './Navigator/types';
@@ -52,12 +54,18 @@ export function makeModalStackNavigatorOptions({
   optionsInfo,
   bgColor,
   titleColor,
+  pageType,
 }: {
   bgColor: VariableVal;
   titleColor: VariableVal;
   isVerticalLayout?: boolean;
   optionsInfo?: IScreenOptionsInfo<any>;
+  pageType?: EPageType;
 }): IStackNavigationOptions {
+  // Onboarding screens opt into the native (iOS 26 Liquid Glass) header; every
+  // other modal (including fullScreenPush, e.g. ActionCenter) keeps the opaque
+  // modal header path (isModelScreen) so its content stays below the bar.
+  const isOnboardingScreen = pageType === EPageType.onboarding;
   let options: IStackNavigationOptions = {};
 
   if (platformEnv.isNativeAndroid) {
@@ -68,7 +76,8 @@ export function makeModalStackNavigatorOptions({
       headerShadowVisible: false,
       // Android Pad modal needs to be commented out
       ...makeHeaderScreenOptions({
-        isModelScreen: true,
+        isModelScreen: !isOnboardingScreen,
+        isOnboardingScreen,
         navigation: optionsInfo?.navigation,
         bgColor,
         titleColor,
@@ -91,7 +100,8 @@ export function makeModalStackNavigatorOptions({
       headerShown: true,
       animation: 'slide_from_right',
       ...makeHeaderScreenOptions({
-        isModelScreen: true,
+        isModelScreen: !isOnboardingScreen,
+        isOnboardingScreen,
         navigation: optionsInfo?.navigation,
         bgColor,
         titleColor,
