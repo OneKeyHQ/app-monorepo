@@ -735,15 +735,14 @@ function ThirdPartyHardwareUiStateContainerCmp() {
 
   useEffect(() => {
     const callback = async ({
-      vendor,
       reason,
     }: {
       vendor: EHardwareVendor;
       reason: EThirdPartyDevicePermissionDeniedReason;
     }) => {
-      if (vendor !== EHardwareVendor.ledger) {
-        return;
-      }
+      // The BLE permission / power dialog is app-layer and vendor-agnostic, so
+      // render it for any third-party vendor that emits it (Trezor and Ledger
+      // both run over BLE on native) — not just Ledger.
       await permissionDialogInstanceRef.current?.close();
       permissionDialogInstanceRef.current = Dialog.show({
         dialogContainer:
