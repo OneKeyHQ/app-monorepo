@@ -70,6 +70,11 @@ const mockGetIndexedAccountsOfWallet: jest.MockedFunction<
     accounts: IIndexedAccount[];
   }>
 > = jest.fn();
+const mockGetSingletonAccountsOfWallet: jest.MockedFunction<
+  ({ walletId }: { walletId: string }) => Promise<{
+    accounts: [];
+  }>
+> = jest.fn();
 const mockGetWalletSafe: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<IWallet | undefined>
 > = jest.fn();
@@ -110,6 +115,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: {
       getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
         mockGetIndexedAccountsOfWallet({ walletId }),
+      getSingletonAccountsOfWallet: ({ walletId }: { walletId: string }) =>
+        mockGetSingletonAccountsOfWallet({ walletId }),
       getWalletSafe: ({ walletId }: { walletId: string }) =>
         mockGetWalletSafe({ walletId }),
       isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
@@ -200,6 +207,7 @@ describe('useAccountSelectorActions', () => {
         { id: 'hd-1--1', walletId: 'hd-1' } as IIndexedAccount,
       ],
     });
+    mockGetSingletonAccountsOfWallet.mockResolvedValue({ accounts: [] });
     mockGetWalletSafe.mockResolvedValue({ id: 'hd-1' } as IWallet);
   });
 
@@ -339,6 +347,59 @@ describe('useAccountSelectorActions', () => {
       walletId: 'hd-1',
       indexedAccountId: 'hd-1--1',
       focusedWallet: 'hd-1',
+    });
+  });
+
+  it('restores the active indexed account from a network-only cold-start selection', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        networkId: 'tron--0x2b6653dc',
+        deriveType: 'default',
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        indexedAccount: { id: 'hd-1--1', walletId: 'hd-1' } as IIndexedAccount,
+        account: {
+          id: "hd-1--m/44'/195'/1'/0/0",
+          indexedAccountId: 'hd-1--1',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['account']
+        >,
+        dbAccount: {
+          id: "hd-1--m/44'/195'/1'/0/0",
+          indexedAccountId: 'hd-1--1',
+        } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['dbAccount']
+        >,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+      networkId: 'tron--0x2b6653dc',
+      deriveType: 'default',
     });
   });
 

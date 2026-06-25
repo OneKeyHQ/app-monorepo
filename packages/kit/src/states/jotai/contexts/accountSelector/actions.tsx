@@ -2917,6 +2917,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // auto select hd or hw index account
           if (selectedWalletId && (isHdWallet || isHwOrQrWallet)) {
             if (
+              !selectedAccountNew.walletId ||
+              !selectedAccountNew.indexedAccountId ||
+              !selectedAccountNew.focusedWallet ||
               !indexedAccount ||
               indexedAccount.walletId !== selectedWalletId
             ) {
@@ -2924,15 +2927,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 await serviceAccount.getIndexedAccountsOfWallet({
                   walletId: selectedWalletId,
                 });
-              const restoredIndexedAccount = selectedAccountNew.indexedAccountId
+              const indexedAccountIdToRestore =
+                selectedAccountNew.indexedAccountId || selectedIndexedAccountId;
+              const restoredIndexedAccount = indexedAccountIdToRestore
                 ? indexedAccounts?.find(
                     (item) =>
-                      item.id === selectedAccountNew.indexedAccountId &&
+                      item.id === indexedAccountIdToRestore &&
                       item.walletId === selectedWalletId,
                   )
                 : undefined;
               selectedIndexedAccountId =
                 restoredIndexedAccount?.id || indexedAccounts?.[0]?.id;
+              selectedAccountNew.walletId = selectedWalletId;
               selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
               selectedAccountNew.focusedWallet = selectedWalletId;
               selectedAccountNew.othersWalletAccountId = undefined;
