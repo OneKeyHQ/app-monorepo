@@ -103,13 +103,16 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  getNextPerpTokenSelectorSortConfig,
+  getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
   getPerpTokenSelectorPrimaryTabId,
+  getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
+  isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
-  sortPerpTokenSelectorItemsByServerOrder,
 } from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
@@ -540,13 +543,16 @@ function MobileTokenSelectorModal({
   // Freeze sort order; only refresh on sort config change or first data arrival.
   // Does NOT track activeTab — tab switches should not refresh the snapshot.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
+  const [perpSortSnapshot, setPerpSortSnapshot] = useState(assetCtxsByDex);
   const lastSortRef = useRef<{
     field?: string;
     direction?: string;
+    sortSource?: IPerpTokenSelectorConfig['sortSource'];
   } | null>(null);
   useEffect(() => {
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
+    const sortSource = selectorConfig?.sortSource;
     const last = lastSortRef.current;
     // Also refresh when snapshot is empty (first WS data arrival after mount)
     const snapshotEmpty = !ctxSnapshotRef.current?.some(
@@ -556,19 +562,26 @@ function MobileTokenSelectorModal({
       lastSort: last,
       field,
       direction,
+      sortSource,
       snapshotEmpty,
     });
     if (!shouldRefresh) {
       return;
     }
-    lastSortRef.current = { field, direction };
+    lastSortRef.current = { field, direction, sortSource };
     ctxSnapshotRef.current = assetCtxsByDex;
-    if (last?.field !== field || last?.direction !== direction) {
+    setPerpSortSnapshot(assetCtxsByDex);
+    if (
+      last?.field !== field ||
+      last?.direction !== direction ||
+      last?.sortSource !== sortSource
+    ) {
       scrollListToTop();
     }
   }, [
     selectorConfig?.direction,
     selectorConfig?.field,
+    selectorConfig?.sortSource,
     assetCtxsByDex,
     scrollListToTop,
   ]);
@@ -625,6 +638,7 @@ function MobileTokenSelectorModal({
           field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
           direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
           activeTab: tab,
+          sortSource: prev?.sortSource ?? 'default',
         }));
       });
       actions.current.setTradeRouteViewState({
@@ -718,11 +732,16 @@ function MobileTokenSelectorModal({
 
   // Layer 1: sort — only reruns when sort config or underlying assets change.
   // Does NOT depend on activeTab, so tab switches never retrigger the sort.
+  const perpSortAssetCtxsByDex = getPerpTokenSelectorSortAssetCtxsByDex({
+    liveAssetCtxsByDex: assetCtxsByDex,
+    snapshotAssetCtxsByDex: perpSortSnapshot,
+    sortSource: selectorConfig?.sortSource,
+  });
   const perpSortedList = useMemo(() => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
-      ctxSnapshotRef.current || [];
+      perpSortAssetCtxsByDex || [];
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -751,6 +770,7 @@ function MobileTokenSelectorModal({
 
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
+    const sortSource = selectorConfig?.sortSource;
     const result = sortField
       ? combinedEntries
           .toSorted((a, b) =>
@@ -768,6 +788,7 @@ function MobileTokenSelectorModal({
         phase: 'perp-sort',
         sortField,
         sortDirection,
+        sortSource,
         perpCount: combinedEntries.length,
         resultCount: result.length,
       });
@@ -777,9 +798,11 @@ function MobileTokenSelectorModal({
   }, [
     assetsByDex,
     computeSortValues,
+    perpSortAssetCtxsByDex,
     sortCompare,
     selectorConfig?.direction,
     selectorConfig?.field,
+    selectorConfig?.sortSource,
     tokenSearchAliases,
   ]);
 
@@ -958,22 +981,10 @@ function MobileTokenSelectorModal({
     } else {
       const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
-        const tokenSet = new Set(dynamicTab.tokens);
-        const tokenNameById = new Map<string, string>();
-        (assetsByDex || []).forEach((assets, dexIndex) => {
-          assets?.forEach((asset) => {
-            if (tokenSet.has(asset.name)) {
-              tokenNameById.set(`${dexIndex}-${asset.assetId}`, asset.name);
-            }
-          });
-        });
-        result = sortPerpTokenSelectorItemsByServerOrder({
-          items: perpSortedList.filter((item) =>
-            tokenNameById.has(`${item.dexIndex}-${item.assetId}`),
-          ),
-          tokenOrder: dynamicTab.tokens,
-          getTokenName: (item) =>
-            tokenNameById.get(`${item.dexIndex}-${item.assetId}`),
+        result = getPerpTokenSelectorDynamicTabItems({
+          items: perpSortedList,
+          tokens: dynamicTab.tokens,
+          useSortedItemsOrder: selectorConfig?.sortSource === 'user',
         });
       } else {
         result = perpSortedList;
@@ -1000,7 +1011,6 @@ function MobileTokenSelectorModal({
   }, [
     displayActiveTab,
     displayPrimaryTab,
-    assetsByDex,
     categoryTabs,
     favoritesOrder.sequence,
     favoriteItems,
@@ -1008,6 +1018,7 @@ function MobileTokenSelectorModal({
     perpSortedList,
     selectorConfig?.direction,
     selectorConfig?.field,
+    selectorConfig?.sortSource,
     spotFavoriteSortedList,
     spotMarketCaps,
     spotPriceSnapshot,
@@ -1115,36 +1126,29 @@ function MobileTokenSelectorModal({
   const handleSortPress = useCallback(
     (field: IPerpTokenSortField) => {
       setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
-        if (prev?.field === field) {
-          if (prev.direction === 'asc') {
-            return {
-              field: DEFAULT_PERP_TOKEN_SORT_FIELD,
-              direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-              activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-            };
-          }
-          return {
-            field,
-            direction: 'asc',
-            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-          };
-        }
-        return {
-          field,
-          direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-          activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-        };
+        return getNextPerpTokenSelectorSortConfig({ prev, field });
       });
     },
     [setSelectorConfig],
   );
+  const activeSortTab =
+    selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const isVolumeSortActive = isPerpTokenSelectorSortFieldActive({
+    activeTab: activeSortTab,
+    field: 'volume24h',
+    sortField: selectorConfig?.field,
+    sortSource: selectorConfig?.sortSource,
+  });
+  const isChangeSortActive = isPerpTokenSelectorSortFieldActive({
+    activeTab: activeSortTab,
+    field: 'change24hPercent',
+    sortField: selectorConfig?.field,
+    sortSource: selectorConfig?.sortSource,
+  });
   let iconName: string;
-  if (
-    selectorConfig?.field === 'volume24h' &&
-    selectorConfig?.direction === 'asc'
-  ) {
+  if (isVolumeSortActive && selectorConfig?.direction === 'asc') {
     iconName = 'ChevronTopOutline';
-  } else if (selectorConfig?.field === 'volume24h') {
+  } else if (isVolumeSortActive) {
     iconName = 'ChevronBottomOutline';
   } else {
     iconName = 'ChevronGrabberVerOutline';
@@ -1289,9 +1293,7 @@ function MobileTokenSelectorModal({
         >
           <SizableText
             size="$bodyXs"
-            color={
-              selectorConfig?.field === 'volume24h' ? '$text' : '$textSubdued'
-            }
+            color={isVolumeSortActive ? '$text' : '$textSubdued'}
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_selector_asset,
@@ -1312,11 +1314,7 @@ function MobileTokenSelectorModal({
         >
           <SizableText
             size="$bodyXs"
-            color={
-              selectorConfig?.field === 'change24hPercent'
-                ? '$text'
-                : '$textSubdued'
-            }
+            color={isChangeSortActive ? '$text' : '$textSubdued'}
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_selector_last_price,
@@ -1326,10 +1324,10 @@ function MobileTokenSelectorModal({
               id: ETranslations.perp_token_selector_24h_change,
             })}
           </SizableText>
-          {selectorConfig?.field === 'change24hPercent' ? (
+          {isChangeSortActive ? (
             <Icon
               name={
-                selectorConfig.direction === 'asc'
+                selectorConfig?.direction === 'asc'
                   ? 'ChevronTopOutline'
                   : 'ChevronBottomOutline'
               }
