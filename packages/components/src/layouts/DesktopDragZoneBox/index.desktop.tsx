@@ -246,8 +246,10 @@ function startManager() {
     subtree: true,
   });
 
-  // Initial pass.
-  scheduleRecompute();
+  // Initial pass — run it synchronously (not debounced) so the draggable region
+  // exists on the first commit instead of ~200ms later, otherwise the title bar
+  // is briefly non-draggable right after app load.
+  recompute();
 }
 
 function useDesktopDragRegionManager(enabled: boolean) {
