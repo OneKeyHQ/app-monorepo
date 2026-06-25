@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { formatInviteeDiscountText } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentLevelCard } from '../hooks/useCurrentLevelCard';
@@ -53,7 +54,7 @@ export function CurrentLevelCardMobile(props: ICurrentLevelCardProps) {
                   /
                 </SizableText>
                 <SizableText size="$bodyMdMedium" color="$text">
-                  {rate.invitee}%
+                  {formatInviteeDiscountText(rate.invitee)}
                 </SizableText>
               </XStack>
             </XStack>

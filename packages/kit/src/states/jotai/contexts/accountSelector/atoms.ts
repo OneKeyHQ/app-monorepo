@@ -121,10 +121,31 @@ export const {
   atom: accountSelectorStorageReadyAtom,
   use: useAccountSelectorStorageReadyAtom,
 } = contextAtom<boolean>(false, {
+  // Cached across cold starts so the selector can render from the last snapshot
+  // before this launch finishes reading storage.
   coldStartCache: true,
   coldStartCacheKey:
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.accountSelectorStorageReadyAtom,
 });
+
+// Process-local init signal. Do not replace this with storageReady: warm starts
+// can restore storageReady=true before the current launch has read storage.
+export const {
+  atom: accountSelectorStorageInitDoneAtom,
+  use: useAccountSelectorStorageInitDoneAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: accountSelectorActiveAccountInitDoneAtom,
+  use: useAccountSelectorActiveAccountInitDoneAtom,
+} = contextAtom<Partial<{ [num: number]: boolean }>>({});
+
+export function useIsAccountSelectorActiveAccountInitDone(
+  num: number,
+): boolean {
+  const [initDone] = useAccountSelectorActiveAccountInitDoneAtom();
+  return !!initDone?.[num];
+}
 
 export type IAccountSelectorAvailableNetworks = {
   networkIds?: string[];

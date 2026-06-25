@@ -995,6 +995,7 @@ export interface ISwapTxHistory {
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
+  currencyId?: string;
   accountInfo: {
     sender: {
       accountId?: string;
