@@ -128,6 +128,13 @@ type IAccountSelectorRecentSelectionCache = Record<
   IAccountSelectorRecentSelectionCacheItem
 >;
 
+const isSelectedAccountIdentityIncomplete = (
+  selectedAccount: IAccountSelectorSelectedAccount | undefined,
+) =>
+  !selectedAccount?.walletId &&
+  !selectedAccount?.indexedAccountId &&
+  !selectedAccount?.othersWalletAccountId;
+
 export type IAccountSelectorSyncFromSceneParams = {
   from: {
     sceneName: EAccountSelectorSceneName;
@@ -2396,6 +2403,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         if (!hasAccountIdentityForStorage) {
           return;
         }
+        const currentSelectedAccount = this.getSelectedAccount.call(set, {
+          num,
+        });
+        if (
+          !isEqual(
+            omitBy(currentSelectedAccount, isUndefined),
+            omitBy(selectedAccount, isUndefined),
+          )
+        ) {
+          return;
+        }
         const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
           sceneName,
           sceneUrl,
@@ -2427,6 +2445,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // **** also save to home scene SelectedAccount if sync needed
         if (
           sceneName !== EAccountSelectorSceneName.home &&
+          !eventEmitDisabled &&
           (await serviceAccountSelector.shouldSyncWithHomeSource({
             sceneName,
             sceneUrl,
@@ -3045,8 +3064,22 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
 
+          const shouldDisableAutoSelectSyncToHome =
+            sceneName === EAccountSelectorSceneName.swap &&
+            num === 0 &&
+            isSelectedAccountIdentityIncomplete(selectedAccount) &&
+            networkUtils.isAllNetwork({
+              networkId: selectedAccount?.networkId,
+            });
+
           await this.updateSelectedAccount.call(set, {
             num,
+            updateMeta: shouldDisableAutoSelectSyncToHome
+              ? {
+                  eventEmitDisabled: true,
+                  updatedAt: Date.now(),
+                }
+              : undefined,
             builder: () => selectedAccountNew,
           });
 

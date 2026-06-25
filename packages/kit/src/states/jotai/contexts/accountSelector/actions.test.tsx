@@ -171,7 +171,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => {
   };
 });
 
-function createWrapper() {
+function createWrapper(sceneName = EAccountSelectorSceneName.home) {
   const store = createStore();
   store.set(accountSelectorStorageReadyAtom(), true);
   store.set(accountSelectorStorageInitDoneAtom(), false);
@@ -182,10 +182,7 @@ function createWrapper() {
 
   function Wrapper({ children }: { children?: ReactNode }) {
     return (
-      <AccountSelectorJotaiProvider
-        store={store}
-        config={{ sceneName: EAccountSelectorSceneName.home }}
-      >
+      <AccountSelectorJotaiProvider store={store} config={{ sceneName }}>
         {children}
       </AccountSelectorJotaiProvider>
     );
@@ -428,6 +425,49 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('keeps swap all-network auto-select fallback local to swap', async () => {
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        networkId: 'onekeyall--0',
+        deriveType: 'default',
+      },
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: 'onekeyall--0' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-1',
+      networkId: 'onekeyall--0',
+      deriveType: 'default',
+    });
+    expect(store.get(accountSelectorUpdateMetaAtom())[0]).toMatchObject({
+      eventEmitDisabled: true,
+    });
+  });
+
   it('does not persist a network-only cold-start selection over a saved account', async () => {
     mockGetSelectedAccount.mockResolvedValue(
       createHdSelectedAccount('hd-1--1'),
@@ -452,6 +492,68 @@ describe('useAccountSelectorActions', () => {
       });
     });
 
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not sync an event-disabled swap source save back to home', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    mockShouldSyncWithHomeSource.mockResolvedValue(true);
+
+    const { store, Wrapper } = createWrapper(EAccountSelectorSceneName.swap);
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: true,
+        updatedAt: 2000,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount,
+        sceneName: EAccountSelectorSceneName.swap,
+        num: 0,
+        selectedAccountUpdatedAt: 2000,
+      });
+    });
+
+    expect(mockSaveSelectedAccount).toHaveBeenCalledTimes(1);
+    expect(mockShouldSyncWithHomeSource).not.toHaveBeenCalled();
+  });
+
+  it('does not persist a stale selected account after the current account changes', async () => {
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: false,
+        updatedAt: 2000,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: createHdSelectedAccount('hd-1--0'),
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: 1000,
+      });
+    });
+
+    expect(mockGetSelectedAccount).not.toHaveBeenCalled();
     expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
     expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
   });
