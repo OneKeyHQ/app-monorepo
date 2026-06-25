@@ -207,13 +207,13 @@ export function UniversalSearch({
     () => new Set(filterTypes?.length ? filterTypes : getDefaultFilterTypes()),
     [filterTypes],
   );
-  const shouldIncludeSettings = useMemo(
-    () => allowedSearchTypeSet.has(EUniversalSearchType.Settings),
-    [allowedSearchTypeSet],
+  // Plain O(1) Set lookups — no useMemo needed; each boolean is stable by value
+  // whenever allowedSearchTypeSet is.
+  const shouldIncludeSettings = allowedSearchTypeSet.has(
+    EUniversalSearchType.Settings,
   );
-  const shouldIncludeMarketTrending = useMemo(
-    () => allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken),
-    [allowedSearchTypeSet],
+  const shouldIncludeMarketTrending = allowedSearchTypeSet.has(
+    EUniversalSearchType.V2MarketToken,
   );
 
   const tabTitles = useMemo(() => {
@@ -387,20 +387,18 @@ export function UniversalSearch({
   const searchInputRef = useRef<string>('');
   const getSearchInput = useCallback(() => searchInputRef.current, []);
 
-  const getDeferredSearchTypes = useCallback(
-    () =>
-      getSearchTypes().filter((type) => !PRIMARY_SEARCH_TYPES.includes(type)),
-    [],
-  );
-
   const effectivePrimaryTypes = useMemo(
     () => PRIMARY_SEARCH_TYPES.filter((type) => allowedSearchTypeSet.has(type)),
     [allowedSearchTypeSet],
   );
   const effectiveDeferredTypes = useMemo(
     () =>
-      getDeferredSearchTypes().filter((type) => allowedSearchTypeSet.has(type)),
-    [allowedSearchTypeSet, getDeferredSearchTypes],
+      getSearchTypes().filter(
+        (type) =>
+          !PRIMARY_SEARCH_TYPES.includes(type) &&
+          allowedSearchTypeSet.has(type),
+      ),
+    [allowedSearchTypeSet],
   );
 
   const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
@@ -594,8 +592,6 @@ export function UniversalSearch({
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
-      const primarySearchTypes = effectivePrimaryTypes;
-      const deferredSearchTypes = effectiveDeferredTypes;
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
         input,
@@ -615,11 +611,11 @@ export function UniversalSearch({
       try {
         // Skip the primary round entirely when the active scope excludes all
         // primary categories (e.g. browser search scoped to `[Dapp]`).
-        if (primarySearchTypes.length > 0) {
+        if (effectivePrimaryTypes.length > 0) {
           const primaryResult =
             await backgroundApiProxy.serviceUniversalSearch.universalSearch({
               ...searchParams,
-              searchTypes: primarySearchTypes,
+              searchTypes: effectivePrimaryTypes,
             });
           if (isSearchResultStale(input)) {
             return;
@@ -641,11 +637,11 @@ export function UniversalSearch({
         // client-side via buildSearchResultSections, so still run when it is in
         // scope (the bg call returns empty for an out-of-scope searchTypes set).
         let deferredSections: IUniversalSection[] = [];
-        if (deferredSearchTypes.length > 0 || shouldIncludeSettings) {
+        if (effectiveDeferredTypes.length > 0 || shouldIncludeSettings) {
           const deferredResult =
             await backgroundApiProxy.serviceUniversalSearch.universalSearch({
               ...searchParams,
-              searchTypes: deferredSearchTypes,
+              searchTypes: effectiveDeferredTypes,
             });
           if (isSearchResultStale(input)) {
             return;
@@ -1044,12 +1040,21 @@ const UniversalSearchWithHomeTokenListProvider = ({
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  // Stabilize the fallback reference: getDefaultFilterTypes() returns a fresh
+  // array, so computing it inline in the prop would rebuild the downstream
+  // allowedSearchTypeSet memo (and its dependents) on every wrapper re-render.
+  const routeFilterTypes = route?.params?.filterTypes;
+  const filterTypes = useMemo(
+    () => routeFilterTypes || getDefaultFilterTypes(),
+    [routeFilterTypes],
+  );
+
   return (
     <HomeTokenListProviderMirrorWrapper
       accountId={activeAccount?.account?.id ?? ''}
     >
       <UniversalSearch
-        filterTypes={route?.params?.filterTypes || getDefaultFilterTypes()}
+        filterTypes={filterTypes}
         initialTab={route?.params?.initialTab}
       />
     </HomeTokenListProviderMirrorWrapper>
