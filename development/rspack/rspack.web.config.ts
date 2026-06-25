@@ -41,15 +41,24 @@ export function createWebConfig({
                 htmlPlugin: 'html-webpack-plugin',
                 enabled: 'auto',
               }),
-              // (C2) PWA precache — rspack-native workbox InjectManifest port.
-              //   apps/web/index.js registers /service-worker.js; without this
-              //   the file 404s and offline precache silently breaks. Exclude
-              //   list mirrors webpack EXCEPT asset-manifest.json (that file is
-              //   intentionally dropped under rspack — it has zero consumers).
+              // (C2) PWA service worker — rspack-native workbox InjectManifest
+              //   port. apps/web/index.js registers /service-worker.js; without
+              //   this the file 404s and the SW never registers.
+              //   Precache NOTHING (`exclude: [/./]` matches every manifest URL
+              //   -> empty precache). This is a large SPA (~800+ chunks) and
+              //   InjectManifest's default precaches every emitted asset, making
+              //   the SW `install` an ATOMIC all-or-nothing fetch of every file —
+              //   one failed/blocked/throttled request leaves the SW stuck
+              //   "trying to install" forever (observed in prod/test: #2500+
+              //   installs with ERR_CONNECTION_CLOSED bursts). Every asset is
+              //   already covered by the runtime caching routes in
+              //   service-worker.js (NetworkFirst navigations, CacheFirst
+              //   scripts/styles, CacheFirst images/fonts), so a full precache
+              //   adds fragility with no benefit. Mirrors the webpack web config.
               new InjectManifest({
                 swSrc: path.join(basePath, 'src/service-worker.js'),
                 swDest: 'service-worker.js',
-                exclude: [/\.map$/, /LICENSE/, /index\.html$/],
+                exclude: [/./],
               }),
             ]
           : []) as unknown as RspackPluginInstance[],
