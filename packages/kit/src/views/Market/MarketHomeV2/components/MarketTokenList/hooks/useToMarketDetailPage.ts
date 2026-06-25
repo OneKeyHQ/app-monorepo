@@ -39,6 +39,10 @@ interface IUseToDetailPageOptions {
    * Where the navigation originated from
    */
   from?: EEnterWay;
+  /**
+   * Controls whether the detail page displays the favorite/watchlist button.
+   */
+  showFavoriteButton?: boolean;
 }
 
 const EXTENSION_POPUP_CLOSE_DELAY_MS = 100;
@@ -60,6 +64,9 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         network: shortCode || item.networkId,
         isNative: item.isNative,
         from: options?.from,
+        ...(typeof options?.showFavoriteButton === 'boolean'
+          ? { showFavoriteButton: options.showFavoriteButton }
+          : undefined),
       };
 
       // Check if in extension popup/side panel
@@ -138,6 +145,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       tokenDetailActions,
       options?.switchToMarketTabFirst,
       options?.from,
+      options?.showFavoriteButton,
       splitViewType,
     ],
   );
