@@ -160,7 +160,7 @@ yarn lavamoat:policy:all
 @onekeybot update-policies
 ```
 
-`update-lavamoat-policies` workflow 仅接受 repository owner、member 或 collaborator 触发。普通状态回复 job 只使用读权限和 issue comment 权限；只有 validation 失败且需要应用 policy patch 时，`apply-and-commit` job 才会拿 `contents: write`，下载 CI 生成的 patch、应用到 PR 分支、确认生成变化只落在 `lavamoat/`、重新校验 policy artifact 结构、提交 `chore: update LavaMoat policies` 并 push。跨仓库 PR 暂不自动 push，需要本地运行 `yarn lavamoat:policy:all` 后手动提交。
+`update-lavamoat-policies` workflow 仅接受 repository owner、member 或 collaborator 触发。普通状态回复 job 只使用读权限和 issue comment 权限；只有 validation 失败且需要应用 policy patch 时，`apply-and-commit` job 才会拿 `contents: write`。这个 job 不 checkout PR 分支，也不执行 PR 分支里的脚本；它只从受信任的 validation CI 下载 patch，把 patch 应用到临时 git index，确认变更路径只落在 `lavamoat/`，再用 `git commit-tree` 生成 `chore: update LavaMoat policies` 提交并 push 到同仓库 PR 分支。跨仓库 PR 暂不自动 push，需要本地运行 `yarn lavamoat:policy:all` 后手动提交。
 
 为了让 bot push 后自动触发后续 CI，应配置仓库 secret `ONEKEYBOT_GITHUB_TOKEN`，使用可触发 workflow 的 bot token，例如 fine-grained PAT，或后续接入类似 MetaMask 的 GitHub App token exchange。未配置该 secret 时会回退 `GITHUB_TOKEN`，policy 更新仍可被推送，但 GitHub Actions 对 `GITHUB_TOKEN` 触发的 push 有递归保护，后续 workflow 可能不会自动运行，需要人工重新触发或批准 CI。
 

@@ -641,6 +641,31 @@ function testPolicyArtifactValidation(tempRoot) {
     'validate-policy-artifacts rejects missing update workflow write permission',
   );
 
+  const unsafePrCheckoutRepo = path.join(
+    tempRoot,
+    'artifacts-unsafe-pr-checkout',
+  );
+  fs.mkdirSync(unsafePrCheckoutRepo);
+  copyLavamoatValidationFixture(unsafePrCheckoutRepo);
+  const unsafePrCheckoutWorkflowFile = path.join(
+    unsafePrCheckoutRepo,
+    '.github/workflows/update-lavamoat-policies.yml',
+  );
+  writeFile(
+    unsafePrCheckoutWorkflowFile,
+    fs
+      .readFileSync(unsafePrCheckoutWorkflowFile, 'utf8')
+      .replace(
+        'git read-tree "${HEAD_SHA}"',
+        'gh pr checkout "${PR_NUMBER}" --repo "${REPO}"\n          git read-tree "${HEAD_SHA}"',
+      ),
+  );
+  expectStatus(
+    runScript(validatePolicyArtifactsScript, unsafePrCheckoutRepo),
+    1,
+    'validate-policy-artifacts rejects PR checkout in privileged update workflow',
+  );
+
   const workflowIfSecretsRepo = path.join(
     tempRoot,
     'artifacts-workflow-if-secrets',

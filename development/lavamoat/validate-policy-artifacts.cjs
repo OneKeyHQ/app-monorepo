@@ -548,6 +548,10 @@ function validateWorkflowCoverage() {
     updateContentsWritePermissions.length === 1,
     `update-lavamoat-policies.yml should grant contents: write exactly once, got ${updateContentsWritePermissions.length}`,
   );
+  assert(
+    !updateWorkflow.includes('gh pr checkout'),
+    'update-lavamoat-policies.yml must not checkout PR code in the privileged issue_comment workflow',
+  );
 
   const workflowIfSecrets = [validateWorkflowFile, updateWorkflowFile].flatMap(
     (file) => {
@@ -598,6 +602,7 @@ function validateWorkflowCoverage() {
     'permissions:\n      actions: read\n      contents: read\n      issues: write\n      pull-requests: read',
     'This is the only job that can push policy updates back to a PR branch.',
     'permissions:\n      actions: read\n      contents: write\n      issues: write\n      pull-requests: read',
+    'Do not checkout the PR branch in this privileged issue_comment',
     "startsWith(github.event.comment.body, '@onekeybot update-policies')",
     'github.event.issue.pull_request',
     'author_association',
@@ -616,11 +621,11 @@ function validateWorkflowCoverage() {
     'merge-multiple: true',
     'run-id: ${{ env.RUN_ID }}',
     'lavamoat-policy-diffs/*.patch',
-    'git apply --whitespace=error',
-    'node development/lavamoat/check-generated-file-scope.cjs',
-    'node development/lavamoat/validate-policy-artifacts.cjs',
-    'git add lavamoat',
-    'git push origin "HEAD:${HEAD_REF_NAME}"',
+    'git read-tree "${HEAD_SHA}"',
+    'git apply --cached --whitespace=error',
+    'git diff --cached --name-only -z "${HEAD_SHA}"',
+    'git commit-tree',
+    'git push origin "${NEW_COMMIT}:refs/heads/${HEAD_REF_NAME}"',
   ];
   const missingUpdateWorkflowSnippets = requiredUpdateWorkflowSnippets.filter(
     (snippet) => !updateWorkflow.includes(snippet),

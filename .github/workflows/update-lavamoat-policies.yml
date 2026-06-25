@@ -30,6 +30,7 @@ jobs:
     outputs:
       IS_CROSS_REPO_PR: ${{ steps.pr.outputs.IS_CROSS_REPO_PR }}
       HEAD_REF_NAME: ${{ steps.pr.outputs.HEAD_REF_NAME }}
+      HEAD_SHA: ${{ steps.pr.outputs.HEAD_SHA }}
       IS_AUTHORIZED: ${{ steps.authorize.outputs.IS_AUTHORIZED }}
       RUN_ID: ${{ steps.find-ci-run.outputs.RUN_ID }}
       NO_CI_RUN: ${{ steps.find-ci-run.outputs.NO_CI_RUN }}
@@ -206,6 +207,7 @@ jobs:
       PR_NUMBER: ${{ github.event.issue.number }}
       RUN_ID: ${{ needs.prepare.outputs.RUN_ID }}
       HEAD_REF_NAME: ${{ needs.prepare.outputs.HEAD_REF_NAME }}
+      HEAD_SHA: ${{ needs.prepare.outputs.HEAD_SHA }}
       VALIDATION_FAILED: ${{ needs.prepare.outputs.VALIDATION_FAILED }}
       FAILED_JOBS: ${{ needs.prepare.outputs.FAILED_JOBS }}
       ACTION_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -216,17 +218,30 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.ONEKEYBOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Warn when using GITHUB_TOKEN for policy updates
         if: ${{ env.VALIDATION_FAILED == 'true' && env.USES_POLICY_UPDATE_BOT_TOKEN != 'true' }}
         run: |
           echo "::warning::ONEKEYBOT_GITHUB_TOKEN is not configured. Falling back to GITHUB_TOKEN; the policy update push may not trigger follow-up workflows automatically."
 
-      - name: Checkout pull request
+      - name: Fetch pull request commit
         if: ${{ env.VALIDATION_FAILED == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.ONEKEYBOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
-        run: gh pr checkout "${PR_NUMBER}" --repo "${REPO}"
+          PUSH_TOKEN: ${{ secrets.ONEKEYBOT_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Do not checkout the PR branch in this privileged issue_comment
+          # workflow. Fetch objects only; apply the trusted CI patch to a
+          # temporary git index and create the update commit with commit-tree.
+          git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO}.git"
+          git fetch --no-tags --depth=1 origin "+refs/heads/${HEAD_REF_NAME}:refs/remotes/origin/lavamoat-policy-update-head"
+
+          FETCHED_SHA=$(git rev-parse refs/remotes/origin/lavamoat-policy-update-head)
+          if [ "${FETCHED_SHA}" != "${HEAD_SHA}" ]; then
+            echo "::error::Pull request head changed while applying LavaMoat policy diffs. Expected ${HEAD_SHA}, got ${FETCHED_SHA}."
+            exit 1
+          fi
 
       - name: Download policy diffs from validation CI
         if: ${{ env.VALIDATION_FAILED == 'true' }}
@@ -247,29 +262,38 @@ jobs:
 
       - name: Apply policy diffs
         if: ${{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}
+        env:
+          GIT_AUTHOR_NAME: OneKey Bot
+          GIT_AUTHOR_EMAIL: onekeybot@users.noreply.github.com
+          GIT_COMMITTER_NAME: OneKey Bot
+          GIT_COMMITTER_EMAIL: onekeybot@users.noreply.github.com
         run: |
+          export GIT_INDEX_FILE="${RUNNER_TEMP}/lavamoat-policy-update.index"
+          git read-tree "${HEAD_SHA}"
+
           for patch in lavamoat-policy-diffs/*.patch; do
             echo "Applying ${patch}..."
-            git apply --whitespace=error "${patch}"
+            git apply --cached --whitespace=error "${patch}"
           done
           rm -rf lavamoat-policy-diffs
+          git diff --cached --name-status "${HEAD_SHA}"
 
-      - name: Verify policy diff scope
-        if: ${{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}
-        run: node development/lavamoat/check-generated-file-scope.cjs
+          invalid_paths=()
+          while IFS= read -r -d '' changed_path; do
+            case "${changed_path}" in
+              lavamoat/*) ;;
+              *) invalid_paths+=("${changed_path}") ;;
+            esac
+          done < <(git diff --cached --name-only -z "${HEAD_SHA}")
 
-      - name: Validate updated policy artifacts
-        if: ${{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}
-        run: node development/lavamoat/validate-policy-artifacts.cjs
+          if [ "${#invalid_paths[@]}" -gt 0 ]; then
+            printf '::error::LavaMoat policy update patch touched files outside lavamoat/: %s\n' "${invalid_paths[*]}"
+            exit 1
+          fi
 
-      - name: Commit the updated policies
-        if: ${{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}
-        run: |
-          git config --global user.name 'OneKey Bot'
-          git config --global user.email 'onekeybot@users.noreply.github.com'
-          git add lavamoat
-          git commit -m "chore: update LavaMoat policies"
-          git push origin "HEAD:${HEAD_REF_NAME}"
+          NEW_TREE=$(git write-tree)
+          NEW_COMMIT=$(printf '%s\n' "chore: update LavaMoat policies" | git commit-tree "${NEW_TREE}" -p "${HEAD_SHA}")
+          git push origin "${NEW_COMMIT}:refs/heads/${HEAD_REF_NAME}"
 
       - name: Post comment when policies were updated
         if: ${{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}
