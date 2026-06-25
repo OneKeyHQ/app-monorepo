@@ -915,9 +915,16 @@ function HistoryDetails() {
         );
       }
     });
-    const overflowRows = transferRows.slice(MAX_DISPLAYED_TRANSFERS);
+    // Only collapse into a "+N" row when it hides 2+ transfers — show a single
+    // trailing transfer instead. Keeps overflowCount >= 2 so the plural-only
+    // "+N assets" label stays grammatically correct (never "+1 assets").
+    const visibleCount =
+      transferRows.length > MAX_DISPLAYED_TRANSFERS + 1
+        ? MAX_DISPLAYED_TRANSFERS
+        : transferRows.length;
+    const overflowRows = transferRows.slice(visibleCount);
     return {
-      visibleRows: transferRows.slice(0, MAX_DISPLAYED_TRANSFERS),
+      visibleRows: transferRows.slice(0, visibleCount),
       overflowCount: overflowRows.length,
       // Match the overflow chip's corner to what it summarizes: NFT images use
       // a rounded square ($2), fungible tokens use a circle ($full).

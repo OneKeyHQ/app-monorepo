@@ -483,7 +483,16 @@ function buildExpandedTransferView({
   // getTransferChangeLineCount in TxHistoryListView mirrors this cap so the row
   // height stays bounded.
   const combinedTransfers = [...receives, ...sends];
-  const overflowTransfers = combinedTransfers.slice(MAX_DISPLAYED_TRANSFERS);
+  // Only collapse into a "+N" row when it hides 2+ transfers — showing a single
+  // trailing transfer is cheaper than a "+1" row that hides it, and it keeps the
+  // overflow count >= 2 so the plural-only "+N assets" label stays grammatically
+  // correct. Rendered lines stay min(total, MAX_DISPLAYED_TRANSFERS + 1) either
+  // way, which getTransferChangeLineCount mirrors for the row height.
+  const visibleCount =
+    combinedTransfers.length > MAX_DISPLAYED_TRANSFERS + 1
+      ? MAX_DISPLAYED_TRANSFERS
+      : combinedTransfers.length;
+  const overflowTransfers = combinedTransfers.slice(visibleCount);
   const overflowCount = overflowTransfers.length;
   // Match the overflow chip's corner to what it summarizes: NFT images use a
   // rounded square ($2), fungible tokens use a circle ($full).
@@ -493,7 +502,7 @@ function buildExpandedTransferView({
   return (
     <>
       {combinedTransfers
-        .slice(0, MAX_DISPLAYED_TRANSFERS)
+        .slice(0, visibleCount)
         .map((t, index) =>
           index < receives.length
             ? renderTransferLine(t, 'r', '$textSuccess')

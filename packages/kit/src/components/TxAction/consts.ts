@@ -17,6 +17,9 @@ export const MAX_DISPLAYED_TRANSFERS = 5;
 // Label for the "+N" overflow row: "+N NFTs" when the hidden transfers are all
 // NFTs (hardcoded — "NFT" is not translated), otherwise "+N assets" reusing the
 // existing count_assets entry. Shared by the list row and the detail page.
+// Callers never collapse a single trailing transfer (see MAX_DISPLAYED_TRANSFERS
+// usage), so `count` is always >= 2 and the plural-only count_assets string is
+// grammatically correct.
 export function formatTransferOverflowLabel({
   count,
   isNFT,
