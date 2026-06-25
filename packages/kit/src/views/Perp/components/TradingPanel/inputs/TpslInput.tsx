@@ -364,7 +364,7 @@ export const TpslInput = memo(
                   },
                 ]}
               />
-              {expectedProfit ? (
+              {!hiddenTp && expectedProfit ? (
                 <XStack justifyContent="flex-start" pr="$0.5">
                   <SizableText
                     size="$bodySm"
@@ -539,7 +539,7 @@ export const TpslInput = memo(
             </YStack>
           </XStack>
         )}
-        {expectedProfit ? (
+        {!hiddenTp && expectedProfit ? (
           <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
               size="$bodySm"
@@ -644,7 +644,7 @@ export const TpslInput = memo(
             </YStack>
           </XStack>
         )}
-        {expectedLoss ? (
+        {!hiddenSl && expectedLoss ? (
           <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
               size="$bodySm"

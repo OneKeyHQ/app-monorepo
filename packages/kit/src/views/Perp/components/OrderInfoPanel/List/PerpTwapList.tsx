@@ -1756,7 +1756,7 @@ function PerpTwapList({
           tabs={twapOrderSubTabs}
           activeTab={activeTab}
           onChange={setActiveTab}
-          variant="pill"
+          variant={isMobile ? 'pill' : 'underline'}
         />
       ) : null}
       {activeTab === 'active' ? (
