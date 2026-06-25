@@ -8,12 +8,13 @@ import {
   isSwapColdStartAllNetworkContextNetworkId,
 } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
 import type { ISwapSelectedTokensColdStartContext } from '@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils';
-import type {
-  ESwapTabSwitchType,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
-import { buildSwapDefaultSelectedTokensFromHomeAccount } from '../utils/swapColdStartTokenCacheUtils';
+import {
+  buildSwapDefaultLimitSelectedTokens,
+  buildSwapDefaultSelectedTokensFromHomeAccount,
+} from '../utils/swapColdStartTokenCacheUtils';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 const SWAP_STORE_SCOPE_KEY = 'store:swap';
@@ -316,10 +317,12 @@ export function getSwapColdStartDisplayTokensFromGlobalSnapshot() {
 export function useSwapColdStartDisplayTokens({
   fromToken,
   initialSelectedTokensSynced = false,
+  swapType,
   toToken,
 }: {
   fromToken?: ISwapToken;
   initialSelectedTokensSynced?: boolean;
+  swapType?: ESwapTabSwitchType;
   toToken?: ISwapToken;
 }) {
   const hasResolvedFromTokenRef = useRef(Boolean(fromToken?.symbol));
@@ -353,15 +356,21 @@ export function useSwapColdStartDisplayTokens({
       getSwapColdStartDisplayTokensFromGlobalSnapshot();
   }
   const coldStartDisplayTokens = coldStartDisplayTokensRef.current;
+  const defaultDisplayTokens =
+    swapType === ESwapTabSwitchType.LIMIT
+      ? buildSwapDefaultLimitSelectedTokens()
+      : undefined;
 
   const displayTokens = {
     displayFromToken:
       (fromToken?.symbol ? fromToken : undefined) ||
+      (!fromToken?.symbol ? defaultDisplayTokens?.fromToken : undefined) ||
       (hasResolvedFromTokenRef.current
         ? undefined
         : coldStartDisplayTokens.fromToken),
     displayToToken:
       (toToken?.symbol ? toToken : undefined) ||
+      (!toToken?.symbol ? defaultDisplayTokens?.toToken : undefined) ||
       (hasResolvedToTokenRef.current
         ? undefined
         : coldStartDisplayTokens.toToken),

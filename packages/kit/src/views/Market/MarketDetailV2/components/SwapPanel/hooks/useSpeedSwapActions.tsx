@@ -195,6 +195,125 @@ export function buildMarketReviewTokens({
   };
 }
 
+type IMarketSwapBuildCtx = {
+  cowSwapOrderId?: string;
+  oneInchFusionOrderHash?: string;
+  changeHeroOrderId?: string;
+};
+
+export function buildMarketSwapHistoryItem({
+  swapInfo,
+  txHash,
+  gasFeeFiatValue,
+  gasFeeInNative,
+  currency,
+  currencyId,
+  now = Date.now,
+}: {
+  swapInfo: ISwapTxInfo;
+  txHash?: string;
+  gasFeeFiatValue?: string;
+  gasFeeInNative?: string;
+  currency?: string;
+  currencyId?: string;
+  now?: () => number;
+}) {
+  const buildCtx = swapInfo.swapBuildResData.ctx as
+    | IMarketSwapBuildCtx
+    | undefined;
+  const serviceOrderId =
+    swapInfo.swapBuildResData.orderId ??
+    swapInfo.swapBuildResData.result?.quoteId;
+  const historyOrderId =
+    swapInfo.swapBuildResData.swftOrder?.orderId ??
+    (txHash
+      ? (buildCtx?.cowSwapOrderId ??
+        buildCtx?.oneInchFusionOrderHash ??
+        buildCtx?.changeHeroOrderId)
+      : (serviceOrderId ??
+        buildCtx?.cowSwapOrderId ??
+        buildCtx?.oneInchFusionOrderHash ??
+        buildCtx?.changeHeroOrderId));
+  const fromNetworkPreset = Object.values(presetNetworksMap).find(
+    (item) => item.id === swapInfo.sender.token.networkId,
+  );
+  const toNetworkPreset = Object.values(presetNetworksMap).find(
+    (item) => item.id === swapInfo.receiver.token.networkId,
+  );
+  const useOrderId = Boolean(
+    (!txHash && historyOrderId) ||
+    buildCtx?.cowSwapOrderId ||
+    buildCtx?.oneInchFusionOrderHash,
+  );
+
+  const swapHistoryItem: ISwapTxHistory = {
+    status: ESwapTxHistoryStatus.PENDING,
+    currency,
+    currencyId,
+    accountInfo: {
+      sender: {
+        accountId: swapInfo.sender.accountInfo?.accountId,
+        networkId: swapInfo.sender.accountInfo?.networkId,
+      },
+      receiver: {
+        accountId: swapInfo.receiver.accountInfo?.accountId,
+        networkId: swapInfo.receiver.accountInfo?.networkId,
+      },
+    },
+    baseInfo: {
+      toAmount: swapInfo.receiver.amount,
+      fromAmount: swapInfo.sender.amount,
+      fromToken: swapInfo.sender.token,
+      toToken: swapInfo.receiver.token,
+      fromNetwork: {
+        networkId: fromNetworkPreset?.id ?? '',
+        name: fromNetworkPreset?.name ?? '',
+        symbol: fromNetworkPreset?.symbol ?? '',
+        logoURI: fromNetworkPreset?.logoURI ?? '',
+        shortcode: fromNetworkPreset?.shortcode ?? '',
+      },
+      toNetwork: {
+        networkId: toNetworkPreset?.id ?? '',
+        name: toNetworkPreset?.name ?? '',
+        symbol: toNetworkPreset?.symbol ?? '',
+        logoURI: toNetworkPreset?.logoURI ?? '',
+        shortcode: toNetworkPreset?.shortcode ?? '',
+      },
+    },
+    txInfo: {
+      txId: txHash,
+      useOrderId,
+      gasFeeFiatValue,
+      gasFeeInNative,
+      orderId: historyOrderId,
+      sender: swapInfo.accountAddress,
+      receiver: swapInfo.receivingAddress,
+    },
+    date: {
+      created: now(),
+      updated: now(),
+    },
+    swapInfo: {
+      instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
+      provider: swapInfo.swapBuildResData.result?.info,
+      socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
+      oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
+      protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
+      otherFeeInfos: swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
+      orderId: serviceOrderId,
+      supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
+      orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
+      oneKeyFeeExtraInfo: swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
+    },
+    ctx: swapInfo.swapBuildResData.ctx,
+  };
+
+  return {
+    swapHistoryItem,
+    historyOrderId,
+  };
+}
+
 export function useSpeedSwapActions(props: {
   marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
@@ -477,104 +596,19 @@ export function useSpeedSwapActions(props: {
       gasFeeInNative?: string;
     }) => {
       const txNetworkId = swapInfo.sender.token.networkId;
-      const buildCtx = swapInfo.swapBuildResData.ctx as
-        | {
-            cowSwapOrderId?: string;
-            oneInchFusionOrderHash?: string;
-            changeHeroOrderId?: string;
-          }
-        | undefined;
-      const serviceOrderId =
-        swapInfo.swapBuildResData.orderId ??
-        swapInfo.swapBuildResData.result?.quoteId;
-      const historyOrderId =
-        swapInfo.swapBuildResData.swftOrder?.orderId ??
-        (txHash
-          ? (buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId)
-          : (serviceOrderId ??
-            buildCtx?.cowSwapOrderId ??
-            buildCtx?.oneInchFusionOrderHash ??
-            buildCtx?.changeHeroOrderId));
-      const fromNetworkPreset = Object.values(presetNetworksMap).find(
-        (item) => item.id === swapInfo.sender.token.networkId,
-      );
-      const toNetworkPreset = Object.values(presetNetworksMap).find(
-        (item) => item.id === swapInfo.receiver.token.networkId,
-      );
-      const useOrderId = Boolean(
-        (!txHash && historyOrderId) ||
-        buildCtx?.cowSwapOrderId ||
-        buildCtx?.oneInchFusionOrderHash,
-      );
+      const { historyOrderId, swapHistoryItem } = buildMarketSwapHistoryItem({
+        swapInfo,
+        txHash,
+        gasFeeFiatValue,
+        gasFeeInNative,
+        currency: settingsAtom.currencyInfo?.symbol,
+        currencyId: settingsAtom.currencyInfo?.id,
+      });
 
       if (
         swapInfo.protocol === EProtocolOfExchange.SWAP ||
         swapInfo.swapBuildResData.result.isWrapped
       ) {
-        const swapHistoryItem: ISwapTxHistory = {
-          status: ESwapTxHistoryStatus.PENDING,
-          currency: settingsAtom.currencyInfo?.symbol,
-          accountInfo: {
-            sender: {
-              accountId: swapInfo.sender.accountInfo?.accountId,
-              networkId: swapInfo.sender.accountInfo?.networkId,
-            },
-            receiver: {
-              accountId: swapInfo.receiver.accountInfo?.accountId,
-              networkId: swapInfo.receiver.accountInfo?.networkId,
-            },
-          },
-          baseInfo: {
-            toAmount: swapInfo.receiver.amount,
-            fromAmount: swapInfo.sender.amount,
-            fromToken: swapInfo.sender.token,
-            toToken: swapInfo.receiver.token,
-            fromNetwork: {
-              networkId: fromNetworkPreset?.id ?? '',
-              name: fromNetworkPreset?.name ?? '',
-              symbol: fromNetworkPreset?.symbol ?? '',
-              logoURI: fromNetworkPreset?.logoURI ?? '',
-              shortcode: fromNetworkPreset?.shortcode ?? '',
-            },
-            toNetwork: {
-              networkId: toNetworkPreset?.id ?? '',
-              name: toNetworkPreset?.name ?? '',
-              symbol: toNetworkPreset?.symbol ?? '',
-              logoURI: toNetworkPreset?.logoURI ?? '',
-              shortcode: toNetworkPreset?.shortcode ?? '',
-            },
-          },
-          txInfo: {
-            txId: txHash,
-            useOrderId,
-            gasFeeFiatValue,
-            gasFeeInNative,
-            orderId: historyOrderId,
-            sender: swapInfo.accountAddress,
-            receiver: swapInfo.receivingAddress,
-          },
-          date: {
-            created: Date.now(),
-            updated: Date.now(),
-          },
-          swapInfo: {
-            instantRate: swapInfo.swapBuildResData.result?.instantRate ?? '',
-            provider: swapInfo.swapBuildResData.result?.info,
-            socketBridgeScanUrl: swapInfo.swapBuildResData.socketBridgeScanUrl,
-            oneKeyFee: swapInfo.swapBuildResData.result?.fee?.percentageFee,
-            protocolFee: swapInfo.swapBuildResData.result?.fee?.protocolFees,
-            otherFeeInfos:
-              swapInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
-            orderId: serviceOrderId,
-            supportUrl: swapInfo.swapBuildResData.result?.supportUrl,
-            orderSupportUrl: swapInfo.swapBuildResData.result?.orderSupportUrl,
-            oneKeyFeeExtraInfo:
-              swapInfo.swapBuildResData.result?.oneKeyFeeExtraInfo,
-          },
-          ctx: swapInfo.swapBuildResData.ctx,
-        };
         await backgroundApiProxy.serviceSwap.addSwapHistoryItem(
           swapHistoryItem,
         );
@@ -595,7 +629,7 @@ export function useSpeedSwapActions(props: {
         orderId: historyOrderId,
       };
     },
-    [settingsAtom.currencyInfo?.symbol],
+    [settingsAtom.currencyInfo?.id, settingsAtom.currencyInfo?.symbol],
   );
 
   const handleMarketSwapBuildTxSuccess = useCallback(

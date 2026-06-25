@@ -13,6 +13,7 @@ export function navigateToMarketTokenDetail(
   opts: {
     tokenDetailActions: ReturnType<typeof useTokenDetailActions>;
     beforeNavigate?: () => void;
+    showFavoriteButton?: boolean;
   },
 ) {
   const shortCode = networkUtils.getNetworkShortCode({
@@ -34,6 +35,9 @@ export function navigateToMarketTokenDetail(
     tokenAddress: token.address,
     network: shortCode || token.networkId,
     isNative: token.isNative,
+    ...(typeof opts.showFavoriteButton === 'boolean'
+      ? { showFavoriteButton: opts.showFavoriteButton }
+      : undefined),
   };
   setTimeout(() => {
     rootNavigationRef.current?.navigate(ERootRoutes.Main, {

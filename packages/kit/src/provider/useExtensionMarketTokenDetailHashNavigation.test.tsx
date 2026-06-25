@@ -103,7 +103,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
   it('parses market token detail hash', () => {
     expect(
       getMarketTokenDetailNavigationTargetFromHash(
-        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel',
+        '#/market/token/bsc/0xabc?isNative=false&from=ExtensionSidePanel&showFavoriteButton=false',
       ),
     ).toEqual({
       screen: ETabMarketRoutes.MarketDetailV2,
@@ -112,6 +112,7 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
         tokenAddress: '0xabc',
         isNative: false,
         from: 'ExtensionSidePanel',
+        showFavoriteButton: false,
       },
     });
   });
@@ -220,6 +221,63 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     });
 
     expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes the same token route when favorite visibility changes', () => {
+    setHash('#/market/token/eth/0xabc?showFavoriteButton=false');
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        showFavoriteButton: true,
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            network: 'eth',
+            tokenAddress: '0xabc',
+            showFavoriteButton: false,
+          },
+        },
+      },
+    );
+  });
+
+  it('restores default favorite visibility when reopening the same token from Market', () => {
+    setHash('#/market/token/eth/0xabc');
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        showFavoriteButton: false,
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+      ERootRoutes.Main,
+      {
+        screen: ETabRoutes.Market,
+        params: {
+          screen: ETabMarketRoutes.MarketDetailV2,
+          params: {
+            network: 'eth',
+            tokenAddress: '0xabc',
+          },
+        },
+      },
+    );
   });
 
   it('starts a new navigation run on hash change', () => {
