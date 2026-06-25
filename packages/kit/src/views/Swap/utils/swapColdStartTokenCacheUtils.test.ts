@@ -8,6 +8,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildSwapDefaultSelectedTokensFromHomeAccount,
+  buildSwapInitParamsConsumptionKey,
   buildSwapSelectedAccountSyncedFromHome,
   buildSwapSelectedTokensColdStartAccountKey,
   buildSwapSelectedTokensColdStartAccountKeyFromSelectedAccount,
@@ -1510,6 +1511,62 @@ describe('swap cold-start selected token context', () => {
         initialSelectedTokensSynced: true,
       }),
     ).toBe(false);
+  });
+
+  it('builds one-shot consumption keys only for swap init handoff params', () => {
+    expect(buildSwapInitParamsConsumptionKey()).toBeUndefined();
+    expect(
+      buildSwapInitParamsConsumptionKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    ).toBeUndefined();
+
+    const solUsdc = {
+      ...buildSwapToken('sol--101'),
+      contractAddress: 'usdc',
+      symbol: 'USDC',
+    };
+    const sameSolUsdc = {
+      ...buildSwapToken('sol--101'),
+      contractAddress: 'usdc',
+      symbol: 'USDC',
+    };
+    const bnbAapl = {
+      ...buildSwapToken('evm--56'),
+      contractAddress: 'aaplon',
+      symbol: 'AAPLon',
+    };
+    const solUsdcKey = buildSwapInitParamsConsumptionKey({
+      fromAmount: '1',
+      importFromToken: solUsdc,
+      importNetworkId: 'sol--101',
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+    });
+
+    expect(solUsdcKey).toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '1',
+        importFromToken: sameSolUsdc,
+        importNetworkId: 'sol--101',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(solUsdcKey).not.toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '1',
+        importFromToken: bnbAapl,
+        importNetworkId: 'evm--56',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(solUsdcKey).not.toBe(
+      buildSwapInitParamsConsumptionKey({
+        fromAmount: '2',
+        importFromToken: solUsdc,
+        importNetworkId: 'sol--101',
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
   });
 
   it('does not mark restored tokens as initially synced before latest Home storage is checked', () => {

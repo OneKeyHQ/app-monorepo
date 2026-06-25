@@ -44,7 +44,11 @@ import { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
-export function MarketDetailHeader() {
+export function MarketDetailHeader({
+  showFavoriteButton = true,
+}: {
+  showFavoriteButton?: boolean;
+}) {
   const media = useMedia();
   const { handleBackPress } = useMarketDetailBackNavigation();
   const navigation = useAppNavigation();
@@ -57,8 +61,11 @@ export function MarketDetailHeader() {
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MobileTokenSelector,
+      params: {
+        showFavoriteButton,
+      },
     });
-  }, [navigation]);
+  }, [navigation, showFavoriteButton]);
 
   // Stabilize logoUrls to prevent re-renders from polling returning fresh array references
   const logoUrls = tokenDetail?.logoUrls;
@@ -171,17 +178,21 @@ export function MarketDetailHeader() {
 
   const buildNativeHeaderRightItems = useCallback(
     () => [
-      glassBarItem(
-        <HeaderIconButton
-          icon={starChecked ? 'StarSolid' : 'StarOutline'}
-          onPress={handleStarNative}
-        />,
-      ),
+      ...(showFavoriteButton
+        ? [
+            glassBarItem(
+              <HeaderIconButton
+                icon={starChecked ? 'StarSolid' : 'StarOutline'}
+                onPress={handleStarNative}
+              />,
+            ),
+          ]
+        : []),
       glassBarItem(
         <HeaderIconButton icon="ShareOutline" onPress={handleShareNative} />,
       ),
     ],
-    [starChecked, handleStarNative, handleShareNative],
+    [showFavoriteButton, starChecked, handleStarNative, handleShareNative],
   );
 
   // Drive the back button through useMarketDetailBackNavigation so the
@@ -304,14 +315,16 @@ export function MarketDetailHeader() {
 
           {networkId ? (
             <XStack gap="$3" ai="center">
-              <MarketStarV2
-                chainId={networkId}
-                contractAddress={tokenDetail?.address ?? ''}
-                size="large"
-                from={EWatchlistFrom.Detail}
-                tokenSymbol={tokenDetail?.symbol ?? ''}
-                isNative={isNative}
-              />
+              {showFavoriteButton ? (
+                <MarketStarV2
+                  chainId={networkId}
+                  contractAddress={tokenDetail?.address ?? ''}
+                  size="large"
+                  from={EWatchlistFrom.Detail}
+                  tokenSymbol={tokenDetail?.symbol ?? ''}
+                  isNative={isNative}
+                />
+              ) : null}
               <ShareButton
                 networkId={networkId}
                 address={tokenDetail?.address ?? ''}
