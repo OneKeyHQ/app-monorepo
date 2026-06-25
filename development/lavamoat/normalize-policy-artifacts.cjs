@@ -1,6 +1,9 @@
+// cspell:ignore LavaMoat lavamoat
+
 const fs = require('fs');
 const path = require('path');
 
+const { LavaMoatError } = require('./error.cjs');
 const { enabledTargets } = require('./targets.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -10,7 +13,7 @@ function sortObject(value) {
   if (Array.isArray(value)) {
     const items = value.map(sortObject);
     if (items.every((item) => typeof item === 'string')) {
-      return items.sort((left, right) => left.localeCompare(right));
+      return items.toSorted((left, right) => left.localeCompare(right));
     }
     return items;
   }
@@ -19,7 +22,7 @@ function sortObject(value) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => [key, sortObject(item)]),
   );
 }
@@ -47,7 +50,7 @@ const files = enabledTargets.flatMap((target) => [
 const missingFiles = files.filter((file) => !fs.existsSync(file));
 
 if (missingFiles.length > 0) {
-  throw new Error(
+  throw new LavaMoatError(
     `Missing enabled LavaMoat policy artifacts:\n${missingFiles
       .map((file) => path.relative(repoRoot, file))
       .join('\n')}`,

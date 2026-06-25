@@ -1,4 +1,8 @@
+// cspell:ignore LavaMoat lavamoat
+
 const { spawnSync } = require('child_process');
+
+const { LavaMoatError } = require('./error.cjs');
 
 const allowedPrefixes = ['lavamoat/'];
 
@@ -13,7 +17,7 @@ function runGit(args) {
   }
 
   if (result.status !== 0) {
-    throw new Error(
+    throw new LavaMoatError(
       `git ${args.join(' ')} failed with status ${result.status}:\n${result.stderr}`,
     );
   }

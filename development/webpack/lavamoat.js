@@ -1,3 +1,5 @@
+// cspell:ignore LavaMoat LAVAMOAT lavamoat lockdown LOCKDOWN
+
 const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '../..');
