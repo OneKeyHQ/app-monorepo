@@ -30,6 +30,15 @@ const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
 const envExposedToClient = require('../envExposedToClient') as {
   buildEnvExposedToClientDangerously: (opts: { platform: string }) => string[];
 };
+// Shared platformEnv.* -> literal map (single source of truth with the babel
+// chain in development/babelTools.js — see development/platformEnvDefine.js).
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { buildPlatformEnvDefineMap: buildSharedPlatformEnvDefineMap } =
+  require('../platformEnvDefine') as {
+    buildPlatformEnvDefineMap: (
+      buildTimeEnv: IBuildTimeEnv,
+    ) => Record<string, boolean>;
+  };
 // Single source of truth for the platformEnv.* booleans = buildTimeEnv.js.
 // buildTimeEnv derives every flag from process.env.ONEKEY_PLATFORM, which is
 // NOT set at rspack config-eval time (webpack works because babelTools sets it
@@ -59,23 +68,10 @@ function loadBuildTimeEnv(platform: string): IBuildTimeEnv {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('../../packages/shared/src/buildTimeEnv') as IBuildTimeEnv;
 }
-// transform-define map identical to development/babelTools.js (12 keys).
+// platformEnv.* -> literal map, built from the SAME shared source as the babel
+// chain (development/platformEnvDefine.js) so native and web never diverge.
 function buildPlatformEnvDefineMap(platform: string): Record<string, boolean> {
-  const e = loadBuildTimeEnv(platform);
-  return {
-    'platformEnv.isJest': e.isJest,
-    'platformEnv.isDev': e.isDev,
-    'platformEnv.isE2E': e.isE2E,
-    'platformEnv.isProduction': e.isProduction,
-    'platformEnv.isWeb': e.isWeb,
-    'platformEnv.isWebEmbed': e.isWebEmbed,
-    'platformEnv.isDesktop': e.isDesktop,
-    'platformEnv.isExtension': e.isExtension,
-    'platformEnv.isNative': e.isNative,
-    'platformEnv.isExtChrome': e.isExtChrome,
-    'platformEnv.isExtFirefox': e.isExtFirefox,
-    'platformEnv.enableNativeBackgroundThread': e.enableNativeBackgroundThread,
-  };
+  return buildSharedPlatformEnvDefineMap(loadBuildTimeEnv(platform));
 }
 
 const IS_EAS_BUILD = !!process.env.EAS_BUILD;
