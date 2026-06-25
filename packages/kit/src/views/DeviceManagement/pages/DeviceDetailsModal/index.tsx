@@ -167,9 +167,13 @@ function DeviceDetailsModalV2Cmp({
                 <>
                   <DeviceSectionGeneral />
                   <DeviceSectionSecurity />
-                  <DeviceSectionDangerZone
-                    onPressCheckForUpdates={onPressCheckForUpdates}
-                  />
+                  {/* Wipe device is a OneKey-SDK op; the danger zone is wipe-only
+                      for third-party (Trezor/Ledger), so hide it for them. */}
+                  {vendorProfile?.isThirdParty ? null : (
+                    <DeviceSectionDangerZone
+                      onPressCheckForUpdates={onPressCheckForUpdates}
+                    />
+                  )}
                 </>
               ) : null}
               {showPassphraseSettings ? <DeviceSectionAdvance /> : null}
