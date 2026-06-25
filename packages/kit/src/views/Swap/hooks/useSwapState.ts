@@ -31,7 +31,13 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useDebounce } from '../../../hooks/useDebounce';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useAccountSelectorStorageInitDoneAtom,
+  useIsAccountSelectorActiveAccountInitDone,
+} from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
   useSwapAlertsAtom,
@@ -64,6 +70,7 @@ import {
   isSwapZeroProviderQuoteCompleted,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { shouldAllowSwapNoConnectWalletWarning } from '../utils/swapNoWalletWarningGuard';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -77,6 +84,39 @@ function useSwapWarningCheck() {
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const { result: walletListResult } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      }),
+    [],
+    {
+      checkIsFocused: false,
+      watchLoading: false,
+    },
+  );
+  const allowNoConnectWallet = useMemo(
+    () =>
+      shouldAllowSwapNoConnectWalletWarning({
+        accountInfoReady: swapFromAddressInfo.accountInfo?.ready,
+        accountSelectorActiveAccountInitDone,
+        accountSelectorStorageInitDone,
+        hasAccountWallet: Boolean(swapFromAddressInfo.accountInfo?.wallet),
+        isWebDappMode: Boolean(platformEnv.isWebDappMode),
+        walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+      }),
+    [
+      accountSelectorActiveAccountInitDone,
+      accountSelectorStorageInitDone,
+      swapFromAddressInfo.accountInfo?.ready,
+      swapFromAddressInfo.accountInfo?.wallet,
+      walletListResult?.wallets.length,
+    ],
+  );
   const refContainer = useRef<ISwapCheckWarningDef>({
     swapFromAddressInfo: {
       address: undefined,
@@ -105,8 +145,10 @@ function useSwapWarningCheck() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const checkSwapWarningDeb = useCallback(
-    debounce((fromAddressInfo, toAddressInfo) => {
-      void checkSwapWarning(fromAddressInfo, toAddressInfo);
+    debounce((fromAddressInfo, toAddressInfo, allowNoConnect: boolean) => {
+      void checkSwapWarning(fromAddressInfo, toAddressInfo, {
+        allowNoConnectWallet: allowNoConnect,
+      });
     }, 300),
     [],
   );
@@ -117,9 +159,11 @@ function useSwapWarningCheck() {
       checkSwapWarningDeb(
         refContainer.current.swapFromAddressInfo,
         refContainer.current.swapToAddressInfo,
+        allowNoConnectWallet,
       );
     }
   }, [
+    allowNoConnectWallet,
     asyncRefContainer,
     checkSwapWarningDeb,
     fromToken,
