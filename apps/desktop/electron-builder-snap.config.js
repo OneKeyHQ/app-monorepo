@@ -78,10 +78,10 @@ module.exports = {
         '$SNAP_LIBRARY_PATH',
         // gpu-2404 MUST come before staged libs so its libgbm.so.1 // cspell:disable-line
         // is loaded instead of the staged one (which hardcodes host paths).
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu',
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/gbm',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/gbm',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/x86_64-linux-gnu',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/x86_64-linux-gnu/gbm',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/aarch64-linux-gnu',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/aarch64-linux-gnu/gbm',
         '$SNAP/gnome-platform/usr/lib/x86_64-linux-gnu',
         '$SNAP/gnome-platform/usr/lib/aarch64-linux-gnu',
         '$SNAP/lib:$SNAP/usr/lib',
@@ -91,15 +91,15 @@ module.exports = {
       ].join(':'),
       // Mesa DRI driver search path (gpu-2404 content snap).
       'LIBGL_DRIVERS_PATH': [
-        '$SNAP/gpu-2404/usr/lib/x86_64-linux-gnu/dri',
-        '$SNAP/gpu-2404/usr/lib/aarch64-linux-gnu/dri',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/x86_64-linux-gnu/dri',
+        '$SNAP/gpu-2404/mesa-2404/usr/lib/aarch64-linux-gnu/dri',
       ].join(':'),
       // EGL vendor ICD discovery for GLVND (gpu-2404 content snap). // cspell:disable-line
       // desktop-common.sh only sets this if /var/lib/snapd/lib/glvnd exists, // cspell:disable-line
       // which is empty on most systems. Without this, libEGL cannot find
       // libEGL_mesa.so.0 and EGL initialization fails.
       '__EGL_VENDOR_LIBRARY_DIRS':
-        '$SNAP/gpu-2404/usr/share/glvnd/egl_vendor.d',
+        '$SNAP/gpu-2404/mesa-2404/usr/share/glvnd/egl_vendor.d',
       // GIO extra modules (libgiolibproxy, etc.) from gnome-platform content snap. // cspell:disable-line
       // Use GIO_EXTRA_MODULES (not GIO_MODULE_DIR) because the latter only
       // accepts a single directory. Both arch triplets are listed since only
