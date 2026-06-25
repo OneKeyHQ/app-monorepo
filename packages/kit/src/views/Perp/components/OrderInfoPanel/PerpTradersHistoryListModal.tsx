@@ -18,8 +18,11 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import type {
+  EModalPerpRoutes,
+  IModalPerpParamList,
+  IPerpHistoryTab,
+} from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -29,7 +32,7 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
-type ITabName = 'Trades' | 'Twap' | 'Account';
+type ITabName = IPerpHistoryTab;
 
 const HISTORY_TABS: Array<{
   name: ITabName;
@@ -88,12 +91,9 @@ export function PerpTradersHistoryListModal() {
   const intl = useIntl();
   const route =
     useRoute<
-      RouteProp<
-        IModalPerpParamList,
-        EModalPerpRoutes.PerpTradersHistoryList
-      >
+      RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradersHistoryList>
     >();
-  const initialTab = (route.params?.initialTab as ITabName) || 'Trades';
+  const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
 

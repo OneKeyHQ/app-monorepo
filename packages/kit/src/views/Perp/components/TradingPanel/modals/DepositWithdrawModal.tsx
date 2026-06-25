@@ -2402,6 +2402,19 @@ function MobileDepositWithdrawModal() {
       params: { initialTab: 'Account' },
     });
   }, [appNavigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <IconButton
+        variant="tertiary"
+        size="small"
+        icon="ClockTimeHistoryOutline"
+        onPress={handleViewHistory}
+      />
+    ),
+    [handleViewHistory],
+  );
+
   if (!selectedAccount) {
     return (
       <Page>
@@ -2439,14 +2452,7 @@ function MobileDepositWithdrawModal() {
               ? ETranslations.perp_trade_deposit
               : ETranslations.perp_trade_withdraw,
         })}
-        headerRight={() => (
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="ClockTimeHistoryOutline"
-            onPress={handleViewHistory}
-          />
-        )}
+        headerRight={renderHeaderRight}
       />
       <Page.Body>
         <PerpsProviderMirror>
