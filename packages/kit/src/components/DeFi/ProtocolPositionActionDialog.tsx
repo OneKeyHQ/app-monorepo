@@ -20,6 +20,11 @@ import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EthereumStETH,
+  EthereumStETHWithdrawalQueue,
+} from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { buildDeFiActionBps } from '@onekeyhq/shared/src/utils/defiActionUtils';
@@ -30,6 +35,7 @@ import {
   type IDeFiActionExtraParams,
   type IDeFiActionTxConfirmInfo,
   type IDeFiAsset,
+  type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
@@ -472,6 +478,127 @@ function isLidoProtocol(protocolId: string) {
   );
 }
 
+function asRecord(value: unknown): IDeFiUnknownRecord | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as IDeFiUnknownRecord;
+}
+
+function parsePermitTypedDataMessage(message: unknown): IDeFiUnknownRecord {
+  if (typeof message === 'string') {
+    try {
+      const parsed = JSON.parse(message) as unknown;
+      const record = asRecord(parsed);
+      if (record) return record;
+    } catch {
+      // Throw a stable local error below.
+    }
+    throw new OneKeyLocalError('Invalid DeFi permit typed data');
+  }
+
+  const record = asRecord(message);
+  if (record) return record;
+
+  throw new OneKeyLocalError('Invalid DeFi permit typed data');
+}
+
+function normalizePermitAddress(value: unknown) {
+  return typeof value === 'string' && value.trim()
+    ? value.trim().toLowerCase()
+    : undefined;
+}
+
+function assertPermitAddress({
+  actual,
+  expected,
+  fieldName,
+}: {
+  actual: unknown;
+  expected: string | undefined;
+  fieldName: string;
+}) {
+  const normalizedActual = normalizePermitAddress(actual);
+  const normalizedExpected = normalizePermitAddress(expected);
+  if (
+    !normalizedActual ||
+    !normalizedExpected ||
+    normalizedActual !== normalizedExpected
+  ) {
+    throw new OneKeyLocalError(`Invalid DeFi permit ${fieldName}`);
+  }
+}
+
+function normalizePermitChainId(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  return undefined;
+}
+
+function validateLidoWithdrawPermitTypedData({
+  message,
+  accountAddress,
+  networkId,
+  selectedAsset,
+}: {
+  message: unknown;
+  accountAddress: string;
+  networkId: string;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+}) {
+  if (networkId !== getNetworkIdsMap().eth) {
+    throw new OneKeyLocalError('Invalid DeFi permit network');
+  }
+
+  const typedData = parsePermitTypedDataMessage(message);
+  const domain = asRecord(typedData.domain);
+  const permitMessage = asRecord(typedData.message);
+
+  if (!domain || !permitMessage) {
+    throw new OneKeyLocalError('Invalid DeFi permit typed data');
+  }
+
+  if (normalizePermitChainId(domain.chainId) !== '1') {
+    throw new OneKeyLocalError('Invalid DeFi permit chainId');
+  }
+
+  assertPermitAddress({
+    actual: permitMessage.owner,
+    expected: accountAddress,
+    fieldName: 'owner',
+  });
+  assertPermitAddress({
+    actual: domain.verifyingContract,
+    expected: EthereumStETH,
+    fieldName: 'verifyingContract',
+  });
+  assertPermitAddress({
+    actual: selectedAsset.tokenAddress,
+    expected: EthereumStETH,
+    fieldName: 'tokenAddress',
+  });
+  assertPermitAddress({
+    actual: permitMessage.spender,
+    expected: EthereumStETHWithdrawalQueue,
+    fieldName: 'spender',
+  });
+
+  if (normalizePermitAddress(permitMessage.token)) {
+    assertPermitAddress({
+      actual: permitMessage.token,
+      expected: selectedAsset.tokenAddress,
+      fieldName: 'token',
+    });
+  }
+}
+
 function buildDeFiActionTxConfirmInfo({
   action,
   selectedAsset,
@@ -681,6 +808,12 @@ function useProtocolPositionActionSubmit({
               accountId,
               networkId,
             });
+            validateLidoWithdrawPermitTypedData({
+              message: resp.permit.message,
+              accountAddress: account.address,
+              networkId,
+              selectedAsset,
+            });
             const unsignedMessage =
               typeof resp.permit.message === 'string'
                 ? resp.permit.message
@@ -711,14 +844,25 @@ function useProtocolPositionActionSubmit({
             });
           }
 
-          if (resp.approvalTx) {
-            throw new OneKeyLocalError(
-              'DeFi approval transaction is not supported',
-            );
-          }
-
           if (!resp.tx) {
             throw new OneKeyLocalError('DeFi transaction is missing');
+          }
+
+          const withUuid =
+            selectedAssets.length > 1 || Boolean(resp.approvalTx);
+          if (resp.approvalTx) {
+            const approvalUnsignedTx =
+              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
+                {
+                  accountId,
+                  networkId,
+                  encodedTx: resp.approvalTx as IEncodedTx,
+                  prevNonce,
+                  withUuid,
+                },
+              );
+            prevNonce = approvalUnsignedTx.nonce;
+            unsignedTxs.push(approvalUnsignedTx);
           }
 
           const unsignedTx =
@@ -727,7 +871,7 @@ function useProtocolPositionActionSubmit({
               networkId,
               encodedTx: resp.tx as IEncodedTx,
               prevNonce,
-              withUuid: selectedAssets.length > 1,
+              withUuid,
             });
           prevNonce = unsignedTx.nonce;
           unsignedTxs.push(
