@@ -22,11 +22,16 @@ const token: ISwapToken = {
   symbol: 'TOKEN',
 };
 
-function createToken(symbol: string, contractAddress = `0x${symbol}`) {
+function createToken(
+  symbol: string,
+  contractAddress = `0x${symbol}`,
+  extra?: Partial<ISwapToken>,
+) {
   return {
     ...token,
     contractAddress,
     symbol,
+    ...extra,
   };
 }
 
@@ -144,8 +149,17 @@ describe('swapMarketHistory', () => {
   });
 
   it('builds recent token pairs from stock histories only', () => {
-    const usdc = createToken('USDC');
-    const apple = createToken('AAPLon');
+    const usdc = createToken('USDC', '0xUSDC', {
+      balanceParsed: '100',
+      fiatValue: '100',
+      price: '1',
+    });
+    const apple = createToken('AAPLon', '0xAAPLon', {
+      balanceParsed: '1',
+      fiatValue: '200',
+      isStock: true,
+      price: '200',
+    });
     const nvidia = createToken('NVDAon');
     const histories = [
       createHistoryItem({
@@ -174,15 +188,49 @@ describe('swapMarketHistory', () => {
       }),
     ];
 
-    expect(
-      buildSwapRecentTokenPairsFromHistory({
-        items: histories,
-        protocol: EProtocolOfExchange.STOCK,
-      }),
-    ).toEqual([
-      { fromToken: usdc, toToken: apple },
-      { fromToken: apple, toToken: usdc },
-      { fromToken: usdc, toToken: nvidia },
-    ]);
+    const recentTokenPairs = buildSwapRecentTokenPairsFromHistory({
+      items: histories,
+      protocol: EProtocolOfExchange.STOCK,
+    });
+
+    expect(recentTokenPairs).toHaveLength(3);
+    expect(recentTokenPairs[0].fromToken).toMatchObject({
+      contractAddress: usdc.contractAddress,
+      networkId: usdc.networkId,
+      symbol: usdc.symbol,
+    });
+    expect(recentTokenPairs[0].toToken).toMatchObject({
+      contractAddress: apple.contractAddress,
+      isStock: true,
+      networkId: apple.networkId,
+      symbol: apple.symbol,
+    });
+    expect(recentTokenPairs[1].fromToken).toMatchObject({
+      contractAddress: apple.contractAddress,
+      isStock: true,
+      networkId: apple.networkId,
+      symbol: apple.symbol,
+    });
+    expect(recentTokenPairs[1].toToken).toMatchObject({
+      contractAddress: usdc.contractAddress,
+      networkId: usdc.networkId,
+      symbol: usdc.symbol,
+    });
+    expect(recentTokenPairs[2].fromToken).toMatchObject({
+      contractAddress: usdc.contractAddress,
+      networkId: usdc.networkId,
+      symbol: usdc.symbol,
+    });
+    expect(recentTokenPairs[2].toToken).toMatchObject({
+      contractAddress: nvidia.contractAddress,
+      networkId: nvidia.networkId,
+      symbol: nvidia.symbol,
+    });
+    expect(recentTokenPairs[0].fromToken).not.toHaveProperty('balanceParsed');
+    expect(recentTokenPairs[0].fromToken).not.toHaveProperty('fiatValue');
+    expect(recentTokenPairs[0].fromToken).not.toHaveProperty('price');
+    expect(recentTokenPairs[0].toToken).not.toHaveProperty('balanceParsed');
+    expect(recentTokenPairs[0].toToken).not.toHaveProperty('fiatValue');
+    expect(recentTokenPairs[0].toToken).not.toHaveProperty('price');
   });
 });

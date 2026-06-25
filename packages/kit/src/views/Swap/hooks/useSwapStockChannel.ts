@@ -411,6 +411,7 @@ export function useSwapStockChannel({
       setTradeSide(nextTradeSide);
       setStockTokenState(nextStockToken);
       stockTokenSnapshotRef.current = nextStockToken;
+      manualStockPayTokenKeyRef.current = getTokenIdentityKey(nextPayToken);
       setPayTokenState(nextPayToken);
       payTokenSnapshotRef.current = nextPayToken;
       requestMarketActiveToken(nextStockToken);

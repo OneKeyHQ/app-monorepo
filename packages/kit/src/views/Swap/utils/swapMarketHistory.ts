@@ -97,6 +97,20 @@ function getRecentTokenPairKey({ fromToken, toToken }: ISwapRecentTokenPair) {
   return `${buildTokenKey(fromToken)}->${buildTokenKey(toToken)}`;
 }
 
+function buildSwapRecentTokenBaseInfo(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+    isNative: token.isNative,
+    isStock: token.isStock,
+  };
+}
+
 export function buildSwapRecentTokenPairsFromHistory({
   items,
   protocol,
@@ -116,8 +130,8 @@ export function buildSwapRecentTokenPairsFromHistory({
 
   for (const item of histories) {
     const pair = {
-      fromToken: item.baseInfo.fromToken,
-      toToken: item.baseInfo.toToken,
+      fromToken: buildSwapRecentTokenBaseInfo(item.baseInfo.fromToken),
+      toToken: buildSwapRecentTokenBaseInfo(item.baseInfo.toToken),
     };
     const pairKey = getRecentTokenPairKey(pair);
     if (!seenKeys.has(pairKey)) {
