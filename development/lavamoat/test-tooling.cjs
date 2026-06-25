@@ -1,9 +1,14 @@
+// cspell:ignore LavaMoat LAVAMOAT ONEKEYBOT lavamoat
+
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+
+const { LavaMoatError } = require('./error.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
+const dollarSign = String.fromCodePoint(36);
 const checkGeneratedFileScopeScript = path.join(
   repoRoot,
   'development/lavamoat/check-generated-file-scope.cjs',
@@ -29,7 +34,7 @@ function run(command, args, options = {}) {
   }
 
   if (result.status !== 0) {
-    throw new Error(
+    throw new LavaMoatError(
       [
         `${command} ${args.join(' ')} failed with status ${result.status}`,
         result.stdout,
@@ -59,7 +64,7 @@ function runScript(script, cwd, args = []) {
 
 function expectStatus(result, expectedStatus, label) {
   if (result.status !== expectedStatus) {
-    throw new Error(
+    throw new LavaMoatError(
       [
         `${label} expected status ${expectedStatus}, got ${result.status}`,
         result.stdout,
@@ -140,7 +145,10 @@ function testGeneratedFileScope(tempRoot) {
 function createPolicyDiffBaseRepo(repo) {
   fs.mkdirSync(repo);
   initRepo(repo);
-  writeFile(path.join(repo, 'lavamoat/webpack/web/policy.json'), '{"old":true}\n');
+  writeFile(
+    path.join(repo, 'lavamoat/webpack/web/policy.json'),
+    '{"old":true}\n',
+  );
   commitAll(repo, 'init');
 }
 
@@ -156,10 +164,15 @@ function testPolicyDiff(tempRoot) {
     'check-policy-diff succeeds when lavamoat is clean',
   );
   if (fs.existsSync(output)) {
-    throw new Error('check-policy-diff should remove stale output when clean');
+    throw new LavaMoatError(
+      'check-policy-diff should remove stale output when clean',
+    );
   }
 
-  writeFile(path.join(repo, 'lavamoat/webpack/web/policy.json'), '{"new":true}\n');
+  writeFile(
+    path.join(repo, 'lavamoat/webpack/web/policy.json'),
+    '{"new":true}\n',
+  );
   writeFile(
     path.join(repo, 'lavamoat/webpack/web/policy-override.json'),
     '{"resources":{}}\n',
@@ -170,7 +183,9 @@ function testPolicyDiff(tempRoot) {
     'check-policy-diff reports lavamoat changes',
   );
   if (!fs.existsSync(output)) {
-    throw new Error('check-policy-diff should write patch output on diff');
+    throw new LavaMoatError(
+      'check-policy-diff should write patch output on diff',
+    );
   }
 
   const applyRepo = path.join(tempRoot, 'apply');
@@ -209,8 +224,14 @@ function testPolicyDiff(tempRoot) {
   run('git', ['apply', '--whitespace=error', deleteOutput], {
     cwd: deleteApplyRepo,
   });
-  if (fs.existsSync(path.join(deleteApplyRepo, 'lavamoat/webpack/web/policy.json'))) {
-    throw new Error('delete policy diff should remove tracked lavamoat files');
+  if (
+    fs.existsSync(
+      path.join(deleteApplyRepo, 'lavamoat/webpack/web/policy.json'),
+    )
+  ) {
+    throw new LavaMoatError(
+      'delete policy diff should remove tracked lavamoat files',
+    );
   }
   expectStatus(
     runScript(checkGeneratedFileScopeScript, deleteApplyRepo),
@@ -251,6 +272,7 @@ function copyLavamoatValidationFixture(targetRepo) {
     'apps/web-embed/package.json',
     'development/lavamoat/check-generated-file-scope.cjs',
     'development/lavamoat/check-policy-diff.cjs',
+    'development/lavamoat/error.cjs',
     'development/lavamoat/normalize-policy-artifacts.cjs',
     'development/lavamoat/split-policy-for-review.cjs',
     'development/lavamoat/targets.cjs',
@@ -330,7 +352,10 @@ function testPolicyArtifactValidation(tempRoot) {
     'validate-policy-artifacts rejects policy-debug.json',
   );
 
-  const missingReadmeTargetRepo = path.join(tempRoot, 'artifacts-missing-readme-target');
+  const missingReadmeTargetRepo = path.join(
+    tempRoot,
+    'artifacts-missing-readme-target',
+  );
   fs.mkdirSync(missingReadmeTargetRepo);
   copyLavamoatValidationFixture(missingReadmeTargetRepo);
   writeFile(
@@ -343,7 +368,10 @@ function testPolicyArtifactValidation(tempRoot) {
     'validate-policy-artifacts rejects README target drift',
   );
 
-  const missingScriptRepo = path.join(tempRoot, 'artifacts-missing-root-script');
+  const missingScriptRepo = path.join(
+    tempRoot,
+    'artifacts-missing-root-script',
+  );
   fs.mkdirSync(missingScriptRepo);
   copyLavamoatValidationFixture(missingScriptRepo);
   const packageJsonFile = path.join(missingScriptRepo, 'package.json');
@@ -387,7 +415,10 @@ function testPolicyArtifactValidation(tempRoot) {
   );
   fs.mkdirSync(incompleteCiScriptRepo);
   copyLavamoatValidationFixture(incompleteCiScriptRepo);
-  const incompleteCiPackageJsonFile = path.join(incompleteCiScriptRepo, 'package.json');
+  const incompleteCiPackageJsonFile = path.join(
+    incompleteCiScriptRepo,
+    'package.json',
+  );
   const incompleteCiPackageJson = JSON.parse(
     fs.readFileSync(incompleteCiPackageJsonFile, 'utf8'),
   );
@@ -413,7 +444,9 @@ function testPolicyArtifactValidation(tempRoot) {
     missingWorkspaceScriptRepo,
     'apps/web/package.json',
   );
-  const webPackageJson = JSON.parse(fs.readFileSync(webPackageJsonFile, 'utf8'));
+  const webPackageJson = JSON.parse(
+    fs.readFileSync(webPackageJsonFile, 'utf8'),
+  );
   delete webPackageJson.scripts['build:lavamoat'];
   writeFile(webPackageJsonFile, `${JSON.stringify(webPackageJson, null, 2)}\n`);
   expectStatus(
@@ -456,13 +489,12 @@ function testPolicyArtifactValidation(tempRoot) {
     disabledWorkspaceScriptRepo,
     'apps/ext/package.json',
   );
-  const extPackageJson = JSON.parse(fs.readFileSync(extPackageJsonFile, 'utf8'));
+  const extPackageJson = JSON.parse(
+    fs.readFileSync(extPackageJsonFile, 'utf8'),
+  );
   extPackageJson.scripts ||= {};
   extPackageJson.scripts['lavamoat:policy'] = 'ONEKEY_LAVAMOAT=1 webpack build';
-  writeFile(
-    extPackageJsonFile,
-    `${JSON.stringify(extPackageJson, null, 2)}\n`,
-  );
+  writeFile(extPackageJsonFile, `${JSON.stringify(extPackageJson, null, 2)}\n`);
   expectStatus(
     runScript(validatePolicyArtifactsScript, disabledWorkspaceScriptRepo),
     1,
@@ -541,10 +573,16 @@ function testPolicyArtifactValidation(tempRoot) {
     writePermissionValidateWorkflowFile,
     fs
       .readFileSync(writePermissionValidateWorkflowFile, 'utf8')
-      .replace('contents: read\n  packages: read', 'contents: write\n  packages: read'),
+      .replace(
+        'contents: read\n  packages: read',
+        'contents: write\n  packages: read',
+      ),
   );
   expectStatus(
-    runScript(validatePolicyArtifactsScript, validateWorkflowWritePermissionRepo),
+    runScript(
+      validatePolicyArtifactsScript,
+      validateWorkflowWritePermissionRepo,
+    ),
     1,
     'validate-policy-artifacts rejects write permission in validation workflow',
   );
@@ -647,6 +685,9 @@ function testPolicyArtifactValidation(tempRoot) {
   );
   fs.mkdirSync(unsafePrCheckoutRepo);
   copyLavamoatValidationFixture(unsafePrCheckoutRepo);
+  const headShaShellVariable = `${dollarSign}{HEAD_SHA}`;
+  const prNumberShellVariable = `${dollarSign}{PR_NUMBER}`;
+  const repoShellVariable = `${dollarSign}{REPO}`;
   const unsafePrCheckoutWorkflowFile = path.join(
     unsafePrCheckoutRepo,
     '.github/workflows/update-lavamoat-policies.yml',
@@ -656,8 +697,8 @@ function testPolicyArtifactValidation(tempRoot) {
     fs
       .readFileSync(unsafePrCheckoutWorkflowFile, 'utf8')
       .replace(
-        'git read-tree "${HEAD_SHA}"',
-        'gh pr checkout "${PR_NUMBER}" --repo "${REPO}"\n          git read-tree "${HEAD_SHA}"',
+        `git read-tree "${headShaShellVariable}"`,
+        `gh pr checkout "${prNumberShellVariable}" --repo "${repoShellVariable}"\n          git read-tree "${headShaShellVariable}"`,
       ),
   );
   expectStatus(
@@ -676,12 +717,11 @@ function testPolicyArtifactValidation(tempRoot) {
     workflowIfSecretsRepo,
     '.github/workflows/update-lavamoat-policies.yml',
   );
+  const hasDiffsCondition = `${dollarSign}{{ steps.check-diffs.outputs.HAS_DIFFS == 'true' }}`;
+  const botTokenCondition = `${dollarSign}{{ secrets.ONEKEYBOT_GITHUB_TOKEN != '' }}`;
   const updateWorkflow = fs
     .readFileSync(updateWorkflowFile, 'utf8')
-    .replace(
-      'if: ${{ steps.check-diffs.outputs.HAS_DIFFS == \'true\' }}',
-      'if: ${{ secrets.ONEKEYBOT_GITHUB_TOKEN != \'\' }}',
-    );
+    .replace(`if: ${hasDiffsCondition}`, `if: ${botTokenCondition}`);
   writeFile(updateWorkflowFile, updateWorkflow);
   expectStatus(
     runScript(validatePolicyArtifactsScript, workflowIfSecretsRepo),
@@ -726,7 +766,10 @@ function testPolicyArtifactValidation(tempRoot) {
     'validate-policy-artifacts rejects missing review summary category',
   );
 
-  const missingToolFileRepo = path.join(tempRoot, 'artifacts-missing-tool-file');
+  const missingToolFileRepo = path.join(
+    tempRoot,
+    'artifacts-missing-tool-file',
+  );
   fs.mkdirSync(missingToolFileRepo);
   copyLavamoatValidationFixture(missingToolFileRepo);
   fs.rmSync(

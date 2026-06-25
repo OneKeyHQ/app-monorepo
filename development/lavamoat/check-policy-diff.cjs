@@ -1,5 +1,9 @@
-const fs = require('fs');
+// cspell:ignore lavamoat
+
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+
+const { LavaMoatError } = require('./error.cjs');
 
 function parseArgs(argv) {
   let outputFile;
@@ -10,21 +14,17 @@ function parseArgs(argv) {
     if (arg === '--output') {
       outputFile = argv[index + 1];
       if (!outputFile || outputFile.startsWith('--')) {
-        throw new Error('Missing output file after --output');
+        throw new LavaMoatError('Missing output file after --output');
       }
       index += 1;
-      continue;
-    }
-
-    if (arg.startsWith('--output=')) {
+    } else if (arg.startsWith('--output=')) {
       outputFile = arg.slice('--output='.length);
       if (!outputFile) {
-        throw new Error('Missing output file after --output=');
+        throw new LavaMoatError('Missing output file after --output=');
       }
-      continue;
+    } else {
+      throw new LavaMoatError(`Unknown argument: ${arg}`);
     }
-
-    throw new Error(`Unknown argument: ${arg}`);
   }
 
   return { outputFile };
@@ -46,7 +46,7 @@ function runGit(args, options = {}) {
 
 function assertGitSuccess(result, command) {
   if (result.status !== 0) {
-    throw new Error(
+    throw new LavaMoatError(
       `${command} failed with status ${result.status}:\n${result.stderr}`,
     );
   }
@@ -66,15 +66,18 @@ function getUntrackedFiles() {
     '--',
     'lavamoat',
   ]);
-  assertGitSuccess(result, 'git ls-files --others --exclude-standard -- lavamoat');
-  return result.stdout.split(/\r?\n/).filter(Boolean).sort();
+  assertGitSuccess(
+    result,
+    'git ls-files --others --exclude-standard -- lavamoat',
+  );
+  return result.stdout.split(/\r?\n/).filter(Boolean).toSorted();
 }
 
 function getNewFileDiff(file) {
   const result = runGit(['diff', '--no-index', '--binary', '/dev/null', file]);
 
   if (result.status !== 0 && result.status !== 1) {
-    throw new Error(
+    throw new LavaMoatError(
       `git diff --no-index --binary /dev/null ${file} failed with status ${result.status}:\n${result.stderr}`,
     );
   }

@@ -1,5 +1,9 @@
-const path = require('path');
+// cspell:ignore LavaMoat LAVAMOAT lavamoat
+
 const { spawnSync } = require('child_process');
+const path = require('path');
+
+const { LavaMoatError } = require('./error.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
 
@@ -22,7 +26,7 @@ function runScenario(label, env, body) {
   }
 
   if (result.status !== 0) {
-    throw new Error(
+    throw new LavaMoatError(
       [
         `${label} failed with status ${result.status}`,
         result.stdout,
@@ -37,6 +41,12 @@ function runScenario(label, env, body) {
 const commonSetup = `
 const path = require('path');
 const repoRoot = process.cwd();
+class LavaMoatScenarioError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'LavaMoatScenarioError';
+  }
+}
 function loadConfigs() {
   const originalLog = console.log;
   console.log = () => {};
@@ -84,7 +94,7 @@ function assertNoLavaMoatExcludeRules(config, label) {
 }
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(message);
+    throw new LavaMoatScenarioError(message);
   }
 }
 `;

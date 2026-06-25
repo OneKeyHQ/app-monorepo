@@ -1,6 +1,9 @@
+// cspell:ignore LavaMoat LAVAMOAT Jsons builtin builtins lavamoat
+
 const fs = require('fs');
 const path = require('path');
 
+const { LavaMoatError } = require('./error.cjs');
 const {
   disabledRootScriptFragments,
   disabledTargetDirs,
@@ -10,6 +13,7 @@ const {
 
 const repoRoot = process.cwd();
 const lavamoatRoot = path.join(repoRoot, 'lavamoat');
+const dollarSign = String.fromCodePoint(36);
 
 const expectedPolicyFiles = enabledTargets.map((target) => target.policy);
 const expectedOverrideFiles = enabledTargets.map((target) => target.override);
@@ -45,11 +49,12 @@ const expectedReviewCategories = expectedReviewFiles
         'summary',
       ].includes(category),
   )
-  .sort();
+  .toSorted();
 
 const requiredToolFiles = [
   'development/lavamoat/check-generated-file-scope.cjs',
   'development/lavamoat/check-policy-diff.cjs',
+  'development/lavamoat/error.cjs',
   'development/lavamoat/normalize-policy-artifacts.cjs',
   'development/lavamoat/split-policy-for-review.cjs',
   'development/lavamoat/targets.cjs',
@@ -120,8 +125,16 @@ function relative(file) {
 
 function assert(condition, message) {
   if (!condition) {
-    throw new Error(message);
+    throw new LavaMoatError(message);
   }
+}
+
+function githubExpression(expression) {
+  return `${dollarSign}{{ ${expression} }}`;
+}
+
+function shellVariable(name) {
+  return `${dollarSign}{${name}}`;
 }
 
 function collectStrings(value, currentPath = '$', results = []) {
@@ -139,7 +152,11 @@ function collectStrings(value, currentPath = '$', results = []) {
 
   if (value && typeof value === 'object') {
     Object.entries(value).forEach(([key, item]) => {
-      collectStrings(key, `${currentPath}.${JSON.stringify(key)}<key>`, results);
+      collectStrings(
+        key,
+        `${currentPath}.${JSON.stringify(key)}<key>`,
+        results,
+      );
       collectStrings(item, `${currentPath}.${JSON.stringify(key)}`, results);
     });
   }
@@ -151,7 +168,7 @@ function sortObject(value) {
   if (Array.isArray(value)) {
     const items = value.map(sortObject);
     if (items.every((item) => typeof item === 'string')) {
-      return items.sort((left, right) => left.localeCompare(right));
+      return items.toSorted((left, right) => left.localeCompare(right));
     }
     return items;
   }
@@ -160,7 +177,7 @@ function sortObject(value) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => [key, sortObject(item)]),
   );
 }
@@ -171,7 +188,9 @@ function validateExpectedPolicies() {
     assert(fs.existsSync(fullPath), `Missing expected policy: ${policyFile}`);
     const policy = readJson(fullPath);
     assert(
-      policy && typeof policy.resources === 'object' && !Array.isArray(policy.resources),
+      policy &&
+        typeof policy.resources === 'object' &&
+        !Array.isArray(policy.resources),
       `Invalid LavaMoat policy shape: ${policyFile}`,
     );
   }
@@ -194,8 +213,8 @@ function validateExpectedPolicies() {
   const actualPolicyFiles = walk(lavamoatRoot)
     .filter((file) => path.basename(file) === 'policy.json')
     .map((file) => path.relative(lavamoatRoot, file))
-    .sort();
-  const expectedSortedPolicyFiles = [...expectedPolicyFiles].sort();
+    .toSorted();
+  const expectedSortedPolicyFiles = [...expectedPolicyFiles].toSorted();
 
   assert(
     JSON.stringify(actualPolicyFiles) ===
@@ -208,8 +227,8 @@ function validateExpectedPolicies() {
   const actualOverrideFiles = walk(lavamoatRoot)
     .filter((file) => path.basename(file) === 'policy-override.json')
     .map((file) => path.relative(lavamoatRoot, file))
-    .sort();
-  const expectedSortedOverrideFiles = [...expectedOverrideFiles].sort();
+    .toSorted();
+  const expectedSortedOverrideFiles = [...expectedOverrideFiles].toSorted();
 
   assert(
     JSON.stringify(actualOverrideFiles) ===
@@ -223,7 +242,10 @@ function validateExpectedPolicies() {
 function validateDisabledTargetDirs() {
   for (const disabledDir of disabledTargetDirs) {
     const fullDir = path.join(lavamoatRoot, disabledDir);
-    assert(fs.existsSync(fullDir), `Missing disabled target placeholder: ${disabledDir}`);
+    assert(
+      fs.existsSync(fullDir),
+      `Missing disabled target placeholder: ${disabledDir}`,
+    );
 
     const files = walk(fullDir).map((file) => path.relative(fullDir, file));
     assert(
@@ -233,7 +255,10 @@ function validateDisabledTargetDirs() {
       )}`,
     );
 
-    const gitkeepContent = fs.readFileSync(path.join(fullDir, '.gitkeep'), 'utf8');
+    const gitkeepContent = fs.readFileSync(
+      path.join(fullDir, '.gitkeep'),
+      'utf8',
+    );
     assert(
       gitkeepContent === 'placeholder\n',
       `Disabled target ${disabledDir}/.gitkeep must contain exactly "placeholder\\n"`,
@@ -244,16 +269,22 @@ function validateDisabledTargetDirs() {
 function validateReviewSummary() {
   const summaryFile = path.join(lavamoatRoot, 'review/summary.json');
   const reviewIndexFile = path.join(lavamoatRoot, 'review/README.md');
-  assert(fs.existsSync(summaryFile), 'Missing review summary: review/summary.json');
-  assert(fs.existsSync(reviewIndexFile), 'Missing review index: review/README.md');
+  assert(
+    fs.existsSync(summaryFile),
+    'Missing review summary: review/summary.json',
+  );
+  assert(
+    fs.existsSync(reviewIndexFile),
+    'Missing review index: review/README.md',
+  );
 
   const summary = readJson(summaryFile);
   const sourcePolicies = (summary.policies || [])
     .map((item) => item.sourcePolicy)
-    .sort();
+    .toSorted();
   const expectedSources = expectedPolicyFiles
     .map((file) => path.join('lavamoat', file).replaceAll(path.sep, '/'))
-    .sort();
+    .toSorted();
 
   assert(
     summary.totalPolicies === expectedPolicyFiles.length,
@@ -281,8 +312,8 @@ function validateReviewFiles() {
 
     const actualReviewFiles = walk(reviewDir)
       .map((file) => path.relative(reviewDir, file))
-      .sort();
-    const expectedSortedReviewFiles = [...expectedReviewFiles].sort();
+      .toSorted();
+    const expectedSortedReviewFiles = [...expectedReviewFiles].toSorted();
 
     assert(
       JSON.stringify(actualReviewFiles) ===
@@ -293,7 +324,9 @@ function validateReviewFiles() {
     );
 
     const targetSummary = readJson(path.join(reviewDir, 'summary.json'));
-    const summaryCategories = Object.keys(targetSummary.categoryCounts || {}).sort();
+    const summaryCategories = Object.keys(
+      targetSummary.categoryCounts || {},
+    ).toSorted();
     assert(
       JSON.stringify(summaryCategories) ===
         JSON.stringify(expectedReviewCategories),
@@ -306,7 +339,10 @@ function validateReviewFiles() {
 
 function validateReadmeTargetCoverage() {
   const readmeFile = path.join(lavamoatRoot, 'README.md');
-  assert(fs.existsSync(readmeFile), 'Missing LavaMoat README: lavamoat/README.md');
+  assert(
+    fs.existsSync(readmeFile),
+    'Missing LavaMoat README: lavamoat/README.md',
+  );
 
   const readme = fs.readFileSync(readmeFile, 'utf8');
   const missingTargets = [
@@ -386,9 +422,7 @@ function validateRootScripts() {
 
   const missingPolicyNormalizeScripts = [
     'lavamoat:policy:all',
-    ...enabledTargets.map(
-      (target) => `lavamoat:policy:${target.scriptSuffix}`,
-    ),
+    ...enabledTargets.map((target) => `lavamoat:policy:${target.scriptSuffix}`),
   ].filter((scriptName) => {
     return !scripts[scriptName].includes('lavamoat:normalize-policies');
   });
@@ -462,7 +496,10 @@ function validateRootScripts() {
   );
 
   for (const target of enabledTargets) {
-    const workspacePackageFile = path.join(repoRoot, target.workspacePackageJson || '');
+    const workspacePackageFile = path.join(
+      repoRoot,
+      target.workspacePackageJson || '',
+    );
     assert(
       target.workspacePackageJson && fs.existsSync(workspacePackageFile),
       `Missing workspace package.json for enabled target ${target.id}: ${target.workspacePackageJson}`,
@@ -483,9 +520,9 @@ function validateRootScripts() {
 
     const workspacePackage = readJson(workspacePackageFile);
     const workspaceDependencies = workspacePackage.dependencies || {};
-    const missingWorkspaceDependencies = (target.workspaceDependencies || []).filter(
-      (dependency) => workspaceDependencies[dependency] !== '*',
-    );
+    const missingWorkspaceDependencies = (
+      target.workspaceDependencies || []
+    ).filter((dependency) => workspaceDependencies[dependency] !== '*');
 
     assert(
       missingWorkspaceDependencies.length === 0,
@@ -558,14 +595,20 @@ function validateWorkflowCoverage() {
       return fs
         .readFileSync(file, 'utf8')
         .split(/\r?\n/)
-        .map((line, index) => ({ file: relative(file), line, lineNumber: index + 1 }))
+        .map((line, index) => ({
+          file: relative(file),
+          line,
+          lineNumber: index + 1,
+        }))
         .filter(({ line }) => /^\s*if:\s.*secrets\./.test(line));
     },
   );
   assert(
     workflowIfSecrets.length === 0,
     `Workflow if conditions should not reference secrets directly:\n${workflowIfSecrets
-      .map(({ file, lineNumber, line }) => `${file}:${lineNumber}: ${line.trim()}`)
+      .map(
+        ({ file, lineNumber, line }) => `${file}:${lineNumber}: ${line.trim()}`,
+      )
       .join('\n')}`,
   );
 
@@ -586,9 +629,10 @@ function validateWorkflowCoverage() {
       (target) => `yarn lavamoat:build:${target.scriptSuffix}`,
     ),
   ];
-  const missingValidateWorkflowSnippets = requiredValidateWorkflowSnippets.filter(
-    (snippet) => !validateWorkflow.includes(snippet),
-  );
+  const missingValidateWorkflowSnippets =
+    requiredValidateWorkflowSnippets.filter(
+      (snippet) => !validateWorkflow.includes(snippet),
+    );
   assert(
     missingValidateWorkflowSnippets.length === 0,
     `validate-lavamoat-policies.yml is missing required commands:\n${missingValidateWorkflowSnippets.join(
@@ -619,13 +663,15 @@ function validateWorkflowCoverage() {
     'path: lavamoat-policy-diffs',
     'pattern: lavamoat-policy-diff-*',
     'merge-multiple: true',
-    'run-id: ${{ env.RUN_ID }}',
+    `run-id: ${githubExpression('env.RUN_ID')}`,
     'lavamoat-policy-diffs/*.patch',
-    'git read-tree "${HEAD_SHA}"',
+    `git read-tree "${shellVariable('HEAD_SHA')}"`,
     'git apply --cached --whitespace=error',
-    'git diff --cached --name-only -z "${HEAD_SHA}"',
+    `git diff --cached --name-only -z "${shellVariable('HEAD_SHA')}"`,
     'git commit-tree',
-    'git push origin "${NEW_COMMIT}:refs/heads/${HEAD_REF_NAME}"',
+    `git push origin "${shellVariable(
+      'NEW_COMMIT',
+    )}:refs/heads/${shellVariable('HEAD_REF_NAME')}"`,
   ];
   const missingUpdateWorkflowSnippets = requiredUpdateWorkflowSnippets.filter(
     (snippet) => !updateWorkflow.includes(snippet),
@@ -660,23 +706,22 @@ function validateNoForbiddenLocalPaths() {
       for (const { path: jsonPath, value } of stringEntries) {
         for (const { label, pattern } of forbiddenLocalPathPatterns) {
           if (pattern.test(value)) {
-            throw new Error(
+            throw new LavaMoatError(
               `Forbidden ${label} in ${relative(file)} at ${jsonPath}: ${value}`,
             );
           }
         }
       }
-      continue;
-    }
-
-    const text = fs.readFileSync(file, 'utf8');
-    const lines = text.split(/\r?\n/);
-    for (const [index, line] of lines.entries()) {
-      for (const { label, pattern } of forbiddenLocalPathPatterns) {
-        if (pattern.test(line)) {
-          throw new Error(
-            `Forbidden ${label} in ${relative(file)}:${index + 1}: ${line}`,
-          );
+    } else {
+      const text = fs.readFileSync(file, 'utf8');
+      const lines = text.split(/\r?\n/);
+      for (const [index, line] of lines.entries()) {
+        for (const { label, pattern } of forbiddenLocalPathPatterns) {
+          if (pattern.test(line)) {
+            throw new LavaMoatError(
+              `Forbidden ${label} in ${relative(file)}:${index + 1}: ${line}`,
+            );
+          }
         }
       }
     }
@@ -699,7 +744,10 @@ function validateNoForbiddenSidecarFiles() {
 }
 
 function validateCanonicalPolicyJson() {
-  for (const relativeFile of [...expectedPolicyFiles, ...expectedOverrideFiles]) {
+  for (const relativeFile of [
+    ...expectedPolicyFiles,
+    ...expectedOverrideFiles,
+  ]) {
     const file = path.join(lavamoatRoot, relativeFile);
     const original = fs.readFileSync(file, 'utf8');
     const canonical = `${JSON.stringify(
