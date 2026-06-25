@@ -164,15 +164,14 @@
         "WebSocket": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": {
       "globals": {
-        "fetch": true,
-        "WebSocket": true
+        "fetch": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/client/rpc-websocket-client.js": {
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": {
       "globals": {
-        "WebSocket": true
+        "fetch": true
       }
     },
     "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": {

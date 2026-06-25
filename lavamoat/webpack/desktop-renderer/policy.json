@@ -674,11 +674,11 @@
         "external:../../node_modules/@benfen/bfc.js/dist/esm/utils/format.js": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/utils/index.js": true,
         "external:../../node_modules/@metamask/eth-sig-util/dist/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/intent.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/keypair.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/publickey.js": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/intent.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/keypair.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/publickey.mjs": true,
         "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": true,
         "external:../../node_modules/@polkadot/types/extrinsic/v4/Extrinsic.js": true,
         "external:../../node_modules/@polkadot/util-crypto/address/encode.js": true,
@@ -1653,10 +1653,10 @@
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>big-integer": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bip174": true,
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bs58check": true,
-        "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>valibot": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true,
         "@onekeyhq/core>bitcoinjs-lib>uint8array-tools": true,
+        "@onekeyhq/core>bitcoinjs-lib>valibot": true,
         "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin": true
       }
     },
@@ -1685,14 +1685,6 @@
     "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bs58check>bs58": {
       "packages": {
         "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>bs58check>bs58>base-x": true
-      }
-    },
-    "@onekeyhq/core>@onekeyfe/bitcoinforksjs-lib>valibot": {
-      "globals": {
-        "Blob": true,
-        "File": true,
-        "TextEncoder": true,
-        "URL": true
       }
     },
     "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs": {
@@ -4292,8 +4284,8 @@
         "@onekeyhq/shared>axios": true,
         "$root$": true,
         "external:../../node_modules/@cowprotocol/contracts/lib/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/index.js": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/index.mjs": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-types/dist/index.js": true,
@@ -4412,7 +4404,8 @@
           "Dependency '@onekeyhq/core>@glif/filecoin-address>ethers' reexports from '@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/wallet' and webpack collapsed that to a direct import.",
           "Dependency '@onekeyhq/core>@glif/filecoin-address>ethers' reexports from '@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash>@ethersproject/address' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@benfen/bfc.js/dist/esm/utils/index.js' reexports from 'external:../../node_modules/@benfen/bfc.js/dist/esm/bcs/src/b64.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@mysten/sui/dist/esm/utils/index.js' reexports from 'external:../../node_modules/@mysten/bcs/dist/esm/b64.js' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/sui/dist/transactions/index.mjs' reexports from 'external:../../node_modules/@mysten/sui/dist/transactions/intents/CoinWithBalance.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/sui/dist/utils/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@polkadot/api/index.js' reexports from 'external:../../node_modules/@polkadot/api/promise/Api.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@polkadot/api/index.js' reexports from 'external:../../node_modules/@polkadot/rpc-provider/http/index.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@polkadot/api/index.js' reexports from 'external:../../node_modules/@polkadot/rpc-provider/ws/index.js' and webpack collapsed that to a direct import.",
@@ -4512,18 +4505,19 @@
         "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": true,
         "external:../../node_modules/@cityofzion/neon-core/lib/sc/index.js": true,
         "external:../../node_modules/@glif/filecoin-rpc-client/lib/index.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/client/client.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/client/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/publickey.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Transaction.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/jsonRpc/client.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/jsonRpc/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/publickey.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/intents/CoinWithBalance.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Transaction.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
         "external:../../node_modules/@nktkas/hyperliquid/esm/mod.js": true,
         "external:../../node_modules/@nktkas/hyperliquid/esm/signing/mod.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
@@ -5746,8 +5740,8 @@
         "$root$": true,
         "electron-log": true,
         "external:../../node_modules/@intercom/messenger-js-sdk/dist/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/index.js": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/index.mjs": true,
         "external:../../node_modules/@noble/ciphers/esm/aes.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
@@ -14510,496 +14504,631 @@
         "TextEncoder": true
       }
     },
-    "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": {
+    "external:../../node_modules/@mysten/bcs/dist/bcs-type.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/bcs/node_modules/@scure/base/lib/esm/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/reader.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/uleb.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/writer.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": {
+    "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": {
+      "globals": {
+        "TextDecoder": true,
+        "TextEncoder": true
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/bcs-type.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/uleb.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/bcs/dist/reader.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/uleb.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/bcs/dist/utils.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/index.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/bcs/dist/writer.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/uleb.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/utils.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/node_modules/@scure/base/index.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": {
       "globals": {
         "atob": true,
         "btoa": true
       }
     },
-    "external:../../node_modules/@mysten/bcs/dist/esm/bcs-type.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/reader.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/uleb.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/writer.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": {
-      "globals": {
-        "TextDecoder": true,
-        "TextEncoder": true
-      },
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs-type.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/uleb.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/bcs/dist/esm/reader.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/uleb.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/bcs/dist/esm/utils.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/bcs/dist/esm/writer.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/uleb.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/bcs/node_modules/@scure/base/lib/esm/index.js": {
+    "external:../../node_modules/@mysten/bcs/node_modules/@scure/base/index.js": {
       "globals": {
         "TextDecoder": true,
         "TextEncoder": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/bcs/bcs.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/type-tag-serializer.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/bcs/effects.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/bcs.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs-type.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/bcs.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/effects.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/pure.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/type-tag-serializer.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/bcs/pure.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/bcs.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/bcs/type-tag-serializer.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/utils.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/client/client.js": {
-      "globals": {
-        "AbortSignal.timeout": true,
-        "setTimeout": true
+    "external:../../node_modules/@mysten/sui/dist/bcs/bcs.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
       },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/client.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/transports/jsonRPC.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Transaction.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/suins.js": true
+        "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js": {
-      "globals": {
-        "fetch": true,
-        "WebSocket": true
-      },
+    "external:../../node_modules/@mysten/sui/dist/bcs/effects.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/client/errors.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/client/rpc-websocket-client.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/version.js": true
+        "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/bcs.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/client/rpc-websocket-client.js": {
-      "globals": {
-        "clearTimeout": true,
-        "console.error": true,
-        "setTimeout": true,
-        "URL": true,
-        "WebSocket": true
-      },
+    "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/client/errors.js": true
+        "external:../../node_modules/@mysten/bcs/dist/bcs-type.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/bcs.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/effects.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/pure.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/cryptography/intent.js": {
+    "external:../../node_modules/@mysten/sui/dist/bcs/pure.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/bcs.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/cryptography/keypair.js": {
+    "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/intent.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature-scheme.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2b.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/base/lib/esm/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/utils.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/cryptography/mnemonics.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/client.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/esm/index.js": true
+        "external:../../node_modules/@mysten/sui/dist/client/cache.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/cryptography/publickey.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/core-resolver.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/intent.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature-scheme.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2b.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/dist/client/errors.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/coin-reservation.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/chunk.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/publickey.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature-scheme.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/passkey/publickey.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/zklogin/publickey.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/experimental/client.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/cache.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/dist/esm/experimental/core.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/core.mjs": {
       "globals": {
         "AbortSignal.any": true,
         "AbortSignal.timeout": true,
         "setTimeout": true
       },
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/type-tag-serializer.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/client.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/dynamic-fields.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/client.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/dynamic-fields.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/experimental/transports/jsonRPC.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": {
+      "globals": {
+        "fetch": true
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/core.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/experimental/errors.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/plugins/utils.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Transaction.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/sui/dist/utils/move-registry.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/version.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/chunk.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/dataloader.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/ed25519-hd-key.js": {
+    "external:../../node_modules/@mysten/sui/dist/client/utils.mjs": {
+      "globals": {
+        "Intl.PluralRules": true
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/hmac.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/sha512.js": true
+        "external:../../node_modules/@mysten/sui/dist/bcs/effects.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/TransactionData.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/keypair.js": {
+    "external:../../node_modules/@mysten/sui/dist/cryptography/intent.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/cryptography/keypair.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/bcs.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/intent.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature-scheme.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@scure/base/index.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/cryptography/mnemonics.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/index.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/intent.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature-scheme.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/cryptography/signature.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature-scheme.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/passkey/publickey.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/zklogin/publickey.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/client.mjs": {
+      "globals": {
+        "AbortSignal.timeout": true,
+        "setTimeout": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/client.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/jsonRpc/core.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Transaction.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/coin-reservation.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/move-registry.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/suins.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/core.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/core-resolver.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/core.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/errors.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/utils.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Transaction.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/TransactionData.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/dynamic-fields.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/chunk.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/index.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": {
+      "globals": {
+        "fetch": true
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/sui/dist/jsonRpc/errors.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/version.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/ed25519-hd-key.mjs": {
       "globals": {
         "TextEncoder": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/keypair.mjs": {
+      "globals": {
+        "TextEncoder": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
       },
       "packages": {
         "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/keypair.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/mnemonics.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/ed25519-hd-key.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/publickey.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/keypair.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/mnemonics.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/ed25519-hd-key.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/publickey.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/keypairs/ed25519/publickey.js": {
+    "external:../../node_modules/@mysten/sui/dist/keypairs/ed25519/publickey.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
         "@onekeyhq/core>@solana/web3.js>@noble/curves": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/publickey.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/cryptography/signature-scheme.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/cryptography/signature-scheme.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/Commands.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/Commands.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/v1.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/data/v1.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/type-tag-serializer.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/v2.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/data/v2.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/hash.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/hash.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2b.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/Inputs.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/json-rpc-resolver.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/intents/CoinWithBalance.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Inputs.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/serializer.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/@mysten/utils/dist/esm/chunk.js": true,
-        "external:../../node_modules/@mysten/utils/dist/esm/index.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Commands.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/plugins/utils.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/object.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/move-registry.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/pure.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/plugins/NamedPackagesPlugin.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs-type.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/pure.js": true
+        "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/serializer.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/pure.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/bcs/dist/bcs-type.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/pure.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/transactions/resolve.mjs": {
+      "packages": {
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/client/core-resolver.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/dist/transactions/serializer.mjs": {
       "globals": {
         "TextEncoder": true
       },
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/Transaction.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/Transaction.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b64.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/bcs-type.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Commands.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/v1.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/v2.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/Inputs.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/json-rpc-resolver.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/object.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/pure.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/TransactionData.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/utils.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/bcs-type.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b64.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Commands.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/v1.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/v2.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/Inputs.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/intents/CoinWithBalance.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/object.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/plugins/NamedPackagesPlugin.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/pure.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/resolve.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/TransactionData.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/utils.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/TransactionData.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/TransactionData.mjs": {
+      "globals": {
+        "structuredClone": true
+      },
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/v1.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/hash.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/v1.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/hash.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/utils.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/transactions/utils.js": {
+    "external:../../node_modules/@mysten/sui/dist/transactions/utils.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/transactions/data/internal.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true,
-        "external:../../node_modules/valibot/dist/index.js": true
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/utils/constants.js": {
+    "external:../../node_modules/@mysten/sui/dist/utils/coin-reservation.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/type-tag-serializer.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/transactions/data/internal.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/dynamic-fields.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/utils/dynamic-fields.js": {
+    "external:../../node_modules/@mysten/sui/dist/utils/dynamic-fields.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/hex.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/bcs/index.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2b.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/hex.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/bcs/index.mjs": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/utils/move-registry.js": {
+    "external:../../node_modules/@mysten/sui/dist/utils/move-registry.mjs": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/suins.js": true
+        "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/suins.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/dist/esm/utils/sui-types.js": {
+    "external:../../node_modules/@mysten/sui/dist/utils/sui-types.mjs": {
+      "meta": {
+        "webpack-optimization": [
+          "Dependency 'external:../../node_modules/@mysten/bcs/dist/index.mjs' reexports from 'external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs' and webpack collapsed that to a direct import."
+        ]
+      },
       "packages": {
-        "external:../../node_modules/@mysten/bcs/dist/esm/b58.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/index.js": true,
-        "external:../../node_modules/@mysten/bcs/dist/esm/utils.js": true,
-        "external:../../node_modules/@mysten/sui/dist/esm/utils/move-registry.js": true
+        "external:../../node_modules/@mysten/bcs/dist/index.mjs": true,
+        "external:../../node_modules/@mysten/bcs/dist/utils.mjs": true,
+        "external:../../node_modules/@mysten/bcs/node_modules/@mysten/utils/dist/b58.mjs": true,
+        "external:../../node_modules/@mysten/sui/dist/utils/move-registry.mjs": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_blake.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/b64.mjs": {
+      "globals": {
+        "atob": true,
+        "btoa": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/node_modules/@mysten/utils/dist/dataloader.mjs": {
+      "globals": {
+        "process": true,
+        "setImmediate": true,
+        "setTimeout": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_blake.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_md.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_blake.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_md.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_u64.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_blake.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_u64.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2b.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/blake2.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/hmac.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/pbkdf2.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/sha2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": {
       "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_md.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/_u64.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": true
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_u64.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/sha512.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/sha2.js": true
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": {
+      "globals": {
+        "crypto": true,
+        "TextEncoder": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/utils.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@scure/base/index.js": {
       "globals": {
         "TextDecoder": true,
         "TextEncoder": true
-      },
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/esm/crypto.js": true
       }
     },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/base/lib/esm/index.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/index.js": {
+      "packages": {
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/pbkdf2.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/webcrypto.js": true,
+        "external:../../node_modules/@mysten/sui/node_modules/@scure/base/index.js": true
+      }
+    },
+    "external:../../node_modules/@mysten/sui/node_modules/valibot/dist/index.mjs": {
       "globals": {
-        "TextDecoder": true,
-        "TextEncoder": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/esm/index.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/base/lib/esm/index.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/pbkdf2.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/sha256.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/sha512.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_md.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/hmac.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/pbkdf2.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/hmac.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/sha512.js": {
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_md.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_u64.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/utils.js": {
-      "globals": {
-        "TextEncoder": true
-      },
-      "packages": {
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/_assert.js": true,
-        "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/node_modules/@noble/hashes/esm/crypto.js": true
+        "Blob": true,
+        "File": true,
+        "Intl.Segmenter": true,
+        "TextEncoder": true,
+        "URL": true
       }
     },
     "external:../../node_modules/@nktkas/hyperliquid/esm/_base.js": {
@@ -44241,14 +44370,6 @@
       "packages": {
         "external:../../node_modules/uuid/lib/bytesToUuid.js": true,
         "external:../../node_modules/uuid/lib/rng-browser.js": true
-      }
-    },
-    "external:../../node_modules/valibot/dist/index.js": {
-      "globals": {
-        "Blob": true,
-        "File": true,
-        "TextEncoder": true,
-        "URL": true
       }
     },
     "external:../../node_modules/valtio/esm/vanilla.mjs": {
