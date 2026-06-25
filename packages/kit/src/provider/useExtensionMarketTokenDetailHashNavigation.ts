@@ -23,9 +23,22 @@ type IMarketTokenDetailNavigationTarget =
 type IMarketTokenDetailRouteParams = Partial<
   ITabMarketParamList[ETabMarketRoutes.MarketDetailV2]
 > &
-  Partial<ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail]>;
+  Partial<ITabMarketParamList[ETabMarketRoutes.MarketNativeDetail]> & {
+    isNative?: boolean | string;
+    showFavoriteButton?: boolean | string;
+  };
 
 const NAVIGATION_RETRY_DELAYS = [120, 360];
+
+function normalizeRouteBooleanParam(
+  value: boolean | string | undefined,
+  defaultValue: boolean,
+) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value ?? defaultValue;
+}
 
 export function getMarketTokenDetailNavigationTargetFromHash(
   hash: string = globalThis.location?.hash ?? '',
@@ -41,6 +54,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
   try {
     const searchParams = new URLSearchParams(query);
     const isNativeParam = searchParams.get('isNative');
+    const showFavoriteButtonParam = searchParams.get('showFavoriteButton');
     const from = searchParams.get('from');
     const network = decodeURIComponent(segments[2]);
     const tokenAddress = segments[3]
@@ -54,6 +68,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           network,
           isNative: true,
           ...(from ? { from: from as EEnterWay } : undefined),
+          ...(showFavoriteButtonParam === null
+            ? undefined
+            : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
         },
       };
     }
@@ -67,6 +84,9 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ? undefined
           : { isNative: isNativeParam === 'true' }),
         ...(from ? { from: from as EEnterWay } : undefined),
+        ...(showFavoriteButtonParam === null
+          ? undefined
+          : { showFavoriteButton: showFavoriteButtonParam === 'true' }),
       },
     };
   } catch {
@@ -88,6 +108,25 @@ function isCurrentMarketTokenDetailTarget(
       : undefined;
 
   if (!params || params.network !== target.params.network) {
+    return false;
+  }
+
+  const defaultIsNative = target.screen === ETabMarketRoutes.MarketNativeDetail;
+  if (
+    normalizeRouteBooleanParam(params.isNative, defaultIsNative) !==
+    normalizeRouteBooleanParam(target.params.isNative, defaultIsNative)
+  ) {
+    return false;
+  }
+
+  if (
+    normalizeRouteBooleanParam(params.showFavoriteButton, true) !==
+    normalizeRouteBooleanParam(target.params.showFavoriteButton, true)
+  ) {
+    return false;
+  }
+
+  if (params.from !== target.params.from) {
     return false;
   }
 

@@ -13,6 +13,7 @@ import {
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
   NumberSizeableText,
+  Page,
   Popover,
   ScrollView,
   SegmentControl,
@@ -21,6 +22,9 @@ import {
   Stack,
   XStack,
   YStack,
+  resetToRoute,
+  useIsOverlayPage,
+  useMedia,
   usePopoverContext,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -68,7 +72,13 @@ import {
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -685,25 +695,88 @@ function StockEstimatedReceive({
 }
 
 function StockActionGate({
+  alerts,
   stockChannel,
   onPreSwap,
   onToAnotherAddressModal,
   onSelectPercentageStage,
 }: {
+  alerts: ISwapStockDesktopContainerProps['alerts'];
   stockChannel: IUseSwapStockChannelReturn;
   onPreSwap: () => void;
   onToAnotherAddressModal: () => void;
   onSelectPercentageStage: (stage: number) => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const isModalPage = useIsOverlayPage();
+  const { md } = useMedia();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const accountInfo = swapFromAddressInfo.accountInfo;
+  const isDesktopModalPage = isModalPage && !md;
+  const isWebDappModeWithNoWallet = Boolean(
+    platformEnv.isWebDappMode &&
+    accountInfo &&
+    !accountInfo.wallet &&
+    !accountInfo.accountName,
+  );
+  const shouldShowConnectWalletAction =
+    alerts.states.some((item) => item.noConnectWallet) ||
+    isWebDappModeWithNoWallet ||
+    Boolean(accountInfo?.ready && !accountInfo.wallet);
+  const handleConnectWalletPress = useCallback(() => {
+    if (platformEnv.isWebDappMode) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectWalletOptions,
+      });
+      return;
+    }
+    resetToRoute(ERootRoutes.Onboarding, {
+      screen: EOnboardingV2Routes.OnboardingV2,
+      params: {
+        screen: EOnboardingPagesV2.GetStarted,
+      },
+    });
+  }, [navigation]);
+  const keyboardPercentageStage = useMemo(
+    () =>
+      !platformEnv.isNativeIOS ? (
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      ) : null,
+    [onSelectPercentageStage],
+  );
+  const renderActionButton = useCallback(
+    (button: ReactNode) => {
+      if (!isDesktopModalPage) {
+        return (
+          <>
+            {button}
+            {keyboardPercentageStage}
+          </>
+        );
+      }
+
+      return (
+        <Page.Footer>
+          <Stack p="$5" bg="$bgApp">
+            <XStack width="100%" justifyContent="flex-end">
+              {button}
+            </XStack>
+          </Stack>
+          {keyboardPercentageStage}
+        </Page.Footer>
+      );
+    },
+    [isDesktopModalPage, keyboardPercentageStage],
+  );
+  const isStockChannelInitializing =
+    stockChannel.channelStage === ESwapStockChannelStage.InitializingStock ||
+    stockChannel.channelStage === ESwapStockChannelStage.CheckingMarketStatus ||
+    stockChannel.channelStage === ESwapStockChannelStage.InitializingPayToken;
   const disabledLabel = useMemo(() => {
     switch (stockChannel.channelStage) {
-      case ESwapStockChannelStage.InitializingStock:
-      case ESwapStockChannelStage.CheckingMarketStatus:
-      case ESwapStockChannelStage.InitializingPayToken:
-        return intl.formatMessage({
-          id: ETranslations.swap_page_button_enter_amount,
-        });
       case ESwapStockChannelStage.MissingStock:
         return intl.formatMessage({
           id: ETranslations.swap_page_button_select_token,
@@ -724,6 +797,22 @@ function StockActionGate({
     }
   }, [intl, stockChannel.channelStage]);
 
+  if (shouldShowConnectWalletAction) {
+    return renderActionButton(
+      <Button
+        testID={SwapTestIDs.swapButton}
+        onPress={handleConnectWalletPress}
+        size={isDesktopModalPage ? 'medium' : 'large'}
+        variant="primary"
+        borderRadius="$full"
+      >
+        {intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        })}
+      </Button>,
+    );
+  }
+
   if (stockChannel.readyForQuote) {
     return (
       <SwapActionsState
@@ -734,28 +823,34 @@ function StockActionGate({
     );
   }
 
+  if (isStockChannelInitializing) {
+    return renderActionButton(
+      <Button
+        testID={SwapTestIDs.swapButton}
+        size={isDesktopModalPage ? 'medium' : 'large'}
+        variant="primary"
+        disabled
+        loading
+        borderRadius="$full"
+      />,
+    );
+  }
+
   const disabledButtonProps = getStockDisabledActionButtonProps(
     stockChannel.tradeSide,
   );
 
-  return (
-    <>
-      <Button
-        testID={SwapTestIDs.swapButton}
-        size="large"
-        variant="primary"
-        disabled
-        borderRadius="$full"
-        {...disabledButtonProps}
-      >
-        {disabledLabel}
-      </Button>
-      {!platformEnv.isNativeIOS ? (
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
-      ) : null}
-    </>
+  return renderActionButton(
+    <Button
+      testID={SwapTestIDs.swapButton}
+      size={isDesktopModalPage ? 'medium' : 'large'}
+      variant="primary"
+      disabled
+      borderRadius="$full"
+      {...disabledButtonProps}
+    >
+      {disabledLabel}
+    </Button>,
   );
 }
 
@@ -1045,6 +1140,7 @@ function StockTradeTicket({
         stockChannel={stockChannel}
       />
       <StockActionGate
+        alerts={alerts}
         stockChannel={stockChannel}
         onPreSwap={onPreSwap}
         onToAnotherAddressModal={onToAnotherAddressModal}
@@ -1107,19 +1203,86 @@ function StockMarketTokenHeader({
     return <StockMarketHeaderSkeleton />;
   }
 
-  return (
+  const tokenIcon = (
+    <Token
+      size="md"
+      tokenImageUri={tokenDetail.logoUrl}
+      tokenImageUris={tokenDetail.logoUrls}
+      networkImageUri={effectiveNetworkLogoUri}
+      showNetworkIconBorder={false}
+      bg="$transparent"
+      fallbackIcon="CryptoCoinOutline"
+    />
+  );
+  const tokenSymbolRow = (
+    <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%" minWidth={0}>
+      <SizableText
+        size="$headingSm"
+        color="$text"
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        maxWidth={132}
+        flexShrink={1}
+      >
+        {tokenDetail.symbol}
+      </SizableText>
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+    </XStack>
+  );
+  const tokenLabelsRow = (
+    <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
+      {stock?.subtitle ? (
+        <SizableText
+          size="$bodySm"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {stock.subtitle}
+        </SizableText>
+      ) : null}
+      <StockSourceLogo stock={stock} />
+      {stock ? <StockIsOpenBadge stock={stock} /> : null}
+    </XStack>
+  );
+  const tokenInfoContent = (
     <XStack
       testID={SwapTestIDs.stockMarketTokenHeader}
       alignItems="center"
-      justifyContent="space-between"
-      h="$13"
-      w="100%"
-      gap="$3"
+      alignSelf="flex-start"
+      gap="$2.5"
+      maxWidth="100%"
+      minWidth={0}
+      flexShrink={1}
+      ml="$-3"
+      px="$3"
+      py="$1"
       cursor="pointer"
       borderRadius="$full"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       onPress={handleOpenStockTokenSelector}
+    >
+      {tokenIcon}
+      <YStack minWidth={0} flexShrink={1}>
+        {tokenSymbolRow}
+        {tokenLabelsRow}
+      </YStack>
+    </XStack>
+  );
+
+  return (
+    <XStack
+      alignItems="center"
+      justifyContent="space-between"
+      h="$13"
+      w="100%"
+      gap="$3"
     >
       <XStack
         flex={1}
@@ -1130,49 +1293,7 @@ function StockMarketTokenHeader({
         px="$0"
         py="$0"
       >
-        <Token
-          size="md"
-          tokenImageUri={tokenDetail.logoUrl}
-          tokenImageUris={tokenDetail.logoUrls}
-          networkImageUri={effectiveNetworkLogoUri}
-          showNetworkIconBorder={false}
-          bg="$transparent"
-          fallbackIcon="CryptoCoinOutline"
-        />
-        <YStack flex={1} minWidth={0}>
-          <XStack h="$6" alignItems="center" gap="$1" maxWidth="100%">
-            <SizableText
-              size="$headingSm"
-              color="$text"
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              maxWidth={132}
-              flexShrink={1}
-            >
-              {tokenDetail.symbol}
-            </SizableText>
-            <Icon
-              name="ChevronDownSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-              flexShrink={0}
-            />
-          </XStack>
-          <XStack h={18} alignItems="center" gap="$1" maxWidth="100%">
-            {stock?.subtitle ? (
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {stock.subtitle}
-              </SizableText>
-            ) : null}
-            <StockSourceLogo stock={stock} />
-            {stock ? <StockIsOpenBadge stock={stock} /> : null}
-          </XStack>
-        </YStack>
+        {tokenInfoContent}
       </XStack>
       <YStack alignItems="flex-end" w="$20" minWidth={0} flexShrink={0}>
         <BaseMarketTokenPrice
@@ -1512,17 +1633,24 @@ function StockPriceChart({
 function StockMobilePositionsSection({
   onTokenPress,
   supportNetworksList,
+  storeName,
 }: {
   onTokenPress?: (token: ISwapToken) => void;
   supportNetworksList: (IMarketBasicConfigNetwork | ISwapNetwork)[];
+  storeName: EJotaiContextStoreNames;
 }) {
   const intl = useIntl();
+  const stockChannel = useSwapStockTradeContext();
   const [swapProEnableCurrentSymbol] = useSwapProEnableCurrentSymbolAtom();
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
   const { cachedPositionTokenList, hasCachedPositionTokenList } =
     useSwapProSupportNetworksTokenList(supportNetworksList);
+  const handleOpenStockTokenSelector = useOpenStockTokenSelector({
+    defaultNetworkId: stockChannel.stockNetworkId || undefined,
+    storeName,
+  });
   const filterToken = useMemo(() => {
     if (!swapProEnableCurrentSymbol) {
       return undefined;
@@ -1569,6 +1697,7 @@ function StockMobilePositionsSection({
       <YStack minHeight={180}>
         <SwapProPositionsList
           onTokenPress={handlePositionPress}
+          onSearchClick={handleOpenStockTokenSelector}
           filterToken={filterToken}
           cachedTokenList={cachedPositionTokenList}
           hasCachedTokenList={hasCachedPositionTokenList}
@@ -1893,6 +2022,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           <StockMobilePositionsSection
             onTokenPress={props.onTokenPress}
             supportNetworksList={props.supportNetworksList}
+            storeName={props.storeName}
           />
         </YStack>
       </YStack>

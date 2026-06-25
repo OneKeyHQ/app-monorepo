@@ -110,6 +110,7 @@ describe('useToDetailPage', () => {
       useToDetailPage({
         switchToMarketTabFirst: true,
         from: EEnterWay.Search,
+        showFavoriteButton: false,
       }),
     );
 
@@ -127,6 +128,7 @@ describe('useToDetailPage', () => {
       network: 'eth',
       isNative: false,
       from: EEnterWay.Search,
+      showFavoriteButton: false,
     });
     expect(globalThis.close).not.toHaveBeenCalled();
 

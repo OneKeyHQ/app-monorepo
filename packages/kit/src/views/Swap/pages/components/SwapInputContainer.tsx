@@ -181,6 +181,7 @@ const SwapInputContainer = ({
   } = useSwapColdStartDisplayTokens({
     fromToken,
     initialSelectedTokensSynced,
+    swapType: swapTypeSwitch,
     toToken,
   });
   const tokenSelectorDisplayToken =

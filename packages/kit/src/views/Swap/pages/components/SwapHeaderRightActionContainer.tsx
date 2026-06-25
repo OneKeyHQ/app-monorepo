@@ -539,6 +539,7 @@ const StockKLineHeaderButton = ({
         isNative,
         from: EEnterWay.SwapPro,
         disableTrade: true,
+        showFavoriteButton: false,
       },
     });
   }, [disabled, isNative, navigation, network, tokenAddress]);

@@ -476,6 +476,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
         isNative: swapProSelectToken?.isNative,
         from: EEnterWay.SwapPro,
         disableTrade: true,
+        showFavoriteButton: false,
       },
     });
   }, [
