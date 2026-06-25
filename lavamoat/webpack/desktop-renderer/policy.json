@@ -3655,33 +3655,18 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true,
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true,
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": true,
         "@onekeyhq/core>near-api-js>@near-js/crypto": true,
         "@onekeyhq/core>near-api-js>@near-js/providers": true,
         "@onekeyhq/core>near-api-js>@near-js/signers": true,
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>@near-js/types": true,
         "@onekeyhq/core>near-api-js>@near-js/utils": true,
+        "@onekeyhq/core>near-api-js>ajv": true,
+        "@onekeyhq/core>near-api-js>ajv-formats": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true,
         "@onekeyhq/core>near-api-js>depd": true,
         "@onekeyhq/core>near-api-js>near-abi": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
-        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
-        "webpack>schema-utils>ajv>uri-js": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/accounts>ajv-formats": {
-      "packages": {
-        "@onekeyhq/core>near-api-js>@near-js/accounts>ajv": true
       }
     },
     "@onekeyhq/core>near-api-js>@near-js/crypto": {
@@ -3792,6 +3777,21 @@
         "@onekeyhq/core>near-api-js>@near-js/transactions": true,
         "@onekeyhq/core>near-api-js>bn.js": true,
         "@onekeyhq/core>near-api-js>borsh": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>ajv": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/components>@react-navigation/native>fast-deep-equal": true,
+        "@onekeyhq/core>near-api-js>ajv>json-schema-traverse": true,
+        "webpack>schema-utils>ajv>uri-js": true
+      }
+    },
+    "@onekeyhq/core>near-api-js>ajv-formats": {
+      "packages": {
+        "@onekeyhq/core>near-api-js>ajv": true
       }
     },
     "@onekeyhq/core>near-api-js>bn.js": {
@@ -4244,6 +4244,7 @@
       "packages": {
         "@onekeyhq/components": true,
         "@onekeyhq/components>@react-navigation/bottom-tabs": true,
+        "@onekeyhq/components>@react-navigation/elements": true,
         "@onekeyhq/components>@react-navigation/native": true,
         "@onekeyhq/components>@react-navigation/native>@react-navigation/core": true,
         "@onekeyhq/components>@react-navigation/native>@react-navigation/core>@react-navigation/routers": true,
@@ -5529,7 +5530,7 @@
         "@onekeyhq/core>xrpl>ripple-binary-codec>assert": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>@keystonehq/alias-sampling": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": true,
-        "electron-builder>dmg-builder>dmg-license>crc": true
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>cbor-sync": {
@@ -5539,6 +5540,20 @@
       },
       "packages": {
         "@onekeyhq/core>algosdk>buffer": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc": {
+      "packages": {
+        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur>crc>buffer": {
+      "globals": {
+        "console": true
+      },
+      "packages": {
+        "@onekeyhq/core>algosdk>buffer>ieee754": true,
+        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>pako": {
@@ -6204,20 +6219,6 @@
     "concurrently>rxjs>tslib": {
       "globals": {
         "SuppressedError": true
-      }
-    },
-    "electron-builder>dmg-builder>dmg-license>crc": {
-      "packages": {
-        "electron-builder>dmg-builder>dmg-license>crc>buffer": true
-      }
-    },
-    "electron-builder>dmg-builder>dmg-license>crc>buffer": {
-      "globals": {
-        "console": true
-      },
-      "packages": {
-        "@onekeyhq/core>algosdk>buffer>ieee754": true,
-        "@onekeyhq/kit>expo-camera>react-native>base64-js": true
       }
     },
     "electron-log": {

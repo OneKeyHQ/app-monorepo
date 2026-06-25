@@ -67,6 +67,8 @@ yarn lavamoat:policy:all
 
 `:all` 命令会先执行一次 `yarn copy:inject`，再依次运行当前启用目标，并在 raw policy 生成后执行 `yarn lavamoat:normalize-policies` 与 `yarn lavamoat:review`。单目标命令也会自行执行必要的 `copy:inject`、policy 归一化和 review 生成，适合本地只验证一个目标时使用。
 
+PR 中的最终 policy 以 `validate-lavamoat-policies` 在 GitHub Actions clean Linux runner 上生成的结果为准。本地 macOS 可能安装 Darwin optional dependency，例如 `electron-builder` 的 dmg 相关依赖，导致 LavaMoat readable resource id 的 package ancestry 与 Linux CI 有少量差异。遇到本地生成结果和 CI artifact 不一致时，优先采用 CI 上传的 `lavamoat-policy-diff-*` patch，或在 PR 评论中使用 `@onekeybot update-policies` 让 bot 应用同一份 CI patch。
+
 单独归一化当前启用目标的 `policy.json` 与 `policy-override.json`：
 
 ```bash
