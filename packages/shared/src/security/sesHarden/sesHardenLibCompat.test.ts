@@ -1,4 +1,4 @@
-// cspell:ignore lockdown jsbi JSBI unpermitted
+// cspell:ignore alephium lockdown jsbi JSBI unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
@@ -239,6 +239,71 @@ try {
 } catch (e) {
   process.stdout.write('ERR:' + e.message);
 }
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+// --- @alephium/web3: no BigInt.prototype mutation --------------------------
+// Versions before v3 installed BigInt.prototype.toJSON at module init. v3
+// removed that global side effect, which keeps the package compatible with SES
+// and avoids custom properties on native BigInt intrinsics in every runtime.
+
+test('@alephium/web3 package entry does not install BigInt.prototype.toJSON before lockdown', () => {
+  const out = runUnderLockdown(`
+try {
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+test('@alephium/web3 works AFTER lockdown through the package entry and never pollutes BigInt intrinsics', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+test('@alephium/web3 ESM entry works AFTER lockdown and never pollutes BigInt intrinsics', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  lockdown(opts);
+  try {
+    const alephium = await import('@alephium/web3');
+    const works =
+      typeof alephium.NodeProvider === 'function' &&
+      typeof alephium.isValidAddress === 'function';
+    const intrinsicUntouched =
+      typeof BigInt.toJSON === 'undefined' &&
+      typeof BigInt.prototype.toJSON === 'undefined';
+    process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
 `);
   expect(out).toBe('OK:true,true');
 });
