@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertThirdPartyDeviceError } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import {
@@ -12,6 +13,7 @@ import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -444,6 +446,59 @@ class ServiceThirdPartyHardware extends ServiceBase {
     return this.getEvmAddressByWalletState({
       ...params,
       useEmptyPassphrase: true,
+    });
+  }
+
+  /**
+   * Build the wallet XFP (master fingerprint + first taproot xpub) for a
+   * third-party device via its adapter. Mirrors ServiceHardware.buildHwWalletXfp
+   * but sources both values from the vendor adapter's btc methods. The master
+   * fingerprint depends on the passphrase, so a hidden wallet must pass its
+   * passphraseState; a standard wallet uses the empty passphrase.
+   */
+  @backgroundMethod()
+  async buildHwWalletXfp(params: {
+    connectId: string;
+    deviceId: string;
+    vendor: EHardwareVendor;
+    passphraseState?: string;
+  }): Promise<string | undefined> {
+    const { connectId, deviceId, vendor, passphraseState } = params;
+    const adapter = await this.getAdapterForVendor(vendor);
+    if (!adapter) return undefined;
+    const passphraseParams = {
+      passphraseState: passphraseState || undefined,
+      useEmptyPassphrase: passphraseState ? undefined : true,
+    };
+    const fingerprintResult = await adapter.hw.btcGetMasterFingerprint(
+      connectId,
+      deviceId,
+      passphraseParams,
+    );
+    if (!fingerprintResult.success) {
+      throw convertThirdPartyDeviceError(fingerprintResult.payload, {
+        vendor,
+        chain: 'btc',
+      });
+    }
+    const publicKeyResult = await adapter.hw.btcGetPublicKey(
+      connectId,
+      deviceId,
+      {
+        path: BTC_FIRST_TAPROOT_PATH,
+        showOnDevice: false,
+        ...passphraseParams,
+      },
+    );
+    if (!publicKeyResult.success) {
+      throw convertThirdPartyDeviceError(publicKeyResult.payload, {
+        vendor,
+        chain: 'btc',
+      });
+    }
+    return accountUtils.buildFullXfp({
+      xfp: fingerprintResult.payload.masterFingerprint.replace(/^0x/, ''),
+      firstTaprootXpub: publicKeyResult.payload.xpub,
     });
   }
 
