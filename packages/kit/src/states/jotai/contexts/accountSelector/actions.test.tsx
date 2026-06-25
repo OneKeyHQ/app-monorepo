@@ -13,6 +13,7 @@ import {
   accountSelectorActiveAccountInitDoneAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
+  activeAccountsAtom,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
   selectedAccountsAtom,
@@ -22,15 +23,20 @@ type IDeferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
 };
-type ISelectedAccountsMap = Partial<
-  Record<number, ReturnType<typeof defaultSelectedAccount>>
->;
+type ISelectedAccount = ReturnType<typeof defaultSelectedAccount>;
+type ISelectedAccountsMap = Partial<Record<number, ISelectedAccount>>;
 type IBuildActiveAccountInfoResult = {
   activeAccount: ReturnType<typeof defaultActiveAccountInfo>;
 };
 type IFixDeriveTypesForInitAccountSelectorMapParams = {
   selectedAccountsMapInDB: ISelectedAccountsMap | undefined;
 };
+type IIndexedAccount = NonNullable<
+  ReturnType<typeof defaultActiveAccountInfo>['indexedAccount']
+>;
+type IWallet = NonNullable<
+  ReturnType<typeof defaultActiveAccountInfo>['wallet']
+>;
 
 function createDeferred<T>(): IDeferred<T> {
   let resolve: ((value: T) => void) | undefined;
@@ -55,6 +61,17 @@ const mockFixDeriveTypesForInitAccountSelectorMap: jest.MockedFunction<
   (
     params: IFixDeriveTypesForInitAccountSelectorMapParams,
   ) => Promise<ISelectedAccountsMap | undefined>
+> = jest.fn();
+const mockIsWalletHasIndexedAccounts: jest.MockedFunction<
+  ({ walletId }: { walletId: string }) => Promise<boolean>
+> = jest.fn();
+const mockGetIndexedAccountsOfWallet: jest.MockedFunction<
+  ({ walletId }: { walletId: string }) => Promise<{
+    accounts: IIndexedAccount[];
+  }>
+> = jest.fn();
+const mockGetWalletSafe: jest.MockedFunction<
+  ({ walletId }: { walletId: string }) => Promise<IWallet | undefined>
 > = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/components/Hardware/Hardware', () => ({
@@ -90,7 +107,14 @@ jest.mock(
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceAccount: {},
+    serviceAccount: {
+      getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
+        mockGetIndexedAccountsOfWallet({ walletId }),
+      getWalletSafe: ({ walletId }: { walletId: string }) =>
+        mockGetWalletSafe({ walletId }),
+      isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
+        mockIsWalletHasIndexedAccounts({ walletId }),
+    },
     serviceAccountSelector: {
       buildActiveAccountInfoFromSelectedAccount: () =>
         mockBuildActiveAccountInfoFromSelectedAccount(),
@@ -146,6 +170,17 @@ function createWrapper() {
   };
 }
 
+function createHdSelectedAccount(indexedAccountId: string): ISelectedAccount {
+  return {
+    ...defaultSelectedAccount(),
+    walletId: 'hd-1',
+    indexedAccountId,
+    networkId: 'tron--0x2b6653dc',
+    deriveType: 'default',
+    focusedWallet: 'hd-1',
+  };
+}
+
 describe('useAccountSelectorActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -158,6 +193,14 @@ describe('useAccountSelectorActions', () => {
     mockFixDeriveTypesForInitAccountSelectorMap.mockImplementation(
       async (params) => params.selectedAccountsMapInDB,
     );
+    mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
+    mockGetIndexedAccountsOfWallet.mockResolvedValue({
+      accounts: [
+        { id: 'hd-1--0', walletId: 'hd-1' } as IIndexedAccount,
+        { id: 'hd-1--1', walletId: 'hd-1' } as IIndexedAccount,
+      ],
+    });
+    mockGetWalletSafe.mockResolvedValue({ id: 'hd-1' } as IWallet);
   });
 
   it('marks active account init done when reload finishes before storage init', async () => {
@@ -229,5 +272,109 @@ describe('useAccountSelectorActions', () => {
     expect(store.get(accountSelectorActiveAccountInitDoneAtom())?.[0]).toBe(
       true,
     );
+  });
+
+  it('keeps a restored indexed account when active account is temporarily incomplete', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+    });
+  });
+
+  it('keeps a restored indexed account when active wallet is temporarily missing', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--1');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--1',
+      focusedWallet: 'hd-1',
+    });
+  });
+
+  it('falls back to the first indexed account when restored indexed account no longer exists', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--99');
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(activeAccountsAtom(), {
+      0: {
+        ...defaultActiveAccountInfo(),
+        ready: true,
+        wallet: { id: 'hd-1' } as IWallet,
+        network: { id: 'tron--0x2b6653dc' } as NonNullable<
+          ReturnType<typeof defaultActiveAccountInfo>['network']
+        >,
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.autoSelectNextAccount({
+        num: 0,
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-1',
+      indexedAccountId: 'hd-1--0',
+      focusedWallet: 'hd-1',
+    });
   });
 });

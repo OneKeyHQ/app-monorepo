@@ -2815,9 +2815,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount: selectedAccountNew,
           });
 
-          let selectedWalletId = wallet?.id;
+          let selectedWalletId = wallet?.id || selectedAccount?.walletId;
           let selectedWallet = wallet;
-          let selectedIndexedAccountId = indexedAccount?.id;
+          if (!selectedWallet && selectedWalletId) {
+            selectedWallet = await serviceAccount.getWalletSafe({
+              walletId: selectedWalletId,
+            });
+            if (!selectedWallet) {
+              selectedWalletId = undefined;
+            }
+          }
+          let selectedIndexedAccountId =
+            indexedAccount?.id || selectedAccount?.indexedAccountId;
           // accountUtils.isHwWallet
           const hasIndexedAccounts =
             selectedWalletId &&
@@ -2915,7 +2924,15 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 await serviceAccount.getIndexedAccountsOfWallet({
                   walletId: selectedWalletId,
                 });
-              selectedIndexedAccountId = indexedAccounts?.[0]?.id;
+              const restoredIndexedAccount = selectedAccountNew.indexedAccountId
+                ? indexedAccounts?.find(
+                    (item) =>
+                      item.id === selectedAccountNew.indexedAccountId &&
+                      item.walletId === selectedWalletId,
+                  )
+                : undefined;
+              selectedIndexedAccountId =
+                restoredIndexedAccount?.id || indexedAccounts?.[0]?.id;
               selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
               selectedAccountNew.focusedWallet = selectedWalletId;
               selectedAccountNew.othersWalletAccountId = undefined;
