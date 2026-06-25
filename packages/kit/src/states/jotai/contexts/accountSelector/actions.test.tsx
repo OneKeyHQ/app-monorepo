@@ -5,12 +5,14 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { useAccountSelectorActions } from './actions';
 import {
   AccountSelectorJotaiProvider,
   accountSelectorActiveAccountInitDoneAtom,
+  accountSelectorContextDataAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
   accountSelectorUpdateMetaAtom,
@@ -73,6 +75,14 @@ const mockSaveGlobalDeriveType: jest.MockedFunction<() => Promise<void>> =
 const mockShouldSyncWithHomeSource: jest.MockedFunction<
   () => Promise<boolean>
 > = jest.fn();
+const mockGetGlobalDeriveType: jest.MockedFunction<() => Promise<string>> =
+  jest.fn();
+const mockShouldUseGlobalDeriveType: jest.MockedFunction<
+  () => Promise<boolean>
+> = jest.fn();
+const mockIsDeriveTypeAvailableForNetwork: jest.MockedFunction<
+  () => Promise<boolean>
+> = jest.fn();
 const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
   () => Promise<boolean>
 > = jest.fn();
@@ -92,6 +102,17 @@ const mockGetSingletonAccountsOfWallet: jest.MockedFunction<
 const mockGetWalletSafe: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<IWallet | undefined>
 > = jest.fn();
+const mockColdStartCacheStorageData = new Map<string, unknown>();
+const mockColdStartCacheStorage = {
+  delete: jest.fn((key: string) => {
+    mockColdStartCacheStorageData.delete(key);
+  }),
+  getObject: jest.fn((key: string) => mockColdStartCacheStorageData.get(key)),
+  setObject: jest.fn((key: string, value: unknown) => {
+    mockColdStartCacheStorageData.set(key, value);
+  }),
+};
+const mockFlushColdStartCacheNow = jest.fn(async () => undefined);
 
 jest.mock('@onekeyhq/kit/src/components/Hardware/Hardware', () => ({
   CommonDeviceLoading: jest.fn(() => null),
@@ -113,6 +134,31 @@ jest.mock(
 
 jest.mock('@onekeyhq/kit/src/utils/toastExistingWalletSwitch', () => ({
   toastExistingWalletSwitch: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    isDesktop: true,
+    isExtensionBackgroundServiceWorker: false,
+    isJest: true,
+    isNative: false,
+    isWeb: false,
+    isWebDappMode: false,
+  },
+}));
+
+jest.mock('@onekeyhq/shared/src/storage/instance/webColdStartStorage', () => ({
+  flushColdStartCacheNow: () => mockFlushColdStartCacheNow(),
+}));
+
+jest.mock('@onekeyhq/shared/src/storage/instance/syncStorageInstance', () => ({
+  coldStartCacheStorage: {
+    delete: (key: string) => mockColdStartCacheStorage.delete(key),
+    getObject: (key: string) => mockColdStartCacheStorage.getObject(key),
+    setObject: (key: string, value: unknown) =>
+      mockColdStartCacheStorage.setObject(key, value),
+  },
 }));
 
 jest.mock(
@@ -142,10 +188,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fixDeriveTypesForInitAccountSelectorMap: (
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
+      getGlobalDeriveType: () => mockGetGlobalDeriveType(),
       saveGlobalDeriveType: () => mockSaveGlobalDeriveType(),
       shouldSyncHomeAndSwapSelectedAccount: () =>
         mockShouldSyncHomeAndSwapSelectedAccount(),
       shouldSyncWithHomeSource: () => mockShouldSyncWithHomeSource(),
+      shouldUseGlobalDeriveType: () => mockShouldUseGlobalDeriveType(),
+    },
+    serviceNetwork: {
+      isDeriveTypeAvailableForNetwork: () =>
+        mockIsDeriveTypeAvailableForNetwork(),
     },
     simpleDb: {
       accountSelector: {
@@ -205,9 +257,23 @@ function createHdSelectedAccount(indexedAccountId: string): ISelectedAccount {
   };
 }
 
+function getRecentSelectionCache() {
+  return mockColdStartCacheStorageData.get(
+    EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+  ) as
+    | Record<
+        string,
+        {
+          selectedAccountsMap?: ISelectedAccountsMap;
+        }
+      >
+    | undefined;
+}
+
 describe('useAccountSelectorActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockColdStartCacheStorageData.clear();
     mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
       activeAccount: {
         ...defaultActiveAccountInfo(),
@@ -220,6 +286,9 @@ describe('useAccountSelectorActions', () => {
     mockGetSelectedAccount.mockResolvedValue(undefined);
     mockSaveSelectedAccount.mockResolvedValue(undefined);
     mockSaveGlobalDeriveType.mockResolvedValue(undefined);
+    mockGetGlobalDeriveType.mockResolvedValue('default');
+    mockShouldUseGlobalDeriveType.mockResolvedValue(true);
+    mockIsDeriveTypeAvailableForNetwork.mockResolvedValue(true);
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
@@ -347,6 +416,12 @@ describe('useAccountSelectorActions', () => {
     store.set(selectedAccountsAtom(), {
       0: selectedAccount,
     });
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+    expect(store.get(accountSelectorContextDataAtom())?.sceneName).toBe(
+      EAccountSelectorSceneName.home,
+    );
     store.set(activeAccountsAtom(), {
       0: {
         ...defaultActiveAccountInfo(),
@@ -494,6 +569,96 @@ describe('useAccountSelectorActions', () => {
 
     expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
     expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('writes recent selection cache immediately when switching network', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'sui--mainnet',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'sui--mainnet',
+    );
+
+    const recentSelectionCache = getRecentSelectionCache();
+
+    expect(
+      recentSelectionCache?.[EAccountSelectorSceneName.home]
+        ?.selectedAccountsMap?.[0],
+    ).toMatchObject({
+      indexedAccountId: 'hd-1--0',
+      networkId: 'sui--mainnet',
+      walletId: 'hd-1',
+    });
+    expect(mockColdStartCacheStorage.setObject).toHaveBeenCalledWith(
+      EAppSyncStorageKeys.onekey_account_selector_recent_selection,
+      expect.any(Object),
+    );
+    expect(mockFlushColdStartCacheNow).toHaveBeenCalled();
+  });
+
+  it('writes network switch cache before derive type lookup resolves', async () => {
+    const selectedAccount = createHdSelectedAccount('hd-1--0');
+    const deriveTypeDeferred = createDeferred<string>();
+    mockGetGlobalDeriveType.mockReturnValueOnce(deriveTypeDeferred.promise);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const updatePromise = result.current.updateSelectedAccountNetwork({
+      num: 0,
+      networkId: 'sui--mainnet',
+    });
+
+    await Promise.resolve();
+
+    expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'tron--0x2b6653dc',
+    );
+    expect(
+      getRecentSelectionCache()?.[EAccountSelectorSceneName.home]
+        ?.selectedAccountsMap?.[0],
+    ).toMatchObject({
+      indexedAccountId: 'hd-1--0',
+      networkId: 'sui--mainnet',
+      walletId: 'hd-1',
+    });
+    expect(mockFlushColdStartCacheNow).toHaveBeenCalledTimes(1);
+
+    deriveTypeDeferred.resolve('default');
+    await act(async () => {
+      await updatePromise;
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]?.networkId).toBe(
+      'sui--mainnet',
+    );
+    expect(mockFlushColdStartCacheNow).toHaveBeenCalled();
   });
 
   it('does not sync an event-disabled swap source save back to home', async () => {

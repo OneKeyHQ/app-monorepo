@@ -27,7 +27,10 @@ import type {
   IAccountSelectorSelectedAccount,
   IAccountSelectorSelectedAccountsMap,
 } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { IJotaiSetter } from '@onekeyhq/kit-bg/src/states/jotai/types';
+import type {
+  IJotaiGetter,
+  IJotaiSetter,
+} from '@onekeyhq/kit-bg/src/states/jotai/types';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -360,6 +363,51 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     } catch {
       // The recent selection cache only protects the quick-kill window.
     }
+  }
+
+  async flushRecentAccountSelectorSelectionCacheSnapshot({
+    sceneName,
+    sceneUrl,
+    num,
+    selectedAccountsMap,
+    updateMeta,
+  }: {
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    num?: number;
+    selectedAccountsMap: ISelectedAccountsAtomMap;
+    updateMeta: Partial<{
+      [num: number]: IAccountSelectorUpdateMeta;
+    }>;
+  }) {
+    this.setRecentAccountSelectorSelectionCache({
+      sceneName,
+      sceneUrl,
+      num,
+      selectedAccountsMap,
+      updateMeta,
+    });
+    await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
+  }
+
+  async flushRecentAccountSelectorSelectionCacheFromState({
+    get,
+    sceneName,
+    sceneUrl,
+    num,
+  }: {
+    get: IJotaiGetter;
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl?: string;
+    num?: number;
+  }) {
+    await this.flushRecentAccountSelectorSelectionCacheSnapshot({
+      sceneName,
+      sceneUrl,
+      num,
+      selectedAccountsMap: get(selectedAccountsAtom()),
+      updateMeta: get(accountSelectorUpdateMetaAtom()),
+    });
   }
 
   async flushRecentAccountSelectorSelectionCacheNowIfNeeded() {
@@ -711,7 +759,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       return this.mutexUpdateSelectedAccount.runExclusive(async () => {
-        const sceneInfo = await this.getCurrentSceneInfo.call(set);
+        const sceneInfo = get(accountSelectorContextDataAtom());
         // if (!contextData) {
         //   return;
         // }
@@ -786,10 +834,31 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         //   console.log('updateSelectedAccount deriveType: ', newSelectedAccount);
         // }
 
+        if (
+          newSelectedAccount.indexedAccountId &&
+          newSelectedAccount.othersWalletAccountId
+        ) {
+          if (
+            newSelectedAccount.walletId &&
+            !accountUtils.isOthersWallet({
+              walletId: newSelectedAccount.walletId,
+            })
+          ) {
+            newSelectedAccount.othersWalletAccountId = undefined;
+          }
+        }
+
         const newNetworkId = newSelectedAccount?.networkId;
         const oldNetworkId = oldSelectedAccount?.networkId;
         const newDeriveType = newSelectedAccount?.deriveType;
         const oldDeriveType = oldSelectedAccount?.deriveType;
+        const buildNextUpdateMeta = () => ({
+          ...get(accountSelectorUpdateMetaAtom()),
+          [num]: {
+            eventEmitDisabled: Boolean(updateMeta?.eventEmitDisabled),
+            updatedAt: Date.now(),
+          },
+        });
         // fix deriveType from global storage if change network only, as current deriveType is previous network's
         // **** important: remove this logic will cause infinite loop
         // if you want to change networkId and driveType at same time, you should call updateSelectedAccount twice, first change networkId, then change deriveType
@@ -798,6 +867,17 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           newNetworkId !== oldNetworkId &&
           newDeriveType === oldDeriveType
         ) {
+          await this.flushRecentAccountSelectorSelectionCacheSnapshot({
+            sceneName: sceneInfo?.sceneName,
+            sceneUrl: sceneInfo?.sceneUrl,
+            num,
+            selectedAccountsMap: {
+              ...get(selectedAccountsAtom()),
+              [num]: newSelectedAccount,
+            },
+            updateMeta: buildNextUpdateMeta(),
+          });
+
           const fixDeriveTypeByGlobal = async ({
             sceneName,
           }: {
@@ -842,19 +922,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             }
           }
         }
-        if (
-          newSelectedAccount.indexedAccountId &&
-          newSelectedAccount.othersWalletAccountId
-        ) {
-          if (
-            newSelectedAccount.walletId &&
-            !accountUtils.isOthersWallet({
-              walletId: newSelectedAccount.walletId,
-            })
-          ) {
-            newSelectedAccount.othersWalletAccountId = undefined;
-          }
-        }
         this.setSelectedAccountsAtom(
           set,
           (v) => ({
@@ -870,6 +937,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updatedAt: Date.now(),
           },
         }));
+        await this.flushRecentAccountSelectorSelectionCacheFromState({
+          get,
+          sceneName: sceneInfo?.sceneName,
+          sceneUrl: sceneInfo?.sceneUrl,
+          num,
+        });
       });
     },
   );
@@ -1023,14 +1096,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const sceneInfo = get(accountSelectorContextDataAtom());
       const selectedAccount = this.getSelectedAccount.call(set, { num });
 
-      this.setRecentAccountSelectorSelectionCache({
+      await this.flushRecentAccountSelectorSelectionCacheFromState({
+        get,
         sceneName: sceneInfo?.sceneName,
         sceneUrl: sceneInfo?.sceneUrl,
         num,
-        selectedAccountsMap: get(selectedAccountsAtom()),
-        updateMeta: get(accountSelectorUpdateMetaAtom()),
       });
-      await this.flushRecentAccountSelectorSelectionCacheNowIfNeeded();
 
       void this.flushCurrentAccountSelectorColdStartSnapshot
         .call(set, {
