@@ -235,6 +235,12 @@ export function useNativeIndicatorActiveValues(
   const pendingIndicatorActiveStateRef = useRef(new Map<string, boolean>());
 
   useEffect(() => {
+    if (!indicators) {
+      pendingIndicatorActiveStateRef.current.clear();
+      setActiveIndicatorValues(new Set<string>());
+      return;
+    }
+
     const activeValues = getActiveIndicatorValueSet(indicators);
     const pendingActiveState = pendingIndicatorActiveStateRef.current;
     pendingActiveState.forEach((desiredActive, indicatorValue) => {
