@@ -61,6 +61,8 @@ export type IModalAssetDetailsParamList = {
   [EModalAssetDetailRoutes.DeFiProtocolDetails]: {
     protocol: IDeFiProtocol;
     protocolInfo?: IProtocolSummary;
+    accountId?: string;
+    indexedAccountId?: string;
   };
   [EModalAssetDetailRoutes.KytRiskDetail]: {
     riskDetail: IKytRiskDetail;

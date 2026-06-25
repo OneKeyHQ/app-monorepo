@@ -31,6 +31,7 @@ export type IKytRiskDetail = {
   level: EKytRiskLevel;
   checkedAt: string;
   asset: {
+    networkId: string;
     symbol: string;
     tokenName?: string;
     tokenImageUri?: string;

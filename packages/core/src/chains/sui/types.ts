@@ -1,4 +1,4 @@
-import type { ExecuteTransactionRequestType } from '@mysten/sui/client';
+import type { ExecuteTransactionRequestType } from '@mysten/sui/jsonRpc';
 
 export type IEncodedTxSui = {
   rawTx: string;

@@ -137,6 +137,8 @@ const hwkSubpathAliasMap = new Map(
   HWK_SUBPATH_ALIASES.map((spec) => [spec, require.resolve(spec)]),
 );
 
+// @mysten/sui 2.x only exposes package exports; Metro package exports are disabled above.
+const MYSTEN_SUI_SUBPATH_PREFIX = '@mysten/sui/';
 // In production builds, redirect Developer/router to an empty stub so that
 // Gallery pages and all their background-only transitive dependencies
 // (core/chains, kit-bg/vaults, qr-wallet-sdk, bitcoinjs-lib, etc.) are
@@ -182,6 +184,17 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
       filePath: hwkAliasPath,
     };
+  }
+  if (
+    moduleName.startsWith(MYSTEN_SUI_SUBPATH_PREFIX) &&
+    moduleName.split('/').length > 2
+  ) {
+    try {
+      const filePath = require.resolve(moduleName, { paths: [monorepoRoot] });
+      return { type: 'sourceFile', filePath };
+    } catch {
+      // noop
+    }
   }
   // Strip Developer/Gallery from production union builds
   if (

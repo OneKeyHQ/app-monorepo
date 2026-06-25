@@ -39,6 +39,28 @@ Important anchors:
 - `ProtocolsTabContent` and `EarnMainTabs` for active-tab propagation.
 - `useEarnActions.triggerRefresh` for available-assets refresh ownership.
 
+## DeFi Portfolio Actions And AssetDetails Modal
+
+- `packages/kit/src/views/Home/components/DeFiListBlock/Protocol.tsx`
+- `packages/kit/src/views/Home/components/DeFiListBlock/ProtocolPositionCell.tsx`
+- `packages/kit/src/views/AssetDetails/pages/DeFiProtocolDetails.tsx`
+- `packages/shared/src/routes/assetDetails.ts`
+- `packages/kit/src/components/DeFi/ProtocolPositionActionButton.tsx`
+- `packages/kit/src/components/DeFi/ProtocolPositionActionDialog.tsx`
+- `packages/kit-bg/src/services/ServiceDeFi.ts`
+
+Important anchors:
+
+- `EModalAssetDetailRoutes.DeFiProtocolDetails`
+- `serviceDeFi.fetchSupportedDeFiProtocols`
+- `serviceDeFi.refreshAccountDeFiPositionsAfterAction`
+- route params and protocol payload fields carrying `accountId` and
+  `indexedAccountId`
+
+AssetDetails modal pages are separate route hosts from Home tab content. When
+an action needs account identity, pass it through the route or protocol payload
+rather than reading Home-only context from the modal.
+
 ## Staking Operation Stack
 
 - `packages/kit/src/views/Staking/pages/ManagePosition/index.tsx`

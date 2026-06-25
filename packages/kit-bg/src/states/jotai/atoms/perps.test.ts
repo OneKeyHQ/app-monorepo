@@ -427,7 +427,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
     });
   });
 
-  it('keeps external accounts on the explicit enable-trading fallback path', () => {
+  it('routes external accounts through the order-panel enable dialog path', () => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: 'external--60--injected--wallet',
       indexedAccountId: null,
@@ -441,7 +441,7 @@ describe('perpsActiveAccountEnableTradingModeAtom', () => {
       isSoftwareAccount: false,
       isHardwareAccount: false,
       canAutoEnableInOrderPanel: false,
-      requiresEnableTradingDialogInOrderPanel: false,
+      requiresEnableTradingDialogInOrderPanel: true,
       requiresExplicitEnableTrading: true,
     });
   });
@@ -532,7 +532,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
     ).toBe(false);
   });
 
-  it('keeps the explicit CTA layout for non-auto-enable fallback accounts', () => {
+  it('does not reserve the explicit CTA layout for external dialog-enable accounts', () => {
     jotaiDefaultStore.set(perpsActiveAccountAtom.atom(), {
       accountId: 'external--60--injected--wallet',
       indexedAccountId: null,
@@ -553,7 +553,7 @@ describe('perpsShouldShowEnableTradingButtonAtom', () => {
 
     expect(
       jotaiDefaultStore.get(perpsShouldShowEnableTradingButtonAtom.atom()),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('hides the explicit enable-trading CTA after the account can trade', () => {

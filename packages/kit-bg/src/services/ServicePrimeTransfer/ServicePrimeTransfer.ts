@@ -2798,6 +2798,7 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async completeImportProgress({
     errorsInfo,
+    taskUUID,
   }: {
     errorsInfo: {
       category: string;
@@ -2806,7 +2807,17 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
   }): Promise<void> {
+    // Ownership guard: only the flow that currently owns the import task may
+    // finalize it. A duplicate/superseded flow (whose startImport was rejected by
+    // the re-entrancy guard, so it carries no matching taskUUID) must NOT run
+    // finalization here — otherwise its debounced finallyImportProgress would
+    // reset `currentImportTaskUUID` and abort the import that is actually still
+    // running, which is the root cause of the partial-import bug. See OK-56787.
+    if (!taskUUID || taskUUID !== this.currentImportTaskUUID) {
+      return;
+    }
     const startedAt = Date.now();
     await primeTransferAtom.set((prev): IPrimeTransferAtomData => {
       const stats = {
@@ -3013,7 +3024,19 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
+    skipped?: boolean;
   }> {
+    // Re-entrancy guard: reject a duplicate/concurrent import synchronously,
+    // before any await or shared-state mutation. A double-triggered UI (e.g. the
+    // remote-password dialog being submitted via both the confirm button and the
+    // input's onSubmitEditing) used to start a second startImport that overwrote
+    // `currentImportTaskUUID`, making the first (real) import loop treat itself as
+    // cancelled and stop after only a couple of wallets, silently losing data.
+    // See OK-56787.
+    if (this.currentImportTaskUUID) {
+      return { success: false, errorsInfo: [], skipped: true };
+    }
     this.batchCreateHdAccountsParams = [];
     this.currentImportFlow = isFromCloudBackupRestore
       ? 'cloudBackupRestore'
@@ -3788,6 +3811,7 @@ class ServicePrimeTransfer extends ServiceBase {
       return {
         success: true,
         errorsInfo,
+        taskUUID,
       };
     } finally {
       importedAccountDeriveTypeCache.clear();

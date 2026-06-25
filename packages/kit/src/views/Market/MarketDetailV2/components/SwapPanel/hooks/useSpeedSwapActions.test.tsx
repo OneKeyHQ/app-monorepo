@@ -10,10 +10,16 @@ import {
 import type {
   ISwapToken,
   ISwapTokenBase,
+  ISwapTxInfo,
+} from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildMarketReviewTokens,
+  buildMarketSwapHistoryItem,
   useSpeedSwapActions,
 } from './useSpeedSwapActions';
 import { ESwapDirection } from './useTradeType';
@@ -144,6 +150,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [
     {
       currencyInfo: {
+        id: 'usd',
         symbol: '$',
       },
       isFirstTimeSwap: false,
@@ -766,6 +773,82 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildMarketSwapHistoryItem', () => {
+  it('includes the selected fiat currency id in market swap history', () => {
+    const swapInfo: ISwapTxInfo = {
+      protocol: EProtocolOfExchange.SWAP,
+      sender: {
+        amount: '100',
+        token: usdcToken,
+        accountInfo: {
+          accountId: 'account-1',
+          networkId: usdcToken.networkId,
+        },
+      },
+      receiver: {
+        amount: '0.001',
+        token: btcToken,
+        accountInfo: {
+          accountId: 'account-1',
+          networkId: btcToken.networkId,
+        },
+      },
+      accountAddress: '0xsender',
+      receivingAddress: '0xreceiver',
+      swapBuildResData: {
+        result: {
+          info: {
+            provider: 'onekey',
+            providerName: 'OneKey',
+          },
+          fromTokenInfo: usdcToken,
+          toTokenInfo: btcToken,
+          fromAmount: '100',
+          toAmount: '0.001',
+          instantRate: '0.00001',
+          fee: {
+            percentageFee: 0.1,
+          },
+        },
+        ctx: {
+          cowSwapOrderId: 'cow-order-1',
+        },
+      },
+    };
+
+    const { historyOrderId, swapHistoryItem } = buildMarketSwapHistoryItem({
+      swapInfo,
+      txHash: '0xswap',
+      gasFeeFiatValue: '1.23',
+      gasFeeInNative: '0.00042',
+      currency: '$',
+      currencyId: 'usd',
+      now: () => 1000,
+    });
+
+    expect(historyOrderId).toBe('cow-order-1');
+    expect(swapHistoryItem).toEqual(
+      expect.objectContaining({
+        status: ESwapTxHistoryStatus.PENDING,
+        currency: '$',
+        currencyId: 'usd',
+        date: {
+          created: 1000,
+          updated: 1000,
+        },
+      }),
+    );
+    expect(swapHistoryItem.txInfo).toEqual(
+      expect.objectContaining({
+        txId: '0xswap',
+        orderId: 'cow-order-1',
+        gasFeeFiatValue: '1.23',
+        gasFeeInNative: '0.00042',
+      }),
+    );
   });
 });
 
