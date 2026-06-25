@@ -1100,56 +1100,58 @@ export function LimitOrderForm({
               onDefaultPress: () => void handlePlace('long'),
             })}
             {!isSpot ? (
-            <YStack gap="$1.5">
-              <XStack gap="$2" justifyContent="flex-start">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_trade_margin_required,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_cost })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.long.marginRequiredBN.gt(0)
-                    ? `$${sideStats.long.marginRequiredBN.toFixed(
-                        2,
-                        BigNumber.ROUND_DOWN,
-                      )}`
-                    : '$0.00'}
-                </SizableText>
-              </XStack>
-              <XStack gap="$2" justifyContent="flex-start">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price_tooltip,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.long.liquidationPriceBN
-                    ? `$${formatPriceToSignificantDigits(
-                        sideStats.long.liquidationPriceBN,
-                        szDecimals,
-                      )}`
-                    : '--'}
-                </SizableText>
-              </XStack>
-            </YStack>
+              <YStack gap="$1.5">
+                <XStack gap="$2" justifyContent="flex-start">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_required,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  >
+                    {intl.formatMessage({ id: ETranslations.perp_cost })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.long.marginRequiredBN.gt(0)
+                      ? `$${sideStats.long.marginRequiredBN.toFixed(
+                          2,
+                          BigNumber.ROUND_DOWN,
+                        )}`
+                      : '$0.00'}
+                  </SizableText>
+                </XStack>
+                <XStack gap="$2" justifyContent="flex-start">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.long.liquidationPriceBN
+                      ? `$${formatPriceToSignificantDigits(
+                          sideStats.long.liquidationPriceBN,
+                          szDecimals,
+                        )}`
+                      : '--'}
+                  </SizableText>
+                </XStack>
+              </YStack>
             ) : null}
           </YStack>
           <YStack flex={1} gap="$2">
@@ -1166,56 +1168,58 @@ export function LimitOrderForm({
               onDefaultPress: () => void handlePlace('short'),
             })}
             {!isSpot ? (
-            <YStack gap="$1.5">
-              <XStack gap="$2" justifyContent="flex-end">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_trade_margin_required,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_cost })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.short.marginRequiredBN.gt(0)
-                    ? `$${sideStats.short.marginRequiredBN.toFixed(
-                        2,
-                        BigNumber.ROUND_DOWN,
-                      )}`
-                    : '$0.00'}
-                </SizableText>
-              </XStack>
-              <XStack gap="$2" justifyContent="flex-end">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price_tooltip,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.short.liquidationPriceBN
-                    ? `$${formatPriceToSignificantDigits(
-                        sideStats.short.liquidationPriceBN,
-                        szDecimals,
-                      )}`
-                    : '--'}
-                </SizableText>
-              </XStack>
-            </YStack>
+              <YStack gap="$1.5">
+                <XStack gap="$2" justifyContent="flex-end">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_required,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  >
+                    {intl.formatMessage({ id: ETranslations.perp_cost })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.short.marginRequiredBN.gt(0)
+                      ? `$${sideStats.short.marginRequiredBN.toFixed(
+                          2,
+                          BigNumber.ROUND_DOWN,
+                        )}`
+                      : '$0.00'}
+                  </SizableText>
+                </XStack>
+                <XStack gap="$2" justifyContent="flex-end">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.short.liquidationPriceBN
+                      ? `$${formatPriceToSignificantDigits(
+                          sideStats.short.liquidationPriceBN,
+                          szDecimals,
+                        )}`
+                      : '--'}
+                  </SizableText>
+                </XStack>
+              </YStack>
             ) : null}
           </YStack>
         </XStack>
