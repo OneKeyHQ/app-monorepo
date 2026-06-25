@@ -1504,3 +1504,6 @@ pems
 Reqs
 unparseable
 unsalvageable
+
+# @mysten/sui 2.x package name
+mysten

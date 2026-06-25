@@ -36,6 +36,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import type { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
@@ -631,6 +632,14 @@ export function PrimeFeatureIntroContent({
     if (activeFeature.action === 'receiveRiskMonitoring') {
       navigation.pushModal(EModalRoutes.SettingModal, {
         screen: EModalSettingRoutes.SettingProtectModal,
+      });
+      return;
+    }
+
+    if (activeFeature.action === 'addressRiskCheck') {
+      navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
+        screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
+        params: { networkId: networkId ?? network?.id },
       });
       return;
     }
