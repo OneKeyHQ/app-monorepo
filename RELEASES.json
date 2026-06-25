@@ -37,5 +37,21 @@
       "#12114"
     ],
     "notes": "Dedupe perps IP redetect request (#12114)"
+  },
+  {
+    "seq": 4,
+    "commit": "1568013dfb115c7ed0a81f171298ed001c865d3d",
+    "date": "2026-06-25T01:57:11Z",
+    "prs": [
+      "#12041",
+      "#12055",
+      "#12086",
+      "#12087",
+      "#12108",
+      "#12117",
+      "#12125",
+      "#12126"
+    ],
+    "notes": "Address risk check — active address screening for Prime (#12055); migrate Sui to SDK v2 (#12125); bump @onekeyfe/hd-* JS SDK to 1.1.29 (#12126); refine market WebSocket subscriptions (#12087); prevent Wallet Home cold-start blank state (#12117); fix desktop inactive-tab header swallowing clicks on external display (#12041); remove KOL hardware invitee discount display (#12108); analytics and i18n fixes (#12086)"
   }
 ]
