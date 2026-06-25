@@ -80,9 +80,11 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
+  const paymentTokenNetworkId =
+    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    networkId,
+    paymentTokenNetworkId,
   );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
