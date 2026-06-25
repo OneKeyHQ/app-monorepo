@@ -97,6 +97,15 @@ const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
   EUniversalSearchType.Perp,
 ];
 
+// Default scope for the global universal search: every bg-searchable category
+// plus Settings, which is injected client-side rather than via the bg search
+// types. A caller can pass a narrower `filterTypes` (e.g. the browser tab uses
+// `[Dapp]`) to restrict which categories appear.
+const getDefaultFilterTypes = (): EUniversalSearchType[] => [
+  ...getSearchTypes(),
+  EUniversalSearchType.Settings,
+];
+
 const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const tabMapping: Record<EUniversalSearchType, number> = {
     [EUniversalSearchType.Address]: 1, // Wallets tab
@@ -187,6 +196,25 @@ export function UniversalSearch({
   });
 
   const searchSettings = useSettingsSearch();
+
+  // The set of result categories this search instance is allowed to surface.
+  // Defaults to every category (see the route wrapper); the Discovery browser
+  // tab narrows it to `[Dapp]` so market/perp/wallet results don't leak into
+  // browser search (OK-56756). The bg search, the settings injection and the
+  // trending recommendations are all filtered through this set so a narrowed
+  // scope is honored end to end.
+  const allowedSearchTypeSet = useMemo(
+    () => new Set(filterTypes?.length ? filterTypes : getSearchTypes()),
+    [filterTypes],
+  );
+  const shouldIncludeSettings = useMemo(
+    () => allowedSearchTypeSet.has(EUniversalSearchType.Settings),
+    [allowedSearchTypeSet],
+  );
+  const shouldIncludeMarketTrending = useMemo(
+    () => allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken),
+    [allowedSearchTypeSet],
+  );
 
   const tabTitles = useMemo(() => {
     return [
@@ -326,6 +354,13 @@ export function UniversalSearch({
   ]);
 
   const fetchRecommendList = useCallback(async () => {
+    // Trending recommendations are market tokens; skip them when market is out
+    // of scope (e.g. browser search) so the empty state stays dapp-only.
+    if (!shouldIncludeMarketTrending) {
+      setRecommendSections([]);
+      return;
+    }
+
     const searchResultSections: IUniversalSection[] = [];
 
     const result =
@@ -343,7 +378,7 @@ export function UniversalSearch({
       });
     }
     setRecommendSections(searchResultSections);
-  }, [intl]);
+  }, [intl, shouldIncludeMarketTrending]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -356,6 +391,16 @@ export function UniversalSearch({
     () =>
       getSearchTypes().filter((type) => !PRIMARY_SEARCH_TYPES.includes(type)),
     [],
+  );
+
+  const effectivePrimaryTypes = useMemo(
+    () => PRIMARY_SEARCH_TYPES.filter((type) => allowedSearchTypeSet.has(type)),
+    [allowedSearchTypeSet],
+  );
+  const effectiveDeferredTypes = useMemo(
+    () =>
+      getDeferredSearchTypes().filter((type) => allowedSearchTypeSet.has(type)),
+    [allowedSearchTypeSet, getDeferredSearchTypes],
   );
 
   const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
@@ -549,7 +594,8 @@ export function UniversalSearch({
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
-      const deferredSearchTypes = getDeferredSearchTypes();
+      const primarySearchTypes = effectivePrimaryTypes;
+      const deferredSearchTypes = effectiveDeferredTypes;
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
         input,
@@ -567,23 +613,27 @@ export function UniversalSearch({
           : undefined,
       };
       try {
-        const primaryResult =
-          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-            ...searchParams,
-            searchTypes: PRIMARY_SEARCH_TYPES,
+        // Skip the primary round entirely when the active scope excludes all
+        // primary categories (e.g. browser search scoped to `[Dapp]`).
+        if (primarySearchTypes.length > 0) {
+          const primaryResult =
+            await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+              ...searchParams,
+              searchTypes: primarySearchTypes,
+            });
+          if (isSearchResultStale(input)) {
+            return;
+          }
+
+          primarySections = buildSearchResultSections({
+            result: primaryResult,
+            input,
           });
-        if (isSearchResultStale(input)) {
-          return;
-        }
 
-        primarySections = buildSearchResultSections({
-          result: primaryResult,
-          input,
-        });
-
-        if (primarySections.length > 0) {
-          setSections(primarySections);
-          setSearchStatus(ESearchStatus.done);
+          if (primarySections.length > 0) {
+            setSections(primarySections);
+            setSearchStatus(ESearchStatus.done);
+          }
         }
 
         const deferredResult =
@@ -598,7 +648,7 @@ export function UniversalSearch({
         const deferredSections = buildSearchResultSections({
           result: deferredResult,
           input,
-          includeSettings: true,
+          includeSettings: shouldIncludeSettings,
         });
         const mergedSections = mergeSearchResultSections(
           primarySections,
@@ -873,7 +923,9 @@ export function UniversalSearch({
                 onSearchTextFill={handleSearchTextFill}
               />
             }
-            ListEmptyComponent={<ListEmptyComponent />}
+            ListEmptyComponent={
+              shouldIncludeMarketTrending ? <ListEmptyComponent /> : null
+            }
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
             keyboardShouldPersistTaps="handled"
@@ -948,6 +1000,7 @@ export function UniversalSearch({
     filterSections,
     renderSectionFooter,
     intl,
+    shouldIncludeMarketTrending,
   ]);
 
   return (
@@ -989,7 +1042,7 @@ const UniversalSearchWithHomeTokenListProvider = ({
       accountId={activeAccount?.account?.id ?? ''}
     >
       <UniversalSearch
-        filterTypes={route?.params?.filterTypes || getSearchTypes()}
+        filterTypes={route?.params?.filterTypes || getDefaultFilterTypes()}
         initialTab={route?.params?.initialTab}
       />
     </HomeTokenListProviderMirrorWrapper>

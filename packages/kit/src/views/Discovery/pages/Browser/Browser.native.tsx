@@ -54,6 +54,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
@@ -212,6 +213,16 @@ function MobileBrowser() {
     }
     if (selectedHeaderTab === ETranslations.global_browser) {
       return 'dapp' as const;
+    }
+    return undefined;
+  }, [selectedHeaderTab]);
+
+  // Under the Browser tab the search should only surface dapps — restrict the
+  // universal search scope so market/perp/wallet results don't leak in
+  // (OK-56756). Other header tabs keep the full-scope universal search.
+  const searchFilterTypes = useMemo(() => {
+    if (selectedHeaderTab === ETranslations.global_browser) {
+      return [EUniversalSearchType.Dapp];
     }
     return undefined;
   }, [selectedHeaderTab]);
@@ -670,6 +681,7 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
+              filterTypes={searchFilterTypes}
             />
           </Stack>
           <TabPageHeader

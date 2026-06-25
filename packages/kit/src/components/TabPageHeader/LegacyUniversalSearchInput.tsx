@@ -17,6 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import type { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
 
@@ -28,11 +29,16 @@ export function LegacyUniversalSearchInput({
   containerProps,
   size = 'large',
   initialTab,
+  // Restricts the universal search to these result types. When omitted the
+  // search covers all categories. The Discovery browser tab passes `[Dapp]` so
+  // its search doesn't surface market/perp/wallet results (OK-56756).
+  filterTypes,
   glass = false,
 }: {
   containerProps?: IStackStyle;
   size?: 'large' | 'medium' | 'small';
   initialTab?: 'market' | 'dapp';
+  filterTypes?: EUniversalSearchType[];
   glass?: boolean;
 }) {
   const intl = useIntl();
@@ -40,9 +46,10 @@ export function LegacyUniversalSearchInput({
   const toUniversalSearchPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.UniversalSearchModal, {
       screen: EUniversalSearchPages.UniversalSearch,
-      params: initialTab ? { initialTab } : undefined,
+      params:
+        initialTab || filterTypes ? { initialTab, filterTypes } : undefined,
     });
-  }, [navigation, initialTab]);
+  }, [navigation, initialTab, filterTypes]);
 
   // iOS 26 only: host the search bar inside a Liquid Glass capsule. Off iOS 26
   // (and every other platform) isLiquidGlassAvailable() is false, so this stays
