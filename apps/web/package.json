@@ -5,7 +5,6 @@
   "scripts": {
     "start": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" rspack serve",
     "start:webpack": "cross-env NODE_OPTIONS=\"--max-old-space-size=10240\" webpack serve -c ./webpack.config.kill-switch.js",
-    "start:proxy": "ONEKEY_PROXY=true yarn start",
     "clean": "yarn clean:build",
     "clean:build": "rimraf ./web-build && rimraf .tamagui && rimraf ./node_modules/.cache",
     "build": "yarn clean && cross-env NODE_ENV=production rspack build && cp ./web-build/index.html ./web-build/404.html && bash ./postbuild.sh",

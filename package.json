@@ -30,7 +30,6 @@
     "app:web": "yarn app:web:no-proxy",
     "app:web:webpack": "yarn workspace @onekeyhq/web start:webpack",
     "app:web:3030": "WEB_PORT=3030 yarn app:web:no-proxy",
-    "app:web:proxy": "yarn workspace @onekeyhq/web start:proxy",
     "app:web:no-proxy": "yarn workspace @onekeyhq/web start",
     "app:web:build": "yarn workspace @onekeyhq/web build",
     "app:web:build:webpack": "yarn workspace @onekeyhq/web build:webpack",
