@@ -56,7 +56,9 @@ import {
   useApprovalsInfoAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import {
+  useAccountSelectorStorageInitDoneAtom,
   useActiveAccount,
+  useIsAccountSelectorActiveAccountInitDone,
   useIsAccountSelectorSyncLoading,
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
@@ -70,6 +72,7 @@ import { HomeTestIDs } from '../testIDs';
 import { DeFiContainerWithProvider } from './DeFiContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { homePageContentMaxWidthSx } from './homePageContentMaxWidth';
+import { shouldShowNoWalletContent } from './homePageNoWalletContent';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { PortfolioContainerWithProvider } from './PortfolioContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -203,6 +206,21 @@ export function HomePageView({
       vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const [accountSelectorStorageInitDone] =
+    useAccountSelectorStorageInitDoneAtom();
+  const accountSelectorActiveAccountInitDone =
+    useIsAccountSelectorActiveAccountInitDone(0);
+  const { result: walletListResult } = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceAccount.getWallets({
+        ignoreEmptySingletonWalletAccounts: true,
+      }),
+    [],
+    {
+      checkIsFocused: false,
+      watchLoading: false,
+    },
+  );
 
   const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
@@ -903,20 +921,35 @@ export function HomePageView({
     wallet,
     account,
   });
+  const walletPageContent = useMemo(
+    () =>
+      platformEnv.isNative ? (
+        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
+      ) : (
+        homePageContent
+      ),
+    [homePageContent],
+  );
+  const showNoWalletContent = shouldShowNoWalletContent({
+    hasNoUsableWallet,
+    accountSelectorStorageInitDone,
+    accountSelectorActiveAccountInitDone,
+    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+  });
 
   const homePage = useMemo(() => {
     if (!ready) {
       return <TabPageHeader sceneName={sceneName} tabRoute={ETabRoutes.Home} />;
     }
 
-    let content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    let content = <Stack flex={1} />;
+
+    if (showNoWalletContent) {
+      content = <NoWalletContent tabBarHeight={tabBarHeight} />;
+    }
 
     if (!hasNoUsableWallet) {
-      content = platformEnv.isNative ? (
-        <AndroidScrollContainer>{homePageContent}</AndroidScrollContainer>
-      ) : (
-        homePageContent
-      );
+      content = walletPageContent;
       // This is a temporary hack solution, need to fix the layout of headerLeft and headerRight
     }
     return (
@@ -957,10 +990,11 @@ export function HomePageView({
   }, [
     ready,
     hasNoUsableWallet,
+    showNoWalletContent,
     tabPageHeight,
     sceneName,
     handleTabPageLayout,
-    homePageContent,
+    walletPageContent,
     tabBarHeight,
   ]);
 

@@ -13,6 +13,9 @@ export const EthereumSrUSDe = '0x3d7d6fdf07EE548B939A80edbc9B2256d0cdc003';
 export const EthereumJrUSDe = '0xC58D044404d8B14e953C115E67823784dEA53d8F';
 export const EthereumCUSDO = '0xaD55aebc9b8c03FC43cd9f62260391c13c23e7c0';
 export const EthereumSENA = '0x8bE3460A480c80728a8C4D7a5D5303c85ba7B3b9';
+export const EthereumStETH = '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84';
+export const EthereumStETHWithdrawalQueue =
+  '0x889edC2eDab5f40e902b864aD4d7AdE8E412F9B1';
 export const EthereumWstETH = '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0';
 export const EthereumStcUSD = '0x88887bE419578051FF9F4eb6C858A951921D8888';
 export const EthereumMORPHO = '0x58D97B57BB95320F9a05dC918Aef65434969c2B2';

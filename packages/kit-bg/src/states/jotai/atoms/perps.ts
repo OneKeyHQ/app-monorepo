@@ -562,12 +562,15 @@ export const {
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
+    const shouldUseOrderPanelEnableTradingDialog =
+      isHardwareAccount || !isSoftwareAccount;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
       canAutoEnableInOrderPanel: isSoftwareAccount,
-      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+      requiresEnableTradingDialogInOrderPanel:
+        shouldUseOrderPanelEnableTradingDialog,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },

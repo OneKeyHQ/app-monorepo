@@ -1,4 +1,4 @@
-// cspell:ignore lockdown jsbi JSBI unpermitted
+// cspell:ignore alephium lockdown jsbi JSBI unpermitted
 // Verifies how specific third-party libraries behave under a real SES
 // `lockdown()`. `lockdown()` irreversibly freezes the realm's intrinsics, so
 // every scenario runs in its own child node process.
@@ -243,58 +243,67 @@ try {
   expect(out).toBe('OK:true,true');
 });
 
-// --- @alephium/web3: BigInt.prototype.toJSON must be self-guarded (patch) ----
-// @alephium/web3's entry runs `BigInt.prototype['toJSON'] = ...` at module init
-// (to make JSON.stringify emit string-encoded bigints). lockdown() freezes the
-// BigInt intrinsic, so in strict-mode module code that assignment throws
-// "Cannot add property toJSON, object is not extensible" and takes the whole
-// alph vault module down (alph address creation crashed). Like js-conflux-sdk,
-// warm-up cannot save it: lockdown() would strip the non-standard toJSON as an
-// unpermitted intrinsic regardless of load order. patches/@alephium+web3+1.5.2
-// .patch guards the assignment with `Object.isExtensible(BigInt.prototype)` so
-// it is a no-op after lockdown instead of throwing. The intrinsic therefore
-// keeps no toJSON (nothing for lockdown to strip), exactly as for js-conflux-sdk.
+// --- @alephium/web3: no BigInt.prototype mutation --------------------------
+// Versions before v3 installed BigInt.prototype.toJSON at module init. v3
+// removed that global side effect, which keeps the package compatible with SES
+// and avoids custom properties on native BigInt intrinsics in every runtime.
 
-test('the raw BigInt.prototype.toJSON assignment (alephium upstream) throws after lockdown', () => {
-  // Mechanism proof (mirrors the decimal.js 'moderate' proof): in strict mode
-  // the upstream assignment is the offender. Run it in its own strict module so
-  // adding to the frozen intrinsic throws rather than silently failing (sloppy).
+test('@alephium/web3 package entry does not install BigInt.prototype.toJSON before lockdown', () => {
   const out = runUnderLockdown(`
-require('ses');
-lockdown(opts);
 try {
-  (function () {
-    'use strict';
-    BigInt.prototype['toJSON'] = function () { return this.toString(); };
-  })();
-  process.stdout.write('OK:added');
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
 } catch (e) {
   process.stdout.write('ERR:' + e.message);
 }
 `);
-  expect(out).toMatch(/^ERR:/);
-  expect(out).toContain('not extensible');
+  expect(out).toBe('OK:true,true');
 });
 
-test('@alephium/web3 loads AFTER lockdown without the toJSON offender (self-guarded)', () => {
+test('@alephium/web3 works AFTER lockdown through the package entry and never pollutes BigInt intrinsics', () => {
   const out = runUnderLockdown(`
 require('ses');
 lockdown(opts);
-let toJsonError = '';
 try {
-  // Resolves to dist/src/index.js (node entry), which runs the guarded
-  // BigInt.prototype.toJSON assignment at the very top of module init.
-  require('@alephium/web3');
+  const alephium = require('@alephium/web3');
+  const works =
+    typeof alephium.NodeProvider === 'function' &&
+    typeof alephium.isValidAddress === 'function';
+  const intrinsicUntouched =
+    typeof BigInt.toJSON === 'undefined' &&
+    typeof BigInt.prototype.toJSON === 'undefined';
+  process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
 } catch (e) {
-  // Only the BigInt.prototype.toJSON offender is in scope here; any unrelated
-  // lockdown incompatibility deeper in the (large) require chain is not.
-  if (/toJSON|not extensible/i.test(e.message)) toJsonError = e.message;
+  process.stdout.write('ERR:' + e.message);
 }
-const works = toJsonError === '';
-// The guard skipped the assignment, so the frozen BigInt intrinsic keeps no
-// toJSON (lockdown has nothing to strip) — same end state as js-conflux-sdk.
-const intrinsicUntouched = typeof BigInt.prototype.toJSON === 'undefined';
-process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+`);
+  expect(out).toBe('OK:true,true');
+});
+
+test('@alephium/web3 ESM entry works AFTER lockdown and never pollutes BigInt intrinsics', () => {
+  const out = runUnderLockdown(`
+(async () => {
+  require('ses');
+  lockdown(opts);
+  try {
+    const alephium = await import('@alephium/web3');
+    const works =
+      typeof alephium.NodeProvider === 'function' &&
+      typeof alephium.isValidAddress === 'function';
+    const intrinsicUntouched =
+      typeof BigInt.toJSON === 'undefined' &&
+      typeof BigInt.prototype.toJSON === 'undefined';
+    process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+  } catch (e) {
+    process.stdout.write('ERR:' + e.message);
+  }
+})();
 `);
   expect(out).toBe('OK:true,true');
 });

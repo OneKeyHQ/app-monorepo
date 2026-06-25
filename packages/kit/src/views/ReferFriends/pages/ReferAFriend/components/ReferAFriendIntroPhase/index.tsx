@@ -32,17 +32,6 @@ export function ReferAFriendIntroPhase({
         },
       ),
     },
-    {
-      icon: 'GiftOutline' as const,
-      text: intl.formatMessage(
-        {
-          id: ETranslations.referral_intro_p1_desc_bullet2,
-        },
-        {
-          amount: `${postConfig.friendDiscount?.unit ?? ''}${postConfig.friendDiscount?.amount ?? ''}`,
-        },
-      ),
-    },
   ];
 
   return (
