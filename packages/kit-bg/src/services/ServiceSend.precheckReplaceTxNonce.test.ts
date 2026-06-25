@@ -78,7 +78,7 @@ function makeService(overrides: {
     overrides.getCustomRpcForNetwork ??
     jest.fn().mockResolvedValue(overrides.customRpcInfo);
 
-  (vaultFactory.getVault as jest.Mock).mockResolvedValue({
+  (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
     fetchAccountDetailsByRpc,
   });
 
