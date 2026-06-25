@@ -476,7 +476,6 @@ function SideButtonInternal({
       isLiveStatusPending,
       hasNonColdStartDisabledReason,
     });
-
   const buttonDisabled = useMemo(() => {
     return shouldDisablePerpsOrderPanelTradingButton({
       isTradingStatusDisabled,
@@ -1443,6 +1442,49 @@ function SideButtonInternal({
     ),
     [intl],
   );
+  const actionButton = (() => {
+    return (
+      <Button
+        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+        size="medium"
+        childrenAsText={false}
+        borderRadius="$4"
+        bg={buttonStyles.bg}
+        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+        disabled={buttonDisabled}
+        disabledStyle={
+          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+        }
+        onPress={handlePress}
+        h={36}
+        py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
+      >
+        <YStack alignItems="center" gap={2}>
+          <SizableText
+            size="$bodyMdMedium"
+            lineHeight={18}
+            color="$textOnColor"
+            numberOfLines={1}
+          >
+            {buttonText}
+          </SizableText>
+
+          {buttonSecondaryText ? (
+            <SizableText
+              fontSize={11}
+              color="$textOnColor"
+              opacity={0.8}
+              lineHeight={11}
+              numberOfLines={1}
+            >
+              {buttonSecondaryText}
+            </SizableText>
+          ) : null}
+        </YStack>
+      </Button>
+    );
+  })();
 
   if (isMobile) {
     return (
@@ -1514,94 +1556,13 @@ function SideButtonInternal({
           </YStack>
         ) : null}
 
-        <Button
-          testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-          size="medium"
-          childrenAsText={false}
-          borderRadius="$4"
-          bg={buttonStyles.bg}
-          hoverStyle={
-            !buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined
-          }
-          pressStyle={
-            !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
-          }
-          disabled={buttonDisabled}
-          disabledStyle={
-            shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-          }
-          onPress={handlePress}
-          h={36}
-          py={
-            !orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined
-          }
-        >
-          <YStack alignItems="center" gap={2}>
-            <SizableText
-              size="$bodyMdMedium"
-              lineHeight={18}
-              color="$textOnColor"
-              numberOfLines={1}
-            >
-              {buttonText}
-            </SizableText>
-
-            {buttonSecondaryText ? (
-              <SizableText
-                fontSize={11}
-                color="$textOnColor"
-                opacity={0.8}
-                lineHeight={11}
-                numberOfLines={1}
-              >
-                {buttonSecondaryText}
-              </SizableText>
-            ) : null}
-          </YStack>
-        </Button>
+        {actionButton}
       </YStack>
     );
   }
   return (
     <YStack gap="$2" flex={1} onLayout={handleLayout}>
-      <Button
-        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-        size="medium"
-        childrenAsText={false}
-        borderRadius="$4"
-        bg={buttonStyles.bg}
-        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
-        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-        disabled={buttonDisabled}
-        disabledStyle={
-          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-        }
-        onPress={handlePress}
-        h={36}
-        py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
-      >
-        <YStack alignItems="center" gap={2}>
-          <SizableText
-            size="$bodyMdMedium"
-            lineHeight={18}
-            color="$textOnColor"
-            numberOfLines={1}
-          >
-            {buttonText}
-          </SizableText>
-          {buttonSecondaryText ? (
-            <SizableText
-              fontSize={11}
-              color="$textOnColor"
-              opacity={0.8}
-              lineHeight={11}
-              numberOfLines={1}
-            >
-              {buttonSecondaryText}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </Button>
+      {actionButton}
       {shouldShowCostAndLiqPrice ? (
         <YStack gap="$1.5">
           {/* <XStack justifyContent="space-between">
@@ -1971,7 +1932,6 @@ function EmptySizeSideButton({
       trailing: false,
     },
   );
-
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       if (!isMobile) {
@@ -2000,34 +1960,36 @@ function EmptySizeSideButton({
     ],
   );
 
-  const button = (
-    <Button
-      testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
-      size="medium"
-      childrenAsText={false}
-      borderRadius="$4"
-      bg={buttonStyles.bg}
-      hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
-      pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
-      disabled={buttonDisabled}
-      disabledStyle={
-        shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
-      }
-      onPress={handlePress}
-      h={36}
-    >
-      <YStack alignItems="center" gap={2}>
-        <SizableText
-          size="$bodyMdMedium"
-          lineHeight={18}
-          color="$textOnColor"
-          numberOfLines={1}
-        >
-          {buttonText}
-        </SizableText>
-      </YStack>
-    </Button>
-  );
+  const button = (() => {
+    return (
+      <Button
+        testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
+        size="medium"
+        childrenAsText={false}
+        borderRadius="$4"
+        bg={buttonStyles.bg}
+        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
+        disabled={buttonDisabled}
+        disabledStyle={
+          shouldPreserveDisabledButtonStyle ? { opacity: 1 } : undefined
+        }
+        onPress={handlePress}
+        h={36}
+      >
+        <YStack alignItems="center" gap={2}>
+          <SizableText
+            size="$bodyMdMedium"
+            lineHeight={18}
+            color="$textOnColor"
+            numberOfLines={1}
+          >
+            {buttonText}
+          </SizableText>
+        </YStack>
+      </Button>
+    );
+  })();
 
   if (isMobile) {
     return (

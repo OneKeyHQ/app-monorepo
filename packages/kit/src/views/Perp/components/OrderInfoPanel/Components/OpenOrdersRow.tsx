@@ -243,6 +243,8 @@ const OpenOrdersRow = memo(
         <ListItem
           flex={1}
           mt="$1.5"
+          mx="$0"
+          px="$4"
           flexDirection="column"
           alignItems="flex-start"
         >
