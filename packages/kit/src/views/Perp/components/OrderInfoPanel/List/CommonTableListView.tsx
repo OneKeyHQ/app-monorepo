@@ -76,12 +76,7 @@ const TradesHistoryLoadingView = () => {
 };
 
 const MobileCardSkeletonItem = () => (
-  <YStack
-    mt="$1.5"
-    px="$4"
-    py="$3"
-    gap="$3"
-  >
+  <YStack mt="$1.5" px="$4" py="$3" gap="$3">
     {/* Header: badge + name + leverage */}
     <XStack gap="$2" alignItems="center">
       <Skeleton w="$4" h="$4" borderRadius="$1" />

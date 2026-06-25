@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-
-import type { RouteProp } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -32,6 +30,7 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
+import type { RouteProp } from '@react-navigation/native';
 type ITabName = IPerpHistoryTab;
 
 const HISTORY_TABS: Array<{

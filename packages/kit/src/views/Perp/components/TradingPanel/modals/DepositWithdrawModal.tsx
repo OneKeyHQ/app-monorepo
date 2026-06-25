@@ -2410,6 +2410,7 @@ function MobileDepositWithdrawModal() {
         size="small"
         icon="ClockTimeHistoryOutline"
         onPress={handleViewHistory}
+        testID="perp-deposit-withdraw-history"
       />
     ),
     [handleViewHistory],
