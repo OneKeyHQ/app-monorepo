@@ -6,7 +6,7 @@ Run this before shipping or approving Trade/Swap/Market work:
 
 1. State owner is named: server config, quote payload, build payload, atom, simpleDb, local component state, or provider adapter.
 2. Async identity is guarded: request id, event id, provider key, token key, account, amount mode, and stale response handling.
-3. Account/network/token identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver.
+3. Account/network/token/route identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver, entry source, and behavior-changing route params such as `isNative`, `showFavoriteButton`, and `disableTrade`.
 4. Provider contract fields are interpreted: fees, rate, ETA, min/max, limits, quote context, order id, txid, and status.
 5. Review data is frozen: confirm does not keep reading mutable page state after the user enters review.
 6. Approval/setup is explicit: allowance, permit, wrap, setup tx, and business tx are not merged invisibly.

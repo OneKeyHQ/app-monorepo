@@ -91,5 +91,6 @@ export type IModalSwapParamList = {
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;
+    showFavoriteButton?: boolean;
   };
 };
