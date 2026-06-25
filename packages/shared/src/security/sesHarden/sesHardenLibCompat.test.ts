@@ -243,6 +243,62 @@ try {
   expect(out).toBe('OK:true,true');
 });
 
+// --- @alephium/web3: BigInt.prototype.toJSON must be self-guarded (patch) ----
+// @alephium/web3's entry runs `BigInt.prototype['toJSON'] = ...` at module init
+// (to make JSON.stringify emit string-encoded bigints). lockdown() freezes the
+// BigInt intrinsic, so in strict-mode module code that assignment throws
+// "Cannot add property toJSON, object is not extensible" and takes the whole
+// alph vault module down (alph address creation crashed). Like js-conflux-sdk,
+// warm-up cannot save it: lockdown() would strip the non-standard toJSON as an
+// unpermitted intrinsic regardless of load order. patches/@alephium+web3+1.5.2
+// .patch guards the assignment with `Object.isExtensible(BigInt.prototype)` so
+// it is a no-op after lockdown instead of throwing. The intrinsic therefore
+// keeps no toJSON (nothing for lockdown to strip), exactly as for js-conflux-sdk.
+
+test('the raw BigInt.prototype.toJSON assignment (alephium upstream) throws after lockdown', () => {
+  // Mechanism proof (mirrors the decimal.js 'moderate' proof): in strict mode
+  // the upstream assignment is the offender. Run it in its own strict module so
+  // adding to the frozen intrinsic throws rather than silently failing (sloppy).
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+try {
+  (function () {
+    'use strict';
+    BigInt.prototype['toJSON'] = function () { return this.toString(); };
+  })();
+  process.stdout.write('OK:added');
+} catch (e) {
+  process.stdout.write('ERR:' + e.message);
+}
+`);
+  expect(out).toMatch(/^ERR:/);
+  expect(out).toContain('not extensible');
+});
+
+test('@alephium/web3 loads AFTER lockdown without the toJSON offender (self-guarded)', () => {
+  const out = runUnderLockdown(`
+require('ses');
+lockdown(opts);
+let toJsonError = '';
+try {
+  // Resolves to dist/src/index.js (node entry), which runs the guarded
+  // BigInt.prototype.toJSON assignment at the very top of module init.
+  require('@alephium/web3');
+} catch (e) {
+  // Only the BigInt.prototype.toJSON offender is in scope here; any unrelated
+  // lockdown incompatibility deeper in the (large) require chain is not.
+  if (/toJSON|not extensible/i.test(e.message)) toJsonError = e.message;
+}
+const works = toJsonError === '';
+// The guard skipped the assignment, so the frozen BigInt intrinsic keeps no
+// toJSON (lockdown has nothing to strip) — same end state as js-conflux-sdk.
+const intrinsicUntouched = typeof BigInt.prototype.toJSON === 'undefined';
+process.stdout.write('OK:' + works + ',' + intrinsicUntouched);
+`);
+  expect(out).toBe('OK:true,true');
+});
+
 // --- bn.js / elliptic: NOT offenders (work fine post-lockdown) -------------
 
 test('bn.js works even when loaded AFTER lockdown (not an offender)', () => {
