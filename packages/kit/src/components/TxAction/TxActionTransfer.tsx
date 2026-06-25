@@ -482,7 +482,9 @@ function buildExpandedTransferView({
   // throwaway rows, and show a single "+N" overflow line for the rest.
   // getTransferChangeLineCount in TxHistoryListView mirrors this cap so the row
   // height stays bounded.
-  const combinedTransfers = [...receives, ...sends];
+  // Order sends before receives to match the detail page (transfersToRender),
+  // so the cap hides the same items on the list row and the detail page.
+  const combinedTransfers = [...sends, ...receives];
   // Only collapse into a "+N" row when it hides 2+ transfers — showing a single
   // trailing transfer is cheaper than a "+1" row that hides it, and it keeps the
   // overflow count >= 2 so the plural-only "+N assets" label stays grammatically
@@ -504,9 +506,9 @@ function buildExpandedTransferView({
       {combinedTransfers
         .slice(0, visibleCount)
         .map((t, index) =>
-          index < receives.length
-            ? renderTransferLine(t, 'r', '$textSuccess')
-            : renderTransferLine(t, 's', '$text'),
+          index < sends.length
+            ? renderTransferLine(t, 's', '$text')
+            : renderTransferLine(t, 'r', '$textSuccess'),
         )}
       {overflowCount > 0 ? (
         <XStack key="transfer-overflow" alignItems="center" gap="$1">
