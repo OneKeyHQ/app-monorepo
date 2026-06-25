@@ -109,6 +109,7 @@ function buildRiskDetails({
         ? formatDate(new Date(item.checkedAt * 1000))
         : '',
       asset: {
+        networkId: item.networkId,
         symbol,
         tokenName: transfer?.name,
         tokenImageUri: transfer?.icon,
