@@ -204,7 +204,7 @@ export function UniversalSearch({
   // trending recommendations are all filtered through this set so a narrowed
   // scope is honored end to end.
   const allowedSearchTypeSet = useMemo(
-    () => new Set(filterTypes?.length ? filterTypes : getSearchTypes()),
+    () => new Set(filterTypes?.length ? filterTypes : getDefaultFilterTypes()),
     [filterTypes],
   );
   const shouldIncludeSettings = useMemo(
@@ -636,20 +636,27 @@ export function UniversalSearch({
           }
         }
 
-        const deferredResult =
-          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-            ...searchParams,
-            searchTypes: deferredSearchTypes,
-          });
-        if (isSearchResultStale(input)) {
-          return;
-        }
+        // Mirror the primary round's length guard: skip the deferred bg call
+        // when no deferred categories are in scope. Settings is injected
+        // client-side via buildSearchResultSections, so still run when it is in
+        // scope (the bg call returns empty for an out-of-scope searchTypes set).
+        let deferredSections: IUniversalSection[] = [];
+        if (deferredSearchTypes.length > 0 || shouldIncludeSettings) {
+          const deferredResult =
+            await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+              ...searchParams,
+              searchTypes: deferredSearchTypes,
+            });
+          if (isSearchResultStale(input)) {
+            return;
+          }
 
-        const deferredSections = buildSearchResultSections({
-          result: deferredResult,
-          input,
-          includeSettings: shouldIncludeSettings,
-        });
+          deferredSections = buildSearchResultSections({
+            result: deferredResult,
+            input,
+            includeSettings: shouldIncludeSettings,
+          });
+        }
         const mergedSections = mergeSearchResultSections(
           primarySections,
           deferredSections,
