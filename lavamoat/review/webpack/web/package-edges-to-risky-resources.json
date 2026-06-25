@@ -590,11 +590,39 @@
   "external:../../node_modules/@metamask/eth-sig-util/dist/sign-typed-data.js": {
     "@onekeyhq/core>web3-utils>ethereum-cryptography": true
   },
-  "external:../../node_modules/@mysten/sui/dist/esm/client/client.js": {
-    "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js": true
+  "external:../../node_modules/@mysten/sui/dist/client/core.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true
   },
-  "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js": {
-    "external:../../node_modules/@mysten/sui/dist/esm/client/rpc-websocket-client.js": true
+  "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/jsonRpc/client.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true,
+    "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs": true
+  },
+  "external:../../node_modules/@mysten/sui/dist/transactions/plugins/NamedPackagesPlugin.mjs": {
+    "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_blake.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/pbkdf2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
+  },
+  "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/index.js": {
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
   },
   "external:../../node_modules/@nktkas/hyperliquid/esm/signing/mod.js": {
     "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js": true

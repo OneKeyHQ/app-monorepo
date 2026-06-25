@@ -5,8 +5,8 @@
       "resources": 20
     },
     "crypto-random": {
-      "entries": 78,
-      "resources": 74
+      "entries": 79,
+      "resources": 75
     },
     "dom-injection-navigation": {
       "entries": 144,
@@ -21,7 +21,7 @@
       "resources": 6
     },
     "network": {
-      "entries": 92,
+      "entries": 91,
       "resources": 74
     },
     "node-system": {
@@ -34,12 +34,12 @@
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 4659,
+  "generatedResources": 4658,
   "highRiskEntries": 470,
-  "highRiskResources": 243,
-  "packageEdgesToRiskyResources": 872,
+  "highRiskResources": 244,
+  "packageEdgesToRiskyResources": 882,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
-  "totalResources": 4659
+  "totalResources": 4658
 }

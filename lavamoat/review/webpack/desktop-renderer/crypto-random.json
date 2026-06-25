@@ -275,6 +275,11 @@
         "crypto": true
       }
     },
+    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "external:../../node_modules/@nktkas/hyperliquid/node_modules/@noble/hashes/utils.js": {
       "globals": {
         "crypto": true

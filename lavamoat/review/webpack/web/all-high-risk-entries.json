@@ -1528,21 +1528,21 @@
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js",
+    "resource": "external:../../node_modules/@mysten/sui/dist/client/mvr.mjs",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
-    "name": "WebSocket",
-    "resource": "external:../../node_modules/@mysten/sui/dist/esm/client/http-transport.js",
+    "name": "fetch",
+    "resource": "external:../../node_modules/@mysten/sui/dist/jsonRpc/http-transport.mjs",
     "type": "global",
     "value": true
   },
   {
-    "category": "network",
-    "name": "WebSocket",
-    "resource": "external:../../node_modules/@mysten/sui/dist/esm/client/rpc-websocket-client.js",
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js",
     "type": "global",
     "value": true
   },
