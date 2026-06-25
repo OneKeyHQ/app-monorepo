@@ -190,7 +190,6 @@ class ProviderApiTron extends ProviderApiBase {
     transaction: any,
   ): Promise<Types.SignedTransaction> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('tron_signTransaction', request, transaction);
 
     // Guard against what-you-see-is-not-what-you-sign spoofing: a DApp may keep
     // the raw_data_hex/txID of one contract (e.g. unlimited approval) while
@@ -223,8 +222,6 @@ class ProviderApiTron extends ProviderApiBase {
         networkId: networkId ?? '',
         signOnly: true,
       });
-
-    console.log('tron_signTransaction DONE', result, request, transaction);
 
     return JSON.parse(result.rawTx) as Types.SignedTransaction;
   }
