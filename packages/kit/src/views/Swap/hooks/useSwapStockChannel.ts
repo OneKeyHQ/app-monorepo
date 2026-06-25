@@ -369,6 +369,47 @@ export function useSwapStockChannel({
     ],
   );
 
+  const selectRecentTokenPair = useCallback(
+    async ({
+      fromToken: pairFromToken,
+      toToken: pairToToken,
+    }: {
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+    }) => {
+      const isFromTokenPayToken =
+        filterStockPayTokenCandidates([pairFromToken]).length > 0;
+      const isToTokenPayToken =
+        filterStockPayTokenCandidates([pairToToken]).length > 0;
+      const shouldUseSellSide =
+        Boolean(pairFromToken.isStock) ||
+        (!isFromTokenPayToken && isToTokenPayToken);
+      const nextTradeSide = shouldUseSellSide
+        ? ESwapStockTradeSide.Sell
+        : ESwapStockTradeSide.Buy;
+      const nextStockToken = shouldUseSellSide ? pairFromToken : pairToToken;
+      const nextPayToken = shouldUseSellSide ? pairToToken : pairFromToken;
+
+      resetStockTradeAmounts();
+      setTradeSide(nextTradeSide);
+      setStockTokenState(nextStockToken);
+      stockTokenSnapshotRef.current = nextStockToken;
+      setPayTokenState(nextPayToken);
+      payTokenSnapshotRef.current = nextPayToken;
+      requestMarketActiveToken(nextStockToken);
+      await syncStockExecutionTokens({
+        nextTradeSide,
+        stockToken: nextStockToken,
+        payToken: nextPayToken,
+      });
+    },
+    [
+      requestMarketActiveToken,
+      resetStockTradeAmounts,
+      syncStockExecutionTokens,
+    ],
+  );
+
   const stockTokenStatus = useMemo(() => {
     if (currentStockToken) {
       return ESwapStockChannelAsyncStatus.Ready;
@@ -464,6 +505,7 @@ export function useSwapStockChannel({
       selectStockToken,
       selectPayToken,
       switchTradeSide,
+      selectRecentTokenPair,
     }),
     [
       channelStage,
@@ -478,6 +520,7 @@ export function useSwapStockChannel({
       readyForQuote,
       selectablePayTokens,
       selectPayToken,
+      selectRecentTokenPair,
       selectStockToken,
       switchTradeSide,
       speedConfigReady,

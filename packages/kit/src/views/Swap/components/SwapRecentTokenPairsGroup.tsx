@@ -15,6 +15,7 @@ import { Token } from '../../../components/Token';
 import { useSwapTypeSwitchAtom } from '../../../states/jotai/contexts/swap';
 
 const needFoldingMinCount = 4;
+const defaultVisibleSwapTypes = [ESwapTabSwitchType.SWAP];
 
 interface ISwapRecentTokenPairsGroupProps {
   fromTokenAmount?: string;
@@ -26,23 +27,25 @@ interface ISwapRecentTokenPairsGroupProps {
     toToken: ISwapToken;
   }) => void;
   tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  visibleSwapTypes?: readonly ESwapTabSwitchType[];
 }
 
 const SwapRecentTokenPairsGroup = ({
   onSelectTokenPairs,
   tokenPairs,
   fromTokenAmount,
+  visibleSwapTypes = defaultVisibleSwapTypes,
 }: ISwapRecentTokenPairsGroupProps) => {
   const intl = useIntl();
   const [openMore, setOpenMore] = useState(false);
   const [swapTypeSwitchAtom] = useSwapTypeSwitchAtom();
   const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
   const tokenPairsInCurrentType = useMemo(() => {
-    if (swapTypeSwitchAtom === ESwapTabSwitchType.SWAP) {
+    if (visibleSwapTypes.includes(swapTypeSwitchAtom)) {
       return tokenPairs;
     }
     return [];
-  }, [swapTypeSwitchAtom, tokenPairs]);
+  }, [swapTypeSwitchAtom, tokenPairs, visibleSwapTypes]);
   const rerenderRecentTokenPairs = useCallback(() => {
     const tokenPairsToShow =
       !openMore && tokenPairsInCurrentType.length >= needFoldingMinCount
