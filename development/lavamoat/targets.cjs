@@ -1,3 +1,5 @@
+// cspell:ignore Jsons lavamoat
+
 const enabledTargets = [
   {
     id: 'webpack/web',
@@ -19,7 +21,8 @@ const enabledTargets = [
   },
   {
     id: 'webpack/desktop-renderer',
-    label: 'Electron renderer production webpack bundle，Desktop 渲染进程生产构建',
+    label:
+      'Electron renderer production webpack bundle，Desktop 渲染进程生产构建',
     policy: 'webpack/desktop-renderer/policy.json',
     override: 'webpack/desktop-renderer/policy-override.json',
     scriptSuffix: 'desktop-renderer',

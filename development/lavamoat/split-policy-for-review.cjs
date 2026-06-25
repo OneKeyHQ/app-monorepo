@@ -1,7 +1,11 @@
+// cspell:ignore LavaMoat builtin builtins lavamoat
+
 const fs = require('fs');
 const path = require('path');
+
 const { mergePolicy } = require('lavamoat-core');
 
+const { LavaMoatError } = require('./error.cjs');
 const { disabledTargetDirs, enabledTargets } = require('./targets.cjs');
 
 const repoRoot = path.resolve(__dirname, '../..');
@@ -178,7 +182,7 @@ function sortObject(value) {
   }
   return Object.fromEntries(
     Object.entries(value)
-      .sort(([left], [right]) => left.localeCompare(right))
+      .toSorted(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => [key, sortObject(item)]),
   );
 }
@@ -209,7 +213,9 @@ function collectDeniedOverrides(overridePolicy, policy) {
   const overrideResources = overridePolicy.resources || {};
   const policyResources = policy.resources || {};
 
-  for (const [resourceName, overrideResource] of Object.entries(overrideResources)) {
+  for (const [resourceName, overrideResource] of Object.entries(
+    overrideResources,
+  )) {
     const policyResource = policyResources[resourceName] || {};
     const dictFields = [
       ['globals', 'global'],
@@ -219,19 +225,20 @@ function collectDeniedOverrides(overridePolicy, policy) {
     ];
 
     for (const [field, type] of dictFields) {
-      for (const [name, value] of Object.entries(overrideResource[field] || {})) {
-        if (value !== false) {
-          continue;
+      for (const [name, value] of Object.entries(
+        overrideResource[field] || {},
+      )) {
+        if (value === false) {
+          denied.push({
+            resource: resourceName,
+            type,
+            field,
+            name,
+            category: findRiskCategory(type, name),
+            generatedValue: policyResource[field]?.[name],
+            effectiveValue: false,
+          });
         }
-        denied.push({
-          resource: resourceName,
-          type,
-          field,
-          name,
-          category: findRiskCategory(type, name),
-          generatedValue: policyResource[field]?.[name],
-          effectiveValue: false,
-        });
       }
     }
 
@@ -239,22 +246,21 @@ function collectDeniedOverrides(overridePolicy, policy) {
       ['native', 'native', 'native'],
       ['env', 'env', 'env'],
     ]) {
-      if (overrideResource[field] !== false) {
-        continue;
+      if (overrideResource[field] === false) {
+        denied.push({
+          resource: resourceName,
+          type,
+          field,
+          name,
+          category: findRiskCategory(type, name),
+          generatedValue: policyResource[field],
+          effectiveValue: false,
+        });
       }
-      denied.push({
-        resource: resourceName,
-        type,
-        field,
-        name,
-        category: findRiskCategory(type, name),
-        generatedValue: policyResource[field],
-        effectiveValue: false,
-      });
     }
   }
 
-  return denied.sort((left, right) => {
+  return denied.toSorted((left, right) => {
     return (
       left.resource.localeCompare(right.resource) ||
       left.type.localeCompare(right.type) ||
@@ -270,7 +276,7 @@ function getPolicyFiles() {
   const missingPolicyFiles = policyFiles.filter((file) => !fs.existsSync(file));
 
   if (missingPolicyFiles.length > 0) {
-    throw new Error(
+    throw new LavaMoatError(
       `Missing enabled LavaMoat policies:\n${missingPolicyFiles
         .map((file) => path.relative(repoRoot, file))
         .join('\n')}`,
@@ -282,14 +288,19 @@ function getPolicyFiles() {
 
 function analyzePolicy(policyFile) {
   const policy = readJson(policyFile);
-  const overrideFile = path.join(path.dirname(policyFile), 'policy-override.json');
+  const overrideFile = path.join(
+    path.dirname(policyFile),
+    'policy-override.json',
+  );
   const overridePolicy = fs.existsSync(overrideFile)
     ? readJson(overrideFile)
     : { resources: {} };
   const effectivePolicy = mergePolicy(policy, overridePolicy);
   const resources = effectivePolicy.resources || {};
   const deniedOverrides = collectDeniedOverrides(overridePolicy, policy);
-  const relativePolicyDir = path.dirname(path.relative(lavamoatRoot, policyFile));
+  const relativePolicyDir = path.dirname(
+    path.relative(lavamoatRoot, policyFile),
+  );
   const outputDir = path.join(reviewRoot, relativePolicyDir);
 
   const categorized = Object.fromEntries(
@@ -309,53 +320,49 @@ function analyzePolicy(policyFile) {
   for (const [resourceName, resourcePolicy] of Object.entries(resources)) {
     const globals = resourcePolicy.globals || {};
     const builtins = {
-      ...(resourcePolicy.builtin || {}),
-      ...(resourcePolicy.builtins || {}),
+      ...resourcePolicy.builtin,
+      ...resourcePolicy.builtins,
     };
 
     for (const [globalName, value] of Object.entries(globals)) {
-      if (!isAllowedPolicyValue(value)) {
-        continue;
-      }
-      for (const rule of riskRules) {
-        if (!matches(globalName, rule.globals)) {
-          continue;
+      if (isAllowedPolicyValue(value)) {
+        for (const rule of riskRules) {
+          if (matches(globalName, rule.globals)) {
+            const category = categorized[rule.category];
+            category.resources[resourceName] ||= { globals: {} };
+            category.resources[resourceName].globals[globalName] = value;
+            highRiskResourceNames.add(resourceName);
+            allHighRiskEntries.push({
+              category: rule.category,
+              resource: resourceName,
+              type: 'global',
+              name: globalName,
+              value,
+            });
+          }
         }
-        const category = categorized[rule.category];
-        category.resources[resourceName] ||= { globals: {} };
-        category.resources[resourceName].globals[globalName] = value;
-        highRiskResourceNames.add(resourceName);
-        allHighRiskEntries.push({
-          category: rule.category,
-          resource: resourceName,
-          type: 'global',
-          name: globalName,
-          value,
-        });
       }
     }
 
     for (const [builtinName, value] of Object.entries(builtins)) {
-      if (!isAllowedPolicyValue(value)) {
-        continue;
-      }
-      for (const rule of riskRules) {
-        if (!matches(builtinName, rule.builtins)) {
-          continue;
+      if (isAllowedPolicyValue(value)) {
+        for (const rule of riskRules) {
+          if (matches(builtinName, rule.builtins)) {
+            const category = categorized[rule.category];
+            category.resources[resourceName] ||= { builtins: {} };
+            category.resources[resourceName].builtins[builtinName] = value;
+            highRiskResourceNames.add(resourceName);
+            const entry = {
+              category: rule.category,
+              resource: resourceName,
+              type: 'builtin',
+              name: builtinName,
+              value,
+            };
+            builtinEntries.push(entry);
+            allHighRiskEntries.push(entry);
+          }
         }
-        const category = categorized[rule.category];
-        category.resources[resourceName] ||= { builtins: {} };
-        category.resources[resourceName].builtins[builtinName] = value;
-        highRiskResourceNames.add(resourceName);
-        const entry = {
-          category: rule.category,
-          resource: resourceName,
-          type: 'builtin',
-          name: builtinName,
-          value,
-        };
-        builtinEntries.push(entry);
-        allHighRiskEntries.push(entry);
       }
     }
 
@@ -377,14 +384,13 @@ function analyzePolicy(policyFile) {
   for (const [resourceName, resourcePolicy] of Object.entries(resources)) {
     const packages = resourcePolicy.packages || {};
     for (const [targetResource, value] of Object.entries(packages)) {
-      if (!isAllowedPolicyValue(value)) {
-        continue;
+      if (
+        isAllowedPolicyValue(value) &&
+        highRiskResourceNames.has(targetResource)
+      ) {
+        packageEdgesToRiskyResources[resourceName] ||= {};
+        packageEdgesToRiskyResources[resourceName][targetResource] = value;
       }
-      if (!highRiskResourceNames.has(targetResource)) {
-        continue;
-      }
-      packageEdgesToRiskyResources[resourceName] ||= {};
-      packageEdgesToRiskyResources[resourceName][targetResource] = value;
     }
   }
 
@@ -407,9 +413,18 @@ function analyzePolicy(policyFile) {
     path.join(outputDir, 'all-high-risk-entries.json'),
     sortObject(allHighRiskEntries),
   );
-  writeJson(path.join(outputDir, 'node-builtins.json'), sortObject(builtinEntries));
-  writeJson(path.join(outputDir, 'native-modules.json'), sortObject(nativeEntries));
-  writeJson(path.join(outputDir, 'denied-overrides.json'), sortObject(deniedOverrides));
+  writeJson(
+    path.join(outputDir, 'node-builtins.json'),
+    sortObject(builtinEntries),
+  );
+  writeJson(
+    path.join(outputDir, 'native-modules.json'),
+    sortObject(nativeEntries),
+  );
+  writeJson(
+    path.join(outputDir, 'denied-overrides.json'),
+    sortObject(deniedOverrides),
+  );
   writeJson(
     path.join(outputDir, 'package-edges-to-risky-resources.json'),
     sortObject(packageEdgesToRiskyResources),
@@ -471,9 +486,7 @@ function createReviewIndex(summaries) {
     '',
     '当前启用目标：',
     '',
-    ...enabledTargets.map(
-      (target) => `- \`${target.id}\`：${target.label}`,
-    ),
+    ...enabledTargets.map((target) => `- \`${target.id}\`：${target.label}`),
     '',
     '当前暂缓目标，只允许保留空目录占位：',
     '',
@@ -549,10 +562,7 @@ function createReviewIndex(summaries) {
     const reviewDir = path.dirname(policyRelativeToLavamoat);
     const link = (name) => toPosixPath(path.join(reviewDir, name));
     const categoryLinks = riskRules
-      .map(
-        (rule) =>
-          `[${rule.category}](${link(`${rule.category}.json`)})`,
-      )
+      .map((rule) => `[${rule.category}](${link(`${rule.category}.json`)})`)
       .join(' / ');
 
     lines.push(
@@ -617,4 +627,6 @@ writeJson(path.join(reviewRoot, 'summary.json'), {
 });
 writeText(path.join(reviewRoot, 'README.md'), createReviewIndex(summaries));
 
-console.log(`Generated LavaMoat review files for ${summaries.length} policies.`);
+console.log(
+  `Generated LavaMoat review files for ${summaries.length} policies.`,
+);
