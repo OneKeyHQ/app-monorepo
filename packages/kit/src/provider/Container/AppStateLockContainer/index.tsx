@@ -6,6 +6,11 @@ import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationCo
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { IS_LOW_END_DEVICE } from '@onekeyhq/shared/src/utils/lowEndDevice';
+import {
+  isUnlockTransition,
+  shouldDeferColdStartLockRender,
+} from '@onekeyhq/shared/src/utils/lowEndDeviceUtils';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 
@@ -86,6 +91,32 @@ export function AppStateLockContainer({
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
 
+  // Track whether this process has ever been unlocked. On low-end iOS devices we
+  // skip rendering the full app tree behind the lock screen ONLY for a
+  // cold-start lock (never unlocked yet) — so the single background JS thread
+  // is free to finish the 600k-iteration PBKDF2 `verifyPassword` before iOS
+  // jetsam kills the process. Once unlocked, we always render children again so
+  // an auto-lock-while-using never unmounts the user's current screen.
+  //
+  // The latch only flips on a real locked->unlocked transition (not on any
+  // `isLocked === false` render) so a transient/default `false` during early
+  // state hydration (e.g. the first cold start after upgrade) cannot
+  // permanently defeat the optimization on the riskiest boot.
+  const hasUnlockedOnceRef = useRef(false);
+  const prevLockedRef = useRef(isLocked);
+  if (isUnlockTransition(prevLockedRef.current, isLocked)) {
+    hasUnlockedOnceRef.current = true;
+  }
+  prevLockedRef.current = isLocked;
+  const deferColdStartChildren = shouldDeferColdStartLockRender({
+    // RAM-based low-end detection is also true on low-RAM Android, but the
+    // jetsam / dual-runtime PBKDF2-starvation problem this guards against is
+    // iOS-specific, so the defer behavior is gated to iOS.
+    isLowEndDevice: IS_LOW_END_DEVICE && platformEnv.isNativeIOS,
+    isLocked,
+    hasUnlockedOnce: hasUnlockedOnceRef.current,
+  });
+
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();
   }, []);
@@ -118,7 +149,7 @@ export function AppStateLockContainer({
 
   return (
     <>
-      {children}
+      {deferColdStartChildren ? null : children}
       {!isLocked ? <AppStateUpdater /> : null}
       <AnimatePresence>
         {isLocked ? (
