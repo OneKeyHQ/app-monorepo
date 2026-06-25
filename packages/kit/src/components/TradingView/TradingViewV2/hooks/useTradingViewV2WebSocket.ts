@@ -22,6 +22,8 @@ interface IUseTradingViewV2WebSocketProps {
 interface IMarketPriceUpdatePayload {
   channel: string;
   tokenAddress: string;
+  networkId?: string;
+  isSubscriptionAmbiguous?: boolean;
   messageType?: string;
   data: unknown;
   originalData?: unknown;
@@ -132,15 +134,11 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      markSubscriptionActivity();
-
-      const now = Math.floor(Date.now() / 1000);
-      if (now - lastUpdateTime.current < 4) {
+      if (payload.networkId && payload.networkId !== networkId) {
         return;
       }
 
-      const webView = webRef.current;
-      if (!webView) {
+      if (!payload.networkId && payload.isSubscriptionAmbiguous) {
         return;
       }
 
@@ -151,6 +149,18 @@ export function useTradingViewV2WebSocket({
         receivedData.type &&
         normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
       ) {
+        return;
+      }
+
+      markSubscriptionActivity();
+
+      const now = Math.floor(Date.now() / 1000);
+      if (now - lastUpdateTime.current < 4) {
+        return;
+      }
+
+      const webView = webRef.current;
+      if (!webView) {
         return;
       }
 
@@ -181,6 +191,9 @@ export function useTradingViewV2WebSocket({
       void backgroundApiProxy.serviceMarketWS.clearDataCount({
         address: tokenAddress,
         type: 'ohlcv',
+        networkId,
+        chartType: wsChartType,
+        currency,
       });
 
       lastUpdateTime.current = now;
@@ -201,6 +214,7 @@ export function useTradingViewV2WebSocket({
     markSubscriptionActivity,
     networkId,
     tokenAddress,
+    currency,
     webRef,
     enabled,
     wsChartType,
