@@ -35,23 +35,16 @@ describe('desktop native messaging host bundling', () => {
   jest.setTimeout(120 * 1000);
 
   it('bundles the host branch into appEntry under the real esbuild config', async () => {
-    let result;
-    try {
-      result = await build({
-        ...getDesktopMainEsbuildResolveOptions(),
-        entryPoints: [path.join(electronSource, 'appEntry.ts')],
-        write: false,
-        metafile: true,
-        logLevel: 'silent',
-      });
-    } catch (error) {
-      const details = (error && error.errors ? error.errors : [])
-        .map((e) => `${e.text}${e.location ? ` (${e.location.file})` : ''}`)
-        .join('\n');
-      throw new Error(
-        `appEntry failed to bundle (Native Messaging host branch likely unresolvable):\n${details}`,
-      );
-    }
+    // If any import in the host branch is unresolvable, esbuild rejects here
+    // with a descriptive "Could not resolve ..." error and the test fails — no
+    // manual re-throw needed (and `throw new Error` is banned by lint anyway).
+    const result = await build({
+      ...getDesktopMainEsbuildResolveOptions(),
+      entryPoints: [path.join(electronSource, 'appEntry.ts')],
+      write: false,
+      metafile: true,
+      logLevel: 'silent',
+    });
 
     const inputs = Object.keys(result.metafile.inputs);
     HOST_BRANCH_INPUT_SUFFIXES.forEach((suffix) => {
