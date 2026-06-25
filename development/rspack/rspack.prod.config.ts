@@ -7,12 +7,18 @@ import { getOutputFolder } from './utils';
 
 import type { RspackOptions, RspackPluginInstance } from '@rspack/core';
 
-const developmentConsts = {
+// Shared platform constants (single source of truth) instead of re-declaring a
+// partial copy here — see development/developmentConsts.js.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const developmentConsts = require('../developmentConsts') as {
   platforms: {
-    ext: 'ext',
-    web: 'web',
-    desktop: 'desktop',
-  },
+    all: string;
+    app: string;
+    desktop: string;
+    ext: string;
+    web: string;
+    webEmbed: string;
+  };
 };
 
 interface IProdConfigOptions {
