@@ -315,7 +315,7 @@ function testPolicyArtifactValidation(tempRoot) {
       unnormalizedPolicyRepo,
       'lavamoat/webpack/web/policy-override.json',
     ),
-    '{"resources":{"z":{},"a":{}}}\n',
+    '{"resources":{"a":{"meta":{"webpack-optimization":["z","a"]}},"z":{}}}\n',
   );
   expectStatus(
     runScript(validatePolicyArtifactsScript, unnormalizedPolicyRepo),

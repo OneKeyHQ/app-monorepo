@@ -149,7 +149,11 @@ function collectStrings(value, currentPath = '$', results = []) {
 
 function sortObject(value) {
   if (Array.isArray(value)) {
-    return value.map(sortObject);
+    const items = value.map(sortObject);
+    if (items.every((item) => typeof item === 'string')) {
+      return items.sort((left, right) => left.localeCompare(right));
+    }
+    return items;
   }
   if (!value || typeof value !== 'object') {
     return value;
