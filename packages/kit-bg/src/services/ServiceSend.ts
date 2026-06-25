@@ -709,14 +709,19 @@ class ServiceSend extends ServiceBase {
           feeInfo: feeInfo?.feeInfo,
           approveInfo: unsignedTx.approveInfo,
         };
+        const hasDeFiActionInfo = Boolean(
+          (unsignedTx.payload as { defiActionInfo?: unknown } | undefined)
+            ?.defiActionInfo,
+        );
 
         // For batch approve+swap/staking: only return the swap/staking tx result
-        // For bulk send (multiple transfer txs): return all results
+        // For bulk send and DeFi portfolio action batches: return all business tx results
         if (
           !isMultiTxs ||
           unsignedTx.swapInfo ||
           unsignedTx.stakingInfo ||
-          unsignedTx.transfersInfo
+          unsignedTx.transfersInfo ||
+          hasDeFiActionInfo
         ) {
           result.push(data);
         }

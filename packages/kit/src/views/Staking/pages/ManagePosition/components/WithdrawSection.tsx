@@ -69,6 +69,8 @@ export const WithdrawSection = ({
   onQuoteReset,
   refreshKey,
   onQuoteRefreshingChange,
+  repayWithCollateralSetupReadyProgressKey,
+  onRepayWithCollateralSetupReadyProgressKeyChange,
 }: {
   accountId: string;
   networkId: string;
@@ -92,6 +94,10 @@ export const WithdrawSection = ({
   onQuoteReset?: () => void;
   refreshKey?: number;
   onQuoteRefreshingChange?: (loading: boolean) => void;
+  repayWithCollateralSetupReadyProgressKey?: string;
+  onRepayWithCollateralSetupReadyProgressKeyChange?: (
+    progressKey: string,
+  ) => void;
 }) => {
   const intl = useIntl();
   // Early return if no tokenInfo or protocolInfo
@@ -750,6 +756,7 @@ export const WithdrawSection = ({
       routeKey,
       collateralAmount,
       collateralAsset,
+      needsSetupLut,
       onSetupReadyForRepay,
     }: IRepayWithCollateralConfirmParams) => {
       if (!borrowApiCtx.isBorrow) {
@@ -773,7 +780,7 @@ export const WithdrawSection = ({
         marketAddress,
         reserveAddress,
         collateralReserveAddress,
-        needsSetupLut: protocolInfo?.needsSetupLut,
+        needsSetupLut,
         repayAll,
         slippageBps,
         routeKey,
@@ -806,7 +813,6 @@ export const WithdrawSection = ({
       networkId,
       onSuccess,
       protocolInfo?.providerDetail.logoURI,
-      protocolInfo?.needsSetupLut,
       protocolInfo?.stakeTag,
     ],
   );
@@ -891,6 +897,12 @@ export const WithdrawSection = ({
           collateralLoading={!!collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
           needsSetupLut={protocolInfo?.needsSetupLut}
+          repayWithCollateralSetupReadyProgressKey={
+            repayWithCollateralSetupReadyProgressKey
+          }
+          onRepayWithCollateralSetupReadyProgressKeyChange={
+            onRepayWithCollateralSetupReadyProgressKeyChange
+          }
           debtBalance={
             protocolInfo?.debtBalance !== undefined
               ? (selectedAsset?.borrowed?.title?.text ??
