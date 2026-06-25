@@ -23,6 +23,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { type IAddressBadge } from '@onekeyhq/shared/types/address';
 import { EBulkSendMode } from '@onekeyhq/shared/types/bulkSend';
 
+import { hasBulkSendAddressAmountLine } from '../../addressLineUtils';
 import { useBulkSendAddressesInputContext } from '../Context';
 
 import LineNumberedTextArea from './LineNumberedTextArea';
@@ -267,7 +268,7 @@ function SingleLineSenderInput() {
     ],
   );
 
-  const debouncedValidateAddresses = useDebouncedValidation(
+  const debouncedAddressValidation = useDebouncedValidation(
     handleValidateAddresses,
   );
 
@@ -366,7 +367,7 @@ function SingleLineSenderInput() {
       labelAddon={renderLabelAddon}
       description={renderSenderAddressesDescription()}
       rules={{
-        validate: debouncedValidateAddresses,
+        validate: debouncedAddressValidation.validate,
       }}
     >
       <LineNumberedTextArea
@@ -453,26 +454,22 @@ function MultiLineSenderInput({
     [handleValidateAddresses],
   );
 
-  const debouncedValidate = useDebouncedValidation(validate);
+  const debouncedValidation = useDebouncedValidation(validate);
 
   // Wrap debounced validate with a synchronous pre-check for address-only mode.
-  // When amounts are not allowed, immediately reject lines containing commas
-  // to avoid timing issues with debounced async validation.
+  // When amounts are not allowed, immediately reject address+amount lines to
+  // avoid timing issues with debounced async validation.
   const wrappedValidate = useCallback(
     (value: string) => {
-      if (!allowAmounts && value) {
-        const hasCommaLine = value
-          .split('\n')
-          .some((line) => line.trim() && line.includes(','));
-        if (hasCommaLine) {
-          return validate(value);
-        }
+      if (!allowAmounts && value && hasBulkSendAddressAmountLine(value)) {
+        debouncedValidation.cancel();
+        return validate(value);
       }
-      return (platformEnv.isNativeAndroid ? validate : debouncedValidate)(
-        value,
-      );
+      return (
+        platformEnv.isNativeAndroid ? validate : debouncedValidation.validate
+      )(value);
     },
-    [allowAmounts, validate, debouncedValidate],
+    [allowAmounts, validate, debouncedValidation],
   );
 
   return (

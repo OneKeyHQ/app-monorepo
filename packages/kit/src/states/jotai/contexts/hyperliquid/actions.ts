@@ -57,6 +57,7 @@ import {
   getPerpsOrderBookTickOptionsWithCache,
   setPerpsOrderBookTickOptionsCache,
 } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import { classifyTpSlOrder } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   findTokensByAlias,
   formatPriceToSignificantDigits,
@@ -99,7 +100,6 @@ import {
   perpsAllMidsAtom,
   perpsL2BookColdCacheAtom,
   perpsLedgerUpdatesAtom,
-  perpsOpenOrdersByCoinAtomCache,
   perpsTokenSearchAliasesAtom,
   perpsTwapHistoryAtom,
   perpsTwapSliceFillsAtom,
@@ -622,7 +622,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   private clearActiveAccountTransientData() {
     this.resetOpenOrdersByDexCache();
-    perpsOpenOrdersByCoinAtomCache.clear();
     this.canceledOrderIds.clear();
     this.canceledTwapIds.clear();
   }
@@ -1909,7 +1908,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
         if (cleanupPlan.shouldClearOpenOrdersData) {
           this.resetOpenOrdersByDexCache();
-          perpsOpenOrdersByCoinAtomCache.clear();
           set(perpsActiveOpenOrdersAtom(), {
             accountAddress: undefined,
             openOrders: [],
@@ -3112,6 +3110,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           if (!existing) {
             throw new OneKeyLocalError(`Order ${params.oid} not found`);
           }
+          // Dragging a TP/SL line moves its trigger price; modify in place as a
+          // trigger order so HL keeps its reduce-only / position-tpsl nature.
+          // Classify with the shared helper (same one the line builder uses to
+          // mark a line editable) so every draggable TP/SL — incl. 'Trigger'-
+          // prefixed position TP/SL — amends as a trigger with the correct
+          // market/limit nature instead of degrading to a limit order.
+          const tpSlClassification = classifyTpSlOrder(existing);
+          const trigger = tpSlClassification
+            ? {
+                isMarket: tpSlClassification.isMarket,
+                tpsl: tpSlClassification.kind,
+              }
+            : undefined;
           return backgroundApiProxy.serviceHyperliquidExchange.amendOrderPriceByOid(
             {
               coin: params.coin,
@@ -3120,6 +3131,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: existing.side === 'B',
               size: existing.sz,
               reduceOnly: existing.reduceOnly,
+              trigger,
             },
           );
         },

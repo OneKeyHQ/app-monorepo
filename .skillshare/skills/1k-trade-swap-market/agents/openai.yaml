@@ -1,4 +1,4 @@
 interface:
   display_name: "OneKey Trade Swap Market"
-  short_description: "App-side Swap, Market, provider channel, cold-start, history/status, and order-flow guidance"
-  default_prompt: "Use $1k-trade-swap-market for OneKey Swap, Swap Pro, Market speed-swap, Bridge, Limit, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, provider channels, PrivateSend-like channels, stock/order channels, history/status, local writeback, replay/repair, fees, slippage, ETA, or funding handoffs into Swap."
+  short_description: "App-side Swap, Market, Home Token/Send handoff, provider channel, cold-start, history/status, and order-flow guidance"
+  default_prompt: "Use $1k-trade-swap-market for OneKey Swap, Swap Pro, Market speed-swap, Home Token or Send handoffs into Swap, Bridge, Limit, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, provider channels, PrivateSend-like channels, stock/order channels, state-machine/hook fixes, history/status, local writeback, replay/repair, fees, slippage, ETA, or funding handoffs into Swap."

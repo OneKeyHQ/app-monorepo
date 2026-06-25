@@ -100,6 +100,23 @@ export interface ITradingViewNativeChartControlsConfigData {
   timestamp?: number;
 }
 
+export type ITradingViewKLineLoadStatus = 'empty' | 'failed';
+
+export interface ITradingViewKLineDataReadyData {
+  period: string;
+}
+
+export interface ITradingViewKLinePeriodChangeData {
+  fromPeriod: string;
+  toPeriod: string;
+}
+
+export interface ITradingViewKLineLoadErrorData {
+  status: ITradingViewKLineLoadStatus;
+  period: string;
+  message?: string;
+}
+
 // Union type to support different data structures
 type ITradingViewData =
   | ITradingViewHistoryData

@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
   formatHlSize,
   formatWithPrecision,
@@ -9,7 +10,7 @@ import type {
   IPerpsFrontendOrder,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import type { ITVLine, ITVLineKind, ITVLineSide } from '../types';
+import type { ITVLine, ITVLineSide } from '../types';
 
 let lineVersionCounter = 0;
 
@@ -166,44 +167,6 @@ function formatTriggerCondition(triggerCondition: string | undefined): string {
   return triggerCondition.replace(/\babove\b/i, '>').replace(/\bbelow\b/i, '<');
 }
 
-function inferTpSlKindFromTriggerOrder(
-  order: IPerpsFrontendOrder,
-): ITVLineKind | null {
-  if (!order.isPositionTpsl || !order.orderType.startsWith('Trigger')) {
-    return null;
-  }
-
-  const normalizedCondition = (order.triggerCondition || '').toLowerCase();
-  const isAbove = normalizedCondition.includes('above');
-  const isBelow = normalizedCondition.includes('below');
-
-  if (!isAbove && !isBelow) {
-    return null;
-  }
-
-  if (order.side === 'A') {
-    return isAbove ? 'tp' : 'sl';
-  }
-
-  if (order.side === 'B') {
-    return isBelow ? 'tp' : 'sl';
-  }
-
-  return null;
-}
-
-function getTpSlKind(order: IPerpsFrontendOrder): ITVLineKind | null {
-  if (order.orderType.startsWith('Take Profit')) {
-    return 'tp';
-  }
-
-  if (order.orderType.startsWith('Stop')) {
-    return 'sl';
-  }
-
-  return inferTpSlKindFromTriggerOrder(order);
-}
-
 function isTriggerTpSlOrder(orderType: string): boolean {
   return orderType.startsWith('Trigger');
 }
@@ -259,7 +222,7 @@ export function buildTpSlLine(
     qty: formatHlSize(resolvedSize, szDecimals) || '0',
     side,
     label: { left: labelText },
-    editable: false, // TP/SL orders are not draggable
+    editable: true, // Drag moves the trigger price; amend modifies in place.
     meta: { orderId: String(order.oid), orderType: order.orderType },
     version: getNextVersion(),
   };

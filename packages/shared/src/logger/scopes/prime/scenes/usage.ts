@@ -4,9 +4,12 @@ import type {
   ETranslateDisplayMode,
   ETranslateEngine,
 } from '@onekeyhq/shared/types/discovery';
+import type { EKytRiskLevel } from '@onekeyhq/shared/types/kyt';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToServer } from '../../../base/decorators';
+
+import type { IPrimeAddressRiskCheckEntryPoint } from '../types';
 
 type IReceiveKytFeatureName = EPrimeFeatures.ReceiveRiskMonitoring;
 
@@ -64,6 +67,21 @@ export class PrimeUsageScene extends BaseScene {
     return {
       revokeCount,
     };
+  }
+
+  /**
+   * Address risk check usage.
+   * Triggered when a Prime user successfully completes an address risk check.
+   */
+  @LogToServer()
+  public addressRiskCheckSuccess(params: {
+    entryPoint: IPrimeAddressRiskCheckEntryPoint;
+    network: string;
+    riskLevel: EKytRiskLevel;
+    riskFactorsCount: number;
+    cached: boolean;
+  }) {
+    return params;
   }
 
   @LogToServer()

@@ -463,8 +463,9 @@ export function ManagePositionContent({
     );
   }
 
-  // USDe special rendering
-  if (symbol.toLowerCase() === 'usde') {
+  // USDe special rendering is for Earn/Staking manage pages. Borrow manage
+  // pages use the regular borrow action contract and do not return holdings.
+  if (!isBorrowType && symbol.toLowerCase() === 'usde') {
     // Show warning if needed (no address or BTC-only firmware)
     if (warningElement) {
       return <YStack px="$5">{warningElement}</YStack>;
@@ -496,7 +497,7 @@ export function ManagePositionContent({
   }
 
   // ADA special rendering (Stakefish provider)
-  if (symbol.toLowerCase() === 'ada') {
+  if (!isBorrowType && symbol.toLowerCase() === 'ada') {
     return (
       <AdaManageContent
         managePageData={managePageData}

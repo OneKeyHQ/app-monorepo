@@ -20,7 +20,7 @@ import { JotaiContextStoreMirrorTracker } from '../../../states/jotai/utils/Jota
 import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 import {
-  hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot,
+  hydrateSwapDefaultTokensFromGlobalHomeSnapshot,
   useSwapContextStoreInitData,
 } from './SwapRootProvider';
 
@@ -58,7 +58,7 @@ export const SwapProviderMirror = memo(
         );
       } else {
         hasInitializedSelectedTokensRef.current =
-          hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(store);
+          hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
       }
     }
 

@@ -15,6 +15,10 @@ import { Icon } from '../Icon';
 import { SizableText } from '../SizeableText';
 import { Spinner } from '../Spinner';
 
+import {
+  GLASS_HEADER_BAREIFY_RESET,
+  useInGlassHeader,
+} from './GlassHeaderContext';
 import { useSharedPress } from './useEvent';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
@@ -234,6 +238,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
 
     const { py, px, textVariant } = useSizeStyles(size);
     const [internalLoading, setInternalLoading] = useState(false);
+    const inGlassHeader = useInGlassHeader();
 
     const isLoading = loading || internalLoading;
 
@@ -246,6 +251,9 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       iconColor: ColorTokens;
       color: ColorTokens;
     };
+
+    // Effective label color: caller override wins over the variant default.
+    const buttonTextColor = outerColor || color;
 
     const { onLongPress, onPress } = useSharedPress({
       ...rest,
@@ -309,6 +317,13 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
         focusVisibleStyle={mergedFocusVisibleStyle}
         pressStyle={mergedPressStyle}
         {...rest}
+        {...(inGlassHeader && {
+          // Bare-ify on the glass capsule, plus horizontal padding so the pill
+          // has room around the label (see GLASS_HEADER_BAREIFY_RESET).
+          ...GLASS_HEADER_BAREIFY_RESET,
+          py: '$1',
+          px: '$3',
+        })}
         onPress={handlePressWithLoading}
         onLongPress={onLongPress}
       >
@@ -330,7 +345,13 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
             //
             textBreakStrategy="simple"
             size={textVariant as FontSizeTokens}
-            color={outerColor || color}
+            // Raise the subdued tertiary default to high-contrast $text on the
+            // glass capsule (semantic / caller-set colors are preserved).
+            color={
+              inGlassHeader && buttonTextColor === '$textSubdued'
+                ? '$text'
+                : buttonTextColor
+            }
             textAlign={textAlign}
             ellipse={textEllipsis}
           >

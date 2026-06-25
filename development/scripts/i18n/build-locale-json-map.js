@@ -58,12 +58,19 @@ function stripGeneratedHeader(text) {
 }
 
 function normalizeTranslationEnumMembers(text) {
+  const seenMemberNames = new Set();
+
   return text.replace(
     /^(\s*)([^=\n]+?)\s*=\s*'([^']+)',$/gm,
     (_match, indent, _memberName, translationKey) => {
       const normalizedMemberName = transformTranslationEnumKey(
         translationKey.split('.'),
       );
+
+      if (seenMemberNames.has(normalizedMemberName)) {
+        return '';
+      }
+      seenMemberNames.add(normalizedMemberName);
 
       return `${indent}${normalizedMemberName} = '${translationKey}',`;
     },

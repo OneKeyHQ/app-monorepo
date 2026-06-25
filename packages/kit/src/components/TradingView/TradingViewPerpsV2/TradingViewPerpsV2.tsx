@@ -495,9 +495,12 @@ export function TradingViewPerpsV2(
       // Fire-and-forget handler: self-own errors to avoid unhandled rejections.
       try {
         if (payload.intent === 'limitEntry') {
+          const isCurrentSymbolIntent = payload.symbol === symbol;
           showLimitOrderDialog({
             symbol: payload.symbol,
             price: payload.price,
+            displayPair: isCurrentSymbolIntent ? displayPair : undefined,
+            displayCoin: isCurrentSymbolIntent ? displayCoin : undefined,
             intl,
           });
           return;
@@ -521,7 +524,7 @@ export function TradingViewPerpsV2(
         console.error('[TradingViewPerpsV2] onChartOrderIntent failed:', error);
       }
     },
-    [enablePerpsTradingUi, intl],
+    [displayCoin, displayPair, enablePerpsTradingUi, intl, symbol],
   );
 
   const onOrderPriceUpdate = useCallback(

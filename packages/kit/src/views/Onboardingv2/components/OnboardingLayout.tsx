@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
@@ -8,10 +9,12 @@ import {
   IconButton,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
+  Page,
   Select,
   SizableText,
   XStack,
   YStack,
+  useLiquidGlassHeaderTopInset,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -131,22 +134,51 @@ const OnboardingLayoutHeader = memo(
     showLanguageSelector?: boolean;
     title?: string;
     children?: React.ReactNode;
-  } & IXStackProps) => (
-    <XStack
-      h="$6"
-      px="$5"
-      $gtMd={{
-        px: 56,
-      }}
-      alignItems="center"
-      {...rest}
-    >
-      {showBackButton ? <OnboardingLayoutBack /> : null}
-      {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
-      {children}
-      {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
-    </XStack>
-  ),
+  } & IXStackProps) => {
+    const isFirstScreen = useNavigationState((state) => state.index) === 0;
+    const renderNativeHeaderLeft = useCallback(
+      () => <OnboardingLayoutBack />,
+      [],
+    );
+    const renderNativeHeaderRight = useCallback(
+      () => <OnboardingLayoutLanguageSelector />,
+      [],
+    );
+
+    // iOS 26: render the native (Liquid Glass) header. Deeper screens use the
+    // native system back (chevron); only a first screen supplies the icon back.
+    if (platformEnv.isNativeIOS26Plus) {
+      return (
+        <Page.Header
+          headerTitleAlign="center"
+          headerTitle={title}
+          headerLeft={
+            isFirstScreen && showBackButton ? renderNativeHeaderLeft : undefined
+          }
+          headerRight={
+            showLanguageSelector ? renderNativeHeaderRight : undefined
+          }
+        />
+      );
+    }
+
+    return (
+      <XStack
+        h="$6"
+        px="$5"
+        $gtMd={{
+          px: 56,
+        }}
+        alignItems="center"
+        {...rest}
+      >
+        {showBackButton ? <OnboardingLayoutBack /> : null}
+        {title ? <OnboardingLayoutTitle>{title}</OnboardingLayoutTitle> : null}
+        {children}
+        {showLanguageSelector ? <OnboardingLayoutLanguageSelector /> : null}
+      </XStack>
+    );
+  },
 );
 OnboardingLayoutHeader.displayName = 'OnboardingLayoutHeader';
 
@@ -266,6 +298,13 @@ OnboardingLayoutFooter.displayName = 'OnboardingLayoutFooter';
 const OnboardingLayoutRoot = memo(
   ({ children }: { children: React.ReactNode }) => {
     const { top, bottom } = useSafeAreaInsets();
+    // iOS 26 renders a transparent native glass header that overlays the top of
+    // the card; reserve room for it via the shared inset instead of the small
+    // self-drawn-header inset used on other platforms.
+    const glassTopInset = useLiquidGlassHeaderTopInset();
+    const nativeTopInset = platformEnv.isNativeIOS26Plus
+      ? glassTopInset
+      : top + 10;
 
     return (
       <YStack
@@ -324,7 +363,7 @@ const OnboardingLayoutRoot = memo(
             pt="$10"
             h="100%"
             $platform-native={{
-              pt: top + 10,
+              pt: nativeTopInset,
               pb: bottom + 10,
             }}
           >

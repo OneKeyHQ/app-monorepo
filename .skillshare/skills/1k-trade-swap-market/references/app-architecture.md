@@ -16,6 +16,12 @@ duplicate quote/review/build/history/status ownership in isolated surfaces.
 ## Surfaces
 
 - Swap page and Swap Pro own the standard token-to-token interaction.
+- Home Token and wallet actions can launch or prefill Swap, but they remain
+  entry surfaces. After the Swap route opens and quote starts, Swap owns
+  selected-token, quote, review, build, and history state.
+- Send insufficient-balance and similar wallet flows can route into Swap with
+  imported source/target tokens. Treat those params as handoff inputs, not as
+  long-term state owners.
 - Market speed-swap starts from market token detail, then builds a Swap execution payload.
 - Swap K-line/chart is data and display, not execution. Keep chart data fallback separate from quote/build state.
 - Review/Confirm owns the frozen transaction summary and approval/setup state.
@@ -115,3 +121,18 @@ Use this when a new channel appears:
 6. Does it share Swap infrastructure but need different history or listener
    semantics? Add a channel-state contract before reusing ordinary Swap lists
    or status polling.
+
+## Framework / State Machine / Hook Pass
+
+Use this pass before patching broad Swap issues:
+
+1. Framework: identify the entry surface (`Swap`, `Home`, `Send`, `Market`,
+   `Earn`, `Buy`), route/modal host, provider mirrors, and package boundary.
+2. State machine: trace visible tab type, internal execution type, route params,
+   selected-token atoms, cold-start snapshot, quote progress, review snapshot,
+   build/send result, local history, status listener, and replay/repair.
+3. Hooks: only after the first two passes, pick the hook or component boundary
+   that owns the wrong transition or side effect.
+
+This prevents Home Token or Send handoff regressions from being mistaken for
+ordinary Swap page UI bugs.
