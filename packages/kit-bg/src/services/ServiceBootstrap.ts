@@ -1,6 +1,5 @@
 import { backgroundClass } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import '@onekeyhq/shared/src/storage/appStorage';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 
@@ -122,13 +121,9 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
-      ...(platformEnv.isExtension
-        ? [
-            timedDeferred('serviceDevSetting.initAnalytics', () =>
-              this.backgroundApi.serviceDevSetting.initAnalytics(),
-            ),
-          ]
-        : []),
+      timedDeferred('serviceDevSetting.initAnalytics', () =>
+        this.backgroundApi.serviceDevSetting.initAnalytics(),
+      ),
       timedDeferred('serviceDevSetting.saveDevModeToSyncStorage', () =>
         this.backgroundApi.serviceDevSetting.saveDevModeToSyncStorage(),
       ),

@@ -38,6 +38,8 @@ export function useNavigateToMarketTab() {
         setMarketSelectedTab((prev) => ({
           ...prev,
           tab: targetTab ?? prev.tab,
+          selectedSpotCategory:
+            spotCategoryToSelect ?? prev.selectedSpotCategory,
           spotCategoryToSelect,
         }));
       }

@@ -1322,7 +1322,6 @@ function StockPriceChart({
   onRangeChange,
   range,
   tokenAddress,
-  tokenSymbol,
 }: {
   coinGeckoId?: string;
   isNative?: boolean;
@@ -1330,7 +1329,6 @@ function StockPriceChart({
   onRangeChange: (range: IStockChartRange) => void;
   range: IStockChartRange;
   tokenAddress?: string;
-  tokenSymbol?: string;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -1354,12 +1352,6 @@ function StockPriceChart({
     },
     [onRangeChange],
   );
-  const chartTitle = useMemo(() => {
-    const chartLabel = intl.formatMessage({
-      id: ETranslations.market_chart,
-    });
-    return tokenSymbol ? `${tokenSymbol} ${chartLabel}` : chartLabel;
-  }, [intl, tokenSymbol]);
   const activeRange = useMemo(
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
@@ -1590,18 +1582,9 @@ function StockPriceChart({
         pl="$5"
         pr={30}
         alignItems="center"
-        justifyContent="space-between"
+        justifyContent="flex-end"
         gap="$3"
       >
-        <SizableText
-          size="$bodyLgMedium"
-          color="$text"
-          numberOfLines={1}
-          w={180}
-          flexShrink={1}
-        >
-          {chartTitle}
-        </SizableText>
         <SegmentControl
           w={156}
           h="$5"
@@ -1756,7 +1739,6 @@ function StockMarketContextPanel({
             isNative={isNative}
             range={range}
             onRangeChange={setRange}
-            tokenSymbol={tokenDetail?.symbol}
           />
         ) : (
           <Skeleton w="100%" h={274} />

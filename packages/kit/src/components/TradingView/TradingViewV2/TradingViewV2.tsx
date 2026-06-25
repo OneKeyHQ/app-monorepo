@@ -39,6 +39,9 @@ import type { IMarksTimeRange } from './messageHandlers';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLineLoadErrorData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,
@@ -96,6 +99,9 @@ interface IBaseTradingViewV2Props {
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
   enableNativeIntervalSelector?: boolean;
+  onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
+  onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -145,6 +151,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -308,6 +317,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
