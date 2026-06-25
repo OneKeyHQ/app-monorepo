@@ -216,8 +216,14 @@ jobs:
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
           npx sentry-cli releases new "$RELEASE" || true
-          npx sentry-cli sourcemaps inject ./apps/web/web-build
-          npx sentry-cli sourcemaps upload --release "$RELEASE" ./apps/web/web-build
+          # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
+          # built .js files in place (prepends a _sentryDebugIds IIFE + appends
+          # //# debugId), which would invalidate the sha384 Subresource
+          # Integrity hashes rspack already baked into index.html at build time.
+          # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
+          # the browser would hard-block every script -> blank app. Use
+          # release-based upload (no source-file mutation) so SRI stays valid.
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix '~/' ./apps/web/web-build
           npx sentry-cli releases finalize "$RELEASE" || true
 
       - name: Cleanup Web Sourcemaps and License Files
@@ -386,8 +392,14 @@ jobs:
           fi
           RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
           npx sentry-cli releases new "$RELEASE" || true
-          npx sentry-cli sourcemaps inject ./apps/web/web-build
-          npx sentry-cli sourcemaps upload --release "$RELEASE" ./apps/web/web-build
+          # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
+          # built .js files in place (prepends a _sentryDebugIds IIFE + appends
+          # //# debugId), which would invalidate the sha384 Subresource
+          # Integrity hashes rspack already baked into index.html at build time.
+          # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
+          # the browser would hard-block every script -> blank app. Use
+          # release-based upload (no source-file mutation) so SRI stays valid.
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix '~/' ./apps/web/web-build
           npx sentry-cli releases finalize "$RELEASE" || true
 
       - name: Cleanup Web Sourcemaps and License Files

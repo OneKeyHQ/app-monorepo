@@ -220,6 +220,13 @@ function buildDefineMap(
     'process.env.PERF_MONITOR_ENABLED': JSON.stringify(
       process.env.PERF_MONITOR_ENABLED || '',
     ),
+    // parity with webpack base DefinePlugin (functionHitLogger thresholds)
+    'process.env.PERF_FUNCTION_THRESHOLD_MS': JSON.stringify(
+      process.env.PERF_FUNCTION_THRESHOLD_MS || '',
+    ),
+    'process.env.PERF_FUNCTION_WARN_MS': JSON.stringify(
+      process.env.PERF_FUNCTION_WARN_MS || '',
+    ),
     'process.env.VERSION': JSON.stringify(process.env.VERSION),
     'process.env.BUNDLE_VERSION': JSON.stringify(process.env.BUNDLE_VERSION),
     'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER),
@@ -298,7 +305,11 @@ export function createBaseConfig({
         '**/.#*',
       ],
     },
-    stats: 'errors-warnings',
+    // Build logs stay quiet ('errors-warnings'), but `--json` reuses this same
+    // stats config, and 'errors-warnings' (all:false) omits assets/chunks — so
+    // the bundle-size diff CI job would see an empty stats.json. The `stats:web`
+    // script sets RSPACK_FULL_STATS=1 to emit a full preset for the JSON path.
+    stats: process.env.RSPACK_FULL_STATS === '1' ? 'normal' : 'errors-warnings',
     infrastructureLogging: { debug: false, level: 'none' },
     output: {
       publicPath: publicUrl || '/',
@@ -492,6 +503,11 @@ export function createBaseConfig({
                   ['@babel/preset-typescript', { allowDeclareFields: true }],
                 ],
                 plugins: [
+                  // Sentry component annotations (data-sentry-*) — parity with
+                  // the webpack babel chain (babelTools.js, !isJest). Runs while
+                  // JSX is still intact (babel-loader precedes swc here). Builds
+                  // are never jest, so no isJest guard is needed.
+                  ['@sentry/babel-plugin-component-annotate'],
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',

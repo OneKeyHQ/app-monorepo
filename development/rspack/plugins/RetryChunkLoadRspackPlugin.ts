@@ -45,7 +45,13 @@ export class RetryChunkLoadRspackPlugin {
   apply(compiler: Compiler): void {
     const { maxRetries, retryDelay, lastResortScript } = this.options;
 
+    // Track whether we matched the ensure-chunk runtime module. The match is a
+    // source-substring heuristic, so a future rspack runtime-template change
+    // could silently stop matching; surface that at build time instead of
+    // shipping without chunk-load retry.
+    let matched = false;
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, (compilation) => {
+      matched = false;
       compilation.hooks.runtimeModule.tap(PLUGIN_NAME, (module) => {
         // Only patch the runtime module that defines __webpack_require__.e
         // (the chunk-loading "ensure chunk" runtime). Match by source so we are
@@ -118,8 +124,18 @@ if (typeof ${RuntimeGlobals.require} !== "undefined") {
         if (module.source) {
           // eslint-disable-next-line no-param-reassign
           module.source.source = `${original}\n${wrapper}`;
+          matched = true;
         }
       });
+    });
+
+    compiler.hooks.done.tap(PLUGIN_NAME, () => {
+      if (!matched) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[${PLUGIN_NAME}] no ensure-chunk runtime module matched — chunk-load retry is NOT active. The rspack runtime template may have changed; update the match predicate.`,
+        );
+      }
     });
   }
 }

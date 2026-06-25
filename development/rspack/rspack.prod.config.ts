@@ -57,10 +57,6 @@ export function createProductionConfig({
         new RetryChunkLoadRspackPlugin({ retryDelay: 3000, maxRetries: 5 }),
     ].filter(Boolean) as RspackPluginInstance[],
     optimization: {
-      // Diagnostic escape hatch: RSPACK_NO_MINIFY=1 disables minification to
-      // isolate SWC-minifier issues (e.g. parse errors on concatenated vendor
-      // modules) from the rest of the pipeline. Off by default.
-      minimize: process.env.RSPACK_NO_MINIFY === '1' ? false : undefined,
       minimizer: [
         new rspack.SwcJsMinimizerRspackPlugin({
           minimizerOptions: {
