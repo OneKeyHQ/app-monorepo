@@ -1,6 +1,6 @@
 ---
 name: 1k-trade-swap-market
-description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
+description: App-side OneKey Trade/Swap/Market guide for Swap core, Swap Pro, Market speed-swap, Home Token and Send handoffs, K-line/chart, token selectors, cold-start frame-by-frame validation, quote/build/send flows, history/status, provider channels, PrivateSend-like channels, stock-trading channels, limit/order flows, fees, slippage, ETA, and cross-module funding handoffs.
 ---
 
 # Trade, Swap, Market
@@ -26,6 +26,19 @@ render under the `Swap & Bridge` tab while `BRIDGE` still owns cross-chain
 defaults, support checks, history labels, status, analytics, and provider
 semantics.
 
+For broad Swap or Trade bugs, analyze in this order before changing code:
+
+1. Framework: entry surface, route/modal host, provider/context boundary, and
+   source/target ownership.
+2. State machine: tab type, route params, selected-token atoms, cold-start
+   cache, quote progress, review snapshot, build/send, history/status, and
+   replay/repair transitions.
+3. Hooks: business hooks, component hooks, listeners, side effects, and derived
+   data owners.
+
+This order applies to Swap page work and to Home Token, Send, Market, Earn, or
+Buy entries that launch or prefill Swap.
+
 ## Protocol Channel Model
 
 Before adding or reviewing any provider channel, define this contract:
@@ -45,14 +58,16 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
 
 1. Classify the surface: Swap, Swap Pro, Market speed-swap, K-line/chart, token selector, review/confirm, history, or new provider channel.
 2. Classify the integration style: standard swap provider, order-backed privacy channel, stock/order channel, limit order, or cross-module funding handoff.
-3. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
-4. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
-5. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
-6. Run the durable checklist in [checklists.md](references/checklists.md),
+3. Map framework, state machine, and hooks before editing when the change spans
+   route, modal, Home Token, Send, Market, Earn, Buy, or shared Swap state.
+4. Read [app-architecture.md](references/app-architecture.md) and [code-map.md](references/code-map.md) before editing.
+5. Fill the provider/channel contract in [provider-contracts.md](references/provider-contracts.md).
+6. For any non-standard channel, fill [channel-state-model.md](references/channel-state-model.md) before touching history, status polling, or local replay.
+7. Run the durable checklist in [checklists.md](references/checklists.md),
    especially async identity, token/account identity, frozen review data, and
    history/status.
-7. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
-8. For cold start, token selector flicker, default-token bring-in, tab stability,
+8. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
+9. For cold start, token selector flicker, default-token bring-in, tab stability,
    or Wallet handoff regressions, run
    [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
