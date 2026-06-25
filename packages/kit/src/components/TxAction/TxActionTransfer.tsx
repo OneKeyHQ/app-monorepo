@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  Icon,
   SizableText,
   Stack,
   XStack,
@@ -36,6 +37,7 @@ import { NetworkAvatar } from '../NetworkAvatar';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
+import { MAX_DISPLAYED_TRANSFERS, formatTransferOverflowLabel } from './consts';
 import { TxActionCommonListView } from './TxActionCommon';
 import { TxActionSwapInfo } from './TxActionSwapInfo';
 
@@ -413,11 +415,13 @@ function buildExpandedTransferView({
   receives = [],
   hideValue,
   currencySymbol,
+  intl,
 }: {
   sends?: IDecodedTxTransferInfo[];
   receives?: IDecodedTxTransferInfo[];
   hideValue?: boolean;
   currencySymbol?: string;
+  intl: IntlShape;
 }) {
   // INVARIANT: each transfer line is a single fixed-height row — the token icon
   // (xs) and the amount/fiat texts share one horizontal XStack and are all
@@ -471,10 +475,62 @@ function buildExpandedTransferView({
     );
   };
 
+  // Cap the rendered lines for the whole tx (receives + sends combined). A tx
+  // that moves many assets at once (e.g. thousands of NFTs) would otherwise
+  // render one line per transfer and freeze the UI. Slice the data to the first
+  // MAX_DISPLAYED_TRANSFERS *before* mapping so we never build the thousands of
+  // throwaway rows, and show a single "+N" overflow line for the rest.
+  // getTransferChangeLineCount in TxHistoryListView mirrors this cap so the row
+  // height stays bounded.
+  // Order sends before receives to match the detail page (transfersToRender),
+  // so the cap hides the same items on the list row and the detail page.
+  const combinedTransfers = [...sends, ...receives];
+  // Only collapse into a "+N" row when it hides 2+ transfers — showing a single
+  // trailing transfer is cheaper than a "+1" row that hides it, and it keeps the
+  // overflow count >= 2 so the plural-only "+N assets" label stays grammatically
+  // correct. Rendered lines stay min(total, MAX_DISPLAYED_TRANSFERS + 1) either
+  // way, which getTransferChangeLineCount mirrors for the row height.
+  const visibleCount =
+    combinedTransfers.length > MAX_DISPLAYED_TRANSFERS + 1
+      ? MAX_DISPLAYED_TRANSFERS
+      : combinedTransfers.length;
+  const overflowTransfers = combinedTransfers.slice(visibleCount);
+  const overflowCount = overflowTransfers.length;
+  // Match the overflow chip's corner to what it summarizes: NFT images use a
+  // rounded square ($2), fungible tokens use a circle ($full).
+  const overflowIsNFT =
+    overflowCount > 0 && overflowTransfers.every((t) => t.isNFT);
+
   return (
     <>
-      {receives.map((t) => renderTransferLine(t, 'r', '$textSuccess'))}
-      {sends.map((t) => renderTransferLine(t, 's', '$text'))}
+      {combinedTransfers
+        .slice(0, visibleCount)
+        .map((t, index) =>
+          index < sends.length
+            ? renderTransferLine(t, 's', '$text')
+            : renderTransferLine(t, 'r', '$textSuccess'),
+        )}
+      {overflowCount > 0 ? (
+        <XStack key="transfer-overflow" alignItems="center" gap="$1">
+          <Stack
+            w="$5"
+            h="$5"
+            borderRadius={overflowIsNFT ? '$2' : '$full'}
+            bg="$bgStrong"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Icon name="DotHorOutline" size="$4" color="$iconSubdued" />
+          </Stack>
+          <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
+            {formatTransferOverflowLabel({
+              count: overflowCount,
+              isNFT: overflowIsNFT,
+              intl,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
     </>
   );
 }
@@ -555,6 +611,7 @@ function TxActionTransferListView(props: ITxActionProps) {
 
     if (isPrivateSend) {
       change = buildExpandedTransferView({
+        intl,
         sends: groupTransfersByToken(privateSendDisplaySends),
         hideValue,
         currencySymbol,
@@ -565,6 +622,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       });
     } else if (!isEmpty(sends) && isEmpty(receives)) {
       change = buildExpandedTransferView({
+        intl,
         sends: groupTransfersByToken(sends),
         hideValue,
         currencySymbol,
@@ -573,6 +631,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       title = intl.formatMessage({ id: ETranslations.global_send });
     } else if (isEmpty(sends) && !isEmpty(receives)) {
       change = buildExpandedTransferView({
+        intl,
         receives: groupTransfersByToken(receives),
         hideValue,
         currencySymbol,
@@ -584,6 +643,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         const tokens = uniq(map(sends, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
+            intl,
             sends: groupTransfersByToken(sends),
             hideValue,
             currencySymbol,
@@ -591,6 +651,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         } else {
           const amountBN = new BigNumber(nativeAmount ?? 0).abs();
           change = buildExpandedTransferView({
+            intl,
             sends: [{ ...sends[0], amount: amountBN.toFixed() }],
             hideValue,
             currencySymbol,
@@ -602,6 +663,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         const tokens = uniq(map(receives, 'tokenIdOnNetwork'));
         if (tokens.length > 1) {
           change = buildExpandedTransferView({
+            intl,
             receives: groupTransfersByToken(receives),
             hideValue,
             currencySymbol,
@@ -609,6 +671,7 @@ function TxActionTransferListView(props: ITxActionProps) {
         } else {
           const amountBN = new BigNumber(nativeAmount ?? 0).abs();
           change = buildExpandedTransferView({
+            intl,
             receives: [{ ...receives[0], amount: amountBN.toFixed() }],
             hideValue,
             currencySymbol,
@@ -619,6 +682,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       }
     } else {
       change = buildExpandedTransferView({
+        intl,
         sends: groupTransfersByToken(sends),
         receives: groupTransfersByToken(receives),
         hideValue,
