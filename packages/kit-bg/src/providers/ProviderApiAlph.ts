@@ -324,11 +324,18 @@ class ProviderApiAlph extends ProviderApiBase {
       unsignedTx: string;
       signature: string;
     };
+    const decodedUnsignedTx = await deserializeUnsignedTransaction({
+      unsignedTx: rawTx.unsignedTx,
+      backgroundApi: this.backgroundApi,
+      networkId: accountInfo?.networkId ?? '',
+    });
     const res: SignExecuteScriptTxResult = {
       ...executeTxInfo,
       ...rawTx,
       txId: result.txid,
-      gasPrice: executeTxInfo.gasPrice.toString(),
+      gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
+      gasAmount: decodedUnsignedTx.unsignedTx.gasAmount,
+      groupIndex: decodedUnsignedTx.fromGroup,
     };
     return res;
   }
