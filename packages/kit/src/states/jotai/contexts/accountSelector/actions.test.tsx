@@ -13,6 +13,7 @@ import {
   accountSelectorActiveAccountInitDoneAtom,
   accountSelectorStorageInitDoneAtom,
   accountSelectorStorageReadyAtom,
+  accountSelectorUpdateMetaAtom,
   activeAccountsAtom,
   defaultActiveAccountInfo,
   defaultSelectedAccount,
@@ -70,6 +71,9 @@ const mockSaveSelectedAccount: jest.MockedFunction<() => Promise<void>> =
 const mockSaveGlobalDeriveType: jest.MockedFunction<() => Promise<void>> =
   jest.fn();
 const mockShouldSyncWithHomeSource: jest.MockedFunction<
+  () => Promise<boolean>
+> = jest.fn();
+const mockShouldSyncHomeAndSwapSelectedAccount: jest.MockedFunction<
   () => Promise<boolean>
 > = jest.fn();
 const mockIsWalletHasIndexedAccounts: jest.MockedFunction<
@@ -139,6 +143,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
       saveGlobalDeriveType: () => mockSaveGlobalDeriveType(),
+      shouldSyncHomeAndSwapSelectedAccount: () =>
+        mockShouldSyncHomeAndSwapSelectedAccount(),
       shouldSyncWithHomeSource: () => mockShouldSyncWithHomeSource(),
     },
     simpleDb: {
@@ -217,6 +223,7 @@ describe('useAccountSelectorActions', () => {
     mockGetSelectedAccount.mockResolvedValue(undefined);
     mockSaveSelectedAccount.mockResolvedValue(undefined);
     mockSaveGlobalDeriveType.mockResolvedValue(undefined);
+    mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
     mockGetIndexedAccountsOfWallet.mockResolvedValue({
@@ -447,6 +454,42 @@ describe('useAccountSelectorActions', () => {
 
     expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
     expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('ignores stale home-swap sync events when current selection is newer', async () => {
+    mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(true);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: createHdSelectedAccount('hd-1--1'),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {
+      0: {
+        eventEmitDisabled: false,
+        updatedAt: 2000,
+      },
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    const staleEventPayload = {
+      selectedAccount: createHdSelectedAccount('hd-1--0'),
+      selectedAccountUpdatedAt: 1000,
+      sceneName: EAccountSelectorSceneName.swap,
+      num: 0,
+    };
+
+    await act(async () => {
+      await result.current.syncHomeAndSwapSelectedAccount({
+        eventPayload: staleEventPayload,
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      indexedAccountId: 'hd-1--1',
+    });
   });
 
   it('falls back to the first indexed account when restored indexed account no longer exists', async () => {

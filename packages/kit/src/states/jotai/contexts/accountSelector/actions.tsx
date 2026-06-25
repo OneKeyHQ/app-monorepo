@@ -2023,6 +2023,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         num: number;
         eventPayload: {
           selectedAccount: IAccountSelectorSelectedAccount;
+          selectedAccountUpdatedAt?: number;
           sceneName: EAccountSelectorSceneName;
           sceneUrl?: string | undefined;
           num: number;
@@ -2053,6 +2054,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           });
 
         if (shouldSync) {
+          const eventPayloadUpdatedAt = eventPayload.selectedAccountUpdatedAt;
+          const currentUpdatedAt = get(accountSelectorUpdateMetaAtom())[num]
+            ?.updatedAt;
+          if (
+            eventPayloadUpdatedAt &&
+            currentUpdatedAt &&
+            currentUpdatedAt > eventPayloadUpdatedAt
+          ) {
+            return;
+          }
           const current = this.getSelectedAccount.call(set, { num });
           const newSelectedAccount =
             accountSelectorUtils.buildMergedSelectedAccount({
