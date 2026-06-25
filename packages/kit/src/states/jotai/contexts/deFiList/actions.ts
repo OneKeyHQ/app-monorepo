@@ -6,6 +6,7 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -16,6 +17,7 @@ import {
   deFiListProtocolMapAtom,
   deFiListProtocolsAtom,
   deFiListStateAtom,
+  deFiListSupportedActionsAtom,
 } from './atoms';
 
 class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
@@ -105,6 +107,21 @@ class ContextJotaiActionsDeFiList extends ContextJotaiActionsBase {
       }));
     },
   );
+
+  updateDeFiListSupportedActions = contextAtomMethod(
+    (
+      _get,
+      set,
+      value: {
+        supportedActions: IDeFiSupportedProtocolAction[];
+      },
+    ) => {
+      void _get;
+      set(deFiListSupportedActionsAtom(), {
+        supportedActions: value.supportedActions,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -118,10 +135,13 @@ export function useDeFiListActions() {
   const updateDeFiListProtocols = actions.updateDeFiListProtocols.use();
   const updateDeFiListProtocolMap = actions.updateDeFiListProtocolMap.use();
   const updateDeFiListState = actions.updateDeFiListState.use();
+  const updateDeFiListSupportedActions =
+    actions.updateDeFiListSupportedActions.use();
 
   return useRef({
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
     updateDeFiListState,
+    updateDeFiListSupportedActions,
   });
 }

@@ -7,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -17,8 +18,12 @@ import defiUtils from '@onekeyhq/shared/src/utils/defiUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
+  IDeFiBuildTransactionParams,
+  IDeFiBuildTransactionResp,
+  IDeFiEvmTransaction,
   IFetchAccountDeFiPositionsParams,
   IFetchAccountDeFiPositionsResp,
+  IGetSupportedDeFiProtocolsResp,
 } from '@onekeyhq/shared/types/defi';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -37,6 +42,59 @@ type IDeFiEnabledNetworksMapState = {
 type IGetDeFiEnabledNetworksMapStateOptions = {
   syncIfEmpty?: boolean;
 };
+
+type IDeFiPermitData = NonNullable<IDeFiBuildTransactionResp['permit']>;
+
+type IDeFiBuildTransactionApiResp = {
+  tx?: IDeFiEvmTransaction | string;
+  approvalTx?: IDeFiEvmTransaction | string;
+  permit?: IDeFiPermitData | string;
+};
+
+function parseDeFiJsonField<T extends object>({
+  fieldName,
+  value,
+}: {
+  fieldName: string;
+  value: T | string | undefined;
+}): T | undefined {
+  if (isUndefined(value)) {
+    return undefined;
+  }
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as T;
+    }
+  } catch {
+    // Throw a stable local error below so callers do not depend on JSON syntax text.
+  }
+
+  throw new OneKeyLocalError(`Invalid DeFi ${fieldName} response`);
+}
+
+function normalizeDeFiBuildTransactionResp(
+  resp: IDeFiBuildTransactionApiResp,
+): IDeFiBuildTransactionResp {
+  return {
+    tx: parseDeFiJsonField<IDeFiEvmTransaction>({
+      fieldName: 'tx',
+      value: resp.tx,
+    }),
+    approvalTx: parseDeFiJsonField<IDeFiEvmTransaction>({
+      fieldName: 'approvalTx',
+      value: resp.approvalTx,
+    }),
+    permit: parseDeFiJsonField<IDeFiPermitData>({
+      fieldName: 'permit',
+      value: resp.permit,
+    }),
+  };
+}
 
 @backgroundClass()
 class ServiceDeFi extends ServiceBase {
@@ -173,6 +231,13 @@ class ServiceDeFi extends ServiceBase {
 
     let accountAddress = params.accountAddress;
     let xpub = params.xpub;
+    const indexedAccountId =
+      params.indexedAccountId ??
+      (
+        await this.backgroundApi.serviceAccount.getDBAccountSafe({
+          accountId,
+        })
+      )?.indexedAccountId;
 
     if (!accountAddress && !xpub) {
       const [a, x] = await Promise.all([
@@ -208,6 +273,8 @@ class ServiceDeFi extends ServiceBase {
     );
 
     const parsedData = defiUtils.transformDeFiData({
+      accountId,
+      indexedAccountId,
       positions: resp.data.data.data.positions,
       protocolSummaries: resp.data.data.data.protocolSummaries,
     });
@@ -300,6 +367,43 @@ class ServiceDeFi extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
+  public async fetchSupportedDeFiProtocols() {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<{
+      data: IGetSupportedDeFiProtocolsResp;
+    }>('/earn/v1/defi/supported-protocols');
+    return resp.data.data.protocols ?? [];
+  }
+
+  @backgroundMethod()
+  public async buildDeFiTransaction(params: IDeFiBuildTransactionParams) {
+    const { accountId, ...rest } = params;
+    if (
+      accountUtils.isUrlAccountFn({ accountId }) ||
+      accountUtils.isWatchingAccount({ accountId })
+    ) {
+      throw new OneKeyLocalError(
+        'DeFi actions are not available for URL or watch-only accounts',
+      );
+    }
+
+    const accountAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId: params.networkId,
+      });
+
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IDeFiBuildTransactionApiResp;
+    }>('/earn/v1/defi/build-transaction', {
+      ...rest,
+      accountAddress,
+    });
+    return normalizeDeFiBuildTransactionResp(resp.data.data);
+  }
+
   private _buildDeFiForceRefreshKey(accountId: string, networkId: string) {
     return `${accountId}__${networkId}`;
   }
@@ -309,6 +413,32 @@ class ServiceDeFi extends ServiceBase {
     if (!timers) return;
     timers.forEach((t) => clearTimeout(t));
     this._deFiForceRefreshTimers.delete(key);
+  }
+
+  private _scheduleDeFiForceRefresh(
+    key: string,
+    params: {
+      accountId: string;
+      indexedAccountId?: string;
+      networkId: string;
+    },
+  ) {
+    // Coalesce multiple refresh triggers: reset the schedule to the latest one.
+    this._cancelDeFiForceRefresh(key);
+
+    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
+    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
+      setTimeout(() => {
+        void this._runDeFiForceRefresh(params);
+        // After the last scheduled offset fires, drop the Map entry so it
+        // does not linger once every timer has run.
+        if (offset === maxOffset) {
+          this._deFiForceRefreshTimers.delete(key);
+        }
+      }, offset),
+    );
+
+    this._deFiForceRefreshTimers.set(key, timers);
   }
 
   @backgroundMethod()
@@ -333,34 +463,20 @@ class ServiceDeFi extends ServiceBase {
     if (!(await this.isNetworkDeFiEnabled(networkId))) return;
 
     const key = this._buildDeFiForceRefreshKey(accountId, networkId);
-
-    // Coalesce multiple confirmed txs: reset the schedule to the latest one.
-    this._cancelDeFiForceRefresh(key);
-
-    const maxOffset = Math.max(...this._deFiForceRefreshOffsetsMs);
-    const timers = this._deFiForceRefreshOffsetsMs.map((offset) =>
-      setTimeout(() => {
-        void this._runDeFiForceRefresh({
-          accountId,
-          indexedAccountId,
-          networkId,
-        });
-        // After the last scheduled offset fires, drop the Map entry so it
-        // does not linger once every timer has run.
-        if (offset === maxOffset) {
-          this._deFiForceRefreshTimers.delete(key);
-        }
-      }, offset),
-    );
-
-    this._deFiForceRefreshTimers.set(key, timers);
+    this._scheduleDeFiForceRefresh(key, {
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
   }
 
   private async _runDeFiForceRefresh(params: {
     accountId: string;
     indexedAccountId?: string;
     networkId: string;
-  }) {
+  }): Promise<
+    IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] | undefined
+  > {
     const { accountId, indexedAccountId, networkId } = params;
     try {
       const [settings, currencyMap, accountAddress, xpub] = await Promise.all([
@@ -380,6 +496,7 @@ class ServiceDeFi extends ServiceBase {
 
       const resp = await this.fetchAccountDeFiPositions({
         accountId,
+        indexedAccountId,
         networkId,
         accountAddress,
         xpub,
@@ -434,14 +551,18 @@ class ServiceDeFi extends ServiceBase {
         });
       }
 
-      appEventBus.emit(EAppEventBusNames.DeFiPositionRefreshed, {
-        accountId,
-        indexedAccountId,
-        networkId,
-        overview: resp.overview,
-        protocols: resp.protocols,
-        protocolMap: resp.protocolMap,
-      });
+      const payload: IAppEventBusPayload[EAppEventBusNames.DeFiPositionRefreshed] =
+        {
+          accountId,
+          indexedAccountId,
+          networkId,
+          overview: resp.overview,
+          protocols: resp.protocols,
+          protocolMap: resp.protocolMap,
+        };
+
+      appEventBus.emit(EAppEventBusNames.DeFiPositionRefreshed, payload);
+      return payload;
     } catch (e) {
       // Swallow so a failed force-refresh does not block future schedules.
       console.error(
@@ -449,7 +570,38 @@ class ServiceDeFi extends ServiceBase {
         { accountId, networkId },
         e,
       );
+      return undefined;
     }
+  }
+
+  @backgroundMethod()
+  public async refreshAccountDeFiPositionsAfterAction(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { accountId, networkId } = params;
+    if (!accountId || !networkId) return undefined;
+    if (!(await this.isNetworkDeFiEnabled(networkId))) return undefined;
+
+    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccountSafe({
+      accountId,
+    });
+    const indexedAccountId = dbAccount?.indexedAccountId;
+    const key = this._buildDeFiForceRefreshKey(accountId, networkId);
+
+    // The submitted tx may not be indexed yet, so refresh once immediately
+    // for visible feedback and then retry on the existing post-tx schedule.
+    this._scheduleDeFiForceRefresh(key, {
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
+
+    return this._runDeFiForceRefresh({
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
   }
 
   @backgroundMethod()

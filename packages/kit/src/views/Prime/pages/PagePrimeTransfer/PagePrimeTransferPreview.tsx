@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce } from 'lodash';
 import natsort from 'natsort';
@@ -356,6 +356,11 @@ function WalletList({
 export default function PagePrimeTransferPreview() {
   const intl = useIntl();
   const [isImporting, setIsImporting] = useState(false);
+  // Synchronous re-entrancy guard for the import flow. React state (isImporting)
+  // updates asynchronously, so it cannot block two near-simultaneous triggers
+  // (e.g. the remote-password dialog submitted via both the confirm button and
+  // the input's onSubmitEditing). A ref flips synchronously. See OK-56787.
+  const importInFlightRef = useRef(false);
   const navigation = useAppNavigation();
   const [primeTransferAtom] = usePrimeTransferAtom();
   const { exitTransferFlow } = usePrimeTransferExit();
@@ -563,6 +568,10 @@ export default function PagePrimeTransferPreview() {
       let remotePasswordDialog: IDialogInstance | null = null;
 
       const startImport = async () => {
+        if (importInFlightRef.current) {
+          return;
+        }
+        importInFlightRef.current = true;
         try {
           void remotePasswordDialog?.close();
 
@@ -593,7 +602,7 @@ export default function PagePrimeTransferPreview() {
                 text: remoteDevicePassword,
               })
             : localPasswordEncoded;
-          const { success, errorsInfo } =
+          const { success, errorsInfo, taskUUID } =
             await backgroundApiProxy.servicePrimeTransfer.startImport({
               decryptedCredentialsHex:
                 transferData?.privateData?.decryptedCredentialsHex,
@@ -604,6 +613,7 @@ export default function PagePrimeTransferPreview() {
 
           await backgroundApiProxy.servicePrimeTransfer.completeImportProgress({
             errorsInfo,
+            taskUUID,
           });
 
           if (success) {
@@ -619,6 +629,8 @@ export default function PagePrimeTransferPreview() {
             message: (error as Error)?.message || 'Unknown error',
           });
           throw error;
+        } finally {
+          importInFlightRef.current = false;
         }
       };
 

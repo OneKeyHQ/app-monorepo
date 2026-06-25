@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -22,7 +22,7 @@ import type {
   ITradingViewIntervalOption,
 } from './types';
 
-const MAX_VISIBLE_INTERVAL_COUNT = 3;
+const MAX_VISIBLE_INTERVAL_COUNT = 4;
 const MAX_PREFERRED_INTERVAL_COUNT = 4;
 const INTERVAL_GRID_COLUMN_COUNT = 4;
 const INTERVAL_GRID_ITEM_LAYOUT_PROPS = {
@@ -119,6 +119,53 @@ function normalizeIntervalLabel(label: string) {
   }
 
   return normalizedLabel;
+}
+
+function formatIntervalOptionDisplayLabel(intl: IntlShape, label: string) {
+  const normalizedLabel = normalizeIntervalLabel(label);
+  const labelMatch = normalizedLabel.match(/^(\d+)([mHDWM])$/);
+  if (!labelMatch) {
+    return label;
+  }
+
+  const [, count, unit] = labelMatch;
+  const number = Number(count);
+  if (!Number.isFinite(number)) {
+    return label;
+  }
+
+  if (unit === 'm') {
+    return intl.formatMessage(
+      { id: ETranslations.market_number_minute_abbr },
+      { number },
+    );
+  }
+  if (unit === 'H') {
+    return intl.formatMessage(
+      { id: ETranslations.market_number_hour_abbr },
+      { number },
+    );
+  }
+  if (unit === 'D') {
+    return intl.formatMessage(
+      { id: ETranslations.market_number_day_abbr },
+      { number },
+    );
+  }
+  if (unit === 'W') {
+    return intl.formatMessage(
+      { id: ETranslations.market_number_week_abbr },
+      { number },
+    );
+  }
+  if (unit === 'M') {
+    return intl.formatMessage(
+      { id: ETranslations.market_number_month_abbr },
+      { number },
+    );
+  }
+
+  return label;
 }
 
 function getAllIntervalOptions(options: ITradingViewIntervalOption[]) {
@@ -307,6 +354,7 @@ function getOptionsByValues(
 
 function IntervalPill({
   option,
+  displayLabel,
   section,
   isActive,
   isSelected,
@@ -315,6 +363,7 @@ function IntervalPill({
   onPress,
 }: {
   option: ITradingViewIntervalOption;
+  displayLabel: string;
   section: string;
   isActive: boolean;
   isSelected?: boolean;
@@ -361,7 +410,7 @@ function IntervalPill({
         adjustsFontSizeToFit
         minimumFontScale={0.82}
       >
-        {option.label}
+        {displayLabel}
       </SizableText>
       {showCheckMark && !disabled ? (
         <Stack
@@ -402,6 +451,7 @@ function IntervalGrid({
   maxSelectedCount?: number;
   onIntervalPress: (option: ITradingViewIntervalOption) => void;
 }) {
+  const intl = useIntl();
   const isSelectionLimitReached =
     maxSelectedCount !== undefined &&
     (selectedValues?.size ?? 0) >= maxSelectedCount;
@@ -432,6 +482,10 @@ function IntervalGrid({
                 <IntervalPill
                   key={option.value}
                   option={option}
+                  displayLabel={formatIntervalOptionDisplayLabel(
+                    intl,
+                    option.label,
+                  )}
                   section={section}
                   isActive={
                     highlightActiveInterval && option.value === activeInterval
@@ -576,7 +630,10 @@ function IntervalsDialogContent({
     return (
       <YStack gap="$5">
         <SizableText size="$bodyLg" color="$text">
-          {`Select preferred intervals ${draftPreferredValues.length}/${MAX_PREFERRED_INTERVAL_COUNT}`}
+          {intl.formatMessage(
+            { id: ETranslations.market_select_preferred_intervals },
+            { number: draftPreferredValues.length },
+          )}
         </SizableText>
         <IntervalGrid
           options={editableOptions}
@@ -616,7 +673,11 @@ function IntervalsDialogContent({
   return (
     <YStack gap="$6">
       {preferredOptions.length ? (
-        <IntervalsDialogSection title="Preferred intervals">
+        <IntervalsDialogSection
+          title={intl.formatMessage({
+            id: ETranslations.market_preferred_intervals,
+          })}
+        >
           <IntervalGrid
             options={preferredOptions}
             activeInterval={activeInterval}
@@ -627,7 +688,7 @@ function IntervalsDialogContent({
       ) : null}
 
       <IntervalsDialogSection
-        title="All intervals"
+        title={intl.formatMessage({ id: ETranslations.market_all_intervals })}
         action={
           <XStack
             testID="trading-view-native-intervals-edit-button"
@@ -643,7 +704,9 @@ function IntervalsDialogContent({
             }}
           >
             <SizableText size="$bodyLg" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_edit })}
+              {intl.formatMessage({
+                id: ETranslations.market_edit_preferred_intervals,
+              })}
             </SizableText>
             <Icon
               name="ChevronRightSmallOutline"
@@ -763,11 +826,11 @@ export const TradingViewNativeIntervalSelector = memo(
     const segmentOptions = useMemo(
       () =>
         preferredOptions.slice(0, MAX_VISIBLE_INTERVAL_COUNT).map((option) => ({
-          label: option.label,
+          label: formatIntervalOptionDisplayLabel(intl, option.label),
           value: option.value,
           disabled: isIntervalOptionDisabled(option),
         })),
-      [preferredOptions],
+      [intl, preferredOptions],
     );
 
     const visibleSegmentValueSet = useMemo(
@@ -798,14 +861,18 @@ export const TradingViewNativeIntervalSelector = memo(
     const moreLabel = intl.formatMessage({ id: ETranslations.global_more });
     const isMoreTriggerActive =
       Boolean(activeOption) && !visibleSegmentValueSet.has(activeInterval);
-    const moreTriggerLabel = isMoreTriggerActive
-      ? (activeOption?.label ?? moreLabel)
-      : moreLabel;
+    let moreTriggerLabel = moreLabel;
+    if (isMoreTriggerActive && activeOption) {
+      moreTriggerLabel = formatIntervalOptionDisplayLabel(
+        intl,
+        activeOption.label,
+      );
+    }
 
     const showIntervalsDialog = useCallback(() => {
       closeIntervalsDialog();
       const dialogInstance = Dialog.show({
-        title: 'Intervals',
+        title: intl.formatMessage({ id: ETranslations.market_intervals }),
         showFooter: false,
         testID: 'trading-view-native-intervals-dialog',
         onClose: () => {
@@ -832,6 +899,7 @@ export const TradingViewNativeIntervalSelector = memo(
       defaultPreferredIntervalValues,
       dialogOptions,
       handlePreferredValuesChange,
+      intl,
       onIntervalChange,
       options,
       preferredIntervalValues,

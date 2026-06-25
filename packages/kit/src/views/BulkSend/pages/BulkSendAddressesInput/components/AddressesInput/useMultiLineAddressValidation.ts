@@ -25,6 +25,8 @@ import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 import { EReceiverMode } from '@onekeyhq/shared/types/bulkSend';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { parseBulkSendAddressLine } from '../../addressLineUtils';
+
 import { ELineAnnotationType, type ILineError } from './LineNumberedTextArea';
 import {
   type IBulkSendSelectorAccountItem,
@@ -210,14 +212,6 @@ function useMultiLineAddressValidation(
     [intl, selectedToken, minTransferAmount, minTransferDisplayAmount],
   );
 
-  const parseLineMode = useCallback(
-    (line: string): EReceiverMode =>
-      line.includes(',')
-        ? EReceiverMode.AddressAndAmount
-        : EReceiverMode.AddressOnly,
-    [],
-  );
-
   const resolveAccountIdForAddress = useCallback(
     async (
       address: string,
@@ -357,7 +351,12 @@ function useMultiLineAddressValidation(
       let receiverMode: EReceiverMode | undefined;
 
       // Phase 1: Synchronous validation (format, amounts)
-      const addressesToValidate: { index: number; address: string }[] = [];
+      const addressesToValidate: {
+        index: number;
+        nonEmptyIndex: number;
+        address: string;
+      }[] = [];
+      let nonEmptyIndex = 0;
 
       for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i].trim();
@@ -365,8 +364,14 @@ function useMultiLineAddressValidation(
         if (!line) {
           continue;
         }
+        const currentNonEmptyIndex = nonEmptyIndex;
+        nonEmptyIndex += 1;
 
-        const currentLineMode = parseLineMode(line);
+        const parsedLine = parseBulkSendAddressLine(line);
+        if (!parsedLine) {
+          continue;
+        }
+        const currentLineMode = parsedLine.mode;
 
         // Determine expected mode based on params
         if (receiverMode === undefined) {
@@ -382,7 +387,7 @@ function useMultiLineAddressValidation(
           }
         }
 
-        // If amounts are not allowed but line has a comma, reject
+        // If amounts are not allowed but line has an amount separator, reject
         if (
           !allowAmounts &&
           currentLineMode === EReceiverMode.AddressAndAmount
@@ -396,7 +401,7 @@ function useMultiLineAddressValidation(
           continue;
         }
 
-        // If amounts are required but line has no comma, reject
+        // If amounts are required but line has no amount separator, reject
         if (requireAmounts && currentLineMode === EReceiverMode.AddressOnly) {
           lineErrors.push({
             lineNumber: i + 1,
@@ -427,12 +432,14 @@ function useMultiLineAddressValidation(
           continue;
         }
 
-        if (currentLineMode === EReceiverMode.AddressOnly) {
-          addressesToValidate.push({ index: i, address: line });
+        if (parsedLine.mode === EReceiverMode.AddressOnly) {
+          addressesToValidate.push({
+            index: i,
+            nonEmptyIndex: currentNonEmptyIndex,
+            address: parsedLine.address,
+          });
         } else {
-          // AddressAndAmount mode
-          const parts = line.split(',');
-          if (parts.length !== 2) {
+          if (!parsedLine.isValid) {
             lineErrors.push({
               lineNumber: i + 1,
               message: intl.formatMessage({
@@ -442,12 +449,14 @@ function useMultiLineAddressValidation(
             continue;
           }
 
-          const [address, amount] = parts.map((p) => p.trim());
-
-          addressesToValidate.push({ index: i, address });
+          addressesToValidate.push({
+            index: i,
+            nonEmptyIndex: currentNonEmptyIndex,
+            address: parsedLine.address,
+          });
 
           // Validate amount synchronously
-          const amountValidationResult = validateAmount(amount);
+          const amountValidationResult = validateAmount(parsedLine.amount);
           if (amountValidationResult !== true) {
             lineErrors.push({
               lineNumber: i + 1,
@@ -471,21 +480,31 @@ function useMultiLineAddressValidation(
       if (addressesToValidate.length > 0) {
         const limit = pLimit(10);
         const validationResults = await Promise.all(
-          addressesToValidate.map(({ index, address }) =>
-            limit(async () => {
-              const result = await validateAddress(address);
-              return { index, address, result };
-            }),
+          addressesToValidate.map(
+            ({ index, nonEmptyIndex: itemIndex, address }) =>
+              limit(async () => {
+                const result = await validateAddress(address);
+                return { index, nonEmptyIndex: itemIndex, address, result };
+              }),
           ),
         );
         if (isValidationStale()) {
           return true;
         }
 
-        const validAddresses: { index: number; address: string }[] = [];
+        const validAddresses: {
+          index: number;
+          nonEmptyIndex: number;
+          address: string;
+        }[] = [];
         const seenNormalizedAddresses = new Map<string, number>();
 
-        for (const { index, address, result } of validationResults) {
+        for (const {
+          index,
+          nonEmptyIndex: itemIndex,
+          address,
+          result,
+        } of validationResults) {
           if (!result.isValid) {
             lineErrors.push({
               lineNumber: index + 1,
@@ -519,13 +538,25 @@ function useMultiLineAddressValidation(
 
               if (seenIndex === undefined) {
                 seenNormalizedAddresses.set(normalizedAddress, index + 1);
-                validAddresses.push({ index, address });
+                validAddresses.push({
+                  index,
+                  nonEmptyIndex: itemIndex,
+                  address,
+                });
               } else if (duplicateWarningMode) {
                 // In warning mode, duplicates are still valid (user can confirm)
-                validAddresses.push({ index, address });
+                validAddresses.push({
+                  index,
+                  nonEmptyIndex: itemIndex,
+                  address,
+                });
               }
             } else {
-              validAddresses.push({ index, address });
+              validAddresses.push({
+                index,
+                nonEmptyIndex: itemIndex,
+                address,
+              });
             }
           }
         }
@@ -537,13 +568,13 @@ function useMultiLineAddressValidation(
           selectedNetworkId
         ) {
           const accountIdResults = await Promise.all(
-            validAddresses.map(({ index, address }) =>
+            validAddresses.map(({ index, nonEmptyIndex: itemIndex, address }) =>
               limit(async () => {
                 const result = await resolveAccountIdForAddress(
                   address,
                   selectedNetworkId,
                 );
-                return { index, result };
+                return { index, nonEmptyIndex: itemIndex, result };
               }),
             ),
           );
@@ -551,27 +582,21 @@ function useMultiLineAddressValidation(
             return true;
           }
 
-          for (const { index, result } of accountIdResults) {
+          for (const {
+            index,
+            nonEmptyIndex: itemIndex,
+            result,
+          } of accountIdResults) {
             if ('error' in result) {
               lineErrors.push({
                 lineNumber: index + 1,
                 message: result.error,
               });
             } else {
-              // Map from original line index to accountId
-              // Need to convert from lines[] index to non-empty line index
-              let nonEmptyIndex = 0;
-              for (let i = 0; i <= index; i += 1) {
-                if (lines[i].trim()) {
-                  if (i === index) {
-                    resolvedIds[nonEmptyIndex] = {
-                      accountId: result.accountId,
-                      indexedAccountId: result.indexedAccountId,
-                    };
-                  }
-                  nonEmptyIndex += 1;
-                }
-              }
+              resolvedIds[itemIndex] = {
+                accountId: result.accountId,
+                indexedAccountId: result.indexedAccountId,
+              };
             }
           }
         }
@@ -775,7 +800,6 @@ function useMultiLineAddressValidation(
       intl,
       isEnableTransferAllowList,
       maxLines,
-      parseLineMode,
       selectedNetworkId,
       validateAddress,
       validateAmount,

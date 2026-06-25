@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isUndefined } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -48,6 +47,7 @@ import { useBulkSendMobileHeader } from '../../components/BulkSendMobileHeader';
 import { useBulkSendModeDialog } from '../../hooks/useBulkSendModeDialog';
 import { isBulkSendTokenDetailsMatched } from '../../utils';
 
+import { parseBulkSendAddressLines } from './addressLineUtils';
 import ReceiverAddressesInput from './components/AddressesInput/ReceiverAddressesInput';
 import SenderAddressesInput from './components/AddressesInput/SenderAddressesInput';
 import AssetSelectorTrigger from './components/AssetSelectorTrigger';
@@ -511,37 +511,27 @@ function BaseBulkSendAddressesInput() {
 
     const formValues = form.getValues();
 
-    // Parse sender addresses — extract amounts for ManyToOne/ManyToMany
-    let senderLineIndex = 0;
-    const senders = formValues.senderAddresses
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => {
-        const [address, amount] = line.trim().split(',');
-        const currentIndex = senderLineIndex;
-        senderLineIndex += 1;
+    const senders = parseBulkSendAddressLines(formValues.senderAddresses).map(
+      ({ address, amount }, index) => {
         return {
-          address: address.trim(),
+          address,
           amount:
             !isOneToMany && amount !== undefined
-              ? new BigNumber(amount.trim()).toFixed()
+              ? new BigNumber(amount).toFixed()
               : undefined,
-          accountId: resolvedSenderAccountIds[currentIndex]?.accountId,
+          accountId: resolvedSenderAccountIds[index]?.accountId,
         };
-      });
+      },
+    );
 
-    const receivers = formValues.receiverAddresses
-      .split('\n')
-      .filter((line) => line.trim())
-      .map((line) => {
-        const [address, amount] = line.trim().split(',');
-        return {
-          address: address.trim(),
-          amount: isUndefined(amount)
-            ? amount
-            : new BigNumber(amount).toFixed(),
-        };
-      });
+    const receivers = parseBulkSendAddressLines(
+      formValues.receiverAddresses,
+    ).map(({ address, amount }) => {
+      return {
+        address,
+        amount: amount === undefined ? amount : new BigNumber(amount).toFixed(),
+      };
+    });
 
     // ManyToMany: defensive count check
     if (

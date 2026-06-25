@@ -201,7 +201,7 @@ function useWebHeaderNavigation({
       },
       {
         key: 'swap',
-        label: intl.formatMessage({ id: ETranslations.global_swap }),
+        label: intl.formatMessage({ id: ETranslations.global_trade }),
       },
       {
         key: 'commission',

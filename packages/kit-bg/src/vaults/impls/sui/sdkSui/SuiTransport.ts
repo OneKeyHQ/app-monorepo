@@ -2,11 +2,11 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
-  SuiTransport,
-  SuiTransportRequestOptions,
-} from '@mysten/sui/client';
+  JsonRpcTransport,
+  JsonRpcTransportRequestOptions,
+} from '@mysten/sui/jsonRpc';
 
-export class OneKeySuiTransport implements SuiTransport {
+export class OneKeySuiTransport implements JsonRpcTransport {
   backgroundApi: IBackgroundApi;
 
   networkId: string;
@@ -22,7 +22,7 @@ export class OneKeySuiTransport implements SuiTransport {
     this.networkId = networkId;
   }
 
-  async request<T>(input: SuiTransportRequestOptions): Promise<T> {
+  async request<T>(input: JsonRpcTransportRequestOptions): Promise<T> {
     const res: T[] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest({
         networkId: this.networkId,
