@@ -74,47 +74,60 @@ function useStockInputTokenBalance({
   const hasActiveAccount = Boolean(
     activeAccount?.indexedAccount?.id || activeAccount?.account?.id,
   );
+  const tokenNetworkId = token?.networkId ?? '';
+  const accountNetworkReady = Boolean(
+    !hasActiveAccount || activeAccount?.ready,
+  );
   const shouldFetchNetworkAccount = Boolean(
-    enabled && token?.networkId && hasActiveAccount,
+    enabled && tokenNetworkId && hasActiveAccount && accountNetworkReady,
   );
   const networkAccountScope = `${shouldFetchNetworkAccount ? '1' : '0'}:${
-    token?.networkId ?? ''
+    tokenNetworkId
   }:${activeAccount?.indexedAccount?.id ?? ''}:${
     activeAccount?.account?.id ?? ''
   }`;
   const { result: networkAccountState, isLoading: networkAccountLoading } =
     usePromiseResult(
       async () => {
-        if (!shouldFetchNetworkAccount || !token?.networkId) {
+        if (!shouldFetchNetworkAccount || !tokenNetworkId) {
           return {
             scope: networkAccountScope,
             account: null,
           };
         }
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: token.networkId,
-          });
-        const account =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: activeAccount?.indexedAccount?.id
-              ? undefined
-              : activeAccount?.account?.id,
-            indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
-            networkId: token.networkId,
-            deriveType: defaultDeriveType ?? 'default',
-          });
-        return {
-          scope: networkAccountScope,
-          account,
-        };
+        try {
+          const defaultDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: tokenNetworkId,
+              },
+            );
+          const account =
+            await backgroundApiProxy.serviceAccount.getNetworkAccount({
+              accountId: activeAccount?.indexedAccount?.id
+                ? undefined
+                : activeAccount?.account?.id,
+              indexedAccountId: activeAccount?.indexedAccount?.id ?? '',
+              networkId: tokenNetworkId,
+              deriveType: defaultDeriveType ?? 'default',
+            });
+          return {
+            scope: networkAccountScope,
+            account,
+          };
+        } catch {
+          return {
+            scope: networkAccountScope,
+            account: null,
+          };
+        }
       },
       [
         activeAccount?.account?.id,
         activeAccount?.indexedAccount?.id,
         networkAccountScope,
         shouldFetchNetworkAccount,
-        token?.networkId,
+        tokenNetworkId,
       ],
       {
         initResult: {
@@ -124,15 +137,21 @@ function useStockInputTokenBalance({
         watchLoading: shouldFetchNetworkAccount,
       },
     );
-  const networkAccountReady = networkAccountState.scope === networkAccountScope;
-  const networkAccount = networkAccountReady
-    ? networkAccountState.account
-    : null;
+  const networkAccountReady =
+    !shouldFetchNetworkAccount ||
+    networkAccountState.scope === networkAccountScope;
+  const networkAccount =
+    shouldFetchNetworkAccount && networkAccountReady
+      ? networkAccountState.account
+      : null;
   const balanceScope = `${tokenScope}:${networkAccountReady ? 'ready' : 'pending'}:${
     networkAccount?.id ?? ''
   }:${networkAccount?.address ?? ''}:${refreshKey}`;
   const shouldWaitForNetworkAccount =
-    shouldFetchNetworkAccount && !networkAccountReady;
+    Boolean(
+      enabled && tokenNetworkId && hasActiveAccount && !accountNetworkReady,
+    ) ||
+    (shouldFetchNetworkAccount && !networkAccountReady);
   const { result: detailState, isLoading: detailLoading } = usePromiseResult(
     async () => {
       if (!enabled || !token || shouldWaitForNetworkAccount) {
@@ -145,7 +164,7 @@ function useStockInputTokenBalance({
       if (!networkAccount) {
         return {
           scope: balanceScope,
-          balance: token.balanceParsed ?? '0',
+          balance: hasActiveAccount ? '0' : (token.balanceParsed ?? '0'),
           tokenDetail: token,
         };
       }
@@ -163,7 +182,14 @@ function useStockInputTokenBalance({
         tokenDetail: markStockUsdPriceCurrency(details?.[0]),
       };
     },
-    [balanceScope, enabled, networkAccount, shouldWaitForNetworkAccount, token],
+    [
+      balanceScope,
+      enabled,
+      hasActiveAccount,
+      networkAccount,
+      shouldWaitForNetworkAccount,
+      token,
+    ],
     {
       initResult: {
         scope: '',

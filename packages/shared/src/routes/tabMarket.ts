@@ -20,12 +20,14 @@ export type ITabMarketParamList = {
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;
+    showFavoriteButton?: boolean;
   };
   [ETabMarketRoutes.MarketNativeDetail]: {
     network: string;
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;
+    showFavoriteButton?: boolean;
   };
   [ETabMarketRoutes.MarketBannerDetail]: {
     tokenListId: string;

@@ -99,6 +99,13 @@ const ethToken: ISwapToken = {
   decimals: 18,
   isNative: true,
 };
+const bnbToken: ISwapToken = {
+  networkId: 'evm--56',
+  contractAddress: '',
+  symbol: 'BNB',
+  decimals: 18,
+  isNative: true,
+};
 const usdcToken: ISwapToken = {
   networkId: 'evm--56',
   contractAddress: '0xusdc',
@@ -509,6 +516,57 @@ describe('useSwapActions', () => {
     });
     expect(store.get(swapSelectToTokenAtom())).not.toMatchObject({
       contractAddress: appleStockToken.contractAddress,
+    });
+  });
+
+  it('restores the previous Swap pair after visiting Stock', async () => {
+    const { store, Wrapper } = createWrapperWithStore((storeInstance) => {
+      storeInstance.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+      storeInstance.set(swapSelectFromTokenAtom(), bnbToken);
+      storeInstance.set(swapSelectToTokenAtom(), usdtToken);
+    });
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+
+        return {
+          actions,
+        };
+      },
+      {
+        wrapper: Wrapper,
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.STOCK,
+        'evm--56',
+      );
+    });
+
+    store.set(swapSelectFromTokenAtom(), usdcToken);
+    store.set(swapSelectToTokenAtom(), appleStockToken);
+
+    await act(async () => {
+      await result.current.actions.swapTypeSwitchAction(
+        ESwapTabSwitchType.SWAP,
+        'evm--56',
+      );
+    });
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(
+      expect.objectContaining({
+        networkId: bnbToken.networkId,
+        contractAddress: bnbToken.contractAddress,
+        symbol: bnbToken.symbol,
+      }),
+    );
+    expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
     });
   });
 

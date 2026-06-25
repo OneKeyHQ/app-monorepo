@@ -24,13 +24,18 @@ export type IModalMarketParamList = {
     tokenAddress: string;
     network: string;
     isNative?: boolean;
+    showFavoriteButton?: boolean;
   };
   [EModalMarketRoutes.MarketBannerDetail]: {
     tokenListId: string;
     title: string;
     type?: EMarketBannerType;
   };
-  [EModalMarketRoutes.MobileTokenSelector]: undefined;
+  [EModalMarketRoutes.MobileTokenSelector]:
+    | {
+        showFavoriteButton?: boolean;
+      }
+    | undefined;
 };
 
 export const ModalMarketStack: IModalFlowNavigatorConfig<

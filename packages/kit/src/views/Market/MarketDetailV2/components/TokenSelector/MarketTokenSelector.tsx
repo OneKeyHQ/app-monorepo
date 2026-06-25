@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -27,6 +28,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ALL_NETWORK_ID, TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { MarketTokenSelectorList } from './MarketTokenSelectorList';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
+
+function normalizeRouteBooleanParam(value: boolean | string | undefined) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value;
+}
 
 // Reuse perps-style underline tab
 const SelectorTabItem = memo(
@@ -66,9 +74,16 @@ SelectorTabItem.displayName = 'SelectorTabItem';
 
 function BaseMarketTokenSelectorContent() {
   const intl = useIntl();
+  const route = useRoute();
   const tokenDetailActions = useTokenDetailActions();
   const { closePopover } = usePopoverContext();
   const { navigateToPerps } = usePerpsNavigation();
+  const routeParams = route.params as
+    | { showFavoriteButton?: boolean | string }
+    | undefined;
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    routeParams?.showFavoriteButton,
+  );
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
@@ -139,9 +154,10 @@ function BaseMarketTokenSelectorContent() {
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => void closePopover?.(),
+        showFavoriteButton,
       });
     },
-    [tokenDetailActions, closePopover, navigateToPerps],
+    [tokenDetailActions, closePopover, navigateToPerps, showFavoriteButton],
   );
 
   const handleSelectToken = useCallback(
