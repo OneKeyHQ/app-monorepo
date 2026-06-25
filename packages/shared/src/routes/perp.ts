@@ -29,7 +29,9 @@ export type IPerpsDepositTokenRouteItem = {
 };
 
 export type IModalPerpParamList = {
-  [EModalPerpRoutes.PerpTradersHistoryList]: undefined;
+  [EModalPerpRoutes.PerpTradersHistoryList]:
+    | { initialTab?: string }
+    | undefined;
   [EModalPerpRoutes.MobilePerpMarket]: undefined;
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
