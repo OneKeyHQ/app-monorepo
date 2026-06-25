@@ -97,45 +97,56 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@alephium/get-extension-wallet@npm:^1.5.2":
-  version: 1.6.0
-  resolution: "@alephium/get-extension-wallet@npm:1.6.0"
+"@alephium/get-extension-wallet@npm:3.0.4":
+  version: 3.0.4
+  resolution: "@alephium/get-extension-wallet@npm:3.0.4"
   dependencies:
-    "@alephium/web3": "npm:^1.6.0"
+    "@alephium/web3": "npm:^3.0.4"
     bowser: "npm:^2.11.0"
-  checksum: 10/469006e3a464d082a052cf3378d1f0a88ce3c6462de67847bf5fd48ef9c50e01e33163b6b21952fd5f040118e797ab8d0fe9c35ddbc88b6a2872204c00e582c3
+  checksum: 10/70afac1caf0ee115d8c98655ffe11a167b7f42599f540b960f9bf30dc03a87dee683fabd6049d510bdaf9d552eb4573c17241336b2ad4c0dc3fb5764b44f54be
   languageName: node
   linkType: hard
 
-"@alephium/walletconnect-provider@npm:^1.5.2":
-  version: 1.6.0
-  resolution: "@alephium/walletconnect-provider@npm:1.6.0"
+"@alephium/walletconnect-provider@npm:3.0.4":
+  version: 3.0.4
+  resolution: "@alephium/walletconnect-provider@npm:3.0.4"
   dependencies:
-    "@alephium/web3": "npm:^1.6.0"
-    "@alephium/web3-wallet": "npm:^1.6.0"
-    "@walletconnect/core": "npm:2.15.1"
+    "@alephium/web3": "npm:^3.0.4"
+    "@alephium/web3-wallet": "npm:^3.0.4"
+    "@walletconnect/core": "npm:2.21.5"
     "@walletconnect/keyvaluestorage": "npm:1.1.1"
-    "@walletconnect/sign-client": "npm:2.15.1"
-    "@walletconnect/types": "npm:2.15.1"
-    "@walletconnect/utils": "npm:2.15.1"
+    "@walletconnect/sign-client": "npm:2.21.5"
+    "@walletconnect/types": "npm:2.21.5"
+    "@walletconnect/utils": "npm:2.21.5"
     async-sema: "npm:^3.1.1"
     eventemitter3: "npm:^4.0.7"
-  checksum: 10/58d5e09917f5945193f6b8e8d517e20e33954eda039a5c76a38b4fc429cc8f6ead137af4c62a53f90654f07faae5db765b9365197f906a7eea2bab64b64247f9
+  checksum: 10/fd056735b8417f8c5678714cb6b12e06ab84a911133954de504420a843dedac6275414e38e1c076fd18846241fd94a3492d4ffbe2cee3a535643b08939392f97
   languageName: node
   linkType: hard
 
-"@alephium/web3-wallet@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@alephium/web3-wallet@npm:1.6.0"
+"@alephium/web3-wallet@npm:3.0.4":
+  version: 3.0.4
+  resolution: "@alephium/web3-wallet@npm:3.0.4"
   dependencies:
-    "@alephium/web3": "npm:^1.6.0"
-    "@noble/secp256k1": "npm:1.7.1"
-    "@types/node": "npm:^16.18.23"
-    bip32: "npm:3.1.0"
-    bip39: "npm:3.0.4"
-    elliptic: "npm:6.5.4"
-    fs-extra: "npm:10.0.1"
-  checksum: 10/42f36c2a3526a42a6af20f14ed73dc2750bc8bee7ab7d350af20121b46d8e9dbaceb19476ae11ba100d1d7cc1c49d43ba411f3ff09491c7f9a75982c3a301915
+    "@alephium/web3": "npm:^3.0.4"
+    "@noble/secp256k1": "npm:1.7.2"
+    "@scure/bip32": "npm:1.7.0"
+    "@scure/bip39": "npm:1.6.0"
+  checksum: 10/4dd3983648d2e2fcf262a90c1d91c6c585a7192ad9c7cab9bb5ddf1109030a10f991df8086202bfa64bc0df556afc0263e25db7c3da13668793a6864477b12f6
+  languageName: node
+  linkType: hard
+
+"@alephium/web3@npm:3.0.4, @alephium/web3@npm:^3.0.4":
+  version: 3.0.4
+  resolution: "@alephium/web3@npm:3.0.4"
+  dependencies:
+    "@noble/curves": "npm:1.9.7"
+    "@noble/hashes": "npm:1.8.0"
+    "@noble/secp256k1": "npm:1.7.2"
+    base-x: "npm:4.0.1"
+    bignumber.js: "npm:^9.1.1"
+    eventemitter3: "npm:^4.0.7"
+  checksum: 10/fcb6fc824c9454307cf04ea34ac91541dd3f660c7ab4809949715baaada6a11da2f9a410c02e8ed79bfee494483d6db3d49e813d57de03a75c29cd7b8ce52a67
   languageName: node
   linkType: hard
 
@@ -155,25 +166,6 @@ __metadata:
     path-browserify: "npm:^1.0.1"
     stream-browserify: "npm:^3.0.0"
   checksum: 10/cbbb663a46870d53272c089bba4f7c11d1fbcefedf9146e570d254fbb98f530a417c2c04e557a7b1079ce5b785bebac878d22e67cd0aba6862792174cba18e73
-  languageName: node
-  linkType: hard
-
-"@alephium/web3@npm:^1.6.0":
-  version: 1.6.0
-  resolution: "@alephium/web3@npm:1.6.0"
-  dependencies:
-    "@noble/secp256k1": "npm:1.7.1"
-    base-x: "npm:4.0.0"
-    bignumber.js: "npm:^9.1.1"
-    blakejs: "npm:1.2.1"
-    bn.js: "npm:5.2.1"
-    cross-fetch: "npm:^3.1.5"
-    crypto-browserify: "npm:^3.12.0"
-    elliptic: "npm:6.5.4"
-    eventemitter3: "npm:^4.0.7"
-    path-browserify: "npm:^1.0.1"
-    stream-browserify: "npm:^3.0.0"
-  checksum: 10/2ece4b0d1a66c4cfb2d581aac2954a7d9763e8bd04caf2f1a9d129beb088d8d9c0735dd4ea18abb23e82ec587948661ed220e9f82a578dc7e7c369376fc520f4
   languageName: node
   linkType: hard
 
@@ -8505,6 +8497,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@noble/secp256k1@npm:1.7.2":
+  version: 1.7.2
+  resolution: "@noble/secp256k1@npm:1.7.2"
+  checksum: 10/ce1651f63ebf9269990dbc1002410d63e2f4379fcbf2bb7a567740997852a1fbdb353929e497cd9d09549c28e3edb036ac3905ff20ac5249ad32e64a852af955
+  languageName: node
+  linkType: hard
+
 "@nodelib/fs.scandir@npm:2.1.5":
   version: 2.1.5
   resolution: "@nodelib/fs.scandir@npm:2.1.5"
@@ -9811,7 +9810,7 @@ __metadata:
   resolution: "@onekeyhq/app-monorepo@workspace:."
   dependencies:
     "@aivenio/tsc-output-parser": "npm:^2.1.1"
-    "@alephium/web3": "npm:^1.5.2"
+    "@alephium/web3": "npm:3.0.4"
     "@babel/plugin-proposal-class-properties": "npm:^7.18.6"
     "@babel/plugin-proposal-class-static-block": "npm:^7.21.0"
     "@babel/plugin-proposal-nullish-coalescing-operator": "npm:^7.18.6"
@@ -10096,7 +10095,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@onekeyhq/core@workspace:packages/core"
   dependencies:
-    "@alephium/web3": "npm:^1.5.2"
+    "@alephium/web3": "npm:3.0.4"
     "@aptos-labs/siwa": "npm:^0.4.0"
     "@aptos-labs/ts-sdk": "npm:^1.37.0"
     "@ckb-lumos/ckb-indexer": "npm:^0.23.0"
@@ -20724,23 +20723,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/sign-client@npm:2.15.1":
-  version: 2.15.1
-  resolution: "@walletconnect/sign-client@npm:2.15.1"
-  dependencies:
-    "@walletconnect/core": "npm:2.15.1"
-    "@walletconnect/events": "npm:1.0.1"
-    "@walletconnect/heartbeat": "npm:1.2.2"
-    "@walletconnect/jsonrpc-utils": "npm:1.0.8"
-    "@walletconnect/logger": "npm:2.1.2"
-    "@walletconnect/time": "npm:1.0.2"
-    "@walletconnect/types": "npm:2.15.1"
-    "@walletconnect/utils": "npm:2.15.1"
-    events: "npm:3.3.0"
-  checksum: 10/2f1d7ceeca1ea22c2c7762b145ac6541129b36d1433292a68ad3688c3c4ac95bf87f8098e298eb536fd0274d581fda51228e60f2b1e970d2a2f5907ea33db29d
-  languageName: node
-  linkType: hard
-
 "@walletconnect/sign-client@npm:2.21.5":
   version: 2.21.5
   resolution: "@walletconnect/sign-client@npm:2.21.5"
@@ -22944,19 +22926,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"base-x@npm:4.0.1, base-x@npm:^4.0.0":
+  version: 4.0.1
+  resolution: "base-x@npm:4.0.1"
+  checksum: 10/c9061e576f7376b2bc6b69eca131254bb16ebe1445b535a3f0d68f27524e724965b6c191dffd255bf80f9bdf5eb9d1c8d0320903e83116f2c3e09f81b5ecb6a2
+  languageName: node
+  linkType: hard
+
 "base-x@npm:^3.0.2, base-x@npm:^3.0.6, base-x@npm:^3.0.9":
   version: 3.0.11
   resolution: "base-x@npm:3.0.11"
   dependencies:
     safe-buffer: "npm:^5.0.1"
   checksum: 10/c2e3c443fd07cb9b9d3e179a9e9c581daa31881005841fe8d6a834e534505890fedf03465ccf14512da60e3f7be00fe66167806b159ba076d2c03952ae7460c4
-  languageName: node
-  linkType: hard
-
-"base-x@npm:^4.0.0":
-  version: 4.0.1
-  resolution: "base-x@npm:4.0.1"
-  checksum: 10/c9061e576f7376b2bc6b69eca131254bb16ebe1445b535a3f0d68f27524e724965b6c191dffd255bf80f9bdf5eb9d1c8d0320903e83116f2c3e09f81b5ecb6a2
   languageName: node
   linkType: hard
 
@@ -23200,20 +23182,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bip32@npm:3.1.0":
-  version: 3.1.0
-  resolution: "bip32@npm:3.1.0"
-  dependencies:
-    bs58check: "npm:^2.1.1"
-    create-hash: "npm:^1.2.0"
-    create-hmac: "npm:^1.1.7"
-    ripemd160: "npm:^2.0.2"
-    typeforce: "npm:^1.11.5"
-    wif: "npm:^2.0.6"
-  checksum: 10/6cdad901d25959e21835fe7b43066fc2498548962aa07ce438860b7420a7a93ceec3a9b34ddee68bbc568a68b9d96029338dbea1eadb548651b06d800a14fc3d
-  languageName: node
-  linkType: hard
-
 "bip32@npm:^2.0.6":
   version: 2.0.6
   resolution: "bip32@npm:2.0.6"
@@ -23260,18 +23228,6 @@ __metadata:
     pbkdf2: "npm:^3.0.9"
     randombytes: "npm:^2.0.1"
   checksum: 10/f9755660e6eed99b50ad6f88b07d38a5969a180a59face8101a4d0f906317e6d61e072cd9558cc51554f1ea7becf23e3a7cf63685ff474f890435dc20db37df6
-  languageName: node
-  linkType: hard
-
-"bip39@npm:3.0.4":
-  version: 3.0.4
-  resolution: "bip39@npm:3.0.4"
-  dependencies:
-    "@types/node": "npm:11.11.6"
-    create-hash: "npm:^1.1.0"
-    pbkdf2: "npm:^3.0.9"
-    randombytes: "npm:^2.0.1"
-  checksum: 10/938d4d764819c1927315ce3607b46a21f0d222042fa56e0d622ba6dccab37f7062619b0204d610e3280109f385b02c96e109e8df7fcacd90266cb3b163d94e6f
   languageName: node
   linkType: hard
 
@@ -31337,17 +31293,6 @@ __metadata:
   version: 1.0.0
   resolution: "fs-constants@npm:1.0.0"
   checksum: 10/18f5b718371816155849475ac36c7d0b24d39a11d91348cfcb308b4494824413e03572c403c86d3a260e049465518c4f0d5bd00f0371cdfcad6d4f30a85b350d
-  languageName: node
-  linkType: hard
-
-"fs-extra@npm:10.0.1":
-  version: 10.0.1
-  resolution: "fs-extra@npm:10.0.1"
-  dependencies:
-    graceful-fs: "npm:^4.2.0"
-    jsonfile: "npm:^6.0.1"
-    universalify: "npm:^2.0.0"
-  checksum: 10/81c8f5668f8c00a94c22910c7deadbb5a68621a36efa64cc483bcb6e96c74a1e86bb1ed338855c54ec8ed778c54762e187912d668a59bffc06d1f0c1ef3b26c4
   languageName: node
   linkType: hard
 
