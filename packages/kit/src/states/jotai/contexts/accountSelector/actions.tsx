@@ -2371,10 +2371,18 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount = defaultSelectedAccount();
           }
         }
-        if (isEqual(selectedAccount, defaultSelectedAccount)) {
+        if (isEqual(selectedAccount, defaultSelectedAccount())) {
           console.error(
             'AccountSelector.saveToStorage skip, selectedAccount is default',
           );
+          return;
+        }
+        const hasAccountIdentityForStorage = Boolean(
+          selectedAccount?.walletId &&
+          (selectedAccount.indexedAccountId ||
+            selectedAccount.othersWalletAccountId),
+        );
+        if (!hasAccountIdentityForStorage) {
           return;
         }
         const currentSaved = await simpleDb.accountSelector.getSelectedAccount({

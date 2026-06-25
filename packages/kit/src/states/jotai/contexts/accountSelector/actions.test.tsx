@@ -62,6 +62,16 @@ const mockFixDeriveTypesForInitAccountSelectorMap: jest.MockedFunction<
     params: IFixDeriveTypesForInitAccountSelectorMapParams,
   ) => Promise<ISelectedAccountsMap | undefined>
 > = jest.fn();
+const mockGetSelectedAccount: jest.MockedFunction<
+  () => Promise<ISelectedAccount | undefined>
+> = jest.fn();
+const mockSaveSelectedAccount: jest.MockedFunction<() => Promise<void>> =
+  jest.fn();
+const mockSaveGlobalDeriveType: jest.MockedFunction<() => Promise<void>> =
+  jest.fn();
+const mockShouldSyncWithHomeSource: jest.MockedFunction<
+  () => Promise<boolean>
+> = jest.fn();
 const mockIsWalletHasIndexedAccounts: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<boolean>
 > = jest.fn();
@@ -128,10 +138,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       fixDeriveTypesForInitAccountSelectorMap: (
         params: IFixDeriveTypesForInitAccountSelectorMapParams,
       ) => mockFixDeriveTypesForInitAccountSelectorMap(params),
+      saveGlobalDeriveType: () => mockSaveGlobalDeriveType(),
+      shouldSyncWithHomeSource: () => mockShouldSyncWithHomeSource(),
     },
     simpleDb: {
       accountSelector: {
+        getSelectedAccount: () => mockGetSelectedAccount(),
         getSelectedAccountsMap: () => mockGetSelectedAccountsMap(),
+        saveSelectedAccount: () => mockSaveSelectedAccount(),
       },
       dappConnection: {
         getAccountSelectorMap: jest.fn(async () => undefined),
@@ -200,6 +214,10 @@ describe('useAccountSelectorActions', () => {
     mockFixDeriveTypesForInitAccountSelectorMap.mockImplementation(
       async (params) => params.selectedAccountsMapInDB,
     );
+    mockGetSelectedAccount.mockResolvedValue(undefined);
+    mockSaveSelectedAccount.mockResolvedValue(undefined);
+    mockSaveGlobalDeriveType.mockResolvedValue(undefined);
+    mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
     mockGetIndexedAccountsOfWallet.mockResolvedValue({
       accounts: [
@@ -401,6 +419,34 @@ describe('useAccountSelectorActions', () => {
       networkId: 'tron--0x2b6653dc',
       deriveType: 'default',
     });
+  });
+
+  it('does not persist a network-only cold-start selection over a saved account', async () => {
+    mockGetSelectedAccount.mockResolvedValue(
+      createHdSelectedAccount('hd-1--1'),
+    );
+
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount: {
+          ...defaultSelectedAccount(),
+          networkId: 'tron--0x2b6653dc',
+          deriveType: 'default',
+          focusedWallet: 'hd-1',
+        },
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
   });
 
   it('falls back to the first indexed account when restored indexed account no longer exists', async () => {
