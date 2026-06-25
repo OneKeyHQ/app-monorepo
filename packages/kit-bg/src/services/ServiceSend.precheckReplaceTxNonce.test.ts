@@ -52,13 +52,36 @@ import { SEND_TX_SERVER_ERROR_CODES } from '@onekeyhq/shared/src/engine/engineCo
 // eslint-disable-next-line import-js/order, import/first
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 // eslint-disable-next-line import-js/order, import/first
+import { vaultFactory } from '../vaults/factory';
+// eslint-disable-next-line import-js/order, import/first
 import ServiceSend from './ServiceSend';
 
 function makeService(overrides: {
   nonceRequired?: boolean;
   onChainNextNonce?: number | null | undefined;
   fetchAccountDetails?: jest.Mock;
+  // custom RPC path
+  customRpcInfo?: { rpc?: string; enabled?: boolean };
+  getCustomRpcForNetwork?: jest.Mock;
+  fetchAccountDetailsByRpc?: jest.Mock;
+  rpcNextNonce?: number | null | undefined;
 }) {
+  const fetchAccountDetails =
+    overrides.fetchAccountDetails ??
+    jest.fn().mockResolvedValue({ nonce: overrides.onChainNextNonce });
+  const fetchAccountDetailsByRpc =
+    overrides.fetchAccountDetailsByRpc ??
+    jest
+      .fn()
+      .mockResolvedValue({ data: { data: { nonce: overrides.rpcNextNonce } } });
+  const getCustomRpcForNetwork =
+    overrides.getCustomRpcForNetwork ??
+    jest.fn().mockResolvedValue(overrides.customRpcInfo);
+
+  (vaultFactory.getVault as jest.Mock).mockResolvedValue({
+    fetchAccountDetailsByRpc,
+  });
+
   const backgroundApi = {
     serviceNetwork: {
       getVaultSettings: jest.fn().mockResolvedValue({
@@ -66,15 +89,29 @@ function makeService(overrides: {
       }),
     },
     serviceAccountProfile: {
-      fetchAccountDetails:
-        overrides.fetchAccountDetails ??
-        jest.fn().mockResolvedValue({ nonce: overrides.onChainNextNonce }),
+      fetchAccountDetails,
+    },
+    serviceCustomRpc: {
+      getCustomRpcForNetwork,
+    },
+    serviceAccount: {
+      getAccountAddressForApi: jest.fn().mockResolvedValue('0xabc'),
     },
   };
-  const Ctor = ServiceSend as unknown as new (args: {
-    backgroundApi: unknown;
-  }) => ServiceSend;
-  return new Ctor({ backgroundApi });
+  const svc = (() => {
+    const Ctor = ServiceSend as unknown as new (args: {
+      backgroundApi: unknown;
+    }) => ServiceSend;
+    return new Ctor({ backgroundApi });
+  })();
+  return Object.assign(svc, {
+    __mocks: { fetchAccountDetails, fetchAccountDetailsByRpc },
+  }) as ServiceSend & {
+    __mocks: {
+      fetchAccountDetails: jest.Mock;
+      fetchAccountDetailsByRpc: jest.Mock;
+    };
+  };
 }
 
 describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
@@ -141,6 +178,71 @@ describe('ServiceSend.precheckReplaceTxNonceConsumed', () => {
     });
     expect(result).toEqual({ consumed: false });
   });
+
+  test('custom RPC enabled → reads nonce from the RPC node, not the wallet API', async () => {
+    // wallet API still reports the old nonce (target not yet consumed), but the
+    // custom RPC node has already advanced past it -> must be detected consumed.
+    const svc = makeService({
+      onChainNextNonce: 5,
+      rpcNextNonce: 6,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: true },
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: true, onChainNextNonce: 6 });
+    expect(svc.__mocks.fetchAccountDetailsByRpc).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetails).not.toHaveBeenCalled();
+  });
+
+  test('custom RPC enabled but useDefaultRpc=true → reads from the wallet API', async () => {
+    const svc = makeService({
+      onChainNextNonce: 5,
+      rpcNextNonce: 6,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: true },
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+      useDefaultRpc: true,
+    });
+    expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
+    expect(svc.__mocks.fetchAccountDetails).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+  });
+
+  test('custom RPC present but disabled → reads from the wallet API', async () => {
+    const svc = makeService({
+      onChainNextNonce: 5,
+      rpcNextNonce: 6,
+      customRpcInfo: { rpc: 'https://custom.rpc', enabled: false },
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: false, onChainNextNonce: 5 });
+    expect(svc.__mocks.fetchAccountDetails).toHaveBeenCalledTimes(1);
+    expect(svc.__mocks.fetchAccountDetailsByRpc).not.toHaveBeenCalled();
+  });
+
+  test('custom RPC lookup throws → falls back to wallet API (does not fail-open)', async () => {
+    const svc = makeService({
+      onChainNextNonce: 9,
+      getCustomRpcForNetwork: jest.fn().mockRejectedValue(new Error('boom')),
+    });
+    const result = await svc.precheckReplaceTxNonceConsumed({
+      accountId: 'hd-1--0',
+      networkId: 'evm--1',
+      targetNonce: 5,
+    });
+    expect(result).toEqual({ consumed: true, onChainNextNonce: 9 });
+    expect(svc.__mocks.fetchAccountDetails).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ServiceSend.isReplaceTxNonceAlreadyUsedServerError', () => {
@@ -176,5 +278,47 @@ describe('ServiceSend.isReplaceTxNonceAlreadyUsedServerError', () => {
   test('handles undefined / non-error inputs', () => {
     expect(svc.isReplaceTxNonceAlreadyUsedServerError(undefined)).toBe(false);
     expect(svc.isReplaceTxNonceAlreadyUsedServerError('boom')).toBe(false);
+  });
+});
+
+describe('ServiceSend.isReplaceTxNonceAlreadyUsedRpcError', () => {
+  const svc = makeService({});
+
+  test('matches genuine nonce-too-low RPC errors', () => {
+    expect(
+      svc.isReplaceTxNonceAlreadyUsedRpcError({
+        message: 'Error JSON RPC response: nonce too low',
+      }),
+    ).toBe(true);
+    expect(
+      svc.isReplaceTxNonceAlreadyUsedRpcError({
+        message: 'nonce is too low: next nonce 6, tx nonce 5',
+      }),
+    ).toBe(true);
+    expect(
+      svc.isReplaceTxNonceAlreadyUsedRpcError({ message: 'OldNonce' }),
+    ).toBe(true);
+  });
+
+  test('does NOT match replacement-underpriced (original tx still pending)', () => {
+    expect(
+      svc.isReplaceTxNonceAlreadyUsedRpcError({
+        message: 'replacement transaction underpriced',
+      }),
+    ).toBe(false);
+  });
+
+  test('does NOT match unrelated RPC errors', () => {
+    expect(
+      svc.isReplaceTxNonceAlreadyUsedRpcError({
+        message: 'insufficient funds for gas * price + value',
+      }),
+    ).toBe(false);
+  });
+
+  test('handles undefined / non-error inputs', () => {
+    expect(svc.isReplaceTxNonceAlreadyUsedRpcError(undefined)).toBe(false);
+    expect(svc.isReplaceTxNonceAlreadyUsedRpcError('boom')).toBe(false);
+    expect(svc.isReplaceTxNonceAlreadyUsedRpcError({})).toBe(false);
   });
 });

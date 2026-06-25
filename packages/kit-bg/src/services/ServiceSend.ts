@@ -648,6 +648,7 @@ class ServiceSend extends ServiceBase {
           accountId,
           networkId,
           targetNonce: replaceTargetNonce,
+          useDefaultRpc,
         });
         if (consumed) {
           await this.cleanupStaleReplaceTxAndThrow({
@@ -700,7 +701,8 @@ class ServiceSend extends ServiceBase {
           // surface a friendly message instead of the raw backend error.
           if (
             replaceTxInfo &&
-            this.isReplaceTxNonceAlreadyUsedServerError(error)
+            (this.isReplaceTxNonceAlreadyUsedServerError(error) ||
+              this.isReplaceTxNonceAlreadyUsedRpcError(error))
           ) {
             await this.cleanupStaleReplaceTxAndThrow({
               accountId,
@@ -860,7 +862,17 @@ class ServiceSend extends ServiceBase {
   // Re-validate a replace (speed up / cancel) tx's reused nonce against the
   // current on-chain nonce. Returns consumed=true when the target nonce has
   // already been used on-chain (original tx confirmed/replaced), meaning the
-  // replacement would be rejected by the backend (code 40024).
+  // replacement would be rejected (backend code 40024, or a custom RPC node's
+  // `nonce too low`).
+  //
+  // The nonce MUST be read from the same source the broadcast will use: when a
+  // custom RPC is enabled for a built-in network (and the user has not opted
+  // into the default RPC for this send), the tx is broadcast directly to that
+  // node, whose nonce view can diverge from the wallet API. Reading the wallet
+  // API nonce in that case could let the precheck pass while the node rejects
+  // the broadcast with a raw error the backend-40024 catch does not recognize,
+  // leaving the stale local pending uncleaned. Pass `useDefaultRpc` through so
+  // the precheck mirrors the broadcast's RPC choice.
   //
   // Fail-open: any error (or non-nonce chain) returns consumed=false so a flaky
   // pre-check never blocks a legitimate replace; the backend 40024 is the safety
@@ -871,10 +883,12 @@ class ServiceSend extends ServiceBase {
     accountId,
     networkId,
     targetNonce,
+    useDefaultRpc,
   }: {
     accountId: string;
     networkId: string;
     targetNonce: number;
+    useDefaultRpc?: boolean;
   }): Promise<{ consumed: boolean; onChainNextNonce?: number }> {
     try {
       if (isNil(targetNonce)) {
@@ -885,12 +899,11 @@ class ServiceSend extends ServiceBase {
       if (!nonceRequired) {
         return { consumed: false };
       }
-      const { nonce: onChainNextNonce } =
-        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
-          networkId,
-          accountId,
-          withNonce: true,
-        });
+      const onChainNextNonce = await this.fetchReplaceTxOnChainNextNonce({
+        accountId,
+        networkId,
+        useDefaultRpc,
+      });
       if (isNil(onChainNextNonce)) {
         return { consumed: false };
       }
@@ -903,11 +916,89 @@ class ServiceSend extends ServiceBase {
     }
   }
 
+  // Read the on-chain "next nonce" from the SAME source the broadcast will use
+  // (see precheckReplaceTxNonceConsumed). Custom RPC enabled on a built-in
+  // network -> read from that node so precheck and broadcast share one nonce
+  // view; otherwise fall back to the wallet API (which already routes fully
+  // custom networks to their RPC via vault.fetchAccountDetails). The custom-RPC
+  // detection is defensive: if it cannot be resolved, fall back to the wallet
+  // API rather than failing the whole precheck.
+  private async fetchReplaceTxOnChainNextNonce({
+    accountId,
+    networkId,
+    useDefaultRpc,
+  }: {
+    accountId: string;
+    networkId: string;
+    useDefaultRpc?: boolean;
+  }): Promise<number | undefined> {
+    let broadcastViaCustomRpc = false;
+    try {
+      const customRpcInfo =
+        await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+          networkId,
+        );
+      broadcastViaCustomRpc = Boolean(
+        customRpcInfo?.rpc && customRpcInfo?.enabled && !useDefaultRpc,
+      );
+    } catch {
+      broadcastViaCustomRpc = false;
+    }
+
+    if (broadcastViaCustomRpc) {
+      const vault = await vaultFactory.getVault({ networkId, accountId });
+      const accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+      const resp = await vault.fetchAccountDetailsByRpc({
+        accountId,
+        networkId,
+        accountAddress,
+        withNonce: true,
+      });
+      const rpcNonce = resp?.data?.data?.nonce;
+      return isNil(rpcNonce) ? undefined : rpcNonce;
+    }
+
+    const { nonce } =
+      await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+        networkId,
+        accountId,
+        withNonce: true,
+      });
+    return isNil(nonce) ? undefined : nonce;
+  }
+
   isReplaceTxNonceAlreadyUsedServerError(error: unknown): boolean {
     const e = error as { className?: string; code?: number } | undefined;
     return (
       e?.className === EOneKeyErrorClassNames.OneKeyServerApiError &&
       e?.code === SEND_TX_SERVER_ERROR_CODES.NONCE_ALREADY_USED
+    );
+  }
+
+  // Custom-RPC counterpart to isReplaceTxNonceAlreadyUsedServerError. When a tx
+  // is broadcast directly to a custom RPC node (built-in network with custom
+  // RPC enabled), an already-consumed replace nonce surfaces as a raw JSON-RPC
+  // error (`nonce too low`) rather than the backend 40024. Treat ONLY genuine
+  // nonce-consumed messages as the cleanup trigger.
+  //
+  // Deliberately excludes `replacement transaction underpriced`: that means the
+  // original tx is STILL pending and only the replacement fee was too low, so
+  // the local pending must NOT be cleaned up.
+  isReplaceTxNonceAlreadyUsedRpcError(error: unknown): boolean {
+    const message = (
+      (error as { message?: string } | undefined)?.message ?? ''
+    ).toLowerCase();
+    if (!message) {
+      return false;
+    }
+    return (
+      message.includes('nonce too low') ||
+      message.includes('nonce is too low') ||
+      message.includes('oldnonce')
     );
   }
 
