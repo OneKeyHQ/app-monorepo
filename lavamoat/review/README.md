@@ -28,15 +28,15 @@
 
 | 目标 | 说明 | Policy | 总资源 | 高风险资源 | 高风险条目 | 指向高风险资源的 package 边 |
 | --- | --- | --- | ---: | ---: | ---: | ---: |
-| `webpack/web` | Web production webpack bundle，apps/web 生产构建 | [policy](../webpack/web/policy.json) | 4816 | 244 | 450 | 868 |
-| `webpack/desktop-renderer` | Electron renderer production webpack bundle，Desktop 渲染进程生产构建 | [policy](../webpack/desktop-renderer/policy.json) | 4659 | 243 | 470 | 872 |
+| `webpack/web` | Web production webpack bundle，apps/web 生产构建 | [policy](../webpack/web/policy.json) | 4815 | 245 | 450 | 878 |
+| `webpack/desktop-renderer` | Electron renderer production webpack bundle，Desktop 渲染进程生产构建 | [policy](../webpack/desktop-renderer/policy.json) | 4658 | 244 | 470 | 882 |
 
 ## 高风险分类统计
 
 | 目标 | network | storage/privacy | extension/desktop bridge | hardware/device | crypto/random | code execution | DOM/navigation | Node system |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `webpack/web` | 73/91 | 42/72 | 10/32 | 5/6 | 74/78 | 20/30 | 89/141 | 0/0 |
-| `webpack/desktop-renderer` | 74/92 | 40/66 | 11/53 | 6/7 | 74/78 | 20/30 | 89/144 | 0/0 |
+| `webpack/web` | 73/90 | 42/72 | 10/32 | 5/6 | 75/79 | 20/30 | 89/141 | 0/0 |
+| `webpack/desktop-renderer` | 74/91 | 40/66 | 11/53 | 6/7 | 75/79 | 20/30 | 89/144 | 0/0 |
 
 ## 高风险分类说明
 

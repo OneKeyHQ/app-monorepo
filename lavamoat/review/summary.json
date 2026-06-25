@@ -4,15 +4,15 @@
       "sourcePolicy": "lavamoat/webpack/web/policy.json",
       "sourceOverride": "lavamoat/webpack/web/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4816,
-      "generatedResources": 4816,
-      "highRiskResources": 244,
+      "totalResources": 4815,
+      "generatedResources": 4815,
+      "highRiskResources": 245,
       "highRiskEntries": 450,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
           "resources": 73,
-          "entries": 91
+          "entries": 90
         },
         "storage-privacy": {
           "resources": 42,
@@ -27,8 +27,8 @@
           "entries": 6
         },
         "crypto-random": {
-          "resources": 74,
-          "entries": 78
+          "resources": 75,
+          "entries": 79
         },
         "code-execution": {
           "resources": 20,
@@ -43,21 +43,21 @@
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 868
+      "packageEdgesToRiskyResources": 878
     },
     {
       "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
       "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4659,
-      "generatedResources": 4659,
-      "highRiskResources": 243,
+      "totalResources": 4658,
+      "generatedResources": 4658,
+      "highRiskResources": 244,
       "highRiskEntries": 470,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
           "resources": 74,
-          "entries": 92
+          "entries": 91
         },
         "storage-privacy": {
           "resources": 40,
@@ -72,8 +72,8 @@
           "entries": 7
         },
         "crypto-random": {
-          "resources": 74,
-          "entries": 78
+          "resources": 75,
+          "entries": 79
         },
         "code-execution": {
           "resources": 20,
@@ -88,7 +88,7 @@
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 872
+      "packageEdgesToRiskyResources": 882
     }
   ],
   "totalPolicies": 2
