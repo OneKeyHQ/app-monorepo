@@ -34,9 +34,9 @@ const dragZoneStyle = {
 //        - `no-drag` holes covering the clickable controls inside it.
 //      All overlays are body-level, position:fixed, opacity:0,
 //      pointer-events:none.
-//   3. On resize / scroll / aria-hidden (tab, modal) / DOM mutations the
-//      overlays are cleared, recomputed and re-attached (debounced, with a
-//      max-wait guard).
+//   3. On resize / DPI change / aria-hidden (tab, modal) flips and zone
+//      mount/unmount the overlays are cleared, recomputed and re-attached
+//      (debounced, with a max-wait guard).
 //   Fresh overlays => never stale; invisible => no flicker; one central place
 //   => replaces (and removes) the previous per-instance ghost-mirror.
 // =============================================================================
@@ -45,9 +45,10 @@ const MARKER_CLASS = 'app-region-drag';
 const SYN_ATTR = 'data-onekey-syn-region';
 const NEUTRALIZE_STYLE_ID = 'onekey-drag-region-neutralize';
 const RECOMPUTE_DEBOUNCE = 200;
-// Continuous DOM activity (list scrolling, animations, …) keeps resetting the
-// debounce timer. MAX_WAIT guarantees a recompute fires at least this often so
-// the draggable region is never starved while the page keeps churning.
+// A continuous stream of triggers (e.g. live window resizing fires `resize`
+// rapidly) keeps resetting the debounce timer. MAX_WAIT guarantees a recompute
+// fires at least this often so the draggable region is never starved while the
+// events keep coming.
 const RECOMPUTE_MAX_WAIT = 600;
 
 // Descendants of a drag zone that must stay clickable → punched as no-drag holes.
