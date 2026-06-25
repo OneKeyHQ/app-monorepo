@@ -437,7 +437,8 @@
     "worker-loader": "^3.0.8",
     "worker-rspack-loader": "3.1.5",
     "yaml": "^2.8.0",
-    "@lavamoat/webpack": "2.2.3"
+    "@lavamoat/webpack": "2.2.3",
+    "lavamoat-core": "18.0.4"
   },
   "resolutions": {
     "react-native-nitro-modules": "0.37.0",
