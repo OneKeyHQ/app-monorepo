@@ -4,7 +4,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EDeFiAssetType,
-  type IDeFiAsset,
   type IDeFiProtocol,
   type IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
@@ -169,7 +168,7 @@ export type IProtocolPositionSection = {
   assetType: IProtocolPositionSectionAssetType;
   title: string;
   titleId?: ETranslations;
-  assets: IDeFiAsset[];
+  assets: IProtocolPositionSourceAsset[];
 };
 
 export type IProtocolPositionItem = {
@@ -183,6 +182,7 @@ export type IProtocolPositionItem = {
   poolFullName?: string;
   value: string;
   sections: IProtocolPositionSection[];
+  sourcePositions?: IDeFiProtocol['positions'][number]['sourcePositions'];
 };
 
 export type ILocalizedProtocolPositionSection = Omit<
@@ -281,13 +281,15 @@ function getProtocolPositionSectionKey(
 }
 
 function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
-  const groupedAssets: Record<IProtocolPositionSectionAssetType, IDeFiAsset[]> =
-    {
-      supplied: [],
-      borrowed: [],
-      rewards: [],
-      other: [],
-    };
+  const groupedAssets: Record<
+    IProtocolPositionSectionAssetType,
+    IProtocolPositionSourceAsset[]
+  > = {
+    supplied: [],
+    borrowed: [],
+    rewards: [],
+    other: [],
+  };
 
   [...position.assets, ...position.debts, ...position.rewards].forEach(
     (asset) => {
@@ -324,6 +326,7 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
       poolFullName: position.poolFullName,
       value: position.value,
       sections,
+      sourcePositions: position.sourcePositions,
     };
   });
 }
@@ -382,16 +385,19 @@ export type IProtocolUnifiedPositionDisplay =
 
 export type IProtocolUnifiedRow = {
   rowKey: string;
+  groupId: string;
+  category: string;
+  sourcePositions?: IDeFiProtocol['positions'][number]['sourcePositions'];
   positionDisplay: IProtocolUnifiedPositionDisplay;
   // Drives the Supplied/Balance/USD columns. Equals the supplied bucket when
   // the position has supplied assets; for rewards-only positions (e.g. a
   // protocol whose category=='rewards' has no supplied bucket at all) this
   // falls back to the rewards bucket so the row isn't empty.
-  primaryAssets: IDeFiAsset[];
+  primaryAssets: IProtocolPositionSourceAsset[];
   // Only populated when the position has BOTH supplied and rewards. The
   // dedicated Rewards column is hidden across the whole table when no row
   // contributes to it.
-  rewardsExtraAssets: IDeFiAsset[];
+  rewardsExtraAssets: IProtocolPositionSourceAsset[];
 };
 
 // One badge per group, one block per group. A category that mixes clean
@@ -457,9 +463,13 @@ function buildUnifiedRowsFromPositions(
   // groupId so they only ever merge with themselves.
   type IUnifiedRowBucket = {
     poolName?: string;
-    suppliedAssets: IDeFiAsset[];
-    rewardsAssets: IDeFiAsset[];
+    suppliedAssets: IProtocolPositionSourceAsset[];
+    rewardsAssets: IProtocolPositionSourceAsset[];
     firstGroupId: string;
+    category: string;
+    sourcePositions: NonNullable<
+      IDeFiProtocol['positions'][number]['sourcePositions']
+    >;
   };
   const orderedKeys: string[] = [];
   const buckets = new Map<string, IUnifiedRowBucket>();
@@ -479,10 +489,13 @@ function buildUnifiedRowsFromPositions(
         suppliedAssets: [],
         rewardsAssets: [],
         firstGroupId: position.groupId,
+        category: position.category,
+        sourcePositions: [],
       };
       buckets.set(bucketKey, bucket);
       orderedKeys.push(bucketKey);
     }
+    bucket.sourcePositions.push(...(position.sourcePositions ?? []));
     for (const section of position.sections) {
       if (section.assetType === 'supplied' || section.assetType === 'other') {
         // 'other' is rare and folds into supplied so it still surfaces in
@@ -545,6 +558,9 @@ function buildUnifiedRowsFromPositions(
 
     return {
       rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
+      groupId: bucket.firstGroupId,
+      category: bucket.category,
+      sourcePositions: bucket.sourcePositions,
       positionDisplay,
       primaryAssets,
       rewardsExtraAssets,

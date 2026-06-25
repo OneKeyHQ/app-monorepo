@@ -142,6 +142,7 @@ export const BorrowNavigation = {
     navigation: IAppNavigation,
     params: {
       accountId: string;
+      indexedAccountId?: string;
       networkId: string;
       provider: string;
       marketAddress: string;
@@ -156,6 +157,7 @@ export const BorrowNavigation = {
       screen: EModalStakingRoutes.BorrowManagePosition,
       params: {
         accountId: params.accountId,
+        indexedAccountId: params.indexedAccountId,
         networkId: params.networkId,
         provider: params.provider,
         marketAddress: params.marketAddress,

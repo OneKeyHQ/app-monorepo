@@ -46,6 +46,7 @@ import {
   useSwapSelectTokenNetworkAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapStockExecutionTokenSyncIdAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -79,6 +80,8 @@ export function useSwapQuote() {
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+  const [swapStockExecutionTokenSyncId] =
+    useSwapStockExecutionTokenSyncIdAtom();
   const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
@@ -448,6 +451,7 @@ export function useSwapQuote() {
     fromToken?.contractAddress,
     toToken?.networkId,
     toToken?.contractAddress,
+    swapStockExecutionTokenSyncId,
     alignmentDecimal,
     fromAmountDebounce,
     shouldPauseQuote,

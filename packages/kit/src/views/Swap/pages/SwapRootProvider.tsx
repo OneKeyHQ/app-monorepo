@@ -37,7 +37,7 @@ import { getVisibleSwapTabSwitchType } from '../utils/swapTypeUtils';
 
 type ISwapContextStore = ReturnType<typeof useJotaiContextRootStore>;
 
-export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
+export function hydrateSwapDefaultTokensFromGlobalHomeSnapshot(
   store: ISwapContextStore,
 ) {
   const hasSelectedTokens = Boolean(
@@ -48,7 +48,6 @@ export function hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(
   }
 
   const defaultTokens = getSwapDefaultSelectedTokensFromGlobalHomeSnapshot({
-    allNetworksOnly: true,
     swapType: store.get(swapTypeSwitchAtom()),
   });
   if (!defaultTokens) {
@@ -220,10 +219,10 @@ export function useSwapContextStoreInitData(
 export const SwapRootProvider = memo(() => {
   const data = useSwapContextStoreInitData(EJotaiContextStoreNames.swap);
   const store = useJotaiContextRootStore(data);
-  const hasHydratedAllNetworkDefaultsRef = useRef(false);
-  if (!hasHydratedAllNetworkDefaultsRef.current) {
-    hasHydratedAllNetworkDefaultsRef.current = true;
-    hydrateSwapAllNetworkDefaultTokensFromGlobalHomeSnapshot(store);
+  const hasHydratedDefaultsRef = useRef(false);
+  if (!hasHydratedDefaultsRef.current) {
+    hasHydratedDefaultsRef.current = true;
+    hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);
   }
   return (
     <ProviderJotaiContextSwap store={store}>

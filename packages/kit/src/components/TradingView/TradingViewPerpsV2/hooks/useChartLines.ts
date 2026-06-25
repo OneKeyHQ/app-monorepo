@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import {
-  useActiveTradeInstrumentAtom,
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAccountScopedActivePositions } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedOpenOrdersByCoin } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedOpenOrdersByCoin';
 import {
   usePerpsCustomSettingsAtom,
   useSpotActiveOpenOrdersAtom,
@@ -133,10 +131,8 @@ export function useChartLines({
   isReady,
 }: IUseChartLinesParams): IUseChartLinesReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const [{ activePositions, accountAddress: positionsAccountAddress }] =
-    usePerpsActivePositionAtom();
-  const [{ openOrdersByCoin, accountAddress: ordersAccountAddress }] =
-    usePerpsActiveOpenOrdersAtom();
+  const perpsPositions = usePerpsAccountScopedActivePositions();
+  const perpsOpenOrders = usePerpsAccountScopedOpenOrdersByCoin(symbol);
   const [
     { openOrders: spotOpenOrders, accountAddress: spotOrdersAccountAddress },
   ] = useSpotActiveOpenOrdersAtom();
@@ -177,15 +173,12 @@ export function useChartLines({
   }, []);
 
   const currentPositions = useMemo(() => {
-    if (
-      !normalizedUserAddress ||
-      normalizeAddress(positionsAccountAddress) !== normalizedUserAddress
-    ) {
+    if (!normalizedUserAddress) {
       return [];
     }
 
-    return activePositions;
-  }, [activePositions, normalizedUserAddress, positionsAccountAddress]);
+    return perpsPositions;
+  }, [normalizedUserAddress, perpsPositions]);
 
   // Get orders for current symbol
   const currentOrders = useMemo(() => {
@@ -202,16 +195,11 @@ export function useChartLines({
       return spotOpenOrders.filter((order) => order.coin === symbol);
     }
 
-    if (normalizeAddress(ordersAccountAddress) !== normalizedUserAddress) {
-      return [];
-    }
-
-    return openOrdersByCoin[symbol] || [];
+    return perpsOpenOrders;
   }, [
     activeTradeInstrument.mode,
     normalizedUserAddress,
-    openOrdersByCoin,
-    ordersAccountAddress,
+    perpsOpenOrders,
     spotOpenOrders,
     spotOrdersAccountAddress,
     symbol,

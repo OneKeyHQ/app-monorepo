@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { Page, SearchBar, Stack } from '@onekeyhq/components';
@@ -27,11 +28,25 @@ import { TOKEN_SELECTOR_POLLING_INTERVAL } from './constants';
 import { navigateToMarketTokenDetail } from './navigateToMarketTokenDetail';
 import { useLiveTokenOverride } from './useLiveTokenOverride';
 
+function normalizeRouteBooleanParam(value: boolean | string | undefined) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value;
+}
+
 function MobileTokenSelectorContent() {
   const intl = useIntl();
+  const route = useRoute();
   const navigation = useAppNavigation();
   const tokenDetailActions = useTokenDetailActions();
   const { navigateToPerps } = usePerpsNavigation();
+  const routeParams = route.params as
+    | { showFavoriteButton?: boolean | string }
+    | undefined;
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    routeParams?.showFavoriteButton,
+  );
 
   const [selectorConfig, setSelectorConfig] =
     useMarketTokenSelectorConfigAtom();
@@ -85,9 +100,10 @@ function MobileTokenSelectorContent() {
       navigateToMarketTokenDetail(token, {
         tokenDetailActions,
         beforeNavigate: () => navigation.popStack(),
+        showFavoriteButton,
       });
     },
-    [tokenDetailActions, navigation, navigateToPerps],
+    [tokenDetailActions, navigation, navigateToPerps, showFavoriteButton],
   );
 
   const handleTokenSelect = useCallback(

@@ -13,6 +13,7 @@ import { keylessOnboardingCache } from '../../components/KeylessWallet/useKeyles
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
 import { ActionCenterRouter } from '../../views/ActionCenter/router';
 import { ModalAddressBookRouter } from '../../views/AddressBook/router';
+import { AddressRiskCheckModalRouter } from '../../views/AddressRiskCheck/router';
 import { ModalApprovalManagementStack } from '../../views/ApprovalManagement/router';
 import { AppUpdateRouter } from '../../views/AppUpdate/router';
 import { AssetSelectorRouter } from '../../views/AssetSelector/router';
@@ -230,6 +231,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.NetworkDoctorModal,
     children: NetworkDoctorModalRouter,
+  },
+  {
+    name: EModalRoutes.AddressRiskCheckModal,
+    children: AddressRiskCheckModalRouter,
   },
 ];
 

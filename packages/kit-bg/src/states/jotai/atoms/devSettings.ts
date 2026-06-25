@@ -92,6 +92,8 @@ export interface IDevSettings {
   forceIpTableStrict?: boolean;
   // Enable mock market banner data for UI testing
   enableMockMarketBanner?: boolean;
+  // Show DeFi action buttons that are protocol-supported but not currently actionable
+  showUnavailableDeFiActionButtons?: boolean;
   // Test accounts for OneKey ID login testing
   testAccounts?: ITestAccount[];
   // Ignore server bundle update info (prevents rollback when dev-switching bundles)
@@ -152,6 +154,7 @@ export const {
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
       disableIpTableInProd: false, // IP Table enabled by default
       forceIpTableStrict: false, // Strict mode: disabled by default
+      showUnavailableDeFiActionButtons: false,
       useFastPbkdf2NativeBackend: false,
     },
   },

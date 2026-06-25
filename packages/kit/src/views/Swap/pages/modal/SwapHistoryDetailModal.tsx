@@ -80,6 +80,7 @@ import {
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
+import { getSwapTokenDisplayPrice } from '../../utils/swapDisplayFiatValue';
 import {
   getSwapCrossChainStatusTextProps,
   getSwapHistoryStatusTextProps,
@@ -96,6 +97,15 @@ type ISwapHistoryDetailAssetItem = {
   isNative: boolean;
   price?: string;
   amount?: string;
+};
+
+type ISwapHistoryDisplayToken = {
+  name?: string;
+  symbol?: string;
+  logoURI?: string;
+  isNative?: boolean;
+  price?: string;
+  currency?: string;
 };
 
 type IPrivateSendDisplayPriceTarget = {
@@ -673,6 +683,92 @@ function convertPrivateSendTokenDisplayPrice({
   });
 }
 
+function getSwapHistoryCurrencyIdFromSymbol({
+  currencyMap,
+  currencySymbol,
+}: {
+  currencyMap: Record<string, ICurrencyItem>;
+  currencySymbol?: string;
+}) {
+  if (!currencySymbol) {
+    return undefined;
+  }
+
+  const matchedCurrency = Object.values(currencyMap).find(
+    (item) => item.id === currencySymbol || item.unit === currencySymbol,
+  );
+  return matchedCurrency?.id;
+}
+
+function getSwapHistorySourceCurrencyId({
+  currencyMap,
+  fallbackCurrencyId,
+  item,
+}: {
+  currencyMap: Record<string, ICurrencyItem>;
+  fallbackCurrencyId: string;
+  item?: ISwapTxHistory;
+}) {
+  return (
+    item?.currencyId ??
+    getSwapHistoryCurrencyIdFromSymbol({
+      currencyMap,
+      currencySymbol: item?.currency,
+    }) ??
+    fallbackCurrencyId
+  );
+}
+
+function convertSwapHistoryFiatValue({
+  currencyMap,
+  sourceCurrency,
+  targetCurrency,
+  value,
+}: {
+  currencyMap: Record<string, ICurrencyItem>;
+  sourceCurrency?: string;
+  targetCurrency: string;
+  value?: BigNumber.Value;
+}) {
+  const valueBN = new BigNumber(value ?? '');
+  if (!valueBN.isFinite()) {
+    return undefined;
+  }
+
+  return convertFiat({
+    value: valueBN.toFixed(),
+    sourceCurrency: sourceCurrency ?? targetCurrency,
+    targetCurrency,
+    currencyMap,
+  });
+}
+
+function buildSwapHistoryAsset({
+  currencyMap,
+  sourceCurrency,
+  targetCurrency,
+  token,
+}: {
+  currencyMap: Record<string, ICurrencyItem>;
+  sourceCurrency?: string;
+  targetCurrency: string;
+  token?: ISwapHistoryDisplayToken;
+}): ISwapHistoryDetailAssetItem {
+  return {
+    name: token?.name ?? '',
+    symbol: token?.symbol ?? '',
+    icon: token?.logoURI ?? '',
+    isNFT: false,
+    isNative: !!token?.isNative,
+    price: getSwapTokenDisplayPrice({
+      currencyMap,
+      sourceCurrency,
+      targetCurrency,
+      token,
+    }),
+  };
+}
+
 async function fetchPrivateSendTokenDisplayPriceMap({
   item,
   targetCurrency,
@@ -968,9 +1064,16 @@ const SwapHistoryDetailModal = () => {
   );
   const displayCurrencyId = settingsPersistAtom.currencyInfo.id;
   const currentCurrencySymbol = settingsPersistAtom.currencyInfo.symbol;
-  const displayCurrencySymbol = isPrivateSendHistory
-    ? currentCurrencySymbol
-    : (txHistory?.currency ?? currentCurrencySymbol);
+  const displayCurrencySymbol = currentCurrencySymbol;
+  const historySourceCurrencyId = useMemo(
+    () =>
+      getSwapHistorySourceCurrencyId({
+        currencyMap,
+        fallbackCurrencyId: displayCurrencyId,
+        item: txHistory,
+      }),
+    [currencyMap, displayCurrencyId, txHistory],
+  );
   const { result: privateSendTokenDisplayPriceMap } =
     usePromiseResult(async () => {
       if (!txHistory || !isPrivateSendHistory) {
@@ -990,23 +1093,19 @@ const SwapHistoryDetailModal = () => {
   }, []);
 
   const renderSwapAssetsChange = useCallback(() => {
-    const fromAsset = {
-      name: txHistory?.baseInfo.fromToken.name ?? '',
-      symbol: txHistory?.baseInfo.fromToken.symbol ?? '',
-      icon: txHistory?.baseInfo.fromToken.logoURI ?? '',
-      isNFT: false,
-      isNative: !!txHistory?.baseInfo.fromToken.isNative,
-      price: txHistory?.baseInfo.fromToken?.price ?? '0',
-    };
+    const fromAsset = buildSwapHistoryAsset({
+      currencyMap,
+      sourceCurrency: historySourceCurrencyId,
+      targetCurrency: displayCurrencyId,
+      token: txHistory?.baseInfo.fromToken,
+    });
 
-    const toAsset = {
-      name: txHistory?.baseInfo.toToken.name ?? '',
-      symbol: txHistory?.baseInfo.toToken.symbol ?? '',
-      icon: txHistory?.baseInfo.toToken.logoURI ?? '',
-      isNFT: false,
-      isNative: !!txHistory?.baseInfo.toToken.isNative,
-      price: txHistory?.baseInfo.toToken?.price ?? '0',
-    };
+    const toAsset = buildSwapHistoryAsset({
+      currencyMap,
+      sourceCurrency: historySourceCurrencyId,
+      targetCurrency: displayCurrencyId,
+      token: txHistory?.baseInfo.toToken,
+    });
     let fromTokenAmount = txHistory?.baseInfo.fromAmount;
     let otherAsset: ISwapHistoryDetailAssetItem[] = [];
     if (txHistory?.swapInfo.otherFeeInfos?.length) {
@@ -1023,12 +1122,12 @@ const SwapHistoryDetailModal = () => {
           otherAsset = [
             ...otherAsset,
             {
-              name: item.token?.name ?? '',
-              symbol: item.token?.symbol ?? '',
-              icon: item.token?.logoURI ?? '',
-              isNFT: false,
-              isNative: !!item.token?.isNative,
-              price: item.token?.price ?? '0',
+              ...buildSwapHistoryAsset({
+                currencyMap,
+                sourceCurrency: historySourceCurrencyId,
+                targetCurrency: displayCurrencyId,
+                token: item.token,
+              }),
               amount: item.amount,
             },
           ];
@@ -1150,7 +1249,10 @@ const SwapHistoryDetailModal = () => {
       </>
     );
   }, [
+    currencyMap,
+    displayCurrencyId,
     displayCurrencySymbol,
+    historySourceCurrencyId,
     isPrivateSendHistory,
     privateSendTokenDisplayPriceMap,
     txHistory,
@@ -1392,7 +1494,12 @@ const SwapHistoryDetailModal = () => {
     }
     const finalGasFeeFiatValue = isPrivateSendHistory
       ? privateSendGasFeeFiatValue
-      : gasFeeFiatValue;
+      : convertSwapHistoryFiatValue({
+          currencyMap,
+          sourceCurrency: historySourceCurrencyId,
+          targetCurrency: displayCurrencyId,
+          value: gasFeeFiatValue,
+        });
     const finalGasFeeFiatValueBN = new BigNumber(finalGasFeeFiatValue ?? '');
     const shouldRenderGasFeeFiatValue =
       !finalGasFeeFiatValueBN.isNaN() && finalGasFeeFiatValueBN.isFinite();
@@ -1420,7 +1527,10 @@ const SwapHistoryDetailModal = () => {
       </SizableText>
     );
   }, [
+    currencyMap,
+    displayCurrencyId,
     displayCurrencySymbol,
+    historySourceCurrencyId,
     isPrivateSendHistory,
     privateSendTokenDisplayPriceMap,
     txHistory,
@@ -1477,6 +1587,13 @@ const SwapHistoryDetailModal = () => {
     if (isNil(protocolFee)) {
       return null;
     }
+    const displayProtocolFee =
+      convertSwapHistoryFiatValue({
+        currencyMap,
+        sourceCurrency: historySourceCurrencyId,
+        targetCurrency: displayCurrencyId,
+        value: protocolFee,
+      }) ?? protocolFee.toString();
 
     return (
       <NumberSizeableText
@@ -1487,11 +1604,14 @@ const SwapHistoryDetailModal = () => {
           currency: displayCurrencySymbol,
         }}
       >
-        {protocolFee.toString()}
+        {displayProtocolFee}
       </NumberSizeableText>
     );
   }, [
+    currencyMap,
+    displayCurrencyId,
     displayCurrencySymbol,
+    historySourceCurrencyId,
     txHistory?.swapInfo.otherFeeInfos,
     txHistory?.swapInfo.protocolFee,
   ]);

@@ -28,6 +28,16 @@ import { BtcMetadataProvider, useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
+function normalizeRouteBooleanParam(
+  value: boolean | string | undefined,
+  defaultValue: boolean,
+) {
+  if (typeof value === 'string') {
+    return value === 'true';
+  }
+  return value ?? defaultValue;
+}
+
 function MarketDetail({
   route,
 }: IPageScreenProps<
@@ -41,6 +51,10 @@ function MarketDetail({
   const network = params.network;
   const isNative = params.isNative;
   const disableTrade = params.disableTrade;
+  const showFavoriteButton = normalizeRouteBooleanParam(
+    params.showFavoriteButton,
+    true,
+  );
   // For MarketNativeDetail route, tokenAddress is undefined, use empty string
   const tokenAddress = 'tokenAddress' in params ? params.tokenAddress : '';
 
@@ -48,8 +62,7 @@ function MarketDetail({
   // network is a shortcode like 'bsc', convert it to 'evm--56'
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
-  const isNativeBoolean =
-    typeof isNative === 'string' ? isNative === 'true' : (isNative ?? false);
+  const isNativeBoolean = normalizeRouteBooleanParam(isNative, false);
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -78,11 +91,11 @@ function MarketDetail({
   return (
     <BtcMetadataProvider>
       <Page>
-        <MarketDetailHeader />
+        <MarketDetailHeader showFavoriteButton={showFavoriteButton} />
 
         <Page.Body pt={bodyPaddingTop} testID={MarketTestIDs.detailPage}>
           {media.gtLg && !platformEnv.isNative ? (
-            <DesktopLayout />
+            <DesktopLayout showFavoriteButton={showFavoriteButton} />
           ) : (
             <MobileLayout disableTrade={disableTrade} />
           )}

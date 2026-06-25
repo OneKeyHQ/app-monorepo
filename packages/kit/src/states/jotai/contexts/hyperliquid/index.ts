@@ -13,7 +13,6 @@ export {
   usePerpsActiveTwapOrdersLengthAtom,
   usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
-  usePerpsOpenOrdersByCoin,
   useActiveTradeInstrumentAtom,
   useTradeRouteViewStateAtom,
   useTradingFormAtom,

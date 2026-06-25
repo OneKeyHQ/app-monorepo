@@ -23,6 +23,7 @@ import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/acco
 import {
   type IBBOPriceMode,
   type ITradingFormData,
+  useActiveTradeInstrumentAtom,
   useBboForOrderPrice,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -38,6 +39,11 @@ import {
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSpotActiveAssetAtom,
+  useSpotActiveAssetCtxReadyAtom,
+  useSpotBalancesAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,6 +58,7 @@ import {
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
+  getSpotTokenDisplayName,
   parseDexCoin,
   resolveTradingSizeBN,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -87,6 +94,7 @@ import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
 interface ILimitOrderFormProps {
   symbol: string;
   seededPrice: string;
+  displayCoin?: string;
   onClose: () => void;
 }
 
@@ -121,6 +129,7 @@ function getPerpsAccountActionType({
 export function LimitOrderForm({
   symbol,
   seededPrice,
+  displayCoin,
   onClose,
 }: ILimitOrderFormProps) {
   const intl = useIntl();
@@ -146,15 +155,23 @@ export function LimitOrderForm({
     useRequestEnableTradingWithDepositFallback();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
 
-  // The form reads the live active asset, but `symbol` is the coin snapshotted
-  // when the ticket opened. A programmatic active-asset switch (chart
-  // SYMBOL_CHANGE, navigation, background refresh) the modal can't block would
-  // otherwise let us submit against the wrong coin, so close on any drift.
+  // Spot has its own asset/balance atoms; perpsActiveAssetAtom is stale-perp
+  // when the active instrument is spot.
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const isSpot = activeTradeInstrument.mode === 'spot';
+  const [spotActiveAsset] = useSpotActiveAssetAtom();
+  const [isSpotActiveAssetCtxReady] = useSpotActiveAssetCtxReadyAtom();
+  const [{ balances: spotBalances }] = useSpotBalancesAtom();
+  const spotUniverse = isSpot ? spotActiveAsset?.universe : undefined;
+
+  // Close on coin drift. activeTradeInstrument.coin tracks the live instrument
+  // for BOTH spot and perp; perpsActiveAssetAtom.coin is stale-perp on spot and
+  // would always mismatch a spot symbol.
   useEffect(() => {
-    if (activeAsset?.coin && activeAsset.coin !== symbol) {
+    if (activeTradeInstrument?.coin && activeTradeInstrument.coin !== symbol) {
       onClose();
     }
-  }, [activeAsset?.coin, symbol, onClose]);
+  }, [activeTradeInstrument?.coin, symbol, onClose]);
 
   // All form state is local; this never writes tradingFormAtom (the main panel's).
   const [side, setSide] = useState<ITradeSide>('long');
@@ -177,16 +194,52 @@ export function LimitOrderForm({
 
   const isBBOActive = Boolean(bboPriceMode);
 
-  const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
+  const szDecimals = isSpot
+    ? (spotUniverse?.baseSzDecimals ?? 2)
+    : (activeAsset?.universe?.szDecimals ?? 2);
   const leverage = useMemo(
     () =>
-      getPositiveFiniteNumber(activeAssetData?.leverage?.value) ??
-      getPositiveFiniteNumber(activeAsset?.universe?.maxLeverage) ??
-      1,
-    [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage],
+      isSpot
+        ? 1
+        : (getPositiveFiniteNumber(activeAssetData?.leverage?.value) ??
+          getPositiveFiniteNumber(activeAsset?.universe?.maxLeverage) ??
+          1),
+    [
+      isSpot,
+      activeAssetData?.leverage?.value,
+      activeAsset?.universe?.maxLeverage,
+    ],
   );
 
-  const displayName = useMemo(() => parseDexCoin(symbol).displayName, [symbol]);
+  // Spot reuses the perps SizeInput via an asset shaped like IPerpsActiveAssetAtom
+  // (spot universe + base szDecimals), mirroring the main trading panel.
+  const selectedTradeAsset = useMemo(
+    () =>
+      isSpot
+        ? ({
+            coin: spotActiveAsset?.coin ?? activeTradeInstrument.coin,
+            assetId: spotActiveAsset?.assetId,
+            universe: { ...spotUniverse, szDecimals },
+          } as typeof activeAsset)
+        : activeAsset,
+    [
+      activeAsset,
+      activeTradeInstrument.coin,
+      isSpot,
+      spotActiveAsset?.assetId,
+      spotActiveAsset?.coin,
+      spotUniverse,
+      szDecimals,
+    ],
+  );
+
+  const displayName = useMemo(
+    () =>
+      isSpot && spotUniverse?.baseName
+        ? getSpotTokenDisplayName(spotUniverse.baseName)
+        : (displayCoin ?? parseDexCoin(symbol).displayName),
+    [displayCoin, isSpot, spotUniverse?.baseName, symbol],
+  );
 
   // Track BBO + mid in refs so the side-button press handlers can resolve the
   // concrete price without depending on the latest render closure.
@@ -219,21 +272,74 @@ export function LimitOrderForm({
     ? referencePriceBN.toFixed()
     : '';
 
+  // Spot available balances (total minus on-hold), mirroring PerpTradingForm.
+  const spotAvailableBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    return balance
+      ? BigNumber.max(new BigNumber(balance.total).minus(balance.hold ?? 0), 0)
+      : new BigNumber(0);
+  }, [spotBalances, spotUniverse?.baseName]);
+
+  const spotAvailableQuoteBN = useMemo(() => {
+    if (!spotUniverse?.quoteName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.quoteName,
+    );
+    return balance
+      ? BigNumber.max(new BigNumber(balance.total).minus(balance.hold ?? 0), 0)
+      : new BigNumber(0);
+  }, [spotBalances, spotUniverse?.quoteName]);
+
+  // [buyMax, sellMax] in base-token units: buy is bounded by quote balance / price,
+  // sell by the base-token balance.
+  const computeSpotMaxTradeSzs = useCallback(
+    (refPrice: BigNumber): [string, string] => {
+      const effectivePriceBN =
+        refPrice.isFinite() && refPrice.gt(0) ? refPrice : midPriceBN;
+      const buyMax = effectivePriceBN.gt(0)
+        ? spotAvailableQuoteBN.dividedBy(effectivePriceBN)
+        : new BigNumber(0);
+      return [
+        buyMax.decimalPlaces(szDecimals, BigNumber.ROUND_FLOOR).toFixed(),
+        spotAvailableBaseBN
+          .decimalPlaces(szDecimals, BigNumber.ROUND_FLOOR)
+          .toFixed(),
+      ];
+    },
+    [midPriceBN, spotAvailableBaseBN, spotAvailableQuoteBN, szDecimals],
+  );
+
   const computeSizeBN = useCallback(
-    (forSide: ITradeSide, refPrice: BigNumber) =>
-      resolveTradingSizeBN({
+    (forSide: ITradeSide, refPrice: BigNumber) => {
+      const refPriceStr = refPrice.gt(0) ? refPrice.toFixed() : '';
+      return resolveTradingSizeBN({
         sizeInputMode,
         manualSize: size,
         sizePercent,
         side: forSide,
-        price: refPrice.gt(0) ? refPrice.toFixed() : '',
-        markPrice: activeAssetCtx?.ctx?.markPrice,
-        maxTradeSzs: activeAssetData?.maxTradeSzs,
-        leverageValue: activeAssetData?.leverage?.value,
-        fallbackLeverage: activeAsset?.universe?.maxLeverage,
+        price: refPriceStr,
+        markPrice: isSpot
+          ? refPriceStr || midPrice
+          : activeAssetCtx?.ctx?.markPrice,
+        maxTradeSzs: isSpot
+          ? computeSpotMaxTradeSzs(refPrice)
+          : activeAssetData?.maxTradeSzs,
+        leverageValue: isSpot ? 1 : activeAssetData?.leverage?.value,
+        fallbackLeverage: isSpot ? 1 : activeAsset?.universe?.maxLeverage,
         szDecimals,
-      }),
+      });
+    },
     [
+      isSpot,
+      computeSpotMaxTradeSzs,
+      midPrice,
       activeAsset?.universe?.maxLeverage,
       activeAssetCtx?.ctx?.markPrice,
       activeAssetData?.leverage?.value,
@@ -254,6 +360,13 @@ export function LimitOrderForm({
   );
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
+      if (isSpot) {
+        return {
+          liquidationPriceBN: null,
+          marginRequiredBN: new BigNumber(0),
+        };
+      }
+
       const sidePriceBN = resolvePriceForSide(targetSide).price;
       const sideSizeBN = computeSizeBN(targetSide, sidePriceBN);
       const sideMarginRequiredBN =
@@ -320,6 +433,7 @@ export function LimitOrderForm({
     activeAssetData?.leverage?.type,
     computeSizeBN,
     currentCoinPosition,
+    isSpot,
     leverage,
     resolvePriceForSide,
   ]);
@@ -448,6 +562,32 @@ export function LimitOrderForm({
     showDepositWithdrawModal,
   ]);
 
+  const spotOrderValueBN = useMemo(
+    () => computeSizeBN(side, referencePriceBN).multipliedBy(referencePriceBN),
+    [computeSizeBN, referencePriceBN, side],
+  );
+  const spotAvailableDisplay = useMemo(() => {
+    if (!isSpot) {
+      return '';
+    }
+    return side === 'long'
+      ? `${spotAvailableQuoteBN.toFixed(2, BigNumber.ROUND_DOWN)} ${
+          spotUniverse?.quoteName ?? ''
+        }`.trim()
+      : `${spotAvailableBaseBN.toFixed(
+          szDecimals,
+          BigNumber.ROUND_DOWN,
+        )} ${displayName}`.trim();
+  }, [
+    isSpot,
+    side,
+    spotAvailableQuoteBN,
+    spotAvailableBaseBN,
+    spotUniverse?.quoteName,
+    szDecimals,
+    displayName,
+  ]);
+
   // Size/slider/mode coordination replicates PerpTradingForm, in local state.
   const handleManualSizeChange = useCallback((value: string) => {
     setSize(value);
@@ -515,8 +655,11 @@ export function LimitOrderForm({
       }
 
       // Abort if the active coin drifted from the snapshot — the form computes
-      // off the live asset, so a stale ticket must not submit against it.
-      if (!activeAsset?.coin || activeAsset.coin !== symbol) {
+      // off the live instrument, so a stale ticket must not submit against it.
+      if (
+        !activeTradeInstrument?.coin ||
+        activeTradeInstrument.coin !== symbol
+      ) {
         onClose();
         return;
       }
@@ -564,7 +707,7 @@ export function LimitOrderForm({
       const orderValueBN = computedSizeBN.multipliedBy(resolvedPriceBN);
       if (
         shouldApplyMinimumOrderGuard({
-          isSpot: false,
+          isSpot,
           orderMode: 'standard',
           orderType: 'limit',
           hasBboPriceMode: Boolean(bboPriceMode),
@@ -581,17 +724,27 @@ export function LimitOrderForm({
         return;
       }
 
-      const available = activeAssetData?.availableToTrade;
-      const sideAvailableBN = new BigNumber(
-        (pressedSide === 'long' ? available?.[0] : available?.[1]) ?? 0,
-      );
-      const marginRequiredForOrderBN = orderValueBN.dividedBy(
-        leverage > 0 ? leverage : 1,
-      );
-      if (marginRequiredForOrderBN.gt(sideAvailableBN)) {
+      let insufficientBalance: boolean;
+      if (isSpot) {
+        insufficientBalance =
+          pressedSide === 'long'
+            ? orderValueBN.gt(spotAvailableQuoteBN)
+            : computedSizeBN.gt(spotAvailableBaseBN);
+      } else {
+        const available = activeAssetData?.availableToTrade;
+        const sideAvailableBN = new BigNumber(
+          (pressedSide === 'long' ? available?.[0] : available?.[1]) ?? 0,
+        );
+        insufficientBalance = orderValueBN
+          .dividedBy(leverage > 0 ? leverage : 1)
+          .gt(sideAvailableBN);
+      }
+      if (insufficientBalance) {
         Toast.message({
           title: intl.formatMessage({
-            id: ETranslations.perp_insufficient_margin__title,
+            id: isSpot
+              ? ETranslations.dexmarket_insufficient_balance
+              : ETranslations.perp_insufficient_margin__title,
           }),
         });
         return;
@@ -622,7 +775,7 @@ export function LimitOrderForm({
         bboPriceMode: bboPriceMode ?? null,
         limitTif,
         reduceOnly: false,
-        hasTpsl,
+        hasTpsl: isSpot ? false : hasTpsl,
         tpTriggerPx: tpTriggerPx ?? '',
         tpGainPercent: '',
         slTriggerPx: slTriggerPx ?? '',
@@ -644,13 +797,14 @@ export function LimitOrderForm({
       });
     },
     [
-      activeAsset?.coin,
+      activeTradeInstrument?.coin,
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,
       ensureEnableTrading,
       hasTpsl,
       intl,
+      isSpot,
       leverage,
       limitTif,
       marketDataFreshness,
@@ -658,6 +812,8 @@ export function LimitOrderForm({
       resolvePriceForSide,
       slType,
       slValue,
+      spotAvailableBaseBN,
+      spotAvailableQuoteBN,
       symbol,
       szDecimals,
       tpType,
@@ -809,12 +965,13 @@ export function LimitOrderForm({
         side={side}
         symbol={displayName}
         onChange={handleManualSizeChange}
-        activeAsset={activeAsset}
-        isAssetCtxReady={isAssetCtxReady}
+        activeAsset={selectedTradeAsset}
+        isAssetCtxReady={isSpot ? isSpotActiveAssetCtxReady : isAssetCtxReady}
         referencePrice={referencePriceString}
         sizeInputMode={sizeInputMode}
         sliderPercent={sizePercent}
         onRequestManualMode={switchToManual}
+        allowMarginInput={!isSpot}
         leverage={leverage}
       />
       <PerpsSlider
@@ -829,65 +986,98 @@ export function LimitOrderForm({
         sliderHeight={4}
       />
 
-      {/* TP/SL */}
-      <XStack
-        width="100%"
-        alignItems="center"
-        justifyContent="space-between"
-        gap="$3"
-        mb="$2"
-      >
-        <XStack alignItems="center" gap="$2">
-          <Checkbox
-            testID="chart-limit-tpsl-checkbox"
-            value={hasTpsl}
-            onChange={(checked) => handleTpslCheckboxChange(!!checked)}
-            containerProps={{ p: 0, alignItems: 'center', cursor: 'pointer' }}
-          />
-          <DashText
-            size="$bodyMd"
-            dashColor="$textDisabled"
-            dashThickness={0.5}
-            tooltip={intl.formatMessage({
-              id: ETranslations.perp_tp_sl_tooltip,
-            })}
-            tooltipTitle={intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
+      {!isSpot ? (
+        <>
+          {/* TP/SL */}
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+            mb="$2"
           >
-            {intl.formatMessage({ id: ETranslations.perp_position_tp_sl })}
-          </DashText>
-        </XStack>
-        <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
-      </XStack>
-      {hasTpsl ? (
-        <YStack gap="$2">
-          <TpSlFormInput
-            key={`tp-${tpslSeedKey}`}
-            type="tp"
-            label={intl.formatMessage({
-              id: ETranslations.perp_trade_tp_price,
-            })}
-            value={tpValue}
-            inputType={tpType}
-            referencePrice={referencePriceString}
-            szDecimals={szDecimals}
-            onChange={setTpValue}
-            onTypeChange={setTpType}
-          />
-          <TpSlFormInput
-            key={`sl-${tpslSeedKey}`}
-            type="sl"
-            label={intl.formatMessage({
-              id: ETranslations.perp_trade_sl_price,
-            })}
-            value={slValue}
-            inputType={slType}
-            referencePrice={referencePriceString}
-            szDecimals={szDecimals}
-            onChange={setSlValue}
-            onTypeChange={setSlType}
-          />
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID="chart-limit-tpsl-checkbox"
+                value={hasTpsl}
+                onChange={(checked) => handleTpslCheckboxChange(!!checked)}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
+              />
+              <DashText
+                size="$bodyMd"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_tooltip,
+                })}
+                tooltipTitle={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_position_tp_sl })}
+              </DashText>
+            </XStack>
+            <TimeInForceSelector value={limitTif} onChange={setLimitTif} />
+          </XStack>
+          {hasTpsl ? (
+            <YStack gap="$2">
+              <TpSlFormInput
+                key={`tp-${tpslSeedKey}`}
+                type="tp"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={tpValue}
+                inputType={tpType}
+                referencePrice={referencePriceString}
+                szDecimals={szDecimals}
+                onChange={setTpValue}
+                onTypeChange={setTpType}
+              />
+              <TpSlFormInput
+                key={`sl-${tpslSeedKey}`}
+                type="sl"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={slValue}
+                inputType={slType}
+                referencePrice={referencePriceString}
+                szDecimals={szDecimals}
+                onChange={setSlValue}
+                onTypeChange={setSlType}
+              />
+            </YStack>
+          ) : null}
+        </>
+      ) : null}
+
+      {isSpot ? (
+        <YStack gap="$1.5">
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$text">
+              {spotOrderValueBN.gt(0)
+                ? `$${spotOrderValueBN.toFixed(2, BigNumber.ROUND_DOWN)}`
+                : '--'}
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview_available,
+              })}
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$text">
+              {spotAvailableDisplay || '--'}
+            </SizableText>
+          </XStack>
         </YStack>
       ) : null}
 
@@ -903,10 +1093,13 @@ export function LimitOrderForm({
               hoverBg: longColors.longHover,
               pressBg: longColors.longPress,
               defaultText: intl.formatMessage({
-                id: ETranslations.perp_trade_long,
+                id: isSpot
+                  ? ETranslations.dexmarket_details_transactions_buy
+                  : ETranslations.perp_trade_long,
               }),
               onDefaultPress: () => void handlePlace('long'),
             })}
+            {!isSpot ? (
             <YStack gap="$1.5">
               <XStack gap="$2" justifyContent="flex-start">
                 <DashText
@@ -957,6 +1150,7 @@ export function LimitOrderForm({
                 </SizableText>
               </XStack>
             </YStack>
+            ) : null}
           </YStack>
           <YStack flex={1} gap="$2">
             {renderActionButton({
@@ -965,10 +1159,13 @@ export function LimitOrderForm({
               hoverBg: longColors.shortHover,
               pressBg: longColors.shortPress,
               defaultText: intl.formatMessage({
-                id: ETranslations.perp_trade_short,
+                id: isSpot
+                  ? ETranslations.dexmarket_details_transactions_sell
+                  : ETranslations.perp_trade_short,
               }),
               onDefaultPress: () => void handlePlace('short'),
             })}
+            {!isSpot ? (
             <YStack gap="$1.5">
               <XStack gap="$2" justifyContent="flex-end">
                 <DashText
@@ -1019,6 +1216,7 @@ export function LimitOrderForm({
                 </SizableText>
               </XStack>
             </YStack>
+            ) : null}
           </YStack>
         </XStack>
       )}
@@ -1032,13 +1230,17 @@ export function LimitOrderForm({
 export function showLimitOrderDialog({
   symbol,
   price,
+  displayPair,
+  displayCoin,
   intl,
 }: {
   symbol: string;
   price: string;
+  displayPair?: string;
+  displayCoin?: string;
   intl: IntlShape;
 }) {
-  const displayName = parseDexCoin(symbol).displayName;
+  const displayName = displayPair ?? parseDexCoin(symbol).displayName;
   const dialogInstance = Dialog.show({
     title: `${intl.formatMessage({
       id: ETranslations.perp_trade_limit,
@@ -1049,6 +1251,7 @@ export function showLimitOrderDialog({
           <LimitOrderForm
             symbol={symbol}
             seededPrice={price}
+            displayCoin={displayCoin}
             onClose={() => {
               void dialogInstance.close();
             }}
