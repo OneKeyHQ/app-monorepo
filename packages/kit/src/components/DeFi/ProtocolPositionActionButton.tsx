@@ -415,40 +415,51 @@ const ProtocolPositionActionButton = memo(
     const [submittingActionKey, setSubmittingActionKey] = useState<
       string | undefined
     >(undefined);
-    const isActionAccount =
-      !!accountId &&
-      !accountUtils.isUrlAccountFn({ accountId }) &&
-      !accountUtils.isWatchingAccount({ accountId });
+    const isUrlAccount =
+      !!accountId && accountUtils.isUrlAccountFn({ accountId });
+    const isWatchingAccount =
+      !!accountId && accountUtils.isWatchingAccount({ accountId });
+    const isActionAccount = !!accountId && !isUrlAccount && !isWatchingAccount;
+    const shouldShowUnavailableDeFiActionButtons = Boolean(
+      devSettings.enabled &&
+      devSettings.settings?.showUnavailableDeFiActionButtons,
+    );
+    // Dev-only mode: watch-only accounts can render and click the action UI,
+    // while the background build-transaction guard still blocks submission.
+    const shouldAllowWatchingAccountActionButtons =
+      shouldShowUnavailableDeFiActionButtons && isWatchingAccount;
+    const shouldResolveActionButtons =
+      isActionAccount || shouldAllowWatchingAccountActionButtons;
     const actions = useMemo(
       () =>
-        isActionAccount
+        shouldResolveActionButtons
           ? defiActionUtils.resolveDeFiPositionActions({
               protocol,
               position,
               supportedActions,
             })
           : [],
-      [isActionAccount, position, protocol, supportedActions],
-    );
-    const shouldShowUnavailableDeFiActionButtons = Boolean(
-      devSettings.enabled &&
-      devSettings.settings?.showUnavailableDeFiActionButtons,
+      [position, protocol, shouldResolveActionButtons, supportedActions],
     );
     const unavailableActions = useMemo<IRenderedDeFiPositionAction[]>(
       () =>
-        isActionAccount && shouldShowUnavailableDeFiActionButtons
+        shouldResolveActionButtons && shouldShowUnavailableDeFiActionButtons
           ? defiActionUtils
               .resolveDeFiPositionActionDebugCandidates({
                 protocol,
                 position,
                 supportedActions,
               })
-              .map((action) => ({ ...action, disabled: true }))
+              .map((action) => ({
+                ...action,
+                disabled: !shouldAllowWatchingAccountActionButtons,
+              }))
           : [],
       [
-        isActionAccount,
         position,
         protocol,
+        shouldAllowWatchingAccountActionButtons,
+        shouldResolveActionButtons,
         shouldShowUnavailableDeFiActionButtons,
         supportedActions,
       ],
@@ -462,8 +473,9 @@ const ProtocolPositionActionButton = memo(
       [manageAsset, position, protocol],
     );
     const fallbackBlockingActions = useMemo(
-      () => (isActionAccount ? [...actions, ...unavailableActions] : []),
-      [actions, isActionAccount, unavailableActions],
+      () =>
+        shouldResolveActionButtons ? [...actions, ...unavailableActions] : [],
+      [actions, shouldResolveActionButtons, unavailableActions],
     );
     const visibleActions = useMemo(
       () =>
@@ -579,7 +591,7 @@ const ProtocolPositionActionButton = memo(
     );
 
     if (
-      !isActionAccount ||
+      !shouldResolveActionButtons ||
       (renderedActions.length === 0 && !shouldShowManage)
     ) {
       return null;
