@@ -4,7 +4,9 @@ export interface IAppleKeyChainNativeModule {
    * @param params Object containing key, value, and optional display attributes
    * @param params.key The keychain key (account identifier)
    * @param params.value The value to store
-   * @param params.enableSync Optional iCloud Keychain sync toggle
+   * @param params.enableSync Optional iCloud Keychain sync toggle. Callers that
+   *   reach the module via AppleKeyChainStorage get a uniform default of false
+   *   (opt-in) across desktop and iOS when this is omitted.
    * @param params.label Optional label displayed in Keychain Access app
    * @param params.description Optional description for the keychain item
    * @returns Promise that resolves when the item is stored
