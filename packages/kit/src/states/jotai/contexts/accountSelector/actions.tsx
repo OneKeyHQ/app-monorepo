@@ -77,7 +77,6 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { debugAccountSelectorLog } from '@onekeyhq/shared/src/utils/debug/accountSelectorDebugLog';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -138,49 +137,6 @@ const isSelectedAccountIdentityIncomplete = (
   !selectedAccount?.walletId &&
   !selectedAccount?.indexedAccountId &&
   !selectedAccount?.othersWalletAccountId;
-
-const pickSelectedAccountLogFields = (
-  selectedAccount: IAccountSelectorSelectedAccount | undefined,
-) => ({
-  walletId: selectedAccount?.walletId,
-  indexedAccountId: selectedAccount?.indexedAccountId,
-  othersWalletAccountId: selectedAccount?.othersWalletAccountId,
-  networkId: selectedAccount?.networkId,
-  deriveType: selectedAccount?.deriveType,
-  focusedWallet: selectedAccount?.focusedWallet,
-});
-
-const pickSelectedAccountsMapLogFields = (
-  selectedAccountsMap: ISelectedAccountsAtomMap | undefined,
-) =>
-  Object.fromEntries(
-    Object.entries(selectedAccountsMap ?? {}).map(([num, selectedAccount]) => [
-      num,
-      pickSelectedAccountLogFields(selectedAccount),
-    ]),
-  );
-
-const pickActiveAccountLogFields = (
-  activeAccount: IAccountSelectorActiveAccountInfo | undefined,
-) => ({
-  ready: activeAccount?.ready,
-  walletId: activeAccount?.wallet?.id,
-  indexedAccountId: activeAccount?.indexedAccount?.id,
-  accountId: activeAccount?.account?.id,
-  dbAccountId: activeAccount?.dbAccount?.id,
-  networkId: activeAccount?.network?.id,
-  deriveType: activeAccount?.deriveType,
-  canCreateAddress: activeAccount?.canCreateAddress,
-  isNetworkNotMatched: activeAccount?.isNetworkNotMatched,
-  isOthersWallet: activeAccount?.isOthersWallet,
-});
-
-const pickDbAccountLogFields = (account: IDBAccount | undefined) => ({
-  id: account?.id,
-  impl: account?.impl,
-  createAtNetwork: account?.createAtNetwork,
-  networksCount: account?.networks?.length,
-});
 
 const safeIsAccountCompatibleWithNetwork = ({
   account,
@@ -649,10 +605,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         // console.log('buildActiveAccountInfoFromSelectedAccount', {
         // selectedAccount,
         // });
-        debugAccountSelectorLog('reloadActiveAccountInfo:start', {
-          num,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-        });
         const currentActiveAccount =
           get(activeAccountsAtom())?.[num] || defaultActiveAccountInfo();
         const markActiveAccountInitDone = () => {
@@ -668,11 +620,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             activeAccount: currentActiveAccount,
           })
         ) {
-          debugAccountSelectorLog('reloadActiveAccountInfo:keep-current', {
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-            activeAccount: pickActiveAccountLogFields(currentActiveAccount),
-          });
           markActiveAccountInitDone();
           return currentActiveAccount;
         }
@@ -704,11 +651,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(selectedAccount, isUndefined),
           )
         ) {
-          debugAccountSelectorLog('reloadActiveAccountInfo:stale-result', {
-            num,
-            requested: pickSelectedAccountLogFields(selectedAccount),
-            current: pickSelectedAccountLogFields(currentSelectedAccount),
-          });
           return currentActiveAccount;
         }
         const newActiveAccounts = {
@@ -717,11 +659,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         };
         set(activeAccountsAtom(), newActiveAccounts);
         markActiveAccountInitDone();
-        debugAccountSelectorLog('reloadActiveAccountInfo:done', {
-          num,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          activeAccount: pickActiveAccountLogFields(activeAccount),
-        });
         // contextAtom snapshot saving is now automatic via coldStartCache.
         return activeAccount;
       }),
@@ -758,17 +695,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   resolveOthersWalletAccountForNetworkSwitch = async ({
     selectedAccount,
     networkId,
-    num,
-    sceneName,
-    sceneUrl,
-    source,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
     networkId: string;
-    num: number;
-    sceneName: EAccountSelectorSceneName | undefined;
-    sceneUrl: string | undefined;
-    source: string;
   }): Promise<IAccountSelectorSelectedAccount> => {
     const nextSelectedAccount: IAccountSelectorSelectedAccount = {
       ...(selectedAccount || defaultSelectedAccount()),
@@ -786,14 +715,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     }
 
     if (networkUtils.isAllNetwork({ networkId })) {
-      debugAccountSelectorLog('updateSelectedAccountNetwork:others-skip-all', {
-        source,
-        sceneName,
-        sceneUrl,
-        num,
-        networkId,
-        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-      });
       return nextSelectedAccount;
     }
 
@@ -802,32 +723,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       currentAccount = await serviceAccount.getDBAccount({
         accountId: othersWalletAccountId,
       });
-    } catch (error) {
-      debugAccountSelectorLog('updateSelectedAccountNetwork:others-db-error', {
-        source,
-        sceneName,
-        sceneUrl,
-        num,
-        networkId,
-        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-        error: error instanceof Error ? error.message : String(error),
-      });
+    } catch {
+      // Fall through to account lookup/fallback below.
     }
 
     const currentAccountMatchesTarget = safeIsAccountCompatibleWithNetwork({
       account: currentAccount,
       networkId,
-    });
-
-    debugAccountSelectorLog('updateSelectedAccountNetwork:others-resolve', {
-      source,
-      sceneName,
-      sceneUrl,
-      num,
-      networkId,
-      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-      currentAccount: pickDbAccountLogFields(currentAccount),
-      currentAccountMatchesTarget,
     });
 
     if (currentAccountMatchesTarget) {
@@ -855,49 +757,10 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           othersWalletAccountId: matchedAccount.id,
           deriveType: 'default' as const,
         };
-        debugAccountSelectorLog(
-          'updateSelectedAccountNetwork:others-switch-account',
-          {
-            sceneName,
-            sceneUrl,
-            source,
-            num,
-            networkId,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-            matchedAccount: pickDbAccountLogFields(matchedAccount),
-            resolvedSelectedAccount: pickSelectedAccountLogFields(
-              resolvedSelectedAccount,
-            ),
-          },
-        );
         return resolvedSelectedAccount;
       }
-
-      debugAccountSelectorLog(
-        'updateSelectedAccountNetwork:others-no-target-account',
-        {
-          sceneName,
-          sceneUrl,
-          source,
-          num,
-          networkId,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          accountsCount: accounts.length,
-        },
-      );
-    } catch (error) {
-      debugAccountSelectorLog(
-        'updateSelectedAccountNetwork:others-list-error',
-        {
-          sceneName,
-          sceneUrl,
-          source,
-          num,
-          networkId,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          error: error instanceof Error ? error.message : String(error),
-        },
-      );
+    } catch {
+      // Fall through to compatible-network fallback below.
     }
 
     const fallbackNetworkId = safeGetAccountCompatibleNetwork({
@@ -909,59 +772,26 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ...nextSelectedAccount,
         networkId: fallbackNetworkId,
       };
-      debugAccountSelectorLog(
-        'updateSelectedAccountNetwork:others-fallback-network',
-        {
-          sceneName,
-          sceneUrl,
-          source,
-          num,
-          requestedNetworkId: networkId,
-          fallbackNetworkId,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          currentAccount: pickDbAccountLogFields(currentAccount),
-          resolvedSelectedAccount: pickSelectedAccountLogFields(
-            resolvedSelectedAccount,
-          ),
-        },
-      );
       return resolvedSelectedAccount;
     }
 
-    debugAccountSelectorLog('updateSelectedAccountNetwork:others-unresolved', {
-      source,
-      sceneName,
-      sceneUrl,
-      num,
-      networkId,
-      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-      currentAccount: pickDbAccountLogFields(currentAccount),
-    });
     return nextSelectedAccount;
   };
 
   repairOthersWalletNetworkPairsInSelectedAccountsMap = async ({
     selectedAccountsMap,
-    sceneName,
-    sceneUrl,
-    source,
   }: {
     selectedAccountsMap: ISelectedAccountsAtomMap | undefined;
-    sceneName: EAccountSelectorSceneName;
-    sceneUrl?: string;
-    source: string;
   }) => {
     if (!selectedAccountsMap) {
       return selectedAccountsMap;
     }
 
     const repairedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
-    let repaired = false;
 
     await Promise.all(
       Object.entries(repairedSelectedAccountsMap).map(
         async ([numText, selectedAccount]) => {
-          const num = Number(numText);
           if (
             !selectedAccount?.networkId ||
             !selectedAccount.walletId ||
@@ -978,10 +808,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             await this.resolveOthersWalletAccountForNetworkSwitch({
               selectedAccount,
               networkId: selectedAccount.networkId,
-              num,
-              sceneName,
-              sceneUrl,
-              source,
             });
 
           if (
@@ -990,39 +816,20 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               omitBy(resolvedSelectedAccount, isUndefined),
             )
           ) {
-            repairedSelectedAccountsMap[num] = resolvedSelectedAccount;
-            repaired = true;
+            repairedSelectedAccountsMap[Number(numText)] =
+              resolvedSelectedAccount;
           }
         },
       ),
     );
-
-    if (repaired) {
-      debugAccountSelectorLog('repairOthersWalletNetworkPairs:done', {
-        source,
-        sceneName,
-        sceneUrl,
-        selectedAccountsMap: pickSelectedAccountsMapLogFields(
-          repairedSelectedAccountsMap,
-        ),
-      });
-    }
 
     return repairedSelectedAccountsMap;
   };
 
   isIncompatibleOthersWalletNetworkPair = async ({
     selectedAccount,
-    sceneName,
-    sceneUrl,
-    num,
-    source,
   }: {
     selectedAccount: IAccountSelectorSelectedAccount | undefined;
-    sceneName: EAccountSelectorSceneName;
-    sceneUrl?: string;
-    num: number;
-    source: string;
   }) => {
     const walletId = selectedAccount?.walletId;
     const networkId = selectedAccount?.networkId;
@@ -1042,35 +849,14 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       account = await serviceAccount.getDBAccount({
         accountId: othersWalletAccountId,
       });
-    } catch (error) {
-      debugAccountSelectorLog('othersNetworkPair:db-error', {
-        source,
-        sceneName,
-        sceneUrl,
-        num,
-        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-        error: error instanceof Error ? error.message : String(error),
-      });
+    } catch {
       return true;
     }
 
-    const isCompatible = safeIsAccountCompatibleWithNetwork({
+    return !safeIsAccountCompatibleWithNetwork({
       account,
       networkId,
     });
-
-    if (!isCompatible) {
-      debugAccountSelectorLog('othersNetworkPair:incompatible', {
-        source,
-        sceneName,
-        sceneUrl,
-        num,
-        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-        account: pickDbAccountLogFields(account),
-      });
-    }
-
-    return !isCompatible;
   };
 
   updateSelectedAccountNetwork = contextAtomMethod(
@@ -1083,15 +869,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, networkId } = payload;
-      const sceneInfo = get(accountSelectorContextDataAtom());
       const before = this.getSelectedAccount.call(set, { num });
-      debugAccountSelectorLog('updateSelectedAccountNetwork:start', {
-        num,
-        networkId,
-        sceneName: sceneInfo?.sceneName,
-        sceneUrl: sceneInfo?.sceneUrl,
-        selectedAccount: pickSelectedAccountLogFields(before),
-      });
       const shouldResolveOthersWalletAccount = Boolean(
         before?.walletId &&
         accountUtils.isOthersWallet({ walletId: before.walletId }) &&
@@ -1102,10 +880,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ? await this.resolveOthersWalletAccountForNetworkSwitch({
             selectedAccount: before,
             networkId,
-            num,
-            sceneName: sceneInfo?.sceneName,
-            sceneUrl: sceneInfo?.sceneUrl,
-            source: 'networkSwitch',
           })
         : {
             ...(before || defaultSelectedAccount()),
@@ -1117,14 +891,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           ...v,
           ...resolvedSelectedAccount,
         }),
-      });
-      const after = this.getSelectedAccount.call(set, { num });
-      debugAccountSelectorLog('updateSelectedAccountNetwork:done', {
-        num,
-        networkId,
-        sceneName: sceneInfo?.sceneName,
-        sceneUrl: sceneInfo?.sceneUrl,
-        selectedAccount: pickSelectedAccountLogFields(after),
       });
     },
   );
@@ -1270,13 +1036,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           oldSelectedAccount,
           newSelectedAccount,
         });
-        debugAccountSelectorLog('updateSelectedAccount', {
-          sceneName: sceneInfo?.sceneName,
-          sceneUrl: sceneInfo?.sceneUrl,
-          num,
-          oldSelectedAccount: pickSelectedAccountLogFields(oldSelectedAccount),
-          newSelectedAccount: pickSelectedAccountLogFields(newSelectedAccount),
-        });
 
         if (
           oldSelectedAccount.walletId &&
@@ -1410,12 +1169,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           sceneName: sceneInfo?.sceneName,
           sceneUrl: sceneInfo?.sceneUrl,
           num,
-        });
-        debugAccountSelectorLog('updateSelectedAccount:cache-flushed', {
-          sceneName: sceneInfo?.sceneName,
-          sceneUrl: sceneInfo?.sceneUrl,
-          num,
-          selectedAccount: pickSelectedAccountLogFields(newSelectedAccount),
         });
       });
     },
@@ -2736,13 +2489,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         defaultLogger.accountSelector.listData.simpleDbSelectedAccountsMap({
           selectedAccountsMap: selectedAccountsMapInDB,
         });
-        debugAccountSelectorLog('initFromStorage:db', {
-          sceneName,
-          sceneUrl,
-          selectedAccountsMap: pickSelectedAccountsMapLogFields(
-            selectedAccountsMapInDB,
-          ),
-        });
 
         // fix discover account from dappConnection
         if (sceneUrl && sceneName === EAccountSelectorSceneName.discover) {
@@ -2810,9 +2556,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           selectedAccountsMapInDB =
             await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
               selectedAccountsMap: selectedAccountsMapInDB,
-              sceneName,
-              sceneUrl,
-              source: 'initFromStorage:db',
             });
         }
 
@@ -2824,9 +2567,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const recentSelectionCacheSelectedAccountsMap = recentSelectionCache
           ? await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
               selectedAccountsMap: recentSelectionCache.selectedAccountsMap,
-              sceneName,
-              sceneUrl,
-              source: 'initFromStorage:recent-cache',
             })
           : undefined;
         if (
@@ -2838,13 +2578,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta: recentSelectionCache.updateMeta,
           })
         ) {
-          debugAccountSelectorLog('initFromStorage:use-recent-cache', {
-            sceneName,
-            sceneUrl,
-            selectedAccountsMap: pickSelectedAccountsMapLogFields(
-              recentSelectionCacheSelectedAccountsMap,
-            ),
-          });
           this.setSelectedAccountsAtom(
             set,
             () => recentSelectionCacheSelectedAccountsMap,
@@ -2881,9 +2614,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         const selectedAccountsMap =
           (await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
             selectedAccountsMap: get(selectedAccountsAtom()),
-            sceneName,
-            sceneUrl,
-            source: 'initFromStorage:current-cache',
           })) || {};
         const updateMeta = get(accountSelectorUpdateMetaAtom());
         if (
@@ -2893,12 +2623,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta,
           })
         ) {
-          debugAccountSelectorLog('initFromStorage:keep-current-cache', {
-            sceneName,
-            sceneUrl,
-            selectedAccountsMap:
-              pickSelectedAccountsMapLogFields(selectedAccountsMap),
-          });
           this.setSelectedAccountsAtom(
             set,
             () => selectedAccountsMap,
@@ -2913,13 +2637,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           selectedAccountsMapInDB &&
           !isEqual(selectedAccountsMapInDB, selectedAccountsMap)
         ) {
-          debugAccountSelectorLog('initFromStorage:apply-db', {
-            sceneName,
-            sceneUrl,
-            selectedAccountsMap: pickSelectedAccountsMapLogFields(
-              selectedAccountsMapInDB,
-            ),
-          });
           this.setSelectedAccountsAtom(
             set,
             (v) => {
@@ -2992,11 +2709,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           console.error(
             'AccountSelector.saveToStorage skip, selectedAccount is default',
           );
-          debugAccountSelectorLog('saveToStorage:skip-default', {
-            sceneName,
-            sceneUrl,
-            num,
-          });
           return;
         }
         const hasAccountIdentityForStorage = Boolean(
@@ -3005,12 +2717,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount.othersWalletAccountId),
         );
         if (!hasAccountIdentityForStorage) {
-          debugAccountSelectorLog('saveToStorage:skip-no-identity', {
-            sceneName,
-            sceneUrl,
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          });
           return;
         }
         const currentSelectedAccount = this.getSelectedAccount.call(set, {
@@ -3022,32 +2728,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             omitBy(selectedAccount, isUndefined),
           )
         ) {
-          debugAccountSelectorLog('saveToStorage:skip-stale', {
-            sceneName,
-            sceneUrl,
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-            currentSelectedAccount: pickSelectedAccountLogFields(
-              currentSelectedAccount,
-            ),
-          });
           return;
         }
         if (
           await this.isIncompatibleOthersWalletNetworkPair({
             selectedAccount,
-            sceneName,
-            sceneUrl,
-            num,
-            source: 'saveToStorage',
           })
         ) {
-          debugAccountSelectorLog('saveToStorage:skip-incompatible-others', {
-            sceneName,
-            sceneUrl,
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          });
           return;
         }
         const currentSaved = await simpleDb.accountSelector.getSelectedAccount({
@@ -3059,24 +2746,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           // console.log(
           //   'AccountSelector.saveToStorage skip, selectedAccount not changed',
           // );
-          debugAccountSelectorLog('saveToStorage:skip-unchanged', {
-            sceneName,
-            sceneUrl,
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          });
           return;
         }
 
         // **** saveSelectedAccount
         // skip discover account selector persist here
         await simpleDb.accountSelector.saveSelectedAccount(payload);
-        debugAccountSelectorLog('saveToStorage:saved', {
-          sceneName,
-          sceneUrl,
-          num,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-        });
 
         // **** save global derive type (with event emit if need)
         const updateMeta = get(accountSelectorUpdateMetaAtom())[num];
@@ -3481,14 +3156,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           !wallet ||
           accountUtils.isWalletDeprecatedOrMocked(wallet) ||
           !isAccountExist;
-        debugAccountSelectorLog('autoSelectNextAccount:evaluate', {
-          sceneName,
-          sceneUrl,
-          num,
-          shouldAutoSelectNextAccount,
-          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
-          activeAccount: pickActiveAccountLogFields(activeAccount),
-        });
 
         if (shouldAutoSelectNextAccount) {
           defaultLogger.accountSelector.autoSelect.startAutoSelect({
@@ -3737,12 +3404,6 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 }
               : undefined,
             builder: () => selectedAccountNew,
-          });
-          debugAccountSelectorLog('autoSelectNextAccount:updated', {
-            sceneName,
-            sceneUrl,
-            num,
-            selectedAccount: pickSelectedAccountLogFields(selectedAccountNew),
           });
 
           if (
