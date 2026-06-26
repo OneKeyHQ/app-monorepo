@@ -97,6 +97,15 @@ const PRIMARY_SEARCH_TYPES: EUniversalSearchType[] = [
   EUniversalSearchType.Perp,
 ];
 
+// Default scope for the global universal search: every bg-searchable category
+// plus Settings, which is injected client-side rather than via the bg search
+// types. A caller can pass a narrower `filterTypes` (e.g. the browser tab uses
+// `[Dapp]`) to restrict which categories appear.
+const getDefaultFilterTypes = (): EUniversalSearchType[] => [
+  ...getSearchTypes(),
+  EUniversalSearchType.Settings,
+];
+
 const getTabIndexForSearchType = (searchType: EUniversalSearchType): number => {
   const tabMapping: Record<EUniversalSearchType, number> = {
     [EUniversalSearchType.Address]: 1, // Wallets tab
@@ -187,6 +196,25 @@ export function UniversalSearch({
   });
 
   const searchSettings = useSettingsSearch();
+
+  // The set of result categories this search instance is allowed to surface.
+  // Defaults to every category (see the route wrapper); the Discovery browser
+  // tab narrows it to `[Dapp]` so market/perp/wallet results don't leak into
+  // browser search (OK-56756). The bg search, the settings injection and the
+  // trending recommendations are all filtered through this set so a narrowed
+  // scope is honored end to end.
+  const allowedSearchTypeSet = useMemo(
+    () => new Set(filterTypes?.length ? filterTypes : getDefaultFilterTypes()),
+    [filterTypes],
+  );
+  // Plain O(1) Set lookups — no useMemo needed; each boolean is stable by value
+  // whenever allowedSearchTypeSet is.
+  const shouldIncludeSettings = allowedSearchTypeSet.has(
+    EUniversalSearchType.Settings,
+  );
+  const shouldIncludeMarketTrending = allowedSearchTypeSet.has(
+    EUniversalSearchType.V2MarketToken,
+  );
 
   const tabTitles = useMemo(() => {
     return [
@@ -326,6 +354,13 @@ export function UniversalSearch({
   ]);
 
   const fetchRecommendList = useCallback(async () => {
+    // Trending recommendations are market tokens; skip them when market is out
+    // of scope (e.g. browser search) so the empty state stays dapp-only.
+    if (!shouldIncludeMarketTrending) {
+      setRecommendSections([]);
+      return;
+    }
+
     const searchResultSections: IUniversalSection[] = [];
 
     const result =
@@ -343,7 +378,7 @@ export function UniversalSearch({
       });
     }
     setRecommendSections(searchResultSections);
-  }, [intl]);
+  }, [intl, shouldIncludeMarketTrending]);
 
   useEffect(() => {
     void fetchRecommendList();
@@ -352,10 +387,18 @@ export function UniversalSearch({
   const searchInputRef = useRef<string>('');
   const getSearchInput = useCallback(() => searchInputRef.current, []);
 
-  const getDeferredSearchTypes = useCallback(
+  const effectivePrimaryTypes = useMemo(
+    () => PRIMARY_SEARCH_TYPES.filter((type) => allowedSearchTypeSet.has(type)),
+    [allowedSearchTypeSet],
+  );
+  const effectiveDeferredTypes = useMemo(
     () =>
-      getSearchTypes().filter((type) => !PRIMARY_SEARCH_TYPES.includes(type)),
-    [],
+      getSearchTypes().filter(
+        (type) =>
+          !PRIMARY_SEARCH_TYPES.includes(type) &&
+          allowedSearchTypeSet.has(type),
+      ),
+    [allowedSearchTypeSet],
   );
 
   const buildSectionData = useCallback((data: IUniversalSearchResultItem[]) => {
@@ -549,7 +592,6 @@ export function UniversalSearch({
     console.log('[universalSearch] handleTextChange: ', val);
     const input = val?.trim?.() || '';
     if (input) {
-      const deferredSearchTypes = getDeferredSearchTypes();
       let primarySections: IUniversalSection[] = [];
       const searchParams = {
         input,
@@ -567,39 +609,50 @@ export function UniversalSearch({
           : undefined,
       };
       try {
-        const primaryResult =
-          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-            ...searchParams,
-            searchTypes: PRIMARY_SEARCH_TYPES,
+        // Skip the primary round entirely when the active scope excludes all
+        // primary categories (e.g. browser search scoped to `[Dapp]`).
+        if (effectivePrimaryTypes.length > 0) {
+          const primaryResult =
+            await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+              ...searchParams,
+              searchTypes: effectivePrimaryTypes,
+            });
+          if (isSearchResultStale(input)) {
+            return;
+          }
+
+          primarySections = buildSearchResultSections({
+            result: primaryResult,
+            input,
           });
-        if (isSearchResultStale(input)) {
-          return;
+
+          if (primarySections.length > 0) {
+            setSections(primarySections);
+            setSearchStatus(ESearchStatus.done);
+          }
         }
 
-        primarySections = buildSearchResultSections({
-          result: primaryResult,
-          input,
-        });
+        // Mirror the primary round's length guard: skip the deferred bg call
+        // when no deferred categories are in scope. Settings is injected
+        // client-side via buildSearchResultSections, so still run when it is in
+        // scope (the bg call returns empty for an out-of-scope searchTypes set).
+        let deferredSections: IUniversalSection[] = [];
+        if (effectiveDeferredTypes.length > 0 || shouldIncludeSettings) {
+          const deferredResult =
+            await backgroundApiProxy.serviceUniversalSearch.universalSearch({
+              ...searchParams,
+              searchTypes: effectiveDeferredTypes,
+            });
+          if (isSearchResultStale(input)) {
+            return;
+          }
 
-        if (primarySections.length > 0) {
-          setSections(primarySections);
-          setSearchStatus(ESearchStatus.done);
-        }
-
-        const deferredResult =
-          await backgroundApiProxy.serviceUniversalSearch.universalSearch({
-            ...searchParams,
-            searchTypes: deferredSearchTypes,
+          deferredSections = buildSearchResultSections({
+            result: deferredResult,
+            input,
+            includeSettings: shouldIncludeSettings,
           });
-        if (isSearchResultStale(input)) {
-          return;
         }
-
-        const deferredSections = buildSearchResultSections({
-          result: deferredResult,
-          input,
-          includeSettings: true,
-        });
         const mergedSections = mergeSearchResultSections(
           primarySections,
           deferredSections,
@@ -873,7 +926,9 @@ export function UniversalSearch({
                 onSearchTextFill={handleSearchTextFill}
               />
             }
-            ListEmptyComponent={<ListEmptyComponent />}
+            ListEmptyComponent={
+              shouldIncludeMarketTrending ? <ListEmptyComponent /> : null
+            }
             estimatedItemSize="$16"
             ListFooterComponent={<Stack h="$16" />}
             keyboardShouldPersistTaps="handled"
@@ -948,6 +1003,7 @@ export function UniversalSearch({
     filterSections,
     renderSectionFooter,
     intl,
+    shouldIncludeMarketTrending,
   ]);
 
   return (
@@ -984,12 +1040,21 @@ const UniversalSearchWithHomeTokenListProvider = ({
 >) => {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
+  // Stabilize the fallback reference: getDefaultFilterTypes() returns a fresh
+  // array, so computing it inline in the prop would rebuild the downstream
+  // allowedSearchTypeSet memo (and its dependents) on every wrapper re-render.
+  const routeFilterTypes = route?.params?.filterTypes;
+  const filterTypes = useMemo(
+    () => routeFilterTypes || getDefaultFilterTypes(),
+    [routeFilterTypes],
+  );
+
   return (
     <HomeTokenListProviderMirrorWrapper
       accountId={activeAccount?.account?.id ?? ''}
     >
       <UniversalSearch
-        filterTypes={route?.params?.filterTypes || getSearchTypes()}
+        filterTypes={filterTypes}
         initialTab={route?.params?.initialTab}
       />
     </HomeTokenListProviderMirrorWrapper>
