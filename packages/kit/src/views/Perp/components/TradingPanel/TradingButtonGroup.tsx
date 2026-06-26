@@ -15,6 +15,7 @@ import { useDebouncedCallback } from 'use-debounce';
 import {
   Button,
   DashText,
+  Icon,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -87,7 +88,10 @@ import { useTradingCalculationsForSide } from '../../hooks/useTradingCalculation
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
 import { shouldPreserveColdStartButtonVisualState } from '../../utils/accountScopedData';
-import { getEnableTradingDialogConfirmDecision } from '../../utils/enableTradingDialogConfirm';
+import {
+  getEnableTradingDialogConfirmDecision,
+  shouldShowPerpsFirstDepositPrompt,
+} from '../../utils/enableTradingDialogConfirm';
 import { shouldApplyMinimumOrderGuard } from '../../utils/minimumOrderGuard';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -119,6 +123,8 @@ import type { LayoutChangeEvent } from 'react-native';
 const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_SECONDS = 30;
+const TRADING_PANEL_META_TEXT_SIZE = '$bodySm';
+const TRADING_PANEL_META_TEXT_COLOR = '$textSubdued';
 
 interface ITradingButtonGroupProps {
   isMobile: boolean;
@@ -150,6 +156,34 @@ function IpRestrictedSingleButton({ isMobile }: { isMobile: boolean }) {
         </SizableText>
       </Button>
     </YStack>
+  );
+}
+
+function FirstDepositPromptCard() {
+  const intl = useIntl();
+
+  return (
+    <XStack
+      gap="$1.5"
+      p="$3"
+      borderRadius="$3"
+      bg="$bgSubdued"
+      alignItems="center"
+    >
+      <XStack w="$6" h="$6" alignItems="center" justifyContent="center">
+        <Icon name="DownloadOutline" size="$3.5" color="$iconSubdued" />
+      </XStack>
+      <SizableText
+        flex={1}
+        size={TRADING_PANEL_META_TEXT_SIZE}
+        color={TRADING_PANEL_META_TEXT_COLOR}
+        numberOfLines={2}
+      >
+        {intl.formatMessage({
+          id: ETranslations.perp_trade_first_deposit_ready__desc,
+        })}
+      </SizableText>
+    </XStack>
   );
 }
 
@@ -2284,7 +2318,65 @@ function TradingButtonGroup({
   isLiveStatusPending = false,
   enableTradingModeOverride,
 }: ITradingButtonGroupProps) {
+  const intl = useIntl();
   const formData = useTradingFormEmptySizeParams();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const requestEnableTradingWithDepositFallback =
+    useRequestEnableTradingWithDepositFallback();
+  const isFirstDepositLoading =
+    perpsAccountLoading.selectAccountLoading ||
+    perpsAccountLoading.enableTradingLoading;
+  const shouldShowFirstDepositPrompt = shouldShowPerpsFirstDepositPrompt({
+    status: perpsAccountStatus,
+    isLiveStatusPending,
+    isPerpActionDisabled: Boolean(perpConfigCommon?.disablePerpActionPerp),
+  });
+  const handleFirstDepositPress = useCallback(() => {
+    if (isFirstDepositLoading) {
+      return;
+    }
+    void requestEnableTradingWithDepositFallback();
+  }, [isFirstDepositLoading, requestEnableTradingWithDepositFallback]);
+
+  if (perpConfigCommon?.ipDisablePerp) {
+    return <IpRestrictedSingleButton isMobile={isMobile} />;
+  }
+
+  if (shouldShowFirstDepositPrompt) {
+    return (
+      <YStack gap="$3">
+        <FirstDepositPromptCard />
+        <Button
+          width="100%"
+          size="medium"
+          childrenAsText={false}
+          borderRadius="$full"
+          variant="primary"
+          disabled={isFirstDepositLoading}
+          loading={isFirstDepositLoading}
+          onPress={isFirstDepositLoading ? undefined : handleFirstDepositPress}
+          testID="perp-new-user-trading-panel-deposit-btn"
+          h={36}
+        >
+          <YStack alignItems="center" gap={2}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textInverse"
+              textTransform="uppercase"
+              numberOfLines={1}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_deposit_to_trade__action,
+              })}
+            </SizableText>
+          </YStack>
+        </Button>
+      </YStack>
+    );
+  }
 
   if (shouldUseEmptySizeTradingButtons(formData)) {
     return (
