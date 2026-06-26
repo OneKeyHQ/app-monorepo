@@ -27,19 +27,27 @@
   REQUIRES: run from an elevated (Administrator) PowerShell.
 
 .PARAMETER PublicKey
-  The Mac driver's SSH public key to authorize. Defaults to the mac-onekey-perf
-  ed25519 key used for the remote CDP crash-repro workflow. Override if the Mac
-  key changes.
+  REQUIRED. The SSH public key of the machine that will drive this box, to
+  authorize for non-interactive SSH. There is intentionally NO default: this
+  writes into the ADMIN authorized_keys (persistent admin login), so the
+  operator must explicitly supply the key of the driving machine rather than
+  silently authorizing a hardcoded device on every run.
 
 .PARAMETER AddDefenderExclusions
   Also add Defender process/path exclusions for OneKey.exe / electron.exe /
   node.exe and the repo + install dirs.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File apps\desktop\scripts\selfcheck-ssh-win.ps1 -AddDefenderExclusions
+  powershell -ExecutionPolicy Bypass -File apps\desktop\scripts\selfcheck-ssh-win.ps1 -PublicKey "ssh-ed25519 AAAA... you@mac" -AddDefenderExclusions
 #>
 param(
-  [string]$PublicKey = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDe3qQ9IY3dn8ORJ0ogfMDvCo+3IRh9z7gsKQCe7Cx2a mac-onekey-perf',
+  # REQUIRED. No default: a hardcoded key here would silently authorize a fixed
+  # device for persistent ADMIN SSH on every run (the target is the admin
+  # authorized_keys file, not a one-shot session). The operator must explicitly
+  # pass the public key of the machine that will drive this box.
+  [Parameter(Mandatory = $true)]
+  [ValidateNotNullOrEmpty()]
+  [string]$PublicKey,
   [switch]$AddDefenderExclusions
 )
 
