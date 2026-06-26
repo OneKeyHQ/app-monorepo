@@ -162,20 +162,31 @@ const SwapTxHistoryListCell = ({
   ]);
 
   const title = useMemo(() => {
+    // Stock trades are labelled Buy/Sell instead of Swap/Bridge: receiving the
+    // stock token (toToken.isStock) is a Buy, paying with it (fromToken.isStock)
+    // is a Sell.
+    const fromStock = Boolean(item.baseInfo?.fromToken?.isStock);
+    const toStock = Boolean(item.baseInfo?.toToken?.isStock);
+    if (fromStock || toStock) {
+      return intl.formatMessage({
+        id: toStock ? ETranslations.global_buy : ETranslations.global_sell,
+      });
+    }
+
     // Determine if this is a bridge or swap transaction
     const isBridge =
       item.baseInfo?.fromNetwork?.networkId !==
       item.baseInfo?.toNetwork?.networkId;
 
-    const displayText = intl.formatMessage({
+    return intl.formatMessage({
       id: isBridge
         ? ETranslations.swap_page_bridge
         : ETranslations.swap_page_swap,
     });
-
-    return displayText;
   }, [
     intl,
+    item.baseInfo?.fromToken?.isStock,
+    item.baseInfo?.toToken?.isStock,
     item.baseInfo.fromNetwork?.networkId,
     item.baseInfo.toNetwork?.networkId,
   ]);

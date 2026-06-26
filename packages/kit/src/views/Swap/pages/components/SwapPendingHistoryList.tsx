@@ -33,7 +33,10 @@ import {
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { SwapTestIDs } from '../../testIDs';
-import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  isStockSwapHistoryItem,
+} from '../../utils/swapMarketHistory';
 
 const SwapPendingHistoryListComponent = ({
   pageType,
@@ -71,16 +74,17 @@ const SwapPendingHistoryListComponent = ({
     if (!swapTxHistoryList?.length) {
       return undefined;
     }
+    // Start from the full Swap/market bucket (which intentionally includes
+    // stock), then split by whether the item is a stock trade. Stock is
+    // detected via the token-level isStock flag (reliable), NOT protocol ===
+    // STOCK, which is backend-echoed and can fall back to SWAP.
     const items = filterSwapMarketHistoryItems({
       items: swapTxHistoryList,
-      protocol,
+      protocol: EProtocolOfExchange.SWAP,
     });
-    // filterSwapMarketHistoryItems treats SWAP as a catch-all that also matches
-    // stock trades; stock has its own preview under the Stock tab, so keep the
-    // Swap/Bridge preview stock-free.
     return protocol === EProtocolOfExchange.STOCK
-      ? items
-      : items.filter((item) => item.protocol !== EProtocolOfExchange.STOCK);
+      ? items.filter(isStockSwapHistoryItem)
+      : items.filter((item) => !isStockSwapHistoryItem(item));
   }, [swapTxHistoryList, protocol]);
   const listData = useMemo(
     () =>

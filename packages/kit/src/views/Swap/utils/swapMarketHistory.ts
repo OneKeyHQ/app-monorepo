@@ -24,6 +24,18 @@ export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   );
 }
 
+// Whether a history item is a stock trade. The token-level `isStock` flag is the
+// authoritative signal (it is preserved end-to-end when the item is recorded);
+// `protocol === STOCK` is only a secondary hint because it is backend-echoed and
+// can fall back to SWAP. Used to split the Swap/Bridge vs Stock history previews.
+export function isStockSwapHistoryItem(item: ISwapTxHistory): boolean {
+  return Boolean(
+    item.protocol === EProtocolOfExchange.STOCK ||
+    item.baseInfo?.fromToken?.isStock ||
+    item.baseInfo?.toToken?.isStock,
+  );
+}
+
 function matchSwapMarketHistoryProtocol({
   item,
   protocol,
