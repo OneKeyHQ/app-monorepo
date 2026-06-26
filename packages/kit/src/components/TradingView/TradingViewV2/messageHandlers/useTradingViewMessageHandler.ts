@@ -22,6 +22,9 @@ import type {
   ITradingViewInteractionOverlayData,
   ITradingViewIntervalConfigData,
   ITradingViewIntervalOption,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLineLoadErrorData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceUpdateData,
   ITradingViewTouchScrollData,
@@ -56,6 +59,9 @@ interface IUseTradingViewMessageHandlerParams {
   onNativeChartControlsConfigChange?: (
     data: ITradingViewNativeChartControlsConfigData,
   ) => void;
+  onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
+  onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
 
 async function handleGetHyperliquidPriceScale({
@@ -618,6 +624,9 @@ export function useTradingViewMessageHandler({
   onPriceUpdate,
   onIntervalConfigChange,
   onNativeChartControlsConfigChange,
+  onKLineDataReady,
+  onKLineLoadError,
+  onKLinePeriodChange,
 }: IUseTradingViewMessageHandlerParams) {
   const customReceiveHandler = useCallback(
     async (payload: ICustomReceiveHandlerData) => {
@@ -638,6 +647,9 @@ export function useTradingViewMessageHandler({
         kLineDataFallback,
         primaryKLineDataUnavailable,
         onPrimaryKLineDataUnavailable,
+        onKLineDataReady,
+        onKLineLoadError,
+        onKLinePeriodChange,
       };
 
       // Handle TradingView private API requests
@@ -789,6 +801,9 @@ export function useTradingViewMessageHandler({
       onPriceUpdate,
       onIntervalConfigChange,
       onNativeChartControlsConfigChange,
+      onKLineDataReady,
+      onKLineLoadError,
+      onKLinePeriodChange,
     ],
   );
 

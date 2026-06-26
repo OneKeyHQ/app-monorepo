@@ -374,6 +374,63 @@ function getPositivePrivateSendAmount(amount?: string | number) {
     : undefined;
 }
 
+function getPrivateSendQuoteProvider(quote?: IFetchQuoteResult) {
+  return (
+    quote?.info.provider || quote?.info.providerName || privateSendProvider
+  );
+}
+
+function getPrivateSendQuoteArrivalEta(quote?: IFetchQuoteResult) {
+  const arrivalEta = quote?.estimatedTime ?? quote?.estTime;
+  return typeof arrivalEta === 'string' || typeof arrivalEta === 'number'
+    ? arrivalEta
+    : undefined;
+}
+
+function buildPrivateSendQuoteAnalyticsKey({
+  scopeKey,
+  quote,
+  status,
+  message,
+}: {
+  scopeKey: string;
+  quote?: IFetchQuoteResult;
+  status: 'success' | 'failed';
+  message?: string;
+}) {
+  return [
+    scopeKey,
+    quote?.eventId ?? '',
+    getPrivateSendQuoteProvider(quote),
+    quote?.fromAmount ?? '',
+    quote?.toAmount ?? '',
+    status,
+    message ?? '',
+  ].join('|');
+}
+
+function getPrivateSendSendValue({
+  amount,
+  token,
+}: {
+  amount?: string | number;
+  token?: ISwapToken;
+}) {
+  const amountBN = new BigNumber(amount ?? 0);
+  const priceBN = new BigNumber(token?.price ?? 0);
+  if (
+    amountBN.isNaN() ||
+    priceBN.isNaN() ||
+    !amountBN.isFinite() ||
+    !priceBN.isFinite() ||
+    amountBN.isLessThan(0) ||
+    priceBN.isLessThan(0)
+  ) {
+    return undefined;
+  }
+  return amountBN.multipliedBy(priceBN).toFixed();
+}
+
 function isPositivePrivateSendAmount(amount?: string | number) {
   return Boolean(getPositivePrivateSendAmount(amount));
 }
@@ -790,7 +847,7 @@ function SendAmountInputContainer() {
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
-  const { account, network, vaultSettings, deriveInfo, deriveType } =
+  const { account, network, wallet, vaultSettings, deriveInfo, deriveType } =
     useAccountData({
       accountId: currentAccountId,
       networkId,
@@ -973,6 +1030,8 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
+  const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
   const shouldUsePrivateSendQuoteCollapse =
     sendMode === ESendMode.PRIVATE && !media.gtMd;
   const [
@@ -1422,6 +1481,56 @@ function SendAmountInputContainer() {
       isPrivateSendQuoteLoading ||
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
+  useEffect(() => {
+    if (
+      sendMode !== ESendMode.PRIVATE ||
+      !scopedPrivateSendQuoteResult ||
+      !privateSendToken
+    ) {
+      return;
+    }
+    const quoteMessage =
+      scopedPrivateSendQuoteResult.quoteError ??
+      scopedPrivateSendQuoteResult.selectedQuote?.errorMessage;
+    const isQuoteUsable = isPrivateSendQuoteUsable(privateSendQuote);
+    const status = isQuoteUsable && !quoteMessage ? 'success' : 'failed';
+    const message =
+      quoteMessage ??
+      (status === 'failed'
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_alert_no_provider_supports_trade,
+          })
+        : undefined);
+    const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+      scopeKey: scopedPrivateSendQuoteResult.scopeKey,
+      quote: privateSendQuote,
+      status,
+      message,
+    });
+    if (trackedPrivateSendQuoteKeysRef.current.has(analyticsKey)) {
+      return;
+    }
+    trackedPrivateSendQuoteKeysRef.current.add(analyticsKey);
+    defaultLogger.transaction.send.sendPrivateQuote({
+      status,
+      provider: getPrivateSendQuoteProvider(privateSendQuote),
+      network: privateSendToken.networkId,
+      tokenSymbol: privateSendToken.symbol,
+      receivedTokenSymbol:
+        privateSendQuote?.toTokenInfo?.symbol ?? privateSendToken.symbol,
+      sendAmount: privateSendQuote?.fromAmount ?? privateSendAmount,
+      estimatedReceived: privateSendQuote?.toAmount,
+      arrivalEta: getPrivateSendQuoteArrivalEta(privateSendQuote),
+      message,
+    });
+  }, [
+    intl,
+    privateSendAmount,
+    privateSendQuote,
+    privateSendToken,
+    scopedPrivateSendQuoteResult,
+    sendMode,
+  ]);
   const refreshPrivateSendQuote = useCallback(() => {
     if (
       !canFetchPrivateSendQuote ||
@@ -2414,6 +2523,29 @@ function SendAmountInputContainer() {
       ) {
         return true;
       }
+      if (
+        typeof valueDropPercent === 'number' &&
+        valueDropPercent >= privateSendValueDropWarningPercent
+      ) {
+        const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+          scopeKey: privateSendQuoteScopeKey,
+          quote,
+          status: 'success',
+        });
+        if (
+          !trackedPrivateSendValueDropQuoteKeysRef.current.has(analyticsKey)
+        ) {
+          trackedPrivateSendValueDropQuoteKeysRef.current.add(analyticsKey);
+          defaultLogger.transaction.send.sendPrivateValueDropWarning({
+            dropPercent: valueDropPercent,
+            provider: getPrivateSendQuoteProvider(quote),
+            network: privateSendToken?.networkId,
+            tokenSymbol: privateSendToken?.symbol,
+            receivedTokenSymbol:
+              quote.toTokenInfo?.symbol ?? privateSendToken?.symbol,
+          });
+        }
+      }
       return new Promise<boolean>((resolve) => {
         let settled = false;
         const settle = (confirmed: boolean) => {
@@ -2441,7 +2573,7 @@ function SendAmountInputContainer() {
         });
       });
     },
-    [intl],
+    [intl, privateSendQuoteScopeKey, privateSendToken],
   );
 
   onSubmitRef.current = useCallback(
@@ -2651,6 +2783,25 @@ function SendAmountInputContainer() {
             if (!confirmedValueDrop) {
               return;
             }
+            const privateSendOrderSendAmount =
+              normalizedBuildSwapRes.result.fromAmount ?? privateSendFromAmount;
+            const privateSendOrderEstimatedReceived =
+              normalizedBuildSwapRes.result.toAmount ?? privateSendToAmount;
+            defaultLogger.transaction.send.sendPrivateCreateOrder({
+              walletType: wallet?.type,
+              provider: privateSendProviderInfo.provider,
+              network: privateSendToken.networkId,
+              tokenSymbol: privateSendToken.symbol,
+              receivedTokenSymbol:
+                normalizedBuildSwapRes.result.toTokenInfo?.symbol ??
+                privateSendToken.symbol,
+              sendAmount: privateSendOrderSendAmount,
+              sendValue: getPrivateSendSendValue({
+                amount: privateSendOrderSendAmount,
+                token: privateSendToken,
+              }),
+              estimatedReceived: privateSendOrderEstimatedReceived,
+            });
 
             const transfersInfo: ITransferInfo[] = [
               {
@@ -2935,6 +3086,7 @@ function SendAmountInputContainer() {
       tokenInfo?.isNative,
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
+      wallet?.type,
       intl,
     ],
   );
@@ -3064,6 +3216,14 @@ function SendAmountInputContainer() {
     (value: string | number) => {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
+      if (nextMode !== sendMode) {
+        defaultLogger.transaction.send.sendModeSwitch({
+          fromMode: sendMode,
+          toMode: nextMode,
+          network: networkId,
+          tokenSymbol,
+        });
+      }
       if (
         nextMode === ESendMode.PRIVATE &&
         platformEnv.isNative &&
@@ -3076,7 +3236,13 @@ function SendAmountInputContainer() {
       }
       setSendMode(nextMode);
     },
-    [settings.isPrivateSendGuideClicked, setSettings],
+    [
+      networkId,
+      sendMode,
+      settings.isPrivateSendGuideClicked,
+      setSettings,
+      tokenSymbol,
+    ],
   );
 
   const handlePrivateSendGuideClick = useCallback(() => {

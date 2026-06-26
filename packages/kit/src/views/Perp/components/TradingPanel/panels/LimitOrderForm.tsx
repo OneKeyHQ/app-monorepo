@@ -12,9 +12,14 @@ import {
   Toast,
   XStack,
   YStack,
+  resetToRoute,
 } from '@onekeyhq/components';
+import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   type IBBOPriceMode,
   type ITradingFormData,
@@ -24,6 +29,7 @@ import {
 import {
   perpsActiveAccountStatusAtom,
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountEnableTradingModeAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
   usePerpsActiveAccountStatusAtom,
@@ -38,8 +44,17 @@ import {
   useSpotActiveAssetCtxReadyAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
@@ -84,11 +99,31 @@ interface ILimitOrderFormProps {
 }
 
 type ITradeSide = 'long' | 'short';
+const accountActionSharedButtonProps = {
+  size: 'medium' as const,
+  borderRadius: '$full' as const,
+  h: 44,
+};
 
 function getPositiveFiniteNumber(value: number | undefined) {
   return value !== undefined && Number.isFinite(value) && value > 0
     ? value
     : undefined;
+}
+
+function getPerpsAccountActionType({
+  accountAddress,
+  accountNotSupport,
+  canCreateAddress,
+}: {
+  accountAddress?: string | null;
+  accountNotSupport?: boolean;
+  canCreateAddress?: boolean;
+}) {
+  if (!accountAddress || accountNotSupport) {
+    return canCreateAddress ? 'createAddress' : 'connectWallet';
+  }
+  return null;
 }
 
 export function LimitOrderForm({
@@ -98,8 +133,11 @@ export function LimitOrderForm({
   onClose,
 }: ILimitOrderFormProps) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const themeVariant = useThemeVariant();
 
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
@@ -411,11 +449,55 @@ export function LimitOrderForm({
   const shouldDisableActionButtons = Boolean(
     isTradingActionLoading || perpsAccountStatus.accountNotSupport,
   );
+  const accountActionType = useMemo(
+    () =>
+      getPerpsAccountActionType({
+        accountAddress: perpsAccount?.accountAddress,
+        accountNotSupport: perpsAccountStatus.accountNotSupport,
+        canCreateAddress: perpsAccountStatus.canCreateAddress,
+      }),
+    [
+      perpsAccount?.accountAddress,
+      perpsAccountStatus.accountNotSupport,
+      perpsAccountStatus.canCreateAddress,
+    ],
+  );
+  const shouldDisableAccountActionButtons = isTradingActionLoading;
+
+  const handleConnectWallet = useCallback(async () => {
+    onClose();
+    if (platformEnv.isWebDappMode) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectWalletOptions,
+      });
+    } else {
+      resetToRoute(ERootRoutes.Onboarding, {
+        screen: EOnboardingV2Routes.OnboardingV2,
+        params: {
+          screen: EOnboardingPagesV2.GetStarted,
+        },
+      });
+    }
+  }, [navigation, onClose]);
+
+  const createAddressAccount = useMemo(
+    () => ({
+      ...selectedAccount,
+      deriveType: perpsAccount.deriveType,
+      indexedAccountId:
+        perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
+      networkId: getNetworkIdsMap().onekeyall,
+    }),
+    [perpsAccount.deriveType, perpsAccount.indexedAccountId, selectedAccount],
+  );
 
   const ensureEnableTrading = useCallback(async () => {
     if (!shouldShowEnableTrading || shouldDisableActionButtons) {
       return true;
     }
+    const closeLimitDialog = () => {
+      onClose();
+    };
 
     if (enableTradingMode.requiresExplicitEnableTrading) {
       try {
@@ -436,6 +518,7 @@ export function LimitOrderForm({
       }
 
       if (confirmDecision === 'deposit') {
+        closeLimitDialog();
         await showDepositWithdrawModal('deposit');
         return false;
       }
@@ -464,11 +547,14 @@ export function LimitOrderForm({
       return false;
     }
 
-    const result = await requestEnableTradingWithDepositFallback();
+    const result = await requestEnableTradingWithDepositFallback({
+      beforeDeposit: closeLimitDialog,
+    });
     return Boolean(result.shouldContinue);
   }, [
     confirmHyperliquidTerms,
     enableTradingMode.requiresExplicitEnableTrading,
+    onClose,
     perpsAccountStatus,
     requestEnableTradingWithDepositFallback,
     shouldDisableActionButtons,
@@ -740,6 +826,98 @@ export function LimitOrderForm({
       ? PERP_TRADE_BUTTON_COLORS.light
       : PERP_TRADE_BUTTON_COLORS.dark;
 
+  const createActionButtonRender = useCallback(
+    (props: IButtonProps) => (
+      <Button
+        {...accountActionSharedButtonProps}
+        testID="chart-limit-create-address"
+        variant="primary"
+        disabled={shouldDisableAccountActionButtons}
+        loading={isTradingActionLoading}
+        {...props}
+      >
+        {props.children}
+      </Button>
+    ),
+    [isTradingActionLoading, shouldDisableAccountActionButtons],
+  );
+
+  const renderActionButton = useCallback(
+    ({
+      sideKey,
+      bg,
+      hoverBg,
+      pressBg,
+      defaultText,
+      onDefaultPress,
+    }: {
+      sideKey: ITradeSide;
+      bg: string;
+      hoverBg: string;
+      pressBg: string;
+      defaultText: string;
+      onDefaultPress: () => void;
+    }) => {
+      return (
+        <Button
+          testID={`chart-limit-${sideKey}-button`}
+          size="medium"
+          childrenAsText={false}
+          borderRadius="$4"
+          bg={bg}
+          hoverStyle={shouldDisableActionButtons ? undefined : { bg: hoverBg }}
+          pressStyle={shouldDisableActionButtons ? undefined : { bg: pressBg }}
+          onPress={onDefaultPress}
+          disabled={shouldDisableActionButtons}
+          loading={isTradingActionLoading}
+          h={36}
+        >
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {defaultText}
+          </SizableText>
+        </Button>
+      );
+    },
+    [isTradingActionLoading, shouldDisableActionButtons],
+  );
+  const sharedAccountActionButton = useMemo(() => {
+    if (accountActionType === 'createAddress') {
+      return (
+        <AccountSelectorCreateAddressButton
+          autoCreateAddress={false}
+          num={0}
+          account={createAddressAccount}
+          buttonRender={createActionButtonRender}
+        />
+      );
+    }
+
+    if (accountActionType === 'connectWallet') {
+      return (
+        <Button
+          {...accountActionSharedButtonProps}
+          testID="chart-limit-connect-wallet"
+          variant="primary"
+          onPress={() => void handleConnectWallet()}
+          disabled={shouldDisableAccountActionButtons}
+          loading={isTradingActionLoading}
+        >
+          {intl.formatMessage({ id: ETranslations.global_connect_wallet })}
+        </Button>
+      );
+    }
+
+    return null;
+  }, [
+    accountActionType,
+    createActionButtonRender,
+    createAddressAccount,
+    handleConnectWallet,
+    intl,
+    isTradingActionLoading,
+    shouldDisableAccountActionButtons,
+  ]);
+
   return (
     <YStack gap="$2.5">
       {/* Price + BBO */}
@@ -904,174 +1082,148 @@ export function LimitOrderForm({
       ) : null}
 
       {/* Buy / Sell */}
-      <XStack gap="$2.5">
-        <YStack flex={1} gap="$2">
-          <Button
-            testID="chart-limit-long-button"
-            size="medium"
-            childrenAsText={false}
-            borderRadius="$4"
-            bg={longColors.long}
-            hoverStyle={
-              shouldDisableActionButtons
-                ? undefined
-                : { bg: longColors.longHover }
-            }
-            pressStyle={
-              shouldDisableActionButtons
-                ? undefined
-                : { bg: longColors.longPress }
-            }
-            onPress={() => void handlePlace('long')}
-            disabled={shouldDisableActionButtons}
-            loading={isTradingActionLoading}
-            h={36}
-          >
-            <SizableText size="$bodyMdMedium" color="$textOnColor">
-              {intl.formatMessage({
+      {sharedAccountActionButton ? (
+        <YStack gap="$2">{sharedAccountActionButton}</YStack>
+      ) : (
+        <XStack gap="$2.5">
+          <YStack flex={1} gap="$2">
+            {renderActionButton({
+              sideKey: 'long',
+              bg: longColors.long,
+              hoverBg: longColors.longHover,
+              pressBg: longColors.longPress,
+              defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_buy
                   : ETranslations.perp_trade_long,
-              })}
-            </SizableText>
-          </Button>
-          {!isSpot ? (
-            <YStack gap="$1.5">
-              <XStack gap="$2" justifyContent="flex-start">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_trade_margin_required,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_cost })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.long.marginRequiredBN.gt(0)
-                    ? `$${sideStats.long.marginRequiredBN.toFixed(
-                        2,
-                        BigNumber.ROUND_DOWN,
-                      )}`
-                    : '$0.00'}
-                </SizableText>
-              </XStack>
-              <XStack gap="$2" justifyContent="flex-start">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price_tooltip,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.long.liquidationPriceBN
-                    ? `$${formatPriceToSignificantDigits(
-                        sideStats.long.liquidationPriceBN,
-                        szDecimals,
-                      )}`
-                    : '--'}
-                </SizableText>
-              </XStack>
-            </YStack>
-          ) : null}
-        </YStack>
-        <YStack flex={1} gap="$2">
-          <Button
-            testID="chart-limit-short-button"
-            size="medium"
-            childrenAsText={false}
-            borderRadius="$4"
-            bg={longColors.short}
-            hoverStyle={
-              shouldDisableActionButtons
-                ? undefined
-                : { bg: longColors.shortHover }
-            }
-            pressStyle={
-              shouldDisableActionButtons
-                ? undefined
-                : { bg: longColors.shortPress }
-            }
-            onPress={() => void handlePlace('short')}
-            disabled={shouldDisableActionButtons}
-            loading={isTradingActionLoading}
-            h={36}
-          >
-            <SizableText size="$bodyMdMedium" color="$textOnColor">
-              {intl.formatMessage({
+              }),
+              onDefaultPress: () => void handlePlace('long'),
+            })}
+            {!isSpot ? (
+              <YStack gap="$1.5">
+                <XStack gap="$2" justifyContent="flex-start">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_required,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  >
+                    {intl.formatMessage({ id: ETranslations.perp_cost })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.long.marginRequiredBN.gt(0)
+                      ? `$${sideStats.long.marginRequiredBN.toFixed(
+                          2,
+                          BigNumber.ROUND_DOWN,
+                        )}`
+                      : '$0.00'}
+                  </SizableText>
+                </XStack>
+                <XStack gap="$2" justifyContent="flex-start">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.long.liquidationPriceBN
+                      ? `$${formatPriceToSignificantDigits(
+                          sideStats.long.liquidationPriceBN,
+                          szDecimals,
+                        )}`
+                      : '--'}
+                  </SizableText>
+                </XStack>
+              </YStack>
+            ) : null}
+          </YStack>
+          <YStack flex={1} gap="$2">
+            {renderActionButton({
+              sideKey: 'short',
+              bg: longColors.short,
+              hoverBg: longColors.shortHover,
+              pressBg: longColors.shortPress,
+              defaultText: intl.formatMessage({
                 id: isSpot
                   ? ETranslations.dexmarket_details_transactions_sell
                   : ETranslations.perp_trade_short,
-              })}
-            </SizableText>
-          </Button>
-          {!isSpot ? (
-            <YStack gap="$1.5">
-              <XStack gap="$2" justifyContent="flex-end">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_trade_margin_required,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_cost,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_cost })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.short.marginRequiredBN.gt(0)
-                    ? `$${sideStats.short.marginRequiredBN.toFixed(
-                        2,
-                        BigNumber.ROUND_DOWN,
-                      )}`
-                    : '$0.00'}
-                </SizableText>
-              </XStack>
-              <XStack gap="$2" justifyContent="flex-end">
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  tooltip={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price_tooltip,
-                  })}
-                  tooltipTitle={intl.formatMessage({
-                    id: ETranslations.perp_est_liq_price,
-                  })}
-                >
-                  {intl.formatMessage({ id: ETranslations.perp_est_liq_price })}
-                </DashText>
-                <SizableText size="$bodySm" color="$text">
-                  {sideStats.short.liquidationPriceBN
-                    ? `$${formatPriceToSignificantDigits(
-                        sideStats.short.liquidationPriceBN,
-                        szDecimals,
-                      )}`
-                    : '--'}
-                </SizableText>
-              </XStack>
-            </YStack>
-          ) : null}
-        </YStack>
-      </XStack>
+              }),
+              onDefaultPress: () => void handlePlace('short'),
+            })}
+            {!isSpot ? (
+              <YStack gap="$1.5">
+                <XStack gap="$2" justifyContent="flex-end">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_required,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_cost,
+                    })}
+                  >
+                    {intl.formatMessage({ id: ETranslations.perp_cost })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.short.marginRequiredBN.gt(0)
+                      ? `$${sideStats.short.marginRequiredBN.toFixed(
+                          2,
+                          BigNumber.ROUND_DOWN,
+                        )}`
+                      : '$0.00'}
+                  </SizableText>
+                </XStack>
+                <XStack gap="$2" justifyContent="flex-end">
+                  <DashText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    tooltip={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                    tooltipTitle={intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price,
+                    })}
+                  </DashText>
+                  <SizableText size="$bodySm" color="$text">
+                    {sideStats.short.liquidationPriceBN
+                      ? `$${formatPriceToSignificantDigits(
+                          sideStats.short.liquidationPriceBN,
+                          szDecimals,
+                        )}`
+                      : '--'}
+                  </SizableText>
+                </XStack>
+              </YStack>
+            ) : null}
+          </YStack>
+        </XStack>
+      )}
     </YStack>
   );
 }
