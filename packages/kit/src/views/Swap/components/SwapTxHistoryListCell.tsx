@@ -113,20 +113,22 @@ const SwapTxHistoryListCell = ({
     }
     if (kind === 'pending') {
       return (
-        <Badge badgeType="info" badgeSize="lg">
-          {intl.formatMessage({ id: ETranslations.swap_history_status_pending })}
+        <Badge badgeType="info" badgeSize="sm">
+          {intl.formatMessage({
+            id: ETranslations.swap_history_status_pending,
+          })}
         </Badge>
       );
     }
     if (kind === 'failed') {
       return (
-        <Badge badgeType="critical" badgeSize="lg">
+        <Badge badgeType="critical" badgeSize="sm">
           {intl.formatMessage({ id: ETranslations.swap_history_status_failed })}
         </Badge>
       );
     }
     return (
-      <Badge badgeType="default" badgeSize="lg">
+      <Badge badgeType="default" badgeSize="sm">
         {intl.formatMessage({ id: ETranslations.swap_history_status_canceled })}
       </Badge>
     );
