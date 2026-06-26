@@ -64,7 +64,9 @@ const SwapHistoryListModal = ({
     >();
   const { type } = route.params;
   const initialHistoryType =
-    type === EProtocolOfExchange.LIMIT ? type : EProtocolOfExchange.SWAP;
+    type === EProtocolOfExchange.LIMIT || type === EProtocolOfExchange.STOCK
+      ? type
+      : EProtocolOfExchange.SWAP;
   const [historyType, setHistoryType] =
     useState<EProtocolOfExchange>(initialHistoryType);
   const [{ swapHistoryPendingList, swapLimitOrders }] =
@@ -540,6 +542,18 @@ const SwapHistoryListModal = ({
     [historyTypeItems, historyTypeTitle, historyTypeTrigger],
   );
 
+  // Stock history has no Market/Limit switch — show a static title instead of
+  // the type-selector so the user cannot accidentally switch the list away
+  // from stock.
+  const headerStockType = useCallback(
+    () => (
+      <SizableText size="$bodyMd" $gtMd={{ size: '$bodyLg' }}>
+        {intl.formatMessage({ id: ETranslations.global_history })}
+      </SizableText>
+    ),
+    [intl],
+  );
+
   const savingsBanner = useMemo(() => {
     if (
       cumulativeSavings === '$0' ||
@@ -611,16 +625,23 @@ const SwapHistoryListModal = ({
     <Page>
       <Page.Header
         headerRight={
-          historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
+          historyType === EProtocolOfExchange.LIMIT ||
+          historyType === EProtocolOfExchange.STOCK
+            ? undefined
+            : deleteButton
         }
         headerRightNoGlass
         headerTitleAlign={gtMd ? 'left' : 'center'}
-        headerTitle={headerSelectType}
+        headerTitle={
+          historyType === EProtocolOfExchange.STOCK
+            ? headerStockType
+            : headerSelectType
+        }
       />
       {historyType !== EProtocolOfExchange.LIMIT ? (
         <YStack flex={1}>
           {savingsBanner}
-          <SwapMarketHistoryList protocol={EProtocolOfExchange.SWAP} />
+          <SwapMarketHistoryList protocol={historyType} />
         </YStack>
       ) : (
         <LimitOrderListModalWithAllProvider storeName={storeName} />
