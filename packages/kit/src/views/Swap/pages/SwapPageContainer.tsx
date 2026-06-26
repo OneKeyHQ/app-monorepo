@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import { useFocusEffect } from '@react-navigation/core';
 
 import { Page } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -10,6 +12,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useAppRoute } from '../../../hooks/useAppRoute';
@@ -36,6 +39,20 @@ const SwapPageContainer = () => {
     if (!swapTabSwitchType) return undefined;
     return { swapTabSwitchType };
   }, [tabParam]);
+
+  // "Visit = read": when the user leaves the Swap tab screen, archive every
+  // unread finished item in the history preview. A pushed modal (detail /
+  // "view more") does NOT blur this screen on desktop, so opening one does
+  // not mark items read; switching the in-page Swap/Stock/Limit tab also does
+  // not blur this screen.
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        void backgroundApiProxy.serviceSwap.markAllSwapHistoryPreviewRead();
+      },
+      [],
+    ),
+  );
 
   return (
     <Page fullPage>
