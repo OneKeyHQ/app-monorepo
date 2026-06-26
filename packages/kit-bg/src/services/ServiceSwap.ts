@@ -1824,6 +1824,23 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markAllSwapHistoryPreviewRead() {
+    await this.backgroundApi.simpleDb.swapHistory.markUnreadTerminalPreviewRead(
+      Date.now(),
+    );
+    // Re-derive the pending atom so subscribed UIs re-read the persisted list
+    // (newly-read terminal items drop out of the preview).
+    await this.syncSwapHistoryPendingList();
+  }
+
+  @backgroundMethod()
+  async seedSwapHistoryPreviewReadIfNeeded() {
+    await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+      Date.now(),
+    );
+  }
+
+  @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter((history) =>
