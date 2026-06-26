@@ -126,6 +126,7 @@ import {
 } from '../../../states/jotai/contexts/swap';
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
+  type ISwapBtcOutputValidationError,
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
   getSwapRequiredNativeBalanceAmount,
@@ -530,6 +531,35 @@ export function useSwapBuildTx() {
     [intl],
   );
 
+  const getSwapBtcOutputValidationToast = useCallback(
+    ({
+      networkId,
+      tokenSymbol,
+      validationError,
+    }: {
+      networkId?: string;
+      tokenSymbol: string;
+      validationError: ISwapBtcOutputValidationError;
+    }) => {
+      if (validationError.type === 'payment_output_less_than_order_amount') {
+        return getSwapBalanceInsufficientToast({
+          networkId,
+          tokenSymbol,
+        });
+      }
+
+      return {
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_toast_swap_failed,
+        }),
+        message: intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+      };
+    },
+    [getSwapBalanceInsufficientToast, intl],
+  );
+
   const checkOtherFee = useCallback(
     async (quoteResult: IFetchQuoteResult) => {
       const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
@@ -836,11 +866,13 @@ export function useSwapBuildTx() {
           unsignedTxItem.swapInfo?.sender.token.symbol ??
           gasInfo.common?.nativeSymbol ??
           '';
+        const validationToast = getSwapBtcOutputValidationToast({
+          networkId,
+          tokenSymbol,
+          validationError: btcOutputValidationError,
+        });
         Toast.error({
-          ...getSwapBalanceInsufficientToast({
-            networkId,
-            tokenSymbol,
-          }),
+          ...validationToast,
           toastId: [
             'swap-btc-output-validation',
             networkId,
@@ -850,7 +882,11 @@ export function useSwapBuildTx() {
             btcOutputValidationError.actualAmountBase ?? '',
           ].join('-'),
         });
-        throw new OneKeyAppError('swap btc output validation failed');
+        throw new OneKeyAppError(
+          [validationToast.title, validationToast.message]
+            .filter(Boolean)
+            .join(' '),
+        );
       }
       const {
         totalNative,
@@ -948,7 +984,7 @@ export function useSwapBuildTx() {
     },
     [
       checkLatestNativeTokenBalance,
-      getSwapBalanceInsufficientToast,
+      getSwapBtcOutputValidationToast,
       intl,
       setSwapSteps,
     ],
