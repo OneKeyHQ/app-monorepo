@@ -223,7 +223,17 @@ jobs:
           # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
           # the browser would hard-block every script -> blank app. Use
           # release-based upload (no source-file mutation) so SRI stays valid.
-          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix '~/' ./apps/web/web-build
+          # Derive the artifact url-prefix from PUBLIC_URL so it matches how the
+          # assets are ACTUALLY served. With no debug-ids, Sentry associates maps
+          # purely by release + path: it strips the host from the event abs_path
+          # and prepends `~`, so the uploaded prefix MUST carry the same path
+          # segment. PUBLIC_URL is `https://<host>/[<commit>-<build>/]`; keep its
+          # path (with trailing slash) after `~`. A bare `~/` (no path) was the
+          # old value and stays correct when PUBLIC_URL has no path segment.
+          # Without this the maps upload as `~/static/js/*.js` while events report
+          # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
+          URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
           npx sentry-cli releases finalize "$RELEASE" || true
 
       - name: Cleanup Web Sourcemaps and License Files
@@ -399,7 +409,17 @@ jobs:
           # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
           # the browser would hard-block every script -> blank app. Use
           # release-based upload (no source-file mutation) so SRI stays valid.
-          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix '~/' ./apps/web/web-build
+          # Derive the artifact url-prefix from PUBLIC_URL so it matches how the
+          # assets are ACTUALLY served. With no debug-ids, Sentry associates maps
+          # purely by release + path: it strips the host from the event abs_path
+          # and prepends `~`, so the uploaded prefix MUST carry the same path
+          # segment. PUBLIC_URL is `https://<host>/[<commit>-<build>/]`; keep its
+          # path (with trailing slash) after `~`. A bare `~/` (no path) was the
+          # old value and stays correct when PUBLIC_URL has no path segment.
+          # Without this the maps upload as `~/static/js/*.js` while events report
+          # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
+          URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
           npx sentry-cli releases finalize "$RELEASE" || true
 
       - name: Cleanup Web Sourcemaps and License Files
