@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { debugAccountSelectorLog } from '@onekeyhq/shared/src/utils/debug/accountSelectorDebugLog';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -22,7 +23,7 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
     num,
   });
 
-  const { sceneName } = useAccountSelectorSceneInfo();
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
 
   const actions = useAccountSelectorActions();
 
@@ -42,30 +43,56 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
   // ** auto select first network if no network selected yet
   useEffect(() => {
     if (!isReady) {
+      debugAccountSelectorLog('autoSelectNetwork:skip-not-ready', {
+        sceneName,
+        sceneUrl,
+        num,
+        networkId,
+      });
       return;
     }
     if (!networkIds || !networkIds.length) {
+      debugAccountSelectorLog('autoSelectNetwork:skip-empty-networks', {
+        sceneName,
+        sceneUrl,
+        num,
+        networkId,
+      });
       return;
     }
     // TODO move below code to actions
     const network = networkIds.find((item) => item === networkId);
+    let usedNetworkId = networkIds[0];
+    if (defaultNetworkId) {
+      const founded = networkIds.find((item) => item === defaultNetworkId);
+      if (founded) {
+        usedNetworkId = defaultNetworkId;
+      }
+    }
+
+    if (
+      usedNetworkId &&
+      sceneName === EAccountSelectorSceneName.discover &&
+      networkUtils.isAllNetwork({ networkId: usedNetworkId })
+    ) {
+      usedNetworkId = '';
+    }
+
+    const shouldAutoSelectNetwork = !network || !networkId;
+    debugAccountSelectorLog('autoSelectNetwork:evaluate', {
+      sceneName,
+      sceneUrl,
+      num,
+      networkId,
+      networkIdsCount: networkIds.length,
+      hasCurrentNetwork: Boolean(network),
+      defaultNetworkId,
+      firstNetworkId: networkIds[0],
+      usedNetworkId,
+      shouldAutoSelectNetwork,
+    });
+
     if (!network || !networkId) {
-      let usedNetworkId = networkIds[0];
-      if (defaultNetworkId) {
-        const founded = networkIds.find((item) => item === defaultNetworkId);
-        if (founded) {
-          usedNetworkId = defaultNetworkId;
-        }
-      }
-
-      if (
-        usedNetworkId &&
-        sceneName === EAccountSelectorSceneName.discover &&
-        networkUtils.isAllNetwork({ networkId: usedNetworkId })
-      ) {
-        usedNetworkId = '';
-      }
-
       if (usedNetworkId) {
         if (sceneName === EAccountSelectorSceneName.discover) {
           console.log(
@@ -73,6 +100,13 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
             usedNetworkId,
           );
         }
+        debugAccountSelectorLog('autoSelectNetwork:update', {
+          sceneName,
+          sceneUrl,
+          num,
+          networkId,
+          usedNetworkId,
+        });
 
         void actions.current.updateSelectedAccountNetwork({
           num,
@@ -88,6 +122,7 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
     networkIds,
     num,
     sceneName,
+    sceneUrl,
   ]);
 
   // TODO UI unmount & mount unexpectedly, cause hooks rerun

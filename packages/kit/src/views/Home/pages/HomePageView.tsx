@@ -36,6 +36,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { debugAccountSelectorLog } from '@onekeyhq/shared/src/utils/debug/accountSelectorDebugLog';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -60,6 +61,7 @@ import {
   useActiveAccount,
   useIsAccountSelectorActiveAccountInitDone,
   useIsAccountSelectorSyncLoading,
+  useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { deferHeavyWorkUntilUIIdle } from '../../../utils/deferHeavyWork';
 import { NetworkUnsupportedWarning } from '../../Staking/components/ProtocolDetails/NetworkUnsupportedWarning';
@@ -198,14 +200,18 @@ export function HomePageView({
       account,
       accountName,
       network,
+      deriveType,
       deriveInfo,
       wallet,
       ready,
       device,
       indexedAccount,
+      dbAccount,
+      isNetworkNotMatched,
       vaultSettings: cachedVaultSettings,
     },
   } = useActiveAccount({ num: 0 });
+  const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [accountSelectorStorageInitDone] =
     useAccountSelectorStorageInitDoneAtom();
   const accountSelectorActiveAccountInitDone =
@@ -930,12 +936,78 @@ export function HomePageView({
       ),
     [homePageContent],
   );
+  const walletListResolvedNoWallet = walletListResult?.wallets.length === 0;
   const showNoWalletContent = shouldShowNoWalletContent({
     hasNoUsableWallet,
     accountSelectorStorageInitDone,
     accountSelectorActiveAccountInitDone,
-    walletListResolvedNoWallet: walletListResult?.wallets.length === 0,
+    walletListResolvedNoWallet,
   });
+
+  useEffect(() => {
+    debugAccountSelectorLog('homePage:content-state', {
+      sceneName,
+      ready,
+      hasNoUsableWallet,
+      showNoWalletContent,
+      rendersBlankContent: ready && hasNoUsableWallet && !showNoWalletContent,
+      accountSelectorStorageInitDone,
+      accountSelectorActiveAccountInitDone,
+      walletListResolvedNoWallet,
+      walletListCount: walletListResult?.wallets.length,
+      selectedAccount: {
+        walletId: selectedAccount.walletId,
+        indexedAccountId: selectedAccount.indexedAccountId,
+        othersWalletAccountId: selectedAccount.othersWalletAccountId,
+        networkId: selectedAccount.networkId,
+        deriveType: selectedAccount.deriveType,
+        focusedWallet: selectedAccount.focusedWallet,
+      },
+      activeAccount: {
+        walletId: wallet?.id,
+        walletType: wallet?.type,
+        indexedAccountId: indexedAccount?.id,
+        accountId: account?.id,
+        dbAccountId: dbAccount?.id,
+        accountCreateAtNetwork: account?.createAtNetwork,
+        networkId: network?.id,
+        networkIsAllNetworks: network?.isAllNetworks,
+        deriveType,
+        isNetworkNotMatched,
+        isOthersWallet: accountUtils.isOthersWallet({
+          walletId: wallet?.id ?? '',
+        }),
+        isOthersAccount: accountUtils.isOthersAccount({
+          accountId: account?.id,
+        }),
+      },
+    });
+  }, [
+    account?.createAtNetwork,
+    account?.id,
+    accountSelectorActiveAccountInitDone,
+    accountSelectorStorageInitDone,
+    dbAccount?.id,
+    deriveType,
+    hasNoUsableWallet,
+    indexedAccount?.id,
+    isNetworkNotMatched,
+    network?.id,
+    network?.isAllNetworks,
+    ready,
+    sceneName,
+    selectedAccount.deriveType,
+    selectedAccount.focusedWallet,
+    selectedAccount.indexedAccountId,
+    selectedAccount.networkId,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.walletId,
+    showNoWalletContent,
+    wallet?.id,
+    wallet?.type,
+    walletListResolvedNoWallet,
+    walletListResult?.wallets.length,
+  ]);
 
   const homePage = useMemo(() => {
     if (!ready) {

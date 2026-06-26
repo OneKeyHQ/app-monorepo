@@ -17,6 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { debugAccountSelectorLog } from '@onekeyhq/shared/src/utils/debug/accountSelectorDebugLog';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -50,6 +51,17 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '../vaults/types';
+
+const pickSelectedAccountLogFields = (
+  selectedAccount: IAccountSelectorSelectedAccount | undefined,
+) => ({
+  walletId: selectedAccount?.walletId,
+  indexedAccountId: selectedAccount?.indexedAccountId,
+  othersWalletAccountId: selectedAccount?.othersWalletAccountId,
+  networkId: selectedAccount?.networkId,
+  deriveType: selectedAccount?.deriveType,
+  focusedWallet: selectedAccount?.focusedWallet,
+});
 
 @backgroundClass()
 class ServiceAccountSelector extends ServiceBase {
@@ -174,6 +186,9 @@ class ServiceAccountSelector extends ServiceBase {
         selectedAccount,
       },
     );
+    debugAccountSelectorLog('serviceBuildActive:start', {
+      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+    });
 
     let account: INetworkAccount | undefined;
     // NetworkAccount is undefined if others wallet account not compatible with network
@@ -254,6 +269,13 @@ class ServiceAccountSelector extends ServiceBase {
           } catch (e) {
             // account may not compatible with network
             console.error(e);
+            debugAccountSelectorLog(
+              'serviceBuildActive:getNetworkAccountError',
+              {
+                selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+                error: e instanceof Error ? e.message : String(e),
+              },
+            );
           }
         }
       }
@@ -446,6 +468,22 @@ class ServiceAccountSelector extends ServiceBase {
     };
 
     // throw new OneKeyLocalError('Method not implemented.');
+    debugAccountSelectorLog('serviceBuildActive:done', {
+      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+      selectedAccountFixed: pickSelectedAccountLogFields(selectedAccountFixed),
+      activeAccount: {
+        ready: activeAccount.ready,
+        walletId: activeAccount.wallet?.id,
+        indexedAccountId: activeAccount.indexedAccount?.id,
+        accountId: activeAccount.account?.id,
+        dbAccountId: activeAccount.dbAccount?.id,
+        networkId: activeAccount.network?.id,
+        deriveType: activeAccount.deriveType,
+        canCreateAddress: activeAccount.canCreateAddress,
+        isNetworkNotMatched: activeAccount.isNetworkNotMatched,
+        isOthersWallet: activeAccount.isOthersWallet,
+      },
+    });
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 
