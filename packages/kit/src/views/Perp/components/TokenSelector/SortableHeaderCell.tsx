@@ -38,6 +38,7 @@ function BaseSortableHeaderCell({
     field,
     sortField: selectorConfig?.field,
     sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
   });
 
   const handlePress = useCallback(() => {

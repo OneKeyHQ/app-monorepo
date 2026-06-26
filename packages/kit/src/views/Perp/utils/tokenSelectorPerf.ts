@@ -12,6 +12,7 @@ type ITokenSelectorPerfDetail = {
   sortField?: string;
   sortDirection?: string;
   sortSource?: string;
+  sortSourceTab?: string;
   perpCount?: number;
   spotCount?: number;
   resultCount?: number;

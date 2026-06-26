@@ -3,12 +3,14 @@ import {
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
   comparePerpTokenSelectorSortValues,
+  getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
   getPerpTokenSelectorPrimaryTabId,
   getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorAllTab,
+  isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
@@ -306,6 +308,15 @@ describe('tokenSelectorTabs', () => {
         sortField: 'volume24h',
         sortSource: 'user',
       }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'hot',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+      }),
     ).toBe(true);
     expect(
       isPerpTokenSelectorSortFieldActive({
@@ -315,6 +326,57 @@ describe('tokenSelectorTabs', () => {
         sortSource: 'default',
       }),
     ).toBe(true);
+  });
+
+  it('scopes dynamic tab user sorting to the clicked tab', () => {
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+      }),
+    ).toBe(true);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'perps',
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(false);
+  });
+
+  it('resets user sort source when switching tabs', () => {
+    expect(
+      getNextPerpTokenSelectorActiveTabConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'asc',
+          activeTab: 'perps',
+          sortSource: 'user',
+          sortSourceTab: 'perps',
+        },
+        tab: 'hot',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'asc',
+      activeTab: 'hot',
+      sortSource: 'default',
+      sortSourceTab: undefined,
+    });
   });
 
   it('starts user sorting from descending on a dynamic tab default order', () => {
@@ -333,6 +395,7 @@ describe('tokenSelectorTabs', () => {
       direction: 'desc',
       activeTab: 'hot',
       sortSource: 'user',
+      sortSourceTab: 'hot',
     });
   });
 
@@ -344,6 +407,7 @@ describe('tokenSelectorTabs', () => {
           direction: 'desc',
           activeTab: 'hot',
           sortSource: 'user',
+          sortSourceTab: 'hot',
         },
         field: 'volume24h',
       }),
@@ -352,6 +416,7 @@ describe('tokenSelectorTabs', () => {
       direction: 'asc',
       activeTab: 'hot',
       sortSource: 'user',
+      sortSourceTab: 'hot',
     });
     expect(
       getNextPerpTokenSelectorSortConfig({
@@ -360,6 +425,7 @@ describe('tokenSelectorTabs', () => {
           direction: 'asc',
           activeTab: 'hot',
           sortSource: 'user',
+          sortSourceTab: 'hot',
         },
         field: 'volume24h',
       }),
@@ -368,6 +434,7 @@ describe('tokenSelectorTabs', () => {
       direction: 'desc',
       activeTab: 'hot',
       sortSource: 'default',
+      sortSourceTab: undefined,
     });
   });
 
@@ -382,24 +449,46 @@ describe('tokenSelectorTabs', () => {
         field: 'volume24h',
         direction: 'desc',
         sortSource: 'user',
+        sortSourceTab: 'hot',
         snapshotEmpty: false,
       }),
     ).toBe(true);
   });
 
-  it('uses live asset ctxs for user sort and snapshot ctxs for default order', () => {
+  it('only uses live asset ctxs for a matching dynamic tab user sort', () => {
     const liveAssetCtxsByDex = [[{ volume: '12' }]];
     const snapshotAssetCtxsByDex = [[{ volume: '8' }]];
 
     expect(
       getPerpTokenSelectorSortAssetCtxsByDex({
+        activeTab: 'hot',
         liveAssetCtxsByDex,
         snapshotAssetCtxsByDex,
         sortSource: 'user',
+        sortSourceTab: 'hot',
       }),
     ).toBe(liveAssetCtxsByDex);
     expect(
       getPerpTokenSelectorSortAssetCtxsByDex({
+        activeTab: 'perps',
+        liveAssetCtxsByDex,
+        snapshotAssetCtxsByDex,
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(snapshotAssetCtxsByDex);
+    expect(
+      getPerpTokenSelectorSortAssetCtxsByDex({
+        activeTab: 'hot',
+        liveAssetCtxsByDex,
+        snapshotAssetCtxsByDex,
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(snapshotAssetCtxsByDex);
+    expect(
+      getPerpTokenSelectorSortAssetCtxsByDex({
+        activeTab: 'hot',
         liveAssetCtxsByDex,
         snapshotAssetCtxsByDex,
         sortSource: 'default',
@@ -407,6 +496,7 @@ describe('tokenSelectorTabs', () => {
     ).toBe(snapshotAssetCtxsByDex);
     expect(
       getPerpTokenSelectorSortAssetCtxsByDex({
+        activeTab: 'hot',
         liveAssetCtxsByDex,
         snapshotAssetCtxsByDex,
       }),

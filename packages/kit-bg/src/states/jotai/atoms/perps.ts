@@ -783,6 +783,7 @@ export const {
     direction: 'desc',
     activeTab: DEFAULT_PERP_TOKEN_ACTIVE_TAB,
     sortSource: 'default',
+    sortSourceTab: undefined,
   },
 });
 

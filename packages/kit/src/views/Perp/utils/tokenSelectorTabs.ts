@@ -17,6 +17,7 @@ type IPerpTokenSelectorSortSnapshotKey = {
   field?: string;
   direction?: string;
   sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
 };
 type IPerpTokenSelectorDynamicTabItem = {
   tokenName?: string;
@@ -151,6 +152,26 @@ function getPerpTokenSelectorPrimaryTabId(
 
 function isPerpTokenSelectorPrimaryTab(tabId: string) {
   return PRIMARY_TAB_ID_SET.has(normalizeTabId(tabId));
+}
+
+function isPerpTokenSelectorDynamicTabUserSort({
+  activeTab,
+  sortSource,
+  sortSourceTab,
+}: {
+  activeTab?: string;
+  sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
+}) {
+  const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  if (isPerpTokenSelectorPrimaryTab(currentActiveTab)) {
+    return false;
+  }
+  return (
+    sortSource === 'user' &&
+    sortSourceTab !== undefined &&
+    normalizeTabId(sortSourceTab) === normalizeTabId(currentActiveTab)
+  );
 }
 
 function isMissingSortValue(value: ITokenSelectorSortValue) {
@@ -295,15 +316,41 @@ function isPerpTokenSelectorSortFieldActive({
   field,
   sortField,
   sortSource,
+  sortSourceTab,
 }: {
   activeTab?: string;
   field: IPerpTokenSortField;
   sortField?: IPerpTokenSortField;
   sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
 }) {
   const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const isDynamicTab = !isPerpTokenSelectorPrimaryTab(currentActiveTab);
-  return sortField === field && (!isDynamicTab || sortSource === 'user');
+  return (
+    sortField === field &&
+    (!isDynamicTab ||
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: currentActiveTab,
+        sortSource,
+        sortSourceTab,
+      }))
+  );
+}
+
+function getNextPerpTokenSelectorActiveTabConfig({
+  prev,
+  tab,
+}: {
+  prev: IPerpTokenSelectorConfig | null;
+  tab: string;
+}): IPerpTokenSelectorConfig {
+  return {
+    field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+    direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+    activeTab: tab,
+    sortSource: 'default',
+    sortSourceTab: undefined,
+  };
 }
 
 function getNextPerpTokenSelectorSortConfig({
@@ -319,6 +366,7 @@ function getNextPerpTokenSelectorSortConfig({
     field,
     sortField: prev?.field,
     sortSource: prev?.sortSource,
+    sortSourceTab: prev?.sortSourceTab,
   });
 
   if (isCurrentFieldActive) {
@@ -328,6 +376,7 @@ function getNextPerpTokenSelectorSortConfig({
         direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
         activeTab,
         sortSource: 'default',
+        sortSourceTab: undefined,
       };
     }
     return {
@@ -335,6 +384,7 @@ function getNextPerpTokenSelectorSortConfig({
       direction: 'asc',
       activeTab,
       sortSource: 'user',
+      sortSourceTab: activeTab,
     };
   }
 
@@ -343,19 +393,30 @@ function getNextPerpTokenSelectorSortConfig({
     direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
     activeTab,
     sortSource: 'user',
+    sortSourceTab: activeTab,
   };
 }
 
 function getPerpTokenSelectorSortAssetCtxsByDex<T>({
+  activeTab,
   liveAssetCtxsByDex,
   snapshotAssetCtxsByDex,
   sortSource,
+  sortSourceTab,
 }: {
+  activeTab?: string;
   liveAssetCtxsByDex: T;
   snapshotAssetCtxsByDex: T;
   sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
 }) {
-  return sortSource === 'user' ? liveAssetCtxsByDex : snapshotAssetCtxsByDex;
+  return isPerpTokenSelectorDynamicTabUserSort({
+    activeTab,
+    sortSource,
+    sortSourceTab,
+  })
+    ? liveAssetCtxsByDex
+    : snapshotAssetCtxsByDex;
 }
 
 function shouldRefreshPerpTokenSelectorSortSnapshot({
@@ -363,18 +424,21 @@ function shouldRefreshPerpTokenSelectorSortSnapshot({
   field,
   direction,
   sortSource,
+  sortSourceTab,
   snapshotEmpty,
 }: {
   lastSort: IPerpTokenSelectorSortSnapshotKey | null;
   field?: string;
   direction?: string;
   sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
   snapshotEmpty: boolean;
 }) {
   return (
     lastSort?.field !== field ||
     lastSort?.direction !== direction ||
     lastSort?.sortSource !== sortSource ||
+    lastSort?.sortSourceTab !== sortSourceTab ||
     snapshotEmpty
   );
 }
@@ -386,9 +450,11 @@ export {
   comparePerpTokenSelectorSortValues,
   getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getNextPerpTokenSelectorActiveTabConfig,
   getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorPrimaryTabId,
   getPerpTokenSelectorSortAssetCtxsByDex,
+  isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
