@@ -100,6 +100,10 @@ type IEncodedTxWithOutputs = {
   outputs?: {
     address?: string;
     value?: string | number;
+    script?: string;
+    payload?: {
+      opReturn?: string;
+    };
   }[];
 };
 
@@ -107,11 +111,18 @@ type IEncodedTxWithTxSize = {
   txSize?: number;
 };
 
-export type ISwapExactPaymentOutputMismatch = {
-  expectedAmount: string;
-  actualAmount: string;
-  expectedAmountBase: string;
-  actualAmountBase: string;
+export type ISwapBtcOutputValidationErrorType =
+  | 'payment_output_missing'
+  | 'payment_output_less_than_order_amount'
+  | 'op_return_missing';
+
+export type ISwapBtcOutputValidationError = {
+  type: ISwapBtcOutputValidationErrorType;
+  expectedAmount?: string;
+  actualAmount?: string;
+  expectedAmountBase?: string;
+  actualAmountBase?: string;
+  expectedOpReturn?: string;
 };
 
 function getEncodedTxOutputs(encodedTx?: IEncodedTx) {
@@ -140,7 +151,7 @@ export function getSwapEncodedTxSize(encodedTx?: IEncodedTx) {
   return txSize;
 }
 
-export function getSwapExactPaymentOutputMismatch({
+export function validateSwapBtcOutputs({
   networkId,
   encodedTx,
   transferInfo,
@@ -148,7 +159,7 @@ export function getSwapExactPaymentOutputMismatch({
   networkId?: string;
   encodedTx?: IEncodedTx;
   transferInfo?: ITransferInfo;
-}): ISwapExactPaymentOutputMismatch | undefined {
+}): ISwapBtcOutputValidationError | undefined {
   if (!networkUtils.isBTCNetwork(networkId)) {
     return undefined;
   }
@@ -175,11 +186,13 @@ export function getSwapExactPaymentOutputMismatch({
     return undefined;
   }
 
+  let hasPaymentOutput = false;
   const actualAmountBaseBN = outputs.reduce((acc, output) => {
     if (output.address !== transferInfo.to) {
       return acc;
     }
 
+    hasPaymentOutput = true;
     const outputValueBN = new BigNumber(output.value ?? '');
     if (
       outputValueBN.isNaN() ||
@@ -192,16 +205,41 @@ export function getSwapExactPaymentOutputMismatch({
     return acc.plus(outputValueBN);
   }, new BigNumber(0));
 
-  if (actualAmountBaseBN.gte(expectedAmountBaseBN)) {
-    return undefined;
+  if (!hasPaymentOutput) {
+    return {
+      type: 'payment_output_missing',
+      expectedAmount: expectedAmountBN.toFixed(),
+      actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
+      expectedAmountBase: expectedAmountBaseBN.toFixed(),
+      actualAmountBase: actualAmountBaseBN.toFixed(),
+    };
   }
 
-  return {
-    expectedAmount: expectedAmountBN.toFixed(),
-    actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
-    expectedAmountBase: expectedAmountBaseBN.toFixed(),
-    actualAmountBase: actualAmountBaseBN.toFixed(),
-  };
+  if (actualAmountBaseBN.lt(expectedAmountBaseBN)) {
+    return {
+      type: 'payment_output_less_than_order_amount',
+      expectedAmount: expectedAmountBN.toFixed(),
+      actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
+      expectedAmountBase: expectedAmountBaseBN.toFixed(),
+      actualAmountBase: actualAmountBaseBN.toFixed(),
+    };
+  }
+
+  if (
+    transferInfo.opReturn &&
+    !outputs.some(
+      (output) =>
+        output.payload?.opReturn === transferInfo.opReturn ||
+        output.script === transferInfo.opReturn,
+    )
+  ) {
+    return {
+      type: 'op_return_missing',
+      expectedOpReturn: transferInfo.opReturn,
+    };
+  }
+
+  return undefined;
 }
 
 function buildNativeTokenFromGasInfo({

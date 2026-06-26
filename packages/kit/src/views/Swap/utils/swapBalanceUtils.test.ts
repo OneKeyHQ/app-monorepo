@@ -5,8 +5,8 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
-  getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
+  validateSwapBtcOutputs,
 } from './swapBalanceUtils';
 
 type IFetchSwapTokenDetailsParams = {
@@ -266,7 +266,7 @@ describe('getSwapEncodedTxSize', () => {
   });
 });
 
-describe('getSwapExactPaymentOutputMismatch', () => {
+describe('validateSwapBtcOutputs', () => {
   const btcTransferInfo = {
     from: 'bc1from',
     to: 'bc1provider',
@@ -280,9 +280,32 @@ describe('getSwapExactPaymentOutputMismatch', () => {
     },
   } as ITransferInfo;
 
+  it('blocks UTXO swap transactions when the provider payment output is missing', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1change',
+              value: '1000',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toEqual({
+      type: 'payment_output_missing',
+      expectedAmount: '0.00179536',
+      actualAmount: '0',
+      expectedAmountBase: '179536',
+      actualAmountBase: '0',
+    });
+  });
+
   it('blocks UTXO swap transactions when SendMax reduces the provider output', () => {
     expect(
-      getSwapExactPaymentOutputMismatch({
+      validateSwapBtcOutputs({
         networkId: 'btc--0',
         encodedTx: {
           outputs: [
@@ -295,6 +318,7 @@ describe('getSwapExactPaymentOutputMismatch', () => {
         transferInfo: btcTransferInfo,
       }),
     ).toEqual({
+      type: 'payment_output_less_than_order_amount',
       expectedAmount: '0.00179536',
       actualAmount: '0.00179316',
       expectedAmountBase: '179536',
@@ -304,7 +328,7 @@ describe('getSwapExactPaymentOutputMismatch', () => {
 
   it('allows UTXO swap transactions when the provider output matches the order amount', () => {
     expect(
-      getSwapExactPaymentOutputMismatch({
+      validateSwapBtcOutputs({
         networkId: 'btc--0',
         encodedTx: {
           outputs: [
@@ -323,9 +347,59 @@ describe('getSwapExactPaymentOutputMismatch', () => {
     ).toBeUndefined();
   });
 
+  it('blocks BTC swap transactions when required OP_RETURN output is missing', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: {
+          ...btcTransferInfo,
+          opReturn: '=:BNB.BNB:bnb1recipient',
+        } as ITransferInfo,
+      }),
+    ).toEqual({
+      type: 'op_return_missing',
+      expectedOpReturn: '=:BNB.BNB:bnb1recipient',
+    });
+  });
+
+  it('allows BTC swap transactions when required OP_RETURN output exists', () => {
+    expect(
+      validateSwapBtcOutputs({
+        networkId: 'btc--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+            {
+              address: '',
+              value: '0',
+              payload: {
+                opReturn: '=:BNB.BNB:bnb1recipient',
+              },
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: {
+          ...btcTransferInfo,
+          opReturn: '=:BNB.BNB:bnb1recipient',
+        } as ITransferInfo,
+      }),
+    ).toBeUndefined();
+  });
+
   it('skips exact-output validation for non-BTC networks', () => {
     expect(
-      getSwapExactPaymentOutputMismatch({
+      validateSwapBtcOutputs({
         networkId: 'ada--0',
         encodedTx: {
           outputs: [

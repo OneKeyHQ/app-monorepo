@@ -128,8 +128,8 @@ import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
   getSwapEncodedTxSize,
-  getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
+  validateSwapBtcOutputs,
 } from '../utils/swapBalanceUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -823,14 +823,14 @@ export function useSwapBuildTx() {
         updatedUnsignedTxItem.txSize ??
         getSwapEncodedTxSize(unsignedTxItem.encodedTx) ??
         unsignedTxItem.txSize;
-      const exactPaymentMismatch = getSwapExactPaymentOutputMismatch({
+      const btcOutputValidationError = validateSwapBtcOutputs({
         networkId,
         encodedTx: updatedUnsignedTxItem.encodedTx,
         transferInfo:
           unsignedTxItem.transfersInfo?.[0] ??
           updatedUnsignedTxItem.transfersInfo?.[0],
       });
-      if (exactPaymentMismatch) {
+      if (btcOutputValidationError) {
         const tokenSymbol =
           updatedUnsignedTxItem.swapInfo?.sender.token.symbol ??
           unsignedTxItem.swapInfo?.sender.token.symbol ??
@@ -842,14 +842,15 @@ export function useSwapBuildTx() {
             tokenSymbol,
           }),
           toastId: [
-            'swap-exact-payment-output-mismatch',
+            'swap-btc-output-validation',
             networkId,
             tokenSymbol,
-            exactPaymentMismatch.expectedAmountBase,
-            exactPaymentMismatch.actualAmountBase,
+            btcOutputValidationError.type,
+            btcOutputValidationError.expectedAmountBase ?? '',
+            btcOutputValidationError.actualAmountBase ?? '',
           ].join('-'),
         });
-        throw new OneKeyAppError('swap exact payment output mismatch');
+        throw new OneKeyAppError('swap btc output validation failed');
       }
       const {
         totalNative,
