@@ -72,7 +72,6 @@ jest.mock('../../dbs/local/localDb', () => ({
 
 jest.mock('../../states/jotai/atoms', () => ({
   keylessBackendShareV2MigrationPersistAtom: mockMigrationAtom,
-  keylessDialogAtom: {},
   keylessPinConfirmStatusAtom: {
     get: jest.fn(),
     set: jest.fn(),
@@ -114,16 +113,6 @@ jest.mock('./utils/keylessMnemonicPasswordStorage', () => ({
     saveMnemonicPasswordToStorage: jest.fn(),
     removeMnemonicPasswordFromStorage: jest.fn(),
   },
-}));
-
-jest.mock('./utils/keylessAuthPackCache', () => ({
-  __esModule: true,
-  default: {},
-}));
-
-jest.mock('./utils/keylessDeviceKeyStorage', () => ({
-  __esModule: true,
-  default: {},
 }));
 
 jest.mock('./utils/keylessSyncCredentialStorage', () => ({

@@ -162,16 +162,22 @@ export const {
   use: useSwapLastNonLimitSelectedTokensAtom,
 } = contextAtom<
   | {
+      sourceSwapType?: ESwapTabSwitchType;
       fromToken?: ISwapToken;
       toToken?: ISwapToken;
     }
   | undefined
 >(undefined);
 
-export const { atom: swapStockExecutionTokenSyncIdAtom } =
-  contextAtom<number>(0);
+export const {
+  atom: swapStockExecutionTokenSyncIdAtom,
+  use: useSwapStockExecutionTokenSyncIdAtom,
+} = contextAtom<number>(0);
 
-export const { atom: swapStockExecutionTokensAtom } = contextAtom<
+export const {
+  atom: swapStockExecutionTokensAtom,
+  use: useSwapStockExecutionTokensAtom,
+} = contextAtom<
   | {
       syncId: number;
       fromToken: ISwapToken;

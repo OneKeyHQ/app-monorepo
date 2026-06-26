@@ -3,10 +3,18 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack, YStack } from '@onekeyhq/components';
+import { ProtocolPositionActionButton } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionButton';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import type { IProtocolUnifiedRow } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDeFiAsset } from '@onekeyhq/shared/types/defi';
+import { normalizeCategoryForAction } from '@onekeyhq/shared/src/utils/defiActionUtils';
+import {
+  EDeFiAssetType,
+  type IDeFiAsset,
+  type IDeFiProtocol,
+  type IDeFiSupportedProtocolAction,
+} from '@onekeyhq/shared/types/defi';
 
 import { ProtocolAssetBalanceText } from './ProtocolAssetBalanceText';
 import { ProtocolPositionCell } from './ProtocolPositionCell';
@@ -58,27 +66,66 @@ const MAX_BALANCE_LINES = 3;
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
 
+// Stable identity for the inline action-button container styling so the
+// memo()'d ProtocolPositionActionButton isn't re-created on every parent
+// render (the tables now mount one per asset row). Shared with the sectioned
+// table to keep both call sites identical.
+export const ACTION_BUTTON_CONTAINER_PROPS = {
+  mt: '$1',
+  alignSelf: 'flex-start',
+  justifyContent: 'flex-start',
+} as const;
+
+function isRewardAsset(asset: IProtocolUnifiedRow['primaryAssets'][number]) {
+  return (
+    asset.type === EDeFiAssetType.REWARD ||
+    normalizeCategoryForAction(asset.category) === 'reward'
+  );
+}
+
+function isRewardsOnlyRow(row: IProtocolUnifiedRow) {
+  return (
+    row.rewardsExtraAssets.length === 0 &&
+    row.primaryAssets.length > 0 &&
+    row.primaryAssets.every(isRewardAsset)
+  );
+}
+
 type IProtocolUnifiedTableProps = {
+  accountId?: string;
+  indexedAccountId?: string;
+  protocol: IDeFiProtocol;
   rows: IProtocolUnifiedRow[];
   currencySymbol: string;
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
+  supportedActions: IDeFiSupportedProtocolAction[];
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 const ProtocolUnifiedTable = memo(
   ({
+    accountId,
+    indexedAccountId,
+    protocol,
     rows,
     currencySymbol,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    supportedActions,
+    onActionSuccess,
   }: IProtocolUnifiedTableProps) => {
     const intl = useIntl();
 
     const showRewardsColumn = useMemo(
-      () => rows.some((row) => row.rewardsExtraAssets.length > 0),
+      () =>
+        rows.some(
+          (row) => row.rewardsExtraAssets.length > 0 || isRewardsOnlyRow(row),
+        ),
       [rows],
     );
-
     const labels = useMemo(
       () => ({
         position: intl.formatMessage({ id: ETranslations.earn_positions }),
@@ -109,6 +156,34 @@ const ProtocolUnifiedTable = memo(
         return next;
       });
     }, []);
+
+    // Row-intrinsic derivations hoisted out of the render map and memoized on
+    // `rows`, so toggling one row's expansion doesn't rebuild every row's
+    // actionPosition — which would bust the memo()'d action buttons and re-run
+    // action resolution across the whole table.
+    const rowsDerived = useMemo(
+      () =>
+        rows.map((row) => {
+          const isPrimaryRewardsOnly = isRewardsOnlyRow(row);
+          const balanceAssets = isPrimaryRewardsOnly ? [] : row.primaryAssets;
+          const rewardsAssets = isPrimaryRewardsOnly
+            ? row.primaryAssets
+            : row.rewardsExtraAssets;
+          const actionPosition = {
+            groupId: row.groupId,
+            poolName: row.positionDisplay.text,
+            poolFullName: row.positionDisplay.text,
+            category: row.category,
+            assets: balanceAssets,
+            debts: [],
+            rewards: rewardsAssets,
+            value: '0',
+            sourcePositions: row.sourcePositions,
+          };
+          return { balanceAssets, rewardsAssets, actionPosition };
+        }),
+      [rows],
+    );
 
     const balanceFlex = showRewardsColumn
       ? BALANCE_FLEX_WITH_REWARDS
@@ -166,138 +241,163 @@ const ProtocolUnifiedTable = memo(
             positionUsdState.hasAvailableValue &&
             positionUsdState.hasUnavailableValue;
           const isExpanded = expandedRows.has(row.rowKey);
+          const { balanceAssets, rewardsAssets, actionPosition } =
+            rowsDerived[rowIndex];
           const visibleBalanceAssets = isExpanded
-            ? row.primaryAssets
-            : topAssetsByValue(row.primaryAssets, MAX_BALANCE_LINES);
+            ? balanceAssets
+            : topAssetsByValue(balanceAssets, MAX_BALANCE_LINES);
           const balanceOverflow = Math.max(
             0,
-            row.primaryAssets.length - MAX_BALANCE_LINES,
+            balanceAssets.length - MAX_BALANCE_LINES,
           );
           const positionAvatars = row.primaryAssets.map((asset) => ({
             logoUrl: asset.meta?.logoUrl,
           }));
 
           return (
-            <XStack
-              key={row.rowKey}
-              mx="$5"
-              px="$2"
-              py="$3"
-              alignItems="flex-start"
-              minHeight={44}
-              mt={rowIndex === 0 ? '$0' : '$3'}
-              gap={PROTOCOL_TABLE_COLUMN_GAP}
-            >
-              <Stack
-                width={POSITION_COLUMN_WIDTH}
-                flexShrink={0}
-                minWidth={0}
-                pt="$1"
+            <YStack key={row.rowKey} mx="$5" mt={rowIndex === 0 ? '$0' : '$3'}>
+              <XStack
+                px="$2"
+                py="$3"
+                alignItems="flex-start"
+                minHeight={44}
+                gap={PROTOCOL_TABLE_COLUMN_GAP}
               >
-                <ProtocolPositionCell
-                  name={row.positionDisplay.text}
-                  assets={positionAvatars}
-                />
-              </Stack>
-              <YStack
-                flex={balanceFlex}
-                flexBasis={0}
-                minWidth={0}
-                gap="$1"
-                pt="$1"
-              >
-                {visibleBalanceAssets.map((asset, assetIndex) => (
-                  <ProtocolAssetBalanceText
-                    key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
-                    asset={asset}
-                    currencySymbol={currencySymbol}
-                    priceUnavailableLabel={priceUnavailableLabel}
+                <Stack
+                  width={POSITION_COLUMN_WIDTH}
+                  flexShrink={0}
+                  minWidth={0}
+                  pt="$1"
+                >
+                  <ProtocolPositionCell
+                    name={row.positionDisplay.text}
+                    assets={positionAvatars}
                   />
-                ))}
-                {balanceOverflow > 0 ? (
-                  // Compact ghost button. Sits flush-left in the Balance
-                  // column with a small left padding so the bg-on-hover
-                  // pill reads as a distinct affordance rather than the
-                  // amount lines above; no negative margin so it never
-                  // overlaps the Position column to the left.
-                  <XStack
-                    alignItems="center"
-                    gap="$0.5"
-                    alignSelf="flex-start"
-                    pl="$1.5"
-                    pr="$1"
-                    py="$0.5"
-                    mt="$0.5"
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    cursor="pointer"
-                    userSelect="none"
-                    role="button"
-                    aria-expanded={isExpanded}
-                    focusable
-                    focusVisibleStyle={{
-                      outlineColor: '$focusRing',
-                      outlineWidth: 2,
-                      outlineStyle: 'solid',
-                      outlineOffset: 1,
-                    }}
-                    hoverStyle={{ bg: '$bgHover' }}
-                    pressStyle={{ bg: '$bgActive' }}
-                    onPress={() => toggleExpanded(row.rowKey)}
-                  >
-                    {/* Collapsed: just `+N` (count + symbol = i18n-safe).
-                        Chevron carries the "expand" affordance, so the
-                        English literal "more" word isn't needed and we
-                        avoid hardcoding text without a translation key.
-                        Expanded uses the localized "Show less" — the
-                        intent there is action, not count. */}
-                    <SizableText size="$bodySm" color="$textSubdued">
-                      {isExpanded ? labels.showLess : `+${balanceOverflow}`}
-                    </SizableText>
-                    <Icon
-                      name={
-                        isExpanded
-                          ? 'ChevronTopSmallSolid'
-                          : 'ChevronDownSmallSolid'
-                      }
-                      size="$4"
-                      color="$iconSubdued"
-                    />
-                  </XStack>
-                ) : null}
-              </YStack>
-              {showRewardsColumn ? (
-                <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
-                  {row.rewardsExtraAssets.length > 0 ? (
-                    <ProtocolRewardsCell
-                      rewards={row.rewardsExtraAssets}
+                </Stack>
+                <YStack
+                  flex={balanceFlex}
+                  flexBasis={0}
+                  minWidth={0}
+                  gap="$1"
+                  pt="$1"
+                >
+                  {visibleBalanceAssets.map((asset, assetIndex) => (
+                    <ProtocolAssetBalanceText
+                      key={`${row.rowKey}-balance-${asset.address}-${assetIndex}`}
+                      asset={asset}
                       currencySymbol={currencySymbol}
                       priceUnavailableLabel={priceUnavailableLabel}
                     />
+                  ))}
+                  {balanceOverflow > 0 ? (
+                    // Compact ghost button. Sits flush-left in the Balance
+                    // column with a small left padding so the bg-on-hover
+                    // pill reads as a distinct affordance rather than the
+                    // amount lines above; no negative margin so it never
+                    // overlaps the Position column to the left.
+                    <XStack
+                      alignItems="center"
+                      gap="$0.5"
+                      alignSelf="flex-start"
+                      pl="$1.5"
+                      pr="$1"
+                      py="$0.5"
+                      mt="$0.5"
+                      borderRadius="$2"
+                      borderCurve="continuous"
+                      cursor="pointer"
+                      userSelect="none"
+                      role="button"
+                      aria-expanded={isExpanded}
+                      focusable
+                      focusVisibleStyle={{
+                        outlineColor: '$focusRing',
+                        outlineWidth: 2,
+                        outlineStyle: 'solid',
+                        outlineOffset: 1,
+                      }}
+                      hoverStyle={{ bg: '$bgHover' }}
+                      pressStyle={{ bg: '$bgActive' }}
+                      onPress={() => toggleExpanded(row.rowKey)}
+                    >
+                      {/* Collapsed: just `+N` (count + symbol = i18n-safe).
+                          Chevron carries the "expand" affordance, so the
+                          English literal "more" word isn't needed and we
+                          avoid hardcoding text without a translation key.
+                          Expanded uses the localized "Show less" — the
+                          intent there is action, not count. */}
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {isExpanded ? labels.showLess : `+${balanceOverflow}`}
+                      </SizableText>
+                      <Icon
+                        name={
+                          isExpanded
+                            ? 'ChevronTopSmallSolid'
+                            : 'ChevronDownSmallSolid'
+                        }
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
                   ) : null}
+                  <ProtocolPositionActionButton
+                    accountId={accountId}
+                    indexedAccountId={indexedAccountId}
+                    protocol={protocol}
+                    position={actionPosition}
+                    supportedActions={supportedActions}
+                    placement="balance"
+                    visualVariant="info"
+                    containerProps={ACTION_BUTTON_CONTAINER_PROPS}
+                    onSuccess={onActionSuccess}
+                  />
+                </YStack>
+                {showRewardsColumn ? (
+                  <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0} pt="$1">
+                    {rewardsAssets.length > 0 ? (
+                      <>
+                        <ProtocolRewardsCell
+                          rewards={rewardsAssets}
+                          currencySymbol={currencySymbol}
+                          priceUnavailableLabel={priceUnavailableLabel}
+                        />
+                        <ProtocolPositionActionButton
+                          accountId={accountId}
+                          indexedAccountId={indexedAccountId}
+                          protocol={protocol}
+                          position={actionPosition}
+                          supportedActions={supportedActions}
+                          placement="rewards"
+                          visualVariant="info"
+                          containerProps={ACTION_BUTTON_CONTAINER_PROPS}
+                          onSuccess={onActionSuccess}
+                        />
+                      </>
+                    ) : null}
+                  </Stack>
+                ) : null}
+                <Stack
+                  flex={usdFlex}
+                  flexBasis={0}
+                  minWidth={0}
+                  alignItems="flex-end"
+                  pt="$1"
+                >
+                  <ProtocolValueCell
+                    value={positionUsdState.value}
+                    currencySymbol={currencySymbol}
+                    priceUnavailableLabel={priceUnavailableLabel}
+                    partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+                    isUnavailable={isPositionUsdUnavailable}
+                    showPriceUnavailableTooltip={hasPartialUnavailableValue}
+                    size="$bodyMdMedium"
+                    textAlign="right"
+                    numberOfLines={1}
+                    fontVariant={TABULAR_NUMS}
+                  />
                 </Stack>
-              ) : null}
-              <Stack
-                flex={usdFlex}
-                flexBasis={0}
-                minWidth={0}
-                alignItems="flex-end"
-                pt="$1"
-              >
-                <ProtocolValueCell
-                  value={positionUsdState.value}
-                  currencySymbol={currencySymbol}
-                  priceUnavailableLabel={priceUnavailableLabel}
-                  partialPriceUnavailableLabel={partialPriceUnavailableLabel}
-                  isUnavailable={isPositionUsdUnavailable}
-                  showPriceUnavailableTooltip={hasPartialUnavailableValue}
-                  size="$bodyMdMedium"
-                  textAlign="right"
-                  numberOfLines={1}
-                  fontVariant={TABULAR_NUMS}
-                />
-              </Stack>
-            </XStack>
+              </XStack>
+            </YStack>
           );
         })}
       </YStack>

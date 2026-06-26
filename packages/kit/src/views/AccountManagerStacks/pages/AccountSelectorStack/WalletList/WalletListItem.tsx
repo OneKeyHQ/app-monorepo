@@ -70,6 +70,9 @@ function WalletListItemBaseView({
       alignItems="center"
       p="$1"
       borderRadius="$3"
+      $platform-ios={{
+        borderRadius: '$5',
+      }}
       borderCurve="continuous"
       userSelect="none"
       {...(selected
@@ -336,6 +339,9 @@ export function WalletListItem({
     return (
       <Stack
         borderRadius="$3"
+        $platform-ios={{
+          borderRadius: '$5',
+        }}
         borderWidth={shouldShowBorder ? 1 : 0}
         borderColor="$borderSubdued"
         gap="$3"

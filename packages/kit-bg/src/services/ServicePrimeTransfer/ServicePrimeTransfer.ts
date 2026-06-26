@@ -1204,86 +1204,6 @@ class ServicePrimeTransfer extends ServiceBase {
     return result;
   }
 
-  /**
-   * Fix transfer direction for keyless wallet transfer.
-   * Direction should be: scanner (pairing code input side) -> scanned (QR code display side)
-   * The QR code display side is the room creator (myCreatedRoomId === pairedRoomId)
-   */
-  @backgroundMethod()
-  async fixTransferDirectionForKeylessWallet(): Promise<{
-    success: boolean;
-    message: string;
-    direction?: {
-      fromUserId: string;
-      toUserId: string;
-    };
-  }> {
-    const currentState = await primeTransferAtom.get();
-    const { pairedRoomId, myCreatedRoomId, myUserId } = currentState;
-
-    if (!pairedRoomId || !myUserId) {
-      return {
-        success: false,
-        message: 'Not in a paired room',
-      };
-    }
-
-    // Get room users
-    const roomUsers = await this.getRoomUsers({ roomId: pairedRoomId });
-    if (roomUsers.length !== 2) {
-      return {
-        success: false,
-        message: `Expected 2 users in room, got ${roomUsers.length}`,
-      };
-    }
-
-    // Find the room creator (QR code display side) - this is the toUser (receiver)
-    // The room creator is the one whose myCreatedRoomId === pairedRoomId
-    // Since we can only check our own state, we need to determine:
-    // - If I created the room, I am the receiver (toUser)
-    // - If I didn't create the room, I am the sender (fromUser)
-    const iAmRoomCreator = myCreatedRoomId === pairedRoomId;
-    const otherUser = roomUsers.find((u) => u.id !== myUserId);
-
-    if (!otherUser) {
-      return {
-        success: false,
-        message: 'Could not find the other user',
-      };
-    }
-
-    let fromUserId: string;
-    let toUserId: string;
-
-    if (iAmRoomCreator) {
-      // I created the room (QR code side), so I am the receiver
-      fromUserId = otherUser.id;
-      toUserId = myUserId;
-    } else {
-      // I joined the room (pairing code side), so I am the sender
-      fromUserId = myUserId;
-      toUserId = otherUser.id;
-    }
-
-    // Change the direction
-    await this.changeTransferDirection({
-      roomId: pairedRoomId,
-      fromUserId,
-      toUserId,
-    });
-
-    return {
-      success: true,
-      message: iAmRoomCreator
-        ? 'Fixed: I am receiver (QR code side)'
-        : 'Fixed: I am sender (pairing code side)',
-      direction: {
-        fromUserId,
-        toUserId,
-      },
-    };
-  }
-
   @backgroundMethod()
   @toastIfError()
   async getRoomUsers({
@@ -2878,6 +2798,7 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async completeImportProgress({
     errorsInfo,
+    taskUUID,
   }: {
     errorsInfo: {
       category: string;
@@ -2886,7 +2807,17 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
   }): Promise<void> {
+    // Ownership guard: only the flow that currently owns the import task may
+    // finalize it. A duplicate/superseded flow (whose startImport was rejected by
+    // the re-entrancy guard, so it carries no matching taskUUID) must NOT run
+    // finalization here — otherwise its debounced finallyImportProgress would
+    // reset `currentImportTaskUUID` and abort the import that is actually still
+    // running, which is the root cause of the partial-import bug. See OK-56787.
+    if (!taskUUID || taskUUID !== this.currentImportTaskUUID) {
+      return;
+    }
     const startedAt = Date.now();
     await primeTransferAtom.set((prev): IPrimeTransferAtomData => {
       const stats = {
@@ -3093,7 +3024,19 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
+    skipped?: boolean;
   }> {
+    // Re-entrancy guard: reject a duplicate/concurrent import synchronously,
+    // before any await or shared-state mutation. A double-triggered UI (e.g. the
+    // remote-password dialog being submitted via both the confirm button and the
+    // input's onSubmitEditing) used to start a second startImport that overwrote
+    // `currentImportTaskUUID`, making the first (real) import loop treat itself as
+    // cancelled and stop after only a couple of wallets, silently losing data.
+    // See OK-56787.
+    if (this.currentImportTaskUUID) {
+      return { success: false, errorsInfo: [], skipped: true };
+    }
     this.batchCreateHdAccountsParams = [];
     this.currentImportFlow = isFromCloudBackupRestore
       ? 'cloudBackupRestore'
@@ -3868,6 +3811,7 @@ class ServicePrimeTransfer extends ServiceBase {
       return {
         success: true,
         errorsInfo,
+        taskUUID,
       };
     } finally {
       importedAccountDeriveTypeCache.clear();

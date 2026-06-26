@@ -103,8 +103,19 @@ export function RecentSearched({
     actions.current.clearAllRecentSearch();
   }, [actions]);
 
+  // Honor the active search scope: when filterTypes narrows the search (e.g. the
+  // Discovery browser tab passes `[Dapp]`), the recent-searched chips must only
+  // show entries of those types so non-dapp history doesn't leak in (OK-56756).
+  const filteredRecentSearch = useMemo(
+    () =>
+      filterTypes?.length
+        ? recentSearch.filter((i) => filterTypes.includes(i.type))
+        : recentSearch,
+    [recentSearch, filterTypes],
+  );
+
   const shouldShowRecentSearch =
-    recentSearch.length > 0 && !!filterTypes?.length;
+    filteredRecentSearch.length > 0 && !!filterTypes?.length;
 
   return shouldShowRecentSearch ? (
     <YStack px="$5" pb="$5">
@@ -130,7 +141,7 @@ export function RecentSearched({
           maxHeight: 78,
         }}
       >
-        {recentSearch.map((i) => (
+        {filteredRecentSearch.map((i) => (
           <SearchTextItem
             onPress={handlePress}
             item={i}

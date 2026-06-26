@@ -211,7 +211,14 @@ export function TabStackNavigator<RouteName extends string>({
     }
   }, [tabBarHidden, splitViewType, isLandscape]);
   const tabBarStyle = useMemo(
-    () => ({ backgroundColor: theme.bg.val }),
+    () =>
+      // On iOS 26+ omit backgroundColor so UITabBar renders the system
+      // Liquid Glass material via configureWithDefaultBackground. Setting
+      // appearance.backgroundColor in @onekeyfe/react-native-tab-view would
+      // overwrite the glass material with an opaque fill.
+      platformEnv.isNativeIOS26Plus
+        ? undefined
+        : { backgroundColor: theme.bg.val },
     [theme.bg.val],
   );
 

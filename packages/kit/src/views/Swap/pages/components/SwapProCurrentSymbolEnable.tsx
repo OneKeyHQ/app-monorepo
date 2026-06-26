@@ -31,6 +31,7 @@ const SwapProCurrentSymbolEnable = ({
         testID="swap-toggle-swap-pro-enable-current-symbol-checkbox"
         value={swapProEnableCurrentSymbol}
         onChange={toggleSwapProEnableCurrentSymbol}
+        shouldStopPropagation
       />
       <SizableText>
         {intl.formatMessage({

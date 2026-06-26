@@ -112,13 +112,55 @@ function useDragMaskMirror(
       return true;
     };
 
+    // Toggle whether this drag zone contributes to the window's native
+    // draggable region, by adding/removing the `app-region-drag` class.
+    //
+    // Why the class and not an inline `-webkit-app-region` value: Chromium
+    // computes the region as `union(drag rects) − union(no-drag rects)`, where a
+    // `no-drag` rect subtracts from EVERY overlapping drag rect, not just its
+    // own zone. The inactive tab headers sit at the SAME full-width position as
+    // the active header, so the inactive zone must contribute *nothing* — not
+    // `drag` (it would overlap and swallow active controls; the original bug),
+    // and not `no-drag` (it would carve a full-width hole out of the active
+    // header, leaving only the sidebar draggable). The only neutral state is the
+    // ABSENCE of any `-webkit-app-region` declaration: an explicit
+    // `-webkit-app-region: none` is coerced to `no-drag` by Chromium, so it is
+    // NOT neutral. Removing the `app-region-drag` class drops both the root's
+    // `drag` and the CSS-driven `no-drag` on its descendants
+    // (`.app-region-drag button`, …), making the whole inactive subtree neutral.
+    //
+    // React won't fight this: the `className` prop value is the constant
+    // `'app-region-drag'` (when enabled), so React only writes className when
+    // that value changes — never on a plain re-render — leaving our classList
+    // edits intact (the same contract the body-level ghosts rely on).
+    const setRootDraggable = (draggable: boolean) => {
+      root.classList.toggle('app-region-drag', draggable);
+    };
+
     const sync = () => {
       scheduled = false;
       if (!document.body.isConnected) return;
       if (!isRootShown()) {
+        // ---- Inactive-tab drag-region leak fix (OK-55535) ----
+        // react-navigation keeps inactive tab/screen containers mounted (via
+        // react-freeze) and marks them `aria-hidden="true"`. That is NOT
+        // `display:none`, so a frozen header keeps its layout and Chromium
+        // still unions its `-webkit-app-region: drag` rect into the window's
+        // native draggable region. A header frozen in its narrow two-row form
+        // (104px tall) then overlaps controls in the ACTIVE screen — e.g. the
+        // account selector — that are NOT this zone's DOM descendants, so the
+        // body-level ghost mask (which mirrors descendants only) can't protect
+        // them and their clicks get eaten as window drags. This surfaces on
+        // displays where the active layout doesn't also cover them (typically
+        // devicePixelRatio = 1, i.e. an external monitor at native/high
+        // resolution). Drop the drag region while hidden so the frozen zone
+        // stops swallowing clicks; the active zone keeps its drag region, so
+        // window dragging is unaffected.
+        setRootDraggable(false);
         clearGhosts();
         return;
       }
+      setRootDraggable(true);
       const rootRect = root.getBoundingClientRect();
       if (rootRect.width === 0 || rootRect.height === 0) {
         clearGhosts();

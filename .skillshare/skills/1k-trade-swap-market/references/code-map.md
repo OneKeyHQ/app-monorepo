@@ -34,6 +34,32 @@ Important anchors:
 - `useSwapTokenList`
 - token key builders and native-token handling utilities
 
+## Cross-Surface Swap Entrypoints
+
+- `packages/kit/src/views/Home/components/WalletActions/WalletActionSwap.tsx`
+- `packages/kit/src/components/TokenListView/TokenActionsView.tsx`
+- `packages/kit/src/views/Send/pages/SendAmountInput/SendAmountInputContainer.tsx`
+- `packages/kit/src/views/Receive/pages/ReceiveSelector.tsx`
+- `packages/kit/src/views/Staking/hooks/useHandleSwap.ts`
+- `packages/kit/src/views/Staking/components/TradeOrBuy.tsx`
+- `packages/kit/src/views/Staking/components/ProtocolDetails/EarnSwapRoute.tsx`
+- `packages/kit/src/views/Market/components/tradeHook.tsx`
+- `packages/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/ActionButton.tsx`
+- `packages/kit/src/views/Swap/pages/modal/SwapMainLandModal.tsx`
+- `packages/kit/src/views/Swap/hooks/useSwapGlobal.ts`
+
+Important anchors:
+
+- `EModalSwapRoutes.SwapMainLand`
+- `ESwapSource.WALLET_HOME`, `ESwapSource.WALLET_HOME_TOKEN_LIST`,
+  `ESwapSource.WALLET_TAB`, `ESwapSource.MARKET`, and `ESwapSource.EARN`
+- `importFromToken`, `importToToken`, `importNetworkId`,
+  `swapTabSwitchType`
+
+Use these paths when a bug starts from Home Token, Send, Receive, Market,
+Earn, or Buy but lands in Swap. The source surface owns the handoff params;
+Swap owns quote, review, build, send, and history once the route is mounted.
+
 ## Quote Progress And Provider Selection
 
 - `packages/kit/src/states/jotai/contexts/swap/quoteProgress.ts`

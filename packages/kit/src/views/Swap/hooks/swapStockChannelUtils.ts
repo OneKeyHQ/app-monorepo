@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IMarketTokenDetail,
@@ -37,6 +38,16 @@ export enum ESwapStockTradeSide {
 }
 
 const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
+
+function buildUsdPriceFields(price?: number | string) {
+  if (price === undefined || price === null || price === '') {
+    return {};
+  }
+  return {
+    price: price.toString(),
+    currency: USD_CURRENCY_ID,
+  };
+}
 
 export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
   if (!token?.networkId) {
@@ -76,7 +87,7 @@ export function buildStockSwapTokenFromMarketToken(
     logoURI: token.tokenImageUri,
     networkLogoURI: token.networkLogoUri,
     isNative: !!token.isNative,
-    price: token.price ? token.price.toString() : undefined,
+    ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
   };
 }
@@ -96,7 +107,7 @@ export function buildStockSwapTokenFromMarketListToken(
     name: token.name,
     logoURI: token.logoUrl,
     isNative: !!token.isNative,
-    price: token.price,
+    ...buildUsdPriceFields(token.price),
     isStock: Boolean(token.stock),
   };
 }
@@ -125,7 +136,7 @@ export function buildStockSwapTokenFromMarketDetail({
     name: tokenDetail.name,
     logoURI: tokenDetail.logoUrl,
     isNative: !!(isNative ?? tokenDetail.isNative),
-    price: tokenDetail.price ?? tokenDetail.priceConverted,
+    ...buildUsdPriceFields(tokenDetail.price),
     isStock: Boolean(tokenDetail.stock),
   };
 }

@@ -5,6 +5,24 @@ const COMMISSION_RATE_SUBJECT_ORDER: Record<string, number> = {
   Earn: 3,
 };
 
+export function shouldShowInviteeDiscount(discount?: number) {
+  return (discount ?? 0) > 0;
+}
+
+export function formatInviteeDiscountText(discount?: number) {
+  return shouldShowInviteeDiscount(discount) ? `${discount}%` : '-';
+}
+
+export function formatCommissionRateText({
+  rebate,
+  discount,
+}: {
+  rebate: number;
+  discount?: number;
+}) {
+  return `${rebate}% / ${formatInviteeDiscountText(discount)}`;
+}
+
 export function sortCommissionRateItems<T extends { subject: string }>(
   items: T[],
 ): T[] {

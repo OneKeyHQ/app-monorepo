@@ -1,4 +1,3 @@
-import { Transaction } from '@mysten/sui/transactions';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -29,7 +28,7 @@ import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
-import type { SuiTransactionBlockResponse } from '@mysten/sui/client';
+import type { SuiTransactionBlockResponse } from '@mysten/sui/jsonRpc';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 @backgroundClass()
@@ -157,7 +156,7 @@ class ProviderApiSui extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
     const encodedTx: IEncodedTxSui = {
-      rawTx: Transaction.from(params.blockSerialize).serialize(),
+      rawTx: params.blockSerialize,
       sender: address ?? '',
     };
     const result =
@@ -190,7 +189,7 @@ class ProviderApiSui extends ProviderApiBase {
       await this.getAccountsInfo(request)
     )[0];
     const encodedTx: IEncodedTxSui = {
-      rawTx: Transaction.from(params.blockSerialize).serialize(),
+      rawTx: params.blockSerialize,
       sender: address ?? '',
     };
 
@@ -273,7 +272,7 @@ class ProviderApiSui extends ProviderApiBase {
     }
 
     const encodedTx: IEncodedTxSui = {
-      rawTx: Transaction.from(params.transaction).serialize(),
+      rawTx: params.transaction,
       sender: address ?? '',
     };
     const result =
@@ -312,7 +311,7 @@ class ProviderApiSui extends ProviderApiBase {
     }
 
     const encodedTx: IEncodedTxSui = {
-      rawTx: Transaction.from(params.transaction).serialize(),
+      rawTx: params.transaction,
       sender: address ?? '',
     };
     const result =

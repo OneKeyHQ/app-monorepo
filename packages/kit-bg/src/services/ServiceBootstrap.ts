@@ -122,15 +122,15 @@ class ServiceBootstrap extends ServiceBase {
       timedDeferred('serviceContextMenu.init', () =>
         this.backgroundApi.serviceContextMenu.init(),
       ),
+      timedDeferred('serviceDevSetting.initAnalytics', () =>
+        this.backgroundApi.serviceDevSetting.initAnalytics(),
+      ),
+      // ext MV3 only: re-warm providers of already-connected dapps after a
+      // service-worker restart so notifyDApp* can reach them. Native/desktop
+      // rebuild their webviews on restart (dapp reconnects), so no warmup
+      // is needed there and it would just cost startup work.
       ...(platformEnv.isExtension
         ? [
-            timedDeferred('serviceDevSetting.initAnalytics', () =>
-              this.backgroundApi.serviceDevSetting.initAnalytics(),
-            ),
-            // ext MV3 only: re-warm providers of already-connected dapps after a
-            // service-worker restart so notifyDApp* can reach them. Native/desktop
-            // rebuild their webviews on restart (dapp reconnects), so no warmup
-            // is needed there and it would just cost startup work.
             timedDeferred('serviceDApp.warmupConnectedDappProviders', () =>
               this.backgroundApi.serviceDApp.warmupConnectedDappProviders(),
             ),
