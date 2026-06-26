@@ -175,6 +175,53 @@ const pickActiveAccountLogFields = (
   isOthersWallet: activeAccount?.isOthersWallet,
 });
 
+const pickDbAccountLogFields = (account: IDBAccount | undefined) => ({
+  id: account?.id,
+  impl: account?.impl,
+  createAtNetwork: account?.createAtNetwork,
+  networksCount: account?.networks?.length,
+});
+
+const safeIsAccountCompatibleWithNetwork = ({
+  account,
+  networkId,
+}: {
+  account: IDBAccount | undefined;
+  networkId: string;
+}) => {
+  if (!account) {
+    return false;
+  }
+  try {
+    return accountUtils.isAccountCompatibleWithNetwork({
+      account,
+      networkId,
+    });
+  } catch {
+    return false;
+  }
+};
+
+const safeGetAccountCompatibleNetwork = ({
+  account,
+  networkId,
+}: {
+  account: IDBAccount | undefined;
+  networkId: string;
+}) => {
+  if (!account) {
+    return undefined;
+  }
+  try {
+    return accountUtils.getAccountCompatibleNetwork({
+      account,
+      networkId,
+    });
+  } catch {
+    return undefined;
+  }
+};
+
 export type IAccountSelectorSyncFromSceneParams = {
   from: {
     sceneName: EAccountSelectorSceneName;
@@ -704,6 +751,324 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  resolveOthersWalletAccountForNetworkSwitch = async ({
+    selectedAccount,
+    networkId,
+    num,
+    sceneName,
+    sceneUrl,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount | undefined;
+    networkId: string;
+    num: number;
+    sceneName: EAccountSelectorSceneName | undefined;
+    sceneUrl: string | undefined;
+    source: string;
+  }): Promise<IAccountSelectorSelectedAccount> => {
+    const nextSelectedAccount: IAccountSelectorSelectedAccount = {
+      ...(selectedAccount || defaultSelectedAccount()),
+      networkId,
+    };
+    const walletId = nextSelectedAccount.walletId;
+    const othersWalletAccountId = nextSelectedAccount.othersWalletAccountId;
+
+    if (
+      !walletId ||
+      !accountUtils.isOthersWallet({ walletId }) ||
+      !othersWalletAccountId
+    ) {
+      return nextSelectedAccount;
+    }
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      debugAccountSelectorLog('updateSelectedAccountNetwork:others-skip-all', {
+        source,
+        sceneName,
+        sceneUrl,
+        num,
+        networkId,
+        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+      });
+      return nextSelectedAccount;
+    }
+
+    let currentAccount: IDBAccount | undefined;
+    try {
+      currentAccount = await serviceAccount.getDBAccount({
+        accountId: othersWalletAccountId,
+      });
+    } catch (error) {
+      debugAccountSelectorLog('updateSelectedAccountNetwork:others-db-error', {
+        source,
+        sceneName,
+        sceneUrl,
+        num,
+        networkId,
+        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    const currentAccountMatchesTarget = safeIsAccountCompatibleWithNetwork({
+      account: currentAccount,
+      networkId,
+    });
+
+    debugAccountSelectorLog('updateSelectedAccountNetwork:others-resolve', {
+      source,
+      sceneName,
+      sceneUrl,
+      num,
+      networkId,
+      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+      currentAccount: pickDbAccountLogFields(currentAccount),
+      currentAccountMatchesTarget,
+    });
+
+    if (currentAccountMatchesTarget) {
+      return nextSelectedAccount;
+    }
+
+    try {
+      const { accounts } = await serviceAccount.getSingletonAccountsOfWallet({
+        walletId: walletId as IDBWalletIdSingleton,
+        activeNetworkId: networkId,
+      });
+      const matchedAccount = accounts.find((account) =>
+        safeIsAccountCompatibleWithNetwork({
+          account,
+          networkId,
+        }),
+      );
+
+      if (matchedAccount) {
+        const resolvedSelectedAccount = {
+          ...nextSelectedAccount,
+          walletId,
+          focusedWallet: walletId,
+          indexedAccountId: undefined,
+          othersWalletAccountId: matchedAccount.id,
+          deriveType: 'default' as const,
+        };
+        debugAccountSelectorLog(
+          'updateSelectedAccountNetwork:others-switch-account',
+          {
+            sceneName,
+            sceneUrl,
+            source,
+            num,
+            networkId,
+            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+            matchedAccount: pickDbAccountLogFields(matchedAccount),
+            resolvedSelectedAccount: pickSelectedAccountLogFields(
+              resolvedSelectedAccount,
+            ),
+          },
+        );
+        return resolvedSelectedAccount;
+      }
+
+      debugAccountSelectorLog(
+        'updateSelectedAccountNetwork:others-no-target-account',
+        {
+          sceneName,
+          sceneUrl,
+          source,
+          num,
+          networkId,
+          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+          accountsCount: accounts.length,
+        },
+      );
+    } catch (error) {
+      debugAccountSelectorLog(
+        'updateSelectedAccountNetwork:others-list-error',
+        {
+          sceneName,
+          sceneUrl,
+          source,
+          num,
+          networkId,
+          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+    }
+
+    const fallbackNetworkId = safeGetAccountCompatibleNetwork({
+      account: currentAccount,
+      networkId,
+    });
+    if (fallbackNetworkId && fallbackNetworkId !== networkId) {
+      const resolvedSelectedAccount = {
+        ...nextSelectedAccount,
+        networkId: fallbackNetworkId,
+      };
+      debugAccountSelectorLog(
+        'updateSelectedAccountNetwork:others-fallback-network',
+        {
+          sceneName,
+          sceneUrl,
+          source,
+          num,
+          requestedNetworkId: networkId,
+          fallbackNetworkId,
+          selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+          currentAccount: pickDbAccountLogFields(currentAccount),
+          resolvedSelectedAccount: pickSelectedAccountLogFields(
+            resolvedSelectedAccount,
+          ),
+        },
+      );
+      return resolvedSelectedAccount;
+    }
+
+    debugAccountSelectorLog('updateSelectedAccountNetwork:others-unresolved', {
+      source,
+      sceneName,
+      sceneUrl,
+      num,
+      networkId,
+      selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+      currentAccount: pickDbAccountLogFields(currentAccount),
+    });
+    return nextSelectedAccount;
+  };
+
+  repairOthersWalletNetworkPairsInSelectedAccountsMap = async ({
+    selectedAccountsMap,
+    sceneName,
+    sceneUrl,
+    source,
+  }: {
+    selectedAccountsMap: ISelectedAccountsAtomMap | undefined;
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    source: string;
+  }) => {
+    if (!selectedAccountsMap) {
+      return selectedAccountsMap;
+    }
+
+    const repairedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
+    let repaired = false;
+
+    await Promise.all(
+      Object.entries(repairedSelectedAccountsMap).map(
+        async ([numText, selectedAccount]) => {
+          const num = Number(numText);
+          if (
+            !selectedAccount?.networkId ||
+            !selectedAccount.walletId ||
+            !accountUtils.isOthersWallet({
+              walletId: selectedAccount.walletId,
+            }) ||
+            !selectedAccount.othersWalletAccountId ||
+            networkUtils.isAllNetwork({ networkId: selectedAccount.networkId })
+          ) {
+            return;
+          }
+
+          const resolvedSelectedAccount =
+            await this.resolveOthersWalletAccountForNetworkSwitch({
+              selectedAccount,
+              networkId: selectedAccount.networkId,
+              num,
+              sceneName,
+              sceneUrl,
+              source,
+            });
+
+          if (
+            !isEqual(
+              omitBy(selectedAccount, isUndefined),
+              omitBy(resolvedSelectedAccount, isUndefined),
+            )
+          ) {
+            repairedSelectedAccountsMap[num] = resolvedSelectedAccount;
+            repaired = true;
+          }
+        },
+      ),
+    );
+
+    if (repaired) {
+      debugAccountSelectorLog('repairOthersWalletNetworkPairs:done', {
+        source,
+        sceneName,
+        sceneUrl,
+        selectedAccountsMap: pickSelectedAccountsMapLogFields(
+          repairedSelectedAccountsMap,
+        ),
+      });
+    }
+
+    return repairedSelectedAccountsMap;
+  };
+
+  isIncompatibleOthersWalletNetworkPair = async ({
+    selectedAccount,
+    sceneName,
+    sceneUrl,
+    num,
+    source,
+  }: {
+    selectedAccount: IAccountSelectorSelectedAccount | undefined;
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    num: number;
+    source: string;
+  }) => {
+    const walletId = selectedAccount?.walletId;
+    const networkId = selectedAccount?.networkId;
+    const othersWalletAccountId = selectedAccount?.othersWalletAccountId;
+    if (
+      !walletId ||
+      !networkId ||
+      !othersWalletAccountId ||
+      !accountUtils.isOthersWallet({ walletId }) ||
+      networkUtils.isAllNetwork({ networkId })
+    ) {
+      return false;
+    }
+
+    let account: IDBAccount | undefined;
+    try {
+      account = await serviceAccount.getDBAccount({
+        accountId: othersWalletAccountId,
+      });
+    } catch (error) {
+      debugAccountSelectorLog('othersNetworkPair:db-error', {
+        source,
+        sceneName,
+        sceneUrl,
+        num,
+        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return true;
+    }
+
+    const isCompatible = safeIsAccountCompatibleWithNetwork({
+      account,
+      networkId,
+    });
+
+    if (!isCompatible) {
+      debugAccountSelectorLog('othersNetworkPair:incompatible', {
+        source,
+        sceneName,
+        sceneUrl,
+        num,
+        selectedAccount: pickSelectedAccountLogFields(selectedAccount),
+        account: pickDbAccountLogFields(account),
+      });
+    }
+
+    return !isCompatible;
+  };
+
   updateSelectedAccountNetwork = contextAtomMethod(
     async (
       get,
@@ -714,23 +1079,47 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       },
     ) => {
       const { num, networkId } = payload;
+      const sceneInfo = get(accountSelectorContextDataAtom());
       const before = this.getSelectedAccount.call(set, { num });
       debugAccountSelectorLog('updateSelectedAccountNetwork:start', {
         num,
         networkId,
+        sceneName: sceneInfo?.sceneName,
+        sceneUrl: sceneInfo?.sceneUrl,
         selectedAccount: pickSelectedAccountLogFields(before),
       });
+      const shouldResolveOthersWalletAccount = Boolean(
+        before?.walletId &&
+        accountUtils.isOthersWallet({ walletId: before.walletId }) &&
+        before.othersWalletAccountId &&
+        !networkUtils.isAllNetwork({ networkId }),
+      );
+      const resolvedSelectedAccount = shouldResolveOthersWalletAccount
+        ? await this.resolveOthersWalletAccountForNetworkSwitch({
+            selectedAccount: before,
+            networkId,
+            num,
+            sceneName: sceneInfo?.sceneName,
+            sceneUrl: sceneInfo?.sceneUrl,
+            source: 'networkSwitch',
+          })
+        : {
+            ...(before || defaultSelectedAccount()),
+            networkId,
+          };
       await this.updateSelectedAccount.call(set, {
         num,
         builder: (v) => ({
           ...v,
-          networkId,
+          ...resolvedSelectedAccount,
         }),
       });
       const after = this.getSelectedAccount.call(set, { num });
       debugAccountSelectorLog('updateSelectedAccountNetwork:done', {
         num,
         networkId,
+        sceneName: sceneInfo?.sceneName,
+        sceneUrl: sceneInfo?.sceneUrl,
         selectedAccount: pickSelectedAccountLogFields(after),
       });
     },
@@ -2414,6 +2803,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
               selectedAccountsMap: selectedAccountsMapInDB,
             },
           );
+          selectedAccountsMapInDB =
+            await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
+              selectedAccountsMap: selectedAccountsMapInDB,
+              sceneName,
+              sceneUrl,
+              source: 'initFromStorage:db',
+            });
         }
 
         const recentSelectionCache =
@@ -2421,10 +2817,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneName,
             sceneUrl,
           });
+        const recentSelectionCacheSelectedAccountsMap = recentSelectionCache
+          ? await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
+              selectedAccountsMap: recentSelectionCache.selectedAccountsMap,
+              sceneName,
+              sceneUrl,
+              source: 'initFromStorage:recent-cache',
+            })
+          : undefined;
         if (
           recentSelectionCache &&
+          recentSelectionCacheSelectedAccountsMap &&
           this.shouldKeepColdStartSelectedAccounts({
-            selectedAccountsMap: recentSelectionCache.selectedAccountsMap,
+            selectedAccountsMap: recentSelectionCacheSelectedAccountsMap,
             selectedAccountsMapInDB,
             updateMeta: recentSelectionCache.updateMeta,
           })
@@ -2433,12 +2838,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             sceneName,
             sceneUrl,
             selectedAccountsMap: pickSelectedAccountsMapLogFields(
-              recentSelectionCache.selectedAccountsMap,
+              recentSelectionCacheSelectedAccountsMap,
             ),
           });
           this.setSelectedAccountsAtom(
             set,
-            () => recentSelectionCache.selectedAccountsMap,
+            () => recentSelectionCacheSelectedAccountsMap,
             'initFromRecentSelectionCache',
           );
           set(accountSelectorUpdateMetaAtom(), (v) => ({
@@ -2447,7 +2852,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }));
           set(accountSelectorStorageReadyAtom(), () => true);
           set(accountSelectorStorageInitDoneAtom(), () => true);
-          Object.entries(recentSelectionCache.selectedAccountsMap).forEach(
+          Object.entries(recentSelectionCacheSelectedAccountsMap).forEach(
             ([num, selectedAccount]) => {
               if (
                 selectedAccount &&
@@ -2469,7 +2874,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           return;
         }
 
-        const selectedAccountsMap = get(selectedAccountsAtom());
+        const selectedAccountsMap =
+          (await this.repairOthersWalletNetworkPairsInSelectedAccountsMap({
+            selectedAccountsMap: get(selectedAccountsAtom()),
+            sceneName,
+            sceneUrl,
+            source: 'initFromStorage:current-cache',
+          })) || {};
         const updateMeta = get(accountSelectorUpdateMetaAtom());
         if (
           this.shouldKeepColdStartSelectedAccounts({
@@ -2484,6 +2895,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccountsMap:
               pickSelectedAccountsMapLogFields(selectedAccountsMap),
           });
+          this.setSelectedAccountsAtom(
+            set,
+            () => selectedAccountsMap,
+            'initFromStorageRepairCurrentCache',
+          );
           set(accountSelectorStorageReadyAtom(), () => true);
           set(accountSelectorStorageInitDoneAtom(), () => true);
           return;
@@ -2610,6 +3026,23 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             currentSelectedAccount: pickSelectedAccountLogFields(
               currentSelectedAccount,
             ),
+          });
+          return;
+        }
+        if (
+          await this.isIncompatibleOthersWalletNetworkPair({
+            selectedAccount,
+            sceneName,
+            sceneUrl,
+            num,
+            source: 'saveToStorage',
+          })
+        ) {
+          debugAccountSelectorLog('saveToStorage:skip-incompatible-others', {
+            sceneName,
+            sceneUrl,
+            num,
+            selectedAccount: pickSelectedAccountLogFields(selectedAccount),
           });
           return;
         }

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -95,9 +96,18 @@ const mockGetIndexedAccountsOfWallet: jest.MockedFunction<
   }>
 > = jest.fn();
 const mockGetSingletonAccountsOfWallet: jest.MockedFunction<
-  ({ walletId }: { walletId: string }) => Promise<{
-    accounts: [];
+  ({
+    walletId,
+    activeNetworkId,
+  }: {
+    walletId: string;
+    activeNetworkId?: string;
+  }) => Promise<{
+    accounts: IDBAccount[];
   }>
+> = jest.fn();
+const mockGetDBAccount: jest.MockedFunction<
+  ({ accountId }: { accountId: string }) => Promise<IDBAccount | undefined>
 > = jest.fn();
 const mockGetWalletSafe: jest.MockedFunction<
   ({ walletId }: { walletId: string }) => Promise<IWallet | undefined>
@@ -175,8 +185,15 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceAccount: {
       getIndexedAccountsOfWallet: ({ walletId }: { walletId: string }) =>
         mockGetIndexedAccountsOfWallet({ walletId }),
-      getSingletonAccountsOfWallet: ({ walletId }: { walletId: string }) =>
-        mockGetSingletonAccountsOfWallet({ walletId }),
+      getSingletonAccountsOfWallet: ({
+        walletId,
+        activeNetworkId,
+      }: {
+        walletId: string;
+        activeNetworkId?: string;
+      }) => mockGetSingletonAccountsOfWallet({ walletId, activeNetworkId }),
+      getDBAccount: ({ accountId }: { accountId: string }) =>
+        mockGetDBAccount({ accountId }),
       getWalletSafe: ({ walletId }: { walletId: string }) =>
         mockGetWalletSafe({ walletId }),
       isWalletHasIndexedAccounts: ({ walletId }: { walletId: string }) =>
@@ -292,6 +309,7 @@ describe('useAccountSelectorActions', () => {
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockShouldSyncWithHomeSource.mockResolvedValue(false);
     mockIsWalletHasIndexedAccounts.mockResolvedValue(true);
+    mockGetDBAccount.mockResolvedValue(undefined);
     mockGetIndexedAccountsOfWallet.mockResolvedValue({
       accounts: [
         { id: 'hd-1--0', walletId: 'hd-1' } as IIndexedAccount,
@@ -543,6 +561,54 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('repairs an incompatible others wallet account restored from storage', async () => {
+    const currentBtcAccount = {
+      id: 'imported--btc-p2tr',
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+    } as IDBAccount;
+    const matchingEvmAccount = {
+      id: 'imported--evm-account',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+    } as IDBAccount;
+
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: 'imported',
+        othersWalletAccountId: currentBtcAccount.id,
+        networkId: 'evm--42161',
+        deriveType: 'default',
+        focusedWallet: 'imported',
+      },
+    });
+    mockGetDBAccount.mockResolvedValue(currentBtcAccount);
+    mockGetSingletonAccountsOfWallet.mockResolvedValue({
+      accounts: [currentBtcAccount, matchingEvmAccount],
+    });
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'imported',
+      focusedWallet: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: matchingEvmAccount.id,
+      networkId: 'evm--42161',
+      deriveType: 'default',
+    });
+  });
+
   it('does not persist a network-only cold-start selection over a saved account', async () => {
     mockGetSelectedAccount.mockResolvedValue(
       createHdSelectedAccount('hd-1--1'),
@@ -561,6 +627,44 @@ describe('useAccountSelectorActions', () => {
           deriveType: 'default',
           focusedWallet: 'hd-1',
         },
+        sceneName: EAccountSelectorSceneName.home,
+        num: 0,
+        selectedAccountUpdatedAt: Date.now(),
+      });
+    });
+
+    expect(mockSaveSelectedAccount).not.toHaveBeenCalled();
+    expect(mockSaveGlobalDeriveType).not.toHaveBeenCalled();
+  });
+
+  it('does not persist an incompatible others wallet account and network pair', async () => {
+    const currentBtcAccount = {
+      id: 'imported--btc-p2tr',
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+    } as IDBAccount;
+    const selectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'imported',
+      othersWalletAccountId: currentBtcAccount.id,
+      networkId: 'evm--42161',
+      deriveType: 'default',
+      focusedWallet: 'imported',
+    };
+
+    mockGetDBAccount.mockResolvedValue(currentBtcAccount);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: selectedAccount,
+    });
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.saveToStorage({
+        selectedAccount,
         sceneName: EAccountSelectorSceneName.home,
         num: 0,
         selectedAccountUpdatedAt: Date.now(),
@@ -611,6 +715,67 @@ describe('useAccountSelectorActions', () => {
       expect.any(Object),
     );
     expect(mockFlushColdStartCacheNow).toHaveBeenCalled();
+  });
+
+  it('switches an others wallet account to one that matches the selected network', async () => {
+    const currentBtcAccount = {
+      id: 'imported--btc-p2tr',
+      impl: 'btc',
+      createAtNetwork: 'btc--0',
+    } as IDBAccount;
+    const matchingEvmAccount = {
+      id: 'imported--evm-account',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+    } as IDBAccount;
+
+    mockGetDBAccount.mockResolvedValue(currentBtcAccount);
+    mockGetSingletonAccountsOfWallet.mockResolvedValue({
+      accounts: [currentBtcAccount, matchingEvmAccount],
+    });
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: 'imported',
+        othersWalletAccountId: currentBtcAccount.id,
+        networkId: 'btc--0',
+        deriveType: 'default',
+        focusedWallet: 'imported',
+      },
+    });
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.updateSelectedAccountNetwork({
+        num: 0,
+        networkId: 'evm--42161',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'imported',
+      focusedWallet: 'imported',
+      indexedAccountId: undefined,
+      othersWalletAccountId: matchingEvmAccount.id,
+      networkId: 'evm--42161',
+      deriveType: 'default',
+    });
+    expect(
+      getRecentSelectionCache()?.[EAccountSelectorSceneName.home]
+        ?.selectedAccountsMap?.[0],
+    ).toMatchObject({
+      walletId: 'imported',
+      othersWalletAccountId: matchingEvmAccount.id,
+      networkId: 'evm--42161',
+    });
   });
 
   it('writes network switch cache before derive type lookup resolves', async () => {
