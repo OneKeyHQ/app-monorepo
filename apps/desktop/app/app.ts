@@ -1681,9 +1681,23 @@ if (!singleInstance && !process.mas) {
     logger.info(
       `nativeAppVersion: ${app.getVersion()}, buildNumber: ${process.env.BUILD_NUMBER ?? ''}, builtinBundleVersion: ${process.env.BUNDLE_VERSION ?? ''}`,
     );
-    void ensureDesktopNativeMessagingHostManifest().catch((error) => {
-      logger.warn('[NativeMessagingHost] failed to install manifest', error);
-    });
+    // Hard-skip Native Messaging manifest registration in perf / E2E modes.
+    // Those modes redirect userData to a perf profile or a temp dir, but the
+    // manifest still registers the host with the REAL browser's
+    // NativeMessagingHosts dir while pointing its launcher under that redirected
+    // userData. The E2E temp dir is deleted in finally, and the perf run uses a
+    // production bundle whose host entry exits(0) — either way the shared
+    // `so.onekey.wallet.desktop` host name is left broken until the next normal
+    // dev launch overwrites it. Only register from a genuine interactive dev run.
+    if (isPerfCiMode || isDesktopE2EMode) {
+      logger.info(
+        '[NativeMessagingHost] skip manifest install in perf/e2e mode',
+      );
+    } else {
+      void ensureDesktopNativeMessagingHostManifest().catch((error) => {
+        logger.warn('[NativeMessagingHost] failed to install manifest', error);
+      });
+    }
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
 
