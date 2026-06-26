@@ -25,13 +25,20 @@ export async function waitForTxFinalStatus({
       return undefined;
     }
 
-    const txDetailsResp =
-      await backgroundApiProxy.serviceHistory.fetchTxDetails({
-        accountId,
-        networkId,
-        txid,
-      });
-    const txStatus = txDetailsResp?.data?.status;
+    let txStatus: EOnChainHistoryTxStatus | undefined;
+    try {
+      const txDetailsResp =
+        await backgroundApiProxy.serviceHistory.fetchTxDetails({
+          accountId,
+          networkId,
+          txid,
+        });
+      txStatus = txDetailsResp?.data?.status;
+    } catch (_error) {
+      if (signal?.aborted) {
+        return undefined;
+      }
+    }
 
     if (
       txStatus === EOnChainHistoryTxStatus.Success ||
@@ -42,7 +49,15 @@ export async function waitForTxFinalStatus({
 
     if (attempt < maxAttempts - 1) {
       await new Promise<void>((resolve) => {
-        setTimeout(resolve, intervalMs);
+        const timer = setTimeout(resolve, intervalMs);
+        signal?.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(timer);
+            resolve();
+          },
+          { once: true },
+        );
       });
     }
   }

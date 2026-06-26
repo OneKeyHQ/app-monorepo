@@ -11,6 +11,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import {
   EEarnLabels,
   type IRepayWithCollateralQuote,
@@ -188,7 +189,14 @@ const handleBorrowSuccess = async ({
   }
 
   if (shouldShowConfirmSheet && accountId) {
-    await showDeFiActionTxConfirmDialog({ accountId, networkId, data });
+    const finalStatus = await showDeFiActionTxConfirmDialog({
+      accountId,
+      networkId,
+      data,
+    });
+    if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+      return;
+    }
   }
   onSuccess?.(data);
 };

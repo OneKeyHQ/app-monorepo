@@ -554,16 +554,19 @@ function TxFeeInfo(props: IProps) {
         // falls back to user-paid. Private Send is also user-paid by contract.
         const sponsorDisabledForBatch = isMultiTxs;
         const sponsorDisabledForPrivateSend = isPrivateSendTransfer;
+        const sponsorDisabledForScenario = gasAccountDisabledByScenario;
         // `gasAccountTemporarilyDisabled` narrows only the gas-account path.
         // Megafuel is an independent sponsor mechanism and should still be
         // honored when the server indicates `payer='megafuel'` after a
-        // gas-account fallback. Custom RPC, multi-tx batches, and Private Send force
-        // user-paid for all sponsors (see the block comment above).
+        // gas-account fallback. Custom RPC, disabled frontend scenarios,
+        // multi-tx batches, and Private Send force user-paid for all sponsors
+        // (see the block comment above).
         const serverPayer: IGasPayer = r.payer ?? 'user';
         const nextEffectiveFeePayer: IGasPayer =
           isCustomRpcEnabled ||
           sponsorDisabledForBatch ||
           sponsorDisabledForPrivateSend ||
+          sponsorDisabledForScenario ||
           (gasAccountTemporarilyDisabled && serverPayer === 'gasAccount')
             ? 'user'
             : serverPayer;
@@ -572,7 +575,8 @@ function TxFeeInfo(props: IProps) {
         if (
           r.megafuelEligible &&
           !sponsorDisabledForBatch &&
-          !sponsorDisabledForPrivateSend
+          !sponsorDisabledForPrivateSend &&
+          !sponsorDisabledForScenario
         ) {
           // if custom rpc is enabled, disable megafuel eligible
           if (isCustomRpcEnabled) {
@@ -589,7 +593,11 @@ function TxFeeInfo(props: IProps) {
             updateMegafuelEligible(r.megafuelEligible);
           }
         } else {
-          if (sponsorDisabledForBatch || sponsorDisabledForPrivateSend) {
+          if (
+            sponsorDisabledForBatch ||
+            sponsorDisabledForPrivateSend ||
+            sponsorDisabledForScenario
+          ) {
             r.megafuelEligible = undefined;
             r.gas = r.gas?.map((gas) => ({
               ...gas,
@@ -603,13 +611,15 @@ function TxFeeInfo(props: IProps) {
           isCustomRpcEnabled ||
           gasAccountTemporarilyDisabled ||
           sponsorDisabledForBatch ||
-          sponsorDisabledForPrivateSend
+          sponsorDisabledForPrivateSend ||
+          sponsorDisabledForScenario
         ) {
           resetGasAccountUiState();
           if (
             gasAccountTemporarilyDisabled ||
             sponsorDisabledForBatch ||
-            sponsorDisabledForPrivateSend
+            sponsorDisabledForPrivateSend ||
+            sponsorDisabledForScenario
           ) {
             // The default state already flags `selectedPayer='user'`,
             // `gasAccountEligible=false`, `idempotencyKey=''`; only the

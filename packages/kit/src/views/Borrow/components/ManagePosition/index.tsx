@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import StakingFormWrapper from '@onekeyhq/kit/src/views/Staking/components/StakingFormWrapper';
 import { useTrackTokenAllowance } from '@onekeyhq/kit/src/views/Staking/hooks/useUtilsHooks';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 
@@ -29,6 +32,7 @@ import type {
 } from './types';
 
 export function ManagePosition(props: IManagePositionProps) {
+  const intl = useIntl();
   const {
     accountId,
     networkId,
@@ -264,9 +268,26 @@ export function ManagePosition(props: IManagePositionProps) {
                 signal: abortController.signal,
               });
               if (!allowanceReady) {
+                Toast.warning({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_page_toast_approve_failed,
+                  }),
+                  message: intl.formatMessage({
+                    id: ETranslations.global_try_again,
+                  }),
+                });
                 return;
               }
               await submitBorrowAction();
+            } catch (error) {
+              Toast.error({
+                title:
+                  error instanceof Error
+                    ? error.message
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_toast_approve_failed,
+                      }),
+              });
             } finally {
               setApproving(false);
             }
@@ -288,6 +309,7 @@ export function ManagePosition(props: IManagePositionProps) {
     amountValue,
     approveTarget,
     fetchAllowanceResponse,
+    intl,
     navigationToTxConfirm,
     submitBorrowAction,
     trackAllowance,

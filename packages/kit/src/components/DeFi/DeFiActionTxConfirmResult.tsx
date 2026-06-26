@@ -11,27 +11,35 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+export type IDeFiActionTxConfirmDialogResult =
+  | EOnChainHistoryTxStatus
+  | undefined;
+
 // A shared "confirming → result" sheet shown after a DeFi action tx is
 // broadcast. It polls the tx receipt (waitForTxFinalStatus) and drives the swap
 // Review Order result component (PreSwapConfirmResult) — the same dynamic
 // pending / success / failed animation the swap review sheet uses — so DeFi
 // actions (withdraw / repay / remove / claim) get an identical confirming
-// experience. `onDone` is what closes the dialog (and lets the caller run its
-// position refresh).
+// experience. `onDone` closes the dialog and returns the final status to the
+// caller so failed transactions do not trigger success-only refresh effects.
 function DeFiActionTxConfirmResult({
   accountId,
   networkId,
   txid,
   onDone,
+  onStatusChange,
 }: {
   accountId: string;
   networkId: string;
   txid: string;
-  onDone: () => void;
+  onDone: (result: IDeFiActionTxConfirmDialogResult) => void;
+  onStatusChange: (result: IDeFiActionTxConfirmDialogResult) => void;
 }) {
   const [stepStatus, setStepStatus] = useState<ESwapStepStatus>(
     ESwapStepStatus.PENDING,
   );
+  const [finalStatus, setFinalStatus] =
+    useState<IDeFiActionTxConfirmDialogResult>();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -46,8 +54,12 @@ function DeFiActionTxConfirmResult({
         return;
       }
       if (result === EOnChainHistoryTxStatus.Success) {
+        setFinalStatus(result);
+        onStatusChange(result);
         setStepStatus(ESwapStepStatus.SUCCESS);
       } else if (result === EOnChainHistoryTxStatus.Failed) {
+        setFinalStatus(result);
+        onStatusChange(result);
         setStepStatus(ESwapStepStatus.FAILED);
       }
       // Poll exhausted (undefined): keep it PENDING. PreSwapConfirmResult's
@@ -55,7 +67,7 @@ function DeFiActionTxConfirmResult({
       // truth for a broadcast-but-not-yet-final tx.
     })();
     return () => controller.abort();
-  }, [accountId, networkId, txid]);
+  }, [accountId, networkId, onStatusChange, txid]);
 
   // PreSwapConfirmResult is fully prop-driven; it reads only status / txHash off
   // the step and networkId off fromToken (to build the explorer link). The
@@ -83,7 +95,7 @@ function DeFiActionTxConfirmResult({
     <PreSwapConfirmResult
       lastStep={lastStep}
       fromToken={fromToken}
-      onConfirm={onDone}
+      onConfirm={() => onDone(finalStatus)}
     />
   );
 }
@@ -115,28 +127,33 @@ export function showDeFiActionTxConfirmDialog({
   accountId?: string;
   networkId: string;
   data: ISendTxOnSuccessData[];
-}): Promise<void> {
+}): Promise<IDeFiActionTxConfirmDialogResult> {
   const txid = getLastSignedTxid(data);
   if (!accountId || !txid) {
-    return Promise.resolve();
+    return Promise.resolve(undefined);
   }
-  return new Promise<void>((resolve) => {
+  return new Promise<IDeFiActionTxConfirmDialogResult>((resolve) => {
     let settled = false;
-    const finish = () => {
+    let latestResult: IDeFiActionTxConfirmDialogResult;
+    const finish = (result?: IDeFiActionTxConfirmDialogResult) => {
       if (!settled) {
         settled = true;
-        resolve();
+        resolve(result);
       }
     };
     const dialog = Dialog.show({
       showFooter: false,
-      onClose: finish,
+      onClose: () => finish(latestResult),
       renderContent: (
         <DeFiActionTxConfirmResult
           accountId={accountId}
           networkId={networkId}
           txid={txid}
-          onDone={() => {
+          onStatusChange={(result) => {
+            latestResult = result;
+          }}
+          onDone={(result) => {
+            finish(result);
             void dialog.close();
           }}
         />

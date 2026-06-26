@@ -44,6 +44,7 @@ import {
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
 } from '@onekeyhq/shared/types/defi';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -410,6 +411,19 @@ function ProtocolPositionActionAssetRow({
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
   return String(error);
+}
+
+function isUserRejectedErrorMessage({
+  error,
+  intl,
+}: {
+  error: unknown;
+  intl: ReturnType<typeof useIntl>;
+}) {
+  return (
+    getErrorMessage(error) ===
+    intl.formatMessage({ id: ETranslations.feedback_user_rejected })
+  );
 }
 
 function getPositiveAmount(value?: string) {
@@ -929,21 +943,20 @@ function useProtocolPositionActionSubmit({
               );
               // Block on the confirming sheet until the tx settles, then run
               // the caller's refresh so the position reflects the result.
-              await showDeFiActionTxConfirmDialog({
+              const finalStatus = await showDeFiActionTxConfirmDialog({
                 accountId,
                 networkId,
                 data,
               });
+              if (finalStatus === EOnChainHistoryTxStatus.Failed) {
+                return;
+              }
               await onSuccess?.({ accountId, networkId, data });
             },
             onFail: (error: Error) => {
               if (isTxConfirmInitializing) {
                 txConfirmInitError = error;
-                return;
               }
-              Toast.error({
-                title: getErrorMessage(error),
-              });
             },
           });
         } finally {
@@ -953,9 +966,11 @@ function useProtocolPositionActionSubmit({
           throw new OneKeyLocalError(getErrorMessage(txConfirmInitError));
         }
       } catch (error) {
-        Toast.error({
-          title: getErrorMessage(error),
-        });
+        if (!isUserRejectedErrorMessage({ error, intl })) {
+          Toast.error({
+            title: getErrorMessage(error),
+          });
+        }
         throw error;
       }
     },
