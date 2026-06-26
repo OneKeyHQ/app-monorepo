@@ -113,9 +113,13 @@ export function TabNavigator() {
     let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
     let cancelled = false;
 
-    // Space steps out by PRELOAD_INTERVAL_MS, but always run the actual preload
-    // inside requestIdleCallback so each heavy tab mount waits for the main
-    // thread to be idle — not just the first step.
+    // Space steps out by PRELOAD_INTERVAL_MS, then run each preload inside
+    // requestIdleCallback (every step, not just the first).
+    // NOTE: this only yields to a genuinely idle main thread on web/desktop,
+    // where requestIdleCallback is the real Chromium API. On native it is the
+    // setTimeout(…, 1ms) shim (see shared/src/polyfills/requestIdleCallbackShim),
+    // which has no idle awareness — there each step is just deferred a tick and
+    // paced by the interval timer, not gated on actual main-thread idleness.
     function scheduleNext() {
       timerId = setTimeout(() => {
         idleHandle = requestIdleCallback(preloadNext);
