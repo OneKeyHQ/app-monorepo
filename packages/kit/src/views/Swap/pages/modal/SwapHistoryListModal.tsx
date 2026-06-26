@@ -21,12 +21,12 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { LazyHeaderTitle } from '@onekeyhq/kit/src/components/LazyHeaderTitle';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -305,17 +305,27 @@ const SwapHistoryListModal = ({
           ) : undefined,
         onPress: handleSelectStockHistoryType,
       },
-      {
-        label: intl.formatMessage({
-          id: ETranslations.swap_page_limit_dialog_title,
-        }),
-        renderLabel: renderLimitHistoryTypeLabel,
-        extra:
-          historyType === EProtocolOfExchange.LIMIT ? (
-            <Icon name="CheckLargeOutline" size="$4" color="$iconActive" />
-          ) : undefined,
-        onPress: handleSelectLimitHistoryType,
-      },
+      // Limit is not a history category on mobile (it lives in the Pro flow);
+      // only offer the Limit tab in the dropdown on desktop/web.
+      ...(platformEnv.isNative
+        ? []
+        : [
+            {
+              label: intl.formatMessage({
+                id: ETranslations.swap_page_limit_dialog_title,
+              }),
+              renderLabel: renderLimitHistoryTypeLabel,
+              extra:
+                historyType === EProtocolOfExchange.LIMIT ? (
+                  <Icon
+                    name="CheckLargeOutline"
+                    size="$4"
+                    color="$iconActive"
+                  />
+                ) : undefined,
+              onPress: handleSelectLimitHistoryType,
+            },
+          ]),
     ],
     [
       handleSelectLimitHistoryType,
@@ -584,13 +594,15 @@ const SwapHistoryListModal = ({
 
   const headerSelectType = useCallback(
     () => (
-      <LazyHeaderTitle>
-        <ActionList
-          title={historyTypeTitle}
-          items={historyTypeItems}
-          renderTrigger={historyTypeTrigger}
-        />
-      </LazyHeaderTitle>
+      // Render the ActionList directly (not via LazyHeaderTitle): on iOS the
+      // lazy wrapper returns null for ~380ms and the native header does not
+      // reliably re-render a headerTitle that started as null, leaving the
+      // title/dropdown blank.
+      <ActionList
+        title={historyTypeTitle}
+        items={historyTypeItems}
+        renderTrigger={historyTypeTrigger}
+      />
     ),
     [historyTypeItems, historyTypeTitle, historyTypeTrigger],
   );
