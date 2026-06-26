@@ -430,7 +430,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           const homeSyncUpdateMeta = cloneDeep(
             nextCache[homeSyncSceneId]?.updateMeta ?? {},
           );
-          homeSyncSelectedAccountsMap[0] = selectedAccountForHomeSync;
+          homeSyncSelectedAccountsMap[0] =
+            accountSelectorUtils.buildMergedSelectedAccount({
+              data: homeSyncSelectedAccountsMap[0],
+              mergedByData: selectedAccountForHomeSync,
+            });
           homeSyncUpdateMeta[0] = updateMetaForHomeSync;
           setCacheItem({
             targetSceneId: homeSyncSceneId,

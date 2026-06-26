@@ -717,6 +717,96 @@ describe('useAccountSelectorActions', () => {
     expect(mockFlushColdStartCacheNow).toHaveBeenCalled();
   });
 
+  it('keeps the home recent-cache network when swap syncs the same indexed account', async () => {
+    const homeSelectedAccount: ISelectedAccount = {
+      ...defaultSelectedAccount(),
+      walletId: 'hd-2',
+      indexedAccountId: 'hd-2--4',
+      networkId: 'aptos--1',
+      deriveType: 'default',
+      focusedWallet: 'hd-2',
+    };
+    const swapSelectedAccount: ISelectedAccount = {
+      ...homeSelectedAccount,
+      networkId: 'evm--42161',
+    };
+
+    const { store, Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    const updatedAt = Date.now();
+
+    await act(async () => {
+      store.set(accountSelectorContextDataAtom(), {
+        sceneName: EAccountSelectorSceneName.home,
+      });
+      await result.current.updateSelectedAccount({
+        num: 0,
+        updateMeta: {
+          eventEmitDisabled: false,
+          updatedAt,
+        },
+        builder: () => homeSelectedAccount,
+      });
+      store.set(accountSelectorContextDataAtom(), {
+        sceneName: EAccountSelectorSceneName.swap,
+      });
+      await result.current.updateSelectedAccount({
+        num: 0,
+        updateMeta: {
+          eventEmitDisabled: false,
+          updatedAt: updatedAt + 1,
+        },
+        builder: () => swapSelectedAccount,
+      });
+    });
+
+    expect(
+      getRecentSelectionCache()?.[EAccountSelectorSceneName.swap]
+        ?.selectedAccountsMap?.[0],
+    ).toMatchObject({
+      walletId: 'hd-2',
+      indexedAccountId: 'hd-2--4',
+      networkId: 'evm--42161',
+      focusedWallet: 'hd-2',
+    });
+
+    expect(
+      getRecentSelectionCache()?.[EAccountSelectorSceneName.home]
+        ?.selectedAccountsMap?.[0],
+    ).toMatchObject({
+      walletId: 'hd-2',
+      indexedAccountId: 'hd-2--4',
+      networkId: 'aptos--1',
+      focusedWallet: 'hd-2',
+    });
+
+    mockGetSelectedAccountsMap.mockResolvedValue({
+      0: homeSelectedAccount,
+    });
+    store.set(selectedAccountsAtom(), {
+      0: defaultSelectedAccount(),
+    });
+    store.set(accountSelectorUpdateMetaAtom(), {});
+    store.set(accountSelectorContextDataAtom(), {
+      sceneName: EAccountSelectorSceneName.home,
+    });
+
+    await act(async () => {
+      await result.current.initFromStorage({
+        sceneName: EAccountSelectorSceneName.home,
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      walletId: 'hd-2',
+      indexedAccountId: 'hd-2--4',
+      networkId: 'aptos--1',
+      focusedWallet: 'hd-2',
+    });
+  });
+
   it('switches an others wallet account to one that matches the selected network', async () => {
     const currentBtcAccount = {
       id: 'imported--btc-p2tr',
