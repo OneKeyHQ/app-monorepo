@@ -260,7 +260,11 @@ export function buildAllLinesForSymbol(
     ? new BigNumber(currentPosition.position.szi || '0').abs().toFixed()
     : undefined;
 
-  for (const order of orders.filter((o) => o.coin === symbol)) {
+  // `orders` is already scoped to the active instrument upstream (perps by the
+  // per-coin hook, spot by the alias matcher in useChartLines). Re-filtering by
+  // `o.coin === symbol` here wrongly dropped spot orders, whose `coin` is the
+  // `@index` form rather than the pair-name `symbol` (OK-56900).
+  for (const order of orders) {
     let line: ITVLine | null = null;
     if (order.orderType === 'Limit') {
       line = buildOrderLine(order, szDecimals);
