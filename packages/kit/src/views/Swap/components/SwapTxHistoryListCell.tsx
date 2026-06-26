@@ -21,6 +21,8 @@ import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
 
+import { SwapHistoryPendingDot } from './SwapHistoryPendingDot';
+
 interface ISwapTxHistoryListCellProps {
   item: ISwapTxHistory;
   onClickCell: () => void;
@@ -114,9 +116,14 @@ const SwapTxHistoryListCell = ({
     if (kind === 'pending') {
       return (
         <Badge badgeType="info" badgeSize="sm">
-          {intl.formatMessage({
-            id: ETranslations.swap_history_status_pending,
-          })}
+          <XStack alignItems="center" gap="$1">
+            <SwapHistoryPendingDot />
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.swap_history_status_pending,
+              })}
+            </Badge.Text>
+          </XStack>
         </Badge>
       );
     }
