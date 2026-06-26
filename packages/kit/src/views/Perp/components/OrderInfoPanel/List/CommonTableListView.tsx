@@ -75,6 +75,69 @@ const TradesHistoryLoadingView = () => {
   );
 };
 
+const MobileCardSkeletonItem = () => (
+  <YStack mt="$1.5" px="$4" py="$3" gap="$3">
+    {/* Header: badge + name + leverage */}
+    <XStack gap="$2" alignItems="center">
+      <Skeleton w="$4" h="$4" borderRadius="$1" />
+      <Skeleton w="$16" h="$3.5" />
+      <Skeleton w="$10" h="$3" />
+    </XStack>
+    {/* PnL row */}
+    <XStack justifyContent="space-between" alignItems="flex-start">
+      <YStack gap="$1">
+        <Skeleton w="$8" h="$2.5" />
+        <Skeleton w="$16" h="$4" />
+      </YStack>
+      <YStack gap="$1" alignItems="flex-end">
+        <Skeleton w="$6" h="$2.5" />
+        <Skeleton w="$12" h="$4" />
+      </YStack>
+    </XStack>
+    {/* Metrics row 1 */}
+    <XStack justifyContent="space-between">
+      <YStack gap="$1" flex={1}>
+        <Skeleton w="$10" h="$2.5" />
+        <Skeleton w="$14" h="$3" />
+      </YStack>
+      <YStack gap="$1" flex={1}>
+        <Skeleton w="$8" h="$2.5" />
+        <Skeleton w="$12" h="$3" />
+      </YStack>
+      <YStack gap="$1" flex={1} alignItems="flex-end">
+        <Skeleton w="$10" h="$2.5" />
+        <Skeleton w="$14" h="$3" />
+      </YStack>
+    </XStack>
+    {/* Metrics row 2 */}
+    <XStack justifyContent="space-between">
+      <YStack gap="$1" flex={1}>
+        <Skeleton w="$10" h="$2.5" />
+        <Skeleton w="$14" h="$3" />
+      </YStack>
+      <YStack gap="$1" flex={1}>
+        <Skeleton w="$8" h="$2.5" />
+        <Skeleton w="$12" h="$3" />
+      </YStack>
+      <YStack gap="$1" flex={1} alignItems="flex-end">
+        <Skeleton w="$10" h="$2.5" />
+        <Skeleton w="$14" h="$3" />
+      </YStack>
+    </XStack>
+    {/* Action buttons */}
+    <XStack gap="$2.5">
+      <Skeleton h="$9" flex={1} borderRadius="$full" />
+      <Skeleton h="$9" flex={1} borderRadius="$full" />
+    </XStack>
+  </YStack>
+);
+
+const MobileCardLoadingSkeleton = () => (
+  <YStack px="$1" pt="$1">
+    <MobileCardSkeletonItem />
+  </YStack>
+);
+
 const PaginationInputAccessoryViewID = 'pagination-input-accessory-view';
 
 const PaginationDoneOnKeyboard = ({
@@ -650,7 +713,7 @@ export function CommonTableListView<T>({
       let inlineRows: ReactElement | ReactElement[];
       if (paginatedData.length === 0) {
         inlineRows = effectiveListLoading ? (
-          <TradesHistoryLoadingView />
+          <MobileCardLoadingSkeleton />
         ) : (
           emptyComponent
         );

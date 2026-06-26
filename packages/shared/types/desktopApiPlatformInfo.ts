@@ -25,6 +25,12 @@ export interface IDesktopApiPlatformInfo {
   channel?: string;
   deskChannel: string;
   isMas: boolean;
+  // Epoch ms of the Electron MAIN process creation (`process.getCreationTime()`),
+  // the true "app launched" moment. Consumed by the desktop LaunchOptionsManager
+  // to anchor cold-start timing (jsReadyTime / uiVisibleTime) on real process
+  // spawn — matching the native LaunchOptionsManager — instead of renderer
+  // document load. Falls back to `Date.now()` at build time if unavailable.
+  processStartAt: number;
 }
 
 export interface IDesktopApiGlobal extends IDesktopApiPlatformInfo {

@@ -460,7 +460,7 @@ export const TpslInput = memo(
                   ? undefined
                   : {
                       outlineWidth: '$px',
-                      outlineColor: '$border',
+                      outlineColor: '$borderHover',
                       outlineStyle: 'solid',
                     }
               }
@@ -494,7 +494,7 @@ export const TpslInput = memo(
                   ? undefined
                   : {
                       outlineWidth: '$px',
-                      outlineColor: '$border',
+                      outlineColor: '$borderHover',
                       outlineStyle: 'solid',
                     }
               }
@@ -566,7 +566,7 @@ export const TpslInput = memo(
                   ? undefined
                   : {
                       outlineWidth: '$px',
-                      outlineColor: '$border',
+                      outlineColor: '$borderHover',
                       outlineStyle: 'solid',
                     }
               }
@@ -599,7 +599,7 @@ export const TpslInput = memo(
                   ? undefined
                   : {
                       outlineWidth: '$px',
-                      outlineColor: '$border',
+                      outlineColor: '$borderHover',
                       outlineStyle: 'solid',
                     }
               }
