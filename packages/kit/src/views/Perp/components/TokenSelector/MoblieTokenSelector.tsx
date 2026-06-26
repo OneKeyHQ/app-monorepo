@@ -734,14 +734,10 @@ function MobileTokenSelectorModal({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  // Layer 1: sort — only reruns when sort config or underlying assets change.
-  // Does NOT depend on activeTab, so tab switches never retrigger the sort.
+  // Layer 1: perp sort — always sorts against the frozen snapshot so live WS
+  // ticks do not re-sort the full perp universe.
   const perpSortAssetCtxsByDex = getPerpTokenSelectorSortAssetCtxsByDex({
-    activeTab: displayActiveTab,
-    liveAssetCtxsByDex: assetCtxsByDex,
     snapshotAssetCtxsByDex: perpSortSnapshot,
-    sortSource: selectorConfig?.sortSource,
-    sortSourceTab: selectorConfig?.sortSourceTab,
   });
   const perpSortedList = useMemo(() => {
     const perfStartTime = startTokenSelectorPerfMeasure();
@@ -935,8 +931,18 @@ function MobileTokenSelectorModal({
     selectorConfig?.direction,
   ]);
 
-  // Layer 2: filter — cheap O(n) filter; never runs sort.
-  // Tab switches and favorites changes only reach here, not the sort layer.
+  const activeDynamicTabUserSort = isPerpTokenSelectorDynamicTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
+  const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
+    ? assetCtxsByDex
+    : undefined;
+
+  // Layer 2: filter — cheap O(n) filter; only dynamic user sort sorts the
+  // filtered dynamic-token subset against live values.
+  // Tab switches and favorites changes only reach here, not the full sort layer.
   const mockedListData = useMemo(() => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const sortField = selectorConfig?.field ?? '';
@@ -990,15 +996,45 @@ function MobileTokenSelectorModal({
     } else {
       const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
-        result = getPerpTokenSelectorDynamicTabItems({
+        const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
-          useSortedItemsOrder: isPerpTokenSelectorDynamicTabUserSort({
-            activeTab: displayActiveTab,
-            sortSource: selectorConfig?.sortSource,
-            sortSourceTab: selectorConfig?.sortSourceTab,
-          }),
         });
+        if (activeDynamicTabUserSort && sortField) {
+          result = dynamicItems
+            .map((item, index) => {
+              const asset = assetsByDex?.[item.dexIndex]?.[item.index];
+              const normalizedAssetId =
+                item.dexIndex === 1 && item.assetId !== undefined
+                  ? item.assetId - XYZ_ASSET_ID_OFFSET
+                  : item.assetId;
+              const assetCtx =
+                normalizedAssetId !== undefined
+                  ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
+                      normalizedAssetId
+                    ]
+                  : undefined;
+              return {
+                item,
+                index,
+                sortEntry: asset
+                  ? {
+                      asset,
+                      sortValues: computeSortValues(assetCtx),
+                    }
+                  : undefined,
+              };
+            })
+            .toSorted((a, b) => {
+              if (!a.sortEntry || !b.sortEntry) {
+                return a.index - b.index;
+              }
+              return sortCompare(a.sortEntry, b.sortEntry) || a.index - b.index;
+            })
+            .map(({ item }) => item);
+        } else {
+          result = dynamicItems;
+        }
       } else {
         result = perpSortedList;
       }
@@ -1024,15 +1060,17 @@ function MobileTokenSelectorModal({
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    activeDynamicTabUserSort,
+    assetsByDex,
     categoryTabs,
     favoritesOrder.sequence,
     favoriteItems,
     computeSortValues,
+    dynamicSortAssetCtxsByDex,
     perpSortedList,
     selectorConfig?.direction,
     selectorConfig?.field,
-    selectorConfig?.sortSource,
-    selectorConfig?.sortSourceTab,
+    sortCompare,
     spotFavoriteSortedList,
     spotMarketCaps,
     spotPriceSnapshot,

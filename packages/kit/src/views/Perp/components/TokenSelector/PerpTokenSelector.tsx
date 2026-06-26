@@ -766,14 +766,10 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  // Layer 1a: perp sort — only reruns when sort config or perp assets change.
-  // Never reruns on tab switch, spot WS updates, search, or favorites changes.
+  // Layer 1a: perp sort — always sorts against the frozen snapshot so live WS
+  // ticks do not re-sort the full perp universe.
   const perpSortAssetCtxsByDex = getPerpTokenSelectorSortAssetCtxsByDex({
-    activeTab: displayActiveTab,
-    liveAssetCtxsByDex: assetCtxsByDex,
     snapshotAssetCtxsByDex: perpSortSnapshot,
-    sortSource: selectorConfig?.sortSource,
-    sortSourceTab: selectorConfig?.sortSourceTab,
   });
   const perpSortedList = useMemo((): ITokenSelectorListItem[] => {
     const perfStartTime = startTokenSelectorPerfMeasure();
@@ -956,7 +952,17 @@ function BasePerpTokenSelectorContent({
     spotMarketCaps,
   ]);
 
-  // Layer 2: filter — cheap O(n); no sort computation.
+  const activeDynamicTabUserSort = isPerpTokenSelectorDynamicTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
+  const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
+    ? assetCtxsByDex
+    : undefined;
+
+  // Layer 2: filter — cheap O(n); only dynamic user sort sorts the filtered
+  // dynamic-token subset against live values.
   // Tab switches, search, and favorites changes only reach here.
   // perpSortedList reference is stable unless sort config changes, so ListView
   // bails out of re-rendering rows when spot WS updates trigger a component render.
@@ -1013,15 +1019,45 @@ function BasePerpTokenSelectorContent({
     } else {
       const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
-        result = getPerpTokenSelectorDynamicTabItems({
+        const dynamicItems = getPerpTokenSelectorDynamicTabItems({
           items: perpSortedList,
           tokens: dynamicTab.tokens,
-          useSortedItemsOrder: isPerpTokenSelectorDynamicTabUserSort({
-            activeTab: displayActiveTab,
-            sortSource: selectorConfig?.sortSource,
-            sortSourceTab: selectorConfig?.sortSourceTab,
-          }),
         });
+        if (activeDynamicTabUserSort && sortField) {
+          result = dynamicItems
+            .map((item, index) => {
+              const asset = assetsByDex?.[item.dexIndex]?.[item.index];
+              const normalizedAssetId =
+                item.dexIndex === 1 && item.assetId !== undefined
+                  ? item.assetId - XYZ_ASSET_ID_OFFSET
+                  : item.assetId;
+              const assetCtx =
+                normalizedAssetId !== undefined
+                  ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
+                      normalizedAssetId
+                    ]
+                  : undefined;
+              return {
+                item,
+                index,
+                sortEntry: asset
+                  ? {
+                      asset,
+                      sortValues: computeSortValues(assetCtx),
+                    }
+                  : undefined,
+              };
+            })
+            .toSorted((a, b) => {
+              if (!a.sortEntry || !b.sortEntry) {
+                return a.index - b.index;
+              }
+              return sortCompare(a.sortEntry, b.sortEntry) || a.index - b.index;
+            })
+            .map(({ item }) => item);
+        } else {
+          result = dynamicItems;
+        }
       } else {
         result = perpSortedList;
       }
@@ -1047,11 +1083,15 @@ function BasePerpTokenSelectorContent({
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    activeDynamicTabUserSort,
+    assetsByDex,
     categoryTabs,
     computeSortValues,
+    dynamicSortAssetCtxsByDex,
     favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
+    sortCompare,
     spotFavoriteSortedList,
     spotMarketCaps,
     spotPriceSnapshot,
@@ -1059,8 +1099,6 @@ function BasePerpTokenSelectorContent({
     searchQuery,
     selectorConfig?.direction,
     selectorConfig?.field,
-    selectorConfig?.sortSource,
-    selectorConfig?.sortSourceTab,
   ]);
 
   useEffect(() => {

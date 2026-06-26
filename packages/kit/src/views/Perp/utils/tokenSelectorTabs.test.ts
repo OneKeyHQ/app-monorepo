@@ -455,49 +455,11 @@ describe('tokenSelectorTabs', () => {
     ).toBe(true);
   });
 
-  it('only uses live asset ctxs for a matching dynamic tab user sort', () => {
-    const liveAssetCtxsByDex = [[{ volume: '12' }]];
+  it('always uses snapshot asset ctxs for the full perp list sort', () => {
     const snapshotAssetCtxsByDex = [[{ volume: '8' }]];
 
     expect(
       getPerpTokenSelectorSortAssetCtxsByDex({
-        activeTab: 'hot',
-        liveAssetCtxsByDex,
-        snapshotAssetCtxsByDex,
-        sortSource: 'user',
-        sortSourceTab: 'hot',
-      }),
-    ).toBe(liveAssetCtxsByDex);
-    expect(
-      getPerpTokenSelectorSortAssetCtxsByDex({
-        activeTab: 'perps',
-        liveAssetCtxsByDex,
-        snapshotAssetCtxsByDex,
-        sortSource: 'user',
-        sortSourceTab: 'perps',
-      }),
-    ).toBe(snapshotAssetCtxsByDex);
-    expect(
-      getPerpTokenSelectorSortAssetCtxsByDex({
-        activeTab: 'hot',
-        liveAssetCtxsByDex,
-        snapshotAssetCtxsByDex,
-        sortSource: 'user',
-        sortSourceTab: 'perps',
-      }),
-    ).toBe(snapshotAssetCtxsByDex);
-    expect(
-      getPerpTokenSelectorSortAssetCtxsByDex({
-        activeTab: 'hot',
-        liveAssetCtxsByDex,
-        snapshotAssetCtxsByDex,
-        sortSource: 'default',
-      }),
-    ).toBe(snapshotAssetCtxsByDex);
-    expect(
-      getPerpTokenSelectorSortAssetCtxsByDex({
-        activeTab: 'hot',
-        liveAssetCtxsByDex,
         snapshotAssetCtxsByDex,
       }),
     ).toBe(snapshotAssetCtxsByDex);

@@ -398,25 +398,11 @@ function getNextPerpTokenSelectorSortConfig({
 }
 
 function getPerpTokenSelectorSortAssetCtxsByDex<T>({
-  activeTab,
-  liveAssetCtxsByDex,
   snapshotAssetCtxsByDex,
-  sortSource,
-  sortSourceTab,
 }: {
-  activeTab?: string;
-  liveAssetCtxsByDex: T;
   snapshotAssetCtxsByDex: T;
-  sortSource?: IPerpTokenSelectorConfig['sortSource'];
-  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
 }) {
-  return isPerpTokenSelectorDynamicTabUserSort({
-    activeTab,
-    sortSource,
-    sortSourceTab,
-  })
-    ? liveAssetCtxsByDex
-    : snapshotAssetCtxsByDex;
+  return snapshotAssetCtxsByDex;
 }
 
 function shouldRefreshPerpTokenSelectorSortSnapshot({
