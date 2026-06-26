@@ -16,6 +16,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useAppRoute } from '../../../hooks/useAppRoute';
+import { getRootRoutersLength } from '../../../hooks/useRouteIsFocused';
 
 import SwapMainLandWithPageType from './components/SwapMainLand';
 
@@ -40,18 +41,22 @@ const SwapPageContainer = () => {
     return { swapTabSwitchType };
   }, [tabParam]);
 
-  // "Visit = read": when the user leaves the Swap tab screen, archive every
-  // unread finished item in the history preview. A pushed modal (detail /
-  // "view more") does NOT blur this screen on desktop, so opening one does
-  // not mark items read; switching the in-page Swap/Stock/Limit tab also does
-  // not blur this screen.
+  // "Visit = read": archive every unread finished item in the history preview
+  // when the user LEAVES the Swap surface (e.g. switches bottom tabs) — but NOT
+  // when a modal (detail / "view more") is pushed on top, and not when switching
+  // the in-page Swap/Stock/Limit tab. A pushed modal grows the root navigation
+  // stack while a tab switch does not, so we skip the archive whenever the stack
+  // is deeper at blur time than it was at focus time (i.e. a modal caused it).
   useFocusEffect(
-    useCallback(
-      () => () => {
+    useCallback(() => {
+      const rootRoutersLengthOnFocus = getRootRoutersLength();
+      return () => {
+        if (getRootRoutersLength() > rootRoutersLengthOnFocus) {
+          return;
+        }
         void backgroundApiProxy.serviceSwap.markAllSwapHistoryPreviewRead();
-      },
-      [],
-    ),
+      };
+    }, []),
   );
 
   return (
