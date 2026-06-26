@@ -393,7 +393,9 @@ export function LimitOrderForm({
     return [Math.abs(szi), positionSide] as const;
   }, [currentCoinPosition?.szi]);
   const perpsPositionColor =
-    perpsPositionSize > 0 ? getTradingSideTextColor(perpsPositionSide) : '$text';
+    perpsPositionSize > 0
+      ? getTradingSideTextColor(perpsPositionSide)
+      : '$text';
 
   const spotHoldingDisplay = useMemo(() => {
     if (!isSpot) {
@@ -981,6 +983,49 @@ export function LimitOrderForm({
 
   return (
     <YStack gap="$2.5">
+      {/* Available / Current Position card, same style as the main trading panel. */}
+      <YStack
+        gap="$2.5"
+        p="$2.5"
+        borderWidth="$px"
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+      >
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
+          </SizableText>
+          {isSpot ? (
+            <SizableText size="$bodySmMedium" color="$text">
+              {spotAvailableDisplay || '--'}
+            </SizableText>
+          ) : (
+            <PerpsAccountNumberValue value={perpsAvailableToTrade} />
+          )}
+        </XStack>
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_current_position,
+            })}
+          </SizableText>
+          {perpsAccountLoading?.selectAccountLoading ? (
+            <Skeleton width={60} height={16} />
+          ) : (
+            <SizableText
+              size="$bodySmMedium"
+              color={isSpot ? '$text' : perpsPositionColor}
+            >
+              {isSpot
+                ? spotHoldingDisplay || '--'
+                : `${perpsPositionSize} ${displayName}`}
+            </SizableText>
+          )}
+        </XStack>
+      </YStack>
+
       {/* Price + BBO */}
       <XStack alignItems="center" gap="$2.5">
         {isBBOActive ? (
@@ -1046,49 +1091,6 @@ export function LimitOrderForm({
         snapTapToSegment
         sliderHeight={4}
       />
-
-      {/* Available / Current Position card, same style as the main trading panel. */}
-      <YStack
-        gap="$2.5"
-        p="$2.5"
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$2"
-      >
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          {isSpot ? (
-            <SizableText size="$bodySmMedium" color="$text">
-              {spotAvailableDisplay || '--'}
-            </SizableText>
-          ) : (
-            <PerpsAccountNumberValue value={perpsAvailableToTrade} />
-          )}
-        </XStack>
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_current_position,
-            })}
-          </SizableText>
-          {perpsAccountLoading?.selectAccountLoading ? (
-            <Skeleton width={60} height={16} />
-          ) : (
-            <SizableText
-              size="$bodySmMedium"
-              color={isSpot ? '$text' : perpsPositionColor}
-            >
-              {isSpot
-                ? spotHoldingDisplay || '--'
-                : `${perpsPositionSize} ${displayName}`}
-            </SizableText>
-          )}
-        </XStack>
-      </YStack>
 
       {!isSpot ? (
         <>
