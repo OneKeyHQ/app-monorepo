@@ -67,6 +67,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IPerpTokenSelectorConfig,
   IPerpTokenSortDirection,
   IPerpTokenSortField,
   IPerpsAssetCtx,
@@ -75,8 +76,6 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import {
   DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-  DEFAULT_PERP_TOKEN_SORT_FIELD,
   XYZ_ASSET_ID_OFFSET,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -104,12 +103,15 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  getNextPerpTokenSelectorActiveTabConfig,
+  getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
   getPerpTokenSelectorPrimaryTabId,
+  getPerpTokenSelectorSortAssetCtxsByDex,
+  isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorSpotTab,
-  sortPerpTokenSelectorItemsByServerOrder,
 } from '../../utils/tokenSelectorTabs';
 
 import { FavoritesEmptyState } from './FavoritesEmptyState';
@@ -484,14 +486,8 @@ function BasePerpTokenSelectorContent({
   const updateActiveTab = useCallback(
     (tab: string) => {
       startTransition(() => {
-        setSelectorConfig(
-          (prev) =>
-            ({
-              field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
-              direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-              activeTab: tab,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            }) as any,
+        setSelectorConfig((prev) =>
+          getNextPerpTokenSelectorActiveTabConfig({ prev, tab }),
         );
       });
       actions.current.setTradeRouteViewState({
@@ -585,14 +581,24 @@ function BasePerpTokenSelectorContent({
 
   // Freeze sort order while popover is open; refreshed on sort change or first data arrival.
   const ctxSnapshotRef = useRef(assetCtxsByDex);
-  const lastSortRef = useRef<{ field?: string; direction?: string } | null>(
-    null,
-  );
+  const [perpSortSnapshot, setPerpSortSnapshot] = useState(assetCtxsByDex);
+  const lastSortRef = useRef<{
+    field?: string;
+    direction?: string;
+    sortSource?: IPerpTokenSelectorConfig['sortSource'];
+    sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
+  } | null>(null);
   useEffect(() => {
     const field = selectorConfig?.field;
     const direction = selectorConfig?.direction;
+    const sortSource = selectorConfig?.sortSource;
+    const sortSourceTab = selectorConfig?.sortSourceTab;
     const last = lastSortRef.current;
-    const sortChanged = last?.field !== field || last?.direction !== direction;
+    const sortChanged =
+      last?.field !== field ||
+      last?.direction !== direction ||
+      last?.sortSource !== sortSource ||
+      last?.sortSourceTab !== sortSourceTab;
     // Also refresh when snapshot is empty (first WS data arrival after mount)
     const snapshotEmpty = !ctxSnapshotRef.current?.some(
       (arr) => arr?.length > 0,
@@ -600,12 +606,19 @@ function BasePerpTokenSelectorContent({
     if (!sortChanged && !snapshotEmpty) {
       return;
     }
-    lastSortRef.current = { field, direction };
+    lastSortRef.current = { field, direction, sortSource, sortSourceTab };
     ctxSnapshotRef.current = assetCtxsByDex;
+    setPerpSortSnapshot(assetCtxsByDex);
     if (sortChanged) {
       listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     }
-  }, [selectorConfig?.direction, selectorConfig?.field, assetCtxsByDex]);
+  }, [
+    selectorConfig?.direction,
+    selectorConfig?.field,
+    selectorConfig?.sortSource,
+    selectorConfig?.sortSourceTab,
+    assetCtxsByDex,
+  ]);
 
   // Snapshot held in state (not ref) so the sort memo only re-runs when we
   // explicitly bump it — sort-config change or first non-empty data arrival.
@@ -753,13 +766,16 @@ function BasePerpTokenSelectorContent({
     [selectorConfig?.direction, selectorConfig?.field],
   );
 
-  // Layer 1a: perp sort — only reruns when sort config or perp assets change.
-  // Never reruns on tab switch, spot WS updates, search, or favorites changes.
+  // Layer 1a: perp sort — always sorts against the frozen snapshot so live WS
+  // ticks do not re-sort the full perp universe.
+  const perpSortAssetCtxsByDex = getPerpTokenSelectorSortAssetCtxsByDex({
+    snapshotAssetCtxsByDex: perpSortSnapshot,
+  });
   const perpSortedList = useMemo((): ITokenSelectorListItem[] => {
     const perfStartTime = startTokenSelectorPerfMeasure();
     const assetsByDexTyped: IPerpsUniverse[][] = assetsByDex || [];
     const assetCtxsByDexTyped: IPerpsAssetCtx[][] =
-      ctxSnapshotRef.current || [];
+      perpSortAssetCtxsByDex || [];
 
     const combinedEntries = assetsByDexTyped.flatMap(
       (assets: IPerpsUniverse[], dexIndex: number) => {
@@ -788,6 +804,8 @@ function BasePerpTokenSelectorContent({
 
     const sortField = selectorConfig?.field ?? '';
     const sortDirection = selectorConfig?.direction ?? 'desc';
+    const sortSource = selectorConfig?.sortSource;
+    const sortSourceTab = selectorConfig?.sortSourceTab;
     const result = sortField
       ? combinedEntries
           .toSorted((a, b) =>
@@ -805,6 +823,8 @@ function BasePerpTokenSelectorContent({
         phase: 'perp-sort',
         sortField,
         sortDirection,
+        sortSource,
+        sortSourceTab,
         perpCount: combinedEntries.length,
         resultCount: result.length,
       });
@@ -814,9 +834,12 @@ function BasePerpTokenSelectorContent({
   }, [
     assetsByDex,
     computeSortValues,
+    perpSortAssetCtxsByDex,
     sortCompare,
     selectorConfig?.direction,
     selectorConfig?.field,
+    selectorConfig?.sortSource,
+    selectorConfig?.sortSourceTab,
     tokenSearchAliases,
   ]);
 
@@ -929,7 +952,17 @@ function BasePerpTokenSelectorContent({
     spotMarketCaps,
   ]);
 
-  // Layer 2: filter — cheap O(n); no sort computation.
+  const activeDynamicTabUserSort = isPerpTokenSelectorDynamicTabUserSort({
+    activeTab: displayActiveTab,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
+  const dynamicSortAssetCtxsByDex = activeDynamicTabUserSort
+    ? assetCtxsByDex
+    : undefined;
+
+  // Layer 2: filter — cheap O(n); only dynamic user sort sorts the filtered
+  // dynamic-token subset against live values.
   // Tab switches, search, and favorites changes only reach here.
   // perpSortedList reference is stable unless sort config changes, so ListView
   // bails out of re-rendering rows when spot WS updates trigger a component render.
@@ -986,23 +1019,45 @@ function BasePerpTokenSelectorContent({
     } else {
       const dynamicTab = categoryTabs.find((t) => t.tabId === displayActiveTab);
       if (dynamicTab) {
-        const tokenSet = new Set(dynamicTab.tokens);
-        const tokenNameById = new Map<string, string>();
-        (assetsByDex || []).forEach((assets, dexIndex) => {
-          assets?.forEach((asset) => {
-            if (tokenSet.has(asset.name)) {
-              tokenNameById.set(`${dexIndex}-${asset.assetId}`, asset.name);
-            }
-          });
+        const dynamicItems = getPerpTokenSelectorDynamicTabItems({
+          items: perpSortedList,
+          tokens: dynamicTab.tokens,
         });
-        result = sortPerpTokenSelectorItemsByServerOrder({
-          items: perpSortedList.filter((item) =>
-            tokenNameById.has(`${item.dexIndex}-${item.assetId}`),
-          ),
-          tokenOrder: dynamicTab.tokens,
-          getTokenName: (item) =>
-            tokenNameById.get(`${item.dexIndex}-${item.assetId}`),
-        });
+        if (activeDynamicTabUserSort && sortField) {
+          result = dynamicItems
+            .map((item, index) => {
+              const asset = assetsByDex?.[item.dexIndex]?.[item.index];
+              const normalizedAssetId =
+                item.dexIndex === 1 && item.assetId !== undefined
+                  ? item.assetId - XYZ_ASSET_ID_OFFSET
+                  : item.assetId;
+              const assetCtx =
+                normalizedAssetId !== undefined
+                  ? dynamicSortAssetCtxsByDex?.[item.dexIndex]?.[
+                      normalizedAssetId
+                    ]
+                  : undefined;
+              return {
+                item,
+                index,
+                sortEntry: asset
+                  ? {
+                      asset,
+                      sortValues: computeSortValues(assetCtx),
+                    }
+                  : undefined,
+              };
+            })
+            .toSorted((a, b) => {
+              if (!a.sortEntry || !b.sortEntry) {
+                return a.index - b.index;
+              }
+              return sortCompare(a.sortEntry, b.sortEntry) || a.index - b.index;
+            })
+            .map(({ item }) => item);
+        } else {
+          result = dynamicItems;
+        }
       } else {
         result = perpSortedList;
       }
@@ -1028,12 +1083,15 @@ function BasePerpTokenSelectorContent({
   }, [
     displayActiveTab,
     displayPrimaryTab,
+    activeDynamicTabUserSort,
     assetsByDex,
     categoryTabs,
     computeSortValues,
+    dynamicSortAssetCtxsByDex,
     favoritesOrder.sequence,
     favoriteItems,
     perpSortedList,
+    sortCompare,
     spotFavoriteSortedList,
     spotMarketCaps,
     spotPriceSnapshot,

@@ -1,10 +1,21 @@
+import orderBy from 'lodash/orderBy';
+
 import { filterSwapHistoryPendingList } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
-import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
+import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import type {
+  ISwapToken,
+  ISwapTxHistory,
+} from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+
+export type ISwapRecentTokenPair = {
+  fromToken: ISwapToken;
+  toToken: ISwapToken;
+};
 
 export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   return (
@@ -76,4 +87,61 @@ export function getSwapMarketPendingHistoryKey(
       return `${id}:${item.status}`;
     })
     .join('|');
+}
+
+function getRecentTokenPairKey({ fromToken, toToken }: ISwapRecentTokenPair) {
+  const buildTokenKey = (token: ISwapToken) =>
+    `${token.networkId}:${token.contractAddress ?? ''}:${
+      token.isNative ? 'native' : 'token'
+    }`;
+  return `${buildTokenKey(fromToken)}->${buildTokenKey(toToken)}`;
+}
+
+function buildSwapRecentTokenBaseInfo(token: ISwapToken): ISwapToken {
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress,
+    symbol: token.symbol,
+    decimals: token.decimals,
+    name: token.name,
+    logoURI: token.logoURI,
+    networkLogoURI: token.networkLogoURI,
+    isNative: token.isNative,
+    isStock: token.isStock,
+  };
+}
+
+export function buildSwapRecentTokenPairsFromHistory({
+  items,
+  protocol,
+  maxCount = maxRecentTokenPairs,
+}: {
+  items: ISwapTxHistory[];
+  protocol?: EProtocolOfExchange;
+  maxCount?: number;
+}): ISwapRecentTokenPair[] {
+  const recentTokenPairs: ISwapRecentTokenPair[] = [];
+  const seenKeys = new Set<string>();
+  const histories = orderBy(
+    filterSwapMarketHistoryItems({ items, protocol }),
+    (item) => item.date.created,
+    'desc',
+  );
+
+  for (const item of histories) {
+    const pair = {
+      fromToken: buildSwapRecentTokenBaseInfo(item.baseInfo.fromToken),
+      toToken: buildSwapRecentTokenBaseInfo(item.baseInfo.toToken),
+    };
+    const pairKey = getRecentTokenPairKey(pair);
+    if (!seenKeys.has(pairKey)) {
+      seenKeys.add(pairKey);
+      recentTokenPairs.push(pair);
+      if (recentTokenPairs.length >= maxCount) {
+        break;
+      }
+    }
+  }
+
+  return recentTokenPairs;
 }
