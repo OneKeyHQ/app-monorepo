@@ -13,6 +13,7 @@ import {
   Dialog,
   Empty,
   Icon,
+  IconButton,
   Image,
   ListView,
   NavBackButton,
@@ -28,6 +29,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -2374,6 +2376,7 @@ function DepositWithdrawContent({
 function MobileDepositWithdrawModal() {
   const intl = useIntl();
   const navigation = useNavigation();
+  const appNavigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<
@@ -2392,6 +2395,27 @@ function MobileDepositWithdrawModal() {
       platformEnv.isNative ? 350 : 0,
     );
   }, [navigation]);
+
+  const handleViewHistory = useCallback(() => {
+    appNavigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpTradersHistoryList,
+      params: { initialTab: 'Account' },
+    });
+  }, [appNavigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <IconButton
+        variant="tertiary"
+        size="small"
+        icon="ClockTimeHistoryOutline"
+        onPress={handleViewHistory}
+        testID="perp-deposit-withdraw-history"
+      />
+    ),
+    [handleViewHistory],
+  );
+
   if (!selectedAccount) {
     return (
       <Page>
@@ -2422,13 +2446,14 @@ function MobileDepositWithdrawModal() {
 
   return (
     <Page>
-      <Page.Header
+      <PageHeader
         title={intl.formatMessage({
           id:
             actionType === 'deposit'
               ? ETranslations.perp_trade_deposit
               : ETranslations.perp_trade_withdraw,
         })}
+        headerRight={renderHeaderRight}
       />
       <Page.Body>
         <PerpsProviderMirror>
