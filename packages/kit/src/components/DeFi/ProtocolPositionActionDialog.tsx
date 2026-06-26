@@ -708,6 +708,7 @@ type IProtocolPositionActionSubmitParams = {
   amount?: string;
   // Full close via Max: send bps=10000 so an accruing balance can't leave dust.
   isMaxAmount?: boolean;
+  onBeforeNavigateConfirm?: () => void | Promise<void>;
 };
 
 function buildDeFiActionExtraParams({
@@ -769,6 +770,7 @@ function useProtocolPositionActionSubmit({
       percent,
       amount,
       isMaxAmount,
+      onBeforeNavigateConfirm,
     }: IProtocolPositionActionSubmitParams) => {
       if (selectedAssets.length === 0) {
         throw new OneKeyLocalError('DeFi action asset is missing');
@@ -832,6 +834,7 @@ function useProtocolPositionActionSubmit({
               typeof resp.permit.message === 'string'
                 ? resp.permit.message
                 : stableStringify(resp.permit.message);
+            await onBeforeNavigateConfirm?.();
             const signature = await navigationToMessageConfirmAsync({
               accountId,
               networkId,
@@ -910,9 +913,12 @@ function useProtocolPositionActionSubmit({
         let txConfirmInitError: Error | undefined;
         let isTxConfirmInitializing = true;
         try {
+          await onBeforeNavigateConfirm?.();
           await navigationToTxConfirm({
             unsignedTxs,
-            gasAccountScenario: 'earn',
+            // DeFi Portfolio actions use the normal tx-confirm flow, but must
+            // not request Gas Account sponsorship.
+            gasAccountScenario: 'defi',
             onSuccess: async (data: ISendTxOnSuccessData[]) => {
               // Tag the tx for pending tracking, but don't block the confirming
               // sheet on it: showing the sheet in the same tick the confirm
@@ -1504,8 +1510,10 @@ function ProtocolPositionActionDialogContent({
   };
 
   const handleConfirm = async ({
+    close,
     preventClose,
   }: {
+    close?: () => void | Promise<void>;
     preventClose: () => void;
   }) => {
     if (selectedAssets.length === 0) {
@@ -1513,19 +1521,23 @@ function ProtocolPositionActionDialogContent({
       return;
     }
 
-    // Build + navigate WHILE the dialog stays open. The footer keeps the
-    // confirm button in its loading state for the whole await and only
-    // auto-closes once this resolves — so the server-side buildDeFiTransaction
-    // call happens with the dialog (and a spinner) still on screen, handing
-    // straight off to the tx-confirm modal. Closing first instead left a blank
-    // gap until the modal mounted.
+    // Keep the action dialog open while the server builds the transaction so
+    // the button can show loading. Close it immediately before opening any
+    // signing/tx-confirm modal, otherwise the old dialog stays stacked above
+    // the confirm page until the async submit finishes.
     try {
+      let isActionDialogClosed = false;
       await submitProtocolPositionAction({
         action,
         selectedAssets,
         percent: isPercentAction ? actionPercent : undefined,
         amount: useManualAmountInput ? amount : undefined,
         isMaxAmount: useManualAmountInput ? isMaxAmount : undefined,
+        onBeforeNavigateConfirm: async () => {
+          if (isActionDialogClosed) return;
+          isActionDialogClosed = true;
+          await close?.();
+        },
       });
     } catch {
       // submitProtocolPositionAction already surfaced the error via Toast;

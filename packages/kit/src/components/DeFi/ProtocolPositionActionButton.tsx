@@ -14,9 +14,7 @@ import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import {
   EDeFiPositionAction,
@@ -72,11 +70,6 @@ type IBorrowManageParams = {
   logoURI?: string;
   providerLogoURI?: string;
 };
-
-type IRenderedDeFiPositionAction = IResolvedDeFiPositionAction & {
-  disabled?: boolean;
-};
-
 function normalizeMatchValue(value?: string) {
   return (
     value
@@ -461,7 +454,6 @@ const ProtocolPositionActionButton = memo(
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
     const navigation = useAppNavigation();
-    const [devSettings] = useDevSettingsPersistAtom();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -471,21 +463,7 @@ const ProtocolPositionActionButton = memo(
     const [submittingActionKey, setSubmittingActionKey] = useState<
       string | undefined
     >(undefined);
-    const isUrlAccount =
-      !!accountId && accountUtils.isUrlAccountFn({ accountId });
-    const isWatchingAccount =
-      !!accountId && accountUtils.isWatchingAccount({ accountId });
-    const isActionAccount = !!accountId && !isUrlAccount && !isWatchingAccount;
-    const shouldShowUnavailableDeFiActionButtons = Boolean(
-      devSettings.enabled &&
-      devSettings.settings?.showUnavailableDeFiActionButtons,
-    );
-    // Dev-only mode: watch-only accounts can render and click the action UI,
-    // while the background build-transaction guard still blocks submission.
-    const shouldAllowWatchingAccountActionButtons =
-      shouldShowUnavailableDeFiActionButtons && isWatchingAccount;
-    const shouldResolveActionButtons =
-      isActionAccount || shouldAllowWatchingAccountActionButtons;
+    const shouldResolveActionButtons = !!accountId;
     const actions = useMemo(
       () =>
         shouldResolveActionButtons
@@ -497,29 +475,6 @@ const ProtocolPositionActionButton = memo(
           : [],
       [position, protocol, shouldResolveActionButtons, supportedActions],
     );
-    const unavailableActions = useMemo<IRenderedDeFiPositionAction[]>(
-      () =>
-        shouldResolveActionButtons && shouldShowUnavailableDeFiActionButtons
-          ? defiActionUtils
-              .resolveDeFiPositionActionDebugCandidates({
-                protocol,
-                position,
-                supportedActions,
-              })
-              .map((action) => ({
-                ...action,
-                disabled: !shouldAllowWatchingAccountActionButtons,
-              }))
-          : [],
-      [
-        position,
-        protocol,
-        shouldAllowWatchingAccountActionButtons,
-        shouldResolveActionButtons,
-        shouldShowUnavailableDeFiActionButtons,
-        supportedActions,
-      ],
-    );
     const hasAaveDebt = useMemo(
       () => isAaveProtocol(protocol.protocol) && hasDebt(position),
       [position, protocol.protocol],
@@ -529,9 +484,8 @@ const ProtocolPositionActionButton = memo(
       [manageAsset, position, protocol],
     );
     const fallbackBlockingActions = useMemo(
-      () =>
-        shouldResolveActionButtons ? [...actions, ...unavailableActions] : [],
-      [actions, shouldResolveActionButtons, unavailableActions],
+      () => (shouldResolveActionButtons ? actions : []),
+      [actions, shouldResolveActionButtons],
     );
     const visibleActions = useMemo(
       () =>
@@ -541,23 +495,11 @@ const ProtocolPositionActionButton = memo(
         }),
       [actions, placement],
     );
-    const visibleUnavailableActions = useMemo(
-      () =>
-        getVisibleDeFiPositionActions({
-          actions: unavailableActions,
-          placement,
-        }),
-      [placement, unavailableActions],
-    );
     // Per-asset rows (manageAsset set) narrow each action to the row's own
     // token, so every supplied/borrowed row gets its own button.
     const scopedVisibleActions = useMemo(
       () => scopeActionsToManageAsset(visibleActions, manageAsset),
       [manageAsset, visibleActions],
-    );
-    const scopedVisibleUnavailableActions = useMemo(
-      () => scopeActionsToManageAsset(visibleUnavailableActions, manageAsset),
-      [manageAsset, visibleUnavailableActions],
     );
     const deFiManageActions = useMemo(
       () =>
@@ -592,14 +534,11 @@ const ProtocolPositionActionButton = memo(
       Boolean(borrowManageParams);
     // A per-asset caller (manageAsset set) shows each row's own scoped action;
     // an unscoped caller keeps the position-level actions on the first row only.
-    let renderedActions: IRenderedDeFiPositionAction[] = [];
+    let renderedActions: IResolvedDeFiPositionAction[] = [];
     if (manageAsset) {
-      renderedActions = [
-        ...scopedVisibleActions,
-        ...scopedVisibleUnavailableActions,
-      ];
+      renderedActions = scopedVisibleActions;
     } else if (showResolvedActions) {
-      renderedActions = [...visibleActions, ...visibleUnavailableActions];
+      renderedActions = visibleActions;
     }
     // Aave Withdraw/Repay are owned by the manage button above, so drop the
     // generic resolved actions to avoid rendering two buttons for one action.
@@ -611,10 +550,7 @@ const ProtocolPositionActionButton = memo(
       );
     }
     const handleActionPress = useCallback(
-      async (action: IRenderedDeFiPositionAction) => {
-        if (action.disabled) {
-          return;
-        }
+      async (action: IResolvedDeFiPositionAction) => {
         if (!accountId) {
           return;
         }
@@ -720,8 +656,6 @@ const ProtocolPositionActionButton = memo(
       >
         {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
-          const isActionDisabled =
-            action.disabled || Boolean(submittingActionKey);
           return (
             <Button
               key={actionKey}
@@ -729,10 +663,8 @@ const ProtocolPositionActionButton = memo(
               size={buttonSize}
               {...actionButtonFrameProps}
               {...fixedActionWidthProps}
-              disabled={isActionDisabled}
-              loading={Boolean(
-                !action.disabled && submittingActionKey === actionKey,
-              )}
+              disabled={Boolean(submittingActionKey)}
+              loading={submittingActionKey === actionKey}
               onPress={() => void handleActionPress(action)}
             >
               {renderActionButtonLabel({

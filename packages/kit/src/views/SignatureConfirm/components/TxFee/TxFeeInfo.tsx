@@ -94,10 +94,12 @@ import {
   EFeeType,
   ESendFeeStatus,
   ETronResourceRentalPayType,
+  GAS_ACCOUNT_DISABLED_SCENARIOS,
 } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IGasAccountDisabledScenario,
   IGasAccountScenario,
   IGasPayer,
   IMultiTxsFeeSelectorItem,
@@ -134,6 +136,14 @@ function buildGasAccountIdempotencyKey(quoteId?: string) {
   return quoteId ? `gas-account:${quoteId}` : '';
 }
 
+function isGasAccountDisabledScenario(
+  scenario?: IGasAccountScenario,
+): scenario is IGasAccountDisabledScenario {
+  return GAS_ACCOUNT_DISABLED_SCENARIOS.includes(
+    scenario as IGasAccountDisabledScenario,
+  );
+}
+
 function TxFeeInfo(props: IProps) {
   const {
     accountId,
@@ -145,6 +155,8 @@ function TxFeeInfo(props: IProps) {
     gasAccountScenario,
   } = props;
   const isPrivateSendTransfer = transferPayload?.isPrivateSend === true;
+  const gasAccountDisabledByScenario =
+    isGasAccountDisabledScenario(gasAccountScenario);
   const intl = useIntl();
   const theme = useTheme();
   const themeName = useThemeName();
@@ -492,8 +504,12 @@ function TxFeeInfo(props: IProps) {
           transfersInfo: unsignedTxs[0].transfersInfo,
           lockedUserNonce,
           gasAccountEnabled:
-            !isPrivateSendTransfer && !gasAccountTemporarilyDisabled,
-          scenario: gasAccountScenario,
+            !gasAccountDisabledByScenario &&
+            !isPrivateSendTransfer &&
+            !gasAccountTemporarilyDisabled,
+          scenario: gasAccountDisabledByScenario
+            ? undefined
+            : gasAccountScenario,
         });
         // L3 scenario gate telemetry: surface frontend contract bugs. Both
         // reasons indicate a client-side mismatch with the backend enum; log
@@ -730,12 +746,12 @@ function TxFeeInfo(props: IProps) {
 
         // Mirror the submit-flow strategy table (see
         // `handleGasAccountSubmitError` in TxConfirmActions). Estimate polls on
-        // an interval with `gasAccountEnabled: !gasAccountTemporarilyDisabled`,
-        // so a sponsor-side failure (e.g. 40_218 SPONSOR_UNAVAILABLE) that
-        // isn't classified here would loop: every tick re-asks for a sponsor
-        // and gets the same error. Classifying the error and flipping
-        // `gasAccountTemporarilyDisabled` forces the next tick onto the
-        // user-paid path.
+        // an interval that may request gas account sponsorship unless disabled
+        // by scenario or temporary fallback. A sponsor-side failure (e.g.
+        // 40_218 SPONSOR_UNAVAILABLE) that isn't classified here would loop:
+        // every tick re-asks for a sponsor and gets the same error. Classifying
+        // the error and flipping `gasAccountTemporarilyDisabled` forces the
+        // next tick onto the user-paid path.
         const gasAccountCode = getGasAccountErrorCode(e);
         const gasAccountEntry = getGasAccountErrorEntry(gasAccountCode);
         if (
@@ -849,6 +865,7 @@ function TxFeeInfo(props: IProps) {
       unsignedTxs,
       useFeeInTx,
       gasAccountTemporarilyDisabled,
+      gasAccountDisabledByScenario,
       resetGasAccountTemporarilyDisabled,
       updateGasAccountTemporarilyDisabled,
       resetGasAccountUiState,
