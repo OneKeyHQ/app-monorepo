@@ -296,6 +296,13 @@ export function createBaseConfig({
   // platformEnv.* folding (mirrors webpack babel transform-define). Applied in
   // the first-party babel-loader pass below.
   const platformEnvDefineMap = buildPlatformEnvDefineMap(platform);
+  // Function-level perf instrumentation, mirrors webpack babelTools.js where the
+  // `rn-heartbeat` plugin is added only when PERF_MONITOR_ENABLED=1. The default
+  // `build`/`start` scripts now run rspack, and the perf-ci runners
+  // (development/perf-ci/run-web-perf*.js) produce the perf bundle via that
+  // default build — without this the bundle ships with no __recordFunctionStart
+  // / __recordFunctionEnd samples and perf sessions collect nothing.
+  const enablePerfMonitor = process.env.PERF_MONITOR_ENABLED === '1';
   return {
     entry: path.join(basePath, 'index.js'),
     context: path.resolve(basePath),
@@ -515,6 +522,13 @@ export function createBaseConfig({
                   // JSX is still intact (babel-loader precedes swc here). Builds
                   // are never jest, so no isJest guard is needed.
                   ['@sentry/babel-plugin-component-annotate'],
+                  // Function-level perf instrumentation (parity with webpack
+                  // babelTools.js, gated on PERF_MONITOR_ENABLED=1). Must run
+                  // while JSX/component structure is intact, so it lives in this
+                  // babel pass (before swc) alongside the Sentry annotator.
+                  ...(enablePerfMonitor
+                    ? [[path.join(__dirname, '../babel-plugins/rn-heartbeat')]]
+                    : []),
                   ['@babel/plugin-proposal-decorators', { legacy: true }],
                   ['@babel/plugin-transform-class-properties', { loose: true }],
                   'react-native-worklets/plugin',
