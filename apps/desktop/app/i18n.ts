@@ -57,11 +57,11 @@ export const getLocaleMessages = async (locale: ILocaleSymbol) => {
   // translation table); a raw table's own values are strings, so this never
   // mis-unwraps a real translation whose key happens to be "default". Keeps
   // i18nText()/i18nFormat() reading keys consistently regardless of interop.
+  const maybeDefault = (loaded as { default?: unknown } | null | undefined)
+    ?.default;
   const normalized =
-    loaded &&
-    typeof (loaded as { default?: unknown }).default === 'object' &&
-    (loaded as { default?: unknown }).default !== null
-      ? (loaded as { default: unknown }).default
+    typeof maybeDefault === 'object' && maybeDefault !== null
+      ? maybeDefault
       : loaded;
   return normalized as Record<ETranslations, string>;
 };

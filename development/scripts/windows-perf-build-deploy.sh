@@ -169,25 +169,49 @@ cmd_launch() {
 }
 
 # --- tunnel: open CDP SSH tunnel in background ---
+# Does localhost:$CDP_PORT answer at all?
+port_answers() {
+  curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$CDP_PORT/json/version"
+}
+
+# True (0) only if the port answers AND it is the SSH tunnel THIS script opened —
+# a live pid in $TUNNEL_PID_FILE whose command line forwards our exact port. A bare
+# "port answers" is NOT enough: a local desktop dev / Chrome / other CDP service on
+# the same port satisfies it too, and capture/cdp/trace would then silently profile
+# that LOCAL target as if it were the Windows release.
+is_our_tunnel() {
+  port_answers || return 1
+  local tpid=""
+  [ -f "$TUNNEL_PID_FILE" ] && tpid="$(cat "$TUNNEL_PID_FILE" 2>/dev/null)"
+  [ -n "$tpid" ] && kill -0 "$tpid" 2>/dev/null && \
+    ps -p "$tpid" -o command= 2>/dev/null | grep -q "$CDP_PORT:127.0.0.1:$CDP_PORT"
+}
+
+# Guard for commands that consume the tunnel (capture/cdp): refuse to attach to
+# anything that is not our verified Windows tunnel.
+require_our_tunnel() {
+  is_our_tunnel && return 0
+  if port_answers; then
+    echo "❌ localhost:$CDP_PORT answers, but NOT via a tunnel this script opened"
+    echo "   (no live ssh pid forwarding $CDP_PORT in $TUNNEL_PID_FILE). It is most likely"
+    echo "   a local CDP service (desktop dev / Chrome / another tool). Attaching would"
+    echo "   profile that LOCAL target as if it were the Windows release."
+    echo "   Fix: free port $CDP_PORT (or set CDP_PORT to a different value), then re-run 'tunnel'."
+  else
+    echo "❌ No CDP tunnel on localhost:$CDP_PORT. Run '$0 tunnel' (or 'all') first."
+  fi
+  exit 1
+}
+
 cmd_tunnel() {
   require_host
   mkdir -p "$(dirname "$TUNNEL_PID_FILE")"
 
-  # Reuse only a tunnel WE opened — verified by a live ssh pid in $TUNNEL_PID_FILE
-  # whose command line forwards our exact port. A bare "port answers" is NOT
-  # enough: a local desktop dev / Chrome / other CDP service on the same port
-  # satisfies it too, and every later capture/cdp/trace would then silently
-  # profile that LOCAL target as if it were the Windows release. So if the port
-  # answers but no tracked tunnel is alive, refuse rather than attach to an
-  # unknown CDP endpoint.
-  if curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$CDP_PORT/json/version"; then
-    local TPID=""
-    [ -f "$TUNNEL_PID_FILE" ] && TPID="$(cat "$TUNNEL_PID_FILE" 2>/dev/null)"
-    if [ -n "$TPID" ] && kill -0 "$TPID" 2>/dev/null && \
-       ps -p "$TPID" -o command= 2>/dev/null | grep -q "$CDP_PORT:127.0.0.1:$CDP_PORT"; then
-      echo "$(timestamp) 🔌 Reusing our tunnel (ssh pid $TPID, localhost:$CDP_PORT responds)"
-      return
-    fi
+  if is_our_tunnel; then
+    echo "$(timestamp) 🔌 Reusing our tunnel (localhost:$CDP_PORT responds)"
+    return
+  fi
+  if port_answers; then
     echo "❌ localhost:$CDP_PORT already answers, but NOT via a tunnel this script opened"
     echo "   (no live ssh pid forwarding $CDP_PORT in $TUNNEL_PID_FILE). It is most likely"
     echo "   a local CDP service (desktop dev / Chrome / another tool). Attaching would"
@@ -214,6 +238,8 @@ cmd_tunnel() {
 
 # --- capture: screenshot + console errors over CDP ---
 cmd_capture() {
+  # Only capture through OUR verified Windows tunnel — never a stray local CDP.
+  require_our_tunnel
   mkdir -p "$OUT_DIR"
   local STAMP
   STAMP=$(date '+%Y%m%d-%H%M%S')
@@ -309,6 +335,8 @@ cmd_cdp() {
     echo "❌ $CDP_PERF not found."
     exit 1
   fi
+  # Only run CDP perf against OUR verified Windows tunnel — never a stray local CDP.
+  require_our_tunnel
   shift || true # drop the 'cdp' arg
   CDP_URL="http://127.0.0.1:$CDP_PORT" node "$CDP_PERF" "$@"
 }

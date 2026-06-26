@@ -1511,6 +1511,8 @@ IDNA
 heapstats
 minidump
 footgun
+jank
+hotspot
 
 # @mysten/sui 2.x package name
 mysten

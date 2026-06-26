@@ -145,10 +145,20 @@ async function cmdProfile(args) {
   const browser = await connect();
   const page = await pickPage(browser, args.target);
   const session = await page.context().newCDPSession(page);
+  // V8 sampling interval in microseconds. Default to V8's conservative 1000us:
+  // a tighter interval (e.g. 100us) samples 10x more often, and the profiler's
+  // own overhead then perturbs exactly the startup-jank / render-storm we are
+  // trying to observe (inflated self-time and hotspot share). Override only when
+  // you knowingly want finer resolution: `--sampling-interval 250`.
+  const samplingInterval = Number(args['sampling-interval'] || 1000);
   await session.send('Profiler.enable');
-  await session.send('Profiler.setSamplingInterval', { interval: 100 }); // microseconds
+  await session.send('Profiler.setSamplingInterval', {
+    interval: samplingInterval,
+  });
   await session.send('Profiler.start');
-  console.error(`profiling ${durationMs / 1000}s ...`);
+  console.error(
+    `profiling ${durationMs / 1000}s (sampling ${samplingInterval}us) ...`,
+  );
   await sleep(durationMs);
   const { profile } = await session.send('Profiler.stop');
   ensureDir(out);
