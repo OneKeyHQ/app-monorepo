@@ -109,15 +109,18 @@ export function AppStateLockContainer({
     hasUnlockedOnceRef.current = true;
   }
   prevLockedRef.current = isLocked;
-  const deferColdStartChildren = shouldDeferColdStartLockRender({
-    // Gated to native: low-RAM iOS (jetsam) and low-RAM Android (low-memory
-    // killer) both risk an OS process kill during the cold-start lock while the
-    // single background JS thread runs the heavy PBKDF2 verifyPassword.
-    // Web/desktop have no such cold-start memory-kill pressure and are excluded.
-    isLowEndDevice: IS_LOW_END_DEVICE && Boolean(platformEnv.isNative),
-    isLocked,
-    hasUnlockedOnce: hasUnlockedOnceRef.current,
-  });
+  // Gated to native: low-RAM iOS (jetsam) and low-RAM Android (low-memory
+  // killer) both risk an OS process kill during the cold-start lock while the
+  // single background JS thread runs the heavy PBKDF2 verifyPassword. Web/desktop
+  // have no such cold-start memory-kill pressure, so they never defer — and the
+  // build-time `isNative` constant lets the whole call dead-code-eliminate there.
+  const deferColdStartChildren = platformEnv.isNative
+    ? shouldDeferColdStartLockRender({
+        isLowEndDevice: IS_LOW_END_DEVICE,
+        isLocked,
+        hasUnlockedOnce: hasUnlockedOnceRef.current,
+      })
+    : false;
 
   const handleUnlock = useCallback(async () => {
     await backgroundApiProxy.servicePassword.unLockApp();

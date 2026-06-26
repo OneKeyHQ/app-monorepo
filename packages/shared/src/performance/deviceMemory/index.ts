@@ -32,7 +32,7 @@ export function isLowEndMemory(memoryGB: number): boolean {
 // upgrade (no calibration yet). So it reads memory synchronously every launch.
 //
 // On web/desktop the value is inert: the only consumer additionally gates on
-// `platformEnv.isNativeIOS`.
+// `platformEnv.isNative`.
 const memoryGB = getDeviceMemoryGBSync();
 
 export const IS_LOW_END_DEVICE = memoryGB !== null && isLowEndMemory(memoryGB);
