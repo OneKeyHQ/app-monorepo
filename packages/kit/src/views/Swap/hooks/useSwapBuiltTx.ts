@@ -126,6 +126,7 @@ import {
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapEncodedTxSize,
   getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
@@ -792,8 +793,13 @@ export function useSwapBuildTx() {
             feeBudget: gasInfo.feeBudget,
           },
         });
-      const txSize = updatedUnsignedTxItem.txSize ?? unsignedTxItem.txSize;
+      const txSize =
+        getSwapEncodedTxSize(updatedUnsignedTxItem.encodedTx) ??
+        updatedUnsignedTxItem.txSize ??
+        getSwapEncodedTxSize(unsignedTxItem.encodedTx) ??
+        unsignedTxItem.txSize;
       const exactPaymentMismatch = getSwapExactPaymentOutputMismatch({
+        networkId,
         encodedTx: updatedUnsignedTxItem.encodedTx,
         transferInfo:
           unsignedTxItem.transfersInfo?.[0] ??
@@ -806,12 +812,9 @@ export function useSwapBuildTx() {
           gasInfo.common?.nativeSymbol ??
           '';
         Toast.error({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.swap_page_toast_insufficient_balance_title,
-            },
-            { token: tokenSymbol },
-          ),
+          title: intl.formatMessage({
+            id: ETranslations.send_toast_btc_fork_insufficient_fund,
+          }),
           toastId: [
             'swap-exact-payment-output-mismatch',
             networkId,

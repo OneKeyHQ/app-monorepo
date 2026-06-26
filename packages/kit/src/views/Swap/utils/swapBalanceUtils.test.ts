@@ -4,6 +4,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapEncodedTxSize,
   getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
 } from './swapBalanceUtils';
@@ -256,6 +257,15 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
   });
 });
 
+describe('getSwapEncodedTxSize', () => {
+  it('reads rebuilt UTXO txSize from encodedTx only when valid', () => {
+    expect(getSwapEncodedTxSize({ txSize: 220 } as IEncodedTx)).toBe(220);
+    expect(getSwapEncodedTxSize({ txSize: 0 } as IEncodedTx)).toBeUndefined();
+    expect(getSwapEncodedTxSize({ txSize: -1 } as IEncodedTx)).toBeUndefined();
+    expect(getSwapEncodedTxSize('raw-tx' as IEncodedTx)).toBeUndefined();
+  });
+});
+
 describe('getSwapExactPaymentOutputMismatch', () => {
   const btcTransferInfo = {
     from: 'bc1from',
@@ -273,6 +283,7 @@ describe('getSwapExactPaymentOutputMismatch', () => {
   it('blocks UTXO swap transactions when SendMax reduces the provider output', () => {
     expect(
       getSwapExactPaymentOutputMismatch({
+        networkId: 'btc--0',
         encodedTx: {
           outputs: [
             {
@@ -294,6 +305,7 @@ describe('getSwapExactPaymentOutputMismatch', () => {
   it('allows UTXO swap transactions when the provider output matches the order amount', () => {
     expect(
       getSwapExactPaymentOutputMismatch({
+        networkId: 'btc--0',
         encodedTx: {
           outputs: [
             {
@@ -303,6 +315,23 @@ describe('getSwapExactPaymentOutputMismatch', () => {
             {
               address: 'bc1change',
               value: '1000',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('skips exact-output validation for non-BTC networks', () => {
+    expect(
+      getSwapExactPaymentOutputMismatch({
+        networkId: 'ada--0',
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              amount: '179536',
             },
           ],
         } as IEncodedTx,

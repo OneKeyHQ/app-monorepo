@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IQuoteResultFeeOtherFeeInfo,
@@ -102,6 +103,10 @@ type IEncodedTxWithOutputs = {
   }[];
 };
 
+type IEncodedTxWithTxSize = {
+  txSize?: number;
+};
+
 export type ISwapExactPaymentOutputMismatch = {
   expectedAmount: string;
   actualAmount: string;
@@ -122,13 +127,32 @@ function getEncodedTxOutputs(encodedTx?: IEncodedTx) {
   return outputs;
 }
 
+export function getSwapEncodedTxSize(encodedTx?: IEncodedTx) {
+  if (!encodedTx || typeof encodedTx !== 'object') {
+    return undefined;
+  }
+
+  const { txSize } = encodedTx as IEncodedTxWithTxSize;
+  if (typeof txSize !== 'number' || !Number.isFinite(txSize) || txSize <= 0) {
+    return undefined;
+  }
+
+  return txSize;
+}
+
 export function getSwapExactPaymentOutputMismatch({
+  networkId,
   encodedTx,
   transferInfo,
 }: {
+  networkId?: string;
   encodedTx?: IEncodedTx;
   transferInfo?: ITransferInfo;
 }): ISwapExactPaymentOutputMismatch | undefined {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return undefined;
+  }
+
   const outputs = getEncodedTxOutputs(encodedTx);
   const tokenDecimals = transferInfo?.tokenInfo?.decimals;
   if (!outputs || !transferInfo?.to || tokenDecimals === undefined) {
