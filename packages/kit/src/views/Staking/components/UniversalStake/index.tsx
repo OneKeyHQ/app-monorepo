@@ -75,6 +75,7 @@ import { useEarnSignMessageWithoutVerify } from '../../hooks/useEarnSignMessageW
 import { usePendleLayoutState } from '../../hooks/usePendleLayoutState';
 import { useQuoteRefresh } from '../../hooks/useQuoteRefresh';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
+import { waitForAllowanceAfterApprove as waitForTokenAllowanceAfterApprove } from '../../utils/allowancePolling';
 import {
   capitalizeString,
   countDecimalPlaces,
@@ -1441,37 +1442,18 @@ export function UniversalStake({
         return true;
       }
 
-      const requiredAmountBN = new BigNumber(requiredAmount);
-      if (requiredAmountBN.isNaN() || requiredAmountBN.lte(0)) {
-        return true;
-      }
-
-      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-        if (signal?.aborted) {
-          return false;
-        }
-        try {
-          const allowanceInfo = await fetchAllowanceResponse();
-          const allowanceBN = new BigNumber(
-            allowanceInfo.allowanceParsed || '0',
-          );
-          if (!allowanceBN.isNaN() && allowanceBN.gte(requiredAmountBN)) {
-            return true;
-          }
-        } catch (error) {
+      return waitForTokenAllowanceAfterApprove({
+        requiredAmount,
+        maxAttempts,
+        intervalMs,
+        signal,
+        fetchAllowanceResponse,
+        onError: (error) => {
           defaultLogger.staking.page.permitSignError({
             error: error instanceof Error ? error.message : String(error),
           });
-        }
-
-        if (attempt < maxAttempts - 1) {
-          await new Promise<void>((resolve) => {
-            setTimeout(resolve, intervalMs);
-          });
-        }
-      }
-
-      return false;
+        },
+      });
     },
     [
       useApprove,

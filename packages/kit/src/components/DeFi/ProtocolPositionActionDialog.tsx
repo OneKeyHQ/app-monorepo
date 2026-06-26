@@ -19,7 +19,9 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenGroup } from '@onekeyhq/kit/src/components/Token';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { PerpsSlider } from '@onekeyhq/kit/src/views/Perp/components/PerpsSlider';
+import { waitForAllowanceAfterApprove as waitForTokenAllowanceAfterApprove } from '@onekeyhq/kit/src/views/Staking/utils/allowancePolling';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EthereumStETH,
@@ -29,12 +31,15 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { buildDeFiActionBps } from '@onekeyhq/shared/src/utils/defiActionUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EDeFiPositionAction,
   type IDeFiActionExtraParams,
   type IDeFiActionTxConfirmInfo,
   type IDeFiAsset,
+  type IDeFiBuildTransactionResp,
   type IDeFiUnknownRecord,
   type IResolvedDeFiPositionAction,
   type IResolvedDeFiPositionActionAsset,
@@ -51,6 +56,14 @@ import {
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_SLIDER_SEGMENTS = 4;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+const SIGNATURE_MODAL_SETTLE_WAIT_MS = 300;
+const DEFI_APPROVAL_POST_CONFIRMATION_WAIT_MS = timerUtils.getTimeDurationMs({
+  seconds: 1,
+});
+const DEFI_APPROVAL_REBUILD_RETRY_WAIT_MS = timerUtils.getTimeDurationMs({
+  seconds: 3,
+});
+const DEFI_APPROVAL_REBUILD_MAX_ATTEMPTS = 2;
 
 function normalizeActionPercent(percent?: number) {
   if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
@@ -703,6 +716,199 @@ type IProtocolPositionActionSubmitParams = {
   percent?: number;
 };
 
+type ITxConfirmResult =
+  | {
+      status: 'success';
+      data: ISendTxOnSuccessData[];
+    }
+  | {
+      status: 'cancel';
+    };
+
+async function rebuildDeFiTransactionAfterApproval({
+  buildTransaction,
+}: {
+  buildTransaction: () => Promise<IDeFiBuildTransactionResp>;
+}) {
+  await timerUtils.wait(DEFI_APPROVAL_POST_CONFIRMATION_WAIT_MS);
+
+  for (
+    let attempt = 0;
+    attempt < DEFI_APPROVAL_REBUILD_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    if (attempt > 0) {
+      await timerUtils.wait(DEFI_APPROVAL_REBUILD_RETRY_WAIT_MS);
+    }
+
+    const resp = await buildTransaction();
+    if (!resp.approvalTx) {
+      return resp;
+    }
+  }
+
+  throw new OneKeyLocalError(
+    'DeFi approval is still required after approval confirmation',
+  );
+}
+
+type IDeFiApprovalAllowanceParams = {
+  tokenAddress: string;
+  spenderAddress: string;
+  requiredAmount: string;
+};
+
+function buildDeFiApprovalAllowanceParams({
+  selectedAsset,
+  percent,
+  resp,
+}: {
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+  percent?: number;
+  resp: IDeFiBuildTransactionResp;
+}): IDeFiApprovalAllowanceParams | undefined {
+  const spenderAddress = resp.tx?.to?.trim();
+  const tokenAddress = (
+    selectedAsset.tokenAddress ?? selectedAsset.asset.address
+  )?.trim();
+  const requiredAmount = getPositiveAmount(
+    scaleAmountByPercent(selectedAsset.amount, percent),
+  );
+
+  if (!spenderAddress || !tokenAddress || !requiredAmount) {
+    return undefined;
+  }
+
+  return {
+    tokenAddress,
+    spenderAddress,
+    requiredAmount,
+  };
+}
+
+async function fetchDeFiAllowanceResponse({
+  accountId,
+  networkId,
+  allowanceParams,
+}: {
+  accountId: string;
+  networkId: string;
+  allowanceParams: IDeFiApprovalAllowanceParams;
+}) {
+  return backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+    accountId,
+    networkId,
+    tokenAddress: allowanceParams.tokenAddress,
+    spenderAddress: allowanceParams.spenderAddress,
+  });
+}
+
+async function waitForDeFiAllowanceAfterApprove({
+  accountId,
+  networkId,
+  allowanceParams,
+  maxAttempts = 15,
+  intervalMs = 2000,
+}: {
+  accountId: string;
+  networkId: string;
+  allowanceParams?: IDeFiApprovalAllowanceParams;
+  maxAttempts?: number;
+  intervalMs?: number;
+}) {
+  if (!allowanceParams) {
+    await timerUtils.wait(DEFI_APPROVAL_POST_CONFIRMATION_WAIT_MS);
+    return true;
+  }
+
+  return waitForTokenAllowanceAfterApprove({
+    requiredAmount: allowanceParams.requiredAmount,
+    maxAttempts,
+    intervalMs,
+    fetchAllowanceResponse: () =>
+      fetchDeFiAllowanceResponse({
+        accountId,
+        networkId,
+        allowanceParams,
+      }),
+  });
+}
+
+async function buildDeFiRepayFallbackApproveInfo({
+  action,
+  accountId,
+  networkId,
+  selectedAsset,
+  percent,
+  resp,
+}: {
+  action: IResolvedDeFiPositionAction;
+  accountId: string;
+  networkId: string;
+  selectedAsset: IResolvedDeFiPositionActionAsset;
+  percent?: number;
+  resp: IDeFiBuildTransactionResp;
+}): Promise<IApproveInfo | undefined> {
+  if (
+    action.action !== EDeFiPositionAction.Repay ||
+    !networkUtils.isEvmNetwork({ networkId })
+  ) {
+    return undefined;
+  }
+
+  const allowanceParams = buildDeFiApprovalAllowanceParams({
+    selectedAsset,
+    percent,
+    resp,
+  });
+
+  if (!allowanceParams) {
+    return undefined;
+  }
+
+  try {
+    if (
+      await waitForTokenAllowanceAfterApprove({
+        requiredAmount: allowanceParams.requiredAmount,
+        maxAttempts: 1,
+        intervalMs: 0,
+        fetchAllowanceResponse: () =>
+          fetchDeFiAllowanceResponse({
+            accountId,
+            networkId,
+            allowanceParams,
+          }),
+      })
+    ) {
+      return undefined;
+    }
+  } catch {
+    // Continue with the fallback approval. The business tx has already shown
+    // this path can fail at estimate-time when allowance is missing.
+  }
+
+  const account = await backgroundApiProxy.serviceAccount.getAccount({
+    accountId,
+    networkId,
+  });
+
+  return {
+    owner: account.address,
+    spender: allowanceParams.spenderAddress,
+    amount: allowanceParams.requiredAmount,
+    isMax: true,
+    tokenInfo: {
+      address: allowanceParams.tokenAddress,
+      decimals: selectedAsset.asset.meta.decimals,
+      isNative: false,
+      logoURI: selectedAsset.asset.meta.logoUrl,
+      name: selectedAsset.symbol,
+      networkId,
+      symbol: selectedAsset.symbol,
+    },
+  };
+}
+
 function buildDeFiActionExtraParams({
   action,
   selectedAsset,
@@ -754,6 +960,47 @@ function useProtocolPositionActionSubmit({
       accountId,
       networkId,
     });
+  const waitForTxConfirmResult = useCallback(
+    async ({
+      encodedTx,
+      approvesInfo,
+      unsignedTxs,
+    }: {
+      encodedTx?: IEncodedTx;
+      approvesInfo?: IApproveInfo[];
+      unsignedTxs?: IUnsignedTxPro[];
+    }): Promise<ITxConfirmResult> =>
+      new Promise((resolve, reject) => {
+        let settled = false;
+
+        const resolveOnce = (result: ITxConfirmResult) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve(result);
+        };
+
+        const rejectOnce = (error: unknown) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          reject(error);
+        };
+
+        void navigationToTxConfirm({
+          encodedTx,
+          approvesInfo,
+          unsignedTxs,
+          gasAccountScenario: 'earn',
+          onSuccess: (data) => resolveOnce({ status: 'success', data }),
+          onFail: (error) => rejectOnce(error),
+          onCancel: () => resolveOnce({ status: 'cancel' }),
+        }).catch((error) => rejectOnce(error));
+      }),
+    [navigationToTxConfirm],
+  );
 
   return useCallback(
     async ({
@@ -778,7 +1025,11 @@ function useProtocolPositionActionSubmit({
         const unsignedTxs: IUnsignedTxPro[] = [];
         let prevNonce: number | undefined;
 
-        for (const selectedAsset of selectedAssets) {
+        const buildTransaction = async ({
+          selectedAsset,
+        }: {
+          selectedAsset: IResolvedDeFiPositionActionAsset;
+        }) => {
           const extraParams = buildDeFiActionExtraParams({
             action,
             selectedAsset,
@@ -844,25 +1095,58 @@ function useProtocolPositionActionSubmit({
             });
           }
 
-          if (!resp.tx) {
-            throw new OneKeyLocalError('DeFi transaction is missing');
+          return resp;
+        };
+
+        for (const selectedAsset of selectedAssets) {
+          let resp = await buildTransaction({ selectedAsset });
+          const approvalAllowanceParams = buildDeFiApprovalAllowanceParams({
+            selectedAsset,
+            percent,
+            resp,
+          });
+          const fallbackApproveInfo = resp.approvalTx
+            ? undefined
+            : await buildDeFiRepayFallbackApproveInfo({
+                action,
+                accountId,
+                networkId,
+                selectedAsset,
+                percent,
+                resp,
+              });
+
+          if (resp.approvalTx || fallbackApproveInfo) {
+            const approvalConfirmResult = await waitForTxConfirmResult({
+              encodedTx: resp.approvalTx as IEncodedTx | undefined,
+              approvesInfo: fallbackApproveInfo
+                ? [fallbackApproveInfo]
+                : undefined,
+            });
+
+            if (approvalConfirmResult.status === 'cancel') {
+              return;
+            }
+
+            await timerUtils.wait(SIGNATURE_MODAL_SETTLE_WAIT_MS);
+            const allowanceReady = await waitForDeFiAllowanceAfterApprove({
+              accountId,
+              networkId,
+              allowanceParams: approvalAllowanceParams,
+            });
+            if (!allowanceReady) {
+              throw new OneKeyLocalError(
+                'Approval allowance is not ready yet. Please try again after it is confirmed.',
+              );
+            }
+
+            resp = await rebuildDeFiTransactionAfterApproval({
+              buildTransaction: () => buildTransaction({ selectedAsset }),
+            });
           }
 
-          const withUuid =
-            selectedAssets.length > 1 || Boolean(resp.approvalTx);
-          if (resp.approvalTx) {
-            const approvalUnsignedTx =
-              await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx(
-                {
-                  accountId,
-                  networkId,
-                  encodedTx: resp.approvalTx as IEncodedTx,
-                  prevNonce,
-                  withUuid,
-                },
-              );
-            prevNonce = approvalUnsignedTx.nonce;
-            unsignedTxs.push(approvalUnsignedTx);
+          if (!resp.tx) {
+            throw new OneKeyLocalError('DeFi transaction is missing');
           }
 
           const unsignedTx =
@@ -871,7 +1155,7 @@ function useProtocolPositionActionSubmit({
               networkId,
               encodedTx: resp.tx as IEncodedTx,
               prevNonce,
-              withUuid,
+              withUuid: selectedAssets.length > 1,
             });
           prevNonce = unsignedTx.nonce;
           unsignedTxs.push(
@@ -885,6 +1169,10 @@ function useProtocolPositionActionSubmit({
               }),
             }),
           );
+        }
+
+        if (unsignedTxs.length === 0) {
+          throw new OneKeyLocalError('Unsigned transaction is missing');
         }
 
         let txConfirmInitError: Error | undefined;
@@ -931,6 +1219,7 @@ function useProtocolPositionActionSubmit({
       navigationToTxConfirm,
       networkId,
       onSuccess,
+      waitForTxConfirmResult,
     ],
   );
 }

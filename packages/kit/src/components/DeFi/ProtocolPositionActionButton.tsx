@@ -318,6 +318,21 @@ function getVisibleDeFiPositionActions<
   );
 }
 
+function filterBorrowManagePreferredActions<
+  T extends { action: EDeFiPositionAction },
+>({
+  actions,
+  borrowManageParams,
+}: {
+  actions: T[];
+  borrowManageParams?: IBorrowManageParams;
+}) {
+  if (!borrowManageParams) return actions;
+  return actions.filter(
+    (action) => action.action !== EDeFiPositionAction.Repay,
+  );
+}
+
 function getManageActionTypeAction(type: EManagePositionType) {
   if (type === EManagePositionType.Repay) {
     return EDeFiPositionAction.Repay;
@@ -477,31 +492,39 @@ const ProtocolPositionActionButton = memo(
         shouldResolveActionButtons ? [...actions, ...unavailableActions] : [],
       [actions, shouldResolveActionButtons, unavailableActions],
     );
-    const visibleActions = useMemo(
-      () =>
-        getVisibleDeFiPositionActions({
-          actions,
-          placement,
-        }),
-      [actions, placement],
-    );
-    const visibleUnavailableActions = useMemo(
-      () =>
-        getVisibleDeFiPositionActions({
-          actions: unavailableActions,
-          placement,
-        }),
-      [placement, unavailableActions],
-    );
+    const visibleActions = useMemo(() => {
+      const placementActions = getVisibleDeFiPositionActions({
+        actions,
+        placement,
+      });
+      return filterBorrowManagePreferredActions({
+        actions: placementActions,
+        borrowManageParams,
+      });
+    }, [actions, borrowManageParams, placement]);
+    const visibleUnavailableActions = useMemo(() => {
+      const placementActions = getVisibleDeFiPositionActions({
+        actions: unavailableActions,
+        placement,
+      });
+      return filterBorrowManagePreferredActions({
+        actions: placementActions,
+        borrowManageParams,
+      });
+    }, [borrowManageParams, placement, unavailableActions]);
     const deFiManageActions = useMemo(
       () =>
         new Set(
-          getVisibleDeFiPositionActions({
+          filterBorrowManagePreferredActions({
             actions: fallbackBlockingActions,
-            placement,
-          }).map((action) => action.action),
+            borrowManageParams,
+          })
+            .filter((action) =>
+              isVisibleInPlacement({ action: action.action, placement }),
+            )
+            .map((action) => action.action),
         ),
-      [fallbackBlockingActions, placement],
+      [borrowManageParams, fallbackBlockingActions, placement],
     );
     const manageActionTypes = getManageActionTypesForPlacement(
       placement,
