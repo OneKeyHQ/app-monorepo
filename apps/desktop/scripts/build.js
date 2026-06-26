@@ -28,6 +28,13 @@ const hrstart = process.hrtime();
 // replace each import with a tiny fs-read shim, so only the ACTIVE locale is read
 // (and parsed by Node's fast JSON parser) at runtime. Desktop-main build only —
 // localeJsonMap.ts is shared with web/native and is left untouched.
+//
+// Assumption: these files are read from inside `app.asar` (Electron's asar-aware
+// fs handles the path) and are NOT served from a hot-update bundle dir. That is
+// correct because JS bundle updates ship renderer assets only; the main-process
+// menu/i18n strings here are versioned with the native shell, not the OTA bundle.
+// If a future OTA ever needs to update main-process translations, this shim must
+// be taught to prefer the active bundle dir before falling back to the asar copy.
 const localeJsonOutDir = path.join(__dirname, '..', 'app/dist', 'locale-json');
 const externalizeLocaleJsonPlugin = {
   name: 'externalize-locale-json',

@@ -109,7 +109,17 @@ if ($targetFile -eq $adminFile) {
   # Quote the path: $env:ProgramData is locale-dependent and can contain spaces
   # on non-English Windows. Unquoted, icacls would parse only the first token,
   # silently fail to apply the ACL, and sshd would then ignore the key file.
+  #
+  # Check $LASTEXITCODE: `| Out-Null` swallows icacls' output but does NOT reset
+  # the native exit code. Without this check a non-path failure (insufficient
+  # rights, locked handle) would still print a green "OK" while sshd keeps
+  # ignoring the key file — the operator only sees a later "Permission denied
+  # (publickey)" with no hint why.
   icacls "$adminFile" /inheritance:r /grant 'SYSTEM:F' /grant 'BUILTIN\Administrators:F' | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    Bad "icacls failed (exit $LASTEXITCODE) — ACL not applied; sshd will ignore the key file"
+    throw "icacls failed (exit $LASTEXITCODE)"
+  }
   Ok "applied strict ACL (SYSTEM + Administrators) to admin key file"
 }
 
