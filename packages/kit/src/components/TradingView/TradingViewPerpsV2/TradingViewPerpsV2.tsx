@@ -299,7 +299,10 @@ export function TradingViewPerpsV2(
   // fallback (e.g. BTC position 0.00407 shown as "0") (OK-56902, OK-56903).
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const tradeMode = activeTradeInstrument.mode;
-  const [szDecimals, setSzDecimals] = useState<number | undefined>(undefined);
+  const szDecimalsKey = `${tradeMode}:${symbol}`;
+  const [szDecimalsEntry, setSzDecimalsEntry] = useState<
+    { key: string; value: number } | undefined
+  >(undefined);
   useEffect(() => {
     if (!symbol) {
       return undefined;
@@ -316,7 +319,7 @@ export function TradingViewPerpsV2(
             ? meta.spotUniverse?.baseSzDecimals
             : meta.universe?.szDecimals;
         if (typeof next === 'number') {
-          setSzDecimals(next);
+          setSzDecimalsEntry({ key: `${tradeMode}:${symbol}`, value: next });
         }
       })
       .catch(() => undefined);
@@ -324,6 +327,11 @@ export function TradingViewPerpsV2(
       cancelled = true;
     };
   }, [symbol, tradeMode]);
+  // Use the fetched precision only when it belongs to the current symbol/mode,
+  // so a switch can't briefly format the new coin's lines with the previous
+  // symbol's szDecimals; until the new fetch resolves it falls back below.
+  const szDecimals =
+    szDecimalsEntry?.key === szDecimalsKey ? szDecimalsEntry.value : undefined;
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
