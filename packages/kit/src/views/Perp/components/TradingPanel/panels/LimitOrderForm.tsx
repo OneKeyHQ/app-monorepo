@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   resetToRoute,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -90,6 +91,11 @@ import { showEnableTradingStepsDialog } from '../modals/EnableTradingStepsDialog
 import { showOrderConfirmDialog } from '../modals/OrderConfirmModal';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { TimeInForceSelector } from '../selectors/TimeInForceSelector';
+
+import {
+  ORDER_TYPE_HELP_CENTER_URL,
+  OrderTypeInfoButton,
+} from './PerpTradingForm';
 
 interface ILimitOrderFormProps {
   symbol: string;
@@ -184,6 +190,7 @@ export function LimitOrderForm({
   const [limitTif, setLimitTif] = useState<ITIF>('Gtc');
   const [bboPriceMode, setBboPriceMode] = useState<IBBOPriceMode>(null);
   const [hasTpsl, setHasTpsl] = useState(false);
+  const [reduceOnly, setReduceOnly] = useState(false);
   const [tpType, setTpType] = useState<'price' | 'percentage'>('price');
   const [tpValue, setTpValue] = useState('');
   const [slType, setSlType] = useState<'price' | 'percentage'>('price');
@@ -696,10 +703,19 @@ export function LimitOrderForm({
 
       const computedSizeBN = computeSizeBN(pressedSide, resolvedPriceBN);
       if (!computedSizeBN.isFinite() || computedSizeBN.lte(0)) {
+        // A slider percentage of the available balance only resolves to 0 when
+        // there is no available margin/balance, so surface that instead of the
+        // misleading "enter amount" hint (mirrors the main panel's behavior).
+        const pickedPercentButNoFunds =
+          sizeInputMode === EPerpsSizeInputMode.SLIDER && sizePercent > 0;
+        let emptySizeMessageId = ETranslations.perp_trade_amount_place_holder;
+        if (pickedPercentButNoFunds) {
+          emptySizeMessageId = isSpot
+            ? ETranslations.dexmarket_insufficient_balance
+            : ETranslations.perp_insufficient_margin__title;
+        }
         Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.perp_trade_amount_place_holder,
-          }),
+          title: intl.formatMessage({ id: emptySizeMessageId }),
         });
         return;
       }
@@ -774,7 +790,8 @@ export function LimitOrderForm({
         leverage,
         bboPriceMode: bboPriceMode ?? null,
         limitTif,
-        reduceOnly: false,
+        // Reduce-only is a perps-only concept; spot has no position to reduce.
+        reduceOnly: isSpot ? false : reduceOnly,
         hasTpsl: isSpot ? false : hasTpsl,
         tpTriggerPx: tpTriggerPx ?? '',
         tpGainPercent: '',
@@ -809,7 +826,10 @@ export function LimitOrderForm({
       limitTif,
       marketDataFreshness,
       onClose,
+      reduceOnly,
       resolvePriceForSide,
+      sizeInputMode,
+      sizePercent,
       slType,
       slValue,
       spotAvailableBaseBN,
@@ -988,6 +1008,27 @@ export function LimitOrderForm({
 
       {!isSpot ? (
         <>
+          {/* Reduce-only (perps only), mirroring the standard order panel. */}
+          <XStack alignItems="center" mb="$2">
+            <Checkbox
+              testID="chart-limit-reduce-only-checkbox"
+              value={reduceOnly}
+              onChange={(checked) => setReduceOnly(!!checked)}
+              label={intl.formatMessage({
+                id: ETranslations.perps_reduce_only,
+              })}
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+              labelProps={{
+                size: '$bodyMd',
+                color: '$text',
+              }}
+            />
+          </XStack>
+
           {/* TP/SL */}
           <XStack
             width="100%"
@@ -1231,6 +1272,26 @@ export function LimitOrderForm({
 // symbol/price are snapshotted at open; LimitOrderForm closes and the confirm
 // step re-asserts the live coin still matches, so a later active-asset switch
 // cannot submit a stale ticket against another coin.
+// Custom dialog title that appends the order-type info icon to the right of the
+// title text, reusing the trading panel's OrderTypeInfoButton (hover/tap shows
+// the limit-order explanation + "Learn more").
+function LimitOrderDialogTitle({ title }: { title: string }) {
+  const intl = useIntl();
+  const media = useMedia();
+  return (
+    <XStack alignItems="center" gap="$1.5">
+      <Dialog.Title>{title}</Dialog.Title>
+      <OrderTypeInfoButton
+        description={intl.formatMessage({
+          id: ETranslations.perp_order_type_limit_desc__desc,
+        })}
+        helpUrl={ORDER_TYPE_HELP_CENTER_URL}
+        isMobile={!media.gtMd}
+      />
+    </XStack>
+  );
+}
+
 export function showLimitOrderDialog({
   symbol,
   price,
@@ -1245,23 +1306,29 @@ export function showLimitOrderDialog({
   intl: IntlShape;
 }) {
   const displayName = displayPair ?? parseDexCoin(symbol).displayName;
+  const titleText = `${intl.formatMessage({
+    id: ETranslations.perp_trade_limit,
+  })} · ${displayName}`;
   const dialogInstance = Dialog.show({
-    title: `${intl.formatMessage({
-      id: ETranslations.perp_trade_limit,
-    })} · ${displayName}`,
+    title: titleText,
     renderContent: (
-      <PerpsAccountSelectorProviderMirror>
-        <PerpsProviderMirror>
-          <LimitOrderForm
-            symbol={symbol}
-            seededPrice={price}
-            displayCoin={displayCoin}
-            onClose={() => {
-              void dialogInstance.close();
-            }}
-          />
-        </PerpsProviderMirror>
-      </PerpsAccountSelectorProviderMirror>
+      <>
+        <Dialog.Header>
+          <LimitOrderDialogTitle title={titleText} />
+        </Dialog.Header>
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <LimitOrderForm
+              symbol={symbol}
+              seededPrice={price}
+              displayCoin={displayCoin}
+              onClose={() => {
+                void dialogInstance.close();
+              }}
+            />
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
+      </>
     ),
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
