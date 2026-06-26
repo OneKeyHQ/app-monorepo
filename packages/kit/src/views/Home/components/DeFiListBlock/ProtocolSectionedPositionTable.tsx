@@ -8,10 +8,8 @@ import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/com
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import type {
-  ILocalizedProtocolPositionItem,
-  IProtocolPositionSectionAssetType,
-} from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import { getSectionActionPlacement } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
@@ -49,15 +47,6 @@ type IProtocolSectionedPositionTableProps = {
     params: IProtocolPositionActionSuccessParams,
   ) => void | Promise<void>;
 };
-
-function getSectionActionPlacement(
-  assetType: IProtocolPositionSectionAssetType,
-) {
-  if (assetType === 'rewards') return 'rewards';
-  if (assetType === 'supplied' || assetType === 'other') return 'balance';
-  if (assetType === 'borrowed') return 'debt';
-  return undefined;
-}
 
 const ProtocolSectionedPositionTable = memo(
   ({
@@ -180,7 +169,6 @@ const ProtocolSectionedPositionTable = memo(
                         supportedActions={supportedActions}
                         placement={actionPlacement}
                         manageAsset={asset}
-                        showResolvedActions={assetIndex === 0}
                         visualVariant="info"
                         containerProps={ACTION_BUTTON_CONTAINER_PROPS}
                         onSuccess={onActionSuccess}
