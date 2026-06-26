@@ -100,13 +100,13 @@ const SwapMarketHistoryList = ({
           ? EProtocolOfExchange.SWAP
           : protocol,
     });
-    // Split stock vs swap when a specific market protocol is requested (the
-    // history modal's Swap & Bridge / Stock tabs). Stock is detected via the
-    // reliable token-level isStock flag. Callers without an explicit protocol
-    // (e.g. Swap Pro) keep the combined market bucket.
+    // Stock tab keeps only stock; everything else (the Swap & Bridge tab and
+    // callers with no explicit protocol, e.g. Swap Pro) excludes stock so it
+    // shows swap/bridge trades only. Stock is detected via the reliable
+    // token-level isStock flag.
     if (protocol === EProtocolOfExchange.STOCK) {
       filterData = filterData.filter(isStockSwapHistoryItem);
-    } else if (protocol === EProtocolOfExchange.SWAP) {
+    } else {
       filterData = filterData.filter((item) => !isStockSwapHistoryItem(item));
     }
     if (showType === 'bridge') {
