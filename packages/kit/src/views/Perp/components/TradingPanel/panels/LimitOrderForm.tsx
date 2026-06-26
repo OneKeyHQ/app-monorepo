@@ -9,6 +9,7 @@ import {
   DashText,
   Dialog,
   SizableText,
+  Skeleton,
   Toast,
   XStack,
   YStack,
@@ -56,6 +57,7 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   calculateLiquidationPrice,
   formatPriceToSignificantDigits,
@@ -81,9 +83,13 @@ import { getEnableTradingDialogConfirmDecision } from '../../../utils/enableTrad
 import { shouldApplyMinimumOrderGuard } from '../../../utils/minimumOrderGuard';
 import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
-import { PERP_TRADE_BUTTON_COLORS } from '../../../utils/styleUtils';
+import {
+  PERP_TRADE_BUTTON_COLORS,
+  getTradingSideTextColor,
+} from '../../../utils/styleUtils';
 import { PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS } from '../../PerpDialogLayout';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -365,6 +371,41 @@ export function LimitOrderForm({
       )?.[0]?.position,
     [perpsPositions, activeAsset?.coin],
   );
+
+  // Available-to-trade / current-position values for the summary card, mirroring
+  // the main trading panel.
+  const perpsAvailableToTrade = useMemo(() => {
+    const available = activeAssetData?.availableToTrade;
+    if (!available) {
+      return '0';
+    }
+    const longValue = Number(available[0] ?? 0);
+    const shortValue = Number(available[1] ?? 0);
+    return new BigNumber(Math.min(longValue, shortValue)).toFixed(
+      2,
+      BigNumber.ROUND_DOWN,
+    );
+  }, [activeAssetData?.availableToTrade]);
+
+  const [perpsPositionSize, perpsPositionSide] = useMemo(() => {
+    const szi = Number(currentCoinPosition?.szi ?? 0);
+    const positionSide: ITradeSide = szi >= 0 ? 'long' : 'short';
+    return [Math.abs(szi), positionSide] as const;
+  }, [currentCoinPosition?.szi]);
+  const perpsPositionColor =
+    perpsPositionSize > 0 ? getTradingSideTextColor(perpsPositionSide) : '$text';
+
+  const spotHoldingDisplay = useMemo(() => {
+    if (!isSpot) {
+      return '';
+    }
+    const baseName = spotUniverse?.baseName
+      ? getSpotTokenDisplayName(spotUniverse.baseName)
+      : '';
+    return `${numberFormat(spotAvailableBaseBN.toFixed(), {
+      formatter: 'balance',
+    })} ${baseName}`;
+  }, [isSpot, spotAvailableBaseBN, spotUniverse?.baseName]);
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
       if (isSpot) {
@@ -1006,6 +1047,49 @@ export function LimitOrderForm({
         sliderHeight={4}
       />
 
+      {/* Available / Current Position card, same style as the main trading panel. */}
+      <YStack
+        gap="$2.5"
+        p="$2.5"
+        borderWidth="$px"
+        borderColor="$borderSubdued"
+        borderRadius="$2"
+      >
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
+          </SizableText>
+          {isSpot ? (
+            <SizableText size="$bodySmMedium" color="$text">
+              {spotAvailableDisplay || '--'}
+            </SizableText>
+          ) : (
+            <PerpsAccountNumberValue value={perpsAvailableToTrade} />
+          )}
+        </XStack>
+        <XStack justifyContent="space-between" alignItems="center">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_current_position,
+            })}
+          </SizableText>
+          {perpsAccountLoading?.selectAccountLoading ? (
+            <Skeleton width={60} height={16} />
+          ) : (
+            <SizableText
+              size="$bodySmMedium"
+              color={isSpot ? '$text' : perpsPositionColor}
+            >
+              {isSpot
+                ? spotHoldingDisplay || '--'
+                : `${perpsPositionSize} ${displayName}`}
+            </SizableText>
+          )}
+        </XStack>
+      </YStack>
+
       {!isSpot ? (
         <>
           {/* Reduce-only (perps only), mirroring the standard order panel. */}
@@ -1107,16 +1191,6 @@ export function LimitOrderForm({
               {spotOrderValueBN.gt(0)
                 ? `$${spotOrderValueBN.toFixed(2, BigNumber.ROUND_DOWN)}`
                 : '--'}
-            </SizableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview_available,
-              })}
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$text">
-              {spotAvailableDisplay || '--'}
             </SizableText>
           </XStack>
         </YStack>
