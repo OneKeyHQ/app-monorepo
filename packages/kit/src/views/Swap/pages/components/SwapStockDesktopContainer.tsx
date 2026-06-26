@@ -128,6 +128,7 @@ import {
 import SwapActionsState from './SwapActionsState';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
+import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -1968,6 +1969,9 @@ function SwapStockDesktopContent({
                   onTradeSideChange={handleTradeSideChange}
                   recentTokenPairs={stockRecentTokenPairs}
                   onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
+                />
+                <SwapPendingHistoryListComponent
+                  protocol={EProtocolOfExchange.STOCK}
                 />
               </YStack>
             </YStack>

@@ -37,8 +37,10 @@ import { filterSwapMarketHistoryItems } from '../../utils/swapMarketHistory';
 
 const SwapPendingHistoryListComponent = ({
   pageType,
+  protocol = EProtocolOfExchange.SWAP,
 }: {
   pageType?: EPageType;
+  protocol?: EProtocolOfExchange;
 }) => {
   const intl = useIntl();
   const navigation =
@@ -65,16 +67,21 @@ const SwapPendingHistoryListComponent = ({
       overrideIsFocused: () => true,
     },
   );
-  const filteredSwapTxHistoryList = useMemo(
-    () =>
-      swapTxHistoryList?.length
-        ? filterSwapMarketHistoryItems({
-            items: swapTxHistoryList,
-            protocol: EProtocolOfExchange.SWAP,
-          })
-        : undefined,
-    [swapTxHistoryList],
-  );
+  const filteredSwapTxHistoryList = useMemo(() => {
+    if (!swapTxHistoryList?.length) {
+      return undefined;
+    }
+    const items = filterSwapMarketHistoryItems({
+      items: swapTxHistoryList,
+      protocol,
+    });
+    // filterSwapMarketHistoryItems treats SWAP as a catch-all that also matches
+    // stock trades; stock has its own preview under the Stock tab, so keep the
+    // Swap/Bridge preview stock-free.
+    return protocol === EProtocolOfExchange.STOCK
+      ? items
+      : items.filter((item) => item.protocol !== EProtocolOfExchange.STOCK);
+  }, [swapTxHistoryList, protocol]);
   const listData = useMemo(
     () =>
       filteredSwapTxHistoryList?.length
@@ -119,7 +126,7 @@ const SwapPendingHistoryListComponent = ({
             navigation.pushModal(EModalRoutes.SwapModal, {
               screen: EModalSwapRoutes.SwapHistoryList,
               params: {
-                type: EProtocolOfExchange.SWAP,
+                type: protocol,
                 storeName:
                   pageType === EPageType.modal
                     ? EJotaiContextStoreNames.swapModal
