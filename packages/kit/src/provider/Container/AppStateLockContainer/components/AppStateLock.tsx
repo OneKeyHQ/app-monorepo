@@ -26,10 +26,15 @@ import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
-import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePasswordPersistAtom,
+  useV4migrationAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
+import { verifiedWebAuth } from '@onekeyhq/shared/src/webAuth';
 
 import { DevPerpsWebSocketUpdateView } from '../../FullWindowOverlayContainer/DevOverlayWindow';
 
@@ -75,15 +80,50 @@ const AppStateLock = ({
   const { bottom } = useSafeAreaInsets();
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
+  const [{ webAuthCredentialId }] = usePasswordPersistAtom();
 
-  const handleExportLogs = useCallback(() => {
+  const handleExportLogs = useCallback(async () => {
+    // Gate the hidden lock-screen log-upload entry behind a biometric check so
+    // a bystander holding the locked device cannot exfiltrate diagnostic
+    // metadata. Only the biometric prompt needs to pass — NOT the passcode,
+    // NOT the secure-storage password decrypt. When biometric is unavailable we
+    // keep the entry open so users locked out there can still upload
+    // diagnostics. (OK-56874 review)
+    if (platformEnv.isExtension) {
+      // Extension biometric is WebAuthn (Touch ID / Windows Hello via the
+      // platform authenticator). It can only be verified against an already
+      // registered credential, which exists once the user enabled PassKey /
+      // biometric unlock. `verifiedWebAuth` only asserts the credential with
+      // userVerification — it does NOT decrypt the stored password.
+      // `platformAuthenticatorOnly` forces THIS device's built-in biometric and
+      // blocks the cross-device "use a passkey on another device" / USB-key
+      // flows.
+      if (webAuthCredentialId) {
+        try {
+          const cred = await verifiedWebAuth(webAuthCredentialId, {
+            platformAuthenticatorOnly: true,
+          });
+          if (cred?.id !== webAuthCredentialId) {
+            return;
+          }
+        } catch {
+          // user cancelled or verification failed
+          return;
+        }
+      }
+    } else if (await biologyAuth.isSupportBiologyAuth()) {
+      const authRes = await biologyAuth.biologyAuthenticate();
+      if (!authRes.success) {
+        return;
+      }
+    }
     showExportLogsDialog({
       title: intl.formatMessage({
         id: ETranslations.settings_upload_state_logs,
       }),
       inAppStateLock: true,
     });
-  }, [intl]);
+  }, [intl, webAuthCredentialId]);
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
