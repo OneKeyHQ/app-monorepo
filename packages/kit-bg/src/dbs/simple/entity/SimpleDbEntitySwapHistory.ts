@@ -4,6 +4,10 @@ import {
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  isSwapHistoryTerminalStatus,
+  markUnreadTerminalAsRead,
+} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import type {
   EProtocolOfExchange,
   ISwapTxHistory,
@@ -16,17 +20,11 @@ export const historyCircularBufferMaxSize = 300;
 
 export interface ISwapTxHistoryPersistList {
   histories: ISwapTxHistory[];
+  previewReadSeeded?: boolean;
 }
 
-const SWAP_HISTORY_TERMINAL_STATUSES = new Set<ESwapTxHistoryStatus>([
-  ESwapTxHistoryStatus.SUCCESS,
-  ESwapTxHistoryStatus.FAILED,
-  ESwapTxHistoryStatus.CANCELED,
-  ESwapTxHistoryStatus.PARTIALLY_FILLED,
-]);
-
 function isSwapHistoryTerminal(item: ISwapTxHistory) {
-  return SWAP_HISTORY_TERMINAL_STATUSES.has(item.status);
+  return isSwapHistoryTerminalStatus(item.status);
 }
 
 function isSameSwapHistoryItem(a: ISwapTxHistory, b: ISwapTxHistory) {
@@ -170,5 +168,28 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   async getSwapHistoryByTxId(txId: string) {
     const data = await this.getRawData();
     return data?.histories?.find((i) => i.txInfo.txId === txId);
+  }
+
+  @backgroundMethod()
+  async markUnreadTerminalPreviewRead(readAt: number) {
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    const next = markUnreadTerminalAsRead(histories, readAt);
+    await this.setRawData({ ...data, histories: next });
+  }
+
+  @backgroundMethod()
+  async seedPreviewReadIfNeeded(readAt: number) {
+    const data = await this.getRawData();
+    if (data?.previewReadSeeded) {
+      return;
+    }
+    const histories = data?.histories ?? [];
+    const next = markUnreadTerminalAsRead(histories, readAt);
+    await this.setRawData({
+      ...data,
+      histories: next,
+      previewReadSeeded: true,
+    });
   }
 }
