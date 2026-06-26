@@ -55,7 +55,25 @@ export const getLocaleMessages = async (locale: ILocaleSymbol) => {
 
 export const initLocale = async () => {
   globalLocale = getLocale();
-  globalMessages = await getLocaleMessages(globalLocale);
+  // Never let a locale-load failure reject: app.on('ready') awaits this before
+  // createMainWindow(), so a throw here would block the main window from ever
+  // opening. Fall back to en-US, then to empty messages (keys render raw).
+  try {
+    globalMessages = await getLocaleMessages(globalLocale);
+  } catch (e) {
+    logger.error('initLocale: failed to load messages, falling back to en-US', {
+      locale: globalLocale,
+      error: e,
+    });
+    try {
+      globalMessages = await getLocaleMessages('en-US' as ILocaleSymbol);
+    } catch (fallbackError) {
+      logger.error('initLocale: en-US fallback failed, using empty messages', {
+        error: fallbackError,
+      });
+      globalMessages = {} as unknown as Record<ETranslations, string>;
+    }
+  }
   return globalLocale;
 };
 

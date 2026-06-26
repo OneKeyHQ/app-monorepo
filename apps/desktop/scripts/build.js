@@ -40,13 +40,34 @@ const externalizeLocaleJsonPlugin = {
         fs.copyFileSync(args.path, path.join(localeJsonOutDir, base));
         // __dirname resolves to dist/ at runtime (app.js lives in dist/). In a
         // packaged app this is inside app.asar; Electron's fs can read it.
+        //
+        // Resilience: this shim replaces a previously-inlined JSON module, so a
+        // throw here is fatal — `en_US.json` is a STATIC import (eager at app.js
+        // eval; a throw kills the main process for every user) and the other 18
+        // locales load inside initLocale() (a throw there blocks main-window
+        // creation). So we never let a missing/corrupt file escape: fall back to
+        // en_US.json, then to an empty object (keys render raw, app still boots).
         const contents = `const fs = require('fs');
 const path = require('path');
-module.exports = JSON.parse(
-  fs.readFileSync(path.join(__dirname, 'locale-json', ${JSON.stringify(
-    base,
-  )}), 'utf8'),
-);
+function readLocaleJson(name) {
+  return JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'locale-json', name), 'utf8'),
+  );
+}
+const __localeFile = ${JSON.stringify(base)};
+let __localeData;
+try {
+  __localeData = readLocaleJson(__localeFile);
+} catch (err) {
+  console.error('[locale-shim] failed to load ' + __localeFile, err);
+  try {
+    __localeData = __localeFile === 'en_US.json' ? {} : readLocaleJson('en_US.json');
+  } catch (fallbackErr) {
+    console.error('[locale-shim] en_US.json fallback also failed', fallbackErr);
+    __localeData = {};
+  }
+}
+module.exports = __localeData;
 `;
         return { contents, loader: 'js' };
       },
@@ -131,6 +152,12 @@ build({
     'adm-zip',
     // Tier 2: large lookup-table deps reached transitively via node-fetch /
     // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
+    // FOOTGUN: these three are *transitive* — no app code imports them directly.
+    // esbuild leaves a bare `require('<name>')` and only ONE copy ships in the
+    // asar, so the shipped version is whatever is pinned in app/package.json, NOT
+    // what yarn.lock resolves for the real consumers. When bumping node-fetch /
+    // whatwg-url / the http stack, re-check that these pins still match the
+    // resolved transitive versions, or the asar will ship a mismatched copy.
     'tr46',
     'mime-db',
     'validator',

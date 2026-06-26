@@ -106,7 +106,10 @@ if (Select-String -Path $targetFile -SimpleMatch $keyTag -Quiet) {
 # Strict ACL: the admin file is ignored by sshd unless only SYSTEM + Admins have
 # access. The per-user file just needs to be owned/readable by the user (default).
 if ($targetFile -eq $adminFile) {
-  icacls $adminFile /inheritance:r /grant 'SYSTEM:F' /grant 'BUILTIN\Administrators:F' | Out-Null
+  # Quote the path: $env:ProgramData is locale-dependent and can contain spaces
+  # on non-English Windows. Unquoted, icacls would parse only the first token,
+  # silently fail to apply the ACL, and sshd would then ignore the key file.
+  icacls "$adminFile" /inheritance:r /grant 'SYSTEM:F' /grant 'BUILTIN\Administrators:F' | Out-Null
   Ok "applied strict ACL (SYSTEM + Administrators) to admin key file"
 }
 

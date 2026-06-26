@@ -77,8 +77,15 @@ async function connect() {
   }
 }
 
-// Pick a page whose URL contains `match` (case-insensitive). With no match,
+// Pick a PAGE whose URL contains `match` (case-insensitive). With no match,
 // returns the first page. Prints all candidate URLs to help disambiguate.
+//
+// NOTE: profile/heap/console are page-only. playwright's connectOverCDP only
+// surfaces page-type targets; non-page targets (webview/worker/"other", e.g. an
+// Electron background runtime) appear in `targets` (raw /json) but cannot be
+// attached here. On a miss we cross-reference /json so we can say *why* a target
+// is unreachable instead of leaving the user to guess (or attach to the wrong
+// foreground page).
 async function pickPage(browser, match) {
   const pages = [];
   for (const ctx of browser.contexts()) {
@@ -91,11 +98,32 @@ async function pickPage(browser, match) {
   const urls = pages.map((p) => p.url());
   console.error(`pages: ${urls.map((u, i) => `[${i}] ${u}`).join('  ')}`);
   if (!match || match === true) return pages[0];
-  const idx = urls.findIndex((u) =>
-    u.toLowerCase().includes(String(match).toLowerCase()),
-  );
+  const needle = String(match).toLowerCase();
+  const idx = urls.findIndex((u) => u.toLowerCase().includes(needle));
   if (idx === -1) {
-    console.error(`No page URL contains "${match}". Pick from the list above.`);
+    // Distinguish "no such target" from "target exists but is not a page".
+    let nonPageHit;
+    try {
+      const targets = await listTargets();
+      nonPageHit = targets.find(
+        (t) =>
+          (t.type || '').toLowerCase() !== 'page' &&
+          `${t.title || ''} ${t.url || ''}`.toLowerCase().includes(needle),
+      );
+    } catch {
+      // ignore — fall through to the generic message
+    }
+    if (nonPageHit) {
+      console.error(
+        `"${match}" matches a non-page target (type=${nonPageHit.type}, url=${nonPageHit.url}). ` +
+          `profile/heap/console only support page targets, so it cannot be attached here. ` +
+          `Use \`targets\` to inspect; attach a page-type target instead.`,
+      );
+    } else {
+      console.error(
+        `No page URL contains "${match}". Pick from the list above.`,
+      );
+    }
     process.exit(1);
   }
   console.error(`-> picked [${idx}] ${urls[idx]}`);

@@ -9,36 +9,6 @@ import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/b
 // is deferred (see app.ts) so the load happens off the synchronous module-init path.
 type ISentryMain = typeof import('@sentry/electron/main');
 
-// @sentry/node ships auto-instrumentation for backend libraries (MongoDB, Kafka,
-// SQL Server, Express, Fastify, RabbitMQ, Redis, GraphQL, Prisma, …) that a desktop
-// wallet main process never uses. Drop them from the active integration set so they
-// are not registered/loaded at runtime (error capture + tracing are preserved).
-const UNUSED_BACKEND_INTEGRATIONS = [
-  'express',
-  'fastify',
-  'koa',
-  'hapi',
-  'connect',
-  'nestjs',
-  'graphql',
-  'apollo',
-  'mongo',
-  'mongoose',
-  'mysql',
-  'postgres',
-  'redis',
-  'ioredis',
-  'kafka',
-  'amqplib',
-  'knex',
-  'tedious',
-  'prisma',
-  'dataloader',
-  'genericpool',
-  'lrumemoizer',
-  'vercelai',
-];
-
 export const initSentry = () => {
   if (isDev) {
     return;
@@ -70,14 +40,16 @@ export const initSentry = () => {
       maxQueueSize: 60,
     },
     integrations: (defaultIntegrations) => [
-      ...defaultIntegrations.filter((i) => {
-        const name = i.name.toLowerCase();
-        if (name.includes('minidump')) {
-          return false;
-        }
-        // strip unused backend-framework auto-instrumentations
-        return !UNUSED_BACKEND_INTEGRATIONS.some((n) => name.includes(n));
-      }),
+      // Drop only the native minidump integration (native crashes are covered
+      // by the Electron crashReporter / our own native pipeline). The rest of
+      // @sentry/electron's default set is kept. Note: @sentry/node's backend
+      // OpenTelemetry auto-instrumentations (express/mongo/redis/…) are NOT in
+      // this default set — electron-main's getDefaultIntegrations() hardcodes a
+      // fixed electron+node subset and never calls getAutoPerformanceIntegrations()
+      // — so there is nothing extra to strip here.
+      ...defaultIntegrations.filter(
+        (i) => !i.name.toLowerCase().includes('minidump'),
+      ),
       Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
         breadcrumbs: [
