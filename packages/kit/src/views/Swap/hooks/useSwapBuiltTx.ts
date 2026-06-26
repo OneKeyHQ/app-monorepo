@@ -48,6 +48,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 import { applyCustomPriorityFeeToGasInfo } from '@onekeyhq/shared/src/utils/marketPresetFeeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
@@ -490,6 +491,45 @@ export function useSwapBuildTx() {
     [clearQuoteData, generateSwapHistoryItem, setSwapSteps, fromAccountId],
   );
 
+  const getSwapBalanceInsufficientToast = useCallback(
+    ({
+      networkId,
+      tokenSymbol,
+      reserveAmount,
+    }: {
+      networkId?: string;
+      tokenSymbol: string;
+      reserveAmount?: string;
+    }) => {
+      const isBtcNetwork = networkUtils.isBTCNetwork(networkId);
+      return {
+        title: isBtcNetwork
+          ? intl.formatMessage({
+              id: ETranslations.send_toast_btc_fork_insufficient_fund,
+            })
+          : intl.formatMessage(
+              {
+                id: ETranslations.swap_page_toast_insufficient_balance_title,
+              },
+              { token: tokenSymbol },
+            ),
+        message:
+          !isBtcNetwork && reserveAmount
+            ? intl.formatMessage(
+                {
+                  id: ETranslations.swap_page_toast_insufficient_balance_content,
+                },
+                {
+                  token: tokenSymbol,
+                  number: numberFormat(reserveAmount, formatter),
+                },
+              )
+            : undefined,
+      };
+    },
+    [intl],
+  );
+
   const checkOtherFee = useCallback(
     async (quoteResult: IFetchQuoteResult) => {
       const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
@@ -516,21 +556,11 @@ export function useSwapBuildTx() {
             });
             if (!checkResult.isSufficient) {
               Toast.error({
-                title: intl.formatMessage(
-                  {
-                    id: ETranslations.swap_page_toast_insufficient_balance_title,
-                  },
-                  { token: checkResult.tokenSymbol },
-                ),
-                message: intl.formatMessage(
-                  {
-                    id: ETranslations.swap_page_toast_insufficient_balance_content,
-                  },
-                  {
-                    token: checkResult.tokenSymbol,
-                    number: numberFormat(tokenAmountBN.toFixed(), formatter),
-                  },
-                ),
+                ...getSwapBalanceInsufficientToast({
+                  networkId: item.token.networkId,
+                  tokenSymbol: checkResult.tokenSymbol,
+                  reserveAmount: tokenAmountBN.toFixed(),
+                }),
               });
               checkRes = false;
             }
@@ -539,21 +569,25 @@ export function useSwapBuildTx() {
       }
       return checkRes;
     },
-    [fromToken, intl, selectQuote?.fromAmount, fromUserAddress, fromAccountId],
+    [
+      fromToken,
+      selectQuote?.fromAmount,
+      fromUserAddress,
+      fromAccountId,
+      getSwapBalanceInsufficientToast,
+    ],
   );
 
   const showLatestBalanceInsufficientToast = useCallback(
-    (tokenSymbol: string) => {
+    (networkId: string | undefined, tokenSymbol: string) => {
       Toast.error({
-        title: intl.formatMessage(
-          {
-            id: ETranslations.swap_page_toast_insufficient_balance_title,
-          },
-          { token: tokenSymbol },
-        ),
+        ...getSwapBalanceInsufficientToast({
+          networkId,
+          tokenSymbol,
+        }),
       });
     },
-    [intl],
+    [getSwapBalanceInsufficientToast],
   );
 
   const checkLatestFromTokenBalance = useCallback(
@@ -565,7 +599,10 @@ export function useSwapBuildTx() {
         accountId: fromAccountId,
       });
       if (!checkResult.isSufficient) {
-        showLatestBalanceInsufficientToast(checkResult.tokenSymbol);
+        showLatestBalanceInsufficientToast(
+          token.networkId,
+          checkResult.tokenSymbol,
+        );
         return false;
       }
       return true;
@@ -612,35 +649,23 @@ export function useSwapBuildTx() {
           checkResult.tokenSymbol,
           nativeBalanceRequirement.reserveAmount,
         ].join('-');
-        const reserveAmountMessage = nativeBalanceRequirement.includesFromAmount
-          ? undefined
-          : intl.formatMessage(
-              {
-                id: ETranslations.swap_page_toast_insufficient_balance_content,
-              },
-              {
-                token: checkResult.tokenSymbol,
-                number: numberFormat(
-                  nativeBalanceRequirement.reserveAmount,
-                  formatter,
-                ),
-              },
-            );
+        const { title, message } = getSwapBalanceInsufficientToast({
+          networkId: nativeBalanceRequirement.token.networkId,
+          tokenSymbol: checkResult.tokenSymbol,
+          reserveAmount: nativeBalanceRequirement.includesFromAmount
+            ? undefined
+            : nativeBalanceRequirement.reserveAmount,
+        });
         Toast.error({
-          title: intl.formatMessage(
-            {
-              id: ETranslations.swap_page_toast_insufficient_balance_title,
-            },
-            { token: checkResult.tokenSymbol },
-          ),
-          message: reserveAmountMessage,
+          title,
+          message,
           toastId,
         });
         return false;
       }
       return true;
     },
-    [fromAccountId, fromUserAddress, intl],
+    [fromAccountId, fromUserAddress, getSwapBalanceInsufficientToast],
   );
 
   const cancelLimitOrder = useCallback(
@@ -812,8 +837,9 @@ export function useSwapBuildTx() {
           gasInfo.common?.nativeSymbol ??
           '';
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.send_toast_btc_fork_insufficient_fund,
+          ...getSwapBalanceInsufficientToast({
+            networkId,
+            tokenSymbol,
           }),
           toastId: [
             'swap-exact-payment-output-mismatch',
@@ -919,7 +945,12 @@ export function useSwapBuildTx() {
         gasFeeInNative: totalNativeForDisplay,
       };
     },
-    [checkLatestNativeTokenBalance, intl, setSwapSteps],
+    [
+      checkLatestNativeTokenBalance,
+      getSwapBalanceInsufficientToast,
+      intl,
+      setSwapSteps,
+    ],
   );
 
   const swapEstimateFeeEvent = useCallback(
