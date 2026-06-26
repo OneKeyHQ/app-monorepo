@@ -126,6 +126,7 @@ import {
 import { buildSwapApproveAndSendSteps } from '../utils/buildSwapReviewState';
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
 } from '../utils/swapBalanceUtils';
 
@@ -792,6 +793,35 @@ export function useSwapBuildTx() {
           },
         });
       const txSize = updatedUnsignedTxItem.txSize ?? unsignedTxItem.txSize;
+      const exactPaymentMismatch = getSwapExactPaymentOutputMismatch({
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+        transferInfo:
+          unsignedTxItem.transfersInfo?.[0] ??
+          updatedUnsignedTxItem.transfersInfo?.[0],
+      });
+      if (exactPaymentMismatch) {
+        const tokenSymbol =
+          updatedUnsignedTxItem.swapInfo?.sender.token.symbol ??
+          unsignedTxItem.swapInfo?.sender.token.symbol ??
+          gasInfo.common?.nativeSymbol ??
+          '';
+        Toast.error({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.swap_page_toast_insufficient_balance_title,
+            },
+            { token: tokenSymbol },
+          ),
+          toastId: [
+            'swap-exact-payment-output-mismatch',
+            networkId,
+            tokenSymbol,
+            exactPaymentMismatch.expectedAmountBase,
+            exactPaymentMismatch.actualAmountBase,
+          ].join('-'),
+        });
+        throw new OneKeyAppError('swap exact payment output mismatch');
+      }
       const {
         totalNative,
         total,

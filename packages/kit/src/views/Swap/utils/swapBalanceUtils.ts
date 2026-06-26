@@ -1,5 +1,7 @@
 import BigNumber from 'bignumber.js';
 
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
@@ -92,6 +94,91 @@ export type ISwapNativeBalanceRequirement = {
   reserveAmount: string;
   includesFromAmount: boolean;
 };
+
+type IEncodedTxWithOutputs = {
+  outputs?: {
+    address?: string;
+    value?: string | number;
+  }[];
+};
+
+export type ISwapExactPaymentOutputMismatch = {
+  expectedAmount: string;
+  actualAmount: string;
+  expectedAmountBase: string;
+  actualAmountBase: string;
+};
+
+function getEncodedTxOutputs(encodedTx?: IEncodedTx) {
+  if (!encodedTx || typeof encodedTx !== 'object') {
+    return undefined;
+  }
+
+  const { outputs } = encodedTx as IEncodedTxWithOutputs;
+  if (!Array.isArray(outputs)) {
+    return undefined;
+  }
+
+  return outputs;
+}
+
+export function getSwapExactPaymentOutputMismatch({
+  encodedTx,
+  transferInfo,
+}: {
+  encodedTx?: IEncodedTx;
+  transferInfo?: ITransferInfo;
+}): ISwapExactPaymentOutputMismatch | undefined {
+  const outputs = getEncodedTxOutputs(encodedTx);
+  const tokenDecimals = transferInfo?.tokenInfo?.decimals;
+  if (!outputs || !transferInfo?.to || tokenDecimals === undefined) {
+    return undefined;
+  }
+
+  const expectedAmountBN = new BigNumber(transferInfo.amount ?? '');
+  if (
+    expectedAmountBN.isNaN() ||
+    !expectedAmountBN.isFinite() ||
+    expectedAmountBN.lte(0)
+  ) {
+    return undefined;
+  }
+
+  const expectedAmountBaseBN = expectedAmountBN
+    .shiftedBy(tokenDecimals)
+    .decimalPlaces(0, BigNumber.ROUND_DOWN);
+  if (expectedAmountBaseBN.lte(0)) {
+    return undefined;
+  }
+
+  const actualAmountBaseBN = outputs.reduce((acc, output) => {
+    if (output.address !== transferInfo.to) {
+      return acc;
+    }
+
+    const outputValueBN = new BigNumber(output.value ?? '');
+    if (
+      outputValueBN.isNaN() ||
+      !outputValueBN.isFinite() ||
+      outputValueBN.lte(0)
+    ) {
+      return acc;
+    }
+
+    return acc.plus(outputValueBN);
+  }, new BigNumber(0));
+
+  if (actualAmountBaseBN.gte(expectedAmountBaseBN)) {
+    return undefined;
+  }
+
+  return {
+    expectedAmount: expectedAmountBN.toFixed(),
+    actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
+    expectedAmountBase: expectedAmountBaseBN.toFixed(),
+    actualAmountBase: actualAmountBaseBN.toFixed(),
+  };
+}
 
 function buildNativeTokenFromGasInfo({
   gasInfo,

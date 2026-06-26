@@ -1,7 +1,10 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   checkSwapLatestBalanceSufficient,
+  getSwapExactPaymentOutputMismatch,
   getSwapRequiredNativeBalanceAmount,
 } from './swapBalanceUtils';
 
@@ -250,5 +253,61 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
       reserveAmount: '0.020021',
       includesFromAmount: true,
     });
+  });
+});
+
+describe('getSwapExactPaymentOutputMismatch', () => {
+  const btcTransferInfo = {
+    from: 'bc1from',
+    to: 'bc1provider',
+    amount: '0.00179536',
+    tokenInfo: {
+      networkId: 'btc--0',
+      address: '',
+      symbol: 'BTC',
+      decimals: 8,
+      isNative: true,
+    },
+  } as ITransferInfo;
+
+  it('blocks UTXO swap transactions when SendMax reduces the provider output', () => {
+    expect(
+      getSwapExactPaymentOutputMismatch({
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179316',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toEqual({
+      expectedAmount: '0.00179536',
+      actualAmount: '0.00179316',
+      expectedAmountBase: '179536',
+      actualAmountBase: '179316',
+    });
+  });
+
+  it('allows UTXO swap transactions when the provider output matches the order amount', () => {
+    expect(
+      getSwapExactPaymentOutputMismatch({
+        encodedTx: {
+          outputs: [
+            {
+              address: 'bc1provider',
+              value: '179536',
+            },
+            {
+              address: 'bc1change',
+              value: '1000',
+            },
+          ],
+        } as IEncodedTx,
+        transferInfo: btcTransferInfo,
+      }),
+    ).toBeUndefined();
   });
 });
