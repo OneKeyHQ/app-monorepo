@@ -109,6 +109,32 @@ function useReplaceTx({
         return;
       }
 
+      // Authoritative bg check (incl. on-chain nonce) before opening the fee
+      // page: if the original tx is already confirmed/replaced, its nonce is
+      // consumed and the replacement would fail (backend 40024). Clean up the
+      // stale pending tx and inform the user instead of proceeding.
+      const availability =
+        await backgroundApiProxy.serviceHistory.checkReplaceTxAvailability({
+          accountId,
+          networkId,
+          historyTx,
+        });
+      if (!availability.available) {
+        if (availability.reason === 'nonceConsumed') {
+          await backgroundApiProxy.serviceHistory.resolveStalePendingReplaceTx({
+            accountId,
+            networkId,
+            txid: decodedTx.txid,
+          });
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_nonce_error_lower,
+            }),
+          });
+        }
+        return;
+      }
+
       const replaceEncodedTx =
         await backgroundApiProxy.serviceSend.buildReplaceEncodedTx({
           accountId,
