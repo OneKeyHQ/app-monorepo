@@ -3003,6 +3003,101 @@ class ServiceHistory extends ServiceBase {
     return vault.canAccelerateTx({ encodedTx, txId });
   }
 
+  // Authoritative check for whether a pending tx can still be replaced
+  // (speed up / cancel). Combines the local checks (pending status, replace
+  // enabled, earliest local pending nonce) with an on-chain nonce re-validation
+  // so an already-confirmed/replaced tx is not sent to the backend (which would
+  // reject the replacement with error code 40024). Runs in bg, where the
+  // localHistory and on-chain nonce are authoritative (main holds a stale copy).
+  @backgroundMethod()
+  public async checkReplaceTxAvailability({
+    accountId,
+    networkId,
+    historyTx,
+  }: {
+    accountId: string;
+    networkId: string;
+    historyTx: IAccountHistoryTx;
+  }): Promise<{
+    available: boolean;
+    reason?: 'notReplaceable' | 'notEarliestPending' | 'nonceConsumed';
+  }> {
+    const { decodedTx } = historyTx;
+    const { status, encodedTx, nonce, txid } = decodedTx;
+
+    if (status !== EDecodedTxStatus.Pending || !encodedTx) {
+      return { available: false, reason: 'notReplaceable' };
+    }
+
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    if (!vaultSettings.replaceTxEnabled) {
+      return { available: false, reason: 'notReplaceable' };
+    }
+
+    // Only the earliest local pending tx is replaceable.
+    const isEarliest = await this.canAccelerateTx({
+      accountId,
+      networkId,
+      encodedTx,
+      txId: txid,
+    });
+    if (!isEarliest) {
+      return { available: false, reason: 'notEarliestPending' };
+    }
+
+    // On-chain nonce re-validation (fail-open inside the precheck). If the
+    // target nonce has already been consumed on-chain, the original tx is
+    // confirmed/replaced and can no longer be sped up or canceled.
+    if (vaultSettings.nonceRequired && !isNil(nonce)) {
+      const { consumed } =
+        await this.backgroundApi.serviceSend.precheckReplaceTxNonceConsumed({
+          accountId,
+          networkId,
+          targetNonce: nonce,
+        });
+      if (consumed) {
+        return { available: false, reason: 'nonceConsumed' };
+      }
+    }
+
+    return { available: true };
+  }
+
+  // Remove a stale local pending tx whose nonce has already been consumed
+  // on-chain, so its speed-up / cancel buttons disappear. Emits
+  // HistoryTxStatusChanged via clearLocalHistoryPendingTxByTxId.
+  @backgroundMethod()
+  public async resolveStalePendingReplaceTx({
+    accountId,
+    networkId,
+    txid,
+    replaceHistoryId,
+  }: {
+    accountId: string;
+    networkId: string;
+    txid?: string;
+    replaceHistoryId?: string;
+  }) {
+    let targetTxid = txid;
+    if (!targetTxid && replaceHistoryId) {
+      const prevTx = await this.getLocalHistoryTxById({
+        accountId,
+        networkId,
+        historyId: replaceHistoryId,
+      });
+      targetTxid = prevTx?.decodedTx.txid;
+    }
+    if (!targetTxid) {
+      return false;
+    }
+    return this.clearLocalHistoryPendingTxByTxId({
+      accountId,
+      networkId,
+      txid: targetTxid,
+    });
+  }
+
   @backgroundMethod()
   public async checkTxSpeedUpStateEnabled({
     networkId,
