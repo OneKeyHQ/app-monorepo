@@ -96,9 +96,24 @@ $targetDir = Split-Path $targetFile
 if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
 if (-not (Test-Path $targetFile)) { New-Item -ItemType File -Force -Path $targetFile | Out-Null }
 
-if (Select-String -Path $targetFile -SimpleMatch $keyTag -Quiet) {
-  Ok "key '$keyTag' already present in $targetFile"
+# Match on the FULL public key, not just the $keyTag comment. Rotating the key
+# while keeping the same comment (e.g. still "mac-onekey-perf") must actually
+# replace the stale line — otherwise the old key lingers, the write is silently
+# skipped, and the only symptom is a later "Permission denied (publickey)" with
+# no hint that this step no-op'd.
+$existingLines = @(Get-Content -Path $targetFile -ErrorAction SilentlyContinue)
+$normalizedKey = $PublicKey.Trim()
+if ($existingLines | Where-Object { $_.Trim() -eq $normalizedKey }) {
+  Ok "key '$keyTag' already present (exact match) in $targetFile"
 } else {
+  # Drop any stale line carrying the same tag (rotated key under the same comment)
+  # before appending the new one, so the tag's key actually updates.
+  $staleByTag = @($existingLines | Where-Object { $_ -like "*$keyTag*" })
+  if ($staleByTag.Count -gt 0) {
+    $kept = $existingLines | Where-Object { $_ -notlike "*$keyTag*" }
+    Set-Content -Path $targetFile -Value $kept
+    Warn "replaced stale key under tag '$keyTag' in $targetFile"
+  }
   Add-Content -Path $targetFile -Value $PublicKey
   Ok "added key '$keyTag' to $targetFile"
 }
