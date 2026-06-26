@@ -1,4 +1,4 @@
-import { RuntimeGlobals } from '@rspack/core';
+import { Compilation, RuntimeGlobals } from '@rspack/core';
 
 import type { Compiler } from '@rspack/core';
 
@@ -45,13 +45,12 @@ export class RetryChunkLoadRspackPlugin {
   apply(compiler: Compiler): void {
     const { maxRetries, retryDelay, lastResortScript } = this.options;
 
-    // Track whether we matched the ensure-chunk runtime module. The match is a
-    // source-substring heuristic, so a future rspack runtime-template change
-    // could silently stop matching; surface that at build time instead of
-    // shipping without chunk-load retry.
-    let matched = false;
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, (compilation) => {
-      matched = false;
+      // Per-compilation flag: did we match the ensure-chunk runtime module? The
+      // match is a source-substring heuristic, so a future rspack runtime-
+      // template change could silently stop matching — surface that at build
+      // time instead of shipping without chunk-load retry.
+      let matched = false;
       compilation.hooks.runtimeModule.tap(PLUGIN_NAME, (module) => {
         // Only patch the runtime module that defines __webpack_require__.e
         // (the chunk-loading "ensure chunk" runtime). Match by source so we are
@@ -127,15 +126,24 @@ if (typeof ${RuntimeGlobals.require} !== "undefined") {
           matched = true;
         }
       });
-    });
 
-    compiler.hooks.done.tap(PLUGIN_NAME, () => {
-      if (!matched) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          `[${PLUGIN_NAME}] no ensure-chunk runtime module matched — chunk-load retry is NOT active. The rspack runtime template may have changed; update the match predicate.`,
-        );
-      }
+      // Surface a miss as a build WARNING (visible in rspack stats / CI output),
+      // not a stray console.warn that scrolls past. Non-fatal by design: an
+      // unmatched template is equivalent to today's no-retry baseline, never a
+      // crash. PROCESS_ASSETS_STAGE_REPORT runs after all runtime modules are
+      // processed, so `matched` is final here.
+      compilation.hooks.processAssets.tap(
+        { name: PLUGIN_NAME, stage: Compilation.PROCESS_ASSETS_STAGE_REPORT },
+        () => {
+          if (!matched) {
+            compilation.warnings.push(
+              new Error(
+                `[${PLUGIN_NAME}] no ensure-chunk runtime module matched — chunk-load retry is NOT active. The rspack runtime template may have changed; update the match predicate.`,
+              ),
+            );
+          }
+        },
+      );
     });
   }
 }

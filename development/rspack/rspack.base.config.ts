@@ -17,6 +17,13 @@ import type {
   Stats,
 } from '@rspack/core';
 
+// Load .env / .env.version (dotenv side effect) up front so every process.env.*
+// read below is populated. The webpack chain does this explicitly in
+// babelTools.js; mirror it here rather than relying on the transitive require
+// graph (envExposedToClient -> developmentConsts -> env) staying intact.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('../env');
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { resolveCommitSha } = require('../utils/resolveCommitSha') as {
   resolveCommitSha: () => string;
