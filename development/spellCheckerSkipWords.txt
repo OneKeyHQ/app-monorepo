@@ -1507,3 +1507,7 @@ unsalvageable
 
 # @mysten/sui 2.x package name
 mysten
+
+# web service worker / workbox (rspack migration) comments + cache names
+precaches
+navigations
