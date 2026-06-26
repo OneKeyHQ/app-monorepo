@@ -868,6 +868,62 @@ describe('useAccountSelectorActions', () => {
     });
   });
 
+  it('preserves concurrent fields while resolving an others wallet network switch', async () => {
+    const currentEvmAccount = {
+      id: 'imported--evm-account',
+      impl: 'evm',
+      createAtNetwork: 'evm--1',
+    } as IDBAccount;
+    const dbAccountDeferred = createDeferred<IDBAccount | undefined>();
+    mockGetDBAccount.mockReturnValueOnce(dbAccountDeferred.promise);
+
+    const { store, Wrapper } = createWrapper();
+    store.set(selectedAccountsAtom(), {
+      0: {
+        ...defaultSelectedAccount(),
+        walletId: 'imported',
+        othersWalletAccountId: currentEvmAccount.id,
+        networkId: 'evm--1',
+        deriveType: 'default',
+        focusedWallet: 'imported',
+      },
+    });
+
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+
+    const updatePromise = result.current.updateSelectedAccountNetwork({
+      num: 0,
+      networkId: 'evm--42161',
+    });
+
+    await Promise.resolve();
+    await act(async () => {
+      await result.current.updateSelectedAccountDeriveType({
+        num: 0,
+        deriveType: 'ledgerLive',
+      });
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      deriveType: 'ledgerLive',
+      networkId: 'evm--1',
+      othersWalletAccountId: currentEvmAccount.id,
+    });
+
+    dbAccountDeferred.resolve(currentEvmAccount);
+    await act(async () => {
+      await updatePromise;
+    });
+
+    expect(store.get(selectedAccountsAtom())[0]).toMatchObject({
+      deriveType: 'ledgerLive',
+      networkId: 'evm--42161',
+      othersWalletAccountId: currentEvmAccount.id,
+    });
+  });
+
   it('writes network switch cache before derive type lookup resolves', async () => {
     const selectedAccount = createHdSelectedAccount('hd-1--0');
     const deriveTypeDeferred = createDeferred<string>();

@@ -881,16 +881,48 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             selectedAccount: before,
             networkId,
           })
-        : {
-            ...(before || defaultSelectedAccount()),
-            networkId,
-          };
+        : undefined;
       await this.updateSelectedAccount.call(set, {
         num,
-        builder: (v) => ({
-          ...v,
-          ...resolvedSelectedAccount,
-        }),
+        builder: (v) => {
+          if (!resolvedSelectedAccount) {
+            return {
+              ...v,
+              networkId,
+            };
+          }
+          const isSameOthersAccount =
+            v.walletId === before?.walletId &&
+            v.othersWalletAccountId === before?.othersWalletAccountId;
+          if (!isSameOthersAccount) {
+            return {
+              ...v,
+              networkId,
+            };
+          }
+          const shouldApplyResolvedAccount =
+            resolvedSelectedAccount.walletId !== before?.walletId ||
+            resolvedSelectedAccount.indexedAccountId !==
+              before?.indexedAccountId ||
+            resolvedSelectedAccount.othersWalletAccountId !==
+              before?.othersWalletAccountId;
+          if (!shouldApplyResolvedAccount) {
+            return {
+              ...v,
+              networkId: resolvedSelectedAccount.networkId,
+            };
+          }
+          return {
+            ...v,
+            networkId: resolvedSelectedAccount.networkId,
+            walletId: resolvedSelectedAccount.walletId,
+            focusedWallet: resolvedSelectedAccount.focusedWallet,
+            indexedAccountId: resolvedSelectedAccount.indexedAccountId,
+            othersWalletAccountId:
+              resolvedSelectedAccount.othersWalletAccountId,
+            deriveType: resolvedSelectedAccount.deriveType ?? v.deriveType,
+          };
+        },
       });
     },
   );
