@@ -4,6 +4,7 @@ import {
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IFetchQuoteResult,
@@ -85,16 +86,24 @@ export function buildMarketReviewState({
 export function buildMarketReviewRateDifference({
   quoteResult,
   swapInfo,
+  defaultTokenCurrency,
+  currencyMap,
 }: {
   quoteResult?: Pick<IFetchQuoteResult, 'instantRate'>;
   swapInfo?: {
-    sender?: { token?: Pick<ISwapToken, 'price'> };
-    receiver?: { token?: Pick<ISwapToken, 'price'> };
+    sender?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
+    receiver?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
   };
+  defaultTokenCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
 }): ISwapPreSwapData['rateDifference'] {
   return buildSwapRateDifference({
     fromTokenPrice: swapInfo?.sender?.token?.price,
     toTokenPrice: swapInfo?.receiver?.token?.price,
+    fromTokenCurrency: swapInfo?.sender?.token?.currency,
+    toTokenCurrency: swapInfo?.receiver?.token?.currency,
+    defaultTokenCurrency,
+    currencyMap,
     instantRate: quoteResult?.instantRate,
   });
 }
