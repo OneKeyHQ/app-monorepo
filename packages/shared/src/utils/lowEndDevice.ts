@@ -18,7 +18,10 @@
 // `platformEnv.isNativeIOS`.
 import { getDeviceMemoryGBSync } from '../performance/deviceMemory';
 
-const LOW_END_MEMORY_THRESHOLD_GB = 3.5;
+// Shared single source of truth for "memory-constrained device" across the app.
+// Also consumed by `getMemoryTier` in ../performance/devicePerformanceTier so the
+// tier system and this jetsam guard agree on which devices are low-memory.
+export const LOW_END_MEMORY_THRESHOLD_GB = 3.5;
 
 const memoryGB = getDeviceMemoryGBSync();
 

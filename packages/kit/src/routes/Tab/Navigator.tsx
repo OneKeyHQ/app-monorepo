@@ -110,7 +110,17 @@ export function TabNavigator() {
     if (preloadQueue.length === 0) return;
     let index = 0;
     let timerId: ReturnType<typeof setTimeout> | undefined;
+    let idleHandle: ReturnType<typeof requestIdleCallback> | undefined;
     let cancelled = false;
+
+    // Space steps out by PRELOAD_INTERVAL_MS, but always run the actual preload
+    // inside requestIdleCallback so each heavy tab mount waits for the main
+    // thread to be idle — not just the first step.
+    function scheduleNext() {
+      timerId = setTimeout(() => {
+        idleHandle = requestIdleCallback(preloadNext);
+      }, PRELOAD_INTERVAL_MS);
+    }
 
     function preloadNext() {
       if (cancelled || index >= preloadQueue.length) return;
@@ -122,7 +132,7 @@ export function TabNavigator() {
       const tabStateKey = mainRoute?.state?.key;
 
       if (!tabStateKey) {
-        timerId = setTimeout(preloadNext, PRELOAD_INTERVAL_MS);
+        scheduleNext();
         return;
       }
 
@@ -135,16 +145,14 @@ export function TabNavigator() {
         // Tab might not exist in current config (e.g. perp disabled)
       }
       index += 1;
-      timerId = setTimeout(preloadNext, PRELOAD_INTERVAL_MS);
+      scheduleNext();
     }
 
-    const idleHandle = requestIdleCallback(() => {
-      preloadNext();
-    });
+    idleHandle = requestIdleCallback(preloadNext);
 
     return () => {
       cancelled = true;
-      cancelIdleCallback(idleHandle);
+      if (idleHandle !== undefined) cancelIdleCallback(idleHandle);
       if (timerId !== undefined) clearTimeout(timerId);
     };
   }, []);
