@@ -83,7 +83,13 @@ CDP_PERF="$REPO_ROOT/development/scripts/win-perf-cdp.mjs"
 
 # Build-launch script path on Windows (Windows-style, under the remote repo).
 WIN_BUILD_SCRIPT="$WIN_REPO\\apps\\desktop\\scripts\\build-launch-perf-win.ps1"
-CDP_SHOT="$REPO_ROOT/.claude/skills/1k-ui-verify/scripts/cdp-shot.mjs"
+# Prefer the repo-tracked helper path. `.skillshare/...` is committed and present
+# after a fresh clone; `.claude/skills/...` is only a local alias/symlink and is
+# NOT guaranteed to exist on other machines. Fall back to it only if present.
+CDP_SHOT="$REPO_ROOT/.skillshare/skills/1k-ui-verify/scripts/cdp-shot.mjs"
+if [ ! -f "$CDP_SHOT" ] && [ -f "$REPO_ROOT/.claude/skills/1k-ui-verify/scripts/cdp-shot.mjs" ]; then
+  CDP_SHOT="$REPO_ROOT/.claude/skills/1k-ui-verify/scripts/cdp-shot.mjs"
+fi
 
 timestamp() {
   echo "⏱  [$(date '+%H:%M:%S')]"

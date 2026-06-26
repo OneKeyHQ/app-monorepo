@@ -47,10 +47,23 @@ export const getLocale = () => {
 
 export const getLocaleMessages = async (locale: ILocaleSymbol) => {
   const messagesBuilder = LOCALES[locale as ILocaleJSONSymbol];
-  const messages = isFunction(messagesBuilder)
+  const loaded = isFunction(messagesBuilder)
     ? await messagesBuilder()
     : messagesBuilder;
-  return messages as unknown as Record<ETranslations, string>;
+  // Normalize the loaded shape. The dynamic locales go through `import()` and
+  // come back as a module namespace ({ default: <table>, ...keys }) after
+  // esbuild's CJS->ESM interop, while static en-US is the raw table. Unwrap
+  // `.default` ONLY when it is an object (the namespace wrapper holds the full
+  // translation table); a raw table's own values are strings, so this never
+  // mis-unwraps a real translation whose key happens to be "default". Keeps
+  // i18nText()/i18nFormat() reading keys consistently regardless of interop.
+  const normalized =
+    loaded &&
+    typeof (loaded as { default?: unknown }).default === 'object' &&
+    (loaded as { default?: unknown }).default !== null
+      ? (loaded as { default: unknown }).default
+      : loaded;
+  return normalized as Record<ETranslations, string>;
 };
 
 export const initLocale = async () => {
