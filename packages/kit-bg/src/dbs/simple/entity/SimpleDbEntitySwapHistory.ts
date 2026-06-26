@@ -1,18 +1,18 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
+  isSwapHistoryTerminalStatus,
+  markUnreadTerminalAsRead,
+} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
-import {
-  isSwapHistoryTerminalStatus,
-  markUnreadTerminalAsRead,
-} from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import type {
   EProtocolOfExchange,
+  ESwapTxHistoryStatus,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -85,7 +85,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         })
       ) {
         histories[existingIndex] = item;
-        await this.setRawData({ histories });
+        await this.setRawData({ ...data, histories });
       }
       return;
     }
@@ -93,7 +93,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     if (histories.length > historyCircularBufferMaxSize) {
       histories.pop();
     }
-    await this.setRawData({ histories });
+    await this.setRawData({ ...data, histories });
   }
 
   @backgroundMethod()
@@ -108,7 +108,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     }
     if (index !== -1) {
       histories[index] = item;
-      await this.setRawData({ histories });
+      await this.setRawData({ ...data, histories });
     }
   }
 
@@ -134,11 +134,14 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       const data = await this.getRawData();
       const histories = data?.histories ?? [];
       const newHistories = histories.filter(shouldKeepHistory);
-      await this.setRawData({ histories: newHistories });
+      await this.setRawData({ ...data, histories: newHistories });
     } else {
       const data = await this.getRawData();
       const histories = data?.histories ?? [];
-      await this.setRawData({ histories: histories.filter(shouldKeepHistory) });
+      await this.setRawData({
+        ...data,
+        histories: histories.filter(shouldKeepHistory),
+      });
     }
   }
 
@@ -155,7 +158,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ? i.txInfo.orderId !== txInfo.orderId
         : i.txInfo.txId !== txInfo.txId,
     );
-    await this.setRawData({ histories: newHistories });
+    await this.setRawData({ ...data, histories: newHistories });
   }
 
   @backgroundMethod()
