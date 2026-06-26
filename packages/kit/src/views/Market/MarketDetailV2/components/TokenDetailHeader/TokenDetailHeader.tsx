@@ -28,10 +28,12 @@ const SCROLL_THRESHOLD = 2;
 export function TokenDetailHeader({
   showStats = true,
   showMediaAndSecurity = true,
+  showFavoriteButton = true,
   containerProps,
 }: {
   showStats?: boolean;
   showMediaAndSecurity?: boolean;
+  showFavoriteButton?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { lg, md } = useMedia();
@@ -84,6 +86,7 @@ export function TokenDetailHeader({
         networkLogoUri={networkData?.logoURI}
         showMediaAndSecurity={showMediaAndSecurity}
         isNative={isNative}
+        showFavoriteButton={showFavoriteButton}
       />
 
       {showStats === false && platformEnv.isNative && md ? null : (

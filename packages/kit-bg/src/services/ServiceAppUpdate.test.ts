@@ -38,6 +38,17 @@ const INITIAL_APP_UPDATE_VALUE: IAppUpdateInfo = {
 let atomValue: IAppUpdateInfo = { ...INITIAL_APP_UPDATE_VALUE };
 let pendingInstallTaskValue: any;
 
+// The OCDS §5.11 download-attempt budget persists under this MMKV key (see
+// ServiceAppUpdate). It must round-trip through a DURABLE, key-addressed store
+// so the cross-relaunch budget test below actually exercises persistence rather
+// than the single-slot pending-install fallback. Backed by a module-level Map
+// so values survive across createService() calls (= simulated relaunches).
+const DOWNLOAD_ATTEMPT_BUDGET_KEY = 'onekey_app_update_download_attempt_budget';
+const syncStorageBackingMap = new Map<string, any>();
+function resetSyncStorageBackingMap() {
+  syncStorageBackingMap.clear();
+}
+
 const mockAtom = {
   get: jest.fn(async () => atomValue),
   set: jest.fn(
@@ -67,12 +78,29 @@ jest.mock('../states/jotai/atoms/devSettings', () => ({
 
 const appStorageMock = {
   syncStorage: {
-    getObject: jest.fn(async () => pendingInstallTaskValue),
-    setObject: jest.fn(async (_key: string, task: any) => {
-      pendingInstallTaskValue = task;
+    // Returns synchronously (the real syncStorage is sync; ServiceAppUpdate's
+    // budget reads do not await). The budget key is key-addressed via the
+    // backing Map; every other key keeps the legacy single-slot behavior used
+    // by the pending-install-task tests.
+    getObject: jest.fn((key: string) => {
+      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+        return syncStorageBackingMap.get(key);
+      }
       return pendingInstallTaskValue;
     }),
-    delete: jest.fn(async () => {
+    setObject: jest.fn((key: string, value: any) => {
+      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+        syncStorageBackingMap.set(key, value);
+        return value;
+      }
+      pendingInstallTaskValue = value;
+      return pendingInstallTaskValue;
+    }),
+    delete: jest.fn((key: string) => {
+      if (key === DOWNLOAD_ATTEMPT_BUDGET_KEY) {
+        syncStorageBackingMap.delete(key);
+        return;
+      }
       pendingInstallTaskValue = undefined;
     }),
   },
@@ -277,6 +305,7 @@ describe('ServiceAppUpdate state transitions', () => {
     jest.useFakeTimers();
     resetAtom();
     resetPendingTask();
+    resetSyncStorageBackingMap();
     jest.clearAllMocks();
     service = createService();
   });
@@ -1487,6 +1516,68 @@ describe('ServiceAppUpdate state transitions', () => {
     });
   });
 
+  describe('refreshDownloadUrlForRetry', () => {
+    test('forces a server re-sign so the sync throttle cannot serve the dead URL — calls fetchAppUpdateInfo(true)', async () => {
+      // The dead-URL refresh fires on a 401/403 download retry, which can land
+      // inside the normal sync-throttle window. It MUST force: with the
+      // non-forced path, isNeedSyncAppUpdateInfo short-circuits to the cached
+      // (still-dead) URL, nothing is re-signed, and the retry gives up as
+      // urlDead. This locks the force flag in (mutation guard: flip to `false`
+      // and this test goes red).
+      resetAtom({
+        downloadUrl: 'https://dl.onekey.so/app?token=stale',
+        jsBundle: {
+          downloadUrl: 'https://dl.onekey.so/bundle.zip?token=stale',
+          sha256: 'abc',
+        },
+      });
+      const fetchSpy = jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockImplementation(async () => {
+          // Simulate the server re-signing and writing fresh URLs back into
+          // the persist atom (only reachable when the throttle is bypassed).
+          atomValue = {
+            ...atomValue,
+            downloadUrl: 'https://dl.onekey.so/app?token=fresh',
+            jsBundle: {
+              downloadUrl: 'https://dl.onekey.so/bundle.zip?token=fresh',
+              sha256: 'abc',
+            },
+          };
+          return atomValue;
+        });
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(fetchSpy).toHaveBeenCalledWith(true);
+      expect(result.refreshed).toBe(true);
+      expect(result.downloadUrl).toBe('https://dl.onekey.so/app?token=fresh');
+      expect(result.jsBundleDownloadUrl).toBe(
+        'https://dl.onekey.so/bundle.zip?token=fresh',
+      );
+    });
+
+    test('reports refreshed=false when the re-fetch leaves the URL unchanged', async () => {
+      resetAtom({ downloadUrl: 'https://dl.onekey.so/app?token=same' });
+      jest.spyOn(service, 'fetchAppUpdateInfo').mockResolvedValue(atomValue);
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(result.refreshed).toBe(false);
+    });
+
+    test('reports refreshed=false when the forced re-fetch throws', async () => {
+      resetAtom({ downloadUrl: 'https://dl.onekey.so/app?token=stale' });
+      jest
+        .spyOn(service, 'fetchAppUpdateInfo')
+        .mockRejectedValue(new Error('network down'));
+
+      const result = await service.refreshDownloadUrlForRetry();
+
+      expect(result.refreshed).toBe(false);
+    });
+  });
+
   // =========================================================================
   // fetchAppUpdateInfo integration
   // =========================================================================
@@ -2373,6 +2464,60 @@ describe('ServiceAppUpdate state transitions', () => {
         expect(atomValue.errorText).toBeUndefined();
       },
     );
+
+    // OCDS §5.11 end-to-end: a download that GAVE UP (persisted attempt budget
+    // exhausted → DownloadGaveUpError → downloadPackageFailed) must NOT suppress
+    // a future update. When a newer version arrives, the failed status recovers
+    // to notify (the user is re-prompted) AND the new target starts a fresh
+    // budget. This pins the guarantee that the give-up reuses the recoverable
+    // downloadPackageFailed status, not a special terminal state, and that a
+    // stale per-target give-up never blocks a newer version's download.
+    test('a prior give-up does not suppress a NEWER version: failed→notify + fresh budget for the new target', async () => {
+      const OLD_KEY = `${ATTEMPTED_VERSION}:appShell`;
+      const NEW_KEY = `${NEWER_VERSION}:appShell`;
+
+      // (a) Reproduce the give-up's persisted effects for the OLD target:
+      //     exhaust the per-target attempt budget (8 recorded attempts)…
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await service.recordDownloadAttempt({ targetKey: OLD_KEY });
+      }
+      expect(
+        (await service.getDownloadAttemptBudget({ targetKey: OLD_KEY }))
+          .givenUp,
+      ).toBe(true);
+      //     …and the downloadPackageFailed status the give-up surfaces
+      //     (useDownloadPackage calls downloadPackageFailed on DownloadGaveUpError).
+      resetAtom({
+        status: EAppUpdateStatus.downloadPackageFailed,
+        latestVersion: ATTEMPTED_VERSION,
+        errorText: ETranslations.update_network_exception_check_connection,
+        updateAt: 0,
+      });
+
+      // (b) A newer version becomes available on the next check.
+      mockLatestInfo({
+        version: NEWER_VERSION,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      // (c) The user IS re-notified — the prior give-up did not block it.
+      expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+      expect(atomValue.latestVersion).toBe(NEWER_VERSION);
+      expect(atomValue.errorText).toBeUndefined();
+
+      // (d) The newer target starts with a FRESH budget; the stale give-up for
+      //     the old target never blocks the new version's download.
+      const newBudget = await service.getDownloadAttemptBudget({
+        targetKey: NEW_KEY,
+      });
+      expect(newBudget.givenUp).toBe(false);
+      expect(newBudget.attemptCount).toBe(0);
+    });
 
     test('resets failed status to notify when server has newer jsBundle version', async () => {
       resetAtom({
@@ -3767,5 +3912,141 @@ describe('computeUpdateTargetKey consistency', () => {
     // The safety net should reset to notify.
     await service.refreshUpdateStatus();
     expect(atomValue.status).toBe(EAppUpdateStatus.notify);
+  });
+
+  // =========================================================================
+  // OCDS v1.1 §5.11 — persisted cross-restart download attempt budget.
+  // Proves the budget (a) persists to the durable key-addressed store across
+  // simulated relaunches (= fresh createService() while the backing Map
+  // survives), (b) goes terminal after N failures, and (c) resets to a fresh
+  // budget when a NEW bundle/app target version supersedes the old one.
+  // =========================================================================
+  describe('download attempt budget (§5.11 persistence)', () => {
+    const TARGET_A = '1.0.0:10';
+    const TARGET_B = '1.1.0:11'; // a new bundle version
+
+    test('persists attempts across relaunches and goes terminal after the budget is spent', async () => {
+      // Fresh: no record yet → not given up.
+      const entry0 = await service.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(entry0.attemptCount).toBe(0);
+      expect(entry0.givenUp).toBe(false);
+
+      // Simulate N relaunches, each recording exactly one attempt against the
+      // SAME target. Each relaunch is a brand-new service instance; only the
+      // durable backing Map carries state between them.
+      let lastResult: any;
+      let relaunchService = service;
+      // DOWNLOAD_PERSISTED_MAX_ATTEMPTS is 8: attempts 1..7 keep going, attempt
+      // 8 trips the budget → terminal give-up.
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        lastResult = await relaunchService.recordDownloadAttempt({
+          targetKey: TARGET_A,
+        });
+        expect(lastResult.attemptCount).toBe(i);
+        if (i < 8) {
+          expect(lastResult.givenUp).toBe(false);
+        }
+        // New process: budget must survive even with a fresh service instance.
+        relaunchService = createService();
+      }
+
+      // The 8th recorded attempt exhausts the persisted budget → terminal.
+      expect(lastResult.givenUp).toBe(true);
+      expect(lastResult.reason).toBe('maxAttempts');
+
+      // A subsequent entry check on yet another relaunch is ALSO terminal
+      // (scenario #9: no re-spending the in-memory budget on every launch).
+      const afterService = createService();
+      const entryAfter = await afterService.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(entryAfter.givenUp).toBe(true);
+      expect(entryAfter.reason).toBe('maxAttempts');
+    });
+
+    test('a NEW bundle/app target version resets the counter to a fresh budget', async () => {
+      // Spend the whole budget on target A → terminal.
+      let svc = service;
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await svc.recordDownloadAttempt({ targetKey: TARGET_A });
+        svc = createService();
+      }
+      const aTerminal = await svc.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(aTerminal.givenUp).toBe(true);
+
+      // A NEW target version must start fresh — the stale give-up for A is not
+      // inherited by B (even though A's record still occupies the slot).
+      const bEntry = await svc.getDownloadAttemptBudget({
+        targetKey: TARGET_B,
+      });
+      expect(bEntry.attemptCount).toBe(0);
+      expect(bEntry.givenUp).toBe(false);
+
+      // Recording an attempt for B resets the slot to B and starts at 1.
+      const bRecord = await svc.recordDownloadAttempt({ targetKey: TARGET_B });
+      expect(bRecord.targetKey).toBe(TARGET_B);
+      expect(bRecord.attemptCount).toBe(1);
+      expect(bRecord.givenUp).toBe(false);
+
+      // And A is now gone (B overwrote the single budget slot): re-checking A
+      // reports a fresh budget rather than the prior give-up.
+      const aAfter = await svc.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(aAfter.attemptCount).toBe(0);
+      expect(aAfter.givenUp).toBe(false);
+    });
+
+    test('a long idle gap does NOT give up — only the attempt count matters (resume-friendly)', async () => {
+      const now = 1_000_000_000_000;
+      jest.setSystemTime(now);
+      // A couple of failed attempts, then the user closes the app.
+      await service.recordDownloadAttempt({ targetKey: TARGET_A });
+      const second = await service.recordDownloadAttempt({
+        targetKey: TARGET_A,
+      });
+      expect(second.attemptCount).toBe(2);
+      expect(second.givenUp).toBe(false);
+
+      // Reopen 30 days later — far past the old 24h wall-clock deadline. Idle
+      // (app-closed) time must NOT abandon a still-resumable partial: with the
+      // attempt count under the cap the budget is NOT given up, so the download
+      // can resume. (There is intentionally no wall-clock deadline.)
+      jest.setSystemTime(now + 30 * 24 * 60 * 60 * 1000);
+      const relaunch = createService();
+      const entry = await relaunch.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(entry.givenUp).toBe(false);
+      expect(entry.attemptCount).toBe(2);
+    });
+
+    test('resetDownloadAttemptBudget clears the persisted give-up (success path)', async () => {
+      // Exhaust the budget.
+      let svc = service;
+      for (let i = 1; i <= 8; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await svc.recordDownloadAttempt({ targetKey: TARGET_A });
+        svc = createService();
+      }
+      expect(
+        (await svc.getDownloadAttemptBudget({ targetKey: TARGET_A })).givenUp,
+      ).toBe(true);
+
+      // A successful download resets the budget; the next relaunch is fresh.
+      await svc.resetDownloadAttemptBudget({ targetKey: TARGET_A });
+      const fresh = createService();
+      const entry = await fresh.getDownloadAttemptBudget({
+        targetKey: TARGET_A,
+      });
+      expect(entry.attemptCount).toBe(0);
+      expect(entry.givenUp).toBe(false);
+    });
   });
 });

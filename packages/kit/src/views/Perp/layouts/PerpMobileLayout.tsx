@@ -331,7 +331,7 @@ export function PerpMobileLayout() {
         <PerpTickerBar />
       </YStack>
       <XStack
-        gap="$2.5"
+        gap="$3"
         px="$4"
         pb="$4"
         onLayout={(event) => handleTraceLayout('firstScreenGrid', event)}

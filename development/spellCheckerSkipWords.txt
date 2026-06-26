@@ -206,6 +206,7 @@ buf
 Buf
 bufs
 bundler
+bypassable
 bytesize
 bytify
 cacheable
@@ -1489,3 +1490,20 @@ ivar
 RCTJS
 retryably
 unpair
+
+# iOS 26 Liquid Glass header vocabulary
+bareify
+subview
+headerless
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable
+
+# @mysten/sui 2.x package name
+mysten

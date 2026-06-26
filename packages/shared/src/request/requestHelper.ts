@@ -41,9 +41,7 @@ class RequestHelper {
    */
   getIpTableConfig: () => Promise<IIpTableConfigWithRuntime | null> =
     async () => {
-      throw new OneKeyLocalError(
-        'Not implemented, please call overrideMethods',
-      );
+      return null;
     };
 
   overrideMethods(methods: {

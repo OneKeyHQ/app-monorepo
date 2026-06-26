@@ -19,11 +19,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
-  useSwapFromTokenAmountAtom,
-  useSwapInitialSelectedTokensSyncedAtom,
   useSwapSelectFromTokenAtom,
-  useSwapSelectedTokensColdStartContextAtom,
-  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -80,7 +76,7 @@ function CustomTabItem({
       }}
       {...(isSelected
         ? {
-            bg: '$bgSubdued',
+            bg: '$bgStrong',
           }
         : {
             hoverStyle: {
@@ -116,6 +112,9 @@ interface ISwapHeaderContainerProps {
   enterFrom?: ESwapSource;
 }
 
+const DESKTOP_TRADE_TAB_ITEM_WIDTH = 144;
+const DESKTOP_TRADE_TAB_GROUP_WIDTH = DESKTOP_TRADE_TAB_ITEM_WIDTH * 3;
+
 const SwapHeaderContainer = ({
   pageType,
   defaultSwapType,
@@ -128,13 +127,7 @@ const SwapHeaderContainer = ({
   const { gtLg } = useMedia();
   const navigation = useAppNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [, setInitialSelectedTokensSynced] =
-    useSwapInitialSelectedTokensSyncedAtom();
-  const [, setSelectedTokensColdStartContext] =
-    useSwapSelectedTokensColdStartContextAtom();
-  const { resetSwapTokenData, swapTypeSwitchAction } = useSwapActions().current;
+  const { swapTypeSwitchAction } = useSwapActions().current;
   const { networkId } = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -169,25 +162,6 @@ const SwapHeaderContainer = ({
     [updateSelectedAccountNetwork],
   );
 
-  const clearStockTokensBeforeLeaving = useCallback(async () => {
-    if (swapTypeSwitch !== ESwapTabSwitchType.STOCK) {
-      return;
-    }
-    await resetSwapTokenData(ESwapDirectionType.FROM);
-    await resetSwapTokenData(ESwapDirectionType.TO);
-    setFromTokenAmount({ value: '', isInput: false });
-    setToTokenAmount({ value: '', isInput: false });
-    setSelectedTokensColdStartContext(undefined);
-    setInitialSelectedTokensSynced(false);
-  }, [
-    resetSwapTokenData,
-    setFromTokenAmount,
-    setInitialSelectedTokensSynced,
-    setSelectedTokensColdStartContext,
-    setToTokenAmount,
-    swapTypeSwitch,
-  ]);
-
   const syncRouteTabParam = useCallback(
     (type: ESwapTabSwitchType) => {
       if (pageType === 'modal') {
@@ -214,9 +188,8 @@ const SwapHeaderContainer = ({
       });
 
       if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
-        await clearStockTokensBeforeLeaving();
-        void swapTypeSwitchAction(newType, networkId);
         syncRouteTabParam(newType);
+        await swapTypeSwitchAction(newType, networkId);
         return;
       }
 
@@ -237,7 +210,6 @@ const SwapHeaderContainer = ({
     [
       swapTypeSwitch,
       swapTypeSwitchAction,
-      clearStockTokensBeforeLeaving,
       syncRouteTabParam,
       networkId,
       fromToken?.networkId,
@@ -248,7 +220,10 @@ const SwapHeaderContainer = ({
 
   // Desktop layout (gtLg and not modal): use SegmentControl
   const showDesktopLayout =
-    gtLg && pageType !== 'modal' && !platformEnv.isNative;
+    gtLg &&
+    pageType !== 'modal' &&
+    !platformEnv.isNative &&
+    !platformEnv.isExtensionUiSidePanel;
   const swapBridgeLabel = `${intl.formatMessage({
     id: ETranslations.swap_page_swap,
   })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`;
@@ -279,12 +254,16 @@ const SwapHeaderContainer = ({
     return (
       <XStack justifyContent="center" px="$5">
         <SegmentControl
+          width={DESKTOP_TRADE_TAB_GROUP_WIDTH}
+          fullWidth
           value={swapTypeSwitch}
           options={segmentOptions.map((opt) => ({
             ...opt,
             label: (
               <SizableText
                 size="$headingSm"
+                textAlign="center"
+                numberOfLines={1}
                 color={swapTypeSwitch === opt.value ? '$text' : '$textSubdued'}
               >
                 {opt.label}
@@ -299,8 +278,10 @@ const SwapHeaderContainer = ({
           h="auto"
           segmentControlItemStyleProps={{
             py: '$2',
-            px: '$7',
+            px: '$0',
             borderRadius: '$full',
+            alignItems: 'center',
+            justifyContent: 'center',
             '$platform-web': {
               boxShadow: 'none',
             },
@@ -310,11 +291,11 @@ const SwapHeaderContainer = ({
     );
   }
 
-  const isNativeLayout = platformEnv.isNative;
+  const isCompactLayout = !showDesktopLayout;
   const tabs = (
     <>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
@@ -323,7 +304,7 @@ const SwapHeaderContainer = ({
         {swapBridgeLabel}
       </CustomTabItem>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
@@ -332,7 +313,7 @@ const SwapHeaderContainer = ({
         {stockLabel}
       </CustomTabItem>
       <CustomTabItem
-        compact={isNativeLayout}
+        compact={isCompactLayout}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
@@ -347,32 +328,30 @@ const SwapHeaderContainer = ({
     </>
   );
 
-  if (isNativeLayout) {
-    return (
-      <XStack alignItems="center" gap="$2" px="$5" py="$1">
-        <Stack flex={1}>
-          <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
-            {tabs}
-          </ScrollableFilterBar>
-        </Stack>
-        {!hideRightActions ? (
-          <SwapHeaderRightActionContainer
-            pageType={pageType}
-            marketPresetSettings={marketPresetSettings}
-            compact
-          />
-        ) : null}
-      </XStack>
-    );
-  }
-
   return (
-    <XStack justifyContent="space-between" px="$5" py="$1">
-      <XStack gap="$3">{tabs}</XStack>
+    <XStack
+      alignItems="center"
+      gap="$2"
+      px="$5"
+      py="$1"
+      // iOS: fixed 56pt height (== Wallet header Row 1) so this header centers
+      // its content at the same top+28 line as Wallet (see SwapMainLand
+      // contentTopPadding=$0). Android keeps its intrinsic height unchanged.
+      // zIndex lifts the header (and its glass capsule's shadow) above the
+      // sibling content below it (e.g. the Pro panel), which otherwise paints
+      // over and clips the glass shadow.
+      {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
+    >
+      <Stack flex={1} minWidth={0}>
+        <ScrollableFilterBar itemGap="$1.5" itemPr="$5">
+          {tabs}
+        </ScrollableFilterBar>
+      </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
           pageType={pageType}
           marketPresetSettings={marketPresetSettings}
+          compact={isCompactLayout}
         />
       ) : null}
     </XStack>

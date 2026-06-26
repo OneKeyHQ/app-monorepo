@@ -202,6 +202,14 @@ export const HISTORY_CONSTS = {
   PENDING_QUEUE_MAX_LENGTH: 20,
 };
 
+// Business error codes returned by the wallet send-transaction backend
+// (/wallet/v1/account/send-transaction). Surfaced as OneKeyServerApiError.code.
+export const SEND_TX_SERVER_ERROR_CODES = {
+  // Nonce already consumed on-chain (original tx confirmed or replaced);
+  // a replace (speed up / cancel) using that nonce can no longer succeed.
+  NONCE_ALREADY_USED: 40_024,
+};
+
 export enum EAppSocketEvents {
   'Notification' = 'notification',
 }

@@ -50,6 +50,7 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { getLimitOrderDisplayAmounts } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
@@ -89,8 +90,22 @@ const LimitOrderDetailModal = () => {
       toAmount: new BigNumber(orderItemState?.toAmount ?? '0').shiftedBy(
         -(orderItemState?.toTokenInfo?.decimals ?? 0),
       ),
+      ...getLimitOrderDisplayAmounts({
+        executedBuyAmount: orderItemState?.executedBuyAmount,
+        executedSellAmount: orderItemState?.executedSellAmount,
+        fromAmount: orderItemState?.fromAmount,
+        fromTokenInfo: {
+          decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+        },
+        toAmount: orderItemState?.toAmount,
+        toTokenInfo: {
+          decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+        },
+      }),
     }),
     [
+      orderItemState?.executedBuyAmount,
+      orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
       orderItemState?.toAmount,
@@ -134,8 +149,8 @@ const LimitOrderDetailModal = () => {
       isNative: !!orderItemState?.toTokenInfo.isNative,
       price: orderItemState?.toTokenInfo?.price ?? '0',
     };
-    const fromAmount = decimalsAmount.fromAmount.toFixed();
-    const toAmount = decimalsAmount.toAmount.toFixed();
+    const fromAmount = decimalsAmount.displayFromAmount.toFixed();
+    const toAmount = decimalsAmount.displayToAmount.toFixed();
     return (
       <>
         <AssetItem
@@ -167,8 +182,8 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
-    decimalsAmount.fromAmount,
-    decimalsAmount.toAmount,
+    decimalsAmount.displayFromAmount,
+    decimalsAmount.displayToAmount,
     orderItemState?.fromTokenInfo.isNative,
     orderItemState?.fromTokenInfo.logoURI,
     orderItemState?.fromTokenInfo.name,

@@ -1,11 +1,29 @@
 import { memo, useCallback } from 'react';
 
-import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
-import type { ITradingViewPriceUpdateData } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import {
+  TRADING_VIEW_DISABLED_FEATURES,
+  TradingViewV2,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
+import type {
+  ITradingViewDisabledFeature,
+  ITradingViewPriceUpdateData,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTestIDs } from '../../../testIDs';
 import { useNetworkAccountAddress } from '../InformationTabs/hooks/useNetworkAccountAddress';
+
+const ENABLE_NATIVE_MARKET_CHART_CONTROLS = platformEnv.isNative;
+const MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES: readonly ITradingViewDisabledFeature[] =
+  [
+    TRADING_VIEW_DISABLED_FEATURES.TIMEFRAME_SELECTOR,
+    TRADING_VIEW_DISABLED_FEATURES.TIME_SCALE,
+    TRADING_VIEW_DISABLED_FEATURES.SETTINGS,
+    TRADING_VIEW_DISABLED_FEATURES.FULLSCREEN,
+    TRADING_VIEW_DISABLED_FEATURES.LAYOUT_TOGGLE,
+    TRADING_VIEW_DISABLED_FEATURES.DRAWING_TOOLBAR,
+  ];
 
 function normalizeChartRealtimePrice(
   price: ITradingViewPriceUpdateData['price'],
@@ -131,6 +149,12 @@ export const MarketTradingView = memo(
         onIndicatorsDialogOpenChange={onIndicatorsDialogOpenChange}
         onInteractionOverlayOpenChange={onInteractionOverlayOpenChange}
         onPriceUpdate={handlePriceUpdate}
+        disabledFeatures={
+          ENABLE_NATIVE_MARKET_CHART_CONTROLS
+            ? MARKET_NATIVE_CHART_CONTROL_DISABLED_FEATURES
+            : undefined
+        }
+        enableNativeChartControls={ENABLE_NATIVE_MARKET_CHART_CONTROLS}
       />
     );
   },

@@ -10,7 +10,6 @@ import type {
   IBackupCloudServerDownloadData,
   IBackupDataEncryptedPayload,
   IBackupProviderInfo,
-  ICloudBackupKeylessWalletPayload,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -322,40 +321,6 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async downloadKeylessWallet(params: { recordID: string }): Promise<{
-    payload: ICloudBackupKeylessWalletPayload;
-    content: string;
-  } | null> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    const result = await provider.downloadKeylessWalletData(params);
-    return result;
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async getKeylessWalletBackupRecordID(params: { packSetId: string }): Promise<{
-    recordID: string;
-    packSetId: string;
-  } | null> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    const result = await provider.getKeylessWalletBackupRecordID(params);
-    return result;
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async backupKeylessWalletData(
-    payload: ICloudBackupKeylessWalletPayload,
-  ): Promise<{ recordID: string; content: string; meta: string }> {
-    const provider = this.getProvider();
-    await provider.checkAvailability();
-    return provider.backupKeylessWalletData(payload);
-  }
-
-  @backgroundMethod()
-  @toastIfError()
   async download(params: {
     recordId: string;
   }): Promise<IBackupCloudServerDownloadData | null> {
@@ -445,7 +410,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
         isFromCloudBackupRestore: true,
       });
 
-      const { success, errorsInfo } =
+      const { success, errorsInfo, taskUUID } =
         await this.backgroundApi.servicePrimeTransfer.startImport({
           selectedTransferData,
           includingDefaultNetworks: true,
@@ -456,6 +421,7 @@ class ServiceCloudBackupV2 extends ServiceBase {
 
       await this.backgroundApi.servicePrimeTransfer.completeImportProgress({
         errorsInfo,
+        taskUUID,
       });
 
       // TODO: Implement the restore flow similar to ServicePrimeTransfer

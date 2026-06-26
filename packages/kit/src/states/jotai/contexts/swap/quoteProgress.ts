@@ -1,7 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import { selectBestQuote } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
-import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapQuoteKind,
+  type IFetchQuoteResult,
+} from '@onekeyhq/shared/types/swap/types';
 
 type ISwapActionableQuote = Pick<IFetchQuoteResult, 'toAmount'>;
 type ISwapQuoteProviderIdentity = Pick<
@@ -16,14 +19,23 @@ export type ISwapQuoteSelectionIntent = {
 type ISwapQuoteProgressInput = {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
-  quoteCurrentSelect?: ISwapActionableQuote;
+  quoteCurrentSelect?: IFetchQuoteResult;
+  previousQuote?: IFetchQuoteResult;
+  quoteEventTotalCount?: ISwapQuoteEventTotalCount;
+  quoteEventCompleted?: boolean;
+  quoteEventError?: { message?: string } | undefined;
 };
 
 type ISwapQuoteProgressState = {
   quoteLoading: boolean;
   quoteEventFetching: boolean;
   hasActionableQuote: boolean;
+  hasPreviousActionableQuote: boolean;
   isWaitingActionableQuote: boolean;
+  isInputQuoteLoading: boolean;
+  phase: ESwapQuoteUiPhase;
+  displayQuote?: IFetchQuoteResult;
+  previousQuote?: IFetchQuoteResult;
 };
 
 type ISwapQuoteEventTotalCount = {
@@ -51,6 +63,22 @@ type ISwapCurrentQuoteInput = {
   quoteEventTotalCount: ISwapQuoteEventTotalCount;
   currentEventProviderKeys: string[];
 };
+
+type ISwapPreviousQuoteInput = {
+  quotes: IFetchQuoteResult[];
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+};
+
+export enum ESwapQuoteUiPhase {
+  Idle = 'idle',
+  Waiting = 'waiting',
+  HasQuote = 'hasQuote',
+  ZeroProvider = 'zeroProvider',
+  Error = 'error',
+  StaleRefreshing = 'staleRefreshing',
+}
 
 export function buildSwapQuoteProviderKey(quote: {
   info: ISwapQuoteProviderIdentity;
@@ -153,6 +181,64 @@ export function isSwapQuoteActionable(
   return new BigNumber(quoteCurrentSelect?.toAmount ?? 0).gt(0);
 }
 
+export function isSwapQuoteInputAmountMatched({
+  quote,
+  fromAmount,
+  toAmount,
+}: {
+  quote?: Pick<IFetchQuoteResult, 'kind' | 'fromAmount' | 'toAmount'>;
+  fromAmount: string;
+  toAmount: string;
+}) {
+  if (!quote) {
+    return false;
+  }
+  if (quote.kind === ESwapQuoteKind.BUY) {
+    return quote.toAmount === toAmount;
+  }
+  return quote.fromAmount === fromAmount;
+}
+
+export function isSwapQuoteFromCurrentEvent({
+  quote,
+  quoteEventTotalCount,
+  quoteLoading,
+  quoteEventFetching,
+}: {
+  quote?: IFetchQuoteResult;
+  quoteEventTotalCount: ISwapQuoteEventTotalCount;
+  quoteLoading: boolean;
+  quoteEventFetching: boolean;
+}) {
+  if (!quote) {
+    return false;
+  }
+  if (quoteEventTotalCount.eventId) {
+    return quote.eventId === quoteEventTotalCount.eventId;
+  }
+  return !quoteLoading && !quoteEventFetching;
+}
+
+export function selectSwapPreviousActionableQuote({
+  quotes,
+  quoteEventTotalCount,
+  quoteLoading,
+  quoteEventFetching,
+}: ISwapPreviousQuoteInput) {
+  const previousQuotes = quotes.filter(
+    (quote) =>
+      isSwapQuoteActionable(quote) &&
+      !isSwapQuoteFromCurrentEvent({
+        quote,
+        quoteEventTotalCount,
+        quoteLoading,
+        quoteEventFetching,
+      }),
+  );
+
+  return selectBestQuote(previousQuotes);
+}
+
 export function selectSwapCurrentQuote({
   currentEventSortedQuotes,
   selectionIntent,
@@ -195,14 +281,71 @@ export function getSwapQuoteProgressState({
   quoteLoading,
   quoteEventFetching,
   quoteCurrentSelect,
+  previousQuote,
+  quoteEventTotalCount = { count: 0 },
+  quoteEventCompleted = false,
+  quoteEventError,
 }: ISwapQuoteProgressInput): ISwapQuoteProgressState {
-  const hasActionableQuote = isSwapQuoteActionable(quoteCurrentSelect);
+  const isCurrentQuoteForActiveEvent = isSwapQuoteFromCurrentEvent({
+    quote: quoteCurrentSelect,
+    quoteEventTotalCount,
+    quoteLoading,
+    quoteEventFetching,
+  });
+  const currentQuote = isCurrentQuoteForActiveEvent
+    ? quoteCurrentSelect
+    : undefined;
+  const fallbackPreviousQuote =
+    !isCurrentQuoteForActiveEvent && isSwapQuoteActionable(quoteCurrentSelect)
+      ? quoteCurrentSelect
+      : undefined;
+  const displayPreviousQuote = previousQuote ?? fallbackPreviousQuote;
+  const hasActionableQuote = isSwapQuoteActionable(currentQuote);
+  const hasPreviousActionableQuote =
+    isSwapQuoteActionable(displayPreviousQuote);
+  const isQuoteRequesting = quoteLoading || quoteEventFetching;
+  const hasTerminalQuoteEvent = hasSwapQuoteEventTotalCount({
+    quoteEventTotalCount,
+    quoteEventCompleted,
+  });
+  const hasCurrentQuoteFailure =
+    quoteEventCompleted && hasTerminalQuoteEvent && !hasActionableQuote;
+
+  let phase = ESwapQuoteUiPhase.Idle;
+  let displayQuote = currentQuote;
+  if (quoteEventError?.message) {
+    phase = ESwapQuoteUiPhase.Error;
+    displayQuote = undefined;
+  } else if (hasActionableQuote) {
+    phase = ESwapQuoteUiPhase.HasQuote;
+  } else if (
+    isSwapZeroProviderQuoteCompleted({
+      quoteEventTotalCount,
+      quoteEventCompleted,
+    }) ||
+    hasCurrentQuoteFailure
+  ) {
+    phase = ESwapQuoteUiPhase.ZeroProvider;
+    displayQuote = undefined;
+  } else if (isQuoteRequesting && hasPreviousActionableQuote) {
+    phase = ESwapQuoteUiPhase.StaleRefreshing;
+    displayQuote = displayPreviousQuote;
+  } else if (isQuoteRequesting) {
+    phase = ESwapQuoteUiPhase.Waiting;
+  } else if (hasPreviousActionableQuote) {
+    phase = ESwapQuoteUiPhase.HasQuote;
+    displayQuote = displayPreviousQuote;
+  }
 
   return {
     quoteLoading,
     quoteEventFetching,
     hasActionableQuote,
-    isWaitingActionableQuote:
-      quoteLoading || (quoteEventFetching && !hasActionableQuote),
+    hasPreviousActionableQuote,
+    isWaitingActionableQuote: isQuoteRequesting && !hasActionableQuote,
+    isInputQuoteLoading: phase === ESwapQuoteUiPhase.Waiting,
+    phase,
+    displayQuote,
+    previousQuote: displayPreviousQuote,
   };
 }

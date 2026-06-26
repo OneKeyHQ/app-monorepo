@@ -93,4 +93,17 @@ export class PrimeTransferScene extends BaseScene {
   public disconnectError({ stage, error }: { stage: string; error: string }) {
     return { stage, error };
   }
+
+  @LogToLocal({ level: 'error' })
+  public pairingVerifyError({
+    stage,
+    name,
+    error,
+  }: {
+    stage: string;
+    name: string;
+    error: string;
+  }) {
+    return { stage, name, error };
+  }
 }

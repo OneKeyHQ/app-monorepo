@@ -11,7 +11,7 @@
   "author": "",
   "license": "SEE https://github.com/OneKeyHQ/app-monorepo/blob/onekey/LICENSE.md",
   "dependencies": {
-    "@alephium/web3": "^1.5.2",
+    "@alephium/web3": "3.0.4",
     "@aptos-labs/siwa": "^0.4.0",
     "@aptos-labs/ts-sdk": "^1.37.0",
     "@ckb-lumos/ckb-indexer": "^0.23.0",

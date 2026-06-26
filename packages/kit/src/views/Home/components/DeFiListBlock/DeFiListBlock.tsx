@@ -15,6 +15,7 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import { EmptyDeFi } from '@onekeyhq/kit/src/components/Empty';
 import { useAllNetworkRequests } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -126,15 +127,23 @@ const ProtocolListItem = memo(
     isLast,
     protocol,
     protocolKey,
+    accountId,
+    indexedAccountId,
     registerProtocol,
     tableLayout,
+    onActionSuccess,
   }: {
     isAllNetworks?: boolean;
     isLast: boolean;
     protocol: IDeFiProtocol;
     protocolKey: string;
+    accountId?: string;
+    indexedAccountId?: string;
     registerProtocol?: (key: string, handle: IProtocolHandle | null) => void;
     tableLayout?: boolean;
+    onActionSuccess?: (
+      params: IProtocolPositionActionSuccessParams,
+    ) => void | Promise<void>;
   }) => {
     const handleProtocolRef = useCallback(
       (handle: IProtocolHandle | null) => {
@@ -147,9 +156,12 @@ const ProtocolListItem = memo(
       <YStack key={`${protocol.networkId}-${protocol.protocol}`}>
         <Protocol
           ref={registerProtocol ? handleProtocolRef : undefined}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
           protocol={protocol}
           tableLayout={tableLayout}
           isAllNetworks={isAllNetworks}
+          onActionSuccess={onActionSuccess}
         />
         {!tableLayout && !isLast ? <MobileProtocolDivider /> : null}
       </YStack>
@@ -185,6 +197,34 @@ function convertDeFiOverviewValues(
   };
 }
 
+function sortDeFiProtocolsByNetWorth({
+  protocols,
+  protocolMap,
+}: {
+  protocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+}) {
+  return protocols.toSorted((a, b) =>
+    new BigNumber(
+      protocolMap[
+        defiUtils.buildProtocolMapKey({
+          protocol: b.protocol,
+          networkId: b.networkId,
+        })
+      ]?.netWorth ?? 0,
+    ).comparedTo(
+      new BigNumber(
+        protocolMap[
+          defiUtils.buildProtocolMapKey({
+            protocol: a.protocol,
+            networkId: a.networkId,
+          })
+        ]?.netWorth ?? 0,
+      ),
+    ),
+  );
+}
+
 function DeFiListBlock({
   refreshCacheOnly = false,
   tableLayout,
@@ -207,6 +247,7 @@ function DeFiListBlock({
     updateDeFiListProtocols,
     updateDeFiListProtocolMap,
     updateDeFiListState,
+    updateDeFiListSupportedActions,
   } = useDeFiListActions().current;
 
   const { updateAccountDeFiOverview, updateOverviewDeFiDataState } =
@@ -280,6 +321,28 @@ function DeFiListBlock({
   const isDeFiEnabled = isDeFiEnabledProp ?? computedIsDeFiEnabled;
   const [isAllNetRequestsEnabled, setIsAllNetRequestsEnabled] =
     useState<boolean>(false);
+
+  usePromiseResult(
+    async () => {
+      if (refreshCacheOnly || !isDeFiEnabled) {
+        updateDeFiListSupportedActions({ supportedActions: [] });
+        return;
+      }
+
+      try {
+        const supportedActions =
+          await backgroundApiProxy.serviceDeFi.fetchSupportedDeFiProtocols();
+        updateDeFiListSupportedActions({ supportedActions });
+      } catch (error) {
+        console.error(error);
+        updateDeFiListSupportedActions({ supportedActions: [] });
+      }
+    },
+    [refreshCacheOnly, isDeFiEnabled, updateDeFiListSupportedActions],
+    {
+      overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
+    },
+  );
 
   useEffect(() => {
     const isAllNetworks = networkUtils.isAllNetwork({
@@ -383,6 +446,7 @@ function DeFiListBlock({
         const resp =
           await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
             accountId: account.id,
+            indexedAccountId: account.indexedAccountId,
             networkId: network.id,
             accountAddress: account.address,
             excludeLowValueProtocols: true,
@@ -508,6 +572,7 @@ function DeFiListBlock({
       const shouldForceInitialRefresh = !allNetworkDataInit;
       const r = await backgroundApiProxy.serviceDeFi.fetchAccountDeFiPositions({
         accountId,
+        indexedAccountId: account?.indexedAccountId,
         networkId,
         isAllNetworks: true,
         allNetworksAccountId: account?.id,
@@ -560,6 +625,7 @@ function DeFiListBlock({
     },
     [
       account?.id,
+      account?.indexedAccountId,
       network?.id,
       updateAllNetworkData,
       updateDeFiListProtocolMap,
@@ -839,6 +905,19 @@ function DeFiListBlock({
       skipAccountsCache: true,
     });
   }, [runAllNetworkRequests]);
+
+  const handleActionSuccess = useCallback(
+    async ({ accountId, networkId }: IProtocolPositionActionSuccessParams) => {
+      appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+      await backgroundApiProxy.serviceDeFi.refreshAccountDeFiPositionsAfterAction(
+        {
+          accountId,
+          networkId,
+        },
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (network?.isAllNetworks && isEmptyAccount) {
@@ -1124,7 +1203,6 @@ function DeFiListBlock({
     };
 
     const onRefresh = () => {
-      isForceRefreshRef.current = true;
       if (isFocused) {
         pendingRefreshRef.current = false;
         refresh();
@@ -1203,7 +1281,7 @@ function DeFiListBlock({
       // refreshed ones. Aggregated overview is recomputed from the merged
       // protocolMap so the header total stays in sync.
       const prefix = `${payload.networkId}-`;
-      const nextProtocols = protocolsRef.current
+      const refreshedProtocols = protocolsRef.current
         .filter((p) => p.networkId !== payload.networkId)
         .concat(payload.protocols);
 
@@ -1212,6 +1290,10 @@ function DeFiListBlock({
         if (!k.startsWith(prefix)) nextProtocolMap[k] = v;
       }
       Object.assign(nextProtocolMap, payload.protocolMap);
+      const nextProtocols = sortDeFiProtocolsByNetWorth({
+        protocols: refreshedProtocols,
+        protocolMap: nextProtocolMap,
+      });
 
       let totalValueBN = new BigNumber(0);
       let totalDebtBN = new BigNumber(0);
@@ -1342,6 +1424,7 @@ function DeFiListBlock({
 
   useEffect(() => {
     if (isHeaderRefreshing) {
+      isForceRefreshRef.current = true;
       if (network?.isAllNetworks) {
         handleRefreshAllNetworkData();
       } else {
@@ -1492,8 +1575,11 @@ function DeFiListBlock({
                 isLast={index === filteredProtocols.length - 1}
                 protocol={protocol}
                 protocolKey={protocolKey}
+                accountId={account?.id}
+                indexedAccountId={account?.indexedAccountId}
                 registerProtocol={registerProtocol}
                 tableLayout={tableLayout}
+                onActionSuccess={handleActionSuccess}
               />
             );
           })}
@@ -1530,6 +1616,8 @@ function DeFiListBlock({
     );
   }, [
     filteredProtocols,
+    account?.id,
+    account?.indexedAccountId,
     tableLayout,
     network?.isAllNetworks,
     intl,
@@ -1537,6 +1625,7 @@ function DeFiListBlock({
     isSliced,
     isProtocolListInteractionLocked,
     handleToggleSliced,
+    handleActionSuccess,
     registerProtocol,
   ]);
   const shouldShowEmptyDeFi = shouldShowDeFiEmptyState({

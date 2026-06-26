@@ -22,6 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
@@ -137,7 +138,9 @@ function HistoryListModal() {
                 });
               }}
             />
-            <Divider vertical mx="$3" />
+            {platformEnv.isNativeIOS26Plus ? null : (
+              <Divider vertical mx="$3" />
+            )}
           </>
         ) : null}
         <Button

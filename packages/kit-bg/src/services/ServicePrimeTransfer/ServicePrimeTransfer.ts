@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
   TransferInvalidCodeError,
 } from '@onekeyhq/shared/src/errors';
@@ -86,6 +87,7 @@ import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTran
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import localDb from '../../dbs/local/localDb';
+import { shouldUnwrapCredentialForPortableExport } from '../../dbs/local/localSecretEnvelope';
 import { checkIsOneKeyDomain } from '../../endpoints';
 import {
   devSettingsPersistAtom,
@@ -112,8 +114,10 @@ import e2eeClientToClientApi, {
 import { createE2EEClientToClientApiProxy } from './e2ee/e2eeClientToClientApiProxy';
 import { createE2EEServerApiProxy } from './e2ee/e2eeServerApiProxy';
 import {
+  collectAndPruneUnavailableTransferCredentials,
   filterTransferWallets,
   getCliBotWalletTransferWalletId,
+  normalizePrimeTransferCredential,
   shouldUseCliBotWalletEncryptedCredential,
 } from './servicePrimeTransferUtils';
 
@@ -1200,86 +1204,6 @@ class ServicePrimeTransfer extends ServiceBase {
     return result;
   }
 
-  /**
-   * Fix transfer direction for keyless wallet transfer.
-   * Direction should be: scanner (pairing code input side) -> scanned (QR code display side)
-   * The QR code display side is the room creator (myCreatedRoomId === pairedRoomId)
-   */
-  @backgroundMethod()
-  async fixTransferDirectionForKeylessWallet(): Promise<{
-    success: boolean;
-    message: string;
-    direction?: {
-      fromUserId: string;
-      toUserId: string;
-    };
-  }> {
-    const currentState = await primeTransferAtom.get();
-    const { pairedRoomId, myCreatedRoomId, myUserId } = currentState;
-
-    if (!pairedRoomId || !myUserId) {
-      return {
-        success: false,
-        message: 'Not in a paired room',
-      };
-    }
-
-    // Get room users
-    const roomUsers = await this.getRoomUsers({ roomId: pairedRoomId });
-    if (roomUsers.length !== 2) {
-      return {
-        success: false,
-        message: `Expected 2 users in room, got ${roomUsers.length}`,
-      };
-    }
-
-    // Find the room creator (QR code display side) - this is the toUser (receiver)
-    // The room creator is the one whose myCreatedRoomId === pairedRoomId
-    // Since we can only check our own state, we need to determine:
-    // - If I created the room, I am the receiver (toUser)
-    // - If I didn't create the room, I am the sender (fromUser)
-    const iAmRoomCreator = myCreatedRoomId === pairedRoomId;
-    const otherUser = roomUsers.find((u) => u.id !== myUserId);
-
-    if (!otherUser) {
-      return {
-        success: false,
-        message: 'Could not find the other user',
-      };
-    }
-
-    let fromUserId: string;
-    let toUserId: string;
-
-    if (iAmRoomCreator) {
-      // I created the room (QR code side), so I am the receiver
-      fromUserId = otherUser.id;
-      toUserId = myUserId;
-    } else {
-      // I joined the room (pairing code side), so I am the sender
-      fromUserId = myUserId;
-      toUserId = otherUser.id;
-    }
-
-    // Change the direction
-    await this.changeTransferDirection({
-      roomId: pairedRoomId,
-      fromUserId,
-      toUserId,
-    });
-
-    return {
-      success: true,
-      message: iAmRoomCreator
-        ? 'Fixed: I am receiver (QR code side)'
-        : 'Fixed: I am sender (pairing code side)',
-      direction: {
-        fromUserId,
-        toUserId,
-      },
-    };
-  }
-
   @backgroundMethod()
   @toastIfError()
   async getRoomUsers({
@@ -1367,6 +1291,88 @@ class ServicePrimeTransfer extends ServiceBase {
     await this.e2eeClientToClientApiProxy?.api.cancelTransfer();
   }
 
+  private async buildScopedTransferCredentials({
+    privateBackupData,
+  }: {
+    privateBackupData: IPrimeTransferPrivateData;
+  }): Promise<{
+    credentials: Record<string, string>;
+    unavailableCredentialIds: string[];
+  }> {
+    const credentialIds = new Set<string>();
+
+    Object.keys(privateBackupData.wallets).forEach((id) => {
+      credentialIds.add(id);
+    });
+    Object.keys(privateBackupData.importedAccounts).forEach((id) => {
+      credentialIds.add(id);
+    });
+
+    await Promise.all(
+      Object.values(privateBackupData.importedAccounts).map(async (account) => {
+        if (account.impl !== IMPL_TON) {
+          return;
+        }
+        const credentialId = accountUtils.buildTonMnemonicCredentialId({
+          accountId: account.id,
+        });
+        const credential = await localDb.getCredentialSafe(credentialId);
+        if (credential) {
+          credentialIds.add(credentialId);
+        }
+      }),
+    );
+
+    const unavailableCredentialIds: string[] = [];
+    const entries = await Promise.all(
+      Array.from(credentialIds).map(async (credentialId) => {
+        try {
+          const rawCredential = await localDb.getCredentialRaw(credentialId);
+          const rawPortableCredential =
+            normalizePrimeTransferCredential(rawCredential);
+          if (rawPortableCredential) {
+            return [credentialId, rawPortableCredential] as const;
+          }
+
+          if (
+            !shouldUnwrapCredentialForPortableExport(rawCredential.credential)
+          ) {
+            return undefined;
+          }
+
+          const portableCredential = normalizePrimeTransferCredential(
+            await localDb.getCredentialInner({
+              credentialId,
+            }),
+          );
+          if (!portableCredential) {
+            return undefined;
+          }
+          return [credentialId, portableCredential] as const;
+        } catch (error) {
+          // Skip credentials whose local secret envelope layer is transiently
+          // unavailable instead of aborting the whole transfer via Promise.all.
+          // The caller surfaces these for user confirmation before sending.
+          // Genuine corruption / other errors still propagate.
+          if (error instanceof LocalSecretEnvelopeUnavailable) {
+            unavailableCredentialIds.push(credentialId);
+            return undefined;
+          }
+          throw error;
+        }
+      }),
+    );
+
+    return {
+      credentials: Object.fromEntries(
+        entries.filter((entry): entry is readonly [string, string] =>
+          Boolean(entry),
+        ),
+      ),
+      unavailableCredentialIds,
+    };
+  }
+
   @backgroundMethod()
   async buildTransferData({
     isForCloudBackup,
@@ -1410,35 +1416,8 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
-    const normalizeTransferCredential = (
-      credential: { credential?: string } | string | null | undefined,
-    ) => {
-      if (typeof credential === 'string') {
-        return credential;
-      }
-      if (typeof credential?.credential === 'string') {
-        return credential.credential;
-      }
-      return undefined;
-    };
-
-    const credentials = walletIds?.length
-      ? Object.fromEntries(
-          (
-            await Promise.all(
-              filteredWallets.map(async (wallet) => [
-                wallet.id,
-                normalizeTransferCredential(
-                  await localDb.getCredential(wallet.id),
-                ),
-              ]),
-            )
-          ).filter((entry): entry is [string, string] => Boolean(entry[1])),
-        )
-      : await serviceAccount.dumpCredentials();
-
     const privateBackupData: IPrimeTransferPrivateData = {
-      credentials,
+      credentials: {},
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
@@ -1673,6 +1652,41 @@ class ServicePrimeTransfer extends ServiceBase {
       }
     }
 
+    // Always collect credentials scoped to the payload we actually built
+    // (privateBackupData), for BOTH full and scoped transfers. dumpCredentials()
+    // reads every credential in the DB, including wallets that
+    // filterTransferWallets() excluded from the payload (keyless / default bot
+    // wallets). If one of those out-of-scope credentials were transiently
+    // LSE-unavailable it would land in unavailableCredentialIds and then wrongly
+    // abort a cloud backup, or surface an out-of-scope "skipped item" in the
+    // transfer confirmation, even though it was never part of this transfer.
+    // Scoping keeps unavailableCredentialIds limited to credentials that
+    // actually enter the payload.
+    const { credentials: builtCredentials, unavailableCredentialIds } =
+      await this.buildScopedTransferCredentials({ privateBackupData });
+    privateBackupData.credentials = builtCredentials;
+
+    // Resolve labels for skipped credentials and prune the orphaned
+    // wallet/account entries so the payload stays self-consistent (no
+    // wallet/account without its credential reaches the receiver).
+    const unavailableCredentials =
+      collectAndPruneUnavailableTransferCredentials({
+        privateData: privateBackupData,
+        unavailableCredentialIds,
+      });
+
+    // Cloud backup must never silently produce a partial backup: a partial
+    // backup can overwrite a previous complete one and lose the only
+    // recoverable copy of the skipped wallet. Fail fast with a clear, retryable
+    // message (the @toastIfError-wrapped caller surfaces it). Interactive
+    // transfer instead keeps unavailableCredentials and lets the user confirm.
+    if (isForCloudBackup && unavailableCredentials.length > 0) {
+      throw new LocalSecretEnvelopeUnavailable({
+        message:
+          "Secure storage is temporarily unavailable, so some wallets can't be backed up right now. Please try again.",
+      });
+    }
+
     // fill publicData summary by aggregating from privateBackupData
     try {
       const hdWallets = Object.values(privateBackupData.wallets);
@@ -1785,6 +1799,9 @@ class ServicePrimeTransfer extends ServiceBase {
         !Object.keys(privateData?.importedAccounts || {}).length &&
         !Object.keys(privateData?.watchingAccounts || {}).length,
       ),
+      unavailableCredentials: unavailableCredentials.length
+        ? unavailableCredentials
+        : undefined,
     };
   }
 
@@ -1802,17 +1819,15 @@ class ServicePrimeTransfer extends ServiceBase {
       const entries = Object.entries(data.privateData.credentials || {});
       console.log('serviceCloudBackupV2__decryptCredentials');
       for (const [key, value] of entries) {
+        const credentialValue = normalizePrimeTransferCredential(
+          value as { credential?: string } | string,
+        );
+        if (typeof credentialValue !== 'string') {
+          throw new OneKeyLocalError(
+            `Invalid credential format for transfer: ${key}`,
+          );
+        }
         try {
-          const credentialRecord = value as { credential?: string } | string;
-          const credentialValue =
-            typeof credentialRecord === 'string'
-              ? credentialRecord
-              : credentialRecord?.credential;
-          if (typeof credentialValue !== 'string') {
-            throw new OneKeyLocalError(
-              `Invalid credential format for transfer: ${key}`,
-            );
-          }
           if (
             accountUtils.isHdWallet({ walletId: key }) ||
             accountUtils.isTonMnemonicCredentialId(key)
@@ -1830,18 +1845,10 @@ class ServicePrimeTransfer extends ServiceBase {
               });
           }
         } catch (error) {
-          /*
-          data not matched to encoding: hex
-          key: "imported--607--e205f9...355fca5--v4R2--ton_credential"
-          value: "|RP|17...918143"
-          */
           console.error('serviceCloudBackupV2__decryptCredentials__error', {
             error,
             key,
-            value:
-              typeof value === 'string'
-                ? `${value.slice(0, 10)}...${value.slice(-6)}`
-                : (JSON.stringify(value)?.slice(0, 120) ?? String(value)),
+            valueType: typeof value,
           });
           throw new OneKeyLocalError(
             `Failed to decrypt current credentials: ${key}`,
@@ -1857,18 +1864,6 @@ class ServicePrimeTransfer extends ServiceBase {
     ) {
       data.privateData.credentials = {};
     }
-  }
-
-  private normalizeTransferCredential(
-    credential: { credential?: string } | string | null | undefined,
-  ) {
-    if (typeof credential === 'string') {
-      return credential;
-    }
-    if (typeof credential?.credential === 'string') {
-      return credential.credential;
-    }
-    return undefined;
   }
 
   private async buildCliBotWalletExportInput({
@@ -1947,7 +1942,7 @@ class ServicePrimeTransfer extends ServiceBase {
     walletId: string;
     password: string;
   }) {
-    const credential = this.normalizeTransferCredential(
+    const credential = normalizePrimeTransferCredential(
       transferData.privateData.credentials?.[walletId],
     );
     if (!credential) {
@@ -2803,6 +2798,7 @@ class ServicePrimeTransfer extends ServiceBase {
   @toastIfError()
   async completeImportProgress({
     errorsInfo,
+    taskUUID,
   }: {
     errorsInfo: {
       category: string;
@@ -2811,7 +2807,17 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
   }): Promise<void> {
+    // Ownership guard: only the flow that currently owns the import task may
+    // finalize it. A duplicate/superseded flow (whose startImport was rejected by
+    // the re-entrancy guard, so it carries no matching taskUUID) must NOT run
+    // finalization here — otherwise its debounced finallyImportProgress would
+    // reset `currentImportTaskUUID` and abort the import that is actually still
+    // running, which is the root cause of the partial-import bug. See OK-56787.
+    if (!taskUUID || taskUUID !== this.currentImportTaskUUID) {
+      return;
+    }
     const startedAt = Date.now();
     await primeTransferAtom.set((prev): IPrimeTransferAtomData => {
       const stats = {
@@ -3018,7 +3024,19 @@ class ServicePrimeTransfer extends ServiceBase {
       networkInfo: string;
       error: string;
     }[];
+    taskUUID?: string;
+    skipped?: boolean;
   }> {
+    // Re-entrancy guard: reject a duplicate/concurrent import synchronously,
+    // before any await or shared-state mutation. A double-triggered UI (e.g. the
+    // remote-password dialog being submitted via both the confirm button and the
+    // input's onSubmitEditing) used to start a second startImport that overwrote
+    // `currentImportTaskUUID`, making the first (real) import loop treat itself as
+    // cancelled and stop after only a couple of wallets, silently losing data.
+    // See OK-56787.
+    if (this.currentImportTaskUUID) {
+      return { success: false, errorsInfo: [], skipped: true };
+    }
     this.batchCreateHdAccountsParams = [];
     this.currentImportFlow = isFromCloudBackupRestore
       ? 'cloudBackupRestore'
@@ -3793,6 +3811,7 @@ class ServicePrimeTransfer extends ServiceBase {
       return {
         success: true,
         errorsInfo,
+        taskUUID,
       };
     } finally {
       importedAccountDeriveTypeCache.clear();

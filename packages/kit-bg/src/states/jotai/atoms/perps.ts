@@ -562,12 +562,15 @@ export const {
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
+    const shouldUseOrderPanelEnableTradingDialog =
+      isHardwareAccount || !isSoftwareAccount;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
       canAutoEnableInOrderPanel: isSoftwareAccount,
-      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+      requiresEnableTradingDialogInOrderPanel:
+        shouldUseOrderPanelEnableTradingDialog,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -666,7 +669,7 @@ export const { target: perpsActiveAssetAtom, use: usePerpsActiveAssetAtom } =
     name: EAtomNames.perpsActiveAssetAtom,
     persist: true,
     initialValue: {
-      coin: 'ETH',
+      coin: 'xyz:NVDA',
       assetId: undefined,
       universe: undefined,
       margin: undefined,

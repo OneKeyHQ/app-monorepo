@@ -12,6 +12,8 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   onPanesCountChange?: (count: number) => void;
   disabledFeatures?: readonly ITradingViewDisabledFeature[];
   storageNamespace?: string;
+  enableNativeChartControls?: boolean;
+  enableNativeIntervalSelector?: boolean;
 }
 
 export function TradingView({
@@ -21,6 +23,8 @@ export function TradingView({
   onPanesCountChange,
   disabledFeatures,
   storageNamespace,
+  enableNativeChartControls,
+  enableNativeIntervalSelector,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
@@ -32,6 +36,8 @@ export function TradingView({
         onPanesCountChange={onPanesCountChange}
         disabledFeatures={disabledFeatures}
         storageNamespace={storageNamespace}
+        enableNativeChartControls={enableNativeChartControls}
+        enableNativeIntervalSelector={enableNativeIntervalSelector}
       />
     );
   }
