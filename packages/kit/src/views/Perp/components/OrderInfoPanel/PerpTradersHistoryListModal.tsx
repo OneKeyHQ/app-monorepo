@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -15,6 +16,11 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalPerpRoutes,
+  IModalPerpParamList,
+  IPerpHistoryTab,
+} from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpTradesHistoryViewAllUrl } from '../../hooks/usePerpOrderInfoPanel';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -24,7 +30,8 @@ import { PerpAccountList } from './List/PerpAccountList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 import { PerpTwapList } from './List/PerpTwapList';
 
-type ITabName = 'Trades' | 'Twap' | 'Account';
+import type { RouteProp } from '@react-navigation/native';
+type ITabName = IPerpHistoryTab;
 
 const HISTORY_TABS: Array<{
   name: ITabName;
@@ -81,8 +88,13 @@ function TabHeader({
 
 export function PerpTradersHistoryListModal() {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradersHistoryList>
+    >();
+  const initialTab = route.params?.initialTab ?? 'Trades';
   const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
-  const [activeTab, setActiveTab] = useState<ITabName>('Trades');
+  const [activeTab, setActiveTab] = useState<ITabName>(initialTab);
 
   useEffect(() => {
     if (activeTab === 'Account') {

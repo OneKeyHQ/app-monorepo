@@ -621,7 +621,9 @@ const ProtocolPositionActionButton = memo(
               size="small"
               {...actionButtonFrameProps}
               disabled={isActionDisabled}
-              loading={!action.disabled && submittingActionKey === actionKey}
+              loading={Boolean(
+                !action.disabled && submittingActionKey === actionKey,
+              )}
               onPress={() => void handleActionPress(action)}
             >
               {renderActionButtonLabel({

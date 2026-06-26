@@ -7,11 +7,12 @@ import type {
   IPerpTokenSelectorConfig,
   IPerpTokenSortField,
 } from '@onekeyhq/shared/types/hyperliquid';
+import { DEFAULT_PERP_TOKEN_ACTIVE_TAB } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
 import {
-  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-  DEFAULT_PERP_TOKEN_SORT_FIELD,
-} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+  getNextPerpTokenSelectorSortConfig,
+  isPerpTokenSelectorSortFieldActive,
+} from '../../utils/tokenSelectorTabs';
 
 interface ISortableHeaderCellProps {
   field: IPerpTokenSortField;
@@ -30,61 +31,40 @@ function BaseSortableHeaderCell({
 }: ISortableHeaderCellProps) {
   const [selectorConfig, setSelectorConfig] =
     usePerpTokenSelectorConfigPersistAtom();
+  const headerActiveTab =
+    selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const isCurrentFieldActive = isPerpTokenSelectorSortFieldActive({
+    activeTab: headerActiveTab,
+    field,
+    sortField: selectorConfig?.field,
+    sortSource: selectorConfig?.sortSource,
+    sortSourceTab: selectorConfig?.sortSourceTab,
+  });
 
   const handlePress = useCallback(() => {
     const previousField = selectorConfig?.field ?? '';
     const previousDirection = selectorConfig?.direction ?? '';
-    const activeTab =
+    const currentActiveTab =
       selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
-    let nextField = field;
-    let nextDirection = DEFAULT_PERP_TOKEN_SORT_DIRECTION;
-
-    if (selectorConfig?.field === field) {
-      if (selectorConfig.direction === 'asc') {
-        nextField = DEFAULT_PERP_TOKEN_SORT_FIELD;
-        nextDirection = DEFAULT_PERP_TOKEN_SORT_DIRECTION;
-      } else {
-        nextDirection = 'asc';
-      }
-    }
+    const nextConfig = getNextPerpTokenSelectorSortConfig({
+      prev: selectorConfig,
+      field,
+    });
 
     defaultLogger.perp.tokenSelector.perpTokenSelectorSortClick({
-      activeTab,
-      field: nextField,
-      direction: nextDirection,
+      activeTab: currentActiveTab,
+      field: nextConfig.field,
+      direction: nextConfig.direction,
       previousField,
       previousDirection,
     });
 
     setSelectorConfig((prev: IPerpTokenSelectorConfig | null) => {
-      if (prev?.field === field) {
-        // Same field: toggle direction, or reset to default sort if already ascending
-        if (prev.direction === 'asc') {
-          // Reset to default sort but preserve activeTab
-          return {
-            field: DEFAULT_PERP_TOKEN_SORT_FIELD,
-            direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-            activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-          };
-        }
-        // Toggle to ascending
-        return {
-          field,
-          direction: 'asc',
-          activeTab: prev.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-        };
-      }
-
-      // New field, default to descending
-      return {
-        field,
-        direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
-        activeTab: prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB,
-      };
+      return getNextPerpTokenSelectorSortConfig({ prev, field });
     });
   }, [field, selectorConfig, setSelectorConfig]);
 
-  const isActive = selectorConfig?.field === field;
+  const isActive = isCurrentFieldActive;
   let iconName: string;
   if (isActive && selectorConfig?.direction === 'asc') {
     iconName = 'ChevronTopOutline';

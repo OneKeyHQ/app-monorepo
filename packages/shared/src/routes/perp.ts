@@ -28,8 +28,12 @@ export type IPerpsDepositTokenRouteItem = {
   logoURI?: string;
 };
 
+export type IPerpHistoryTab = 'Trades' | 'Twap' | 'Account';
+
 export type IModalPerpParamList = {
-  [EModalPerpRoutes.PerpTradersHistoryList]: undefined;
+  [EModalPerpRoutes.PerpTradersHistoryList]:
+    | { initialTab?: IPerpHistoryTab }
+    | undefined;
   [EModalPerpRoutes.MobilePerpMarket]: undefined;
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
