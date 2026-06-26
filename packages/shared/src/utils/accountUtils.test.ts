@@ -1,4 +1,7 @@
 import {
+  COINTYPE_ADA,
+  COINTYPE_BTC,
+  COINTYPE_ETH,
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
 } from '../engine/engineConsts';
@@ -245,5 +248,46 @@ describe('isLocalAssetsKeyOwnedBy (orphan-cache cleanup matching)', () => {
   test('empty owner set drops everything', () => {
     expect(owns('evm--1_0xabc123', [])).toBe(false);
     expect(owns('0xabc123', [])).toBe(false);
+  });
+});
+
+describe('pickXpubFromDBAccount (address-keyed storage owner)', () => {
+  test('non-UTXO accounts have no xpub owner', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_ETH,
+        address: '0xabc',
+      }),
+    ).toBeUndefined();
+  });
+
+  test('BTC prefers spendable xpubSegwit over raw xpub', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_BTC,
+        xpub: 'xpub-legacy',
+        xpubSegwit: 'xpub-segwit',
+      }),
+    ).toBe('xpub-segwit');
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_BTC,
+        xpub: 'xpub-legacy',
+      }),
+    ).toBe('xpub-legacy');
+  });
+
+  // Regression: account selector showed "--" for Cardano because the write
+  // path (AdaVault.getXpubFromAccount) keys account value by the stake address
+  // at addresses['2/0'], but this read helper returned the raw `.xpub`, so
+  // reads/writes landed at different keys. They must agree.
+  test('Cardano keys by the stake address, not the raw xpub', () => {
+    expect(
+      accountUtils.pickXpubFromDBAccount({
+        coinType: COINTYPE_ADA,
+        xpub: 'cardano-extended-pubkey',
+        addresses: { '0/0': 'addr1q...payment', '2/0': 'stake1u...stake' },
+      }),
+    ).toBe('stake1u...stake');
   });
 });
