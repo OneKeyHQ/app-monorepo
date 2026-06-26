@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Dimensions } from 'react-native';
@@ -23,7 +23,9 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import Logo from '@onekeyhq/kit/assets/logo_round_decorated.png';
+import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useResetApp } from '@onekeyhq/kit/src/views/Setting/hooks';
+import { showExportLogsDialog } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/showExportLogsDialog';
 import { useV4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -74,6 +76,15 @@ const AppStateLock = ({
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
 
+  const handleExportLogs = useCallback(() => {
+    showExportLogsDialog({
+      title: intl.formatMessage({
+        id: ETranslations.settings_upload_state_logs,
+      }),
+      inAppStateLock: true,
+    });
+  }, [intl]);
+
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return (
@@ -108,7 +119,9 @@ const AppStateLock = ({
               height="$12"
             />
             <Stack gap="$4" alignItems="center">
-              <Image w={72} h={72} source={Logo} />
+              <MultipleClickStack onPress={handleExportLogs}>
+                <Image w={72} h={72} source={Logo} />
+              </MultipleClickStack>
               <Heading size="$headingLg" textAlign="center">
                 {intl.formatMessage({
                   id: ETranslations.login_welcome_message,
