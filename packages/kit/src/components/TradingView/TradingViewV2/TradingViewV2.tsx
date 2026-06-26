@@ -28,7 +28,11 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
-import { TradingViewNativeChartControls } from './TradingViewNativeChartControls';
+import {
+  TradingViewNativeChartControls,
+  TradingViewNativeIndicatorQuickBar,
+  useNativeIndicatorActiveValues,
+} from './TradingViewNativeChartControls';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
@@ -113,6 +117,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useState<ITradingViewIntervalConfigData | null>(null);
   const [nativeChartControlsConfig, setNativeChartControlsConfig] =
     useState<ITradingViewNativeChartControlsConfigData | null>(null);
+  const nativeIndicatorState = useNativeIndicatorActiveValues(
+    nativeChartControlsConfig?.indicators,
+  );
   const theme = useThemeVariant();
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
@@ -589,6 +596,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         <TradingViewNativeChartControls
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
+          nativeIndicatorState={nativeIndicatorState}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}
@@ -634,6 +642,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           />
         ) : null}
       </Stack>
+
+      {enableNativeChartControls ? (
+        <TradingViewNativeIndicatorQuickBar
+          nativeChartControlsConfig={nativeChartControlsConfig}
+          nativeIndicatorState={nativeIndicatorState}
+          onIndicatorSelect={handleNativeIndicatorSelect}
+        />
+      ) : null}
     </Stack>
   );
 };

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useIntl } from 'react-intl';
+import { type IntlShape, useIntl } from 'react-intl';
 
 import {
   Button,
@@ -32,6 +32,7 @@ type IChartSettingsSegmentValue = number | string;
 interface ITradingViewNativeChartControlsProps {
   intervalConfig: ITradingViewIntervalConfigData | null;
   nativeChartControlsConfig: ITradingViewNativeChartControlsConfigData | null;
+  nativeIndicatorState: ITradingViewNativeIndicatorState;
   onIntervalChange: (interval: string) => void;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
   onChartTypeChange: (chartType: number) => void;
@@ -42,6 +43,12 @@ interface ITradingViewNativeChartControlsProps {
 
 function buildIndicatorItemTestID(value: string): string {
   return `trading-view-native-indicator-item-${value
+    .replace(/[^a-zA-Z0-9_-]/g, '-')
+    .slice(0, 80)}`;
+}
+
+function buildIndicatorQuickBarItemTestID(value: string): string {
+  return `trading-view-native-indicator-quick-bar-item-${value
     .replace(/[^a-zA-Z0-9_-]/g, '-')
     .slice(0, 80)}`;
 }
@@ -78,6 +85,50 @@ function findChartTypeOption(
   return chartTypes.find((chartType) =>
     chartType.label.trim().toLowerCase().includes(keyword),
   );
+}
+
+function formatChartTypeOptionLabel(
+  intl: IntlShape,
+  chartType: ITradingViewChartTypeOption,
+) {
+  const normalizedLabel = chartType.label.trim().toLowerCase();
+  if (normalizedLabel.includes('candle')) {
+    return intl.formatMessage({ id: ETranslations.market_candle });
+  }
+  if (normalizedLabel.includes('line')) {
+    return intl.formatMessage({ id: ETranslations.market_line });
+  }
+
+  return chartType.label;
+}
+
+function formatPriceMarketCapOptionLabel(
+  intl: IntlShape,
+  option: NonNullable<
+    ITradingViewNativeChartControlsConfigData['priceMarketCap']
+  >['options'][number],
+) {
+  if (option.value === 'price') {
+    return intl.formatMessage({ id: ETranslations.global_price });
+  }
+  if (option.value === 'marketcap') {
+    return intl.formatMessage({ id: ETranslations.global_market_cap });
+  }
+
+  return option.label;
+}
+
+function formatPriceScaleOptionLabel(
+  intl: IntlShape,
+  option: NonNullable<
+    ITradingViewNativeChartControlsConfigData['priceScale']
+  >['options'][number],
+) {
+  if (option.value === 'auto') {
+    return intl.formatMessage({ id: ETranslations.global_auto });
+  }
+
+  return option.label;
 }
 
 const HEADER_ICON_BUTTON_STYLE_PROPS = {
@@ -129,6 +180,15 @@ const MAIN_CHART_INDICATOR_LABELS = ['MA', 'EMA', 'BOLL', 'SAR'];
 const MAIN_CHART_INDICATOR_LABEL_SET = new Set<string>(
   MAIN_CHART_INDICATOR_LABELS,
 );
+export const TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT = 31;
+
+export interface ITradingViewNativeIndicatorState {
+  activeIndicatorValues: Set<string>;
+  updateActiveIndicatorValue: (
+    indicatorValue: string,
+    desiredActive: boolean,
+  ) => void;
+}
 
 function getAppNativeIndicatorValue(indicator: ITradingViewIndicatorOption) {
   if (APP_NATIVE_INDICATOR_VALUE_SET.has(indicator.label)) {
@@ -157,6 +217,68 @@ function getActiveIndicatorValueSet(
     }
   });
   return activeValues;
+}
+
+function getAppNativeIndicators(activeIndicatorValues: Set<string>) {
+  return APP_NATIVE_INDICATOR_OPTIONS.map((indicator) => ({
+    ...indicator,
+    active: activeIndicatorValues.has(indicator.value),
+  }));
+}
+
+export function useNativeIndicatorActiveValues(
+  indicators: ITradingViewIndicatorOption[] | undefined,
+): ITradingViewNativeIndicatorState {
+  const [activeIndicatorValues, setActiveIndicatorValues] = useState(
+    () => new Set<string>(),
+  );
+  const pendingIndicatorActiveStateRef = useRef(new Map<string, boolean>());
+
+  useEffect(() => {
+    if (!indicators) {
+      pendingIndicatorActiveStateRef.current.clear();
+      setActiveIndicatorValues(new Set<string>());
+      return;
+    }
+
+    const activeValues = getActiveIndicatorValueSet(indicators);
+    const pendingActiveState = pendingIndicatorActiveStateRef.current;
+    pendingActiveState.forEach((desiredActive, indicatorValue) => {
+      if (activeValues.has(indicatorValue) === desiredActive) {
+        pendingActiveState.delete(indicatorValue);
+      }
+    });
+
+    pendingActiveState.forEach((desiredActive, indicatorValue) => {
+      if (desiredActive) {
+        activeValues.add(indicatorValue);
+      } else {
+        activeValues.delete(indicatorValue);
+      }
+    });
+    setActiveIndicatorValues(activeValues);
+  }, [indicators]);
+
+  const updateActiveIndicatorValue = useCallback(
+    (indicatorValue: string, desiredActive: boolean) => {
+      pendingIndicatorActiveStateRef.current.set(indicatorValue, desiredActive);
+      setActiveIndicatorValues((currentValues) => {
+        const nextValues = new Set(currentValues);
+        if (desiredActive) {
+          nextValues.add(indicatorValue);
+        } else {
+          nextValues.delete(indicatorValue);
+        }
+        return nextValues;
+      });
+    },
+    [],
+  );
+
+  return {
+    activeIndicatorValues,
+    updateActiveIndicatorValue,
+  };
 }
 
 function getIndicatorSections(indicators: ITradingViewIndicatorOption[]) {
@@ -300,6 +422,119 @@ function IndicatorSection({
   );
 }
 
+function IndicatorQuickBarItem({
+  indicator,
+  isActive,
+  onPress,
+}: {
+  indicator: ITradingViewIndicatorOption;
+  isActive: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <XStack
+      testID={buildIndicatorQuickBarItemTestID(indicator.value)}
+      h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+      alignItems="center"
+      justifyContent="center"
+      cursor="pointer"
+      userSelect="none"
+      onPress={onPress}
+    >
+      <SizableText
+        size={isActive ? '$bodySmMedium' : '$bodySm'}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+        color={isActive ? '$text' : '$textSubdued'}
+      >
+        {indicator.label}
+      </SizableText>
+    </XStack>
+  );
+}
+
+export const TradingViewNativeIndicatorQuickBar = memo(
+  ({
+    nativeChartControlsConfig,
+    nativeIndicatorState,
+    onIndicatorSelect,
+  }: Pick<
+    ITradingViewNativeChartControlsProps,
+    'nativeChartControlsConfig' | 'nativeIndicatorState' | 'onIndicatorSelect'
+  >) => {
+    const { activeIndicatorValues, updateActiveIndicatorValue } =
+      nativeIndicatorState;
+    const indicators = useMemo(
+      () => getAppNativeIndicators(activeIndicatorValues),
+      [activeIndicatorValues],
+    );
+    const { mainIndicators, subIndicators } = useMemo(
+      () => getIndicatorSections(indicators),
+      [indicators],
+    );
+    const indicatorsEnabled =
+      nativeChartControlsConfig?.indicatorsEnabled !== false;
+    const hasVisibleIndicators = Boolean(
+      nativeChartControlsConfig && indicatorsEnabled && indicators.length,
+    );
+
+    const handleIndicatorPress = useCallback(
+      (indicator: ITradingViewIndicatorOption) => {
+        const desiredActive = !activeIndicatorValues.has(indicator.value);
+        updateActiveIndicatorValue(indicator.value, desiredActive);
+        onIndicatorSelect(indicator.label, desiredActive);
+      },
+      [activeIndicatorValues, onIndicatorSelect, updateActiveIndicatorValue],
+    );
+
+    if (!hasVisibleIndicators) {
+      return null;
+    }
+
+    return (
+      <Stack
+        testID="trading-view-native-indicator-quick-bar"
+        h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+        bg="$bgApp"
+        zIndex={3}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <XStack
+            h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
+            px="$5"
+            gap="$4"
+            alignItems="center"
+          >
+            {mainIndicators.map((indicator) => (
+              <IndicatorQuickBarItem
+                key={indicator.value}
+                indicator={indicator}
+                isActive={activeIndicatorValues.has(indicator.value)}
+                onPress={() => handleIndicatorPress(indicator)}
+              />
+            ))}
+            {subIndicators.length ? (
+              <Stack h="$4" w="$px" bg="$borderSubdued" />
+            ) : null}
+            {subIndicators.map((indicator) => (
+              <IndicatorQuickBarItem
+                key={indicator.value}
+                indicator={indicator}
+                isActive={activeIndicatorValues.has(indicator.value)}
+                onPress={() => handleIndicatorPress(indicator)}
+              />
+            ))}
+          </XStack>
+        </ScrollView>
+      </Stack>
+    );
+  },
+);
+
+TradingViewNativeIndicatorQuickBar.displayName =
+  'TradingViewNativeIndicatorQuickBar';
+
 function IndicatorListDialogContent({
   indicators,
   resetLayout,
@@ -395,13 +630,17 @@ function IndicatorListDialogContent({
       <ScrollView maxHeight={320} showsVerticalScrollIndicator={false}>
         <YStack gap="$6">
           <IndicatorSection
-            title="Main-chart indicators"
+            title={intl.formatMessage({
+              id: ETranslations.market_main_chart_indicators,
+            })}
             indicators={mainIndicators}
             activeIndicatorValues={activeIndicatorValues}
             onIndicatorPress={handleIndicatorPress}
           />
           <IndicatorSection
-            title="Sub-chart indicators"
+            title={intl.formatMessage({
+              id: ETranslations.market_sub_chart_indicators,
+            })}
             indicators={subIndicators}
             activeIndicatorValues={activeIndicatorValues}
             onIndicatorPress={handleIndicatorPress}
@@ -510,6 +749,7 @@ function ChartSettingsDialogContent({
   onPriceMarketCapModeChange: (mode: ITradingViewPriceMarketCapMode) => void;
   onPriceScaleModeChange: (mode: ITradingViewPriceScaleMode) => void;
 }) {
+  const intl = useIntl();
   const [selectedChartType, setSelectedChartType] = useState(
     activeChartType ?? chartTypes[0]?.value,
   );
@@ -519,14 +759,40 @@ function ChartSettingsDialogContent({
   const [selectedPriceScaleMode, setSelectedPriceScaleMode] = useState(
     priceScale?.activeMode,
   );
+  const localizedChartTypes = useMemo(
+    () =>
+      chartTypes.map((chartType) => ({
+        ...chartType,
+        label: formatChartTypeOptionLabel(intl, chartType),
+      })),
+    [chartTypes, intl],
+  );
+  const localizedPriceMarketCapOptions = useMemo(
+    () =>
+      (priceMarketCap?.options ?? []).map((option) => ({
+        ...option,
+        label: formatPriceMarketCapOptionLabel(intl, option),
+      })),
+    [intl, priceMarketCap?.options],
+  );
+  const localizedPriceScaleOptions = useMemo(
+    () =>
+      (priceScale?.options ?? []).map((option) => ({
+        ...option,
+        label: formatPriceScaleOptionLabel(intl, option),
+      })),
+    [intl, priceScale?.options],
+  );
 
   return (
     <YStack gap="$5" pb="$2">
       {chartTypes.length ? (
-        <ChartSettingsSection title="Style">
+        <ChartSettingsSection
+          title={intl.formatMessage({ id: ETranslations.market_chart_style })}
+        >
           <ChartSettingsSegmentedControl
             testIDSection="style"
-            options={chartTypes}
+            options={localizedChartTypes}
             activeValue={selectedChartType}
             onChange={(chartType) => {
               setSelectedChartType(chartType);
@@ -537,10 +803,12 @@ function ChartSettingsDialogContent({
       ) : null}
 
       {priceMarketCap?.enabled && priceMarketCap.options.length ? (
-        <ChartSettingsSection title={priceMarketCap.label}>
+        <ChartSettingsSection
+          title={intl.formatMessage({ id: ETranslations.market_data_display })}
+        >
           <ChartSettingsSegmentedControl
             testIDSection="data"
-            options={priceMarketCap.options}
+            options={localizedPriceMarketCapOptions}
             activeValue={selectedPriceMarketCapMode}
             onChange={(mode) => {
               setSelectedPriceMarketCapMode(mode);
@@ -551,10 +819,12 @@ function ChartSettingsDialogContent({
       ) : null}
 
       {priceScale?.enabled && priceScale.options.length ? (
-        <ChartSettingsSection title={priceScale.label}>
+        <ChartSettingsSection
+          title={intl.formatMessage({ id: ETranslations.market_price_scale })}
+        >
           <ChartSettingsSegmentedControl
             testIDSection="price-scale"
-            options={priceScale.options}
+            options={localizedPriceScaleOptions}
             activeValue={selectedPriceScaleMode}
             onChange={(mode) => {
               setSelectedPriceScaleMode(mode);
@@ -571,6 +841,7 @@ export const TradingViewNativeChartControls = memo(
   ({
     intervalConfig,
     nativeChartControlsConfig,
+    nativeIndicatorState,
     onIntervalChange,
     onIndicatorSelect,
     onChartTypeChange,
@@ -578,30 +849,9 @@ export const TradingViewNativeChartControls = memo(
     onPriceScaleModeChange,
     onPriceMarketCapModeChange,
   }: ITradingViewNativeChartControlsProps) => {
-    const [activeIndicatorValues, setActiveIndicatorValues] = useState(
-      () => new Set<string>(),
-    );
-    const pendingIndicatorActiveStateRef = useRef(new Map<string, boolean>());
-    useEffect(() => {
-      const activeValues = getActiveIndicatorValueSet(
-        nativeChartControlsConfig?.indicators,
-      );
-      const pendingActiveState = pendingIndicatorActiveStateRef.current;
-      pendingActiveState.forEach((desiredActive, indicatorValue) => {
-        if (activeValues.has(indicatorValue) === desiredActive) {
-          pendingActiveState.delete(indicatorValue);
-        }
-      });
-
-      pendingActiveState.forEach((desiredActive, indicatorValue) => {
-        if (desiredActive) {
-          activeValues.add(indicatorValue);
-        } else {
-          activeValues.delete(indicatorValue);
-        }
-      });
-      setActiveIndicatorValues(activeValues);
-    }, [nativeChartControlsConfig?.indicators]);
+    const intl = useIntl();
+    const { activeIndicatorValues, updateActiveIndicatorValue } =
+      nativeIndicatorState;
     const chartTypesEnabled =
       nativeChartControlsConfig?.chartTypesEnabled !== false;
     const chartTypes = useMemo(
@@ -620,15 +870,20 @@ export const TradingViewNativeChartControls = memo(
     const activeChartType = nativeChartControlsConfig?.activeChartType;
     const isLineChartType = activeChartType === lineChartType?.value;
     const nextChartType = isLineChartType ? candleChartType : lineChartType;
+    const nextChartTypeLabel = nextChartType
+      ? formatChartTypeOptionLabel(intl, nextChartType)
+      : intl.formatMessage({ id: ETranslations.market_chart_style });
     const chartTypeToggleIcon = isLineChartType
       ? 'TradingViewLineOutline'
       : 'TradingViewCandlesOutline';
+    const indicatorsTitle = intl.formatMessage({
+      id: ETranslations.market_indicators,
+    });
+    const chartSettingsTitle = intl.formatMessage({
+      id: ETranslations.market_chart_settings,
+    });
     const indicators = useMemo(
-      () =>
-        APP_NATIVE_INDICATOR_OPTIONS.map((indicator) => ({
-          ...indicator,
-          active: activeIndicatorValues.has(indicator.value),
-        })),
+      () => getAppNativeIndicators(activeIndicatorValues),
       [activeIndicatorValues],
     );
     const indicatorsEnabled =
@@ -653,9 +908,7 @@ export const TradingViewNativeChartControls = memo(
     const hasVisibleIntervalSelector =
       getValidIntervalOptionCount(intervalConfig) > 1;
     const hasVisibleIndicators = Boolean(
-      nativeChartControlsConfig &&
-      indicatorsEnabled &&
-      APP_NATIVE_INDICATOR_OPTIONS.length,
+      nativeChartControlsConfig && indicatorsEnabled && indicators.length,
     );
     const hasVisibleControls =
       hasVisibleIntervalSelector ||
@@ -665,27 +918,15 @@ export const TradingViewNativeChartControls = memo(
 
     const handleNativeIndicatorSelect = useCallback(
       (indicatorName: string, desiredActive: boolean) => {
-        pendingIndicatorActiveStateRef.current.set(
-          indicatorName,
-          desiredActive,
-        );
-        setActiveIndicatorValues((currentValues) => {
-          const nextValues = new Set(currentValues);
-          if (desiredActive) {
-            nextValues.add(indicatorName);
-          } else {
-            nextValues.delete(indicatorName);
-          }
-          return nextValues;
-        });
+        updateActiveIndicatorValue(indicatorName, desiredActive);
         onIndicatorSelect(indicatorName, desiredActive);
       },
-      [onIndicatorSelect],
+      [onIndicatorSelect, updateActiveIndicatorValue],
     );
 
     const showIndicatorsDialog = useCallback(() => {
       Dialog.show({
-        title: 'Indicators',
+        title: indicatorsTitle,
         showFooter: false,
         testID: 'trading-view-native-indicators-dialog',
         renderContent: (
@@ -697,7 +938,13 @@ export const TradingViewNativeChartControls = memo(
           />
         ),
       });
-    }, [handleNativeIndicatorSelect, indicators, onResetLayout, resetLayout]);
+    }, [
+      handleNativeIndicatorSelect,
+      indicators,
+      indicatorsTitle,
+      onResetLayout,
+      resetLayout,
+    ]);
 
     const showChartSettingsDialog = useCallback(() => {
       if (!settingsEnabled) {
@@ -705,7 +952,7 @@ export const TradingViewNativeChartControls = memo(
       }
 
       Dialog.show({
-        title: 'Chart settings',
+        title: chartSettingsTitle,
         showFooter: false,
         testID: 'trading-view-native-chart-settings-dialog',
         renderContent: (
@@ -722,6 +969,7 @@ export const TradingViewNativeChartControls = memo(
       });
     }, [
       activeChartType,
+      chartSettingsTitle,
       chartTypes,
       onChartTypeChange,
       onPriceMarketCapModeChange,
@@ -766,7 +1014,7 @@ export const TradingViewNativeChartControls = memo(
                 variant="tertiary"
                 icon={chartTypeToggleIcon}
                 iconSize="$5"
-                title={`Switch to ${nextChartType?.label ?? 'Chart Type'}`}
+                title={nextChartTypeLabel}
                 onPress={handleChartTypeToggle}
                 {...HEADER_ICON_BUTTON_STYLE_PROPS}
               />
@@ -779,7 +1027,7 @@ export const TradingViewNativeChartControls = memo(
                 variant="tertiary"
                 icon="FunctionCustom"
                 iconSize="$5"
-                title="Indicators"
+                title={indicatorsTitle}
                 onPress={showIndicatorsDialog}
                 {...HEADER_ICON_BUTTON_STYLE_PROPS}
               />
@@ -792,7 +1040,7 @@ export const TradingViewNativeChartControls = memo(
                 variant="tertiary"
                 icon="SliderHorOutline"
                 iconSize="$5"
-                title="Chart settings"
+                title={chartSettingsTitle}
                 onPress={showChartSettingsDialog}
                 {...HEADER_ICON_BUTTON_STYLE_PROPS}
               />

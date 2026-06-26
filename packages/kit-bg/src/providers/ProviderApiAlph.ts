@@ -301,13 +301,21 @@ class ProviderApiAlph extends ProviderApiBase {
     const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    const encodedTx = {
+      type: EAlphTxType.ExecuteScript,
+      params,
+    };
+    const executeTxInfo = (await serializeUnsignedTransaction({
+      encodedTx,
+      publicKey: account.pub ?? '',
+      networkId: accountInfo?.networkId ?? '',
+      backgroundApi: this.backgroundApi,
+    })) as Omit<SignExecuteScriptTxResult, 'signature'>;
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: {
-          type: EAlphTxType.ExecuteScript,
-          params,
-        },
+        encodedTx,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
@@ -322,6 +330,7 @@ class ProviderApiAlph extends ProviderApiBase {
       networkId: accountInfo?.networkId ?? '',
     });
     const res: SignExecuteScriptTxResult = {
+      ...executeTxInfo,
       ...rawTx,
       txId: result.txid,
       gasPrice: decodedUnsignedTx.unsignedTx.gasPrice,
