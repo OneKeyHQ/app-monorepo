@@ -15,7 +15,7 @@
  *   import { getDevicePerformanceTier, calibrateDevicePerformanceTier }
  *     from '@onekeyhq/shared/src/performance/devicePerformanceTier';
  *
- *   // Synchronous — returns cached tier or 'medium' on first launch
+ *   // Synchronous — returns cached tier, or a memory-derived tier on first launch
  *   const tier = getDevicePerformanceTier();
  *
  *   // Async — call once after UI is visible to calibrate & persist
@@ -25,7 +25,7 @@
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
-import { getDeviceMemoryGB } from './deviceMemory';
+import { getDeviceMemoryGB, getDeviceMemoryGBSync } from './deviceMemory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,7 +95,8 @@ function getMemoryTier(memoryGB: number): EDevicePerformanceTier {
  *
  * - Reads from in-memory cache first (fastest)
  * - Falls back to MMKV sync storage (persisted from previous launch)
- * - Computes from device memory on first-ever launch
+ * - On first-ever launch, derives the tier synchronously from device memory
+ *   (falls back to `medium` only when memory is unavailable)
  *
  * Safe to call at any point, including during component render.
  */
@@ -117,9 +118,13 @@ export function getDevicePerformanceTier(): EDevicePerformanceTier {
     return cachedTier;
   }
 
-  // First launch — default to medium (conservative).
-  // The real tier will be calibrated after UI is visible and persisted for next launch.
-  cachedTier = EDevicePerformanceTier.medium;
+  // First launch (fresh install / cleared cache) — no calibrated tier yet.
+  // Derive a tier synchronously from device memory so low-end devices are not
+  // forced through the heavier `medium` preload queue on their very first boot.
+  // The async runtime calibration still refines and persists this for next launch.
+  const memoryGB = getDeviceMemoryGBSync();
+  cachedTier =
+    memoryGB !== null ? getMemoryTier(memoryGB) : EDevicePerformanceTier.medium;
   return cachedTier;
 }
 
