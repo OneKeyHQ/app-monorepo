@@ -5,12 +5,12 @@ import { AnimatePresence, Spinner, YStack } from '@onekeyhq/components';
 import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { IS_LOW_END_DEVICE } from '@onekeyhq/shared/src/performance/deviceMemory';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { IS_LOW_END_DEVICE } from '@onekeyhq/shared/src/utils/lowEndDevice';
 import {
   isUnlockTransition,
   shouldDeferColdStartLockRender,
-} from '@onekeyhq/shared/src/utils/lowEndDeviceUtils';
+} from '@onekeyhq/shared/src/utils/coldStartLockDecision';
 
 import PasswordVerifyContainer from '../../../components/Password/container/PasswordVerifyContainer';
 

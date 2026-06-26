@@ -1,7 +1,7 @@
 import {
   isUnlockTransition,
   shouldDeferColdStartLockRender,
-} from './lowEndDeviceUtils';
+} from './coldStartLockDecision';
 
 describe('isUnlockTransition', () => {
   it('latches only on a real locked -> unlocked transition', () => {

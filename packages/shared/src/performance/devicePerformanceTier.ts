@@ -24,9 +24,12 @@
 
 import { syncStorage } from '../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
-import { LOW_END_MEMORY_THRESHOLD_GB } from '../utils/lowEndDevice';
 
-import { getDeviceMemoryGB, getDeviceMemoryGBSync } from './deviceMemory';
+import {
+  getDeviceMemoryGB,
+  getDeviceMemoryGBSync,
+  isLowEndMemory,
+} from './deviceMemory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,10 +55,6 @@ const LOW_PERF_THRESHOLD_MS = 3000;
 // ---------------------------------------------------------------------------
 
 const HIGH_MEM_THRESHOLD_GB = 4;
-// Reuse the shared jetsam low-memory threshold so a device the cold-start guard
-// treats as low-end (e.g. iPhone 7 Plus ~3.14GB) also lands in the `low` tier
-// and is NOT pushed through the heavier `medium` preload queue.
-const LOW_MEM_THRESHOLD_GB = LOW_END_MEMORY_THRESHOLD_GB;
 
 // ---------------------------------------------------------------------------
 // Module-level cache (survives across calls within the same JS session)
@@ -84,7 +83,10 @@ function getMemoryTier(memoryGB: number): EDevicePerformanceTier {
   if (memoryGB >= HIGH_MEM_THRESHOLD_GB) {
     return EDevicePerformanceTier.high;
   }
-  if (memoryGB <= LOW_MEM_THRESHOLD_GB) {
+  // Shares the single low-memory predicate so a device the cold-start guard
+  // treats as low-end (e.g. iPhone 7 Plus ~3.14GB) also lands in the `low` tier
+  // and is NOT pushed through the heavier `medium` preload queue.
+  if (isLowEndMemory(memoryGB)) {
     return EDevicePerformanceTier.low;
   }
   return EDevicePerformanceTier.medium;

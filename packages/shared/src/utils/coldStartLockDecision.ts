@@ -1,7 +1,7 @@
-// Pure, platform-independent decision helpers for low-end-device cold-start
-// behavior. Kept separate from the `IS_LOW_END_DEVICE` constant (see
-// ./lowEndDevice.ts) so the logic is unit-testable without pulling in any
-// native memory primitive.
+// Pure, platform-independent decision helpers for the low-end-device
+// cold-start-lock defer behavior. Kept separate from the `IS_LOW_END_DEVICE`
+// constant (see ../performance/deviceMemory) so the logic is unit-testable
+// without pulling in any native memory primitive.
 
 // True only when the lock state goes locked -> unlocked, i.e. a real unlock.
 // Used to latch "this process has been unlocked once" WITHOUT being fooled by a
