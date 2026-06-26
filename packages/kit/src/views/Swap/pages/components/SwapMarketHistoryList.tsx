@@ -28,16 +28,19 @@ import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
-  EProtocolOfExchange,
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import {
   filterSwapMarketHistoryItems,
   getSwapMarketPendingHistoryKey,
+  isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 
 interface ISectionData {
@@ -66,7 +69,15 @@ const SwapMarketHistoryList = ({
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const marketPendingKey = useMemo(
-    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList, protocol),
+    () =>
+      getSwapMarketPendingHistoryKey(
+        swapHistoryPendingList,
+        // Refresh the Stock tab off the whole market bucket so stock-pending
+        // updates (which may not carry protocol === STOCK) still re-fetch.
+        protocol === EProtocolOfExchange.STOCK
+          ? EProtocolOfExchange.SWAP
+          : protocol,
+      ),
     [protocol, swapHistoryPendingList],
   );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
@@ -82,8 +93,22 @@ const SwapMarketHistoryList = ({
   const sectionData = useMemo(() => {
     let filterData = filterSwapMarketHistoryItems({
       items: swapTxHistoryList ?? [],
-      protocol,
+      // Stock tab pulls from the full market bucket then keeps only stock;
+      // other explicit protocols filter normally.
+      protocol:
+        protocol === EProtocolOfExchange.STOCK
+          ? EProtocolOfExchange.SWAP
+          : protocol,
     });
+    // Split stock vs swap when a specific market protocol is requested (the
+    // history modal's Swap & Bridge / Stock tabs). Stock is detected via the
+    // reliable token-level isStock flag. Callers without an explicit protocol
+    // (e.g. Swap Pro) keep the combined market bucket.
+    if (protocol === EProtocolOfExchange.STOCK) {
+      filterData = filterData.filter(isStockSwapHistoryItem);
+    } else if (protocol === EProtocolOfExchange.SWAP) {
+      filterData = filterData.filter((item) => !isStockSwapHistoryItem(item));
+    }
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>

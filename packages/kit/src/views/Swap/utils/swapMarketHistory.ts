@@ -67,7 +67,7 @@ export function filterSwapMarketHistoryItems({
   );
 }
 
-function getSwapMarketPendingHistoryList(
+export function getSwapMarketPendingHistoryList(
   swapHistoryPendingList: (ISwapTxHistory | null | undefined)[],
   protocol?: EProtocolOfExchange,
 ) {
