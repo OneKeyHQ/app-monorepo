@@ -180,11 +180,11 @@ const SwapHistoryListModal = ({
       limitPendingHistoryCount >
     0;
 
+  // Same key the route uses as its default header title, so opening the modal
+  // from the Swap & Bridge entry shows an identical title and does not flash
+  // from the route default to the dropdown title.
   const swapBridgeLabel = useMemo(
-    () =>
-      `${intl.formatMessage({
-        id: ETranslations.swap_page_swap,
-      })} & ${intl.formatMessage({ id: ETranslations.swap_page_bridge })}`,
+    () => intl.formatMessage({ id: ETranslations.swap_history_title }),
     [intl],
   );
 

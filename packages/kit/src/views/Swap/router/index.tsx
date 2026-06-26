@@ -67,7 +67,7 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapHistoryList,
     component: SwapHistoryListModal,
-    translationId: ETranslations.Limit_order_history,
+    translationId: ETranslations.swap_history_title,
   },
   {
     name: EModalSwapRoutes.SwapHistoryDetail,
