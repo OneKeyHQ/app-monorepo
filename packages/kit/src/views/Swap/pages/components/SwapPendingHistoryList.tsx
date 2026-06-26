@@ -20,16 +20,15 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
-  filterSwapHistoryPendingList,
   useInAppNotificationAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import { selectSwapHistoryPreviewItems } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
 import {
   EProtocolOfExchange,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
@@ -56,18 +55,6 @@ const SwapPendingHistoryListComponent = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [swapHistoryPendingList],
   );
-  const listData = useMemo(() => {
-    const swapPendingItems = filterSwapMarketHistoryItems({
-      items: filterSwapHistoryPendingList(swapHistoryPendingList),
-      protocol: EProtocolOfExchange.SWAP,
-    });
-    const pendingData = swapPendingItems.filter(
-      (item) =>
-        item.status === ESwapTxHistoryStatus.PENDING ||
-        item.status === ESwapTxHistoryStatus.CANCELING,
-    );
-    return pendingData;
-  }, [swapHistoryPendingList]);
   const filteredSwapTxHistoryList = useMemo(
     () =>
       swapTxHistoryList?.length
@@ -77,6 +64,13 @@ const SwapPendingHistoryListComponent = ({
           })
         : undefined,
     [swapTxHistoryList],
+  );
+  const listData = useMemo(
+    () =>
+      filteredSwapTxHistoryList?.length
+        ? selectSwapHistoryPreviewItems(filteredSwapTxHistoryList, 2)
+        : [],
+    [filteredSwapTxHistoryList],
   );
   const txHistoryListForDetail = useMemo(
     () =>
@@ -101,7 +95,7 @@ const SwapPendingHistoryListComponent = ({
       <XStack justifyContent="space-between" flex={1} alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.swap_history_status_pending,
+            id: ETranslations.global_history,
           })}
         </SizableText>
 
@@ -147,6 +141,7 @@ const SwapPendingHistoryListComponent = ({
           <SwapTxHistoryListCell
             key={item.swapInfo.orderId}
             item={item}
+            previewMode
             onClickCell={() => {
               navigation.pushModal(EModalRoutes.SwapModal, {
                 screen: EModalSwapRoutes.SwapHistoryDetail,
