@@ -7,8 +7,8 @@ import type { IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  useActiveTradeInstrumentAtom,
   useHyperliquidActions,
-  useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
@@ -291,7 +291,39 @@ export function TradingViewPerpsV2(
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
-  const [{ szDecimals }] = useTradingFormEnvAtom();
+  // Source szDecimals from the background symbol-meta service, keyed by the
+  // chart's own `symbol`. The global perps/spot active-asset atoms are unusable
+  // here: this component renders under PerpsProviderMirror (so those globals
+  // read null/stale), and the chart symbol can differ from the trading panel's
+  // active asset. A wrong/empty szDecimals truncated chart-line quantities to a
+  // fallback (e.g. BTC position 0.00407 shown as "0") (OK-56902, OK-56903).
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const tradeMode = activeTradeInstrument.mode;
+  const [szDecimals, setSzDecimals] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!symbol) {
+      return undefined;
+    }
+    let cancelled = false;
+    void backgroundApiProxy.serviceHyperliquid
+      .getSymbolMeta({ coin: symbol })
+      .then((meta) => {
+        if (cancelled || !meta) {
+          return;
+        }
+        const next =
+          tradeMode === 'spot'
+            ? meta.spotUniverse?.baseSzDecimals
+            : meta.universe?.szDecimals;
+        if (typeof next === 'number') {
+          setSzDecimals(next);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol, tradeMode]);
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
@@ -583,7 +615,7 @@ export function TradingViewPerpsV2(
   // Chart lines management (liquidation, position, orders)
   useChartLines({
     symbol,
-    szDecimals: szDecimals ?? 3,
+    szDecimals: szDecimals ?? 2,
     userAddress,
     webRef,
     isReady: isChartLinesReady,
