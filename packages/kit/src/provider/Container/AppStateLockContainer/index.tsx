@@ -91,12 +91,13 @@ export function AppStateLockContainer({
 }: PropsWithChildren<unknown>) {
   const [isLocked] = useAppIsLockedAtom();
 
-  // Track whether this process has ever been unlocked. On low-end iOS devices we
-  // skip rendering the full app tree behind the lock screen ONLY for a
+  // Track whether this process has ever been unlocked. On low-end native devices
+  // we skip rendering the full app tree behind the lock screen ONLY for a
   // cold-start lock (never unlocked yet) — so the single background JS thread
-  // is free to finish the 600k-iteration PBKDF2 `verifyPassword` before iOS
-  // jetsam kills the process. Once unlocked, we always render children again so
-  // an auto-lock-while-using never unmounts the user's current screen.
+  // is free to finish the 600k-iteration PBKDF2 `verifyPassword` before the OS
+  // (iOS jetsam / Android low-memory killer) kills the process. Once unlocked,
+  // we always render children again so an auto-lock-while-using never unmounts
+  // the user's current screen.
   //
   // The latch only flips on a real locked->unlocked transition (not on any
   // `isLocked === false` render) so a transient/default `false` during early
@@ -109,10 +110,11 @@ export function AppStateLockContainer({
   }
   prevLockedRef.current = isLocked;
   const deferColdStartChildren = shouldDeferColdStartLockRender({
-    // RAM-based low-end detection is also true on low-RAM Android, but the
-    // jetsam / dual-runtime PBKDF2-starvation problem this guards against is
-    // iOS-specific, so the defer behavior is gated to iOS.
-    isLowEndDevice: IS_LOW_END_DEVICE && Boolean(platformEnv.isNativeIOS),
+    // Gated to native: low-RAM iOS (jetsam) and low-RAM Android (low-memory
+    // killer) both risk an OS process kill during the cold-start lock while the
+    // single background JS thread runs the heavy PBKDF2 verifyPassword.
+    // Web/desktop have no such cold-start memory-kill pressure and are excluded.
+    isLowEndDevice: IS_LOW_END_DEVICE && Boolean(platformEnv.isNative),
     isLocked,
     hasUnlockedOnce: hasUnlockedOnceRef.current,
   });
