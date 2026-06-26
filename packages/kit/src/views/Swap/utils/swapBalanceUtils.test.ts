@@ -66,6 +66,26 @@ const evmGasInfo = {
   },
 };
 
+const btcToken = {
+  networkId: 'btc--0',
+  contractAddress: '',
+  symbol: 'BTC',
+  decimals: 8,
+  isNative: true,
+} as ISwapToken;
+
+const btcGasInfo = {
+  common: {
+    feeDecimals: 0,
+    feeSymbol: 'sat/vB',
+    nativeDecimals: 8,
+    nativeSymbol: 'BTC',
+  },
+  feeUTXO: {
+    feeRate: '1',
+  },
+};
+
 const aptosNativeAddress = '0x1::aptos_coin::AptosCoin';
 
 const aptosToken = {
@@ -173,6 +193,22 @@ describe('getSwapRequiredNativeBalanceAmount', () => {
       token: ethToken,
       amount: '0.100021',
       reserveAmount: '0.000021',
+      includesFromAmount: true,
+    });
+  });
+
+  it('adds UTXO fee-rate reserve using transaction size for native BTC swaps', () => {
+    expect(
+      getSwapRequiredNativeBalanceAmount({
+        gasInfos: [{ gasInfo: btcGasInfo, txSize: 220 }],
+        networkId: 'btc--0',
+        fromToken: btcToken,
+        fromAmount: '0.0018',
+      }),
+    ).toEqual({
+      token: btcToken,
+      amount: '0.0018022',
+      reserveAmount: '0.0000022',
       includesFromAmount: true,
     });
   });

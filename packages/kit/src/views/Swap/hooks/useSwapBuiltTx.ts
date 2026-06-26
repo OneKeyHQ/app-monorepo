@@ -143,6 +143,12 @@ const formatter: INumberFormatProps = {
   formatter: 'balance',
 };
 
+type ISwapGasFeeInfo = {
+  encodeTx: IEncodedTx;
+  gasInfo: ISwapGasInfo;
+  txSize?: number;
+};
+
 type ISwapSendTxResult = ISignedTxPro & {
   gasFeeFiatValue?: string;
   gasFeeInNative?: string;
@@ -573,7 +579,7 @@ export function useSwapBuildTx() {
       amount,
       otherFeeInfos,
     }: {
-      gasInfos?: { gasInfo?: ISwapGasInfo }[];
+      gasInfos?: { gasInfo?: ISwapGasInfo; txSize?: number }[];
       networkId?: string;
       token?: ISwapToken;
       amount?: string;
@@ -785,6 +791,7 @@ export function useSwapBuildTx() {
             feeBudget: gasInfo.feeBudget,
           },
         });
+      const txSize = updatedUnsignedTxItem.txSize ?? unsignedTxItem.txSize;
       const {
         totalNative,
         total,
@@ -794,9 +801,10 @@ export function useSwapBuildTx() {
       } = calculateFeeForSend({
         feeInfo: gasInfo as IFeeInfoUnit,
         nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+        txSize,
       });
       const checkLatestNativeBalanceRes = await checkLatestNativeTokenBalance({
-        gasInfos: [{ gasInfo }],
+        gasInfos: [{ gasInfo, txSize }],
         networkId,
         token: unsignedTxItem.swapInfo?.sender.token,
         amount: unsignedTxItem.swapInfo?.sender.amount,
@@ -1131,10 +1139,7 @@ export function useSwapBuildTx() {
   }, [goBackQrCodeModal, fromAccountId]);
 
   const findGasInfo = useCallback(
-    (
-      stepGasInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[],
-      encodedTx: IEncodedTx,
-    ) => {
+    (stepGasInfos: ISwapGasFeeInfo[], encodedTx: IEncodedTx) => {
       return stepGasInfos?.find(
         (s) =>
           isEqual(s.encodeTx, encodedTx) ||
@@ -2866,7 +2871,7 @@ export function useSwapBuildTx() {
         buildUnsignedParamsCheckNonce.prevNonce =
           approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
       }
-      let gasFeeInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[] = [];
+      let gasFeeInfos: ISwapGasFeeInfo[] = [];
       const unsignedTx =
         await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
           ...buildUnsignedParamsCheckNonce,
@@ -2929,6 +2934,7 @@ export function useSwapBuildTx() {
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx ?? {},
                 gasInfo,
+                txSize: unsignedTxItem.txSize,
               });
             }
           } catch (e: any) {
@@ -3026,6 +3032,7 @@ export function useSwapBuildTx() {
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx,
                 gasInfo: lastTxGasInfo,
+                txSize: unsignedTxItem.txSize,
               });
             } else {
               const estimateFeeParams =
@@ -3056,6 +3063,7 @@ export function useSwapBuildTx() {
               gasFeeInfos.push({
                 encodeTx: unsignedTxItem.encodedTx,
                 gasInfo: gasParseInfo,
+                txSize: unsignedTxItem.txSize,
               });
             }
           }
@@ -3092,6 +3100,7 @@ export function useSwapBuildTx() {
               {
                 encodeTx: unsignedTx.encodedTx,
                 gasInfo: gasParseInfo,
+                txSize: unsignedTx.txSize,
               },
             ];
           } catch (e: any) {
@@ -3128,6 +3137,7 @@ export function useSwapBuildTx() {
             const feeResult = calculateFeeForSend({
               feeInfo: gasInfo as IFeeInfoUnit,
               nativeTokenPrice: common?.nativeTokenPrice ?? 0,
+              txSize: item.txSize,
             });
             return feeResult.totalFiatMinForDisplay;
           }),

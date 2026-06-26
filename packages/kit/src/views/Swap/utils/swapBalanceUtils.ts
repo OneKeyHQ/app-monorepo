@@ -75,6 +75,7 @@ async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
 
 type ISwapGasInfoEntry = {
   gasInfo?: ISwapGasInfo;
+  txSize?: number;
 };
 
 type ISwapNativeBalanceRequirementParams = {
@@ -148,6 +149,7 @@ export function getSwapRequiredNativeBalanceAmount({
     const { totalNative } = calculateFeeForSend({
       feeInfo: item.gasInfo as IFeeInfoUnit,
       nativeTokenPrice: item.gasInfo.common.nativeTokenPrice ?? 0,
+      txSize: item.txSize,
     });
     const totalNativeBN = new BigNumber(totalNative);
 
