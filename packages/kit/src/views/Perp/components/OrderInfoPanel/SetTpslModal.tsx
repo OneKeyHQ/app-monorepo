@@ -115,6 +115,60 @@ function CancelOrderButton({
   );
 }
 
+function ExistingTpslOrderSummary({
+  relationLabel,
+  triggerPx,
+  pnlLabel,
+  pnlValue,
+  disabled,
+  cancelLabel,
+  onCancel,
+}: {
+  relationLabel: string;
+  triggerPx: string;
+  pnlLabel: string;
+  pnlValue: string;
+  disabled: boolean;
+  cancelLabel: string;
+  onCancel: () => void;
+}) {
+  const isNegative = pnlValue.startsWith('-');
+  const formattedPnlValue = isNegative
+    ? `-$${pnlValue.slice(1)}`
+    : `$${pnlValue}`;
+
+  return (
+    <YStack gap="$1.5" py="$1">
+      <XStack alignItems="center" justifyContent="space-between" gap="$3">
+        <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+          <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
+            {relationLabel}
+          </SizableText>
+          <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+            {triggerPx}
+          </SizableText>
+        </XStack>
+        <CancelOrderButton
+          disabled={disabled}
+          label={cancelLabel}
+          onPress={onCancel}
+        />
+      </XStack>
+      <XStack alignItems="center" justifyContent="flex-end" gap="$1.5">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {pnlLabel}
+        </SizableText>
+        <SizableText
+          size="$bodyMdMedium"
+          color={isNegative ? '$red11' : '$green11'}
+        >
+          {formattedPnlValue}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+}
+
 const SetTpslForm = memo(
   ({
     coin,
@@ -557,56 +611,22 @@ const SetTpslForm = memo(
           <Divider />
           {!tpOrder ? null : (
             <YStack gap="$1">
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_trade_tp_price,
-                  })}
-                </SizableText>
-                <XStack
-                  gap="$2"
-                  alignItems="center"
-                  justifyContent="flex-end"
-                  flex={1}
-                  ml="$4"
-                >
-                  <SizableText size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_above,
-                    })}
-                    {': '}
-                    {tpOrder.triggerPx}
-                  </SizableText>
-                  <CancelOrderButton
-                    disabled={!canSubmitForScopedAccount}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_open_orders_cancel,
-                    })}
-                    onPress={() => handleCancelOrder(tpOrder)}
-                  />
-                </XStack>
-              </XStack>
               {expectedProfit ? (
-                <SizableText
-                  size="$bodySm"
-                  alignSelf="flex-end"
-                  color="$textSubdued"
-                >
-                  {intl.formatMessage({
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_above,
+                  })}
+                  triggerPx={tpOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
                     id: ETranslations.perp_tp_sl_profit,
                   })}
-                  {': '}
-                  <SizableText
-                    size="$bodySm"
-                    color={
-                      expectedProfit.startsWith('-') ? '$red11' : '$green11'
-                    }
-                  >
-                    {expectedProfit.startsWith('-')
-                      ? `-$${expectedProfit.slice(1)}`
-                      : `$${expectedProfit}`}
-                  </SizableText>
-                </SizableText>
+                  pnlValue={expectedProfit}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(tpOrder)}
+                />
               ) : null}
             </YStack>
           )}
@@ -628,54 +648,22 @@ const SetTpslForm = memo(
           />
           {!slOrder ? null : (
             <YStack gap="$1">
-              <XStack justifyContent="space-between" alignItems="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_trade_sl_price,
-                  })}
-                </SizableText>
-                <XStack
-                  gap="$2"
-                  alignItems="center"
-                  justifyContent="flex-end"
-                  flex={1}
-                  ml="$4"
-                >
-                  <SizableText size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_below,
-                    })}
-                    {': '}
-                    {slOrder.triggerPx}
-                  </SizableText>
-                  <CancelOrderButton
-                    disabled={!canSubmitForScopedAccount}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_open_orders_cancel,
-                    })}
-                    onPress={() => handleCancelOrder(slOrder)}
-                  />
-                </XStack>
-              </XStack>
               {expectedLoss ? (
-                <SizableText
-                  size="$bodySm"
-                  alignSelf="flex-end"
-                  color="$textSubdued"
-                >
-                  {intl.formatMessage({
+                <ExistingTpslOrderSummary
+                  relationLabel={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_below,
+                  })}
+                  triggerPx={slOrder.triggerPx}
+                  pnlLabel={intl.formatMessage({
                     id: ETranslations.perp_tp_sl_loss,
                   })}
-                  {': '}
-                  <SizableText
-                    size="$bodySm"
-                    color={expectedLoss.startsWith('-') ? '$red11' : '$green11'}
-                  >
-                    {expectedLoss.startsWith('-')
-                      ? `-$${expectedLoss.slice(1)}`
-                      : `$${expectedLoss}`}
-                  </SizableText>
-                </SizableText>
+                  pnlValue={expectedLoss}
+                  disabled={!canSubmitForScopedAccount}
+                  cancelLabel={intl.formatMessage({
+                    id: ETranslations.perp_open_orders_cancel,
+                  })}
+                  onCancel={() => handleCancelOrder(slOrder)}
+                />
               ) : null}
             </YStack>
           )}

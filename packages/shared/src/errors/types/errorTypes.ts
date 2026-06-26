@@ -59,6 +59,7 @@ export enum EOneKeyErrorClassNames {
   KeylessDataCorruptedError = 'KeylessDataCorruptedError',
   LocalSecretEnvelopeUnavailable = 'LocalSecretEnvelopeUnavailable',
   WrongPassword = 'WrongPassword',
+  ReplaceTxNonceConsumed = 'ReplaceTxNonceConsumed',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

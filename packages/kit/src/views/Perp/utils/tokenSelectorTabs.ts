@@ -1,5 +1,14 @@
 import type { IPerpDynamicTab } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
-import type { IPerpTokenSortDirection } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpTokenSelectorConfig,
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid';
+import {
+  DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+  DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+  DEFAULT_PERP_TOKEN_SORT_FIELD,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 type IFixedTabNames = Record<'favorites' | 'all' | 'perps' | 'spot', string>;
 type ITokenSelectorSortValue = string | number | null | undefined;
@@ -7,6 +16,11 @@ type IPerpTokenSelectorPrimaryTabId = 'favorites' | 'perps' | 'spot';
 type IPerpTokenSelectorSortSnapshotKey = {
   field?: string;
   direction?: string;
+  sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
+};
+type IPerpTokenSelectorDynamicTabItem = {
+  tokenName?: string;
 };
 
 const PRIMARY_TAB_IDS = ['favorites', 'perps', 'spot'] as const;
@@ -140,6 +154,26 @@ function isPerpTokenSelectorPrimaryTab(tabId: string) {
   return PRIMARY_TAB_ID_SET.has(normalizeTabId(tabId));
 }
 
+function isPerpTokenSelectorDynamicTabUserSort({
+  activeTab,
+  sortSource,
+  sortSourceTab,
+}: {
+  activeTab?: string;
+  sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
+}) {
+  const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  if (isPerpTokenSelectorPrimaryTab(currentActiveTab)) {
+    return false;
+  }
+  return (
+    sortSource === 'user' &&
+    sortSourceTab !== undefined &&
+    normalizeTabId(sortSourceTab) === normalizeTabId(currentActiveTab)
+  );
+}
+
 function isMissingSortValue(value: ITokenSelectorSortValue) {
   return (
     value === null ||
@@ -231,20 +265,166 @@ function sortPerpTokenSelectorItemsByServerOrder<T>({
     .map(({ item }) => item);
 }
 
+function getPerpTokenSelectorDynamicTabItems<
+  T extends IPerpTokenSelectorDynamicTabItem,
+>({
+  items,
+  tokens,
+  useSortedItemsOrder,
+}: {
+  items: T[];
+  tokens: string[];
+  useSortedItemsOrder?: boolean;
+}) {
+  const tokenNameSet = new Set(
+    tokens.map((token) => token.trim()).filter(Boolean),
+  );
+  if (useSortedItemsOrder) {
+    return items.filter((item) => {
+      const tokenName = item.tokenName?.trim();
+      return tokenName ? tokenNameSet.has(tokenName) : false;
+    });
+  }
+
+  const itemsByTokenName = new Map<string, T[]>();
+  items.forEach((item) => {
+    const tokenName = item.tokenName?.trim();
+    if (!tokenName) {
+      return;
+    }
+    const tokenItems = itemsByTokenName.get(tokenName) ?? [];
+    tokenItems.push(item);
+    itemsByTokenName.set(tokenName, tokenItems);
+  });
+
+  const usedItems = new Set<T>();
+  return tokens.reduce<T[]>((result, token) => {
+    const tokenName = token.trim();
+    const tokenItems = tokenName ? itemsByTokenName.get(tokenName) : undefined;
+    tokenItems?.forEach((item) => {
+      if (!usedItems.has(item)) {
+        usedItems.add(item);
+        result.push(item);
+      }
+    });
+    return result;
+  }, []);
+}
+
+function isPerpTokenSelectorSortFieldActive({
+  activeTab,
+  field,
+  sortField,
+  sortSource,
+  sortSourceTab,
+}: {
+  activeTab?: string;
+  field: IPerpTokenSortField;
+  sortField?: IPerpTokenSortField;
+  sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
+}) {
+  const currentActiveTab = activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const isDynamicTab = !isPerpTokenSelectorPrimaryTab(currentActiveTab);
+  return (
+    sortField === field &&
+    (!isDynamicTab ||
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: currentActiveTab,
+        sortSource,
+        sortSourceTab,
+      }))
+  );
+}
+
+function getNextPerpTokenSelectorActiveTabConfig({
+  prev,
+  tab,
+}: {
+  prev: IPerpTokenSelectorConfig | null;
+  tab: string;
+}): IPerpTokenSelectorConfig {
+  return {
+    field: prev?.field ?? DEFAULT_PERP_TOKEN_SORT_FIELD,
+    direction: prev?.direction ?? DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+    activeTab: tab,
+    sortSource: 'default',
+    sortSourceTab: undefined,
+  };
+}
+
+function getNextPerpTokenSelectorSortConfig({
+  prev,
+  field,
+}: {
+  prev: IPerpTokenSelectorConfig | null;
+  field: IPerpTokenSortField;
+}): IPerpTokenSelectorConfig {
+  const activeTab = prev?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const isCurrentFieldActive = isPerpTokenSelectorSortFieldActive({
+    activeTab,
+    field,
+    sortField: prev?.field,
+    sortSource: prev?.sortSource,
+    sortSourceTab: prev?.sortSourceTab,
+  });
+
+  if (isCurrentFieldActive) {
+    if (prev?.direction === 'asc') {
+      return {
+        field: DEFAULT_PERP_TOKEN_SORT_FIELD,
+        direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+        activeTab,
+        sortSource: 'default',
+        sortSourceTab: undefined,
+      };
+    }
+    return {
+      field,
+      direction: 'asc',
+      activeTab,
+      sortSource: 'user',
+      sortSourceTab: activeTab,
+    };
+  }
+
+  return {
+    field,
+    direction: DEFAULT_PERP_TOKEN_SORT_DIRECTION,
+    activeTab,
+    sortSource: 'user',
+    sortSourceTab: activeTab,
+  };
+}
+
+function getPerpTokenSelectorSortAssetCtxsByDex<T>({
+  snapshotAssetCtxsByDex,
+}: {
+  snapshotAssetCtxsByDex: T;
+}) {
+  return snapshotAssetCtxsByDex;
+}
+
 function shouldRefreshPerpTokenSelectorSortSnapshot({
   lastSort,
   field,
   direction,
+  sortSource,
+  sortSourceTab,
   snapshotEmpty,
 }: {
   lastSort: IPerpTokenSelectorSortSnapshotKey | null;
   field?: string;
   direction?: string;
+  sortSource?: IPerpTokenSelectorConfig['sortSource'];
+  sortSourceTab?: IPerpTokenSelectorConfig['sortSourceTab'];
   snapshotEmpty: boolean;
 }) {
   return (
     lastSort?.field !== field ||
     lastSort?.direction !== direction ||
+    lastSort?.sortSource !== sortSource ||
+    lastSort?.sortSourceTab !== sortSourceTab ||
     snapshotEmpty
   );
 }
@@ -254,12 +434,18 @@ export {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   comparePerpTokenSelectorSortValues,
+  getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
+  getNextPerpTokenSelectorActiveTabConfig,
+  getNextPerpTokenSelectorSortConfig,
   getPerpTokenSelectorPrimaryTabId,
+  getPerpTokenSelectorSortAssetCtxsByDex,
+  isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorAllTab,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
+  isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsByServerOrder,

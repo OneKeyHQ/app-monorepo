@@ -1,10 +1,16 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/components/DeFi/ProtocolPositionActionDialog';
 import {
   type ILocalizedProtocolCategoryGroup,
+  type ILocalizedProtocolPositionItem,
   getProtocolPositionDisplayName,
 } from '@onekeyhq/kit/src/utils/defiPositionUtils';
+import type {
+  IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
+} from '@onekeyhq/shared/types/defi';
 
 import { ProtocolSectionedPositionTable } from './ProtocolSectionedPositionTable';
 import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
@@ -13,26 +19,75 @@ import { ProtocolUnifiedTable } from './ProtocolUnifiedTable';
 // reserve that column for Supplied/Borrowed/Rewards, so the pool name lives
 // beside the type badge instead.
 
+function buildActionPosition(
+  position: ILocalizedProtocolPositionItem,
+): IDeFiProtocol['positions'][number] {
+  return {
+    groupId: position.groupId,
+    category: position.category,
+    poolName: position.poolName ?? '',
+    poolFullName: position.poolFullName ?? position.poolName ?? '',
+    value: position.value,
+    assets: position.sections
+      .filter(
+        (section) =>
+          section.assetType === 'supplied' || section.assetType === 'other',
+      )
+      .flatMap((section) => section.assets),
+    debts: position.sections
+      .filter((section) => section.assetType === 'borrowed')
+      .flatMap((section) => section.assets),
+    rewards: position.sections
+      .filter((section) => section.assetType === 'rewards')
+      .flatMap((section) => section.assets),
+    sourcePositions: position.sourcePositions,
+  };
+}
+
 type IProtocolCategoryGroupProps = {
+  accountId?: string;
+  indexedAccountId?: string;
+  protocol: IDeFiProtocol;
   group: ILocalizedProtocolCategoryGroup;
   currencySymbol: string;
   priceUnavailableLabel: string;
   partialPriceUnavailableLabel: string;
+  supportedActions: IDeFiSupportedProtocolAction[];
+  onActionSuccess?: (
+    params: IProtocolPositionActionSuccessParams,
+  ) => void | Promise<void>;
 };
 
 const ProtocolCategoryGroup = memo(
   ({
+    accountId,
+    indexedAccountId,
+    protocol,
     group,
     currencySymbol,
     priceUnavailableLabel,
     partialPriceUnavailableLabel,
+    supportedActions,
+    onActionSuccess,
   }: IProtocolCategoryGroupProps) => {
+    // Memoize the per-position action models so a re-render for an unrelated
+    // prop (currency, callbacks) doesn't hand the memo()'d sectioned table a
+    // fresh `position` object and force it to re-render + re-resolve actions.
+    const sectionedActionPositions = useMemo(
+      () =>
+        group.kind === 'sectioned'
+          ? group.positions.map((position) => buildActionPosition(position))
+          : [],
+      [group],
+    );
+
     if (group.kind === 'sectioned') {
       return (
         <YStack gap="$4">
-          {group.positions.map((position) => {
+          {group.positions.map((position, index) => {
             const positionDisplayName =
               getProtocolPositionDisplayName(position);
+            const actionPosition = sectionedActionPositions[index];
 
             return (
               <YStack key={position.positionKey} gap="$2">
@@ -64,9 +119,15 @@ const ProtocolCategoryGroup = memo(
                   ) : null}
                 </XStack>
                 <ProtocolSectionedPositionTable
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  protocol={protocol}
                   position={position}
+                  actionPosition={actionPosition}
                   currencySymbol={currencySymbol}
                   priceUnavailableLabel={priceUnavailableLabel}
+                  supportedActions={supportedActions}
+                  onActionSuccess={onActionSuccess}
                 />
               </YStack>
             );
@@ -83,10 +144,15 @@ const ProtocolCategoryGroup = memo(
           </Badge>
         </YStack>
         <ProtocolUnifiedTable
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
+          protocol={protocol}
           rows={group.rows}
           currencySymbol={currencySymbol}
           priceUnavailableLabel={priceUnavailableLabel}
           partialPriceUnavailableLabel={partialPriceUnavailableLabel}
+          supportedActions={supportedActions}
+          onActionSuccess={onActionSuccess}
         />
       </YStack>
     );

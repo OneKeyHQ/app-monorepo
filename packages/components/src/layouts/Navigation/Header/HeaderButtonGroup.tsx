@@ -1,6 +1,7 @@
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import { XStack, useInGlassHeader } from '../../../primitives';
+import { XStack } from '../../../primitives';
+import { useInGlassHeader } from '../../../primitives/Button/GlassHeaderContext';
 
 export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
   const { children, ...rest } = props;

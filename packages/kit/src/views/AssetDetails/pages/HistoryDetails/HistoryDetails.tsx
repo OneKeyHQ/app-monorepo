@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -9,6 +9,7 @@ import {
   Badge,
   Button,
   Divider,
+  Icon,
   Page,
   SizableText,
   Spinner,
@@ -21,6 +22,10 @@ import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import {
+  MAX_DISPLAYED_TRANSFERS,
+  formatTransferOverflowLabel,
+} from '@onekeyhq/kit/src/components/TxAction/consts';
 import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/SpeedUpAction';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -886,6 +891,50 @@ function HistoryDetails() {
     vaultSettings?.isUtxo,
   ]);
 
+  // Cap the asset-change rows for the whole tx (sends + receives combined) so a
+  // tx that moves many assets at once (e.g. thousands of NFTs) renders at most
+  // MAX_DISPLAYED_TRANSFERS rows plus a single "+N" overflow row instead of
+  // mounting every transfer (which would freeze the page — see OK-55756). The
+  // full list remains available via the block explorer. `approve` rows are a
+  // separate, small action and are not counted toward the cap.
+  const cappedAssetChange = useMemo(() => {
+    if (!transfersToRender) {
+      return undefined;
+    }
+    const transferRows: {
+      transfer: IDecodedTxTransferInfo;
+      direction?: EDecodedTxDirection;
+    }[] = [];
+    const approves: IDecodedTxActionTokenApprove[] = [];
+    transfersToRender.forEach((block) => {
+      if (block.approve) {
+        approves.push(block.approve);
+      } else if (block.transfers) {
+        block.transfers.forEach((transfer) =>
+          transferRows.push({ transfer, direction: block.direction }),
+        );
+      }
+    });
+    // Only collapse into a "+N" row when it hides 2+ transfers — show a single
+    // trailing transfer instead. Keeps overflowCount >= 2 so the plural-only
+    // "+N assets" label stays grammatically correct (never "+1 assets").
+    const visibleCount =
+      transferRows.length > MAX_DISPLAYED_TRANSFERS + 1
+        ? MAX_DISPLAYED_TRANSFERS
+        : transferRows.length;
+    const overflowRows = transferRows.slice(visibleCount);
+    return {
+      visibleRows: transferRows.slice(0, visibleCount),
+      overflowCount: overflowRows.length,
+      // Match the overflow chip's corner to what it summarizes: NFT images use
+      // a rounded square ($2), fungible tokens use a circle ($full).
+      overflowIsNFT:
+        overflowRows.length > 0 &&
+        overflowRows.every(({ transfer }) => transfer.isNFT),
+      approves,
+    };
+  }, [transfersToRender]);
+
   const renderReplaceTxActions = useCallback(() => {
     if (!canReplaceTx && !checkSpeedUpStateEnabled) return null;
 
@@ -1276,13 +1325,53 @@ function HistoryDetails() {
       <>
         {/* Part 1: What change */}
         <Stack testID="history-details-what-assets-change">
-          {transfersToRender?.map((block) =>
-            renderAssetsChange({
-              transfers: block.transfers,
-              approve: block.approve,
-              direction: block.direction,
-            }),
+          {cappedAssetChange?.visibleRows.map(
+            ({ transfer, direction }, index) => (
+              <Fragment key={`asset-change-${index}`}>
+                {renderAssetsChange({
+                  transfers: [transfer],
+                  approve: undefined,
+                  direction,
+                })}
+              </Fragment>
+            ),
           )}
+          {cappedAssetChange && cappedAssetChange.overflowCount > 0 ? (
+            <ListItem key="asset-change-overflow">
+              <Stack
+                w="$10"
+                h="$10"
+                borderRadius={cappedAssetChange.overflowIsNFT ? '$2' : '$full'}
+                bg="$bgStrong"
+                justifyContent="center"
+                alignItems="center"
+              >
+                <Icon name="DotHorOutline" size="$7" color="$iconSubdued" />
+              </Stack>
+              <ListItem.Text
+                flexGrow={1}
+                flexBasis={0}
+                primary={formatTransferOverflowLabel({
+                  count: cappedAssetChange.overflowCount,
+                  isNFT: cappedAssetChange.overflowIsNFT,
+                  intl,
+                })}
+                primaryTextProps={{
+                  numberOfLines: 1,
+                  color: '$textSubdued',
+                }}
+              />
+            </ListItem>
+          ) : null}
+          {cappedAssetChange?.approves.map((approve, index) => (
+            <Fragment key={`asset-change-approve-${index}`}>
+              {renderAssetsChange({
+                transfers: undefined,
+                approve,
+                direction: undefined,
+              })}
+            </Fragment>
+          ))}
         </Stack>
 
         {/* Part 2: Details */}
@@ -1413,7 +1502,6 @@ function HistoryDetails() {
   }, [
     isLoading,
     historyTxParam,
-    transfersToRender,
     intl,
     renderTxStatus,
     txInfo?.date,
@@ -1436,6 +1524,7 @@ function HistoryDetails() {
     historyTx?.decodedTx.status,
     handleViewUTXOsOnPress,
     renderAssetsChange,
+    cappedAssetChange,
     kytResult,
     kytReceives,
     accountId,

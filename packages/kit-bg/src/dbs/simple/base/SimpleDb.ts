@@ -423,6 +423,15 @@ export class SimpleDb {
     return value;
   }
 
+  get addressRiskCheck() {
+    const SimpleDbEntityAddressRiskCheck = (
+      require('../entity/SimpleDbEntityAddressRiskCheck') as unknown as typeof import('../entity/SimpleDbEntityAddressRiskCheck')
+    ).SimpleDbEntityAddressRiskCheck;
+    const value = new SimpleDbEntityAddressRiskCheck();
+    Object.defineProperty(this, 'addressRiskCheck', { value });
+    return value;
+  }
+
   get addressInfo() {
     const SimpleDbEntityAddressInfo = (
       require('../entity/SimpleDbEntityAddressInfo') as unknown as typeof import('../entity/SimpleDbEntityAddressInfo')

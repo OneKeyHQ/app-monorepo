@@ -6,6 +6,7 @@ import type { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAcco
 import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import type { SimpleDbEntityAddressRiskCheck } from '../entity/SimpleDbEntityAddressRiskCheck';
 import type { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
@@ -252,6 +253,10 @@ export class SimpleDbProxy
   recentNetworks = this._createProxyService(
     'recentNetworks',
   ) as SimpleDbEntityRecentNetworks;
+
+  addressRiskCheck = this._createProxyService(
+    'addressRiskCheck',
+  ) as SimpleDbEntityAddressRiskCheck;
 
   addressInfo = this._createProxyService(
     'addressInfo',

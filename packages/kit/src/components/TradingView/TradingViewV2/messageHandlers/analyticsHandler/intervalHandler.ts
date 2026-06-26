@@ -1,5 +1,7 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
+import { normalizeTradingViewKLineInterval } from '../klineDataHandler';
+
 import type { IMessageHandlerParams } from '../types';
 
 export async function handleAnalyticsInterval({
@@ -17,6 +19,18 @@ export async function handleAnalyticsInterval({
     // Extract interval property safely
     const safeData = messageData as unknown as Record<string, unknown>;
     const interval = safeData.TVIntervalSelect as string;
+    const nextPeriod = normalizeTradingViewKLineInterval(interval);
+    const previousPeriod = context.currentKLineResolution?.current
+      ? normalizeTradingViewKLineInterval(
+          context.currentKLineResolution.current,
+        )
+      : undefined;
+    if (previousPeriod) {
+      context.onKLinePeriodChange?.({
+        fromPeriod: previousPeriod,
+        toPeriod: nextPeriod,
+      });
+    }
     if (context.onCurrentKLineResolutionChange) {
       context.onCurrentKLineResolutionChange(interval);
     } else if (context.currentKLineResolution) {

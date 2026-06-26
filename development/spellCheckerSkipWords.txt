@@ -1509,3 +1509,6 @@ openpgp
 whatwg
 IDNA
 heapstats
+
+# @mysten/sui 2.x package name
+mysten

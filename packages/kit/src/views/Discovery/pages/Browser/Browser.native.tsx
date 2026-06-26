@@ -54,6 +54,7 @@ import {
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EUniversalSearchType } from '@onekeyhq/shared/types/search';
 
 import { EarnHomeWithProvider } from '../../../Earn/EarnHome';
 import { MarketHomeWithProvider } from '../../../Market/MarketHomeV2/MarketHomeV2';
@@ -181,6 +182,10 @@ const popToDiscoveryHomePage = (depth = 0) => {
   }
 };
 
+// Stable reference so the Browser tab's universal-search scope doesn't rebuild
+// downstream memos on every render (OK-56756).
+const DAPP_ONLY_SEARCH_FILTER_TYPES = [EUniversalSearchType.Dapp];
+
 function MobileBrowser() {
   const isTabletMainView = useSplitMainView();
   const isTabletDetailView = useSplitSubView();
@@ -215,6 +220,14 @@ function MobileBrowser() {
     }
     return undefined;
   }, [selectedHeaderTab]);
+
+  // Under the Browser tab the search should only surface dapps — restrict the
+  // universal search scope so market/perp/wallet results don't leak in
+  // (OK-56756). Other header tabs keep the full-scope universal search.
+  const searchFilterTypes =
+    selectedHeaderTab === ETranslations.global_browser
+      ? DAPP_ONLY_SEARCH_FILTER_TYPES
+      : undefined;
 
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -670,6 +683,7 @@ function MobileBrowser() {
               size="medium"
               glass
               initialTab={searchInitialTab}
+              filterTypes={searchFilterTypes}
             />
           </Stack>
           <TabPageHeader

@@ -28,7 +28,6 @@ import {
   NumberSizeableText,
   Page,
   ScrollView,
-  Select,
   SizableText,
   Skeleton,
   Stack,
@@ -372,6 +371,63 @@ function getPositivePrivateSendAmount(amount?: string | number) {
   return amountBN.isFinite() && amountBN.isGreaterThan(0)
     ? amountBN.toFixed()
     : undefined;
+}
+
+function getPrivateSendQuoteProvider(quote?: IFetchQuoteResult) {
+  return (
+    quote?.info.provider || quote?.info.providerName || privateSendProvider
+  );
+}
+
+function getPrivateSendQuoteArrivalEta(quote?: IFetchQuoteResult) {
+  const arrivalEta = quote?.estimatedTime ?? quote?.estTime;
+  return typeof arrivalEta === 'string' || typeof arrivalEta === 'number'
+    ? arrivalEta
+    : undefined;
+}
+
+function buildPrivateSendQuoteAnalyticsKey({
+  scopeKey,
+  quote,
+  status,
+  message,
+}: {
+  scopeKey: string;
+  quote?: IFetchQuoteResult;
+  status: 'success' | 'failed';
+  message?: string;
+}) {
+  return [
+    scopeKey,
+    quote?.eventId ?? '',
+    getPrivateSendQuoteProvider(quote),
+    quote?.fromAmount ?? '',
+    quote?.toAmount ?? '',
+    status,
+    message ?? '',
+  ].join('|');
+}
+
+function getPrivateSendSendValue({
+  amount,
+  token,
+}: {
+  amount?: string | number;
+  token?: ISwapToken;
+}) {
+  const amountBN = new BigNumber(amount ?? 0);
+  const priceBN = new BigNumber(token?.price ?? 0);
+  if (
+    amountBN.isNaN() ||
+    priceBN.isNaN() ||
+    !amountBN.isFinite() ||
+    !priceBN.isFinite() ||
+    amountBN.isLessThan(0) ||
+    priceBN.isLessThan(0)
+  ) {
+    return undefined;
+  }
+  return amountBN.multipliedBy(priceBN).toFixed();
 }
 
 function isPositivePrivateSendAmount(amount?: string | number) {
@@ -751,7 +807,7 @@ function SendAmountInputContainer() {
   const [isUseFiat, setIsUseFiat] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMaxSend, setIsMaxSend] = useState(false);
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
@@ -790,7 +846,7 @@ function SendAmountInputContainer() {
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
-  const { account, network, vaultSettings, deriveInfo, deriveType } =
+  const { account, network, wallet, vaultSettings, deriveInfo, deriveType } =
     useAccountData({
       accountId: currentAccountId,
       networkId,
@@ -973,6 +1029,8 @@ function SendAmountInputContainer() {
   );
   const enableAllowListValidation = !isLightningNetwork;
   const [sendMode, setSendMode] = useState<ESendMode>(ESendMode.PUBLIC);
+  const trackedPrivateSendQuoteKeysRef = useRef(new Set<string>());
+  const trackedPrivateSendValueDropQuoteKeysRef = useRef(new Set<string>());
   const shouldUsePrivateSendQuoteCollapse =
     sendMode === ESendMode.PRIVATE && !media.gtMd;
   const [
@@ -1422,6 +1480,56 @@ function SendAmountInputContainer() {
       isPrivateSendQuoteLoading ||
       (canFetchPrivateSendQuote && !isPrivateSendQuoteScopeMatched));
   const privateSendQuote = scopedPrivateSendQuoteResult?.selectedQuote;
+  useEffect(() => {
+    if (
+      sendMode !== ESendMode.PRIVATE ||
+      !scopedPrivateSendQuoteResult ||
+      !privateSendToken
+    ) {
+      return;
+    }
+    const quoteMessage =
+      scopedPrivateSendQuoteResult.quoteError ??
+      scopedPrivateSendQuoteResult.selectedQuote?.errorMessage;
+    const isQuoteUsable = isPrivateSendQuoteUsable(privateSendQuote);
+    const status = isQuoteUsable && !quoteMessage ? 'success' : 'failed';
+    const message =
+      quoteMessage ??
+      (status === 'failed'
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_alert_no_provider_supports_trade,
+          })
+        : undefined);
+    const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+      scopeKey: scopedPrivateSendQuoteResult.scopeKey,
+      quote: privateSendQuote,
+      status,
+      message,
+    });
+    if (trackedPrivateSendQuoteKeysRef.current.has(analyticsKey)) {
+      return;
+    }
+    trackedPrivateSendQuoteKeysRef.current.add(analyticsKey);
+    defaultLogger.transaction.send.sendPrivateQuote({
+      status,
+      provider: getPrivateSendQuoteProvider(privateSendQuote),
+      network: privateSendToken.networkId,
+      tokenSymbol: privateSendToken.symbol,
+      receivedTokenSymbol:
+        privateSendQuote?.toTokenInfo?.symbol ?? privateSendToken.symbol,
+      sendAmount: privateSendQuote?.fromAmount ?? privateSendAmount,
+      estimatedReceived: privateSendQuote?.toAmount,
+      arrivalEta: getPrivateSendQuoteArrivalEta(privateSendQuote),
+      message,
+    });
+  }, [
+    intl,
+    privateSendAmount,
+    privateSendQuote,
+    privateSendToken,
+    scopedPrivateSendQuoteResult,
+    sendMode,
+  ]);
   const refreshPrivateSendQuote = useCallback(() => {
     if (
       !canFetchPrivateSendQuote ||
@@ -2414,6 +2522,29 @@ function SendAmountInputContainer() {
       ) {
         return true;
       }
+      if (
+        typeof valueDropPercent === 'number' &&
+        valueDropPercent >= privateSendValueDropWarningPercent
+      ) {
+        const analyticsKey = buildPrivateSendQuoteAnalyticsKey({
+          scopeKey: privateSendQuoteScopeKey,
+          quote,
+          status: 'success',
+        });
+        if (
+          !trackedPrivateSendValueDropQuoteKeysRef.current.has(analyticsKey)
+        ) {
+          trackedPrivateSendValueDropQuoteKeysRef.current.add(analyticsKey);
+          defaultLogger.transaction.send.sendPrivateValueDropWarning({
+            dropPercent: valueDropPercent,
+            provider: getPrivateSendQuoteProvider(quote),
+            network: privateSendToken?.networkId,
+            tokenSymbol: privateSendToken?.symbol,
+            receivedTokenSymbol:
+              quote.toTokenInfo?.symbol ?? privateSendToken?.symbol,
+          });
+        }
+      }
       return new Promise<boolean>((resolve) => {
         let settled = false;
         const settle = (confirmed: boolean) => {
@@ -2441,7 +2572,7 @@ function SendAmountInputContainer() {
         });
       });
     },
-    [intl],
+    [intl, privateSendQuoteScopeKey, privateSendToken],
   );
 
   onSubmitRef.current = useCallback(
@@ -2651,6 +2782,25 @@ function SendAmountInputContainer() {
             if (!confirmedValueDrop) {
               return;
             }
+            const privateSendOrderSendAmount =
+              normalizedBuildSwapRes.result.fromAmount ?? privateSendFromAmount;
+            const privateSendOrderEstimatedReceived =
+              normalizedBuildSwapRes.result.toAmount ?? privateSendToAmount;
+            defaultLogger.transaction.send.sendPrivateCreateOrder({
+              walletType: wallet?.type,
+              provider: privateSendProviderInfo.provider,
+              network: privateSendToken.networkId,
+              tokenSymbol: privateSendToken.symbol,
+              receivedTokenSymbol:
+                normalizedBuildSwapRes.result.toTokenInfo?.symbol ??
+                privateSendToken.symbol,
+              sendAmount: privateSendOrderSendAmount,
+              sendValue: getPrivateSendSendValue({
+                amount: privateSendOrderSendAmount,
+                token: privateSendToken,
+              }),
+              estimatedReceived: privateSendOrderEstimatedReceived,
+            });
 
             const transfersInfo: ITransferInfo[] = [
               {
@@ -2935,6 +3085,7 @@ function SendAmountInputContainer() {
       tokenInfo?.isNative,
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
+      wallet?.type,
       intl,
     ],
   );
@@ -3064,218 +3215,147 @@ function SendAmountInputContainer() {
     (value: string | number) => {
       const nextMode =
         value === ESendMode.PRIVATE ? ESendMode.PRIVATE : ESendMode.PUBLIC;
-      if (
-        nextMode === ESendMode.PRIVATE &&
-        platformEnv.isNative &&
-        !settings.isPrivateSendGuideClicked
-      ) {
-        setSettings((prev) => ({
-          ...prev,
-          isPrivateSendGuideClicked: true,
-        }));
+      if (nextMode !== sendMode) {
+        defaultLogger.transaction.send.sendModeSwitch({
+          fromMode: sendMode,
+          toMode: nextMode,
+          network: networkId,
+          tokenSymbol,
+        });
       }
       setSendMode(nextMode);
     },
-    [settings.isPrivateSendGuideClicked, setSettings],
+    [networkId, sendMode, tokenSymbol],
   );
 
-  const handlePrivateSendGuideClick = useCallback(() => {
-    if (settings.isPrivateSendGuideClicked) return;
-    setSettings((prev) => ({
-      ...prev,
-      isPrivateSendGuideClicked: true,
-    }));
-  }, [settings.isPrivateSendGuideClicked, setSettings]);
+  // Shared Public | Private segmented control, reused by the desktop
+  // header-right and the mobile tab band so both stay visually consistent.
+  const renderPrivateSendModeSegmented = useCallback(
+    (publicLabel: string) => {
+      const privateLabel = intl.formatMessage({
+        id: ETranslations.private_send_private_option,
+      });
+      const publicActive = sendMode === ESendMode.PUBLIC;
+      const privateActive = sendMode === ESendMode.PRIVATE;
 
-  const renderPrivateSendHeaderRight = useCallback(() => {
-    if (!showPrivateSendModeSwitch) return null;
-
-    const regularLabel = intl.formatMessage({
-      id: ETranslations.send_regular,
-    });
-    const privateLabel = intl.formatMessage({
-      id: ETranslations.private_send_private_option,
-    });
-    const isPrivateMode = sendMode === ESendMode.PRIVATE;
-
-    if (!media.gtMd) {
-      const showPrivateSendGuideDot = !settings.isPrivateSendGuideClicked;
-      return (
-        <Select
-          testID="send-private-mode-select"
-          title={intl.formatMessage({
-            id: ETranslations.private_send_select_mode_title,
-          })}
-          value={sendMode}
-          onChange={handleSendModeChange}
-          items={[
-            {
-              label: regularLabel,
-              value: ESendMode.PUBLIC,
-            },
-            {
-              label: privateLabel,
-              value: ESendMode.PRIVATE,
-            },
-          ]}
-          renderTrigger={({ onPress }) => (
-            <XStack
-              w={112}
-              h={30}
-              px="$1.5"
-              alignItems="center"
-              justifyContent="center"
-              gap="$1"
-              bg="$bgStrong"
-              borderRadius="$full"
-              borderCurve="continuous"
-              cursor="pointer"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              onPress={(event) => {
-                handlePrivateSendGuideClick();
-                if (platformEnv.isNative) {
-                  event.persist();
-                  event.stopPropagation();
-                  amountInputRef.current?.blur();
-                  void Keyboard.dismissWithDelay(80).finally(() => {
-                    onPress?.(event);
-                  });
-                  return;
-                }
-                onPress?.(event);
-              }}
-            >
-              <Icon
-                name={isPrivateMode ? 'AnonymousHiddenOutline' : 'SendOutline'}
-                size="$4"
-                color="$icon"
-              />
-              <SizableText
-                size="$bodySmMedium"
-                color="$text"
-                numberOfLines={1}
-                flexShrink={1}
-              >
-                {isPrivateMode ? privateLabel : regularLabel}
-              </SizableText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-              {showPrivateSendGuideDot ? (
-                <Stack
-                  position="absolute"
-                  top="$0.5"
-                  right="$1.5"
-                  w="$1.5"
-                  h="$1.5"
-                  borderRadius="$full"
-                  bg="$iconCritical"
-                />
-              ) : null}
-            </XStack>
-          )}
-        />
+      const renderModeButton = ({
+        active,
+        children,
+        value,
+        minWidth,
+      }: {
+        active: boolean;
+        children: React.ReactNode;
+        value: ESendMode;
+        minWidth: number;
+      }) => (
+        <XStack
+          minWidth={minWidth}
+          h={28}
+          px="$2"
+          alignItems="center"
+          justifyContent="center"
+          borderRadius="$2"
+          borderCurve="continuous"
+          cursor="pointer"
+          userSelect="none"
+          bg={active ? '$bg' : 'transparent'}
+          borderWidth={active ? 1 : 0}
+          borderColor="$borderSubdued"
+          hoverStyle={active ? undefined : { bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          onPress={() => handleSendModeChange(value)}
+        >
+          {children}
+        </XStack>
       );
-    }
 
-    const publicActive = sendMode === ESendMode.PUBLIC;
-    const privateActive = sendMode === ESendMode.PRIVATE;
+      return (
+        <XStack
+          h={32}
+          p={2}
+          alignItems="center"
+          bg="$bgStrong"
+          borderRadius="$3"
+          borderCurve="continuous"
+        >
+          {renderModeButton({
+            active: publicActive,
+            value: ESendMode.PUBLIC,
+            minWidth: 92,
+            children: (
+              <XStack alignItems="center" justifyContent="center" gap="$1">
+                <Icon
+                  name="SendOutline"
+                  size="$4"
+                  color={publicActive ? '$icon' : '$iconSubdued'}
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={publicActive ? '$text' : '$textSubdued'}
+                  numberOfLines={1}
+                >
+                  {publicLabel}
+                </SizableText>
+              </XStack>
+            ),
+          })}
+          {renderModeButton({
+            active: privateActive,
+            value: ESendMode.PRIVATE,
+            minWidth: 92,
+            children: (
+              <XStack alignItems="center" justifyContent="center" gap="$1">
+                <Icon
+                  name="AnonymousHiddenOutline"
+                  size="$4"
+                  color={privateActive ? '$icon' : '$iconSubdued'}
+                />
+                <SizableText
+                  size="$bodyMdMedium"
+                  color={privateActive ? '$text' : '$textSubdued'}
+                  numberOfLines={1}
+                >
+                  {privateLabel}
+                </SizableText>
+              </XStack>
+            ),
+          })}
+        </XStack>
+      );
+    },
+    [handleSendModeChange, intl, sendMode],
+  );
 
-    const renderModeButton = ({
-      active,
-      children,
-      value,
-      minWidth,
-    }: {
-      active: boolean;
-      children: React.ReactNode;
-      value: ESendMode;
-      minWidth: number;
-    }) => (
-      <XStack
-        minWidth={minWidth}
-        h={28}
-        px="$2"
-        alignItems="center"
-        justifyContent="center"
-        borderRadius="$2"
-        borderCurve="continuous"
-        cursor="pointer"
-        userSelect="none"
-        bg={active ? '$bg' : 'transparent'}
-        borderWidth={active ? 1 : 0}
-        borderColor="$borderSubdued"
-        hoverStyle={active ? undefined : { bg: '$bgHover' }}
-        pressStyle={{ bg: '$bgActive' }}
-        onPress={() => handleSendModeChange(value)}
-      >
-        {children}
-      </XStack>
+  // Desktop/tablet: segmented control stays in the header-right.
+  const renderPrivateSendHeaderRight = useCallback(() => {
+    if (!showPrivateSendModeSwitch || !media.gtMd) return null;
+    return renderPrivateSendModeSegmented(
+      intl.formatMessage({ id: ETranslations.send_regular }),
     );
+  }, [
+    intl,
+    media.gtMd,
+    renderPrivateSendModeSegmented,
+    showPrivateSendModeSwitch,
+  ]);
 
+  // Mobile: a directly-visible Public | Private tab pinned below the title.
+  // Rendered as a fixed band (outside the vertically-centered amount area),
+  // so the keyboard never overlaps it and the layout doesn't jump on toggle.
+  const renderPrivateSendModeBand = useCallback(() => {
+    if (!showPrivateSendModeSwitch || media.gtMd) return null;
     return (
-      <XStack
-        h={32}
-        p={2}
-        alignItems="center"
-        bg="$bgStrong"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        {renderModeButton({
-          active: publicActive,
-          value: ESendMode.PUBLIC,
-          minWidth: 92,
-          children: (
-            <XStack alignItems="center" justifyContent="center" gap="$1">
-              <Icon
-                name="SendOutline"
-                size="$4"
-                color={publicActive ? '$icon' : '$iconSubdued'}
-              />
-              <SizableText
-                size="$bodyMdMedium"
-                color={publicActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-              >
-                {regularLabel}
-              </SizableText>
-            </XStack>
-          ),
-        })}
-        {renderModeButton({
-          active: privateActive,
-          value: ESendMode.PRIVATE,
-          minWidth: 92,
-          children: (
-            <XStack alignItems="center" justifyContent="center" gap="$1">
-              <Icon
-                name="AnonymousHiddenOutline"
-                size="$4"
-                color={privateActive ? '$icon' : '$iconSubdued'}
-              />
-              <SizableText
-                size="$bodyMdMedium"
-                color={privateActive ? '$text' : '$textSubdued'}
-                numberOfLines={1}
-              >
-                {privateLabel}
-              </SizableText>
-            </XStack>
-          ),
-        })}
+      <XStack px="$5" pb="$3" justifyContent="center">
+        {renderPrivateSendModeSegmented(
+          intl.formatMessage({ id: ETranslations.send_regular }),
+        )}
       </XStack>
     );
   }, [
-    handlePrivateSendGuideClick,
-    handleSendModeChange,
     intl,
     media.gtMd,
-    sendMode,
-    settings.isPrivateSendGuideClicked,
+    renderPrivateSendModeSegmented,
     showPrivateSendModeSwitch,
   ]);
 
@@ -4298,9 +4378,9 @@ function SendAmountInputContainer() {
   }
 
   const pageTitleTranslationId =
-    sendMode === ESendMode.PRIVATE
-      ? ETranslations.private_send_private_send
-      : ETranslations.enter_amount__title;
+    !media.gtMd || sendMode !== ESendMode.PRIVATE
+      ? ETranslations.enter_amount__title
+      : ETranslations.private_send_private_send;
 
   const renderAmountFormContent = (
     <Form form={form}>
@@ -4478,6 +4558,8 @@ function SendAmountInputContainer() {
         headerRight={renderPrivateSendHeaderRight}
         headerRightNoGlass
       />
+
+      {renderPrivateSendModeBand()}
 
       {renderPageBody}
 

@@ -100,6 +100,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
+import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapProSupportNetworksTokenList } from '../../hooks/useSwapPro';
 import {
@@ -112,7 +113,12 @@ import {
   useSwapStockEstimatedReceiveState,
 } from '../../hooks/useSwapStockTradeInputs';
 import { SwapTestIDs } from '../../testIDs';
-import { getSwapMarketPendingHistoryCount } from '../../utils/swapMarketHistory';
+import {
+  type ISwapRecentTokenPair,
+  buildSwapRecentTokenPairsFromHistory,
+  getSwapMarketPendingHistoryCount,
+  getSwapMarketPendingHistoryKey,
+} from '../../utils/swapMarketHistory';
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
@@ -175,6 +181,7 @@ const STOCK_CHART_PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
 const STOCK_CHART_HOVER_TOOLTIP_WIDTH = 112;
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1140;
+const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
 
 type IStockChartHoverData = {
   time: number;
@@ -1114,6 +1121,8 @@ function StockTradeTicket({
   stockChannel,
   tradeSide,
   onTradeSideChange,
+  recentTokenPairs,
+  onSelectRecentTokenPairs,
   compact,
 }: Omit<
   ISwapStockDesktopContainerProps,
@@ -1122,6 +1131,8 @@ function StockTradeTicket({
   stockChannel: IUseSwapStockChannelReturn;
   tradeSide: ESwapStockTradeSide;
   onTradeSideChange: (value: ESwapStockTradeSide) => void;
+  recentTokenPairs: ISwapRecentTokenPair[];
+  onSelectRecentTokenPairs: (params: ISwapRecentTokenPair) => void;
   compact?: boolean;
 }) {
   const amountInputState = useSwapStockAmountInputState({ stockChannel });
@@ -1160,6 +1171,12 @@ function StockTradeTicket({
           quoteResult={quoteResult}
         />
       ) : null}
+      <SwapRecentTokenPairsGroup
+        onSelectTokenPairs={onSelectRecentTokenPairs}
+        tokenPairs={recentTokenPairs}
+        fromTokenAmount={amountInputState.inputValue}
+        visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
+      />
     </YStack>
   );
 }
@@ -1322,7 +1339,6 @@ function StockPriceChart({
   onRangeChange,
   range,
   tokenAddress,
-  tokenSymbol,
 }: {
   coinGeckoId?: string;
   isNative?: boolean;
@@ -1330,7 +1346,6 @@ function StockPriceChart({
   onRangeChange: (range: IStockChartRange) => void;
   range: IStockChartRange;
   tokenAddress?: string;
-  tokenSymbol?: string;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -1354,12 +1369,6 @@ function StockPriceChart({
     },
     [onRangeChange],
   );
-  const chartTitle = useMemo(() => {
-    const chartLabel = intl.formatMessage({
-      id: ETranslations.market_chart,
-    });
-    return tokenSymbol ? `${tokenSymbol} ${chartLabel}` : chartLabel;
-  }, [intl, tokenSymbol]);
   const activeRange = useMemo(
     () => STOCK_CHART_RANGE_ITEMS.find((item) => item.label === range),
     [range],
@@ -1590,18 +1599,9 @@ function StockPriceChart({
         pl="$5"
         pr={30}
         alignItems="center"
-        justifyContent="space-between"
+        justifyContent="flex-end"
         gap="$3"
       >
-        <SizableText
-          size="$bodyLgMedium"
-          color="$text"
-          numberOfLines={1}
-          w={180}
-          flexShrink={1}
-        >
-          {chartTitle}
-        </SizableText>
         <SegmentControl
           w={156}
           h="$5"
@@ -1756,7 +1756,6 @@ function StockMarketContextPanel({
             isNative={isNative}
             range={range}
             onRangeChange={setRange}
-            tokenSymbol={tokenDetail?.symbol}
           />
         ) : (
           <Skeleton w="100%" h={274} />
@@ -1766,6 +1765,33 @@ function StockMarketContextPanel({
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid />
     </YStack>
+  );
+}
+
+function useSwapStockRecentTokenPairs() {
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const stockPendingKey = useMemo(
+    () =>
+      getSwapMarketPendingHistoryKey(
+        swapHistoryPendingList,
+        EProtocolOfExchange.STOCK,
+      ),
+    [swapHistoryPendingList],
+  );
+  const { result: swapTxHistoryList } = usePromiseResult(async () => {
+    const histories =
+      await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+    return histories;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockPendingKey]);
+
+  return useMemo(
+    () =>
+      buildSwapRecentTokenPairsFromHistory({
+        items: swapTxHistoryList ?? [],
+        protocol: EProtocolOfExchange.STOCK,
+      }),
+    [swapTxHistoryList],
   );
 }
 
@@ -1793,6 +1819,7 @@ function SwapStockDesktopContent({
   const [{ swapHistoryPendingList, swapLimitOrders }] =
     useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
+  const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
   const swapMarketPendingHistoryCount = useMemo(
     () =>
       getSwapMarketPendingHistoryCount(
@@ -1835,6 +1862,12 @@ function SwapStockDesktopContent({
       },
     });
   }, [navigation, storeName]);
+  const handleSelectRecentStockTokenPairs = useCallback(
+    ({ fromToken, toToken }: ISwapRecentTokenPair) => {
+      void stockChannel.selectRecentTokenPair({ fromToken, toToken });
+    },
+    [stockChannel],
+  );
 
   return (
     <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
@@ -1933,6 +1966,8 @@ function SwapStockDesktopContent({
                   stockChannel={stockChannel}
                   tradeSide={stockChannel.tradeSide}
                   onTradeSideChange={handleTradeSideChange}
+                  recentTokenPairs={stockRecentTokenPairs}
+                  onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
                 />
               </YStack>
             </YStack>
@@ -1968,6 +2003,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
+  const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -1979,6 +2015,12 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       void stockChannel.switchTradeSide(nextTradeSide);
     },
     [setFromTokenAmount, setToTokenAmount, stockChannel],
+  );
+  const handleSelectRecentStockTokenPairs = useCallback(
+    ({ fromToken, toToken }: ISwapRecentTokenPair) => {
+      void stockChannel.selectRecentTokenPair({ fromToken, toToken });
+    },
+    [stockChannel],
   );
 
   return (
@@ -2016,6 +2058,8 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           stockChannel={stockChannel}
           tradeSide={stockChannel.tradeSide}
           onTradeSideChange={handleTradeSideChange}
+          recentTokenPairs={stockRecentTokenPairs}
+          onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
           compact
         />
         <YStack mt="$2">
