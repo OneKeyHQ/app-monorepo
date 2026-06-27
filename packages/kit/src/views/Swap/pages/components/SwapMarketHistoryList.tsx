@@ -68,17 +68,18 @@ const SwapMarketHistoryList = ({
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  // The Stock tab pulls from the whole market (SWAP) bucket and then keeps only
+  // stock items, because stock-pending updates may not carry protocol === STOCK.
+  // Every other protocol filters as-is. Compute it once so the refresh key and
+  // the section filter below stay in sync.
+  const effectiveProtocol =
+    protocol === EProtocolOfExchange.STOCK
+      ? EProtocolOfExchange.SWAP
+      : protocol;
   const marketPendingKey = useMemo(
     () =>
-      getSwapMarketPendingHistoryKey(
-        swapHistoryPendingList,
-        // Refresh the Stock tab off the whole market bucket so stock-pending
-        // updates (which may not carry protocol === STOCK) still re-fetch.
-        protocol === EProtocolOfExchange.STOCK
-          ? EProtocolOfExchange.SWAP
-          : protocol,
-      ),
-    [protocol, swapHistoryPendingList],
+      getSwapMarketPendingHistoryKey(swapHistoryPendingList, effectiveProtocol),
+    [effectiveProtocol, swapHistoryPendingList],
   );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
@@ -93,12 +94,7 @@ const SwapMarketHistoryList = ({
   const sectionData = useMemo(() => {
     let filterData = filterSwapMarketHistoryItems({
       items: swapTxHistoryList ?? [],
-      // Stock tab pulls from the full market bucket then keeps only stock;
-      // other explicit protocols filter normally.
-      protocol:
-        protocol === EProtocolOfExchange.STOCK
-          ? EProtocolOfExchange.SWAP
-          : protocol,
+      protocol: effectiveProtocol,
     });
     // Stock tab keeps only stock; everything else (the Swap & Bridge tab and
     // callers with no explicit protocol, e.g. Swap Pro) excludes stock so it
@@ -188,7 +184,14 @@ const SwapMarketHistoryList = ({
       ];
     }
     return result;
-  }, [filterToken, intl, protocol, showType, swapTxHistoryList]);
+  }, [
+    effectiveProtocol,
+    filterToken,
+    intl,
+    protocol,
+    showType,
+    swapTxHistoryList,
+  ]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (

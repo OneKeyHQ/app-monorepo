@@ -7,7 +7,6 @@ import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jota
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ISwapProCurrentSymbolEnableProps {
-  isFocusSwapPro?: boolean;
   isStock?: boolean;
 }
 

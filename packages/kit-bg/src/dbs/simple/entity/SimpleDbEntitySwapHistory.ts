@@ -130,19 +130,12 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       }
       return statuses ? !statuses.includes(history.status) : false;
     };
-    if (statuses) {
-      const data = await this.getRawData();
-      const histories = data?.histories ?? [];
-      const newHistories = histories.filter(shouldKeepHistory);
-      await this.setRawData({ ...data, histories: newHistories });
-    } else {
-      const data = await this.getRawData();
-      const histories = data?.histories ?? [];
-      await this.setRawData({
-        ...data,
-        histories: histories.filter(shouldKeepHistory),
-      });
-    }
+    const data = await this.getRawData();
+    const histories = data?.histories ?? [];
+    await this.setRawData({
+      ...data,
+      histories: histories.filter(shouldKeepHistory),
+    });
   }
 
   @backgroundMethod()

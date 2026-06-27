@@ -64,6 +64,11 @@ const SwapTxHistoryListCell = ({
 }: ISwapTxHistoryListCellProps) => {
   const intl = useIntl();
   const statusBadge = useMemo(() => {
+    // The preview cell renders previewBadge instead, so skip building this badge
+    // in preview mode.
+    if (previewMode) {
+      return null;
+    }
     if (item.extraStatus === ESwapExtraStatus.HOLD) {
       return (
         <Badge badgeType="warning" badgeSize="lg">
@@ -103,7 +108,7 @@ const SwapTxHistoryListCell = ({
       );
     }
     return null;
-  }, [intl, item.extraStatus, item.status]);
+  }, [intl, item.extraStatus, item.status, previewMode]);
 
   const previewBadge = useMemo(() => {
     if (!previewMode) {

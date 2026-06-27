@@ -170,7 +170,7 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.Positions ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            <SwapProCurrentSymbolEnable />
             {shouldRenderPositionsContent ? (
               <SwapProPositionsList
                 onTokenPress={onTokenPress}
@@ -190,7 +190,7 @@ const SwapProTabListContainer = memo(
               }
               flex={1}
             >
-              <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+              <SwapProCurrentSymbolEnable />
               {shouldRenderListContent ? (
                 <LimitOrderList
                   onClickCell={onOpenOrdersClick}
@@ -206,7 +206,7 @@ const SwapProTabListContainer = memo(
             display={activeTab === ETabName.SwapOrderHistory ? 'flex' : 'none'}
             flex={1}
           >
-            <SwapProCurrentSymbolEnable isFocusSwapPro={focusSwapPro} />
+            <SwapProCurrentSymbolEnable />
             {shouldRenderListContent ? (
               <XStack mx="$-6">
                 <SwapMarketHistoryList filterToken={filterToken} isPushModal />

@@ -41,6 +41,7 @@ import {
 
 import {
   filterSwapMarketHistoryItems,
+  getSwapHistoryListTitleId,
   getSwapMarketPendingHistoryKey,
   getSwapMarketPendingHistoryList,
   isStockSwapHistoryItem,
@@ -188,19 +189,10 @@ const SwapHistoryListModal = ({
     [intl],
   );
 
-  const historyTypeTitle = useMemo(() => {
-    if (historyType === EProtocolOfExchange.LIMIT) {
-      return intl.formatMessage({
-        id: ETranslations.swap_page_limit_dialog_title,
-      });
-    }
-    if (historyType === EProtocolOfExchange.STOCK) {
-      return intl.formatMessage({
-        id: ETranslations.perps_token_selector_stocks,
-      });
-    }
-    return swapBridgeLabel;
-  }, [historyType, intl, swapBridgeLabel]);
+  const historyTypeTitle = useMemo(
+    () => intl.formatMessage({ id: getSwapHistoryListTitleId(historyType) }),
+    [historyType, intl],
+  );
 
   const cleanExcludeProtocols = useMemo(
     () => [EProtocolOfExchange.LIMIT, EProtocolOfExchange.PRIVATE_SEND],

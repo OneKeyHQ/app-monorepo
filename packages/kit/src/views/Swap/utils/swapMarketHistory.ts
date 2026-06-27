@@ -1,6 +1,7 @@
 import orderBy from 'lodash/orderBy';
 
 import { filterSwapHistoryPendingList } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -34,6 +35,20 @@ export function isStockSwapHistoryItem(item: ISwapTxHistory): boolean {
     item.baseInfo?.fromToken?.isStock ||
     item.baseInfo?.toToken?.isStock,
   );
+}
+
+// Maps a swap-history type to its modal title translation id. Shared by the
+// history modal header and its lazy-load fallback so the two never drift.
+export function getSwapHistoryListTitleId(
+  type?: EProtocolOfExchange,
+): ETranslations {
+  if (type === EProtocolOfExchange.STOCK) {
+    return ETranslations.perps_token_selector_stocks;
+  }
+  if (type === EProtocolOfExchange.LIMIT) {
+    return ETranslations.swap_page_limit_dialog_title;
+  }
+  return ETranslations.swap_history_title;
 }
 
 function matchSwapMarketHistoryProtocol({
