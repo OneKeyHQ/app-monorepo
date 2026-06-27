@@ -62,6 +62,14 @@ class ServiceDevSetting extends ServiceBase {
       enabled: isOpen,
       settings: isOpen ? prev.settings : {},
     }));
+    if (!isOpen) {
+      await globalThis.desktopApiProxy?.dev
+        ?.setNetworkThrottle?.({
+          enabled: false,
+          profile: 'slow4g',
+        })
+        ?.catch(() => undefined);
+    }
     void this.saveDevModeToSyncStorage();
     void this.syncCryptoSettings();
   }

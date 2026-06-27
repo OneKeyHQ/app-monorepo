@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -434,7 +435,7 @@ function TradingViewKLineEmptyMockIntervalsDialogContent({
 
 const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
-  const [devSettings] = useDevSettingsPersistAtom();
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
@@ -457,12 +458,63 @@ const BaseDevSettingsSection = () => {
   const mockTradingViewKLineEmptySubtitle = mockTradingViewKLineEmptyEnabled
     ? mockTradingViewKLineEmptyIntervalsText
     : '已关闭';
+  const desktopNetworkThrottleEnabled =
+    devSettings.settings?.desktopNetworkThrottleEnabled ?? false;
+
+  useEffect(() => {
+    if (!platformEnv.isDesktop) {
+      return;
+    }
+    void globalThis.desktopApiProxy?.dev
+      ?.getNetworkThrottle?.()
+      .then((config) => {
+        const enabled = !!config.enabled;
+        setDevSettings((prev) => {
+          if (prev.settings?.desktopNetworkThrottleEnabled === enabled) {
+            return prev;
+          }
+          return {
+            ...prev,
+            settings: {
+              ...prev.settings,
+              desktopNetworkThrottleEnabled: enabled,
+            },
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [setDevSettings]);
+
+  const handleDesktopNetworkThrottleChange = useCallback(
+    async (enabled: boolean) => {
+      try {
+        await globalThis.desktopApiProxy.dev.setNetworkThrottle({
+          enabled,
+          profile: 'slow4g',
+        });
+        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+          'desktopNetworkThrottleEnabled',
+          enabled,
+        );
+        Toast.success({
+          title: enabled
+            ? 'Desktop Slow 4G enabled'
+            : 'Desktop network throttle disabled',
+        });
+      } catch {
+        Toast.error({
+          title: 'Failed to update desktop network throttle',
+        });
+      }
+    },
+    [],
+  );
 
   const handleDevModeOnChange = useCallback(() => {
     Dialog.show({
       title: '关闭开发者模式',
-      onConfirm: () => {
-        void backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+      onConfirm: async () => {
+        await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
         if (platformEnv.isDesktop) {
           void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
         }
@@ -653,7 +705,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Network Throttle 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1039,6 +1091,26 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
+
+                      {platformEnv.isDesktop ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Desktop Slow 4G Network Throttle"
+                          subtitle={
+                            desktopNetworkThrottleEnabled
+                              ? 'Slow 4G enabled: 562.5ms / 180000 Bps down / 84375 Bps up'
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Desktop Slow 4G Network Throttle weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={desktopNetworkThrottleEnabled}
+                            onChange={handleDesktopNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
 
                       <SectionPressItem
                         icon="ShieldKeyholeOutline"
