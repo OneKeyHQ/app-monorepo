@@ -1,5 +1,8 @@
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapExtraStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   getSwapHistoryPreviewBadgeKind,
@@ -11,9 +14,11 @@ function makeItem(p: {
   status: ESwapTxHistoryStatus;
   created: number;
   previewReadAt?: number;
+  extraStatus?: ESwapExtraStatus;
 }): ISwapTxHistory {
   return {
     status: p.status,
+    extraStatus: p.extraStatus,
     previewReadAt: p.previewReadAt,
     date: { created: p.created, updated: p.created },
   } as unknown as ISwapTxHistory;
@@ -55,6 +60,17 @@ describe('swapHistoryPreviewUtils', () => {
           }),
         ),
       ).toBe('none');
+      // HOLD needs user attention and must win over a non-terminal status
+      // (otherwise it would render as a generic blue "Pending").
+      expect(
+        getSwapHistoryPreviewBadgeKind(
+          makeItem({
+            status: ESwapTxHistoryStatus.PENDING,
+            created: 1,
+            extraStatus: ESwapExtraStatus.HOLD,
+          }),
+        ),
+      ).toBe('hold');
     });
   });
 

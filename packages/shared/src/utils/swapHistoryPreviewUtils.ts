@@ -1,5 +1,8 @@
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapExtraStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 // Terminal (finished) swap-history statuses. Anything not in this set is
 // treated as "in-flight" by the preview module (PENDING / CANCELING /
@@ -21,14 +24,19 @@ export type ISwapHistoryPreviewBadgeKind =
   | 'pending'
   | 'failed'
   | 'canceled'
+  | 'hold'
   | 'none';
 
 // Which status badge the preview module shows for an item.
-// in-flight -> blue "Pending"; FAILED -> red; CANCELED -> gray;
+// HOLD (needs user attention) -> warning, checked first so a non-terminal status
+// doesn't mask it; in-flight -> blue "Pending"; FAILED -> red; CANCELED -> gray;
 // SUCCESS / PARTIALLY_FILLED -> no badge.
 export function getSwapHistoryPreviewBadgeKind(
   item: ISwapTxHistory,
 ): ISwapHistoryPreviewBadgeKind {
+  if (item.extraStatus === ESwapExtraStatus.HOLD) {
+    return 'hold';
+  }
   if (!isSwapHistoryTerminalStatus(item.status)) {
     return 'pending';
   }

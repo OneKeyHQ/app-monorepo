@@ -118,6 +118,13 @@ const SwapTxHistoryListCell = ({
     if (kind === 'none') {
       return null;
     }
+    if (kind === 'hold') {
+      return (
+        <Badge badgeType="warning" badgeSize="sm">
+          {intl.formatMessage({ id: ETranslations.swap_ch_status_hold })}
+        </Badge>
+      );
+    }
     if (kind === 'pending') {
       return (
         <Badge badgeType="info" badgeSize="sm">
