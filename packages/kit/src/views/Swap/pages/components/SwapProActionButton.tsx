@@ -22,7 +22,6 @@ import {
   useSwapSpeedQuoteResultAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { isStockMarketClosed } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -40,6 +39,7 @@ import {
   useSwapQuoteProgressState,
   useSwapZeroProviderQuoteCompleted,
 } from '../../hooks/useSwapState';
+import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 const MAX_BUTTON_CHARS = 25;
 
@@ -161,7 +161,11 @@ const SwapProActionButton = ({
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
   // Stock market closed → trading is impossible even if a quote returns a price.
-  const stockMarketClosed = isStockMarketClosed(proTokenDetail?.stock);
+  // Guard on the selected token so a stale Pro detail can't drive this state.
+  const stockMarketClosed = isSelectedProStockMarketClosed(
+    proTokenDetail,
+    swapProSelectToken,
+  );
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();

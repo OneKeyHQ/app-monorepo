@@ -669,7 +669,15 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       })}
       timeText={stockClosedTimeText}
       onTradePerps={
-        stockHlTicker ? () => navigateToPerps(stockHlTicker) : undefined
+        stockHlTicker
+          ? () => {
+              // SwapPanelWrap can be hosted in an in-page dialog (mobile Market
+              // Detail). Close it first so the old swap dialog doesn't linger
+              // above the Perps tab or race with overlay cleanup.
+              onCloseDialog?.();
+              navigateToPerps(stockHlTicker);
+            }
+          : undefined
       }
     />
   ) : null;

@@ -14,6 +14,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
+  useSwapProSelectTokenAtom,
   useSwapProSliderValueAtom,
   useSwapProTokenMarketDetailInfoAtom,
   useSwapProTokenMarketDetailPerpsInfoAtom,
@@ -22,7 +23,6 @@ import {
 import {
   StockMarketStatusAlert,
   getStockMarketClosedDescription,
-  isStockMarketClosed,
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
@@ -55,6 +55,7 @@ import {
   useSwapProTokenInfoSync,
 } from '../../hooks/useSwapPro';
 import { SwapTestIDs } from '../../testIDs';
+import { isSelectedProStockMarketClosed } from '../../utils/swapProStockMarketClosed';
 
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
@@ -127,6 +128,7 @@ const SwapProContainer = ({
   // error alert; the action button is already disabled (no valid quote).
   const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
   const [proPerpsInfo] = useSwapProTokenMarketDetailPerpsInfoAtom();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
   const { navigateToPerps } = usePerpsNavigation(
     EPerpPageEnterSource.SwapProStockClosed,
   );
@@ -135,7 +137,12 @@ const SwapProContainer = ({
   const proStockClosedTimeText = getStockMarketClosedDescription(
     proTokenDetail?.stock?.description,
   );
-  const isProStockMarketClosed = isStockMarketClosed(proTokenDetail?.stock);
+  // Guard on the selected token so a stale Pro detail (the detail atom is not
+  // cleared on token switch) can't drive the closed alert for another token.
+  const isProStockMarketClosed = isSelectedProStockMarketClosed(
+    proTokenDetail,
+    swapProSelectToken,
+  );
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
