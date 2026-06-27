@@ -301,8 +301,13 @@ export function ActionButton({
     isButtonDisabled = false;
   }
 
-  // Hard-disable (e.g. stock market closed) wins over every re-enable above.
-  if (forceDisabled) {
+  // Hard-disable (e.g. stock market closed) blocks order submission only — it
+  // must NOT block wallet/address setup. Keep the "Connect" / "Create address"
+  // branches clickable so the user can still finish setup while the market is
+  // closed (handlePress routes those to connect/createAddress, not submit).
+  const isSetupAction =
+    noAccount || Boolean(shouldCreateAddress?.result) || createAddressLoading;
+  if (forceDisabled && !isSetupAction) {
     isButtonDisabled = true;
     shouldUseColoredStyle = false;
   }
@@ -380,6 +385,13 @@ export function ActionButton({
         return;
       }
 
+      // Hard-disable (e.g. stock market closed): never submit an order. Every
+      // setup branch above has already returned, so this guards only the
+      // submission path (defense-in-depth on top of the disabled button).
+      if (forceDisabled) {
+        return;
+      }
+
       // Log swap action before executing - with error protection
       try {
         onSwapAction?.();
@@ -398,6 +410,7 @@ export function ActionButton({
       createAddressLoading,
       shouldCreateAddress?.result,
       onPress,
+      forceDisabled,
       handleJumpToSwapAction,
       showAccountSelector,
       createAddress,
