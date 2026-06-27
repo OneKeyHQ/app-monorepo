@@ -15,6 +15,8 @@ import {
   parseDesktopNativeMessagingEnvExtensionIds,
 } from '@onekeyhq/shared/src/consts/desktopNativeMessaging';
 
+import { isDesktopNativeMessagingHostServiceable } from './nativeMessagingRuntime';
+
 const execFileAsync = promisify(execFile);
 
 function shellQuote(value: string): string {
@@ -243,11 +245,16 @@ function writeManifest(manifestPath: string, manifestContent: string) {
 }
 
 export async function ensureDesktopNativeMessagingHostManifest() {
-  // Dev-only for now: don't touch user browser Native Messaging configs in
-  // packaged/production builds until a real consumer ships. See the header of
+  // Dev-only for now: don't touch user browser Native Messaging configs unless
+  // this build+runtime can actually serve the host. Uses the same serviceable
+  // gate as the host runtime guard so a production smoke / bench run (an
+  // unpackaged `electron app/dist/appEntry.js` with NODE_ENV=production, where
+  // process.defaultApp is still true) doesn't register a host that appEntry has
+  // already dead-code-eliminated — which would leave a broken registration in
+  // the real browser until the next dev launch. See the header of
   // @onekeyhq/shared/src/consts/desktopNativeMessaging for the security model
   // (same-user host impersonation risk) and the production checklist.
-  if (!isDesktopDevRuntime()) {
+  if (!isDesktopNativeMessagingHostServiceable()) {
     return;
   }
   // Experimental stage: macOS only (see desktopNativeMessaging.ts header). The

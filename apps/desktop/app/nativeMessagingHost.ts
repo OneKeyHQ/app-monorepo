@@ -14,6 +14,7 @@ import type {
 } from '@onekeyhq/shared/src/desktopNativeMessaging/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { isDesktopNativeMessagingHostServiceable } from './nativeMessagingRuntime';
 import {
   DesktopSafeStorageNativeError,
   decryptDesktopSafeStorageString,
@@ -64,15 +65,25 @@ class DesktopNativeMessagingError extends OneKeyLocalError {
   }
 }
 
-function writeNativeMessage(message: IDesktopNativeMessagingResponse) {
-  try {
-    const body = Buffer.from(JSON.stringify(message), 'utf8');
-    const header = Buffer.alloc(4);
-    header.writeUInt32LE(body.length, 0);
-    process.stdout.write(Buffer.concat([header, body]));
-  } catch {
-    // Chrome may have closed the stdout pipe (EPIPE); nothing more to do.
-  }
+function writeNativeMessage(
+  message: IDesktopNativeMessagingResponse,
+): Promise<void> {
+  return new Promise((resolve) => {
+    try {
+      const body = Buffer.from(JSON.stringify(message), 'utf8');
+      const header = Buffer.alloc(4);
+      header.writeUInt32LE(body.length, 0);
+      // Resolve only after the frame is handed off to the stdout pipe. Callers
+      // that exit immediately afterwards (forbidden caller, oversized message)
+      // must await this first, otherwise app.exit() can truncate the error frame
+      // mid-flush and the extension sees a generic "host exited" instead of the
+      // specific error code (e.g. NATIVE_HOST_FORBIDDEN).
+      process.stdout.write(Buffer.concat([header, body]), () => resolve());
+    } catch {
+      // Chrome may have closed the stdout pipe (EPIPE); nothing more to do.
+      resolve();
+    }
+  });
 }
 
 function getRecordParam(params: unknown): Record<string, unknown> {
@@ -236,13 +247,13 @@ async function handleAndReply(
 ) {
   try {
     const payload = await handleNativeMessagingRequest(request, context);
-    writeNativeMessage({
+    await writeNativeMessage({
       id: request.id,
       success: true,
       payload,
     });
   } catch (error) {
-    writeNativeMessage({
+    await writeNativeMessage({
       id: request.id,
       success: false,
       error: normalizeError(error),
@@ -255,7 +266,7 @@ export async function runDesktopNativeMessagingHost() {
   // packaged/production builds, even if a stale dev manifest spawned us. See the
   // header of @onekeyhq/shared/src/consts/desktopNativeMessaging for the security
   // model (same-user host impersonation risk) and the production checklist.
-  if (!isDesktopDevRuntime()) {
+  if (!isDesktopNativeMessagingHostServiceable()) {
     app.exit(0);
     return;
   }
@@ -264,7 +275,10 @@ export async function runDesktopNativeMessagingHost() {
   try {
     callerExtensionId = getAllowedNativeMessagingCallerExtensionId();
   } catch (error) {
-    writeNativeMessage({
+    // Flush the error frame before exiting so the extension receives the
+    // specific code (e.g. NATIVE_HOST_FORBIDDEN) instead of a generic
+    // "host exited".
+    await writeNativeMessage({
       success: false,
       error: normalizeError(error),
     });
@@ -289,11 +303,12 @@ export async function runDesktopNativeMessagingHost() {
     while (inputBuffer.length >= 4) {
       const messageLength = inputBuffer.readUInt32LE(0);
       if (messageLength > MAX_NATIVE_MESSAGE_BYTES) {
-        writeNativeMessage({
+        // Exit only after the error frame is flushed (this stdin handler is
+        // synchronous, so chain the exit off the write instead of awaiting).
+        void writeNativeMessage({
           success: false,
           error: normalizeError(new DesktopNativeMessagingError('BAD_REQUEST')),
-        });
-        app.exit(1);
+        }).finally(() => app.exit(1));
         return;
       }
       if (inputBuffer.length < messageLength + 4) {
@@ -308,7 +323,7 @@ export async function runDesktopNativeMessagingHost() {
           const request = JSON.parse(body) as IDesktopNativeMessagingRequest;
           await handleAndReply(request, context);
         } catch (error) {
-          writeNativeMessage({
+          await writeNativeMessage({
             success: false,
             error: normalizeError(error),
           });
