@@ -96,6 +96,8 @@ export interface IOrderOpenParams {
   tpTriggerPx?: string;
   slTriggerPx?: string;
   slippage?: number;
+  // Reduce-only main order (standard limit). Defaults to false when omitted.
+  reduceOnly?: boolean;
 }
 
 export interface IOrderCloseParams {
@@ -126,7 +128,11 @@ export interface IModifyOrderParams {
   sz: string;
   price: string;
   reduceOnly?: boolean;
-  orderType?: { limit: { tif: ITIF } };
+  orderType?:
+    | { limit: { tif: ITIF } }
+    | { trigger: { isMarket: boolean; triggerPx: string; tpsl: 'tp' | 'sl' } };
+  // Position TP/SL orders rest with sz "0"; allow it through size formatting on modify.
+  allowZeroSize?: boolean;
 }
 
 export interface IWithdrawParams extends IWithdraw3Request {
@@ -406,6 +412,8 @@ export interface IPerpTokenSelectorConfig {
   field: IPerpTokenSortField;
   direction: IPerpTokenSortDirection;
   activeTab: IPerpTokenSelectorTab | string; // string for dynamic tabs
+  sortSource?: 'default' | 'user';
+  sortSourceTab?: IPerpTokenSelectorTab | string;
 }
 
 // Deprecated: Use IPerpTokenSelectorConfig instead

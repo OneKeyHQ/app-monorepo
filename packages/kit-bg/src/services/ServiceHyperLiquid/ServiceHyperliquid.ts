@@ -796,9 +796,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     ignoreCache = false,
   }: { ignoreCache?: boolean } = {}) {
     try {
-      return ignoreCache
-        ? await this.updatePerpsConfigByServer()
-        : await this.updatePerpsConfigByServerWithCache();
+      if (ignoreCache) {
+        await this._updatePerpsConfigByServerWithCache.clear();
+      }
+      return await this.updatePerpsConfigByServerWithCache();
     } catch (error) {
       errorToastUtils.toastIfErrorDisable(error);
       console.warn('[ServiceHyperliquid] Failed to update perp config', error);
@@ -812,9 +813,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
     {
       max: 20,
-      // 10 min: fast enough to propagate server-side perp disable / builder
+      // 5 min: fast enough to propagate hot/newList and server-side perp disable / builder
       // config changes, while still deduping redundant focus-driven fetches.
-      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
       promise: true,
     },
   );
@@ -2055,11 +2056,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     const meta = result[0];
     if (meta?.tokens && meta?.universe) {
       const tokens = meta.tokens;
+      // Look up by token `index`, not array position: newer tokens have an
+      // index beyond the array length, so positional access yields an empty
+      // baseName ("/USDC").
+      const tokenByIndex = new Map(tokens.map((token) => [token.index, token]));
       const universes: ISpotUniverse[] = meta.universe.map((item) => {
         const baseTokenIdx = item.tokens[0];
         const quoteTokenIdx = item.tokens[1];
-        const baseToken = tokens[baseTokenIdx];
-        const quoteToken = tokens[quoteTokenIdx];
+        const baseToken = tokenByIndex.get(baseTokenIdx);
+        const quoteToken = tokenByIndex.get(quoteTokenIdx);
         const baseName = baseToken?.name ?? '';
         const quoteName = quoteToken?.name ?? 'USDC';
         return {

@@ -279,7 +279,7 @@ describe('TransferReceiverAdapter', () => {
       expiresAt: '2026-04-06T07:05:00.000Z',
       pairingPayload: {
         roomId: 'ABCDE-FGHIJ',
-        transferType: EPrimeTransferDataType.keylessWallet,
+        transferType: EPrimeTransferDataType.allWallet,
         serverType: EPrimeTransferServerType.OFFICIAL,
         websocketEndpoint: 'wss://transfer.onekeytest.com',
         uri: expect.stringContaining('code='),

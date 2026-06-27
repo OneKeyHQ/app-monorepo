@@ -27,6 +27,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSendRoutes,
@@ -782,6 +783,14 @@ function SendReplaceTxContainer() {
       navigation.popStack();
     } catch (e: any) {
       setIsSubmitting(false);
+      // The replace was aborted because the original tx is already confirmed or
+      // replaced (its nonce is consumed). bg has already surfaced a friendly
+      // toast and cleaned up the stale pending tx, so just close this page
+      // instead of re-throwing the error.
+      if (e?.className === EOneKeyErrorClassNames.ReplaceTxNonceConsumed) {
+        navigation.popStack();
+        return;
+      }
       throw e;
     }
   }, [

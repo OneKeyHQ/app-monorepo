@@ -181,7 +181,9 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       !!(
-        (swapTypeSwitch === ESwapTabSwitchType.LIMIT || !swapIncognitoMode) &&
+        (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
+          swapTypeSwitch === ESwapTabSwitchType.STOCK ||
+          !swapIncognitoMode) &&
         swapEnableRecipientAddress &&
         swapProviderSupportReceiveAddress &&
         fromToken &&
@@ -204,7 +206,8 @@ const SwapActionsState = ({
         swapProviderSupportReceiveAddress &&
         fromToken &&
         toToken &&
-        swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+        swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK
       ),
     [
       fromToken,
@@ -442,7 +445,8 @@ const SwapActionsState = ({
 
   const incognitoComponent = useMemo(
     () =>
-      swapTypeSwitch === ESwapTabSwitchType.LIMIT ? null : (
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
+      swapTypeSwitch === ESwapTabSwitchType.STOCK ? null : (
         <XStack alignItems="center" gap="$2">
           <XStack alignItems="center" gap="$1.5">
             <Icon

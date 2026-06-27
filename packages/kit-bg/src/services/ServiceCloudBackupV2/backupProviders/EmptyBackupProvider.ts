@@ -5,7 +5,6 @@ import type {
   IBackupDataManifest,
   IBackupProviderAccountInfo,
   IBackupProviderInfo,
-  ICloudBackupKeylessWalletPayload,
 } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -72,28 +71,6 @@ export class EmptyBackupProvider implements IOneKeyBackupProvider {
   }
 
   backupData(): Promise<{ recordID: string; content: string }> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
-  backupKeylessWalletData(): Promise<{
-    recordID: string;
-    content: string;
-    meta: string;
-  }> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
-  downloadKeylessWalletData(): Promise<{
-    payload: ICloudBackupKeylessWalletPayload;
-    content: string;
-  } | null> {
-    throw new OneKeyLocalError('Method not implemented.');
-  }
-
-  getKeylessWalletBackupRecordID(): Promise<{
-    recordID: string;
-    packSetId: string;
-  } | null> {
     throw new OneKeyLocalError('Method not implemented.');
   }
 

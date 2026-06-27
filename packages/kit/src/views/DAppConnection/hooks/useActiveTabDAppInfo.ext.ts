@@ -40,7 +40,6 @@ export default function useActiveTabDAppInfo() {
                 if (!url) {
                   url = await backgroundApiProxy.serviceDApp.getLastFocusUrl();
                 }
-                console.log('=====>>>>useActiveTabDAppInfo url: ', url);
                 const currentOrigin = new URL(url ?? '').origin;
                 const hostName = new URL(currentOrigin).hostname;
                 const connectLabel = intl.formatMessage(
@@ -51,14 +50,21 @@ export default function useActiveTabDAppInfo() {
                   (await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
                     currentOrigin,
                   )) ?? [];
-                const networkIcons = await Promise.all(
-                  connectedAccountsInfo.map(async (accountInfo) => {
-                    const network =
-                      await backgroundApiProxy.serviceNetwork.getNetwork({
-                        networkId: accountInfo.networkId,
-                      });
-                    return network.logoURI ?? '';
-                  }),
+                // Resolve network icons via getNetworksByIds, which filters out
+                // unknown ids and never throws. A single delisted network in
+                // the connection records must not reject the whole panel.
+                const { networks } =
+                  await backgroundApiProxy.serviceNetwork.getNetworksByIds({
+                    networkIds: connectedAccountsInfo
+                      .map((accountInfo) => accountInfo.networkId)
+                      .filter((id): id is string => Boolean(id)),
+                  });
+                const networkLogoMap = new Map(
+                  networks.map((n) => [n.id, n.logoURI]),
+                );
+                const networkIcons = connectedAccountsInfo.map(
+                  (accountInfo) =>
+                    networkLogoMap.get(accountInfo.networkId ?? '') ?? '',
                 );
                 let addressLabel = '';
                 if (connectedAccountsInfo.length > 0) {

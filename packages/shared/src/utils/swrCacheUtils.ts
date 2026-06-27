@@ -172,6 +172,7 @@ const NS = {
   discoveryHomeBookmarks: 'disHomeBookmarks',
   perpsOrderBookTickOptions: 'perpsOrderBookTicks',
   perpsL2BookSnapshot: 'perpsL2Book',
+  historyTxDetail: 'historyTxDetail',
 } as const;
 export type ISwrCacheNamespace = (typeof NS)[keyof typeof NS];
 export const swrCacheNamespaces = NS;
@@ -361,6 +362,21 @@ export const swrKeys = {
     ),
   perpsL2BookSnapshotLatest: ({ coin }: { coin: string }) =>
     [NS.perpsL2BookSnapshot, 'v1', coin, 'latest'].join(':'),
+  // Tx history detail response (status / confirmations / ETA). Cached so a
+  // re-open renders the last-known confirming subtitle synchronously instead
+  // of flashing the "waiting" fallback before the detail request resolves
+  // (OK-56372). Keyed by accountAddress because the response's isOwn/direction
+  // framing is viewer-specific.
+  historyTxDetail: ({
+    networkId,
+    accountAddress,
+    txid,
+  }: {
+    networkId: string;
+    accountAddress?: string;
+    txid: string;
+  }) =>
+    [NS.historyTxDetail, 'v1', networkId, accountAddress ?? '', txid].join(':'),
 };
 
 function uniqueCacheKeys(keys: string[]) {

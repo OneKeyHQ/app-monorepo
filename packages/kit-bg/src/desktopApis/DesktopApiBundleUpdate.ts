@@ -61,6 +61,182 @@ const BUNDLE_PART_MAX_RETRY = 3;
 const BUNDLE_REQUEST_TIMEOUT_MS = 1000 * 60 * 30;
 // Persist the manifest at most this often per segment to bound fsync cost.
 const BUNDLE_MANIFEST_FLUSH_BYTES = 4 * 1024 * 1024;
+// OCDS §5.4 stall (no-progress) watchdog: if a segment receives no bytes for
+// this long the socket is treated as stalled — a Transient timeout that
+// destroys the request and triggers a retry. This is distinct from the coarse
+// per-request connection timeout (BUNDLE_REQUEST_TIMEOUT_MS) which bounds the
+// total request lifetime.
+const BUNDLE_STALL_TIMEOUT_MS = 1000 * 60;
+// OCDS §5.4 retry backoff: exponential base * 2^retry, capped, plus jitter so
+// the N segments do not retry in lockstep. A server `Retry-After` overrides
+// the computed value (see retryAfterMsFromHeader).
+const BUNDLE_RETRY_BASE_DELAY_MS = 500;
+const BUNDLE_RETRY_MAX_DELAY_MS = 1000 * 10;
+
+// Sentinel for "the concurrent path cannot proceed" (range unsupported, ETag
+// changed, server ignored Range, ...). Encoded as a message-prefixed
+// OneKeyLocalError rather than a bespoke Error subclass (keeps the file to a
+// single class and satisfies no-raw-error); the orchestrator detects it and
+// falls back to the single-stream downloader so we never regress.
+const CONCURRENT_FALLBACK_PREFIX = 'CONCURRENT_DOWNLOAD_FALLBACK';
+function concurrentFallbackError(reason: string): OneKeyLocalError {
+  return new OneKeyLocalError(`${CONCURRENT_FALLBACK_PREFIX}: ${reason}`);
+}
+function isConcurrentFallback(error: unknown): boolean {
+  return (
+    error instanceof OneKeyLocalError &&
+    error.message.startsWith(CONCURRENT_FALLBACK_PREFIX)
+  );
+}
+
+// OCDS §4 failure classification. Every non-2xx HTTP status resolves to exactly
+// one of two classes with opposite recoveries: a Permanent failure means the
+// concurrent path is unusable for this object (fall back / give up), a
+// Transient failure means retry-in-place keeping artifacts. The mapping follows
+// the §4 default rule exactly:
+//   4xx → permanent, EXCEPT 408 / 429 → transient
+//   5xx → transient, EXCEPT 501 / 505 → permanent
+//   anything else / unknown → permanent
+// NOTE: this set must stay in agreement with the shared-JS
+// UNRECOVERABLE_DOWNLOAD_ERROR_CODES taxonomy
+// (packages/kit/src/components/AppUpdate/updateErrorTaxonomy.ts). kit-bg must
+// not import from kit at runtime, so the relationship is duplicated here; the
+// test imports the real shared set and asserts the two stay in agreement.
+// Exported so the test exercises the shipped code, not a re-implemented copy.
+export function classifyHttpStatus(status: number): 'permanent' | 'transient' {
+  if (status >= 400 && status <= 499) {
+    // 408 (request timeout) and 429 (throttled) are retryable. 416
+    // (range-not-satisfiable on a resume request) is Transient too: the size
+    // must be re-evaluated and the request re-issued — a bare 416 must NEVER
+    // discard the resumable bytes already on disk (OCDS §4).
+    if (status === 408 || status === 416 || status === 429) return 'transient';
+    return 'permanent';
+  }
+  if (status >= 500 && status <= 599) {
+    if (status === 501 || status === 505) return 'permanent';
+    return 'transient';
+  }
+  // Unknown / unexpected (e.g. a stray 3xx that was not a redirect, or 0) is
+  // classified Permanent so the "exactly one of two classes" property holds.
+  return 'permanent';
+}
+
+// A permanent HTTP status during a segment fetch is surfaced as a fallback so
+// the orchestrator switches to single-stream WITHOUT consuming the segment's
+// transient retry budget. A transient status is a plain Error that the inner
+// retry loop will back off and re-attempt.
+function httpStatusError(status: number): Error {
+  if (classifyHttpStatus(status) === 'permanent') {
+    return concurrentFallbackError(`permanent HTTP ${status}`);
+  }
+  return new OneKeyLocalError(`HTTP ${status}`);
+}
+
+// Sleep helper duplicated locally on purpose: kit-bg must not import the kit
+// timer utilities (import hierarchy). Used by the §5.4 backoff.
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, Math.max(0, ms));
+  });
+}
+
+// OCDS §5.4 backoff with jitter. Exponential growth capped at
+// BUNDLE_RETRY_MAX_DELAY_MS, then up to ±50% jitter so concurrent segments do
+// not retry in lockstep.
+export function computeBackoffMs(retry: number): number {
+  const base = Math.min(
+    BUNDLE_RETRY_BASE_DELAY_MS * 2 ** retry,
+    BUNDLE_RETRY_MAX_DELAY_MS,
+  );
+  const jitter = base * (Math.random() - 0.5);
+  return Math.max(0, Math.round(base + jitter));
+}
+
+// OCDS §5.4: a `Retry-After` header (delta-seconds or an HTTP-date) overrides
+// the computed backoff. Returns null when absent/unparseable so the caller
+// falls back to computeBackoffMs.
+export function retryAfterMsFromHeader(
+  header: string | string[] | undefined,
+): number | null {
+  if (!header) return null;
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+  const dateMs = Date.parse(raw);
+  if (Number.isFinite(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+  return null;
+}
+
+// OCDS §5.5 Content-Range validation for a segment 206 response. The probe
+// (§5.1) already accepts only `bytes <start>-<end>/<total>` with a concrete
+// numeric total, so a segment body is accepted only when its window matches the
+// requested range exactly and its total agrees with the probe total. A `*`
+// total, a multi-range/multipart body, or any disagreement is rejected.
+export function validateSegmentContentRange(opts: {
+  contentRange: string | string[] | undefined;
+  contentType: string | string[] | undefined;
+  rangeStart: number;
+  rangeEnd: number;
+  expectedTotal: number;
+}): { ok: true } | { ok: false; reason: string } {
+  const { contentRange, contentType, rangeStart, rangeEnd, expectedTotal } =
+    opts;
+  const type = (
+    Array.isArray(contentType) ? contentType[0] : (contentType ?? '')
+  ).toLowerCase();
+  if (type.includes('multipart/byteranges')) {
+    return { ok: false, reason: 'multipart/byteranges body' };
+  }
+  const rangeHeader = Array.isArray(contentRange)
+    ? contentRange[0]
+    : contentRange;
+  if (typeof rangeHeader !== 'string') {
+    return { ok: false, reason: 'missing content-range' };
+  }
+  const match = rangeHeader.match(/^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i);
+  if (!match) {
+    return { ok: false, reason: `unparseable content-range "${rangeHeader}"` };
+  }
+  const start = parseInt(match[1], 10);
+  const end = parseInt(match[2], 10);
+  const totalRaw = match[3];
+  if (totalRaw === '*') {
+    return { ok: false, reason: 'unknown (*) content-range total' };
+  }
+  const total = parseInt(totalRaw, 10);
+  if (start !== rangeStart || end !== rangeEnd) {
+    return {
+      ok: false,
+      reason: `content-range window ${start}-${end} != requested ${rangeStart}-${rangeEnd}`,
+    };
+  }
+  if (total !== expectedTotal) {
+    return {
+      ok: false,
+      reason: `content-range total ${total} != probe total ${expectedTotal}`,
+    };
+  }
+  return { ok: true };
+}
+
+// OCDS §5.6 single-stream resume guard: parse only the *start* of a 206
+// Content-Range so we can confirm the server resumed at exactly the offset we
+// asked for before appending. Returns null when absent/unparseable.
+export function contentRangeStart(
+  contentRange: string | string[] | undefined,
+): number | null {
+  const raw = Array.isArray(contentRange) ? contentRange[0] : contentRange;
+  if (typeof raw !== 'string') return null;
+  const match = raw.match(/^bytes\s+(\d+)-/i);
+  if (!match) return null;
+  const start = parseInt(match[1], 10);
+  return Number.isFinite(start) ? start : null;
+}
 
 interface IBundleDownloadPart {
   index: number;
@@ -78,21 +254,6 @@ interface IBundleDownloadManifest {
   parts: IBundleDownloadPart[];
 }
 
-// Sentinel for "the concurrent path cannot proceed" (range unsupported, ETag
-// changed, server ignored Range, ...). Encoded as a message-prefixed
-// OneKeyLocalError rather than a bespoke Error subclass (keeps the file to a
-// single class and satisfies no-raw-error); the orchestrator detects it and
-// falls back to the single-stream downloader so we never regress.
-const CONCURRENT_FALLBACK_PREFIX = 'CONCURRENT_DOWNLOAD_FALLBACK';
-function concurrentFallbackError(reason: string): OneKeyLocalError {
-  return new OneKeyLocalError(`${CONCURRENT_FALLBACK_PREFIX}: ${reason}`);
-}
-function isConcurrentFallback(error: unknown): boolean {
-  return (
-    error instanceof OneKeyLocalError &&
-    error.message.startsWith(CONCURRENT_FALLBACK_PREFIX)
-  );
-}
 // Wraps a Node.js fs/stream/http error into a sanitized OneKeyLocalError
 // before it can reach the analytics layer. Node's errno errors embed the
 // failing path (`ENOENT: no such file ... open '/Users/<name>/...'`) which
@@ -121,6 +282,27 @@ class DesktopApiAppBundleUpdate {
 
   isDownloading = false;
 
+  // OCDS §5.4 stall (no-progress) watchdog timeout. Injectable so tests can
+  // exercise the stall path without a 60s wait; defaults to the production
+  // BUNDLE_STALL_TIMEOUT_MS.
+  private stallTimeoutMs: number = BUNDLE_STALL_TIMEOUT_MS;
+
+  // OCDS §5.8 per-destination single-flight. Keyed on the destination zip path:
+  // a second download() for the same dest JOINS the in-flight run (returns the
+  // same promise) rather than co-writing the same artifacts; different-dest
+  // runs proceed independently. The entry is always deleted on settle (finally)
+  // so a crashed/rejected run never permanently wedges a destination — the
+  // in-memory map is the reclaimable lock (the process restarting clears it
+  // entirely, which is the desktop equivalent of stale-lock recovery).
+  private inflightDownloads = new Map<
+    string,
+    Promise<IUpdateDownloadedEvent>
+  >();
+
+  // OCDS §5.8: cancellation wired per-destination so cancelling one dest does
+  // not tear down an unrelated concurrent run.
+  private cancelByDest = new Map<string, () => void>();
+
   private isSkipGPGAllowed(skipGPGVerification?: boolean) {
     return (
       process.env.ONEKEY_ALLOW_SKIP_GPG_VERIFICATION === 'true' &&
@@ -128,9 +310,18 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
+  constructor({
+    desktopApi,
+    stallTimeoutMs,
+  }: {
+    desktopApi: IDesktopApi;
+    stallTimeoutMs?: number;
+  }) {
     this.desktopApi = desktopApi;
     this.cancelCurrentDownload = () => {};
+    if (typeof stallTimeoutMs === 'number') {
+      this.stallTimeoutMs = stallTimeoutMs;
+    }
   }
 
   getMainWindow(): BrowserWindow | undefined {
@@ -173,13 +364,56 @@ class DesktopApiAppBundleUpdate {
     return tempDir;
   }
 
-  // Public entry point. Only the happy path — valid https URL, no in-flight
-  // download, a large enough range-capable file — takes the concurrent route.
-  // Everything else (validation errors, the in-progress guard, the cached-file
-  // short circuit) stays owned by the single-stream implementation so existing
-  // behavior is unchanged, and any capability problem mid-flight falls back to
-  // single-stream so we never regress.
+  // The destination zip path for a (appVersion, bundleVersion) pair. Mirrors
+  // the path computed inside downloadBundleConcurrent / downloadBundleSingleStream
+  // so the single-flight key matches the file actually written. Returns null
+  // when the required parts are missing (those params are validated downstream).
+  private getDestZipPath(params: IDownloadPackageParams): string | null {
+    const { latestVersion: appVersion, bundleVersion } = params;
+    if (!appVersion || !bundleVersion) return null;
+    return path.join(
+      this.getDownloadDir(),
+      `${appVersion}-${bundleVersion}.zip`,
+    );
+  }
+
+  // Public entry point. OCDS §5.8 per-destination single-flight: a second
+  // download() for the same destination JOINS the in-flight run instead of
+  // co-writing the same artifacts; a different destination proceeds
+  // independently. The map entry is removed on settle so a crashed/rejected run
+  // never wedges the destination (in-memory map = reclaimable lock).
   async downloadBundle(
+    params: IDownloadPackageParams,
+  ): Promise<IUpdateDownloadedEvent> {
+    const destKey = this.getDestZipPath(params);
+    // No usable key (missing version params): skip single-flight bookkeeping
+    // and let the downstream validation produce the canonical error.
+    if (!destKey) {
+      return this.runDownloadBundle(params);
+    }
+    const existing = this.inflightDownloads.get(destKey);
+    if (existing) {
+      logger.info(
+        'bundle-download',
+        'Joining in-flight download for same destination',
+      );
+      return existing;
+    }
+    const run = this.runDownloadBundle(params).finally(() => {
+      this.inflightDownloads.delete(destKey);
+      this.cancelByDest.delete(destKey);
+    });
+    this.inflightDownloads.set(destKey, run);
+    return run;
+  }
+
+  // Only the happy path — valid https URL, no in-flight download, a large
+  // enough range-capable file — takes the concurrent route. Everything else
+  // (validation errors, the in-progress guard, the cached-file short circuit)
+  // stays owned by the single-stream implementation so existing behavior is
+  // unchanged, and any capability problem mid-flight falls back to single-stream
+  // so we never regress.
+  private async runDownloadBundle(
     params: IDownloadPackageParams,
   ): Promise<IUpdateDownloadedEvent> {
     const bundleUrl = params.downloadUrl;
@@ -430,6 +664,7 @@ class DesktopApiAppBundleUpdate {
     url: string;
     etag: string | null;
     part: IBundleDownloadPart;
+    expectedTotal: number;
     isAborted: () => boolean;
     registerRequest: (req: { destroy: () => void }) => void;
     unregisterRequest: (req: { destroy: () => void }) => void;
@@ -439,11 +674,18 @@ class DesktopApiAppBundleUpdate {
       fd,
       etag,
       part,
+      expectedTotal,
       isAborted,
       registerRequest,
       unregisterRequest,
       onBytes,
     } = opts;
+
+    const segLen = part.end - part.start + 1;
+    // Carries a server `Retry-After` value from a 429/503 response on one
+    // attempt into the backoff before the next attempt (OCDS §5.4). Reset to
+    // null after it is consumed.
+    let retryAfterMsOverride: number | null = null;
 
     const attempt = (
       url: string,
@@ -496,18 +738,101 @@ class DesktopApiAppBundleUpdate {
             return;
           }
           if (status !== 206) {
+            // OCDS §4: classify so a Permanent status (e.g. 401/403/404/410/
+            // 501/505) falls back WITHOUT consuming the retry budget, while a
+            // Transient status (429/5xx/408) is retried with backoff. A
+            // `Retry-After` header overrides the computed backoff on the next
+            // attempt.
             response.resume();
-            reject(new Error(`HTTP ${status}`));
+            if (
+              classifyHttpStatus(status) === 'transient' &&
+              (status === 429 || status === 503)
+            ) {
+              retryAfterMsOverride = retryAfterMsFromHeader(
+                response.headers['retry-after'],
+              );
+            }
+            reject(httpStatusError(status));
+            return;
+          }
+          // OCDS §5.5: a 206 body is accepted only when it is a single range
+          // whose Content-Range window matches the requested range exactly and
+          // whose total agrees with the probe total. A multipart/byteranges,
+          // mismatched-window, `*`-total or disagreeing-total response cannot be
+          // safely assembled → fall back to single-stream.
+          const rangeCheck = validateSegmentContentRange({
+            contentRange: response.headers['content-range'],
+            contentType: response.headers['content-type'],
+            rangeStart,
+            rangeEnd: part.end,
+            expectedTotal,
+          });
+          if (!rangeCheck.ok) {
+            response.resume();
+            reject(concurrentFallbackError(rangeCheck.reason));
             return;
           }
           let writePos = rangeStart;
-          response.on('data', (chunk: Buffer) => {
-            if (isAborted()) {
+          // OCDS §5.4 stall watchdog: arm a no-progress timer that destroys the
+          // request and rejects Transient if no bytes arrive within the stall
+          // window. Re-armed on every chunk, cleared on every exit path so the
+          // 8 segments never leak timers or false-fire after completion.
+          let stallTimer: ReturnType<typeof setTimeout> | null = null;
+          const clearStall = () => {
+            if (stallTimer) {
+              clearTimeout(stallTimer);
+              stallTimer = null;
+            }
+          };
+          const armStall = () => {
+            clearStall();
+            stallTimer = setTimeout(() => {
               try {
                 req.destroy();
               } catch {
                 // ignore
               }
+              unregisterRequest(req);
+              reject(new OneKeyLocalError('Segment stalled (no progress)'));
+            }, this.stallTimeoutMs);
+          };
+          armStall();
+          response.on('data', (chunk: Buffer) => {
+            if (isAborted()) {
+              clearStall();
+              try {
+                req.destroy();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+            armStall();
+            // OCDS §5.5 over-long guard: never write past this segment's
+            // planned end. Clamp the tail slice, then reject Permanent — an
+            // over-long body means the server is misbehaving and the stream
+            // cannot be trusted, so fall back rather than silently truncate.
+            const remaining = part.end - writePos + 1;
+            if (remaining <= 0 || chunk.length > remaining) {
+              const slice = remaining > 0 ? chunk.subarray(0, remaining) : null;
+              if (slice && slice.length > 0) {
+                fs.writeSync(fd, slice, 0, slice.length, writePos);
+                writePos += slice.length;
+                part.done += slice.length;
+                onBytes(slice.length);
+              }
+              clearStall();
+              try {
+                req.destroy();
+              } catch {
+                // ignore
+              }
+              unregisterRequest(req);
+              reject(
+                concurrentFallbackError(
+                  `segment ${part.index} body overran planned end`,
+                ),
+              );
               return;
             }
             // Positioned synchronous write — the explicit offset means the 8
@@ -518,10 +843,23 @@ class DesktopApiAppBundleUpdate {
             onBytes(chunk.length);
           });
           response.on('end', () => {
+            clearStall();
             unregisterRequest(req);
+            // OCDS §5.5 short-body guard: the segment is only complete when the
+            // cursor reached its planned end. A short body is a Transient
+            // interruption — keep the bytes already written and retry the tail.
+            if (part.done < segLen) {
+              reject(
+                new OneKeyLocalError(
+                  `segment ${part.index} body short (${part.done}/${segLen})`,
+                ),
+              );
+              return;
+            }
             resolve();
           });
           response.on('error', (err) => {
+            clearStall();
             unregisterRequest(req);
             reject(err);
           });
@@ -539,7 +877,7 @@ class DesktopApiAppBundleUpdate {
           }
           reject(new Error('Segment timeout'));
         });
-      }).catch((err) => {
+      }).catch(async (err) => {
         if (
           isConcurrentFallback(err) ||
           isAborted() ||
@@ -553,6 +891,11 @@ class DesktopApiAppBundleUpdate {
           'bundle-download',
           `segment ${part.index} retry ${retry + 1}: ${(err as Error).message}`,
         );
+        // OCDS §5.4: back off (jittered) before the next attempt; a server
+        // `Retry-After` overrides the computed delay.
+        const backoff = retryAfterMsOverride ?? computeBackoffMs(retry);
+        retryAfterMsOverride = null;
+        await sleep(backoff);
         return attempt(url, redirectCount, retry + 1);
       });
 
@@ -646,6 +989,9 @@ class DesktopApiAppBundleUpdate {
       const fileFd = fd;
 
       this.cancelCurrentDownload = abortAll;
+      // OCDS §5.8: also register this run's cancel under its destination so a
+      // per-dest cancel (cancelDownloadForDest) tears down exactly this run.
+      this.cancelByDest.set(filePath, abortAll);
 
       const lastFlush = manifest.parts.map((p) => p.done);
       const emitProgress = (delta: number) => {
@@ -673,6 +1019,7 @@ class DesktopApiAppBundleUpdate {
               url: probe.finalUrl,
               etag: probe.etag,
               part,
+              expectedTotal: totalBytes,
               isAborted: () => aborted,
               registerRequest: (req) => inflight.add(req),
               unregisterRequest: (req) => inflight.delete(req),
@@ -947,7 +1294,13 @@ class DesktopApiAppBundleUpdate {
                 }
 
                 if (response.statusCode === 200) {
-                  // Full download
+                  // OCDS §5.6: the server ignored our resume Range and is
+                  // sending the whole body. Appending it onto existing partial
+                  // bytes would corrupt the file, so truncate any partial first
+                  // and restart this stream cleanly from byte 0.
+                  if (fs.existsSync(partialFilePath)) {
+                    fs.rmSync(partialFilePath, { force: true });
+                  }
                   totalBytes = parseInt(
                     response.headers['content-length'] || '0',
                     10,
@@ -962,9 +1315,47 @@ class DesktopApiAppBundleUpdate {
                       totalBytes = parseInt(match[1], 10);
                     }
                   }
+                  // OCDS §5.6: only append when the server resumed at exactly
+                  // the offset we asked for. A mis-aligned 206 (start !=
+                  // downloadedBytes) cannot be salvaged by truncate-and-continue
+                  // the way a 200 can: this response body begins at the server's
+                  // `resumeStart`, NOT at byte 0. Truncating the partial and
+                  // writing this stream from offset 0 would store
+                  // `object[resumeStart..end]` as `[0..]`, leaving the
+                  // `[0..resumeStart)` prefix permanently missing — a short,
+                  // corrupt file that only fails at SHA verification (and whose
+                  // leftover partial can compound on later resumes). So abort
+                  // this request, drop the partial, and reject with a transient
+                  // error; the outer retry loop then re-issues a fresh request
+                  // from byte 0 (no partial => no Range => clean 200/206).
+                  const resumeStart = contentRangeStart(
+                    response.headers['content-range'],
+                  );
+                  if (
+                    downloadedBytes > 0 &&
+                    resumeStart !== null &&
+                    resumeStart !== downloadedBytes
+                  ) {
+                    logger.warn(
+                      'bundle-download',
+                      `206 resume mis-aligned (server start ${resumeStart} != expected ${downloadedBytes}), restarting`,
+                    );
+                    if (fs.existsSync(partialFilePath)) {
+                      fs.rmSync(partialFilePath, { force: true });
+                    }
+                    downloadedBytes = 0;
+                    this.isDownloading = false;
+                    response.destroy();
+                    downloadRequest?.destroy();
+                    safeReject(new Error('206 resume mis-aligned'));
+                    return;
+                  }
                 }
 
                 const writeStream = fs.createWriteStream(partialFilePath, {
+                  // 'a' only after the offset above was confirmed (or set to 0);
+                  // a reset downloadedBytes => 'w' so we never append onto stale
+                  // or mis-positioned bytes.
                   flags: downloadedBytes > 0 ? 'a' : 'w',
                 });
 
@@ -981,6 +1372,9 @@ class DesktopApiAppBundleUpdate {
 
                 // Store cancel function for external access
                 this.cancelCurrentDownload = cancelDownload;
+                // OCDS §5.8: register under the destination too so a per-dest
+                // cancel reaches this single-stream run.
+                this.cancelByDest.set(filePath, cancelDownload);
 
                 response.on('data', (chunk) => {
                   downloadedBytes += (chunk as Buffer).length;
@@ -1639,7 +2033,18 @@ class DesktopApiAppBundleUpdate {
   async clearDownload() {
     return new Promise<void>((resolve) => {
       setTimeout(() => {
+        // OCDS §5.8: stop in-flight work first, then delete artifacts, so a
+        // still-running task cannot resurrect a just-deleted file. Fire every
+        // per-dest cancel (plus the legacy global one) before wiping the dir.
         this.cancelCurrentDownload?.();
+        for (const cancel of this.cancelByDest.values()) {
+          try {
+            cancel();
+          } catch {
+            // ignore
+          }
+        }
+        this.cancelByDest.clear();
         const downloadDir = this.getDownloadDir();
         fs.rmSync(downloadDir, { recursive: true, force: true });
         resolve();

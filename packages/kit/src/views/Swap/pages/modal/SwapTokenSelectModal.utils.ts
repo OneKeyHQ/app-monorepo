@@ -1,9 +1,60 @@
+import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
   type ISwapNetwork,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
+
+export const TOKENIZED_STOCK_SOURCE_NAME_PATTERN = /\s*\(Ondo Tokenized\)\s*$/i;
+
+export function buildSwapStockMetadataKey({
+  contractAddress,
+  networkId,
+}: {
+  contractAddress?: string;
+  networkId?: string;
+}) {
+  if (!contractAddress || !networkId) {
+    return '';
+  }
+  return `${networkId}:${contractAddress.toLowerCase()}`;
+}
+
+export function getSwapStockTokenDisplayName({
+  stock,
+  tokenName,
+}: {
+  stock?: Pick<IMarketStockInfo, 'subtitle'>;
+  tokenName?: string;
+}) {
+  const stockSubtitle = stock?.subtitle?.trim();
+  if (stockSubtitle) {
+    return stockSubtitle;
+  }
+  return (
+    tokenName?.replace(TOKENIZED_STOCK_SOURCE_NAME_PATTERN, '') ?? tokenName
+  );
+}
+
+export function isSwapStockMetadataPending({
+  isSwapStockSelectTarget,
+  resolvedStockMetadataTokenKey,
+  stockMetadataLoading,
+  stockMetadataTokenKey,
+}: {
+  isSwapStockSelectTarget: boolean;
+  resolvedStockMetadataTokenKey?: string;
+  stockMetadataLoading?: boolean;
+  stockMetadataTokenKey?: string;
+}) {
+  return Boolean(
+    isSwapStockSelectTarget &&
+    stockMetadataTokenKey &&
+    (stockMetadataLoading ||
+      resolvedStockMetadataTokenKey !== stockMetadataTokenKey),
+  );
+}
 
 export function isSwapNetworkBridgeOnly(
   network?: Pick<ISwapNetwork, 'supportCrossChainSwap' | 'supportSingleSwap'>,
@@ -29,6 +80,40 @@ export function isSwapTokenSelectorFromNetworkBridgeOnly({
   );
 }
 
+export function buildSwapStockSelectableNetworks({
+  isSwapStockSelectTarget,
+  rawSwapNetworks,
+  stockSelectDefaultNetworkId,
+  swapNetworksIncludeAllNetworkBase,
+}: {
+  isSwapStockSelectTarget: boolean;
+  rawSwapNetworks: ISwapNetwork[];
+  stockSelectDefaultNetworkId?: string;
+  swapNetworksIncludeAllNetworkBase: ISwapNetwork[];
+}) {
+  if (!isSwapStockSelectTarget || !stockSelectDefaultNetworkId) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  if (
+    swapNetworksIncludeAllNetworkBase.some(
+      (network) => network.networkId === stockSelectDefaultNetworkId,
+    )
+  ) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  const stockNetwork = rawSwapNetworks.find(
+    (network) => network.networkId === stockSelectDefaultNetworkId,
+  );
+  if (!stockNetwork?.supportStock) {
+    return swapNetworksIncludeAllNetworkBase;
+  }
+  const [allNetwork, ...networks] = swapNetworksIncludeAllNetworkBase;
+  if (!allNetwork) {
+    return [stockNetwork, ...networks];
+  }
+  return [allNetwork, stockNetwork, ...networks];
+}
+
 export function buildSwapTokenSelectorDisableNetworks({
   type,
   swapTypeSwitch,
@@ -46,7 +131,8 @@ export function buildSwapTokenSelectorDisableNetworks({
 
   if (swapTypeSwitch !== ESwapTabSwitchType.SWAP) {
     if (
-      swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+      (swapTypeSwitch === ESwapTabSwitchType.LIMIT ||
+        swapTypeSwitch === ESwapTabSwitchType.STOCK) &&
       type === ESwapDirectionType.TO &&
       fromToken?.networkId
     ) {

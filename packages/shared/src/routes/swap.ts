@@ -45,6 +45,8 @@ export type IModalSwapParamList = {
     type: ESwapDirectionType;
     storeName: EJotaiContextStoreNames;
     autoSearch?: boolean;
+    selectTarget?: 'swapStock';
+    defaultNetworkId?: string;
   };
   [EModalSwapRoutes.SwapNetworkSelect]: {
     setCurrentSelectNetwork: (network: ISwapNetwork) => void;
@@ -89,5 +91,6 @@ export type IModalSwapParamList = {
     isNative?: boolean;
     from?: EEnterWay;
     disableTrade?: boolean;
+    showFavoriteButton?: boolean;
   };
 };

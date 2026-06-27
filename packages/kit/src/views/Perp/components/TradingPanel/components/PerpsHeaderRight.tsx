@@ -6,11 +6,14 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   DebugRenderTracker,
+  GlassView,
   Icon,
   IconButton,
   SizableText,
   XStack,
+  isLiquidGlassAvailable,
   useMedia,
+  useTheme,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
@@ -89,8 +92,17 @@ function DebugButton() {
   );
 }
 
+// Fully-rounded pill matching the Badge's borderRadius="$full"; the Badge fill
+// is made transparent so this Liquid Glass material shows through.
+const depositGlassStyle = {
+  borderRadius: 9999,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
 function DepositButton() {
   const { gtSm } = useMedia();
+  const theme = useTheme();
   const layoutRef = useRef<IPerpsMobileLayoutTraceRect | undefined>(undefined);
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [displayReady] = usePerpsAccountDisplayReadyAtom();
@@ -260,7 +272,13 @@ function DepositButton() {
     return null;
   }
 
-  const content = (
+  // iOS 26: host the balance pill in a Liquid Glass capsule. The Deposit CTA
+  // keeps its green as a green-tinted glass; the balance/unknown states use the
+  // neutral material. Off iOS 26 (every other platform) this stays the original
+  // solid Badge.
+  const glassActive = isLiquidGlassAvailable();
+  const nonGlassBg = isEmptyAccount ? '$brand8' : '$bgStrong';
+  const badge = (
     <Badge
       borderRadius="$full"
       size="medium"
@@ -273,9 +291,12 @@ function DepositButton() {
       gap="$2"
       px="$3"
       h={gtSm ? 30 : 28}
-      bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
+      // In the glass capsule, drop the solid fill (the glass provides it) and
+      // the press/hover feedback (the glass material handles it).
+      bg={glassActive ? '$transparent' : nonGlassBg}
       cursor="default"
       onLayout={handleLayout}
+      {...(glassActive && { hoverStyle: undefined, pressStyle: undefined })}
     >
       {(() => {
         if (isUnknownAccountValue) {
@@ -314,6 +335,19 @@ function DepositButton() {
         );
       })()}
     </Badge>
+  );
+  const content = glassActive ? (
+    <GlassView
+      isInteractive
+      glassEffectStyle="regular"
+      // Deposit CTA → green-tinted glass; balance/unknown → neutral glass.
+      {...(isEmptyAccount && { tintColor: theme.brand8?.val })}
+      style={depositGlassStyle}
+    >
+      {badge}
+    </GlassView>
+  ) : (
+    badge
   );
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DepositButton">

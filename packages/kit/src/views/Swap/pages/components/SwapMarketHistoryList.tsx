@@ -26,16 +26,22 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapToken,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
-import { getSwapMarketPendingHistoryKey } from '../../utils/swapMarketHistory';
+import {
+  filterSwapMarketHistoryItems,
+  getSwapMarketPendingHistoryKey,
+  isStockSwapHistoryItem,
+} from '../../utils/swapMarketHistory';
 
 interface ISectionData {
   title: string;
@@ -47,12 +53,14 @@ interface ISwapMarketHistoryListProps {
   showType?: 'swap' | 'bridge';
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
+  protocol?: EProtocolOfExchange;
 }
 
 const SwapMarketHistoryList = ({
   showType,
   filterToken,
   isPushModal,
+  protocol,
 }: ISwapMarketHistoryListProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -60,9 +68,18 @@ const SwapMarketHistoryList = ({
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  // The Stock tab pulls from the whole market (SWAP) bucket and then keeps only
+  // stock items, because stock-pending updates may not carry protocol === STOCK.
+  // Every other protocol filters as-is. Compute it once so the refresh key and
+  // the section filter below stay in sync.
+  const effectiveProtocol =
+    protocol === EProtocolOfExchange.STOCK
+      ? EProtocolOfExchange.SWAP
+      : protocol;
   const marketPendingKey = useMemo(
-    () => getSwapMarketPendingHistoryKey(swapHistoryPendingList),
-    [swapHistoryPendingList],
+    () =>
+      getSwapMarketPendingHistoryKey(swapHistoryPendingList, effectiveProtocol),
+    [effectiveProtocol, swapHistoryPendingList],
   );
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
@@ -75,9 +92,19 @@ const SwapMarketHistoryList = ({
     { watchLoading: true },
   );
   const sectionData = useMemo(() => {
-    let filterData = (swapTxHistoryList ?? []).filter(
-      (item) => !isPrivateSendSwapHistoryItem(item),
-    );
+    let filterData = filterSwapMarketHistoryItems({
+      items: swapTxHistoryList ?? [],
+      protocol: effectiveProtocol,
+    });
+    // Stock tab keeps only stock; everything else (the Swap & Bridge tab and
+    // callers with no explicit protocol, e.g. Swap Pro) excludes stock so it
+    // shows swap/bridge trades only. Stock is detected via the reliable
+    // token-level isStock flag.
+    if (protocol === EProtocolOfExchange.STOCK) {
+      filterData = filterData.filter(isStockSwapHistoryItem);
+    } else {
+      filterData = filterData.filter((item) => !isStockSwapHistoryItem(item));
+    }
     if (showType === 'bridge') {
       filterData = filterData.filter(
         (item) =>
@@ -157,7 +184,14 @@ const SwapMarketHistoryList = ({
       ];
     }
     return result;
-  }, [filterToken, intl, showType, swapTxHistoryList]);
+  }, [
+    effectiveProtocol,
+    filterToken,
+    intl,
+    protocol,
+    showType,
+    swapTxHistoryList,
+  ]);
 
   const renderItem = useCallback(
     ({ item }: { item: ISwapTxHistory }) => (

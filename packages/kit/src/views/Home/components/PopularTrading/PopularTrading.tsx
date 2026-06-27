@@ -35,12 +35,12 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { getTokenSubtitle } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 
-import { LeverageBadge } from '../../../Market/components/PerpsBadges';
 import {
   useMarketBasicConfig,
   useNavigateToMarketTab,
@@ -56,16 +56,15 @@ import {
   DEFAULT_MARKET_CATEGORY_ID,
   DEFAULT_SPOT_CATEGORIES,
   FAVORITES_CATEGORY_ID,
+  HOME_PERPS_HOT_CATEGORY_ID,
+  HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
   HOME_WATCHLIST_TAB_TYPE,
 } from './constants';
 import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
-  POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH,
-  getPopularTradingMetricColumns,
+  getPopularTradingColumns,
   renderPopularTradingCommunityBadge,
-  renderPopularTradingRightMetrics,
   renderPopularTradingStockBadges,
-  renderPopularTradingTokenSubtitle,
 } from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
 import {
@@ -74,7 +73,6 @@ import {
   getMarketTokenDisplayPriceChange24h,
   getMarketTokenDisplayVolume24h,
   getTokenKey,
-  shouldUseStockMetadataColumnsForTokens,
 } from './utils';
 
 import type { IFavoriteTokenDisplay } from './types';
@@ -196,6 +194,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     isLoading: isMarketBasicConfigLoading,
     minLiquidity,
     homeTab: apiHomeTabs,
+    perpsCategories,
     spotCategories: apiSpotCategories,
   } = useMarketBasicConfig();
   const [favoriteTokens, setFavoriteTokens] = useState<IFavoriteTokenDisplay[]>(
@@ -210,7 +209,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     IMarketWatchListItemV2[]
   >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(
-    FAVORITES_CATEGORY_ID,
+    HOME_PERPS_HOT_CATEGORY_ID,
   );
 
   const initializedRef = useRef(false);
@@ -249,9 +248,35 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [intl],
   );
 
+  const homePerpsHotCategory = useMemo<IMarketCategoryItem | undefined>(() => {
+    const apiHotCategory = perpsCategories.find(
+      (category) => category.categoryId === HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
+    );
+    if (!apiHotCategory) {
+      return undefined;
+    }
+    return {
+      id: HOME_PERPS_HOT_CATEGORY_ID,
+      name: intl.formatMessage({ id: ETranslations.global_perp }),
+    };
+  }, [intl, perpsCategories]);
+
   const homeCategories = useMemo<IMarketCategoryItem[]>(() => {
+    const buildWithPerpsHotCategory = (categories: IMarketCategoryItem[]) => {
+      if (!homePerpsHotCategory) {
+        return categories;
+      }
+
+      const [firstCategory, ...restCategories] = categories;
+      if (firstCategory?.id === FAVORITES_CATEGORY_ID) {
+        return [firstCategory, homePerpsHotCategory, ...restCategories];
+      }
+
+      return [homePerpsHotCategory, ...categories];
+    };
+
     if (apiHomeTabs.length > 0) {
-      return apiHomeTabs.map((tab) => {
+      const categories = apiHomeTabs.map((tab) => {
         if (tab.type === HOME_WATCHLIST_TAB_TYPE) {
           return {
             ...favoritesCategory,
@@ -265,10 +290,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           icon: tab.icon,
         };
       });
+
+      return buildWithPerpsHotCategory(categories);
     }
 
-    return [favoritesCategory, ...marketCategories];
-  }, [apiHomeTabs, favoritesCategory, marketCategories]);
+    return buildWithPerpsHotCategory([favoritesCategory, ...marketCategories]);
+  }, [apiHomeTabs, favoritesCategory, homePerpsHotCategory, marketCategories]);
 
   const resolvedSelectedCategoryId = useMemo(() => {
     if (homeCategories.some((category) => category.id === selectedCategoryId)) {
@@ -289,8 +316,14 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   });
 
   const isTokenInWatchList = useCallback(
-    (record: IFavoriteTokenDisplay) =>
-      watchListItems.some((item) =>
+    (record: IFavoriteTokenDisplay) => {
+      if (record.perpsCoin) {
+        return watchListItems.some(
+          (item) => item.perpsCoin === record.perpsCoin,
+        );
+      }
+
+      return watchListItems.some((item) =>
         equalTokenNoCaseSensitive({
           token1: {
             networkId: record.chainId,
@@ -301,7 +334,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             contractAddress: item.contractAddress,
           },
         }),
-      ),
+      );
+    },
     [watchListItems],
   );
 
@@ -310,6 +344,50 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       const checked = isTokenInWatchList(record);
 
       try {
+        const firstSortIndex =
+          watchListItems.length > 0
+            ? (watchListItems[0].sortIndex ?? 1000)
+            : 1000;
+
+        if (record.perpsCoin) {
+          if (checked) {
+            await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+              items: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                },
+              ],
+              callerName: 'PopularTrading',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'remove',
+            });
+          } else {
+            await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+              watchList: [
+                {
+                  chainId: '',
+                  contractAddress: '',
+                  perpsCoin: record.perpsCoin,
+                  sortIndex: firstSortIndex - 1,
+                },
+              ],
+              callerName: 'PopularTrading',
+            });
+            void backgroundApiProxy.serviceMarketV2.syncToPerpsAtom({
+              coin: record.perpsCoin,
+              action: 'add',
+            });
+          }
+
+          appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
+          await refreshDataRef.current();
+          return;
+        }
+
         if (checked) {
           await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
             items: [
@@ -328,11 +406,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             removeFrom: EWatchlistFrom.Homepage,
           });
         } else {
-          const firstSortIndex =
-            watchListItems.length > 0
-              ? (watchListItems[0].sortIndex ?? 1000)
-              : 1000;
-
           await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
             watchList: [
               {
@@ -366,153 +439,38 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [intl, isTokenInWatchList, watchListItems],
   );
 
-  const useStockMetadataColumns = useMemo(
-    () => shouldUseStockMetadataColumnsForTokens(favoriteTokens),
-    [favoriteTokens],
-  );
-
   // Columns for table layout (only used when user has favorites)
   const columns = useMemo(() => {
-    if (shouldUseTableLayout) {
-      return [
-        {
-          dataIndex: 'symbol',
-          title: intl.formatMessage({ id: ETranslations.global_name }),
-          columnProps: { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH },
-          render: (
-            _: unknown,
-            record: IFavoriteTokenDisplay,
-            _index: number,
-          ) => (
-            <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
-              <IconButton
-                testID="home-columns-icon-btn"
-                icon="StarSolid"
-                size="small"
-                variant="tertiary"
-                iconProps={{ color: '$iconActive' }}
-                title={intl.formatMessage({
-                  id: ETranslations.market_remove_from_favorites,
-                })}
-                m="$0"
-                onPress={() => handleRemoveFromWatchlistRef.current(record)}
-              />
-              <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-                <Token
-                  size="md"
-                  tokenImageUri={record.logoUrl}
-                  tokenImageUris={record.logoUrls}
-                  networkId={record.perpsCoin ? undefined : record.chainId}
-                  showNetworkIcon={!record.perpsCoin}
-                />
-                <YStack flex={1} minWidth={0}>
-                  <XStack
-                    alignItems="center"
-                    gap="$1"
-                    minWidth={0}
-                    overflow="hidden"
-                  >
-                    <SizableText
-                      size="$bodyLgMedium"
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      flexShrink={1}
-                    >
-                      {record.symbol}
-                    </SizableText>
-                    {record.maxLeverage ? (
-                      <LeverageBadge leverage={record.maxLeverage} />
-                    ) : null}
-                    {renderPopularTradingStockBadges(record)}
-                    {renderPopularTradingCommunityBadge(record)}
-                  </XStack>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    flexShrink={1}
-                    maxWidth="100%"
-                  >
-                    {record.name}
-                  </SizableText>
-                </YStack>
-              </XStack>
-            </XStack>
-          ),
-        },
-        ...getPopularTradingMetricColumns({
-          intl,
-          useStockMetadataColumns,
-        }),
-      ];
-    }
+    // Favorites are already in the watchlist, so the star always removes.
+    const renderStarButton = (record: IFavoriteTokenDisplay) => (
+      <IconButton
+        testID={
+          shouldUseTableLayout ? 'home-columns-icon-btn' : 'home-icon-btn'
+        }
+        icon="StarSolid"
+        size="small"
+        variant="tertiary"
+        iconProps={{ color: '$iconActive' }}
+        title={intl.formatMessage({
+          id: ETranslations.market_remove_from_favorites,
+        })}
+        m="$0"
+        onPress={() => handleRemoveFromWatchlistRef.current(record)}
+        {...(shouldUseTableLayout
+          ? undefined
+          : {
+              hoverStyle: { bg: 'transparent' },
+              pressStyle: { bg: 'transparent' },
+            })}
+      />
+    );
 
-    return [
-      {
-        dataIndex: 'symbol',
-        title: intl.formatMessage({ id: ETranslations.global_name }),
-        columnProps: { flex: 1.35, flexBasis: 0, minWidth: 0 },
-        render: (_: unknown, record: IFavoriteTokenDisplay, _index: number) => (
-          <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
-            <IconButton
-              testID="home-icon-btn"
-              icon="StarSolid"
-              size="small"
-              variant="tertiary"
-              iconProps={{ color: '$iconActive' }}
-              title={intl.formatMessage({
-                id: ETranslations.market_remove_from_favorites,
-              })}
-              m="$0"
-              onPress={() => handleRemoveFromWatchlistRef.current(record)}
-              hoverStyle={{ bg: 'transparent' }}
-              pressStyle={{ bg: 'transparent' }}
-            />
-            <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
-              <Token
-                size="lg"
-                tokenImageUri={record.logoUrl}
-                tokenImageUris={record.logoUrls}
-                networkId={record.perpsCoin ? undefined : record.chainId}
-                showNetworkIcon={!record.perpsCoin}
-              />
-              <YStack flex={1} minWidth={0}>
-                <XStack
-                  alignItems="center"
-                  gap="$1"
-                  minWidth={0}
-                  overflow="hidden"
-                >
-                  <SizableText
-                    size="$bodyLgMedium"
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    flexShrink={1}
-                  >
-                    {record.symbol}
-                  </SizableText>
-                  {record.maxLeverage ? (
-                    <LeverageBadge leverage={record.maxLeverage} />
-                  ) : null}
-                  {renderPopularTradingStockBadges(record)}
-                  {renderPopularTradingCommunityBadge(record)}
-                </XStack>
-                {renderPopularTradingTokenSubtitle(record)}
-              </YStack>
-            </XStack>
-          </XStack>
-        ),
-      },
-      {
-        dataIndex: 'price',
-        title: intl.formatMessage({ id: ETranslations.global_price }),
-        columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
-        render: (_: unknown, record: IFavoriteTokenDisplay) =>
-          renderPopularTradingRightMetrics(record, useStockMetadataColumns),
-      },
-    ];
-  }, [intl, shouldUseTableLayout, useStockMetadataColumns]);
+    return getPopularTradingColumns({
+      intl,
+      shouldUseTableLayout,
+      renderStarButton,
+    });
+  }, [intl, shouldUseTableLayout]);
 
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
@@ -544,29 +502,38 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
         );
         const perpsTargets = targetItems.filter((item) => !!item.perpsCoin);
 
-        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other
-        const [spotResult, perpsResult] = await Promise.allSettled([
-          spotTargets.length > 0
-            ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-                tokenAddressList: spotTargets.map((item) => ({
-                  chainId: item.chainId,
-                  contractAddress: item.contractAddress,
-                  isNative: item.isNative ?? false,
-                })),
-              })
-            : { list: [] as IMarketTokenListItem[] },
-          perpsTargets.length > 0
-            ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
-                category: 'all',
-              })
-            : null,
-        ]);
+        // Fetch spot and perps data in parallel, isolated so one failure doesn't block the other.
+        // Perps localized subtitles (e.g. "美光科技") live in a separate aliases map.
+        const [spotResult, perpsResult, perpsAliasesResult] =
+          await Promise.allSettled([
+            spotTargets.length > 0
+              ? backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+                  tokenAddressList: spotTargets.map((item) => ({
+                    chainId: item.chainId,
+                    contractAddress: item.contractAddress,
+                    isNative: item.isNative ?? false,
+                  })),
+                })
+              : { list: [] as IMarketTokenListItem[] },
+            perpsTargets.length > 0
+              ? backgroundApiProxy.serviceMarketV2.fetchMarketPerpsTokenList({
+                  category: 'all',
+                })
+              : null,
+            perpsTargets.length > 0
+              ? backgroundApiProxy.serviceHyperliquid.getTokenSearchAliases()
+              : null,
+          ]);
         const spotResponse =
           spotResult.status === 'fulfilled'
             ? spotResult.value
             : { list: [] as IMarketTokenListItem[] };
         const perpsResponse =
           perpsResult.status === 'fulfilled' ? perpsResult.value : null;
+        const perpsAliases =
+          perpsAliasesResult.status === 'fulfilled'
+            ? (perpsAliasesResult.value ?? undefined)
+            : undefined;
 
         // Build spot token lookup map
         const spotTokenMap = new Map<string, IMarketTokenListItem>();
@@ -610,6 +577,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
                 marketCap: 0,
                 perpsCoin: targetItem.perpsCoin,
                 maxLeverage: perpsToken.maxLeverage,
+                perpsSubtitle: getTokenSubtitle(perpsToken.name, perpsAliases),
                 volume24h: parseFloat(perpsToken.volume24h ?? '0'),
               };
             }
@@ -734,7 +702,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const isMarketConfigInitialLoading =
     isMarketBasicConfigLoading !== false &&
     apiHomeTabs.length === 0 &&
-    apiSpotCategories.length === 0;
+    apiSpotCategories.length === 0 &&
+    perpsCategories.length === 0;
   const isFavoritesInitialLoading =
     !selectedMarketCategoryId && !initializedRef.current && isLoading !== false;
   const isCategoryInitialLoading =
@@ -960,6 +929,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
   // Navigate to Market favorites tab
   const handleViewMore = useCallback(() => {
+    if (selectedMarketCategoryId === HOME_PERPS_HOT_CATEGORY_ID) {
+      navigateToMarketTab({ tabToSelect: EMarketHomeTab.Perps });
+      return;
+    }
+
     if (selectedMarketCategoryId) {
       navigateToMarketTab({ spotCategoryToSelect: selectedMarketCategoryId });
       return;

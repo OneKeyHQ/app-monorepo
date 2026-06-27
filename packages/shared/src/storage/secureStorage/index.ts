@@ -287,7 +287,10 @@ const storage: ISecureStorage = {
       );
     }
 
-    const masterKey = await getMasterKey();
+    const masterKey = await getMasterKey({
+      allowDiscoverable: false,
+      allowNewRegistration: false,
+    });
     if (!masterKey) {
       throw new OneKeyLocalError(
         'Failed to authenticate with WebAuthn for secure storage',

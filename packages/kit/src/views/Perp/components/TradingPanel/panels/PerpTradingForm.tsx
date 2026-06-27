@@ -48,6 +48,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxReadyAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -96,6 +97,7 @@ import {
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { PerpsSlider } from '../../PerpsSlider';
+import { PerpIpRestrictionNotice } from '../components/PerpIpRestrictionNotice';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import {
@@ -105,6 +107,7 @@ import {
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { TradingFormInput } from '../inputs/TradingFormInput';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
+import { AccountModeSelector } from '../selectors/AccountModeSelector';
 import { BBOSelector } from '../selectors/BBOSelector';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { MobileOrderTypeSelector } from '../selectors/MobileOrderTypeSelector';
@@ -456,6 +459,7 @@ function PerpTradingForm({
   const [enableTradingMode] = usePerpsActiveAccountEnableTradingModeAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
   const [perpsAbstractionMode] = usePerpsAbstractionModeAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [displayReady] = usePerpsAccountDisplayReadyAtom();
   const [displaySnapshot] = usePerpsAccountDisplaySnapshotAtom();
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
@@ -1366,6 +1370,7 @@ function PerpTradingForm({
       !perpsAccountStatus.canTrade &&
       !perpsAccountStatus.accountNotSupport &&
       !perpsAccountStatus.canCreateAddress &&
+      !perpConfigCommon?.ipDisablePerp &&
       enableTradingMode.requiresExplicitEnableTrading,
     [
       displayReady.statusReady,
@@ -1374,8 +1379,14 @@ function PerpTradingForm({
       perpsAccountStatus.accountNotSupport,
       perpsAccountStatus.canCreateAddress,
       perpsAccountStatus.canTrade,
+      perpConfigCommon?.ipDisablePerp,
     ],
   );
+  const shouldShowIpRestrictionNotice = useMemo(
+    () => perpConfigCommon?.ipDisablePerp === true,
+    [perpConfigCommon?.ipDisablePerp],
+  );
+  const shouldHideMobileTpsl = isMobile && shouldShowIpRestrictionNotice;
 
   const spotMaxTradeLabel = useMemo(
     () =>
@@ -2466,6 +2477,9 @@ function PerpTradingForm({
   const reduceOnlyLabel = intl.formatMessage({
     id: ETranslations.perps_reduce_only,
   });
+  const reduceOnlyTooltip = intl.formatMessage({
+    id: ETranslations.perp_reduce_only__desc,
+  });
 
   const renderReduceOnlyCheckbox = ({
     testID,
@@ -2476,26 +2490,33 @@ function PerpTradingForm({
     value: boolean;
     onChange: (checked: boolean) => void;
   }) => (
-    <Checkbox
-      testID={testID}
-      value={value}
-      onChange={(checked) => onChange(!!checked)}
-      disabled={isSubmitting}
-      label={reduceOnlyLabel}
-      containerProps={{
-        p: 0,
-        alignItems: 'center',
-        cursor: isSubmitting ? 'default' : 'pointer',
-      }}
-      labelProps={{
-        fontSize: isMobile ? '$bodySm' : '$bodyMdMedium',
-        fontWeight: isMobile ? '400' : '500',
-        color: '$text',
-      }}
-      width={checkboxSizeVal}
-      height={checkboxSizeVal}
-      {...(isMobile && { p: '$0' })}
-    />
+    <XStack alignItems="center" gap="$2">
+      <Checkbox
+        testID={testID}
+        value={value}
+        onChange={(checked) => onChange(!!checked)}
+        disabled={isSubmitting}
+        shouldStopPropagation
+        containerProps={{
+          p: 0,
+          alignItems: 'center',
+          cursor: isSubmitting ? 'default' : 'pointer',
+        }}
+        width={checkboxSizeVal}
+        height={checkboxSizeVal}
+        {...(isMobile && { p: '$0' })}
+      />
+      <DashText
+        size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+        color="$text"
+        dashColor="$textDisabled"
+        dashThickness={0.5}
+        tooltip={reduceOnlyTooltip}
+        tooltipTitle={reduceOnlyLabel}
+      >
+        {reduceOnlyLabel}
+      </DashText>
+    </XStack>
   );
 
   const renderBottomSection = () => {
@@ -2624,52 +2645,63 @@ function PerpTradingForm({
 
     return (
       <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
-        <XStack
-          width="100%"
-          alignItems="center"
-          justifyContent="space-between"
-          gap="$3"
-        >
-          <XStack alignItems="center" gap="$2">
-            <Checkbox
-              testID={PerpTestIDs.TpslCheckbox}
-              value={formData.hasTpsl}
-              onChange={handleTpslCheckboxChange}
-              disabled={isSubmitting}
-              containerProps={{
-                p: 0,
-                alignItems: 'center',
-                ...(!isMobile && { cursor: 'pointer' }),
-              }}
-              width={checkboxSizeVal}
-              height={checkboxSizeVal}
-              {...(isMobile && { p: '$0' })}
-            />
-
-            <XStack alignItems="center" pt="$0.5">
-              <DashText
-                size={isMobile ? '$bodySm' : '$bodyMd'}
-                dashColor="$textDisabled"
-                dashThickness={0.5}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.perp_tp_sl_tooltip,
-                })}
-                tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
-                tooltipTitle={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              </DashText>
-            </XStack>
+        {shouldHideMobileTpsl ? null : (
+          <XStack alignItems="center">
+            {renderReduceOnlyCheckbox({
+              testID: PerpTestIDs.StandardReduceOnlyCheckbox,
+              value: formData.reduceOnly ?? false,
+              onChange: (checked) => updateForm({ reduceOnly: checked }),
+            })}
           </XStack>
+        )}
+        {shouldHideMobileTpsl ? null : (
+          <XStack
+            width="100%"
+            alignItems="center"
+            justifyContent="space-between"
+            gap="$3"
+          >
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                testID={PerpTestIDs.TpslCheckbox}
+                value={formData.hasTpsl}
+                onChange={handleTpslCheckboxChange}
+                disabled={isSubmitting}
+                containerProps={{
+                  p: 0,
+                  alignItems: 'center',
+                  ...(!isMobile && { cursor: 'pointer' }),
+                }}
+                width={checkboxSizeVal}
+                height={checkboxSizeVal}
+                {...(isMobile && { p: '$0' })}
+              />
 
-          {standardLimitTifSelector}
-        </XStack>
+              <XStack alignItems="center" pt="$0.5">
+                <DashText
+                  size={isMobile ? '$bodySm' : '$bodyMd'}
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  tooltip={intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_tooltip,
+                  })}
+                  tooltipDisplayMode={isMobile ? 'popover' : 'tooltip'}
+                  tooltipTitle={intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              </XStack>
+            </XStack>
 
-        {formData.hasTpsl ? (
+            {standardLimitTifSelector}
+          </XStack>
+        )}
+
+        {!shouldHideMobileTpsl && formData.hasTpsl ? (
           <YStack gap="$2">
             <TpSlFormInput
               type="tp"
@@ -2809,17 +2841,29 @@ function PerpTradingForm({
       pt={isMobile || isSpot ? '$0' : '$2.5'}
       flex={isSpot && isMobile ? 1 : undefined}
     >
+      {shouldShowIpRestrictionNotice ? (
+        <PerpIpRestrictionNotice isMobile={isMobile} isSpot={isSpot} />
+      ) : null}
+
       {isMobile ? (
         <YStack gap="$2.5" flexShrink={0}>
           {isSpot ? null : (
-            <XStack alignItems="center" gap="$2.5">
-              <YStack flex={1}>
+            <XStack alignItems="center" gap="$2.5" width="100%">
+              <YStack flex={1} flexBasis={0} minWidth={0}>
                 <MarginModeSelector
                   disabled={isSubmitting}
                   isMobile={isMobile}
                 />
               </YStack>
-              <LeverageAdjustModal isMobile={isMobile} />
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <LeverageAdjustModal isMobile={isMobile} />
+              </YStack>
+              <YStack flex={1} flexBasis={0} minWidth={0}>
+                <AccountModeSelector
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
             </XStack>
           )}
 
@@ -2855,14 +2899,22 @@ function PerpTradingForm({
         <>
           <YStack gap="$2">
             {isSpot ? null : (
-              <XStack alignItems="center" flex={1} gap="$3">
-                <YStack flex={1}>
+              <XStack alignItems="center" flex={1} gap="$3" width="100%">
+                <YStack flex={1} flexBasis={0} minWidth={0}>
                   <MarginModeSelector
                     disabled={isSubmitting}
                     isMobile={isMobile}
                   />
                 </YStack>
-                <LeverageAdjustModal isMobile={isMobile} />
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <LeverageAdjustModal isMobile={isMobile} />
+                </YStack>
+                <YStack flex={1} flexBasis={0} minWidth={0}>
+                  <AccountModeSelector
+                    disabled={isSubmitting}
+                    isMobile={isMobile}
+                  />
+                </YStack>
               </XStack>
             )}
 

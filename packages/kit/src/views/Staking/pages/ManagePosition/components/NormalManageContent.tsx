@@ -371,6 +371,10 @@ export function NormalManageContent({
     if (defaultTab === 'withdraw') return 1;
     return 0;
   });
+  const [
+    repayWithCollateralSetupReadyProgressKey,
+    setRepayWithCollateralSetupReadyProgressKey,
+  ] = useState('');
   const shouldDisablePrimaryTab = depositDisabled;
 
   // Pendle: slippage state + countdown
@@ -636,59 +640,70 @@ export function NormalManageContent({
     ],
   );
 
+  // When the model is opened directly in Withdraw / Repay mode, the paired
+  // Supply / Borrow tab is disabled, so the type switcher is pointless — hide
+  // it and keep only the form (HeaderRight stays right-aligned).
+  const hideTypeSwitch = [
+    EManagePositionType.Withdraw,
+    EManagePositionType.Repay,
+  ].includes(type);
+
   return (
     <>
-      <XStack jc="space-between" px="$5">
-        <Tabs.TabBar
-          divider={false}
-          onTabPress={handleTabChange}
-          tabNames={tabNames}
-          focusedTab={focusedTab}
-          renderItem={({ name, isFocused }) => {
-            const isDisabled = shouldDisablePrimaryTab && name === tabNames[0];
-            let textColor: '$textDisabled' | '$text' | '$textSubdued' =
-              '$textSubdued';
+      <XStack jc={hideTypeSwitch ? 'flex-end' : 'space-between'} px="$5">
+        {hideTypeSwitch ? null : (
+          <Tabs.TabBar
+            divider={false}
+            onTabPress={handleTabChange}
+            tabNames={tabNames}
+            focusedTab={focusedTab}
+            renderItem={({ name, isFocused }) => {
+              const isDisabled =
+                shouldDisablePrimaryTab && name === tabNames[0];
+              let textColor: '$textDisabled' | '$text' | '$textSubdued' =
+                '$textSubdued';
 
-            if (isDisabled) {
-              textColor = '$textDisabled';
-            } else if (isFocused) {
-              textColor = '$text';
-            }
+              if (isDisabled) {
+                textColor = '$textDisabled';
+              } else if (isFocused) {
+                textColor = '$text';
+              }
 
-            return (
-              <XStack
-                px="$2"
-                py="$1.5"
-                mr="$1"
-                bg={isFocused ? '$bgActive' : '$bg'}
-                borderRadius="$2"
-                borderCurve="continuous"
-                opacity={isDisabled ? 0.4 : 1}
-                hoverStyle={
-                  !isFocused && !isDisabled
-                    ? {
-                        bg: '$bgHover',
-                      }
-                    : null
-                }
-                onPress={() => {
-                  if (isDisabled) {
-                    return;
+              return (
+                <XStack
+                  px="$2"
+                  py="$1.5"
+                  mr="$1"
+                  bg={isFocused ? '$bgActive' : '$bg'}
+                  borderRadius="$2"
+                  borderCurve="continuous"
+                  opacity={isDisabled ? 0.4 : 1}
+                  hoverStyle={
+                    !isFocused && !isDisabled
+                      ? {
+                          bg: '$bgHover',
+                        }
+                      : null
                   }
-                  handleTabChange(name);
-                }}
-              >
-                <SizableText
-                  size="$headingMd"
-                  color={textColor}
-                  letterSpacing={-0.15}
+                  onPress={() => {
+                    if (isDisabled) {
+                      return;
+                    }
+                    handleTabChange(name);
+                  }}
                 >
-                  {name}
-                </SizableText>
-              </XStack>
-            );
-          }}
-        />
+                  <SizableText
+                    size="$headingMd"
+                    color={textColor}
+                    letterSpacing={-0.15}
+                  >
+                    {name}
+                  </SizableText>
+                </XStack>
+              );
+            }}
+          />
+        )}
         <HeaderRight
           accountId={indicatorAccountId || earnAccount?.accountId}
           networkId={networkId}
@@ -762,6 +777,12 @@ export function NormalManageContent({
           onQuoteReset={handleWithdrawQuoteReset}
           refreshKey={withdrawRefreshKey}
           onQuoteRefreshingChange={handleWithdrawQuoteRefreshingChange}
+          repayWithCollateralSetupReadyProgressKey={
+            repayWithCollateralSetupReadyProgressKey
+          }
+          onRepayWithCollateralSetupReadyProgressKeyChange={
+            setRepayWithCollateralSetupReadyProgressKey
+          }
         />
       ) : null}
     </>

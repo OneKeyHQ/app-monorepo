@@ -281,7 +281,11 @@ function clearTransferData(transferData: unknown): void {
   transferData.privateData.credentials = undefined;
   transferData.privateData.decryptedCredentials = undefined;
   transferData.privateData.decryptedCredentialsHex = undefined;
-  transferData.privateData.deviceKeyPack = undefined;
+  // Defensive scrub for legacy senders that still ship deviceKeyPack in the
+  // JSON payload: the field was removed from the TS type but JSON.parse keeps
+  // it, so wipe it explicitly to preserve the previous secret-scrubbing behavior.
+  (transferData.privateData as { deviceKeyPack?: unknown }).deviceKeyPack =
+    undefined;
 }
 
 export function createE2EEClientToClientRuntime({
@@ -386,9 +390,9 @@ export function createE2EEClientToClientRuntime({
       }
     },
 
-    async getTransferType(): Promise<{ transferType: 'keylessWallet' }> {
+    async getTransferType(): Promise<{ transferType: 'allWallet' }> {
       assertSessionIsActive();
-      return { transferType: 'keylessWallet' };
+      return { transferType: 'allWallet' };
     },
 
     async changeTransferDirection({

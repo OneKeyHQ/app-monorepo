@@ -41,8 +41,10 @@ import {
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { getPerpsOrderBookTickOptionsWithCache } from '@onekeyhq/shared/src/utils/perpsOrderBookTickOptionsCache';
+import { normalizePerpsAccountAddress } from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBook,
@@ -88,7 +90,10 @@ import {
   planTradeSubscriptions,
 } from '../utils/subscriptionPlanner';
 
-import { shouldCheckPerpsAccountStatusOnFocus } from './PerpsGlobalEffects.utils';
+import {
+  shouldCheckPerpsAccountStatusOnFocus,
+  shouldRunPerpsAccountSelect,
+} from './PerpsGlobalEffects.utils';
 import { usePerpTokenUrlSync } from './usePerpTokenUrlSync';
 
 const shouldTreatPerpAsFocusedOnMount = !!(
@@ -608,8 +613,13 @@ function useHyperliquidAccountSelect() {
   // refs that resolve in separate ticks during mount (account.address after
   // id, async globalDeriveType), so the effect would otherwise re-fire the
   // network check each time. refreshHook is included so manual refresh still
-  // triggers; account.address is intentionally excluded — it follows id.
+  // triggers; account.address is excluded from the id-based key because for
+  // HD/indexed accounts it follows id asynchronously. The one exception is an
+  // external account whose address mutates in place (a web-dapp
+  // connected-account switch, OK-56744) — that case is detected separately via
+  // lastSelectAddressRef so the rebind still fires. See shouldRunPerpsAccountSelect.
   const lastSelectParamsRef = useRef<string | null>(null);
+  const lastSelectAddressRef = useRef<string | null>(null);
   const isSelectingAccountRef = useRef(false);
   const selectAccountRunIdRef = useRef(0);
 
@@ -617,23 +627,38 @@ function useHyperliquidAccountSelect() {
     if (!globalDeriveType) {
       return;
     }
+    const accountId = activeAccount?.account?.id || null;
+    const currentAddress = normalizePerpsAccountAddress(
+      activeAccount?.account?.address,
+    );
+    const isExternalAccount = accountId
+      ? accountUtils.isExternalAccount({ accountId })
+      : false;
     const params = JSON.stringify({
       indexedAccountId: activeAccount?.indexedAccount?.id || null,
-      accountId: activeAccount?.account?.id || null,
+      accountId,
       walletId: activeAccount?.wallet?.id || null,
       deriveType: globalDeriveType,
       refreshHook: activeAccountRefreshHook,
     });
-    if (lastSelectParamsRef.current === params) {
+    if (
+      !shouldRunPerpsAccountSelect({
+        lastParams: lastSelectParamsRef.current,
+        currentParams: params,
+        isExternalAccount,
+        lastAddress: lastSelectAddressRef.current,
+        currentAddress,
+      })
+    ) {
       return;
     }
     lastSelectParamsRef.current = params;
+    lastSelectAddressRef.current = currentAddress;
 
     const runId = selectAccountRunIdRef.current + 1;
     selectAccountRunIdRef.current = runId;
     isSelectingAccountRef.current = true;
     try {
-      noop(activeAccount.account?.address);
       await actions.current.changeActivePerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
         accountId: activeAccount?.account?.id || null,
@@ -643,6 +668,7 @@ function useHyperliquidAccountSelect() {
       await checkPerpsAccountStatus();
     } catch (error) {
       lastSelectParamsRef.current = null;
+      lastSelectAddressRef.current = null;
       throw error;
     } finally {
       if (selectAccountRunIdRef.current === runId) {

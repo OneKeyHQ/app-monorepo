@@ -18,7 +18,7 @@ import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/compone
 import {
   LeverageBadge,
   StockSourceLogo,
-  SubtitleBadge,
+  SubtitleText,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { TokenTagsPopover } from '@onekeyhq/kit/src/views/Market/components/TokenTagsPopover';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -139,7 +139,15 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   const shouldShowVolume = showVolume && !!volume;
   const shouldShowAddress = !showVolume && Boolean(address);
   const shouldShowCopyButton = showCopyButton && Boolean(address);
-  const shouldShowSecondRow = shouldShowVolume || shouldShowAddress;
+  // Localized name shown as plain text on the second row, before volume/address.
+  let localizedName: string | undefined;
+  if (showStockSubtitle && stock?.subtitle) {
+    localizedName = stock.subtitle;
+  } else if (!stock?.subtitle && perpsSubtitle) {
+    localizedName = perpsSubtitle;
+  }
+  const shouldShowSecondRow =
+    shouldShowVolume || shouldShowAddress || !!localizedName;
 
   const handleCopy = (e: GestureResponderEvent) => {
     e.stopPropagation();
@@ -205,27 +213,28 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
             <>
               <StockSourceLogo stock={stock} />
               {communityRecognized ? <CommunityRecognizedBadge /> : null}
-              {showStockSubtitle && stock?.subtitle ? (
-                <SubtitleBadge subtitle={stock.subtitle} />
-              ) : null}
             </>
           ) : (
-            <>
-              <TokenTagsPopover
-                communityRecognized={communityRecognized}
-                stock={stock}
-              />
-              {showStockSubtitle && stock?.subtitle ? (
-                <SubtitleBadge subtitle={stock.subtitle} />
-              ) : null}
-            </>
+            <TokenTagsPopover
+              communityRecognized={communityRecognized}
+              stock={stock}
+            />
           )}
-          {!stock?.subtitle && perpsSubtitle ? (
-            <SubtitleBadge subtitle={perpsSubtitle} />
-          ) : null}
         </XStack>
         {shouldShowSecondRow ? (
-          <XStack alignItems="center" gap="$1" height="$4">
+          <XStack alignItems="center" gap="$1.5" minWidth={0}>
+            {localizedName ? (
+              // Cap the localized name so long names truncate with an
+              // ellipsis, e.g. "Circle Int...", keeping the row compact.
+              <SubtitleText subtitle={localizedName} maxWidth={66} />
+            ) : null}
+            {/* Divider only before the address (desktop); the name and
+               volume (mobile) are separated by spacing alone. */}
+            {localizedName && shouldShowAddress ? (
+              <SizableText size="$bodySm" color="$textDisabled" flexShrink={0}>
+                |
+              </SizableText>
+            ) : null}
             {shouldShowVolume ? (
               <NumberSizeableText
                 size={gtMd ? '$bodySm' : '$bodyMd'}
@@ -242,6 +251,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
                 size="$bodySm"
                 color="$textSubdued"
                 numberOfLines={1}
+                flexShrink={0}
               >
                 {shortened}
               </SizableText>

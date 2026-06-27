@@ -12,8 +12,10 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
+  ESwapProviderSort,
   swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
@@ -43,9 +45,11 @@ import {
   useSwapQuoteCurrentEventReceivedCountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventCompletedAtom,
+  useSwapQuoteEventErrorAtom,
   useSwapQuoteEventTotalCountAtom,
   useSwapQuoteFetchingAtom,
   useSwapQuoteIntervalCountAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
@@ -61,9 +65,12 @@ import {
   getSwapQuoteEventProgressTotalCount,
   getSwapQuoteProgressState,
   isSwapQuoteEventFetching,
+  isSwapQuoteInputAmountMatched,
   isSwapZeroProviderQuoteCompleted,
+  selectSwapPreviousActionableQuote,
 } from '../../../states/jotai/contexts/swap/quoteProgress';
 import { buildSwapBatchTransferType } from '../utils/buildSwapReviewState';
+import { getStockQuoteTradeControl } from '../utils/swapStockTradeControl';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
@@ -73,6 +80,9 @@ function useSwapWarningCheck() {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
@@ -127,6 +137,9 @@ function useSwapWarningCheck() {
     toToken,
     fromTokenBalance,
     quoteCurrentSelect,
+    quoteEventCompleted,
+    quoteEventError,
+    quoteEventTotalCount,
     isFocused,
     swapLimitUseRate,
   ]);
@@ -150,7 +163,9 @@ export function useSwapQuoteEventFetching() {
       getSwapQuoteEventProgressTotalCount({
         quoteEventTotalCount,
         maxQuoteCount:
-          swapIncognitoMode && swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+          swapIncognitoMode &&
+          swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+          swapTypeSwitch !== ESwapTabSwitchType.STOCK
             ? SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP
             : undefined,
       }),
@@ -168,6 +183,92 @@ export function useSwapQuoteProgressState() {
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [quoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
+  const [quoteList] = useSwapQuoteListAtom();
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount] = useSwapToTokenAmountAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [quoteEventCompleted] = useSwapQuoteEventCompletedAtom();
+  const [quoteEventError] = useSwapQuoteEventErrorAtom();
+
+  const scopedPreviousQuoteList = useMemo(() => {
+    const list = quoteList.filter((quote) => {
+      if (!fromToken || !toToken) {
+        return false;
+      }
+      if (
+        !equalTokenNoCaseSensitive({
+          token1: quote.fromTokenInfo,
+          token2: fromToken,
+        }) ||
+        !equalTokenNoCaseSensitive({
+          token1: quote.toTokenInfo,
+          token2: toToken,
+        })
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch === ESwapTabSwitchType.STOCK &&
+        quote.protocol !== EProtocolOfExchange.STOCK
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
+        quote.protocol !== EProtocolOfExchange.LIMIT
+      ) {
+        return false;
+      }
+      if (
+        swapTypeSwitch !== ESwapTabSwitchType.STOCK &&
+        swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+        (quote.protocol === EProtocolOfExchange.STOCK ||
+          quote.protocol === EProtocolOfExchange.LIMIT)
+      ) {
+        return false;
+      }
+      return Boolean(
+        (quote.kind === ESwapQuoteKind.BUY
+          ? toTokenAmount.value
+          : fromTokenAmount.value) &&
+        isSwapQuoteInputAmountMatched({
+          quote,
+          fromAmount: fromTokenAmount.value,
+          toAmount: toTokenAmount.value,
+        }),
+      );
+    });
+    return sortSwapQuotes(list, {
+      sort: ESwapProviderSort.RECOMMENDED,
+      fromTokenAmount: fromTokenAmount.value,
+    });
+  }, [
+    fromToken,
+    fromTokenAmount.value,
+    quoteList,
+    swapTypeSwitch,
+    toToken,
+    toTokenAmount.value,
+  ]);
+
+  const previousQuote = useMemo(
+    () =>
+      selectSwapPreviousActionableQuote({
+        quotes: scopedPreviousQuoteList,
+        quoteEventTotalCount,
+        quoteLoading,
+        quoteEventFetching,
+      }),
+    [
+      quoteEventFetching,
+      quoteEventTotalCount,
+      quoteLoading,
+      scopedPreviousQuoteList,
+    ],
+  );
 
   return useMemo(
     () =>
@@ -175,8 +276,20 @@ export function useSwapQuoteProgressState() {
         quoteLoading,
         quoteEventFetching,
         quoteCurrentSelect,
+        previousQuote,
+        quoteEventTotalCount,
+        quoteEventCompleted,
+        quoteEventError,
       }),
-    [quoteCurrentSelect, quoteEventFetching, quoteLoading],
+    [
+      quoteCurrentSelect,
+      quoteEventCompleted,
+      quoteEventError,
+      quoteEventFetching,
+      quoteEventTotalCount,
+      quoteLoading,
+      previousQuote,
+    ],
   );
 }
 
@@ -276,6 +389,21 @@ export function useSwapActionState() {
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
+  const quoteInputAmountNoMatch = useMemo(() => {
+    const inputAmount =
+      quoteCurrentSelect?.kind === ESwapQuoteKind.BUY
+        ? toTokenAmount.value
+        : fromTokenAmount.value;
+    return Boolean(
+      quoteCurrentSelect &&
+      inputAmount &&
+      !isSwapQuoteInputAmountMatched({
+        quote: quoteCurrentSelect,
+        fromAmount: fromTokenAmount.value,
+        toAmount: toTokenAmount.value,
+      }),
+    );
+  }, [fromTokenAmount.value, quoteCurrentSelect, toTokenAmount.value]);
   const quoteResultNoMatch = useMemo(
     () =>
       (quoteCurrentSelect &&
@@ -285,6 +413,7 @@ export function useSwapActionState() {
             fromToken?.contractAddress ||
           quoteCurrentSelect.toTokenInfo.contractAddress !==
             toToken?.contractAddress)) ||
+      quoteInputAmountNoMatch ||
       (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
         quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
         quoteCurrentSelect?.allowanceResult &&
@@ -294,6 +423,7 @@ export function useSwapActionState() {
       fromToken?.networkId,
       fromTokenAmount,
       quoteCurrentSelect,
+      quoteInputAmountNoMatch,
       toToken?.contractAddress,
       toToken?.networkId,
     ],
@@ -325,8 +455,7 @@ export function useSwapActionState() {
     if (
       !swapFromAddressInfo.address ||
       !swapToAddressInfo.address ||
-      (quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
-        quoteCurrentSelect?.fromAmount !== fromTokenAmount.value)
+      quoteInputAmountNoMatch
     ) {
       infoRes.disable = true;
     }
@@ -341,6 +470,13 @@ export function useSwapActionState() {
       quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.STOCK &&
       !isRefreshQuote
     ) {
       infoRes.disable = true;
@@ -368,6 +504,19 @@ export function useSwapActionState() {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
+        infoRes.disable = true;
+      }
+      const stockTradeControl =
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.STOCK
+          ? getStockQuoteTradeControl({
+              quoteResult: quoteCurrentSelect,
+              fromTokenAmount: fromTokenAmount.value,
+              fromTokenSymbol: fromToken?.symbol,
+              intl,
+            })
+          : undefined;
+      if (stockTradeControl) {
+        infoRes.label = stockTradeControl.message;
         infoRes.disable = true;
       }
       if (
@@ -448,6 +597,7 @@ export function useSwapActionState() {
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     fromTokenAmount.value,
+    quoteInputAmountNoMatch,
     swapTypeSwitchValue,
     isRefreshQuote,
     toTokenAmount.value,

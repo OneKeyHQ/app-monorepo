@@ -12,6 +12,7 @@ import type ServiceAccount from '../services/ServiceAccount';
 import type ServiceAccountProfile from '../services/ServiceAccountProfile';
 import type ServiceAccountSelector from '../services/ServiceAccountSelector';
 import type ServiceAddressBook from '../services/ServiceAddressBook';
+import type ServiceAddressRiskCheck from '../services/ServiceAddressRiskCheck';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
@@ -159,6 +160,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
+  serviceAddressRiskCheck: ServiceAddressRiskCheck;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
   serviceSwap: ServiceSwap;

@@ -33,10 +33,13 @@ import {
 } from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
 
+import { getPerpsInteractionOverlayOpenState } from './interactionOverlayState';
+
 import type { IWebViewRef } from '../../../WebView/types';
 import type {
   IGetMarksRequest,
   IGetMarksResponse,
+  ITVChartOrderIntentPayload,
   ITVChartReadyPayload,
   ITVLineReadyPayload,
   ITVOrderCancelPayload,
@@ -56,7 +59,9 @@ export function usePerpsTradingViewMessageHandler({
   onOrderCancel,
   onOrderDraftCreate,
   onOrderPriceUpdate,
+  onChartOrderIntent,
   onTouchScroll,
+  onInteractionOverlayOpenChange,
 }: {
   symbol: string;
   userAddress?: IHex | null;
@@ -66,7 +71,9 @@ export function usePerpsTradingViewMessageHandler({
   onOrderCancel?: (payload: ITVOrderCancelPayload) => void;
   onOrderDraftCreate?: (payload: ITVOrderDraftCreatePayload) => void;
   onOrderPriceUpdate?: (payload: ITVOrderPriceUpdatePayload) => void;
+  onChartOrderIntent?: (payload: ITVChartOrderIntentPayload) => void;
   onTouchScroll?: (deltaY: number) => void;
+  onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const marksRequestIdRef = useRef(0);
@@ -372,6 +379,9 @@ export function usePerpsTradingViewMessageHandler({
         case PERPS_TV_MESSAGE_METHODS.ORDER_DRAFT_CREATE:
           onOrderDraftCreate?.(messageData.data as ITVOrderDraftCreatePayload);
           break;
+        case PERPS_TV_MESSAGE_METHODS.CHART_ORDER_INTENT:
+          onChartOrderIntent?.(messageData.data as ITVChartOrderIntentPayload);
+          break;
         case PERPS_TV_MESSAGE_METHODS.ORDER_PRICE_UPDATE:
           onOrderPriceUpdate?.(messageData.data as ITVOrderPriceUpdatePayload);
           break;
@@ -393,6 +403,13 @@ export function usePerpsTradingViewMessageHandler({
           }
           break;
         }
+        case 'tradingview_interactionOverlay': {
+          const isOpen = getPerpsInteractionOverlayOpenState(messageData.data);
+          if (typeof isOpen === 'boolean') {
+            onInteractionOverlayOpenChange?.(isOpen);
+          }
+          break;
+        }
         default:
           break;
       }
@@ -405,7 +422,9 @@ export function usePerpsTradingViewMessageHandler({
       onOrderCancel,
       onOrderDraftCreate,
       onOrderPriceUpdate,
+      onChartOrderIntent,
       onTouchScroll,
+      onInteractionOverlayOpenChange,
       setLayoutState,
     ],
   );

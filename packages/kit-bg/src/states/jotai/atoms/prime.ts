@@ -24,7 +24,6 @@ export const primePersistAtomInitialValue: IPrimePersistAtomData = {
   onekeyUserId: undefined,
   primeSubscription: undefined,
   subscriptionManageUrl: undefined,
-  keylessWalletId: undefined,
   nickname: undefined,
   avatar: undefined,
 };
