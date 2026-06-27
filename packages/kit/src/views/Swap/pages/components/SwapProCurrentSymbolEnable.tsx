@@ -12,7 +12,6 @@ interface ISwapProCurrentSymbolEnableProps {
 }
 
 const SwapProCurrentSymbolEnable = ({
-  isFocusSwapPro = true,
   isStock,
 }: ISwapProCurrentSymbolEnableProps) => {
   const [swapProEnableCurrentSymbol, setSwapProEnableCurrentSymbol] =
@@ -21,12 +20,11 @@ const SwapProCurrentSymbolEnable = ({
   const toggleSwapProEnableCurrentSymbol = useCallback(() => {
     setSwapProEnableCurrentSymbol((prev) => !prev);
   }, [setSwapProEnableCurrentSymbol]);
-  let labelId = ETranslations.swap_current_token;
-  if (isStock) {
-    labelId = ETranslations.stocks_current_stock;
-  } else if (isFocusSwapPro) {
-    labelId = ETranslations.dexmarket_pro_current_symbol;
-  }
+  // Swap & Bridge and Pro share the same "Current tokens" label; only the Stock
+  // tab uses its own "Current stock".
+  const labelId = isStock
+    ? ETranslations.stocks_current_stock
+    : ETranslations.swap_current_token;
   return (
     <XStack
       gap="$2"
