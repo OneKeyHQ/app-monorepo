@@ -724,8 +724,12 @@ const SwapHeaderRightActionContainer = ({
     swapTypeSwitch === ESwapTabSwitchType.STOCK ||
     swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const isKLineDisabled = !fromToken && !toToken;
-  const showKLineAsDialog =
-    platformEnv.isNative || (platformEnv.isExtension && !gtLg);
+  // On native, the K-line in-page dialog (InTabDialog / InModalDialog) does not
+  // mount when triggered from the header capsule, so the Swap & Bridge button
+  // appeared unresponsive. Use the full SwapKLine modal on native instead — the
+  // same navigation.pushModal mechanism the Stocks / Pro buttons and desktop
+  // already use successfully. Keep the dialog only for the small extension popup.
+  const showKLineAsDialog = platformEnv.isExtension && !gtLg;
   const kLineDialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const onOpenSwapKLineModal = useCallback(() => {
     if (isKLineDisabled) {
