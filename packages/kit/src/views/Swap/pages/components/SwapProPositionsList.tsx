@@ -10,7 +10,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
 import { type ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import SwapProPositionItem from '../../components/SwapProPositionItem';
@@ -66,36 +65,40 @@ const SwapProPositionsList = ({
     if (!finallyTokenList.length) {
       return [] as ISwapToken[];
     }
-    let list: IMarketTokenListItem[] = [];
-    try {
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-          requestLocale: settings.locale,
-          tokenAddressList: finallyTokenList.map((token) => ({
-            contractAddress: token.contractAddress ?? '',
-            chainId: token.networkId,
-            isNative: !!token.isNative,
-          })),
-        });
-      list = response.list ?? [];
-    } catch {
-      list = [];
-    }
+    // Let a fetch failure throw rather than swallowing it into an empty list:
+    // usePromiseResult then keeps the previous successful result instead of
+    // wrongly showing "No results" on a tab that hides the search entry.
+    const response =
+      await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+        requestLocale: settings.locale,
+        tokenAddressList: finallyTokenList.map((token) => ({
+          contractAddress: token.contractAddress ?? '',
+          chainId: token.networkId,
+          isNative: !!token.isNative,
+        })),
+      });
+    const list = response.list ?? [];
     // response.list is index-aligned with tokenAddressList: keep only the
     // holdings whose server entry has a truthy .stock field.
     return finallyTokenList.filter((_, i) => Boolean(list[i]?.stock));
   }, [finallyTokenList, settings.locale, stockOnly]);
 
-  // While the batch is loading, stockTokenList is undefined; show empty list
-  // briefly. usePromiseResult keeps the prior result on subsequent fetches so
-  // there is no repeated flash after the first successful load.
+  // The stock list is undefined until the first batch resolves; treat that as a
+  // loading state (skeleton below) so the list never flashes "No results" while
+  // holdings are still being classified. usePromiseResult keeps the prior result
+  // across subsequent fetches and on failure, so a defined value is always the
+  // last good one.
+  const isStockListLoading = stockOnly && stockTokenList === undefined;
   const displayTokenList = stockOnly
     ? (stockTokenList ?? [])
     : finallyTokenList;
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
-  if (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) {
+  if (
+    (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) ||
+    isStockListLoading
+  ) {
     return (
       <YStack gap="$2" p="$2">
         <XStack>
