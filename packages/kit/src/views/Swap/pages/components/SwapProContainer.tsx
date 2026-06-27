@@ -18,6 +18,7 @@ import {
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchLimitOrderRes,
@@ -270,13 +271,17 @@ const SwapProContainer = ({
           }}
           configLoading={isLoading}
         />
-        <IconButton
-          testID="swap-icon-btn"
-          icon="TradingViewCandlesOutline"
-          variant="tertiary"
-          flexShrink={0}
-          onPress={onProMarketDetail}
-        />
+        {/* On mobile this candlestick button moved up into the top header
+            capsule (SwapProKLineHeaderButton); keep it inline on desktop. */}
+        {platformEnv.isNative ? null : (
+          <IconButton
+            testID="swap-icon-btn"
+            icon="TradingViewCandlesOutline"
+            variant="tertiary"
+            flexShrink={0}
+            onPress={onProMarketDetail}
+          />
+        )}
       </XStack>
       <XStack
         mt="$2"
