@@ -32,7 +32,9 @@ function makeToken(over?: Partial<ISwapToken>): ISwapToken {
 
 describe('isSelectedProStockMarketClosed', () => {
   it('is closed when the detail matches the selected token and the stock is closed', () => {
-    expect(isSelectedProStockMarketClosed(makeDetail(), makeToken())).toBe(true);
+    expect(isSelectedProStockMarketClosed(makeDetail(), makeToken())).toBe(
+      true,
+    );
   });
 
   it('matches addresses case-insensitively on non-case-sensitive networks', () => {
