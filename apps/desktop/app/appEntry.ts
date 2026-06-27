@@ -21,8 +21,17 @@ if (process.argv.includes(ONEKEY_DESKTOP_NATIVE_MESSAGING_HOST_ARG)) {
     process.exit(0);
   }
 } else {
-  void import('./app').catch((error) => {
+  // Normal desktop startup: load ./app SYNCHRONOUSLY. app.ts performs top-level
+  // Electron registrations that must run within Electron's synchronous startup
+  // window — requestSingleInstanceLock(), app.commandLine.appendSwitch(...),
+  // app.userAgentFallback, and the will-finish-launching / open-url listeners. A
+  // dynamic import() defers these to a microtask and could miss cold-start deep
+  // links, protocol handling, first-renderer UA patching, or single-instance
+  // convergence. Only the dev-only host branch above is lazy-loaded.
+  try {
+    require('./app');
+  } catch (error) {
     console.error('[appEntry] failed to start app', error);
     process.exit(1);
-  });
+  }
 }
