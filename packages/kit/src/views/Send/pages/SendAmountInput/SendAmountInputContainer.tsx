@@ -4189,6 +4189,19 @@ function SendAmountInputContainer() {
     isPrivateSendMode && platformEnv.isNative && !media.gtMd;
   const shouldUseScrollablePrivateSendBody =
     isPrivateSendMode && !isMobilePrivateSendLayout;
+  // Normal (non-private) send on small native screens: the auto-switch alert,
+  // derive-type selector, balance card and Preview button all live in the
+  // keyboard-avoiding Page.Footer while the centered amount input lives in a
+  // non-scrollable Page.Body. On short devices (e.g. iPhone SE) with the
+  // keyboard up there isn't enough height, so the lifted footer content
+  // overlapped the body and the amount hint was drawn over the alert
+  // (the "已自动切换地址格式" tip). Route this case through the same
+  // keyboard-aware scrollable body used by tablet private send so the content
+  // can reflow/scroll instead of overlapping.
+  const isMobileNormalSendScrollable =
+    !isPrivateSendMode && platformEnv.isNative && !media.gtMd;
+  const shouldUseScrollableAmountBody =
+    shouldUseScrollablePrivateSendBody || isMobileNormalSendScrollable;
   const shouldHidePrivateSendFooterHelp =
     isMobilePrivateSendLayout && isAmountInputFocused;
 
@@ -4523,7 +4536,7 @@ function SendAmountInputContainer() {
         </ScrollView>
       </Page.Body>
     );
-  } else if (shouldUseScrollablePrivateSendBody) {
+  } else if (shouldUseScrollableAmountBody) {
     renderPageBody = (
       <Page.Body minHeight={0} overflow="hidden">
         <Keyboard.AwareScrollView
@@ -4535,6 +4548,12 @@ function SendAmountInputContainer() {
           bottomOffset={KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET}
         >
           <YStack px="$5" py="$5" gap="$5" flexGrow={1}>
+            {/* Do NOT wrap the amount input in an onPress handler to dismiss
+                the keyboard: the input is a Nitro HybridView that does not
+                claim the RN touch responder, so a parent onPress also fires
+                when tapping the input itself and immediately blurs it (the
+                keyboard flashes up then closes). Keyboard dismissal is handled
+                by `keyboardDismissMode="on-drag"` on the scroll view instead. */}
             <YStack flex={1} justifyContent="center">
               {renderAmountFormContent}
             </YStack>
@@ -4564,7 +4583,7 @@ function SendAmountInputContainer() {
       {renderPageBody}
 
       <Page.Footer>
-        {shouldUseScrollablePrivateSendBody ? null : (
+        {shouldUseScrollableAmountBody ? null : (
           <Stack px="$5" gap="$3">
             {isMobilePrivateSendLayout
               ? renderMobilePrivateSendFooterInfoContent
