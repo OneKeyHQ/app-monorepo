@@ -370,6 +370,9 @@ const SwapHistoryListModal = ({
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(undefined, {
           excludeProtocols: cleanExcludeProtocols,
+          // The Swap & Bridge tab hides stock trades, so its Clear must not
+          // delete stock history the user can't see here.
+          excludeStock: true,
         });
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -407,7 +410,7 @@ const SwapHistoryListModal = ({
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
           [ESwapTxHistoryStatus.PENDING],
-          { excludeProtocols: cleanExcludeProtocols },
+          { excludeProtocols: cleanExcludeProtocols, excludeStock: true },
         );
         defaultLogger.swap.cleanSwapOrder.cleanSwapOrder({
           cleanFrom: ESwapCleanHistorySource.LIST,

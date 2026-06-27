@@ -6,6 +6,7 @@ import {
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import type {
@@ -117,6 +118,10 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades. The Swap/Bridge list hides stock via the token-level
+      // isStock flag, so clearing it must use the same rule (protocol exclusion
+      // alone would delete stock orders the user can't see on that tab).
+      excludeStock?: boolean;
     },
   ) {
     const shouldKeepHistory = (history: ISwapTxHistory) => {
@@ -126,6 +131,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
           excludeProtocols: options?.excludeProtocols,
         })
       ) {
+        return true;
+      }
+      if (options?.excludeStock && isStockSwapHistoryItem(history)) {
         return true;
       }
       return statuses ? !statuses.includes(history.status) : false;

@@ -2,7 +2,10 @@ import orderBy from 'lodash/orderBy';
 
 import { filterSwapHistoryPendingList } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import {
+  isPrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapToken,
@@ -25,17 +28,9 @@ export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   );
 }
 
-// Whether a history item is a stock trade. The token-level `isStock` flag is the
-// authoritative signal (it is preserved end-to-end when the item is recorded);
-// `protocol === STOCK` is only a secondary hint because it is backend-echoed and
-// can fall back to SWAP. Used to split the Swap/Bridge vs Stock history previews.
-export function isStockSwapHistoryItem(item: ISwapTxHistory): boolean {
-  return Boolean(
-    item.protocol === EProtocolOfExchange.STOCK ||
-    item.baseInfo?.fromToken?.isStock ||
-    item.baseInfo?.toToken?.isStock,
-  );
-}
+// Re-exported from shared so the history clear logic (kit-bg) reuses the exact
+// same stock detection as the list display.
+export { isStockSwapHistoryItem };
 
 // Maps a swap-history type to its modal title translation id. Shared by the
 // history modal header and its lazy-load fallback so the two never drift.
