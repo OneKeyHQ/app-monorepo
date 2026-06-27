@@ -183,10 +183,12 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async seedPreviewReadIfNeeded(readAt: number) {
+  // Returns true only when it actually seeded this call, so the caller can run
+  // the invalidation path (re-derive the pending atom) just once.
+  async seedPreviewReadIfNeeded(readAt: number): Promise<boolean> {
     const data = await this.getRawData();
     if (data?.previewReadSeeded) {
-      return;
+      return false;
     }
     const histories = data?.histories ?? [];
     const next = markUnreadTerminalAsRead(histories, readAt);
@@ -195,5 +197,6 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
       histories: next,
       previewReadSeeded: true,
     });
+    return true;
   }
 }

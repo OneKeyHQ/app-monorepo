@@ -1836,9 +1836,17 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async seedSwapHistoryPreviewReadIfNeeded() {
-    await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
-      Date.now(),
-    );
+    const seeded =
+      await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+        Date.now(),
+      );
+    if (seeded) {
+      // Re-derive the pending atom (same invalidation as
+      // markAllSwapHistoryPreviewRead) so a foreground that already read the
+      // pre-seed history re-reads it and drops the now-read legacy terminal
+      // items from the preview, instead of keeping them for the whole session.
+      await this.syncSwapHistoryPendingList();
+    }
   }
 
   @backgroundMethod()
