@@ -815,45 +815,51 @@ const SwapHeaderRightActionContainer = ({
         {kLineButton}
         {settingsButton}
 
-        {historyBadgeCount > 0 ? (
-          <Stack
-            testID={SwapTestIDs.historyButton}
-            m={compact ? '$0' : '$0.5'}
-            w="$5"
-            h="$5"
-            userSelect="none"
-            borderRadius="$full"
-            borderColor="$icon"
-            borderWidth={1.2}
-            alignItems="center"
-            justifyContent="center"
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineWidth: 2,
-              outlineStyle: 'solid',
-              outlineOffset: 0,
-            }}
-            onPress={onOpenHistoryListModal}
-          >
-            <SizableText color="$text" size="$bodySm">
-              {`${historyBadgeCount}`}
-            </SizableText>
-          </Stack>
-        ) : (
-          <HeaderIconButton
-            testID={SwapTestIDs.historyButton}
-            icon="ClockTimeHistoryOutline"
-            onPress={onOpenHistoryListModal}
-            iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-            size={resolvedButtonSize}
-          />
-        )}
+        {/* On mobile every tab has its own Order History list, so the global
+            history button is hidden there; keep it on desktop / web / ext. */}
+        {!platformEnv.isNative &&
+          (historyBadgeCount > 0 ? (
+            <Stack
+              testID={SwapTestIDs.historyButton}
+              m={compact ? '$0' : '$0.5'}
+              w="$5"
+              h="$5"
+              userSelect="none"
+              borderRadius="$full"
+              borderColor="$icon"
+              borderWidth={1.2}
+              alignItems="center"
+              justifyContent="center"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: 0,
+              }}
+              onPress={onOpenHistoryListModal}
+            >
+              <SizableText color="$text" size="$bodySm">
+                {`${historyBadgeCount}`}
+              </SizableText>
+            </Stack>
+          ) : (
+            <HeaderIconButton
+              testID={SwapTestIDs.historyButton}
+              icon="ClockTimeHistoryOutline"
+              onPress={onOpenHistoryListModal}
+              iconProps={{
+                size: resolvedIconSize,
+                color: iconColor ?? '$icon',
+              }}
+              size={resolvedButtonSize}
+            />
+          ))}
       </HeaderButtonGroup>
     </GlassButtonCapsule>
   );
