@@ -90,7 +90,8 @@ export const initLocale = async () => {
   return globalLocale;
 };
 
-export const i18nText = (key: ETranslations) => globalMessages[key];
+export const i18nText = (key: ETranslations) =>
+  globalMessages[key] ?? (key as unknown as string);
 
 // Lightweight {placeholder} interpolation for main-process i18n.
 // Mirrors react-intl's syntax for the simple variable substitution case so
@@ -99,7 +100,7 @@ export const i18nFormat = (
   key: ETranslations,
   values?: Record<string, string | number>,
 ) => {
-  const template = globalMessages[key];
+  const template = i18nText(key);
   if (!template) return key as unknown as string;
   if (!values) return template;
   return template.replace(/\{(\w+)\}/g, (_match, name: string) =>
