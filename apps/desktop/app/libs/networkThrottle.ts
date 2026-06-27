@@ -18,6 +18,20 @@ type IDesktopNetworkThrottleProfileConfig = {
   uploadThroughput: number;
 };
 
+type IDesktopNetworkThrottleSessionEntry = {
+  label: string;
+  targetSession: Session;
+};
+
+type IDesktopNetworkThrottleAppliedSession =
+  IDesktopNetworkThrottleSessionEntry & {
+    stateKey: string;
+  };
+
+type IApplyDesktopNetworkThrottleOptions = {
+  closeConnections?: boolean;
+};
+
 const DESKTOP_NETWORK_THROTTLE_PROFILES: Record<
   IDesktopStoreNetworkThrottleProfile,
   IDesktopNetworkThrottleProfileConfig
@@ -105,12 +119,12 @@ function getSessionAppliedLogMessage(
 function applyDesktopNetworkThrottleToSession(
   targetSession: Session,
   label: string,
-): void {
+): IDesktopNetworkThrottleAppliedSession | undefined {
   const config = getRuntimeNetworkThrottleConfig();
   const stateKey = getSessionStateKey(config);
   const previousStateKey = appliedStateBySession.get(targetSession);
   if (previousStateKey === stateKey) {
-    return;
+    return undefined;
   }
 
   try {
@@ -125,18 +139,24 @@ function applyDesktopNetworkThrottleToSession(
     if (config.enabled || previousStateKey) {
       logger.info(getSessionAppliedLogMessage(config, label));
     }
+    return {
+      label,
+      stateKey,
+      targetSession,
+    };
   } catch (error) {
     logger.warn(
       `[desktop-network-throttle] failed to apply ${stateKey} to ${label}`,
       error,
     );
+    return undefined;
   }
 }
 
 function uniqueSessions(
-  entries: Array<{ label: string; targetSession: Session }>,
-): Array<{ label: string; targetSession: Session }> {
-  const result: Array<{ label: string; targetSession: Session }> = [];
+  entries: IDesktopNetworkThrottleSessionEntry[],
+): IDesktopNetworkThrottleSessionEntry[] {
+  const result: IDesktopNetworkThrottleSessionEntry[] = [];
   for (const entry of entries) {
     if (
       !result.some(
@@ -149,7 +169,25 @@ function uniqueSessions(
   return result;
 }
 
-export function applyDesktopNetworkThrottleToKnownSessions(): void {
+async function closeSessionConnections(
+  appliedSession: IDesktopNetworkThrottleAppliedSession,
+): Promise<void> {
+  try {
+    await appliedSession.targetSession.closeAllConnections();
+    logger.info(
+      `[desktop-network-throttle] closed connections session=${appliedSession.label} state=${appliedSession.stateKey}`,
+    );
+  } catch (error) {
+    logger.warn(
+      `[desktop-network-throttle] failed to close connections session=${appliedSession.label} state=${appliedSession.stateKey}`,
+      error,
+    );
+  }
+}
+
+export async function applyDesktopNetworkThrottleToKnownSessions(
+  options?: IApplyDesktopNetworkThrottleOptions,
+): Promise<void> {
   const entries = uniqueSessions([
     {
       label: 'defaultSession',
@@ -172,9 +210,18 @@ export function applyDesktopNetworkThrottleToKnownSessions(): void {
       })),
   ]);
 
+  const closeConnectionTasks: Array<Promise<void>> = [];
   for (const entry of entries) {
-    applyDesktopNetworkThrottleToSession(entry.targetSession, entry.label);
+    const appliedSession = applyDesktopNetworkThrottleToSession(
+      entry.targetSession,
+      entry.label,
+    );
+    if (options?.closeConnections && appliedSession) {
+      closeConnectionTasks.push(closeSessionConnections(appliedSession));
+    }
   }
+
+  await Promise.all(closeConnectionTasks);
 }
 
 export function applyDesktopNetworkThrottleToWebContents(
@@ -193,12 +240,14 @@ export function getDesktopNetworkThrottleConfig(): IDesktopStoreNetworkThrottle 
   return getRuntimeNetworkThrottleConfig();
 }
 
-export function setDesktopNetworkThrottleConfig(
+export async function setDesktopNetworkThrottleConfig(
   config: IDesktopStoreNetworkThrottle,
-): IDesktopStoreNetworkThrottle {
+): Promise<IDesktopStoreNetworkThrottle> {
   const normalizedConfig = normalizeDesktopNetworkThrottleConfig(config);
   runtimeNetworkThrottleConfig = normalizedConfig;
   store.setNetworkThrottle(normalizedConfig);
-  applyDesktopNetworkThrottleToKnownSessions();
+  await applyDesktopNetworkThrottleToKnownSessions({
+    closeConnections: true,
+  });
   return normalizedConfig;
 }

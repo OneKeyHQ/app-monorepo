@@ -1194,7 +1194,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
   const overlaySession = session.fromPartition(
     DESKTOP_WEBVIEW_OVERLAY_PARTITION,
   );
-  applyDesktopNetworkThrottleToKnownSessions();
+  void applyDesktopNetworkThrottleToKnownSessions();
   // Overlay loads arbitrary external https pages from deeplinks /
   // notifications; the renderer's media-permission whitelist already
   // denies getUserMedia at the react-native-webview layer, but the
@@ -1328,7 +1328,7 @@ async function createMainWindow(opts?: { isSoftRestart?: boolean }) {
     'clipboard-sanitized-write',
   ]);
   const webviewSession = session.fromPartition('persist:onekey');
-  applyDesktopNetworkThrottleToKnownSessions();
+  void applyDesktopNetworkThrottleToKnownSessions();
   webviewSession.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
       const requestingUrl = details.requestingUrl || '';
