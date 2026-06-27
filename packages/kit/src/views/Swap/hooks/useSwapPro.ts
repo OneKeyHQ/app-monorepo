@@ -1474,11 +1474,17 @@ export function useSwapProSupportNetworksTokenList(
 export function useSwapProPositionsListFilter(
   filterToken?: ISwapToken[],
   sourceTokenList?: ISwapToken[],
+  noMinValueFilter?: boolean,
 ) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
   const filterDefaultTokenList = useMemo(() => {
+    // Stock positions list every holding regardless of value/count; skip the
+    // min-value ($1) and max-count caps so e.g. a sub-$1 stock still shows.
+    if (noMinValueFilter) {
+      return positionsTokenList;
+    }
     const filterMinValueTokenList = positionsTokenList.filter((token) => {
       return new BigNumber(token.fiatValue || '0').gt(
         swapProPositionsListMinValue,
@@ -1488,7 +1494,7 @@ export function useSwapProPositionsListFilter(
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [positionsTokenList]);
+  }, [positionsTokenList, noMinValueFilter]);
 
   const finallyTokenList = useMemo(
     () =>

@@ -52,46 +52,46 @@ const SwapProPositionsList = ({
   const { finallyTokenList } = useSwapProPositionsListFilter(
     filterToken,
     shouldUseCachedTokenList ? cachedTokenList : undefined,
+    stockOnly,
   );
   const [settings] = useSettingsPersistAtom();
 
   // In the stock context, resolve which holdings are actually stocks by
   // querying the server market metadata (account-holding tokens do NOT carry
   // isStock, so the client-side field is unreliable here).
-  const { result: stockTokenList } = usePromiseResult(
-    async () => {
-      if (!stockOnly) {
-        return undefined;
-      }
-      if (!finallyTokenList.length) {
-        return [] as ISwapToken[];
-      }
-      let list: IMarketTokenListItem[] = [];
-      try {
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
-            requestLocale: settings.locale,
-            tokenAddressList: finallyTokenList.map((token) => ({
-              contractAddress: token.contractAddress ?? '',
-              chainId: token.networkId,
-              isNative: !!token.isNative,
-            })),
-          });
-        list = response.list ?? [];
-      } catch {
-        list = [];
-      }
-      // response.list is index-aligned with tokenAddressList: keep only the
-      // holdings whose server entry has a truthy .stock field.
-      return finallyTokenList.filter((_, i) => Boolean(list[i]?.stock));
-    },
-    [finallyTokenList, settings.locale, stockOnly],
-  );
+  const { result: stockTokenList } = usePromiseResult(async () => {
+    if (!stockOnly) {
+      return undefined;
+    }
+    if (!finallyTokenList.length) {
+      return [] as ISwapToken[];
+    }
+    let list: IMarketTokenListItem[] = [];
+    try {
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch({
+          requestLocale: settings.locale,
+          tokenAddressList: finallyTokenList.map((token) => ({
+            contractAddress: token.contractAddress ?? '',
+            chainId: token.networkId,
+            isNative: !!token.isNative,
+          })),
+        });
+      list = response.list ?? [];
+    } catch {
+      list = [];
+    }
+    // response.list is index-aligned with tokenAddressList: keep only the
+    // holdings whose server entry has a truthy .stock field.
+    return finallyTokenList.filter((_, i) => Boolean(list[i]?.stock));
+  }, [finallyTokenList, settings.locale, stockOnly]);
 
   // While the batch is loading, stockTokenList is undefined; show empty list
   // briefly. usePromiseResult keeps the prior result on subsequent fetches so
   // there is no repeated flash after the first successful load.
-  const displayTokenList = stockOnly ? stockTokenList ?? [] : finallyTokenList;
+  const displayTokenList = stockOnly
+    ? (stockTokenList ?? [])
+    : finallyTokenList;
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
   const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
