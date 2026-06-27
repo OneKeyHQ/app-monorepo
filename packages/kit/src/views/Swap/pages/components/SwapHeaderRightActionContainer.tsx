@@ -37,6 +37,7 @@ import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialo
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapActions,
+  useSwapProSelectTokenAtom,
   useSwapProTradeTypeAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -556,6 +557,60 @@ const StockKLineHeaderButton = ({
   );
 };
 
+// Mobile Swap Pro: the candlestick button lives in the top capsule (consistent
+// with the Swap & Bridge / Stocks tabs). It opens the Pro market detail for the
+// currently selected Pro token — same destination as the old in-body button.
+const SwapProKLineHeaderButton = ({
+  iconSize,
+  iconColor,
+  buttonSize,
+}: {
+  iconSize: number | `$${string}`;
+  iconColor?: ColorTokens;
+  buttonSize: 'small' | 'medium';
+}) => {
+  const navigation = useAppNavigation();
+  const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const disabled =
+    !swapProSelectToken?.networkId ||
+    (!swapProSelectToken?.contractAddress && !swapProSelectToken?.isNative);
+
+  const onOpenProMarketDetail = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+    dismissKeyboard();
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapProMarketDetail,
+      params: {
+        tokenAddress: swapProSelectToken?.contractAddress ?? '',
+        network: swapProSelectToken?.networkId ?? '',
+        isNative: swapProSelectToken?.isNative,
+        from: EEnterWay.SwapPro,
+        disableTrade: true,
+        showFavoriteButton: false,
+      },
+    });
+  }, [
+    disabled,
+    navigation,
+    swapProSelectToken?.contractAddress,
+    swapProSelectToken?.networkId,
+    swapProSelectToken?.isNative,
+  ]);
+
+  return (
+    <HeaderIconButton
+      testID={SwapTestIDs.kLineButton}
+      icon="TradingViewCandlesOutline"
+      onPress={onOpenProMarketDetail}
+      disabled={disabled}
+      iconProps={{ size: iconSize, color: iconColor ?? '$icon' }}
+      size={buttonSize}
+    />
+  );
+};
+
 const SwapHeaderRightActionContainer = ({
   pageType,
   iconSize,
@@ -667,7 +722,7 @@ const SwapHeaderRightActionContainer = ({
   const showKLineButton =
     swapTypeSwitch === ESwapTabSwitchType.SWAP ||
     swapTypeSwitch === ESwapTabSwitchType.STOCK ||
-    (swapTypeSwitch === ESwapTabSwitchType.LIMIT && !focusSwapPro);
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const isKLineDisabled = !fromToken && !toToken;
   const showKLineAsDialog =
     platformEnv.isNative || (platformEnv.isExtension && !gtLg);
@@ -753,22 +808,34 @@ const SwapHeaderRightActionContainer = ({
 
   let kLineButton: ReactNode = null;
   if (showKLineButton) {
-    kLineButton = isStockType ? (
-      <StockKLineHeaderButton
-        iconSize={resolvedIconSize}
-        iconColor={iconColor}
-        buttonSize={resolvedButtonSize}
-      />
-    ) : (
-      <HeaderIconButton
-        testID={SwapTestIDs.kLineButton}
-        icon="TradingViewCandlesOutline"
-        onPress={onOpenSwapKLineModal}
-        disabled={isKLineDisabled}
-        iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
-        size={resolvedButtonSize}
-      />
-    );
+    if (isStockType) {
+      kLineButton = (
+        <StockKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else if (focusSwapPro) {
+      kLineButton = (
+        <SwapProKLineHeaderButton
+          iconSize={resolvedIconSize}
+          iconColor={iconColor}
+          buttonSize={resolvedButtonSize}
+        />
+      );
+    } else {
+      kLineButton = (
+        <HeaderIconButton
+          testID={SwapTestIDs.kLineButton}
+          icon="TradingViewCandlesOutline"
+          onPress={onOpenSwapKLineModal}
+          disabled={isKLineDisabled}
+          iconProps={{ size: resolvedIconSize, color: iconColor ?? '$icon' }}
+          size={resolvedButtonSize}
+        />
+      );
+    }
   }
 
   const settingsButton = slippageTitle ? (
