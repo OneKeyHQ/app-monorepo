@@ -128,6 +128,7 @@ import {
 import SwapActionsState from './SwapActionsState';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
+import SwapMarketHistoryList from './SwapMarketHistoryList';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
@@ -1668,6 +1669,10 @@ function StockMobilePositionsSection({
     [onTokenPress, setSwapTypeSwitch],
   );
 
+  const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
+    'position',
+  );
+
   return (
     <YStack mt="$2">
       <XStack
@@ -1681,28 +1686,69 @@ function StockMobilePositionsSection({
           <XStack
             py="$2"
             borderBottomWidth="$0.5"
-            borderBottomColor="$borderActive"
+            borderBottomColor={
+              activeStockTab === 'position' ? '$borderActive' : 'transparent'
+            }
             mb={-2}
+            cursor="pointer"
+            onPress={() => setActiveStockTab('position')}
           >
-            <SizableText size="$bodyMdMedium" pr="$0.5">
+            <SizableText
+              size="$bodyMdMedium"
+              color={activeStockTab === 'position' ? '$text' : '$textSubdued'}
+              pr="$0.5"
+            >
               {intl.formatMessage({
                 id: ETranslations.dexmarket_details_myposition,
               })}
             </SizableText>
           </XStack>
+          <XStack
+            py="$2"
+            borderBottomWidth="$0.5"
+            borderBottomColor={
+              activeStockTab === 'history' ? '$borderActive' : 'transparent'
+            }
+            mb={-2}
+            cursor="pointer"
+            onPress={() => setActiveStockTab('history')}
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              color={activeStockTab === 'history' ? '$text' : '$textSubdued'}
+              pr="$0.5"
+            >
+              {intl.formatMessage({
+                id: ETranslations.Limit_order_history,
+              })}
+            </SizableText>
+          </XStack>
         </XStack>
       </XStack>
-      <YStack>
-        <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
+      <YStack display={activeStockTab === 'position' ? 'flex' : 'none'}>
+        <YStack>
+          <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
+        </YStack>
+        <YStack minHeight={180}>
+          <SwapProPositionsList
+            onTokenPress={handlePositionPress}
+            onSearchClick={handleOpenStockTokenSelector}
+            filterToken={filterToken}
+            cachedTokenList={cachedPositionTokenList}
+            hasCachedTokenList={hasCachedPositionTokenList}
+          />
+        </YStack>
       </YStack>
-      <YStack minHeight={180}>
-        <SwapProPositionsList
-          onTokenPress={handlePositionPress}
-          onSearchClick={handleOpenStockTokenSelector}
-          filterToken={filterToken}
-          cachedTokenList={cachedPositionTokenList}
-          hasCachedTokenList={hasCachedPositionTokenList}
-        />
+      <YStack
+        display={activeStockTab === 'history' ? 'flex' : 'none'}
+        minHeight={180}
+      >
+        <XStack mx="$-6">
+          <SwapMarketHistoryList
+            protocol={EProtocolOfExchange.STOCK}
+            isPushModal
+          />
+        </XStack>
       </YStack>
     </YStack>
   );
