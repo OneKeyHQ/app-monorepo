@@ -1727,7 +1727,7 @@ function StockMobilePositionsSection({
       </XStack>
       <YStack display={activeStockTab === 'position' ? 'flex' : 'none'}>
         <YStack>
-          <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
+          <SwapProCurrentSymbolEnable isFocusSwapPro={false} isStock />
         </YStack>
         <YStack minHeight={180}>
           <SwapProPositionsList
