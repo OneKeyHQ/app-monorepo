@@ -1612,14 +1612,15 @@ function StockPriceChart({
           options={rangeOptions}
           onChange={handleRangeChange}
           slotBackgroundColor="$transparent"
-          activeBackgroundColor="$transparent"
+          activeBackgroundColor="$bgActive"
           activeTextColor="$text"
           inactiveTextColor="$textSubdued"
           segmentControlItemStyleProps={{
             h: '$5',
             minWidth: '$5',
             py: '$0',
-            px: '$0',
+            px: '$2',
+            borderRadius: '$full',
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -1699,7 +1700,7 @@ function StockMobilePositionsSection({
               pr="$0.5"
             >
               {intl.formatMessage({
-                id: ETranslations.dexmarket_details_myposition,
+                id: ETranslations.perp_position_title,
               })}
             </SizableText>
           </XStack>
