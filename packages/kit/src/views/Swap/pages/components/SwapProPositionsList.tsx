@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Empty, Skeleton, XStack, YStack } from '@onekeyhq/components';
@@ -21,6 +23,9 @@ interface ISwapProPositionsListProps {
   filterToken?: ISwapToken[];
   cachedTokenList?: ISwapToken[];
   hasCachedTokenList?: boolean;
+  // Stock context: only show stock tokens, and hide the "find your token" footer.
+  stockOnly?: boolean;
+  hideSearch?: boolean;
 }
 
 const SwapProPositionsList = ({
@@ -29,6 +34,8 @@ const SwapProPositionsList = ({
   filterToken,
   cachedTokenList,
   hasCachedTokenList,
+  stockOnly,
+  hideSearch,
 }: ISwapProPositionsListProps) => {
   const intl = useIntl();
   const [swapProSupportNetworksTokenListLoading] =
@@ -44,8 +51,17 @@ const SwapProPositionsList = ({
     filterToken,
     shouldUseCachedTokenList ? cachedTokenList : undefined,
   );
+  // In the stock context only show stock tokens (hide regular tokens, stable
+  // coins and other coins).
+  const displayTokenList = useMemo(
+    () =>
+      stockOnly
+        ? finallyTokenList.filter((item) => item.isStock)
+        : finallyTokenList,
+    [finallyTokenList, stockOnly],
+  );
   const [SwapProCurrentSymbolEnable] = useSwapProEnableCurrentSymbolAtom();
-  const pnlMap = useSwapProPositionsPnl(finallyTokenList);
+  const pnlMap = useSwapProPositionsPnl(displayTokenList);
 
   if (swapProSupportNetworksTokenListLoading && !shouldUseCachedTokenList) {
     return (
@@ -63,8 +79,8 @@ const SwapProPositionsList = ({
   return (
     <YStack>
       <SwapProPositionListHeader />
-      {finallyTokenList.length > 0 ? (
-        finallyTokenList.map((item) => (
+      {displayTokenList.length > 0 ? (
+        displayTokenList.map((item) => (
           <SwapProPositionItem
             key={`${item.networkId}-${item.contractAddress}`}
             token={item}
@@ -78,7 +94,9 @@ const SwapProPositionsList = ({
           title={intl.formatMessage({ id: ETranslations.global_no_results })}
         />
       )}
-      {SwapProCurrentSymbolEnable || !onSearchClick ? undefined : (
+      {SwapProCurrentSymbolEnable ||
+      !onSearchClick ||
+      hideSearch ? undefined : (
         <SwapProPositionListFooter onSearchClick={onSearchClick} />
       )}
     </YStack>

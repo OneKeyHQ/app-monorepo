@@ -1736,6 +1736,8 @@ function StockMobilePositionsSection({
             filterToken={filterToken}
             cachedTokenList={cachedPositionTokenList}
             hasCachedTokenList={hasCachedPositionTokenList}
+            stockOnly
+            hideSearch
           />
         </YStack>
       </YStack>
