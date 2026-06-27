@@ -4694,7 +4694,7 @@
   "swap.btn_approving": "Approving...",
   "swap.btn_building": "Building order...",
   "swap.ch_status_hold": "Contact support",
-  "swap.current_token": "Current tokens",
+  "swap.current_token": "Current token",
   "swap.faq_a1": "OneKey Swap is a DEX aggregator that searches across 400+ decentralized exchanges and liquidity sources to find you the best rates. Our smart routing technology automatically splits and routes your trade for optimal execution.",
   "swap.faq_a2": "Our algorithm compares quotes from hundreds of DEXs and liquidity pools in real-time. When beneficial, it splits your order across multiple sources to minimize slippage and maximize the amount you receive.",
   "swap.faq_a3": "For same chain stablecoin swaps via specific routes, OneKey is fully free with a 0% service fee. Other token swaps typically incur a service fee of 0.3% or higher, with the exact rate dynamically adjusted based on the transaction context and subject to the final UI quote. In most cases, OneKey delivers the best possible execution outcome. We prioritize users and continuously optimize pricing and routing. Network gas fees are charged separately and paid directly to the blockchain, not to OneKey.",

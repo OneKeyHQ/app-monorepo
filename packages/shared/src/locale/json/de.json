@@ -4694,7 +4694,7 @@
   "swap.btn_approving": "Genehmigung läuft...",
   "swap.btn_building": "Bestellung wird erstellt...",
   "swap.ch_status_hold": "Support kontaktieren",
-  "swap.current_token": "Aktuelle Tokens",
+  "swap.current_token": "Aktuelle Token",
   "swap.faq_a1": "OneKey Swap ist ein DEX-Aggregator, der mehr als 400 dezentrale Börsen und Liquiditätsquellen durchsucht, um die besten Kurse für dich zu finden. Unsere intelligente Routing-Technologie teilt deinen Trade automatisch auf und leitet ihn für eine optimale Ausführung weiter.",
   "swap.faq_a2": "Unser Algorithmus vergleicht in Echtzeit Angebote von Hunderten von DEXs und Liquiditätspools. Wenn es vorteilhaft ist, wird deine Bestellung auf mehrere Quellen aufgeteilt, um Slippage zu minimieren und den Betrag zu maximieren, den du erhältst.",
   "swap.faq_a3": "Für Stablecoin-Swaps innerhalb derselben Blockchain über bestimmte Routen ist OneKey vollständig kostenlos (0 % Servicegebühr). Bei anderen Token-Swaps fällt üblicherweise eine Servicegebühr von 0,3 % oder höher an. Der genaue Satz wird dynamisch an den Transaktionskontext angepasst und ist abhängig vom endgültigen Angebot in der Benutzeroberfläche. OneKey erzielt in den meisten Fällen das bestmögliche Ausführungsergebnis. Wir priorisieren die Bedürfnisse unserer Nutzer und optimieren kontinuierlich Preise und Routing. Die Netzwerk-Gasgebühren werden separat berechnet und direkt an die Blockchain gezahlt, nicht an OneKey.",
