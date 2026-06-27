@@ -13,6 +13,7 @@ import {
   useSwapProDirectionAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
+  useSwapProTokenMarketDetailInfoAtom,
   useSwapProTradeTypeAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
@@ -21,6 +22,7 @@ import {
   useSwapSpeedQuoteResultAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { isStockMarketClosed } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -157,6 +159,9 @@ const SwapProActionButton = ({
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  // Stock market closed → trading is impossible even if a quote returns a price.
+  const stockMarketClosed = isStockMarketClosed(proTokenDetail?.stock);
   const [swapQuoteResult] = useSwapQuoteCurrentSelectAtom();
   const [swapProQuoteResult] = useSwapSpeedQuoteResultAtom();
   const swapProAccount = useSwapProAccount();
@@ -372,7 +377,7 @@ const SwapProActionButton = ({
     if (!supportSpeedSwap) {
       originalDisabled = !!isActionDisabled || !hasEnoughBalance;
     }
-    return originalDisabled;
+    return originalDisabled || stockMarketClosed;
   }, [
     isActionDisabled,
     hasEnoughBalance,
@@ -381,6 +386,7 @@ const SwapProActionButton = ({
     balanceLoading,
     currentQuoteLoading,
     supportSpeedSwap,
+    stockMarketClosed,
   ]);
 
   const actionButtonText = useMemo(() => {

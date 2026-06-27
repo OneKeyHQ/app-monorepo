@@ -49,6 +49,9 @@ export interface IActionButtonProps extends IButtonProps {
   actionToken?: ISwapToken;
   actionOtherToken?: ISwapToken;
   onSwapAction?: () => void;
+  // Hard-disable that wins over the no-amount "enter amount" re-enable below
+  // (e.g. stock market closed — trading is impossible regardless of input).
+  forceDisabled?: boolean;
 }
 
 export function ActionButton({
@@ -66,6 +69,7 @@ export function ActionButton({
   onlySupportCrossChain,
   actionToken,
   onSwapAction,
+  forceDisabled,
   ...otherProps
 }: IActionButtonProps) {
   const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
@@ -295,6 +299,12 @@ export function ActionButton({
     buttonText = intl.formatMessage({ id: ETranslations.global_connect });
     shouldUseColoredStyle = false;
     isButtonDisabled = false;
+  }
+
+  // Hard-disable (e.g. stock market closed) wins over every re-enable above.
+  if (forceDisabled) {
+    isButtonDisabled = true;
+    shouldUseColoredStyle = false;
   }
 
   const buttonStyleProps = shouldUseColoredStyle

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -69,6 +70,9 @@ export type ISwapPanelContentProps = {
   enableAddressTypeSelector: boolean;
   activeAccount: IAccountSelectorActiveAccountInfo;
   speedCheckError?: string;
+  // Pre-built stock market-closed alert (StockMarketStatusAlert). When set it
+  // replaces the generic speedCheckError text and disables the action button.
+  stockMarketClosedAlert?: ReactNode;
   disableNativeToken?: boolean;
   marketPresetSettings?: IMarketPresetSettingsState;
   estimatePriorityFeeFiatValues?: IEstimateMarketPresetPriorityFeeFiatValues;
@@ -96,6 +100,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     hasInitialReady,
     currentMarketToken,
     speedCheckError,
+    stockMarketClosedAlert,
     disableNativeToken,
     marketPresetSettings,
     estimatePriorityFeeFiatValues,
@@ -321,7 +326,8 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         ) : null}
       </YStack>
 
-      {speedCheckError ? (
+      {stockMarketClosedAlert}
+      {!stockMarketClosedAlert && speedCheckError ? (
         <SizableText size="$bodyMd" color="$textCritical">
           {speedCheckError}
         </SizableText>
@@ -351,6 +357,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         isWrapped={isWrapped}
         networkId={networkId}
         disabled={!!speedCheckError || isLoading || !!isActionDisabled}
+        forceDisabled={!!stockMarketClosedAlert}
         onSwapAction={() =>
           logSwapAction({
             tradeType,

@@ -15,9 +15,19 @@ import {
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSliderValueAtom,
+  useSwapProTokenMarketDetailInfoAtom,
+  useSwapProTokenMarketDetailPerpsInfoAtom,
   useSwapProTradeTypeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  isStockMarketClosed,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -111,6 +121,21 @@ const SwapProContainer = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
+  // Pro-mode stock market-closed alert (reuses the shared StockMarketStatusAlert).
+  // Pro keeps its own token detail/perps atoms, so read those here. When the
+  // stock market is closed we show the standard alert instead of the generic
+  // error alert; the action button is already disabled (no valid quote).
+  const [proTokenDetail] = useSwapProTokenMarketDetailInfoAtom();
+  const [proPerpsInfo] = useSwapProTokenMarketDetailPerpsInfoAtom();
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.SwapProStockClosed,
+  );
+  const proStockHlTicker = proPerpsInfo?.hlTicker;
+  const proStockHasPerps = Boolean(proStockHlTicker);
+  const proStockClosedTimeText = getStockMarketClosedDescription(
+    proTokenDetail?.stock?.description,
+  );
+  const isProStockMarketClosed = isStockMarketClosed(proTokenDetail?.stock);
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
   const { syncInputTokenBalance, syncToTokenPrice, netAccountRes } =
@@ -348,10 +373,26 @@ const SwapProContainer = ({
           />
         </YStack>
       ) : null}
-      <SwapProErrorAlert
-        title={swapProErrorAlert?.title}
-        message={swapProErrorAlert?.message}
-      />
+      {isProStockMarketClosed ? (
+        <StockMarketStatusAlert
+          statusCase={resolveStockMarketStatusCase({
+            isOpen: false,
+            hasOpenTime: Boolean(proStockClosedTimeText),
+            hasPerps: proStockHasPerps,
+          })}
+          timeText={proStockClosedTimeText}
+          onTradePerps={
+            proStockHlTicker
+              ? () => navigateToPerps(proStockHlTicker)
+              : undefined
+          }
+        />
+      ) : (
+        <SwapProErrorAlert
+          title={swapProErrorAlert?.title}
+          message={swapProErrorAlert?.message}
+        />
+      )}
       <SwapProTabListContainer
         onTokenPress={onTokenPressCallback}
         onOpenOrdersClick={onOpenOrdersClick}
