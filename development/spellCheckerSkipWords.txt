@@ -398,6 +398,7 @@ focusable
 Formatjs
 formatter
 frontend
+frontmost
 fs
 fucntion
 func
@@ -1488,3 +1489,6 @@ symbolicated
 ivar
 RCTJS
 retryably
+
+# @mysten/sui 2.x package name
+mysten

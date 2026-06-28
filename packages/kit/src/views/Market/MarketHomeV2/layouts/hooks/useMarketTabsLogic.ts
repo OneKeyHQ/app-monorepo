@@ -115,6 +115,7 @@ export function useMarketTabsLogic(
       setSelectedTabAtom((prev) => ({
         ...prev,
         tab: tabValue,
+        selectedSpotCategory: categoryId ?? prev.selectedSpotCategory,
         spotCategoryToSelect: undefined,
       }));
       onTabChange(tabValue);

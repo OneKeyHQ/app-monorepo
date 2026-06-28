@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { useCurrency } from '@onekeyhq/kit/src/components/Currency';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
@@ -19,6 +20,7 @@ function toFiniteNumber(value?: string | number) {
 
 export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
   const { current: tokenDetailActions } = useTokenDetailActions();
+  const currencyInfo = useCurrency();
   const { tokenDetail, networkId } = useTokenDetail();
   const [, setCurrentTokenLiveData] = useMarketCurrentTokenLiveDataAtom();
 
@@ -57,19 +59,25 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     [setCurrentTokenLiveData],
   );
 
-  // Track previous token to detect when switching to a different token
-  const prevTokenRef = useRef<{ tokenAddress: string; networkId: string }>({
+  // Track previous price scope to avoid showing stale token or currency data.
+  const prevTokenRef = useRef<{
+    tokenAddress: string;
+    networkId: string;
+    currencyId: string;
+  }>({
     tokenAddress: '',
     networkId: '',
+    currencyId: '',
   });
 
-  // Clear cached token detail when switching to a different token
-  // This prevents showing stale data from the previous token
+  // Clear cached token detail when switching token or display currency.
+  // This prevents showing stale data from the previous price scope.
   useEffect(() => {
     const prevToken = prevTokenRef.current;
     const isTokenChanged =
       prevToken.tokenAddress !== data.tokenAddress ||
-      prevToken.networkId !== data.networkId;
+      prevToken.networkId !== data.networkId ||
+      prevToken.currencyId !== currencyInfo.id;
 
     if (isTokenChanged && prevToken.tokenAddress !== '') {
       // Only clear display-related atoms when switching tokens.
@@ -85,8 +93,9 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
     prevTokenRef.current = {
       tokenAddress: data.tokenAddress,
       networkId: data.networkId,
+      currencyId: currencyInfo.id,
     };
-  }, [data.tokenAddress, data.networkId, tokenDetailActions]);
+  }, [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions]);
 
   // Set tokenAddress/networkId/isNative synchronously on prop change,
   // NOT inside the polling callback. This prevents stale polling responses
@@ -99,13 +108,16 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   return usePromiseResult(
     async () => {
+      if (!currencyInfo.id) {
+        return;
+      }
       // Only fetch token detail data; atom identity is set synchronously above
       await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
       );
     },
-    [data.tokenAddress, data.networkId, tokenDetailActions],
+    [currencyInfo.id, data.tokenAddress, data.networkId, tokenDetailActions],
     {
       pollingInterval: 6000, // Changed from 5000 to 6000 to avoid race condition with K-line updates
       revalidateOnFocus: true,

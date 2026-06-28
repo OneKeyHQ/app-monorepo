@@ -27,6 +27,7 @@ import type {
   ISwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import {
+  useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -163,11 +164,13 @@ export function buildMarketReviewTokens({
   fromToken,
   toToken,
   tradeTokenPrice,
+  tradeTokenCurrency,
 }: {
   tradeType: ESwapDirection;
   fromToken: ISwapToken;
   toToken: ISwapToken;
   tradeTokenPrice?: BigNumber;
+  tradeTokenCurrency?: string;
 }) {
   if (!tradeTokenPrice || tradeTokenPrice.isNaN() || !tradeTokenPrice.gt(0)) {
     return { fromToken, toToken };
@@ -180,6 +183,7 @@ export function buildMarketReviewTokens({
       fromToken: {
         ...fromToken,
         price: resolvedPrice,
+        currency: tradeTokenCurrency ?? fromToken.currency,
       },
       toToken,
     };
@@ -190,6 +194,7 @@ export function buildMarketReviewTokens({
     toToken: {
       ...toToken,
       price: resolvedPrice,
+      currency: tradeTokenCurrency ?? toToken.currency,
     },
   };
 }
@@ -225,6 +230,7 @@ export function useSpeedSwapActions(props: {
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [settingsAtom] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { activeAccount: account } = useActiveAccount({ num: 0 });
   const [shouldApprove, setShouldApprove] = useState(false);
   const [shouldResetApprove, setShouldResetApprove] = useState(false);
@@ -278,19 +284,28 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeToken]);
-  const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${tradeToken.contractAddress ?? ''}`;
+  const currentCurrencyId = settingsAtom.currencyInfo.id;
+  const tradeTokenPriceKey = `${tradeToken.networkId ?? ''}:${
+    tradeToken.contractAddress ?? ''
+  }:${currentCurrencyId}`;
   const { price: liveTradeTokenPrice, tokenKey: liveTradeTokenPriceKey } =
-    usePaymentTokenPrice(tradeToken, tradeToken.networkId);
+    usePaymentTokenPrice(tradeToken, tradeToken.networkId, currentCurrencyId);
+  const fallbackTradeTokenPrice = useMemo(() => {
+    if (tradeToken.currency && tradeToken.currency !== currentCurrencyId) {
+      return new BigNumber(0);
+    }
+    return new BigNumber(tradeToken.price || 0);
+  }, [currentCurrencyId, tradeToken.currency, tradeToken.price]);
   const effectiveTradeTokenPrice = useMemo(() => {
     if (liveTradeTokenPriceKey === tradeTokenPriceKey) {
-      return liveTradeTokenPrice ?? new BigNumber(tradeToken.price || 0);
+      return liveTradeTokenPrice ?? fallbackTradeTokenPrice;
     }
 
-    return new BigNumber(tradeToken.price || 0);
+    return fallbackTradeTokenPrice;
   }, [
+    fallbackTradeTokenPrice,
     liveTradeTokenPrice,
     liveTradeTokenPriceKey,
-    tradeToken.price,
     tradeTokenPriceKey,
   ]);
 
@@ -1127,6 +1142,8 @@ export function useSpeedSwapActions(props: {
         rateDifference: buildMarketReviewRateDifference({
           quoteResult: snapshot.quoteResult,
           swapInfo: snapshot.swapInfo,
+          defaultTokenCurrency: settingsAtom.currencyInfo.id,
+          currencyMap,
         }),
         texts: buildReviewStepTexts(snapshot.quoteResult.info.providerName),
       });
@@ -1209,7 +1226,13 @@ export function useSpeedSwapActions(props: {
         quoteResult: snapshot.quoteResult,
       };
     },
-    [buildMarketApproveUnsignedTxArr, buildReviewStepTexts, slippage],
+    [
+      buildMarketApproveUnsignedTxArr,
+      buildReviewStepTexts,
+      currencyMap,
+      settingsAtom.currencyInfo.id,
+      slippage,
+    ],
   );
 
   const estimateMarketPresetNetworkFees = useCallback(
@@ -1289,6 +1312,7 @@ export function useSpeedSwapActions(props: {
           fromToken: fromTokenFinal,
           toToken: toTokenFinal,
           tradeTokenPrice: effectiveTradeTokenPrice,
+          tradeTokenCurrency: currentCurrencyId,
         });
 
       if (isWrap || isWrapped) {
@@ -1406,7 +1430,9 @@ export function useSpeedSwapActions(props: {
       buildMarketReviewStateFromSnapshot,
       buildSpeedSwapTxData,
       buildWrappedSwapData,
+      currentCurrencyId,
       effectiveSpenderAddress,
+      effectiveTradeTokenPrice,
       fromToken,
       fromTokenAmountDebounced,
       isCustomRpcUnavailable,
@@ -1416,7 +1442,6 @@ export function useSpeedSwapActions(props: {
       shouldApprove,
       shouldResetApprove,
       slippage,
-      effectiveTradeTokenPrice,
       tradeType,
       toToken,
     ],
@@ -2606,7 +2631,17 @@ export function useSpeedSwapActions(props: {
       tradeType === ESwapDirection.SELL
         ? effectiveTradeTokenPrice
         : new BigNumber(toToken.price || 0);
+    const fromTokenPriceCurrency =
+      tradeType === ESwapDirection.BUY ? currentCurrencyId : fromToken.currency;
+    const toTokenPriceCurrency =
+      tradeType === ESwapDirection.SELL ? currentCurrencyId : toToken.currency;
+    const canUseInlinePriceCurrencies =
+      (!fromTokenPriceCurrency && !toTokenPriceCurrency) ||
+      (!!fromTokenPriceCurrency &&
+        !!toTokenPriceCurrency &&
+        fromTokenPriceCurrency === toTokenPriceCurrency);
     const canUseInlineTokenPrices =
+      canUseInlinePriceCurrencies &&
       !fromTokenPriceBN.isNaN() &&
       !toTokenPriceBN.isNaN() &&
       fromTokenPriceBN.gt(0) &&
@@ -2700,11 +2735,14 @@ export function useSpeedSwapActions(props: {
     });
   }, [
     effectiveTradeTokenPrice,
+    currentCurrencyId,
     tradeType,
+    fromToken.currency,
     fromToken.price,
     fromToken.symbol,
     fromToken.networkId,
     fromToken.contractAddress,
+    toToken.currency,
     toToken.price,
     toToken.symbol,
     toToken.networkId,

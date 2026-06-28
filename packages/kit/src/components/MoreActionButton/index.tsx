@@ -59,6 +59,7 @@ import {
   EModalSettingRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import {
   EActionCenterPages,
@@ -1050,6 +1051,16 @@ const MoreActionWalletGrid = () => {
     checkIsPrimeUser,
   ]);
 
+  const openAddressRiskCheckModule = useCallback(() => {
+    if (!checkIsPrimeUser(EPrimeFeatures.AddressRiskCheck)) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.AddressRiskCheckModal, {
+      screen: EModalAddressRiskCheckRoutes.AddressRiskCheckInput,
+      params: { networkId: network?.id },
+    });
+  }, [checkIsPrimeUser, navigation, network?.id]);
+
   const items = useMemo(() => {
     return [
       platformEnv.isWebDappMode
@@ -1127,6 +1138,26 @@ const MoreActionWalletGrid = () => {
             trackID: 'bulk-send-in-more-action',
             isPrimeFeature: true,
           },
+      platformEnv.isWebDappMode
+        ? undefined
+        : {
+            title: intl.formatMessage({
+              id: ETranslations.address_risk_check__title,
+            }),
+            icon: 'ChecklistBoxSearchOutline' as const,
+            onPress: () => {
+              if (!isPrimeUser) {
+                defaultLogger.prime.subscription.primeEntryClick({
+                  featureName: EPrimeFeatures.AddressRiskCheck,
+                  entryPoint: 'moreActions',
+                  isPrimeActive,
+                });
+              }
+              openAddressRiskCheckModule();
+            },
+            trackID: 'address-risk-check-in-more-action',
+            isPrimeFeature: true,
+          },
     ].filter(Boolean);
   }, [
     handleAddressBook,
@@ -1139,6 +1170,7 @@ const MoreActionWalletGrid = () => {
     isPrimeUser,
     openBulkCopyAddressesModule,
     openBulkSendModule,
+    openAddressRiskCheckModule,
   ]);
   return (
     <BaseMoreActionGrid
