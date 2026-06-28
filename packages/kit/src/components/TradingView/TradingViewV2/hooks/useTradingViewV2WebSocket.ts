@@ -198,20 +198,6 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
-      if (isPriceData) {
-        onPriceUpdate?.({
-          symbol,
-          tokenAddress,
-          networkId,
-          price: receivedData.c,
-          timestamp: receivedData.unixTime,
-          interval: receivedData.type,
-          source: 'realtime',
-        });
-      }
-
-      lastUpdateTime.current = now;
-
       const webView = webRef.current;
       if (!webView) {
         return;
@@ -239,6 +225,18 @@ export function useTradingViewV2WebSocket({
           timestamp: now,
         },
       });
+      if (isPriceData) {
+        onPriceUpdate?.({
+          symbol,
+          tokenAddress,
+          networkId,
+          price: receivedData.c,
+          timestamp: receivedData.unixTime,
+          interval: receivedData.type,
+          source: 'realtime',
+        });
+      }
+      lastUpdateTime.current = now;
       sendVolumeVisibilityUpdate({
         allowHide: false,
         kLineData: dataForWebView,
