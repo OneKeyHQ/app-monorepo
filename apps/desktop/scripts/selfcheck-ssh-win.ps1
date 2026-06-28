@@ -12,11 +12,9 @@
   Steps (all idempotent - safe to re-run):
     1. Assert elevated.
     2. Verify OpenSSH Server installed + sshd running (Automatic).
-    3. Authorize -PublicKey in the correct authorized_keys file:
-         - admin user -> %ProgramData%\ssh\administrators_authorized_keys
-         - non-admin   -> %USERPROFILE%\.ssh\authorized_keys
-       and apply the strict ACL (SYSTEM + Administrators only) OpenSSH demands on
-       the admin file, otherwise sshd SILENTLY ignores it.
+    3. Authorize -PublicKey in %ProgramData%\ssh\administrators_authorized_keys
+       and apply the strict ACL (SYSTEM + Administrators only) OpenSSH demands,
+       otherwise sshd SILENTLY ignores it.
     4. Detect the effective sshd port (sshd -T) and what is actually listening.
     5. (optional) Add Windows Defender exclusions so build:win / OneKey.exe are
        not real-time-scanned (scanning throttles the build and the app).
@@ -67,7 +65,7 @@ function Assert-Admin {
   return $p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-$isAdmin = Assert-Admin
+Assert-Admin | Out-Null
 $whoami  = (whoami).Trim()
 $sshUser = $whoami.Split('\')[-1]
 
@@ -89,16 +87,13 @@ $keyTag = ($PublicKey -split '\s+')[-1]   # trailing comment, e.g. mac-onekey-pe
 if (-not $keyTag) { $keyTag = 'mac-driver-key' }
 
 $adminFile = Join-Path $env:ProgramData 'ssh\administrators_authorized_keys'
-$userDir   = Join-Path $env:USERPROFILE '.ssh'
-$userFile  = Join-Path $userDir 'authorized_keys'
 
-# Which file sshd reads depends on whether the login user is a local admin.
-if ($isAdmin) {
-  $targetFile = $adminFile
-  Warn "login user '$sshUser' is a local Administrator -> sshd reads administrators_authorized_keys (NOT ~/.ssh/authorized_keys)"
-} else {
-  $targetFile = $userFile
-}
+# This script is intentionally admin-only: Windows OpenSSH reads the admin
+# authorization file for administrator logins, and the strict ACL on that file is
+# the failure mode this self-check is built to fix. Non-admin user key setup
+# requires a separate, target-user-aware flow.
+$targetFile = $adminFile
+Warn "elevated login user '$sshUser' uses administrators_authorized_keys (NOT ~/.ssh/authorized_keys)"
 
 $targetDir = Split-Path $targetFile
 if (-not (Test-Path $targetDir)) { New-Item -ItemType Directory -Force -Path $targetDir | Out-Null }
@@ -127,24 +122,23 @@ if ($existingLines | Where-Object { $_.Trim() -eq $normalizedKey }) {
 }
 
 # Strict ACL: the admin file is ignored by sshd unless only SYSTEM + Admins have
-# access. The per-user file just needs to be owned/readable by the user (default).
-if ($targetFile -eq $adminFile) {
-  # Quote the path: $env:ProgramData is locale-dependent and can contain spaces
-  # on non-English Windows. Unquoted, icacls would parse only the first token,
-  # silently fail to apply the ACL, and sshd would then ignore the key file.
-  #
-  # Check $LASTEXITCODE: `| Out-Null` swallows icacls' output but does NOT reset
-  # the native exit code. Without this check a non-path failure (insufficient
-  # rights, locked handle) would still print a green "OK" while sshd keeps
-  # ignoring the key file — the operator only sees a later "Permission denied
-  # (publickey)" with no hint why.
-  icacls "$adminFile" /inheritance:r /grant 'SYSTEM:F' /grant 'BUILTIN\Administrators:F' | Out-Null
-  if ($LASTEXITCODE -ne 0) {
-    Bad "icacls failed (exit $LASTEXITCODE) — ACL not applied; sshd will ignore the key file"
-    throw "icacls failed (exit $LASTEXITCODE)"
-  }
-  Ok "applied strict ACL (SYSTEM + Administrators) to admin key file"
+# access.
+#
+# Quote the path: $env:ProgramData is locale-dependent and can contain spaces on
+# non-English Windows. Unquoted, icacls would parse only the first token, silently
+# fail to apply the ACL, and sshd would then ignore the key file.
+#
+# Check $LASTEXITCODE: `| Out-Null` swallows icacls' output but does NOT reset the
+# native exit code. Without this check a non-path failure (insufficient rights,
+# locked handle) would still print a green "OK" while sshd keeps ignoring the key
+# file — the operator only sees a later "Permission denied (publickey)" with no
+# hint why.
+icacls "$adminFile" /inheritance:r /grant 'SYSTEM:F' /grant 'BUILTIN\Administrators:F' | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  Bad "icacls failed (exit $LASTEXITCODE) — ACL not applied; sshd will ignore the key file"
+  throw "icacls failed (exit $LASTEXITCODE)"
 }
+Ok "applied strict ACL (SYSTEM + Administrators) to admin key file"
 
 Restart-Service sshd
 Ok "sshd restarted"
