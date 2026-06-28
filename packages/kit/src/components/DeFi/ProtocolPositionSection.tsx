@@ -6,13 +6,16 @@ import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
-import type { ILocalizedProtocolPositionSection } from '@onekeyhq/kit/src/utils/defiPositionUtils';
-import { getSectionActionPlacement } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IDeFiProtocol,
   IDeFiSupportedProtocolAction,
 } from '@onekeyhq/shared/types/defi';
+
+import {
+  type ILocalizedProtocolPositionSection,
+  getSectionActionPlacement,
+} from '../../utils/defiPositionUtils';
 
 import { ProtocolPositionActionButton } from './ProtocolPositionActionButton';
 import { ProtocolValueCell } from './ProtocolValueCell';
@@ -68,18 +71,10 @@ const ProtocolPositionSection = memo(
     return (
       <YStack bg="$bgSubdued" borderRadius="$2" px="$3" py="$2" gap="$2">
         <XStack alignItems="center" justifyContent="space-between">
-          <SizableText
-            size="$headingXs"
-            color="$text"
-            textTransform="uppercase"
-          >
+          <SizableText size="$bodySmMedium" color="$text">
             {section.title}
           </SizableText>
-          <SizableText
-            size="$headingXs"
-            color="$textSubdued"
-            textTransform="uppercase"
-          >
+          <SizableText size="$bodySmMedium" color="$textSubdued">
             {amountLabel}
           </SizableText>
         </XStack>

@@ -58,6 +58,12 @@ import {
 const DEFAULT_ACTION_PERCENT = 100;
 const PERCENTAGE_SLIDER_SEGMENTS = 4;
 const PERCENTAGE_PRESET_VALUES = [25, 50, 75, 100] as const;
+const resolveActionTxAmount = resolveDeFiActionTxAmount as (params: {
+  percentageAction: boolean;
+  percent?: number;
+  amount?: string;
+  isMaxAmount?: boolean;
+}) => { amount?: string; bps?: string };
 
 function normalizeActionPercent(percent?: number) {
   if (!Number.isFinite(percent)) return DEFAULT_ACTION_PERCENT;
@@ -794,7 +800,7 @@ function useProtocolPositionActionSubmit({
       const isRemoveLiquidity =
         action.action === EDeFiPositionAction.RemoveLiquidity;
       const percentageAction = isPercentageAction(action.action);
-      const { amount: amountForApi, bps } = resolveDeFiActionTxAmount({
+      const { amount: amountForApi, bps } = resolveActionTxAmount({
         percentageAction,
         percent,
         amount,
@@ -1601,7 +1607,7 @@ function ProtocolPositionActionDialogContent({
     actionBody = (
       <YStack py="$6" alignItems="center">
         <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.global_no_data })}
+          {intl.formatMessage({ id: ETranslations.global_select_crypto })}
         </SizableText>
       </YStack>
     );

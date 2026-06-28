@@ -821,7 +821,7 @@ function scopeResolvedActionToAsset<T extends IResolvedDeFiPositionAction>({
 // (human-decimal, matching IDeFiAsset.amount); a full close (Max) or the slider
 // sends bps — Max forces 100% so a balance that accrues between render and
 // submit can't leave dust. Non-percentage actions (claim) send neither.
-function resolveDeFiActionTxAmount({
+export function resolveDeFiActionTxAmount({
   percentageAction,
   percent,
   amount,
@@ -857,7 +857,6 @@ export {
   buildDeFiActionBps,
   normalizeCategoryForAction,
   normalizeDeFiActionPercent,
-  resolveDeFiActionTxAmount,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
   scopeResolvedActionToAsset,

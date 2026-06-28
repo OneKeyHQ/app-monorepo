@@ -600,7 +600,7 @@ function positionHasBorrowed(position: IProtocolPositionItem): boolean {
 // with supplied balances, Repay with borrowed debt, Claim with rewards. Shared
 // by the desktop sectioned table and the mobile/detail per-asset rows so both
 // place the same button against the same asset.
-function getSectionActionPlacement(
+export function getSectionActionPlacement(
   assetType: IProtocolPositionSectionAssetType,
 ): 'balance' | 'rewards' | 'debt' | undefined {
   if (assetType === 'rewards') return 'rewards';
@@ -807,6 +807,5 @@ export {
   collectDeFiImageUrls,
   getProtocolPositionDisplayName,
   getPositionModuleLabel,
-  getSectionActionPlacement,
   isSectionedPosition,
 };

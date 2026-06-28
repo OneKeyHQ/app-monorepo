@@ -8,7 +8,6 @@ import type { IProtocolPositionActionSuccessParams } from '@onekeyhq/kit/src/com
 import { ProtocolValueCell } from '@onekeyhq/kit/src/components/DeFi/ProtocolValueCell';
 import { isProtocolAssetValueUnavailable } from '@onekeyhq/kit/src/components/DeFi/protocolValueUtils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { getSectionActionPlacement } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import type { ILocalizedProtocolPositionItem } from '@onekeyhq/kit/src/utils/defiPositionUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -33,6 +32,15 @@ import {
 // the unified table; Borrowed and Rewards keep their semantic labels.
 
 const TABULAR_NUMS: ['tabular-nums'] = ['tabular-nums'];
+
+function getTableSectionActionPlacement(
+  assetType: ILocalizedProtocolPositionItem['sections'][number]['assetType'],
+): 'balance' | 'rewards' | 'debt' | undefined {
+  if (assetType === 'rewards') return 'rewards';
+  if (assetType === 'supplied' || assetType === 'other') return 'balance';
+  if (assetType === 'borrowed') return 'debt';
+  return undefined;
+}
 
 type IProtocolSectionedPositionTableProps = {
   accountId?: string;
@@ -75,7 +83,9 @@ const ProtocolSectionedPositionTable = memo(
     return (
       <YStack>
         {sections.map((section, sectionIndex) => {
-          const actionPlacement = getSectionActionPlacement(section.assetType);
+          const actionPlacement = getTableSectionActionPlacement(
+            section.assetType,
+          );
 
           return (
             <Fragment key={section.key}>
@@ -93,7 +103,7 @@ const ProtocolSectionedPositionTable = memo(
                   flexShrink={0}
                   minWidth={0}
                 >
-                  <SizableText size="$headingXs" color="$textSubdued">
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
                     {section.assetType === 'supplied'
                       ? labels.position
                       : section.title}
@@ -104,7 +114,7 @@ const ProtocolSectionedPositionTable = memo(
                   flexBasis={0}
                   minWidth={0}
                 >
-                  <SizableText size="$headingXs" color="$textSubdued">
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
                     {labels.balance}
                   </SizableText>
                 </Stack>
@@ -114,7 +124,7 @@ const ProtocolSectionedPositionTable = memo(
                   minWidth={0}
                   alignItems="flex-end"
                 >
-                  <SizableText size="$headingXs" color="$textSubdued">
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
                     {labels.value}
                   </SizableText>
                 </Stack>

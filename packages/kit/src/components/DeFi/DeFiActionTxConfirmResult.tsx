@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Dialog } from '@onekeyhq/components';
-import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
 import PreSwapConfirmResult from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -10,6 +9,8 @@ import {
   ESwapStepType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
+
+import { waitForTxFinalStatus } from '../../utils/waitForTxFinalStatus';
 
 export type IDeFiActionTxConfirmDialogResult =
   | EOnChainHistoryTxStatus
@@ -100,14 +101,14 @@ function DeFiActionTxConfirmResult({
   );
 }
 
-function getLastSignedTxid(
+function getLastTxid(
   data: ISendTxOnSuccessData[] | undefined,
 ): string | undefined {
   if (!Array.isArray(data)) {
     return undefined;
   }
   for (let i = data.length - 1; i >= 0; i -= 1) {
-    const txid = data[i]?.signedTx?.txid;
+    const txid = data[i]?.signedTx?.txid || data[i]?.decodedTx?.txid;
     if (txid) {
       return txid;
     }
@@ -128,7 +129,7 @@ export function showDeFiActionTxConfirmDialog({
   networkId: string;
   data: ISendTxOnSuccessData[];
 }): Promise<IDeFiActionTxConfirmDialogResult> {
-  const txid = getLastSignedTxid(data);
+  const txid = getLastTxid(data);
   if (!accountId || !txid) {
     return Promise.resolve(undefined);
   }
