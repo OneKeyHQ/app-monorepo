@@ -98,6 +98,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
+  isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
 } from './SwapTokenSelectModal.utils';
 
@@ -153,6 +154,7 @@ const SwapTokenSelectPage = ({
   const requestedSearchKeyword = searchKeyword
     ? searchKeywordDebounce
     : searchKeyword;
+  const isSearchKeywordSettling = searchKeyword !== requestedSearchKeyword;
   const [rawSwapNetworks] = useSwapNetworksAtom();
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -392,10 +394,35 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
+  const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
+  const stockSearchBaseTokensRef = useRef<{
+    networkId?: string;
+    tokens: (ISwapToken | IFuseResult<ISwapToken>)[];
+  }>({
+    tokens: [],
+  });
+  if (
+    isSwapStockSelectTarget &&
+    !requestedSearchKeyword &&
+    currentTokens.length > 0
+  ) {
+    stockSearchBaseTokensRef.current = {
+      networkId: stockSearchBaseNetworkId,
+      tokens: currentTokens,
+    };
+  }
+  const stockSearchBaseTokens =
+    stockSearchBaseTokensRef.current.networkId === stockSearchBaseNetworkId
+      ? stockSearchBaseTokensRef.current.tokens
+      : EMPTY_SWAP_TOKEN_LIST;
   const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
     if (!isSwapStockSelectTarget) {
       return { tokenAddressEntries: [], tokenKey: '' };
     }
+    const metadataSourceTokens =
+      requestedSearchKeyword && currentTokens.length === 0
+        ? stockSearchBaseTokens
+        : currentTokens;
     const tokenAddressMap = new Map<
       string,
       {
@@ -404,7 +431,7 @@ const SwapTokenSelectPage = ({
         isNative: boolean;
       }
     >();
-    for (const item of currentTokens) {
+    for (const item of metadataSourceTokens) {
       const rawItem = getRawSwapToken(item);
       const key = buildSwapStockMetadataKey({
         contractAddress: rawItem.contractAddress,
@@ -423,7 +450,12 @@ const SwapTokenSelectPage = ({
       tokenAddressEntries,
       tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
     };
-  }, [currentTokens, isSwapStockSelectTarget]);
+  }, [
+    currentTokens,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockSearchBaseTokens,
+  ]);
   const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
     stockMetadataRequestSnapshot,
   );
@@ -492,10 +524,50 @@ const SwapTokenSelectPage = ({
     stockMetadataLoading,
     stockMetadataTokenKey,
   });
+  const stockSearchFallbackTokens = useMemo(() => {
+    if (
+      !isSwapStockSelectTarget ||
+      !requestedSearchKeyword ||
+      currentTokens.length > 0 ||
+      stockMetadataPending
+    ) {
+      return EMPTY_SWAP_TOKEN_LIST;
+    }
+
+    return stockSearchBaseTokens.filter((item) => {
+      const rawItem = getRawSwapToken(item);
+      const stock =
+        rawItem.contractAddress && rawItem.networkId
+          ? stockMetadataMap?.[
+              buildSwapStockMetadataKey({
+                contractAddress: rawItem.contractAddress,
+                networkId: rawItem.networkId,
+              })
+            ]
+          : undefined;
+      return isSwapStockTokenSearchMatch({
+        keyword: requestedSearchKeyword,
+        stock,
+        token: rawItem,
+      });
+    });
+  }, [
+    currentTokens.length,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockSearchBaseTokens,
+    stockMetadataMap,
+    stockMetadataPending,
+  ]);
+  const tokensForDisplay =
+    stockSearchFallbackTokens.length > 0
+      ? stockSearchFallbackTokens
+      : currentTokens;
   const displayTokens = stockMetadataPending
     ? EMPTY_SWAP_TOKEN_LIST
-    : currentTokens;
-  const tokenListLoading = fetchLoading || stockMetadataPending;
+    : tokensForDisplay;
+  const tokenListLoading =
+    fetchLoading || stockMetadataPending || isSearchKeywordSettling;
   const alertIndex = useMemo(
     () =>
       displayTokens.findIndex((item) => {
