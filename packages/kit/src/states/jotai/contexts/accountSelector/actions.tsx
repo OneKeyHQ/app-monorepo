@@ -2303,6 +2303,39 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta,
           })
         ) {
+          // Keep the recent cold-start selection, but fill any num that is
+          // EMPTY in it from the (home-merged) DB map. Otherwise a sibling
+          // scene auto-mounted on the same route (e.g. swap on the Perps route)
+          // whose cold-start kept a non-default num1 but an empty num0 leaves
+          // num0 empty, then auto-selects index 0 and clobbers home's restored
+          // num0 via the home<->swap sync. Non-empty current slots are untouched.
+          const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
+          Object.entries(selectedAccountsMapInDB ?? {}).forEach(
+            ([numKey, dbAccount]) => {
+              const targetNum = Number(numKey);
+              const current = mergedSelectedAccountsMap[targetNum];
+              const currentHasAccount = Boolean(
+                current?.walletId ||
+                current?.indexedAccountId ||
+                current?.othersWalletAccountId,
+              );
+              const dbHasAccount = Boolean(
+                dbAccount?.walletId ||
+                dbAccount?.indexedAccountId ||
+                dbAccount?.othersWalletAccountId,
+              );
+              if (!currentHasAccount && dbHasAccount) {
+                mergedSelectedAccountsMap[targetNum] = dbAccount;
+              }
+            },
+          );
+          if (!isEqual(mergedSelectedAccountsMap, selectedAccountsMap)) {
+            this.setSelectedAccountsAtom(
+              set,
+              () => mergedSelectedAccountsMap,
+              'initFromStorageFillEmptyNumsFromDB',
+            );
+          }
           set(accountSelectorStorageReadyAtom(), () => true);
           set(accountSelectorStorageInitDoneAtom(), () => true);
           return;
