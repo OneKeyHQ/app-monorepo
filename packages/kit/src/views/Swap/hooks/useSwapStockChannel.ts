@@ -105,6 +105,9 @@ export function useSwapStockChannel({
   const { selectStockExecutionTokens } = useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
   const marketPresetTokenKey = getMarketPresetTokenKey(marketPresetToken);
+  const resolvedMarketPresetToken = marketPresetTokenKey
+    ? marketPresetToken
+    : undefined;
   const routeStockTokenKey = getTokenIdentityKey(routeStockToken);
   const canRestoreStockExecutionSelection =
     !routeStockTokenKey && !marketPresetTokenKey;
@@ -139,11 +142,10 @@ export function useSwapStockChannel({
     () =>
       stockTokenState ??
       (routeStockTokenKey ? routeStockToken : undefined) ??
-      (marketPresetTokenKey ? marketPresetToken : undefined) ??
+      resolvedMarketPresetToken ??
       stockExecutionSelection?.stockToken,
     [
-      marketPresetToken,
-      marketPresetTokenKey,
+      resolvedMarketPresetToken,
       routeStockToken,
       routeStockTokenKey,
       stockTokenState,
@@ -155,12 +157,7 @@ export function useSwapStockChannel({
   );
   const { result: stockDetailState } = usePromiseResult(
     async (): Promise<IStockTokenDetailState> => {
-      if (
-        !stockDetailRequestToken?.networkId ||
-        !stockDetailRequestTokenKey ||
-        (!stockDetailRequestToken.contractAddress &&
-          !stockDetailRequestToken.isNative)
-      ) {
+      if (!stockDetailRequestToken?.networkId || !stockDetailRequestTokenKey) {
         return {
           perpsInfo: undefined,
           tokenDetail: undefined,
@@ -189,7 +186,6 @@ export function useSwapStockChannel({
     },
     [
       stockDetailRequestToken?.contractAddress,
-      stockDetailRequestToken?.isNative,
       stockDetailRequestToken?.networkId,
       stockDetailRequestTokenKey,
     ],
