@@ -68,6 +68,10 @@ export interface ILightweightChartProps {
   showLastValue?: boolean;
   showLastPointMarker?: boolean;
   showTimeScale?: boolean;
+  // When true, overlays an animated "breathing" dot on the last data point to
+  // signal the chart is live. Web/desktop only; toggling it does not recreate
+  // the chart.
+  pulseLastPoint?: boolean;
   onHover?: (data: {
     time?: number;
     price?: number;
