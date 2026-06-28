@@ -66,6 +66,9 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
+import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_LATENCY_MS,
+} from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -460,6 +463,8 @@ const BaseDevSettingsSection = () => {
     : '已关闭';
   const desktopNetworkThrottleEnabled =
     devSettings.settings?.desktopNetworkThrottleEnabled ?? false;
+  const nativeNetworkThrottleEnabled =
+    devSettings.settings?.nativeNetworkThrottleEnabled ?? false;
 
   useEffect(() => {
     if (!platformEnv.isDesktop) {
@@ -504,6 +509,32 @@ const BaseDevSettingsSection = () => {
       } catch {
         Toast.error({
           title: 'Failed to update desktop network throttle',
+        });
+      }
+    },
+    [],
+  );
+
+  const handleNativeNetworkThrottleChange = useCallback(
+    async (enabled: boolean) => {
+      try {
+        await nativeNetworkThrottle.setNetworkThrottle({
+          enabled,
+          profile: 'slow4g',
+          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        });
+        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+          'nativeNetworkThrottleEnabled',
+          enabled,
+        );
+        Toast.success({
+          title: enabled
+            ? 'Native Slow 4G latency enabled'
+            : 'Native network throttle disabled',
+        });
+      } catch {
+        Toast.error({
+          title: 'Failed to update native network throttle',
         });
       }
     },
@@ -705,7 +736,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Network Throttle 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1098,7 +1129,7 @@ const BaseDevSettingsSection = () => {
                           title="Desktop Slow 4G Network Throttle"
                           subtitle={
                             desktopNetworkThrottleEnabled
-                              ? 'Slow 4G enabled: 562.5ms / 180000 Bps down / 84375 Bps up'
+                              ? 'Slow 4G latency enabled: 562.5ms'
                               : 'Disabled'
                           }
                           drillIn={false}
@@ -1108,6 +1139,26 @@ const BaseDevSettingsSection = () => {
                             size={ESwitchSize.small}
                             value={desktopNetworkThrottleEnabled}
                             onChange={handleDesktopNetworkThrottleChange}
+                          />
+                        </SectionPressItem>
+                      ) : null}
+
+                      {platformEnv.isNative ? (
+                        <SectionPressItem
+                          icon="SpeedLowOutline"
+                          title="Native Slow 4G Network Throttle"
+                          subtitle={
+                            nativeNetworkThrottleEnabled
+                              ? `Slow 4G latency enabled: ${NATIVE_SLOW_4G_LATENCY_MS}ms`
+                              : 'Disabled'
+                          }
+                          drillIn={false}
+                          searchKeywords="Native Slow 4G Network Throttle iOS Android latency weak network throttling 弱网 慢网"
+                        >
+                          <Switch
+                            size={ESwitchSize.small}
+                            value={nativeNetworkThrottleEnabled}
+                            onChange={handleNativeNetworkThrottleChange}
                           />
                         </SectionPressItem>
                       ) : null}
