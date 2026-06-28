@@ -28,8 +28,17 @@ type IDesktopNetworkThrottleAppliedSession =
     stateKey: string;
   };
 
+type IDesktopNetworkThrottleWebContentsEntry = {
+  label: string;
+  contents: WebContents;
+  config: IDesktopStoreNetworkThrottle;
+  throwOnFailure?: boolean;
+};
+
 type IApplyDesktopNetworkThrottleOptions = {
   closeConnections?: boolean;
+  config?: IDesktopStoreNetworkThrottle;
+  throwOnFailure?: boolean;
 };
 
 const DESKTOP_NETWORK_THROTTLE_PROFILES: Record<
@@ -50,6 +59,9 @@ const DEFAULT_NETWORK_THROTTLE_CONFIG: IDesktopStoreNetworkThrottle = {
 };
 
 const appliedStateBySession = new WeakMap<Session, string>();
+const appliedStateByWebContentsDebugger = new WeakMap<WebContents, string>();
+const webContentsDebuggersAttachedByNetworkThrottle =
+  new WeakSet<WebContents>();
 
 let runtimeNetworkThrottleConfig: IDesktopStoreNetworkThrottle | undefined;
 
@@ -89,8 +101,13 @@ function getDesktopNetworkThrottleEnvConfig():
 }
 
 function getRuntimeNetworkThrottleConfig(): IDesktopStoreNetworkThrottle {
+  const envConfig = getDesktopNetworkThrottleEnvConfig();
+  if (envConfig) {
+    return normalizeDesktopNetworkThrottleConfig(envConfig);
+  }
+
   runtimeNetworkThrottleConfig ??= normalizeDesktopNetworkThrottleConfig(
-    getDesktopNetworkThrottleEnvConfig() ?? store.getNetworkThrottle(),
+    store.getNetworkThrottle(),
   );
   return runtimeNetworkThrottleConfig;
 }
@@ -116,11 +133,55 @@ function getSessionAppliedLogMessage(
   );
 }
 
+function getWebContentsAppliedLogMessage(
+  config: IDesktopStoreNetworkThrottle,
+  label: string,
+): string {
+  if (!config.enabled) {
+    return `[desktop-network-throttle] debugger applied state=disabled webContents=${label}`;
+  }
+
+  const profile = DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
+  return (
+    `[desktop-network-throttle] debugger applied state=${config.profile} ` +
+    `webContents=${label} latencyMs=${profile.latency} ` +
+    `downloadBps=${profile.downloadThroughput} ` +
+    `uploadBps=${profile.uploadThroughput}`
+  );
+}
+
+function getDebuggerNetworkConditions(config: IDesktopStoreNetworkThrottle) {
+  if (!config.enabled) {
+    return {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    };
+  }
+
+  return DESKTOP_NETWORK_THROTTLE_PROFILES[config.profile];
+}
+
+function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
+  if (contents.isDestroyed()) {
+    return false;
+  }
+
+  const url = contents.getURL();
+  if (contents.getType() === 'remote' || url.startsWith('devtools://')) {
+    return false;
+  }
+
+  return true;
+}
+
 function applyDesktopNetworkThrottleToSession(
   targetSession: Session,
   label: string,
+  config: IDesktopStoreNetworkThrottle,
+  throwOnFailure?: boolean,
 ): IDesktopNetworkThrottleAppliedSession | undefined {
-  const config = getRuntimeNetworkThrottleConfig();
   const stateKey = getSessionStateKey(config);
   const previousStateKey = appliedStateBySession.get(targetSession);
   if (previousStateKey === stateKey) {
@@ -149,7 +210,72 @@ function applyDesktopNetworkThrottleToSession(
       `[desktop-network-throttle] failed to apply ${stateKey} to ${label}`,
       error,
     );
+    if (throwOnFailure) {
+      throw error;
+    }
     return undefined;
+  }
+}
+
+async function applyDesktopNetworkThrottleToWebContentsDebugger({
+  contents,
+  label,
+  config,
+  throwOnFailure,
+}: IDesktopNetworkThrottleWebContentsEntry): Promise<void> {
+  if (!shouldApplyDebuggerNetworkThrottle(contents)) {
+    return;
+  }
+
+  const stateKey = getSessionStateKey(config);
+  const previousStateKey = appliedStateByWebContentsDebugger.get(contents);
+  if (!config.enabled && !previousStateKey) {
+    return;
+  }
+  if (previousStateKey === stateKey) {
+    return;
+  }
+
+  const targetLabel = `${label}:${contents.id}:${contents.getType()}`;
+  try {
+    const { debugger: targetDebugger } = contents;
+    if (!targetDebugger.isAttached()) {
+      targetDebugger.attach('1.3');
+      webContentsDebuggersAttachedByNetworkThrottle.add(contents);
+      targetDebugger.once('detach', (_event, reason) => {
+        appliedStateByWebContentsDebugger.delete(contents);
+        webContentsDebuggersAttachedByNetworkThrottle.delete(contents);
+        logger.info(
+          `[desktop-network-throttle] debugger detached webContents=${targetLabel} reason=${reason}`,
+        );
+      });
+    }
+
+    await targetDebugger.sendCommand('Network.enable');
+    await targetDebugger.sendCommand(
+      'Network.emulateNetworkConditions',
+      getDebuggerNetworkConditions(config),
+    );
+    appliedStateByWebContentsDebugger.set(contents, stateKey);
+    if (config.enabled || previousStateKey) {
+      logger.info(getWebContentsAppliedLogMessage(config, targetLabel));
+    }
+
+    if (
+      !config.enabled &&
+      webContentsDebuggersAttachedByNetworkThrottle.has(contents) &&
+      targetDebugger.isAttached()
+    ) {
+      targetDebugger.detach();
+    }
+  } catch (error) {
+    logger.warn(
+      `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
+      error,
+    );
+    if (throwOnFailure) {
+      throw error;
+    }
   }
 }
 
@@ -188,6 +314,9 @@ async function closeSessionConnections(
 export async function applyDesktopNetworkThrottleToKnownSessions(
   options?: IApplyDesktopNetworkThrottleOptions,
 ): Promise<void> {
+  const config = normalizeDesktopNetworkThrottleConfig(
+    options?.config ?? getRuntimeNetworkThrottleConfig(),
+  );
   const entries = uniqueSessions([
     {
       label: 'defaultSession',
@@ -215,13 +344,27 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
     const appliedSession = applyDesktopNetworkThrottleToSession(
       entry.targetSession,
       entry.label,
+      config,
+      options?.throwOnFailure,
     );
     if (options?.closeConnections && appliedSession) {
       closeConnectionTasks.push(closeSessionConnections(appliedSession));
     }
   }
 
-  await Promise.all(closeConnectionTasks);
+  const debuggerTasks = webContents
+    .getAllWebContents()
+    .filter((contents) => !contents.isDestroyed())
+    .map((contents) =>
+      applyDesktopNetworkThrottleToWebContentsDebugger({
+        label: 'webContents',
+        contents,
+        config,
+        throwOnFailure: options?.throwOnFailure,
+      }),
+    );
+
+  await Promise.all([...closeConnectionTasks, ...debuggerTasks]);
 }
 
 export function applyDesktopNetworkThrottleToWebContents(
@@ -230,10 +373,17 @@ export function applyDesktopNetworkThrottleToWebContents(
   if (contents.isDestroyed()) {
     return;
   }
+  const config = getRuntimeNetworkThrottleConfig();
   applyDesktopNetworkThrottleToSession(
     contents.session,
     `webContents:${contents.id}:${contents.getType()}`,
+    config,
   );
+  void applyDesktopNetworkThrottleToWebContentsDebugger({
+    label: 'webContents',
+    contents,
+    config,
+  });
 }
 
 export function getDesktopNetworkThrottleConfig(): IDesktopStoreNetworkThrottle {
@@ -244,10 +394,40 @@ export async function setDesktopNetworkThrottleConfig(
   config: IDesktopStoreNetworkThrottle,
 ): Promise<IDesktopStoreNetworkThrottle> {
   const normalizedConfig = normalizeDesktopNetworkThrottleConfig(config);
-  runtimeNetworkThrottleConfig = normalizedConfig;
-  store.setNetworkThrottle(normalizedConfig);
-  await applyDesktopNetworkThrottleToKnownSessions({
-    closeConnections: true,
-  });
+  const envConfig = getDesktopNetworkThrottleEnvConfig();
+  if (envConfig) {
+    const envOverrideConfig = normalizeDesktopNetworkThrottleConfig(envConfig);
+    await applyDesktopNetworkThrottleToKnownSessions({
+      closeConnections: true,
+      config: envOverrideConfig,
+      throwOnFailure: true,
+    });
+    logger.info(
+      '[desktop-network-throttle] ignored runtime setter because ONEKEY_DESKTOP_NETWORK_THROTTLE is set',
+    );
+    return envOverrideConfig;
+  }
+
+  const previousConfig = getRuntimeNetworkThrottleConfig();
+  try {
+    await applyDesktopNetworkThrottleToKnownSessions({
+      closeConnections: true,
+      config: normalizedConfig,
+      throwOnFailure: true,
+    });
+    store.setNetworkThrottle(normalizedConfig);
+    runtimeNetworkThrottleConfig = normalizedConfig;
+  } catch (error) {
+    logger.warn(
+      '[desktop-network-throttle] failed to commit config, rolling back',
+      error,
+    );
+    await applyDesktopNetworkThrottleToKnownSessions({
+      closeConnections: true,
+      config: previousConfig,
+    });
+    runtimeNetworkThrottleConfig = previousConfig;
+    throw error;
+  }
   return normalizedConfig;
 }

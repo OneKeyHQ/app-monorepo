@@ -16,8 +16,13 @@ import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
-import { getNetworkThrottleRuntimeConfig } from '../modules/NetworkThrottle';
+import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_LATENCY_MS,
+  getNetworkThrottleRuntimeConfig,
+} from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
+import { devSettingSyncStorage } from '../storage/instance/devSettingSyncStorageInstance';
+import { EDevSettingSyncStorageKeys } from '../storage/syncStorageKeys';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
@@ -40,6 +45,8 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
     throttleConfig: INativeNetworkThrottleConfig;
   };
 };
+
+let syncNativeNetworkThrottlePromise: Promise<void> | undefined;
 
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
@@ -77,6 +84,65 @@ function getRequestTimingNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
 
+function normalizeDesktopNetworkThrottleTimingConfig(config: {
+  enabled?: boolean;
+  profile?: string;
+}): INativeNetworkThrottleConfig {
+  return {
+    enabled: Boolean(config.enabled),
+    profile: 'slow4g',
+    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+  };
+}
+
+async function syncNativeNetworkThrottleFromDevSettings() {
+  if (!platformEnv.isNative) {
+    return;
+  }
+
+  const devModeEnabled = devSettingSyncStorage.getBoolean(
+    EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+  );
+  const nativeNetworkThrottleEnabled = devSettingSyncStorage.getBoolean(
+    EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+  );
+  await nativeNetworkThrottle.setNetworkThrottle({
+    enabled: Boolean(devModeEnabled && nativeNetworkThrottleEnabled),
+    profile: 'slow4g',
+    latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+  });
+}
+
+async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
+  if (!platformEnv.isNative) {
+    return;
+  }
+
+  syncNativeNetworkThrottlePromise ??=
+    syncNativeNetworkThrottleFromDevSettings();
+  await syncNativeNetworkThrottlePromise.catch((error) => {
+    syncNativeNetworkThrottlePromise = undefined;
+    throw error;
+  });
+}
+
+async function getNetworkThrottleTimingConfig(): Promise<INativeNetworkThrottleConfig> {
+  if (platformEnv.isDesktop) {
+    const desktopConfig =
+      await globalThis.desktopApiProxy?.dev?.getNetworkThrottle?.();
+    if (desktopConfig) {
+      return normalizeDesktopNetworkThrottleTimingConfig(desktopConfig);
+    }
+  }
+
+  if (platformEnv.isNative) {
+    await ensureNativeNetworkThrottleSyncedBeforeRequest();
+    return nativeNetworkThrottle.getNetworkThrottle();
+  }
+
+  return getNetworkThrottleRuntimeConfig();
+}
+
 function getSanitizedRequestTarget(config: AxiosRequestConfig) {
   const rawUrl = String(config.url ?? '');
   const rawBaseURL = String(config.baseURL ?? '');
@@ -98,14 +164,17 @@ function getSanitizedRequestTarget(config: AxiosRequestConfig) {
   }
 }
 
-function markNetworkThrottleRequestTiming(config: AxiosRequestConfig) {
+async function markNetworkThrottleRequestTiming(config: AxiosRequestConfig) {
   if (!shouldLogNetworkThrottleTiming()) {
     return;
   }
 
+  const throttleConfig = await getNetworkThrottleTimingConfig().catch(() =>
+    getNetworkThrottleRuntimeConfig(),
+  );
   (config as IAxiosNetworkTimingConfig).$oneKeyNetworkThrottleTiming = {
     startedAt: getRequestTimingNow(),
-    throttleConfig: getNetworkThrottleRuntimeConfig(),
+    throttleConfig,
   };
 }
 
@@ -160,11 +229,11 @@ axios.interceptors.request.use(async (config) => {
       if (isEnableLogNetwork(config.url)) {
         defaultLogger.app.network.start('axios', config.method, config.url);
       }
-      markNetworkThrottleRequestTiming(config);
+      await markNetworkThrottleRequestTiming(config);
       return config;
     }
   } catch (_e) {
-    markNetworkThrottleRequestTiming(config);
+    await markNetworkThrottleRequestTiming(config);
     return config;
   }
 
@@ -189,7 +258,7 @@ axios.interceptors.request.use(async (config) => {
       headers[HEADER_REQUEST_ID_KEY],
     );
   }
-  markNetworkThrottleRequestTiming(config);
+  await markNetworkThrottleRequestTiming(config);
   return config;
 });
 

@@ -50,6 +50,11 @@ class ServiceDevSetting extends ServiceBase {
       EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
       !!devSettings.enabled,
     );
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+      !!devSettings.enabled &&
+        !!devSettings.settings?.nativeNetworkThrottleEnabled,
+    );
   }
 
   async syncCryptoSettings() {
