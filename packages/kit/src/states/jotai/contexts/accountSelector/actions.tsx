@@ -2924,21 +2924,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 await serviceAccount.getIndexedAccountsOfWallet({
                   walletId: selectedWalletId,
                 });
-              // Prefer the persisted indexed account when it still belongs to
-              // this wallet, so a refresh/restore (where activeAccount.indexedAccount
-              // hasn't rebuilt yet) doesn't drop a non-default index back to the
-              // first account (index 0).
-              const persistedIndexedAccountId =
-                selectedAccountNew.indexedAccountId;
-              const isPersistedIndexedAccountValid = Boolean(
-                persistedIndexedAccountId &&
-                indexedAccounts?.some(
-                  (item) => item.id === persistedIndexedAccountId,
-                ),
-              );
-              selectedIndexedAccountId = isPersistedIndexedAccountValid
-                ? persistedIndexedAccountId
-                : indexedAccounts?.[0]?.id;
+              selectedIndexedAccountId = indexedAccounts?.[0]?.id;
               selectedAccountNew.indexedAccountId = selectedIndexedAccountId;
               selectedAccountNew.focusedWallet = selectedWalletId;
               selectedAccountNew.othersWalletAccountId = undefined;
