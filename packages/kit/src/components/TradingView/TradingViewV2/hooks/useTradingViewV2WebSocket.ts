@@ -12,6 +12,7 @@ import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2'
 import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
 
 import type { IWebViewRef } from '../../../WebView/types';
+import type { ITradingViewPriceUpdateData } from '../types';
 
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;
@@ -21,6 +22,7 @@ interface IUseTradingViewV2WebSocketProps {
   chartType?: string;
   currency?: string;
   symbol?: string;
+  onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
 }
 
 interface IMarketPriceUpdatePayload {
@@ -76,6 +78,20 @@ function isMarketTokenKLineResponse(
   );
 }
 
+function isWsPriceData(data: unknown): data is IWsPriceData {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const candidate = data as Partial<IWsPriceData>;
+  return (
+    typeof candidate.address === 'string' &&
+    typeof candidate.c === 'number' &&
+    typeof candidate.type === 'string' &&
+    typeof candidate.unixTime === 'number'
+  );
+}
+
 export function useTradingViewV2WebSocket({
   networkId,
   tokenAddress,
@@ -84,6 +100,7 @@ export function useTradingViewV2WebSocket({
   chartType = '1m',
   currency = 'usd',
   symbol,
+  onPriceUpdate,
 }: IUseTradingViewV2WebSocketProps): void {
   const lastUpdateTime = useRef<number>(0);
   const wsChartType = normalizeMarketWsKLineInterval(chartType);
@@ -160,9 +177,14 @@ export function useTradingViewV2WebSocket({
       const receivedData = payload.data as
         | IWsPriceData
         | IMarketTokenKLineResponse;
+      const isKLineResponse = isMarketTokenKLineResponse(receivedData);
+      const isPriceData = isWsPriceData(receivedData);
+      if (!isKLineResponse && !isPriceData) {
+        return;
+      }
+
       if (
-        receivedData &&
-        !isMarketTokenKLineResponse(receivedData) &&
+        isPriceData &&
         receivedData.type &&
         normalizeMarketWsKLineInterval(receivedData.type) !== wsChartType
       ) {
@@ -176,25 +198,38 @@ export function useTradingViewV2WebSocket({
         return;
       }
 
+      if (isPriceData) {
+        onPriceUpdate?.({
+          symbol,
+          tokenAddress,
+          networkId,
+          price: receivedData.c,
+          timestamp: receivedData.unixTime,
+          interval: receivedData.type,
+          source: 'realtime',
+        });
+      }
+
+      lastUpdateTime.current = now;
+
       const webView = webRef.current;
       if (!webView) {
         return;
       }
 
-      const dataForWebView: IMarketTokenKLineResponse =
-        isMarketTokenKLineResponse(receivedData)
-          ? receivedData
-          : {
-              points: [
-                {
-                  ...receivedData,
+      const dataForWebView: IMarketTokenKLineResponse = isKLineResponse
+        ? receivedData
+        : {
+            points: [
+              {
+                ...receivedData,
 
-                  // oxlint-disable-next-line @cspell/spellchecker
-                  t: receivedData.unixTime,
-                },
-              ],
-              total: 1,
-            };
+                // oxlint-disable-next-line @cspell/spellchecker
+                t: receivedData.unixTime,
+              },
+            ],
+            total: 1,
+          };
 
       webView.sendMessageViaInjectedScript({
         type: 'autoKLineUpdate',
@@ -219,8 +254,6 @@ export function useTradingViewV2WebSocket({
         chartType: wsChartType,
         currency,
       });
-
-      lastUpdateTime.current = now;
     }
 
     appEventBus.on(
@@ -244,5 +277,6 @@ export function useTradingViewV2WebSocket({
     enabled,
     wsChartType,
     symbol,
+    onPriceUpdate,
   ]);
 }
