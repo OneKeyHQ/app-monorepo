@@ -142,6 +142,7 @@ import {
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
+import { SwapStockTradeProviderBoundary } from './SwapStockTradeProvider';
 import SwapSwapMbContainer from './SwapSwapMbContainer';
 
 import type { ScrollView as ScrollViewNative } from 'react-native';
@@ -1384,7 +1385,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     contentTopPadding = '$0';
   }
 
-  return (
+  const pageContent = (
     <>
       <Page.Container flex={1} layout={containerLayout} padded={false}>
         <YStack
@@ -1447,6 +1448,18 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       </Page.Container>
     </>
   );
+
+  if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
+    return (
+      <SwapStockTradeProviderBoundary
+        marketPresetToken={marketPresetTokenContext}
+      >
+        {pageContent}
+      </SwapStockTradeProviderBoundary>
+    );
+  }
+
+  return pageContent;
 };
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {

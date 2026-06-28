@@ -71,7 +71,11 @@ export function useSwapTokenList(
     tokenListType?: string;
   },
   supportNetworksOverride?: ISwapNetwork[],
+  options?: {
+    enabled?: boolean;
+  },
 ) {
+  const enabled = options?.enabled ?? true;
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
   const [swapSupportAllAccountsState, setSwapSupportAllAccountsState] =
@@ -123,6 +127,14 @@ export function useSwapTokenList(
   } | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setSwapSupportAllAccountsState({
+        requestKey: swapSupportAllAccountsRequestKey,
+        accounts: EMPTY_SWAP_SUPPORT_ALL_ACCOUNTS,
+      });
+      setSwapSupportAllAccountsLoading(false);
+      return;
+    }
     let isCancelled = false;
     setSwapSupportAllAccountsLoading(true);
     void (async () => {
@@ -160,6 +172,7 @@ export function useSwapTokenList(
     otherWalletTypeAccountId,
     swapSupportAllAccountsRequestKey,
     swapNetworks,
+    enabled,
   ]);
 
   const tokenFetchParams = useMemo(() => {
@@ -410,6 +423,9 @@ export function useSwapTokenList(
   }
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     if (!isSwapSupportAllAccountsReady) {
       return;
     }
@@ -461,10 +477,11 @@ export function useSwapTokenList(
     lpToken,
     requestCurrency,
     isSwapSupportAllAccountsReady,
+    enabled,
   ]);
 
   useEffect(() => {
-    if (!keywords) {
+    if (!enabled || !keywords) {
       searchLogStateRef.current = null;
       return;
     }
@@ -535,9 +552,13 @@ export function useSwapTokenList(
     analyticsOverride?.tokenRole,
     selectTokenModalType,
     swapTokenFetching,
+    enabled,
   ]);
 
   const currentTokens = useMemo(() => {
+    if (!enabled) {
+      return [];
+    }
     if (!isSwapSupportAllAccountsReady) {
       return [];
     }
@@ -558,14 +579,16 @@ export function useSwapTokenList(
     tokenCatch,
     tokenFetchParams,
     isSwapSupportAllAccountsReady,
+    enabled,
   ]);
 
   return {
     fetchLoading:
-      !isSwapSupportAllAccountsReady ||
-      (swapTokenFetching && currentTokens.length === 0) ||
-      (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
-        (!allNetworkTokenListReady || !swapAllNetworkTokenList)),
+      enabled &&
+      (!isSwapSupportAllAccountsReady ||
+        (swapTokenFetching && currentTokens.length === 0) ||
+        (networkUtils.isAllNetwork({ networkId: tokenFetchParams.networkId }) &&
+          (!allNetworkTokenListReady || !swapAllNetworkTokenList))),
     lpTokenRequestLoading,
     currentTokens,
   };

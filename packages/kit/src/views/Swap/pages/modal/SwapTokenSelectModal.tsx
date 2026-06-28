@@ -394,35 +394,32 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
-  const stockSearchBaseNetworkId = currentSelectNetwork?.networkId;
-  const stockSearchBaseTokensRef = useRef<{
-    networkId?: string;
-    tokens: (ISwapToken | IFuseResult<ISwapToken>)[];
-  }>({
-    tokens: [],
-  });
-  if (
+  const shouldUseStockSearchBaseTokens =
     isSwapStockSelectTarget &&
-    !requestedSearchKeyword &&
-    currentTokens.length > 0
-  ) {
-    stockSearchBaseTokensRef.current = {
-      networkId: stockSearchBaseNetworkId,
-      tokens: currentTokens,
-    };
-  }
-  const stockSearchBaseTokens =
-    stockSearchBaseTokensRef.current.networkId === stockSearchBaseNetworkId
-      ? stockSearchBaseTokensRef.current.tokens
-      : EMPTY_SWAP_TOKEN_LIST;
+    !!requestedSearchKeyword &&
+    currentTokens.length === 0;
+  const {
+    fetchLoading: stockSearchBaseFetchLoading,
+    currentTokens: stockSearchBaseTokens,
+  } = useSwapTokenList(
+    type,
+    currentSelectNetwork?.networkId,
+    '',
+    swapTypeSwitch,
+    requestLpToken,
+    searchAnalyticsOverride,
+    swapNetworksIncludeAllNetwork,
+    {
+      enabled: shouldUseStockSearchBaseTokens,
+    },
+  );
   const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
     if (!isSwapStockSelectTarget) {
       return { tokenAddressEntries: [], tokenKey: '' };
     }
-    const metadataSourceTokens =
-      requestedSearchKeyword && currentTokens.length === 0
-        ? stockSearchBaseTokens
-        : currentTokens;
+    const metadataSourceTokens = shouldUseStockSearchBaseTokens
+      ? stockSearchBaseTokens
+      : currentTokens;
     const tokenAddressMap = new Map<
       string,
       {
@@ -453,7 +450,7 @@ const SwapTokenSelectPage = ({
   }, [
     currentTokens,
     isSwapStockSelectTarget,
-    requestedSearchKeyword,
+    shouldUseStockSearchBaseTokens,
     stockSearchBaseTokens,
   ]);
   const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
@@ -567,7 +564,10 @@ const SwapTokenSelectPage = ({
     ? EMPTY_SWAP_TOKEN_LIST
     : tokensForDisplay;
   const tokenListLoading =
-    fetchLoading || stockMetadataPending || isSearchKeywordSettling;
+    fetchLoading ||
+    (shouldUseStockSearchBaseTokens && stockSearchBaseFetchLoading) ||
+    stockMetadataPending ||
+    isSearchKeywordSettling;
   const alertIndex = useMemo(
     () =>
       displayTokens.findIndex((item) => {

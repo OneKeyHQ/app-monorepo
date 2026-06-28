@@ -19,7 +19,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketPerpsInfo,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 import type {
   IFetchUSMarketStatusResult,
   IMarketPresetTokenContext,
@@ -79,6 +82,7 @@ function buildStockExecutionTokens({
 }
 
 type IStockTokenDetailState = {
+  perpsInfo?: IMarketPerpsInfo;
   tokenDetail?: IMarketTokenDetail;
   tokenKey: string;
 };
@@ -114,49 +118,56 @@ export function useSwapStockChannel({
   const stockDetailRequestTokenKey = getTokenIdentityKey(
     stockDetailRequestToken,
   );
-  const { result: stockDetailState, isLoading: stockDetailLoading } =
-    usePromiseResult(
-      async (): Promise<IStockTokenDetailState> => {
-        if (
-          !stockDetailRequestToken?.networkId ||
-          !stockDetailRequestTokenKey ||
-          (!stockDetailRequestToken.contractAddress &&
-            !stockDetailRequestToken.isNative)
-        ) {
-          return {
-            tokenDetail: undefined,
-            tokenKey: stockDetailRequestTokenKey,
-          };
-        }
-        const response =
-          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+  const { result: stockDetailState } = usePromiseResult(
+    async (): Promise<IStockTokenDetailState> => {
+      if (
+        !stockDetailRequestToken?.networkId ||
+        !stockDetailRequestTokenKey ||
+        (!stockDetailRequestToken.contractAddress &&
+          !stockDetailRequestToken.isNative)
+      ) {
+        return {
+          perpsInfo: undefined,
+          tokenDetail: undefined,
+          tokenKey: stockDetailRequestTokenKey,
+        };
+      }
+      const response = await (async () => {
+        try {
+          return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
             stockDetailRequestToken.contractAddress ?? '',
             stockDetailRequestToken.networkId,
             { autoHandleError: false },
           );
-        return {
-          tokenDetail: response.data.token,
-          tokenKey: stockDetailRequestTokenKey,
-        };
+        } catch {
+          return undefined;
+        }
+      })();
+      return {
+        perpsInfo: response?.data.perpsInfo,
+        tokenDetail: response?.data.token,
+        tokenKey: stockDetailRequestTokenKey,
+      };
+    },
+    [
+      stockDetailRequestToken?.contractAddress,
+      stockDetailRequestToken?.isNative,
+      stockDetailRequestToken?.networkId,
+      stockDetailRequestTokenKey,
+    ],
+    {
+      initResult: {
+        perpsInfo: undefined,
+        tokenDetail: undefined,
+        tokenKey: '',
       },
-      [
-        stockDetailRequestToken?.contractAddress,
-        stockDetailRequestToken?.isNative,
-        stockDetailRequestToken?.networkId,
-        stockDetailRequestTokenKey,
-      ],
-      {
-        initResult: {
-          tokenDetail: undefined,
-          tokenKey: '',
-        },
-        watchLoading: !!stockDetailRequestTokenKey,
-        pollingInterval: stockDetailRequestTokenKey ? 6000 : undefined,
-        revalidateOnFocus: true,
-        revalidateOnReconnect: true,
-        checkIsFocused: false,
-      },
-    );
+      watchLoading: !!stockDetailRequestTokenKey,
+      pollingInterval: stockDetailRequestTokenKey ? 6000 : undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      checkIsFocused: false,
+    },
+  );
   const fetchedStockTokenDetail =
     stockDetailState.tokenKey === stockDetailRequestTokenKey &&
     isCurrentStockMarketDetail({
@@ -213,6 +224,9 @@ export function useSwapStockChannel({
     })
       ? fetchedStockTokenDetail
       : undefined;
+  const activeStockPerpsInfo = activeStockTokenDetail
+    ? stockDetailState.perpsInfo
+    : undefined;
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
@@ -316,8 +330,6 @@ export function useSwapStockChannel({
     stockCategoryType,
   } = useSwapStockDefaultToken({
     marketPresetTokenKey,
-    marketPresetTokenLoading:
-      !!marketPresetTokenKey && !!stockDetailLoading && !selectedStockTokenKey,
     marketStockToken: fetchedStockToken,
     selectStockSwapToken,
     selectedStockTokenKey,
@@ -581,6 +593,7 @@ export function useSwapStockChannel({
       tradeSide,
       stockNetworkId,
       stockMarketStatus,
+      activeStockPerpsInfo,
       activeStockTokenDetail,
       currentStockToken,
       payToken,
@@ -615,6 +628,7 @@ export function useSwapStockChannel({
       switchTradeSide,
       speedConfigReady,
       stockMarketStatus,
+      activeStockPerpsInfo,
       activeStockTokenDetail,
       stockNetworkId,
       stockTokenStatus,

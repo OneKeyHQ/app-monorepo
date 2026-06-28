@@ -43,7 +43,6 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -85,6 +84,7 @@ import { SwapKLineContentWithProvider } from '../modal/SwapKLineContent';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import ProviderManageContainer from './ProviderManageContainer';
+import { useOptionalSwapStockTradeContext } from './SwapStockTradeProvider';
 
 import type { IMarketPresetSettingsState } from '../../../Market/MarketDetailV2/components/SwapPanel/hooks/useMarketPresetSettings';
 
@@ -505,14 +505,14 @@ const StockKLineHeaderButton = ({
   buttonSize: 'small' | 'medium';
 }) => {
   const navigation = useAppNavigation();
-  const {
-    isNative,
-    networkId: networkIdFromHook,
-    tokenAddress: tokenAddressFromHook,
-    tokenDetail,
-  } = useTokenDetail();
-  const networkId = networkIdFromHook ?? tokenDetail?.networkId ?? '';
-  const tokenAddress = tokenAddressFromHook ?? tokenDetail?.address ?? '';
+  const stockChannel = useOptionalSwapStockTradeContext();
+  const currentStockToken = stockChannel?.currentStockToken;
+  const tokenDetail = stockChannel?.activeStockTokenDetail;
+  const isNative = currentStockToken?.isNative ?? false;
+  const networkId =
+    currentStockToken?.networkId ?? tokenDetail?.networkId ?? '';
+  const tokenAddress =
+    currentStockToken?.contractAddress ?? tokenDetail?.address ?? '';
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({

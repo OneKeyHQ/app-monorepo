@@ -143,7 +143,7 @@ import {
 } from './SwapStockDesktopContainer.utils';
 import { SwapStockTradeAlert } from './SwapStockTradeAlert';
 import {
-  SwapStockTradeProvider,
+  SwapStockTradeProviderBoundary,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
 
@@ -2071,9 +2071,9 @@ export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
   return (
-    <SwapStockTradeProvider marketPresetToken={props.marketPresetToken}>
+    <SwapStockTradeProviderBoundary marketPresetToken={props.marketPresetToken}>
       <SwapStockDesktopContent {...props} />
-    </SwapStockTradeProvider>
+    </SwapStockTradeProviderBoundary>
   );
 }
 
@@ -2168,8 +2168,8 @@ export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
   return (
-    <SwapStockTradeProvider marketPresetToken={props.marketPresetToken}>
+    <SwapStockTradeProviderBoundary marketPresetToken={props.marketPresetToken}>
       <SwapStockMobileContent {...props} />
-    </SwapStockTradeProvider>
+    </SwapStockTradeProviderBoundary>
   );
 }

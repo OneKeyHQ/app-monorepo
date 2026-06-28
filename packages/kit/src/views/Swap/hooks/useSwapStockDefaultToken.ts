@@ -13,7 +13,6 @@ import {
 
 export function useSwapStockDefaultToken({
   marketPresetTokenKey,
-  marketPresetTokenLoading,
   marketStockToken,
   selectStockSwapToken,
   selectedStockTokenKey,
@@ -21,7 +20,6 @@ export function useSwapStockDefaultToken({
   tokenDetailHasStock,
 }: {
   marketPresetTokenKey: string;
-  marketPresetTokenLoading?: boolean;
   marketStockToken?: ISwapToken;
   selectStockSwapToken: (token: ISwapToken) => void;
   selectedStockTokenKey: string;
@@ -42,9 +40,7 @@ export function useSwapStockDefaultToken({
   }, [spotCategories]);
 
   const shouldLoadDefaultStockToken =
-    !selectedStockTokenKey &&
-    !marketStockToken &&
-    !(marketPresetTokenKey && marketPresetTokenLoading);
+    !selectedStockTokenKey && !marketPresetTokenKey && !marketStockToken;
   const defaultStockTokenScope = `${
     shouldLoadDefaultStockToken ? '1' : '0'
   }:${stockCategoryType ?? ''}`;

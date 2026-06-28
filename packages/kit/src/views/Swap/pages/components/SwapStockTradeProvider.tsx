@@ -30,6 +30,23 @@ export function SwapStockTradeProvider({
   );
 }
 
+export function SwapStockTradeProviderBoundary({
+  children,
+  marketPresetToken,
+}: PropsWithChildren<{
+  marketPresetToken?: IMarketPresetTokenContext;
+}>) {
+  const context = useContext(SwapStockTradeContext);
+  if (context) {
+    return <>{children}</>;
+  }
+  return (
+    <SwapStockTradeProvider marketPresetToken={marketPresetToken}>
+      {children}
+    </SwapStockTradeProvider>
+  );
+}
+
 export function useSwapStockTradeContext() {
   const context = useContext(SwapStockTradeContext);
   if (!context) {
@@ -38,4 +55,8 @@ export function useSwapStockTradeContext() {
     );
   }
   return context;
+}
+
+export function useOptionalSwapStockTradeContext() {
+  return useContext(SwapStockTradeContext);
 }
