@@ -57,21 +57,17 @@ function buildUsdPriceFields(price?: number | string) {
 }
 
 export function getTokenIdentityKey(token?: Partial<ISwapTokenBase>) {
-  if (!token?.networkId) {
+  const networkId = token?.networkId;
+  if (!networkId || (!token.contractAddress && !token.isNative)) {
     return '';
   }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
+  return `${networkId}:${token.contractAddress ?? ''}:${
     token.isNative ? 'native' : 'token'
   }`;
 }
 
 export function getMarketPresetTokenKey(token?: IMarketPresetTokenContext) {
-  if (!token?.networkId) {
-    return '';
-  }
-  return `${token.networkId}:${token.contractAddress ?? ''}:${
-    token.isNative ? 'native' : 'token'
-  }`;
+  return getTokenIdentityKey(token);
 }
 
 export function getMarketListTokenKey(token?: IMarketTokenListItem) {
@@ -263,6 +259,37 @@ export function filterStockPayTokenCandidates<
   return candidates.filter((candidate) =>
     STOCK_DEFAULT_PAY_SYMBOLS.has(candidate.symbol?.toUpperCase() ?? ''),
   );
+}
+
+export function resolveStockExecutionTokenSelection({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+}) {
+  if (!fromToken || !toToken) {
+    return undefined;
+  }
+  const isFromTokenPayToken =
+    filterStockPayTokenCandidates([fromToken]).length > 0;
+  const isToTokenPayToken = filterStockPayTokenCandidates([toToken]).length > 0;
+
+  if (fromToken.isStock && isToTokenPayToken) {
+    return {
+      tradeSide: ESwapStockTradeSide.Sell,
+      stockToken: fromToken,
+      payToken: toToken,
+    };
+  }
+  if (toToken.isStock && isFromTokenPayToken) {
+    return {
+      tradeSide: ESwapStockTradeSide.Buy,
+      stockToken: toToken,
+      payToken: fromToken,
+    };
+  }
+  return undefined;
 }
 
 export function findTokenFromCandidates({

@@ -2,7 +2,10 @@ import { createContext, useContext } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IMarketPresetTokenContext } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IMarketPresetTokenContext,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   type IUseSwapStockChannelReturn,
@@ -16,11 +19,14 @@ const SwapStockTradeContext = createContext<
 export function SwapStockTradeProvider({
   children,
   marketPresetToken,
+  routeStockToken,
 }: PropsWithChildren<{
   marketPresetToken?: IMarketPresetTokenContext;
+  routeStockToken?: ISwapToken;
 }>) {
   const stockChannel = useSwapStockChannel({
     marketPresetToken,
+    routeStockToken,
   });
 
   return (
@@ -33,15 +39,20 @@ export function SwapStockTradeProvider({
 export function SwapStockTradeProviderBoundary({
   children,
   marketPresetToken,
+  routeStockToken,
 }: PropsWithChildren<{
   marketPresetToken?: IMarketPresetTokenContext;
+  routeStockToken?: ISwapToken;
 }>) {
   const context = useContext(SwapStockTradeContext);
   if (context) {
     return <>{children}</>;
   }
   return (
-    <SwapStockTradeProvider marketPresetToken={marketPresetToken}>
+    <SwapStockTradeProvider
+      marketPresetToken={marketPresetToken}
+      routeStockToken={routeStockToken}
+    >
       {children}
     </SwapStockTradeProvider>
   );

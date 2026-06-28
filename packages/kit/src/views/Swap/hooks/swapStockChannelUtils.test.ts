@@ -1,13 +1,16 @@
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
+  ESwapStockTradeSide,
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketListToken,
   buildStockSwapTokenFromTokenIdentity,
   filterStockPayTokenCandidates,
+  getMarketPresetTokenKey,
   isCurrentStockMarketDetail,
   isStockMarketDetailMatchedTokenParams,
   resolveStockChannelToken,
+  resolveStockExecutionTokenSelection,
 } from './swapStockChannelUtils';
 
 const usdcToken: ISwapToken = {
@@ -37,6 +40,7 @@ const appleStockToken: ISwapToken = {
   contractAddress: '0xaapl',
   symbol: 'AAPL',
   decimals: 18,
+  isStock: true,
 };
 
 describe('swapStockChannelUtils', () => {
@@ -90,6 +94,30 @@ describe('swapStockChannelUtils', () => {
     ).toBe(fallbackStockToken);
   });
 
+  it('does not treat an unresolved non-native preset as a stock identity', () => {
+    expect(
+      getMarketPresetTokenKey({
+        networkId: 'evm--56',
+        contractAddress: '',
+        isNative: false,
+      }),
+    ).toBe('');
+    expect(
+      buildStockSwapTokenFromTokenIdentity({
+        networkId: 'evm--56',
+        contractAddress: '',
+        isNative: false,
+      }),
+    ).toBeUndefined();
+    expect(
+      getMarketPresetTokenKey({
+        networkId: 'evm--56',
+        contractAddress: '',
+        isNative: true,
+      }),
+    ).toBe('evm--56::native');
+  });
+
   it('prefers fetched stock detail over a requested identity fallback', () => {
     const fallbackStockToken = buildStockSwapTokenFromTokenIdentity({
       networkId: 'evm--56',
@@ -116,6 +144,47 @@ describe('swapStockChannelUtils', () => {
 
   it('fails closed when the speed config has no USDC or USDT pay token', () => {
     expect(filterStockPayTokenCandidates([ethToken])).toEqual([]);
+  });
+
+  it('restores a buy stock execution pair only when the stock side is explicit', () => {
+    expect(
+      resolveStockExecutionTokenSelection({
+        fromToken: usdcToken,
+        toToken: appleStockToken,
+      }),
+    ).toEqual({
+      tradeSide: ESwapStockTradeSide.Buy,
+      stockToken: appleStockToken,
+      payToken: usdcToken,
+    });
+  });
+
+  it('restores a sell stock execution pair only when the stock side is explicit', () => {
+    expect(
+      resolveStockExecutionTokenSelection({
+        fromToken: appleStockToken,
+        toToken: usdtToken,
+      }),
+    ).toEqual({
+      tradeSide: ESwapStockTradeSide.Sell,
+      stockToken: appleStockToken,
+      payToken: usdtToken,
+    });
+  });
+
+  it('does not restore ordinary swap pairs as stock execution pairs', () => {
+    expect(
+      resolveStockExecutionTokenSelection({
+        fromToken: usdcToken,
+        toToken: ethToken,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockExecutionTokenSelection({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      }),
+    ).toBeUndefined();
   });
 
   it('marks only stock market tokens as stock swap tokens', () => {

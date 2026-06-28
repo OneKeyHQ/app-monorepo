@@ -153,6 +153,19 @@ interface ISwapMainLoadProps {
   pageType?: EPageType.modal;
 }
 
+function hasResolvableSwapTokenIdentity(
+  token?: ISwapToken,
+): token is ISwapToken {
+  return Boolean(token?.networkId && (token.contractAddress || token.isNative));
+}
+
+function resolveRouteStockToken(swapInitParams?: ISwapInitParams) {
+  return [swapInitParams?.importToToken, swapInitParams?.importFromToken].find(
+    (token): token is ISwapToken =>
+      hasResolvableSwapTokenIdentity(token) && token.isStock === true,
+  );
+}
+
 const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const { preSwapStepsStart, preSwapBeforeStepActions } = useSwapBuildTx();
   const intl = useIntl();
@@ -225,6 +238,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   );
   const incomingMarketPresetToken =
     swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken;
+  const routeStockToken = resolveRouteStockToken(swapInitParams);
+  const stockMarketPresetTokenContext =
+    swapInitParams?.swapTabSwitchType === ESwapTabSwitchType.STOCK ||
+    routeStockToken
+      ? marketPresetTokenContext
+      : undefined;
   const {
     isLoading,
     speedConfig,
@@ -1201,7 +1220,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapStockDesktopContainer
           storeName={storeName}
-          marketPresetToken={marketPresetTokenContext}
+          marketPresetToken={stockMarketPresetTokenContext}
+          routeStockToken={routeStockToken}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
@@ -1232,7 +1252,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       return (
         <SwapStockMobileContainer
           storeName={storeName}
-          marketPresetToken={marketPresetTokenContext}
+          marketPresetToken={stockMarketPresetTokenContext}
+          routeStockToken={routeStockToken}
           onSelectToken={onSelectToken}
           onTokenPress={onTokenPress}
           supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
@@ -1332,7 +1353,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     swapRecentTokenPairs,
     swapBridgeSupportNetworksFilterAllNet,
     storeName,
-    marketPresetTokenContext,
+    stockMarketPresetTokenContext,
+    routeStockToken,
     isWrapped,
     swapInitParams?.swapTabSwitchType,
     swapInitParams?.swapSource,
@@ -1452,7 +1474,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapTypeSwitch === ESwapTabSwitchType.STOCK) {
     return (
       <SwapStockTradeProviderBoundary
-        marketPresetToken={marketPresetTokenContext}
+        marketPresetToken={stockMarketPresetTokenContext}
+        routeStockToken={routeStockToken}
       >
         {pageContent}
       </SwapStockTradeProviderBoundary>

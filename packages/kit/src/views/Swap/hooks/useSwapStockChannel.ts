@@ -7,6 +7,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapStockExecutionTokensAtom,
   useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
@@ -49,6 +50,7 @@ import {
   getTokenIdentityKey,
   isCurrentStockMarketDetail,
   resolveStockChannelToken,
+  resolveStockExecutionTokenSelection,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
@@ -90,16 +92,39 @@ type IStockTokenDetailState = {
 
 export function useSwapStockChannel({
   marketPresetToken,
+  routeStockToken,
 }: {
   marketPresetToken?: IMarketPresetTokenContext;
+  routeStockToken?: ISwapToken;
 }) {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+  const [stockExecutionTokens] = useSwapStockExecutionTokensAtom();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { selectStockExecutionTokens } = useSwapActions().current;
   const { spotCategories } = useMarketBasicConfig();
-  const [tradeSide, setTradeSide] = useState(ESwapStockTradeSide.Buy);
+  const marketPresetTokenKey = getMarketPresetTokenKey(marketPresetToken);
+  const routeStockTokenKey = getTokenIdentityKey(routeStockToken);
+  const canRestoreStockExecutionSelection =
+    !routeStockTokenKey && !marketPresetTokenKey;
+  const stockExecutionSelection = useMemo(
+    () =>
+      canRestoreStockExecutionSelection
+        ? resolveStockExecutionTokenSelection({
+            fromToken: stockExecutionTokens?.fromToken,
+            toToken: stockExecutionTokens?.toToken,
+          })
+        : undefined,
+    [
+      canRestoreStockExecutionSelection,
+      stockExecutionTokens?.fromToken,
+      stockExecutionTokens?.toToken,
+    ],
+  );
+  const [tradeSide, setTradeSide] = useState(
+    stockExecutionSelection?.tradeSide ?? ESwapStockTradeSide.Buy,
+  );
   const [stockTokenState, setStockTokenState] = useState<
     ISwapToken | undefined
   >(undefined);
@@ -110,11 +135,20 @@ export function useSwapStockChannel({
   const stockTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
   const payTokenSnapshotRef = useRef<ISwapToken | undefined>(undefined);
 
-  const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
-  const marketPresetTokenKey = getMarketPresetTokenKey(marketPresetToken);
   const stockDetailRequestToken = useMemo(
-    () => stockTokenState ?? marketPresetToken,
-    [marketPresetToken, stockTokenState],
+    () =>
+      stockTokenState ??
+      (routeStockTokenKey ? routeStockToken : undefined) ??
+      (marketPresetTokenKey ? marketPresetToken : undefined) ??
+      stockExecutionSelection?.stockToken,
+    [
+      marketPresetToken,
+      marketPresetTokenKey,
+      routeStockToken,
+      routeStockTokenKey,
+      stockTokenState,
+      stockExecutionSelection?.stockToken,
+    ],
   );
   const stockDetailRequestTokenKey = getTokenIdentityKey(
     stockDetailRequestToken,
@@ -212,7 +246,6 @@ export function useSwapStockChannel({
     }
     return buildStockSwapTokenFromTokenIdentity(stockDetailRequestToken);
   }, [stockDetailRequestToken, stockDetailRequestTokenKey]);
-  const swapPairPayToken = isBuySide ? fromToken : toToken;
   const selectedStockToken = resolveStockChannelToken({
     fallbackStockToken,
     stockTokenState,
@@ -221,14 +254,7 @@ export function useSwapStockChannel({
   const selectedStockTokenKey = getTokenIdentityKey(selectedStockToken);
   const currentStockToken = selectedStockToken;
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
-  const swapPairStockPayToken = useMemo(
-    () =>
-      filterStockPayTokenCandidates(
-        swapPairPayToken ? [swapPairPayToken] : [],
-      )[0],
-    [swapPairPayToken],
-  );
-  const payToken = payTokenState ?? swapPairStockPayToken;
+  const payToken = payTokenState ?? stockExecutionSelection?.payToken;
   const stockNetworkId = currentStockToken?.networkId ?? '';
   const activeStockTokenDetail =
     fetchedStockTokenDetail &&

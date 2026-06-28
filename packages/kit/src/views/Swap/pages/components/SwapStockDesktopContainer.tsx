@@ -152,6 +152,7 @@ import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controlle
 interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   marketPresetToken?: IMarketPresetTokenContext;
+  routeStockToken?: ISwapToken;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -226,10 +227,12 @@ function getStockChartTokenDetailCoinGeckoId(
 }
 
 function useStockChartCoinGeckoId({
+  isNative,
   networkId,
   tokenAddress,
   tokenDetail,
 }: {
+  isNative?: boolean;
   networkId?: string;
   tokenAddress?: string;
   tokenDetail?: IStockMarketTokenDetail;
@@ -237,7 +240,7 @@ function useStockChartCoinGeckoId({
   const tokenDetailCoinGeckoId =
     getStockChartTokenDetailCoinGeckoId(tokenDetail);
   const tokenScope = `${networkId ?? ''}:${tokenAddress ?? ''}`;
-  const { result } = usePromiseResult<
+  const { result, isLoading } = usePromiseResult<
     | {
         tokenScope: string;
         coinGeckoId?: string;
@@ -245,7 +248,11 @@ function useStockChartCoinGeckoId({
     | undefined
   >(
     async () => {
-      if (tokenDetailCoinGeckoId || !networkId) {
+      if (
+        tokenDetailCoinGeckoId ||
+        !networkId ||
+        (!tokenAddress && !isNative)
+      ) {
         return undefined;
       }
 
@@ -259,7 +266,7 @@ function useStockChartCoinGeckoId({
         coinGeckoId: tokenInfo?.info?.coingeckoId?.trim() || undefined,
       };
     },
-    [networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
+    [isNative, networkId, tokenAddress, tokenDetailCoinGeckoId, tokenScope],
     {
       checkIsFocused: false,
       undefinedResultIfError: true,
@@ -267,10 +274,17 @@ function useStockChartCoinGeckoId({
     },
   );
 
-  return (
-    tokenDetailCoinGeckoId ||
-    (result?.tokenScope === tokenScope ? result.coinGeckoId : undefined)
+  const isTokenInfoResultForCurrentScope = result?.tokenScope === tokenScope;
+  const shouldLookupTokenInfo = Boolean(
+    !tokenDetailCoinGeckoId && networkId && (tokenAddress || isNative),
   );
+  return {
+    coinGeckoId:
+      tokenDetailCoinGeckoId ||
+      (isTokenInfoResultForCurrentScope ? result.coinGeckoId : undefined),
+    loading:
+      shouldLookupTokenInfo && (isLoading || !isTokenInfoResultForCurrentScope),
+  };
 }
 
 function StockMarketDataItem({
@@ -1212,28 +1226,39 @@ function StockMarketTokenHeader({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const activeStockTokenDetail = stockChannel.activeStockTokenDetail;
+  const displayStockToken = stockChannel.currentStockToken;
   const stockTokenNetworkId =
-    activeStockTokenDetail?.networkId ??
-    stockChannel.currentStockToken?.networkId;
+    activeStockTokenDetail?.networkId ?? displayStockToken?.networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId: stockTokenNetworkId,
   });
   const stock = activeStockTokenDetail?.stock;
+  const tokenSymbol =
+    activeStockTokenDetail?.symbol ?? displayStockToken?.symbol ?? '';
+  const tokenName =
+    activeStockTokenDetail?.name ?? displayStockToken?.name ?? tokenSymbol;
+  const tokenLogoUri =
+    activeStockTokenDetail?.logoUrl ?? displayStockToken?.logoURI;
+  const tokenPrice =
+    activeStockTokenDetail?.price ??
+    activeStockTokenDetail?.priceConverted ??
+    displayStockToken?.price ??
+    '';
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  if (!activeStockTokenDetail) {
+  if (!activeStockTokenDetail && !tokenSymbol && !tokenName && !tokenLogoUri) {
     return <StockMarketHeaderSkeleton />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={activeStockTokenDetail.logoUrl}
-      tokenImageUris={activeStockTokenDetail.logoUrls}
+      tokenImageUri={tokenLogoUri}
+      tokenImageUris={activeStockTokenDetail?.logoUrls}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -1250,7 +1275,7 @@ function StockMarketTokenHeader({
         maxWidth={132}
         flexShrink={1}
       >
-        {activeStockTokenDetail.symbol}
+        {tokenSymbol || tokenName}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
@@ -1327,18 +1352,14 @@ function StockMarketTokenHeader({
           color="$text"
           numberOfLines={1}
           textAlign="right"
-          price={
-            activeStockTokenDetail.price ??
-            activeStockTokenDetail.priceConverted ??
-            ''
-          }
-          tokenName={activeStockTokenDetail.name}
-          tokenSymbol={activeStockTokenDetail.symbol}
-          lastUpdated={String(activeStockTokenDetail.lastUpdated ?? '')}
+          price={tokenPrice}
+          tokenName={tokenName}
+          tokenSymbol={tokenSymbol}
+          lastUpdated={String(activeStockTokenDetail?.lastUpdated ?? '')}
           currency="$"
         />
         <PriceChangePercentage size="$bodySm">
-          {activeStockTokenDetail.priceChange24hPercent}
+          {activeStockTokenDetail?.priceChange24hPercent}
         </PriceChangePercentage>
       </YStack>
     </XStack>
@@ -1781,23 +1802,46 @@ function StockMarketContextPanel({
   stockChannel: IUseSwapStockChannelReturn;
 }) {
   const activeStockTokenDetail = stockChannel.activeStockTokenDetail;
+  const displayStockToken = stockChannel.currentStockToken;
   const activeStockNetworkId =
-    activeStockTokenDetail?.networkId ??
-    stockChannel.currentStockToken?.networkId;
+    activeStockTokenDetail?.networkId ?? displayStockToken?.networkId;
   const activeStockTokenAddress =
-    activeStockTokenDetail?.address ??
-    stockChannel.currentStockToken?.contractAddress ??
-    '';
-  const coinGeckoId = useStockChartCoinGeckoId({
-    networkId: activeStockTokenDetail ? activeStockNetworkId : undefined,
-    tokenAddress: activeStockTokenDetail ? activeStockTokenAddress : undefined,
-    tokenDetail: activeStockTokenDetail,
-  });
+    activeStockTokenDetail?.address ?? displayStockToken?.contractAddress ?? '';
+  const activeStockIsNative =
+    activeStockTokenDetail?.isNative ?? displayStockToken?.isNative;
+  const { coinGeckoId, loading: coinGeckoIdLoading } = useStockChartCoinGeckoId(
+    {
+      isNative: activeStockIsNative,
+      networkId: activeStockNetworkId,
+      tokenAddress: activeStockTokenAddress,
+      tokenDetail: activeStockTokenDetail,
+    },
+  );
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
-  const chartReady = !!activeStockNetworkId && !!activeStockTokenDetail?.symbol;
+  const chartHasTokenIdentity = Boolean(
+    activeStockNetworkId && (activeStockTokenAddress || activeStockIsNative),
+  );
+  const chartReady = Boolean(
+    chartHasTokenIdentity &&
+      (activeStockTokenDetail?.symbol || displayStockToken?.symbol),
+  );
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
+  const chartContent =
+    chartReady && !coinGeckoIdLoading ? (
+      <StockPriceChart
+        coinGeckoId={coinGeckoId}
+        tokenAddress={activeStockTokenAddress}
+        networkId={activeStockNetworkId ?? ''}
+        isNative={!!activeStockIsNative}
+        range={range}
+        onRangeChange={setRange}
+        pulseLastPoint={isMarketOpen}
+      />
+    ) : (
+      <Skeleton w="100%" h={274} />
+    );
 
   return (
     <YStack
@@ -1826,21 +1870,7 @@ function StockMarketContextPanel({
         stockChannel={stockChannel}
       />
 
-      <Stack mt="$6">
-        {chartReady ? (
-          <StockPriceChart
-            coinGeckoId={coinGeckoId}
-            tokenAddress={activeStockTokenAddress}
-            networkId={activeStockNetworkId ?? ''}
-            isNative={!!stockChannel.currentStockToken?.isNative}
-            range={range}
-            onRangeChange={setRange}
-            pulseLastPoint={isMarketOpen}
-          />
-        ) : (
-          <Skeleton w="100%" h={274} />
-        )}
-      </Stack>
+      <Stack mt="$6">{chartContent}</Stack>
 
       <Divider mt="$2.5" mb="$3" />
       <StockMarketDataGrid />
@@ -2071,7 +2101,10 @@ export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
   return (
-    <SwapStockTradeProviderBoundary marketPresetToken={props.marketPresetToken}>
+    <SwapStockTradeProviderBoundary
+      marketPresetToken={props.marketPresetToken}
+      routeStockToken={props.routeStockToken}
+    >
       <SwapStockDesktopContent {...props} />
     </SwapStockTradeProviderBoundary>
   );
@@ -2168,7 +2201,10 @@ export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
   return (
-    <SwapStockTradeProviderBoundary marketPresetToken={props.marketPresetToken}>
+    <SwapStockTradeProviderBoundary
+      marketPresetToken={props.marketPresetToken}
+      routeStockToken={props.routeStockToken}
+    >
       <SwapStockMobileContent {...props} />
     </SwapStockTradeProviderBoundary>
   );
