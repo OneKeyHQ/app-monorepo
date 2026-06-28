@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import { createLazySdkLoader } from '@onekeyhq/shared/src/utils/lazySdkLoader';
 
 import { useChartConfig } from './hooks/useChartConfig';
+import { LightweightChartPulseDot } from './LightweightChartPulseDot';
 import {
   createAreaSeriesOptions,
   createChartOptions,
@@ -71,12 +72,19 @@ export function LightweightChart({
   showLastValue,
   showLastPointMarker,
   showTimeScale,
+  pulseLastPoint,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<IPrimarySeriesApi | null>(null);
   const secondarySeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  // Pixel position of the last data point (relative to the chart container's
+  // top-left), kept in sync so the pulse-dot overlay tracks the chart tail.
+  const [lastPointPosition, setLastPointPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const chartConfig = useChartConfig({
     data,
@@ -107,6 +115,8 @@ export function LightweightChart({
     let cancelled = false;
     let resizeObserver: ResizeObserver | undefined;
     let chart: IChartApi | undefined;
+    let lastPointPositionUpdater: (() => void) | undefined;
+    let lastPointRafId: number | undefined;
 
     // Capture container for cleanup
     const container = chartContainerRef.current;
@@ -206,10 +216,49 @@ export function LightweightChart({
           secondarySeriesRef.current = secondarySeries;
         }
 
-        chart.timeScale().fitContent();
-
         chartRef.current = chart;
         seriesRef.current = series;
+
+        // Track the last data point's pixel position so the pulse-dot overlay
+        // stays glued to the chart tail across layout/range/resize changes.
+        const updateLastPointPosition = () => {
+          // Guard against the teardown window: a range-change event firing during
+          // chart.remove() must not setState on the unmounting component.
+          if (cancelled) return;
+          const currentChart = chartRef.current;
+          const currentSeries = seriesRef.current;
+          if (!currentChart || !currentSeries) return;
+          const lastBar = chartConfig.data[chartConfig.data.length - 1];
+          if (!lastBar) {
+            setLastPointPosition(null);
+            return;
+          }
+          const xCoord = currentChart
+            .timeScale()
+            .timeToCoordinate(lastBar.time);
+          const yCoord = currentSeries.priceToCoordinate(lastBar.value);
+          if (xCoord === null || yCoord === null) {
+            setLastPointPosition(null);
+            return;
+          }
+          setLastPointPosition({ x: xCoord, y: yCoord });
+        };
+        lastPointPositionUpdater = updateLastPointPosition;
+        // Subscribe before fitContent so the resulting range change recomputes
+        // the position once the layout (and price scale) has settled.
+        chart
+          .timeScale()
+          .subscribeVisibleTimeRangeChange(updateLastPointPosition);
+
+        chart.timeScale().fitContent();
+
+        // The first paint can leave coordinates unresolved, so recompute now and
+        // again on the next frame as a fallback.
+        updateLastPointPosition();
+        lastPointRafId = requestAnimationFrame(() => {
+          if (cancelled) return;
+          updateLastPointPosition();
+        });
 
         // Subscribe to crosshair move events
         if (onHover) {
@@ -262,6 +311,7 @@ export function LightweightChart({
           if (entries.length === 0 || entries[0].target !== container) return;
           const { width: newWidth } = entries[0].contentRect;
           chart?.applyOptions({ width: newWidth });
+          lastPointPositionUpdater?.();
         });
 
         resizeObserver.observe(container);
@@ -271,6 +321,9 @@ export function LightweightChart({
     return () => {
       cancelled = true;
       // Cleanup in correct order
+      if (lastPointRafId !== undefined) {
+        cancelAnimationFrame(lastPointRafId);
+      }
       resizeObserver?.disconnect();
       chart?.remove();
 
@@ -284,6 +337,13 @@ export function LightweightChart({
   return (
     <Stack position="relative" width="100%" height={height}>
       <Stack ref={chartContainerRef} position="absolute" inset={0} />
+      {pulseLastPoint && lastPointPosition ? (
+        <LightweightChartPulseDot
+          x={lastPointPosition.x}
+          y={lastPointPosition.y}
+          color={chartConfig.theme.lineColor}
+        />
+      ) : null}
     </Stack>
   );
 }

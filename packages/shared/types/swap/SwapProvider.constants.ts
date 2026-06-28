@@ -207,6 +207,8 @@ export const swapProBuyInputSegmentItems = [
 
 export const swapProPositionsListMinValue = 1;
 export const swapProPositionsListMaxCount = 20;
+// Stock positions use a lower floor so small (but non-dust) stock holdings show.
+export const swapProStockPositionsListMinValue = 0.1;
 
 export const swapDefaultSetTokens: Record<
   string,

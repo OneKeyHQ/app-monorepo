@@ -89,6 +89,9 @@ class ServiceBootstrap extends ServiceBase {
         timedDeferred('walletConnect.cleanupInactiveSessions', () =>
           this.backgroundApi.serviceWalletConnect.dappSide.cleanupInactiveSessions(),
         ),
+        timedDeferred('serviceSwap.seedSwapHistoryPreviewRead', () =>
+          this.backgroundApi.serviceSwap.seedSwapHistoryPreviewReadIfNeeded(),
+        ),
         timedDeferred('serviceSwap.syncSwapHistoryPendingList', () =>
           this.backgroundApi.serviceSwap.syncSwapHistoryPendingList(),
         ),

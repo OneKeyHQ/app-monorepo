@@ -1,4 +1,4 @@
-import { getStockMarketClosedDescription } from './SwapStockTradeAlert.utils';
+import { getStockMarketClosedDescription } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert/getStockMarketClosedDescription';
 
 describe('SwapStockTradeAlert utils', () => {
   it('keeps only the reopen time from a closed-market description', () => {

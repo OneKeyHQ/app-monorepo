@@ -14,10 +14,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  isStockMarketClosed,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
 import type { ISwapReviewAdapter } from '@onekeyhq/kit/src/views/Swap/utils/swapReviewState';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapNetworkFeeLevel,
@@ -54,6 +62,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     tokenAddress,
     isNative: currentMarketTokenIsNative,
     tokenDetail,
+    perpsInfo,
     isReady,
   } = useTokenDetail();
   const intl = useIntl();
@@ -639,6 +648,40 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     [swapPanel, handleUserPaymentTokenChange],
   );
 
+  // Stock market-closed alert (reuses the shared StockMarketStatusAlert): when
+  // the underlying stock's market is closed, show the standard alert + optional
+  // Perps handoff and disable the trade button (handled in SwapPanelContent).
+  // Other (non-closed) backend errors keep the generic speedCheckError text.
+  const { navigateToPerps } = usePerpsNavigation(
+    EPerpPageEnterSource.MarketStockClosed,
+  );
+  const stockHlTicker = perpsInfo?.hlTicker;
+  const stockHasPerps = Boolean(stockHlTicker);
+  const stockClosedTimeText = getStockMarketClosedDescription(
+    tokenDetail?.stock?.description,
+  );
+  const stockMarketClosedAlert = isStockMarketClosed(tokenDetail?.stock) ? (
+    <StockMarketStatusAlert
+      statusCase={resolveStockMarketStatusCase({
+        isOpen: false,
+        hasOpenTime: Boolean(stockClosedTimeText),
+        hasPerps: stockHasPerps,
+      })}
+      timeText={stockClosedTimeText}
+      onTradePerps={
+        stockHlTicker
+          ? () => {
+              // SwapPanelWrap can be hosted in an in-page dialog (mobile Market
+              // Detail). Close it first so the old swap dialog doesn't linger
+              // above the Perps tab or race with overlay cleanup.
+              onCloseDialog?.();
+              navigateToPerps(stockHlTicker);
+            }
+          : undefined
+      }
+    />
+  ) : null;
+
   return (
     <SwapPanelContent
       activeAccount={activeAccount}
@@ -669,6 +712,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       onWrappedSwap={handleWrappedSwap}
       isWrapped={isWrapped}
       speedCheckError={speedCheckError}
+      stockMarketClosedAlert={stockMarketClosedAlert}
       disableNativeToken={disableNativeToken}
       marketPresetSettings={marketPresetSettings}
       estimatePriorityFeeFiatValues={estimatePriorityFeeFiatValues}
