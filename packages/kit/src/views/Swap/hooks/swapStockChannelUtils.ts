@@ -148,6 +148,27 @@ export function buildStockSwapTokenFromMarketDetail({
   };
 }
 
+export function buildStockSwapTokenFromTokenIdentity(
+  token?: Partial<ISwapTokenBase>,
+): ISwapToken | undefined {
+  if (!token?.networkId || (!token.contractAddress && !token.isNative)) {
+    return undefined;
+  }
+
+  return {
+    networkId: token.networkId,
+    contractAddress: token.contractAddress ?? '',
+    decimals: token.decimals ?? 0,
+    symbol: token.symbol ?? '',
+    name: token.name,
+    logoURI: token.logoURI,
+    isNative: !!token.isNative,
+    price: token.price,
+    currency: token.currency,
+    isStock: true,
+  };
+}
+
 function normalizeAddress(address?: string) {
   return address?.toLowerCase() ?? '';
 }
@@ -225,13 +246,15 @@ export function isStockMarketDetailMatchedTokenParams({
 }
 
 export function resolveStockChannelToken({
+  fallbackStockToken,
   stockTokenState,
   marketStockToken,
 }: {
+  fallbackStockToken?: ISwapToken;
   stockTokenState?: ISwapToken;
   marketStockToken?: ISwapToken;
 }) {
-  return stockTokenState ?? marketStockToken;
+  return stockTokenState ?? marketStockToken ?? fallbackStockToken;
 }
 
 export function filterStockPayTokenCandidates<

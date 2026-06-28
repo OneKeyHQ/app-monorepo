@@ -3,6 +3,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketListToken,
+  buildStockSwapTokenFromTokenIdentity,
   filterStockPayTokenCandidates,
   isCurrentStockMarketDetail,
   isStockMarketDetailMatchedTokenParams,
@@ -60,6 +61,45 @@ describe('swapStockChannelUtils', () => {
   it('falls back to the active market stock token', () => {
     expect(
       resolveStockChannelToken({
+        stockTokenState: undefined,
+        marketStockToken: appleStockToken,
+      }),
+    ).toBe(appleStockToken);
+  });
+
+  it('falls back to the requested stock identity before detail is available', () => {
+    const fallbackStockToken = buildStockSwapTokenFromTokenIdentity({
+      networkId: 'evm--56',
+      contractAddress: '0xaapl',
+      isNative: false,
+    });
+
+    expect(fallbackStockToken).toMatchObject({
+      networkId: 'evm--56',
+      contractAddress: '0xaapl',
+      decimals: 0,
+      symbol: '',
+      isStock: true,
+    });
+    expect(
+      resolveStockChannelToken({
+        fallbackStockToken,
+        stockTokenState: undefined,
+        marketStockToken: undefined,
+      }),
+    ).toBe(fallbackStockToken);
+  });
+
+  it('prefers fetched stock detail over a requested identity fallback', () => {
+    const fallbackStockToken = buildStockSwapTokenFromTokenIdentity({
+      networkId: 'evm--56',
+      contractAddress: '0xaapl',
+      isNative: false,
+    });
+
+    expect(
+      resolveStockChannelToken({
+        fallbackStockToken,
         stockTokenState: undefined,
         marketStockToken: appleStockToken,
       }),

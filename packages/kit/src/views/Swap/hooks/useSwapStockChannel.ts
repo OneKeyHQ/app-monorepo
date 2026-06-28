@@ -43,6 +43,7 @@ import {
   ESwapStockTradeSide,
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketToken,
+  buildStockSwapTokenFromTokenIdentity,
   filterStockPayTokenCandidates,
   getMarketPresetTokenKey,
   getTokenIdentityKey,
@@ -132,22 +133,25 @@ export function useSwapStockChannel({
           tokenKey: stockDetailRequestTokenKey,
         };
       }
-      const response = await (async () => {
-        try {
-          return await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
+      try {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenDetailByTokenAddress(
             stockDetailRequestToken.contractAddress ?? '',
             stockDetailRequestToken.networkId,
             { autoHandleError: false },
           );
-        } catch {
-          return undefined;
-        }
-      })();
-      return {
-        perpsInfo: response?.data.perpsInfo,
-        tokenDetail: response?.data.token,
-        tokenKey: stockDetailRequestTokenKey,
-      };
+        return {
+          perpsInfo: response?.data.perpsInfo,
+          tokenDetail: response?.data.token,
+          tokenKey: stockDetailRequestTokenKey,
+        };
+      } catch {
+        return {
+          perpsInfo: undefined,
+          tokenDetail: undefined,
+          tokenKey: stockDetailRequestTokenKey,
+        };
+      }
     },
     [
       stockDetailRequestToken?.contractAddress,
@@ -196,8 +200,21 @@ export function useSwapStockChannel({
       stockDetailRequestToken?.networkId,
     ],
   );
+  const fallbackStockToken = useMemo(() => {
+    if (!stockDetailRequestTokenKey) {
+      return undefined;
+    }
+    const snapshotStockToken = stockTokenSnapshotRef.current;
+    if (
+      getTokenIdentityKey(snapshotStockToken) === stockDetailRequestTokenKey
+    ) {
+      return snapshotStockToken;
+    }
+    return buildStockSwapTokenFromTokenIdentity(stockDetailRequestToken);
+  }, [stockDetailRequestToken, stockDetailRequestTokenKey]);
   const swapPairPayToken = isBuySide ? fromToken : toToken;
   const selectedStockToken = resolveStockChannelToken({
+    fallbackStockToken,
     stockTokenState,
     marketStockToken: fetchedStockToken,
   });

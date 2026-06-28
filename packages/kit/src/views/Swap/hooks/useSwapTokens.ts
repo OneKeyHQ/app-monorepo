@@ -111,9 +111,9 @@ export function useSwapTokenList(
       [
         indexedAccountId ?? '',
         otherWalletTypeAccountId ?? '',
-        swapNetworks.map((network) => network.networkId).join(','),
+        swapSupportAllNetworks.map((network) => network.networkId).join(','),
       ].join('__'),
-    [indexedAccountId, otherWalletTypeAccountId, swapNetworks],
+    [indexedAccountId, otherWalletTypeAccountId, swapSupportAllNetworks],
   );
   const isSwapSupportAllAccountsReady =
     !swapSupportAllAccountsLoading &&
@@ -143,7 +143,7 @@ export function useSwapTokenList(
           await backgroundApiProxy.serviceSwap.getSupportSwapAllAccounts({
             indexedAccountId,
             otherWalletTypeAccountId,
-            swapSupportNetworks: swapNetworks,
+            swapSupportNetworks: swapSupportAllNetworks,
           });
         if (!isCancelled) {
           setSwapSupportAllAccountsState({
@@ -171,7 +171,7 @@ export function useSwapTokenList(
     indexedAccountId,
     otherWalletTypeAccountId,
     swapSupportAllAccountsRequestKey,
-    swapNetworks,
+    swapSupportAllNetworks,
     enabled,
   ]);
 
