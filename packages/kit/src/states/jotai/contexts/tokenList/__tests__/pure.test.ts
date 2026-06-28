@@ -85,12 +85,13 @@ describe('fiatEqual', () => {
     expect(fiatEqual(makeFiat(), undefined)).toBe(false);
   });
 
-  it('only balance/fiatValue/price/currency changes count as different', () => {
+  it('only balance/fiatValue/price/price24h/currency changes count as different', () => {
     const a = makeFiat({ balance: '1', fiatValue: '10', price: 1 });
     expect(fiatEqual(a, { ...a })).toBe(true);
     expect(fiatEqual(a, { ...a, balance: '2' })).toBe(false);
     expect(fiatEqual(a, { ...a, fiatValue: '11' })).toBe(false);
     expect(fiatEqual(a, { ...a, price: 2 })).toBe(false);
+    expect(fiatEqual(a, { ...a, price24h: 1.5 })).toBe(false);
     expect(fiatEqual(a, { ...a, currency: 'eur' })).toBe(false);
     // unrelated field does not count
     expect(fiatEqual(a, { ...a, balanceParsed: '999' })).toBe(true);

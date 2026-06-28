@@ -49,7 +49,7 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import {
   useAggregateSubTokenFiat,
-  useHomeTokenListSnapshot,
+  useAggregateSubTokenFiatMap,
 } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
@@ -297,12 +297,6 @@ function AggregateTokenSelector() {
   const intl = useIntl();
 
   const [searchKey, setSearchKey] = useState('');
-  // Full merged home fiat map for the sort + hideZero memos (keyed by the
-  // per-network sub-token `$key`, which the synthesized BG map carries in its
-  // `tokenListMap` slice — red-team C-F2: NOT the summed aggregate map).
-  // Refreshes on every home structure frame. Replaces the deleted
-  // `homeTokenFiatMap` whole-map read.
-  const { map: homeTokenFiatMap } = useHomeTokenListSnapshot();
   const navigation = useAppNavigation();
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
@@ -316,6 +310,12 @@ function AggregateTokenSelector() {
   const aggregateTokens = useMemo(() => {
     return aggregateSubTokenList ?? [];
   }, [aggregateSubTokenList]);
+  const aggregateSubTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: aggregateToken.$key,
+    aggregateTokenList: aggregateTokens,
+    useCellSeam: true,
+    contextTokenListMap: undefined,
+  });
 
   // Resolve the networks behind the aggregate tokens. getNetworksByIds reads the
   // full dynamic network list (preset + server-fetched) with delisted (TRASH)
@@ -441,14 +441,14 @@ function AggregateTokenSelector() {
   const sortedAggregateTokens = useMemo(() => {
     let tokens = sortTokensCommon({
       tokens: aggregateTokens,
-      tokenListMap: homeTokenFiatMap,
+      tokenListMap: aggregateSubTokenFiatMap,
     });
 
     if (hideZeroBalanceTokens) {
       tokens = tokens.filter((token) => {
-        return new BigNumber(homeTokenFiatMap[token.$key]?.fiatValue ?? -1).gt(
-          0,
-        );
+        return new BigNumber(
+          aggregateSubTokenFiatMap[token.$key]?.fiatValue ?? -1,
+        ).gt(0);
       });
     }
 
@@ -481,7 +481,7 @@ function AggregateTokenSelector() {
     return result;
   }, [
     aggregateTokens,
-    homeTokenFiatMap,
+    aggregateSubTokenFiatMap,
     allAggregateTokenList,
     hideZeroBalanceTokens,
     exchangeFilter,

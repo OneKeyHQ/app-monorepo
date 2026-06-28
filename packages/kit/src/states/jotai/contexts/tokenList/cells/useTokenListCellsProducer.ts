@@ -22,7 +22,7 @@
  * already painted the projection cells before this effect runs and they hold
  * until the first PULL/push supersedes them at a higher generation.
  */
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IJotaiContextStoreData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -169,6 +169,22 @@ export function useTokenListCellsProducer(
 
   const enabled = !!(store && deps && ownerKey && identity);
 
+  useEffect(() => {
+    if (!enabled || !store || !deps || !identity) {
+      return;
+    }
+    applyRiskyFrame(
+      store,
+      {
+        riskyTokens: [],
+        riskyMap: {},
+        storeData: identity.storeData,
+        ownerKey,
+      },
+      deps,
+    );
+  }, [deps, enabled, identity, ownerKey, store]);
+
   useFrameChannelSubscriber<ITokenFrameKind, IFramesPull>({
     ownerKey,
     enabled,
@@ -262,8 +278,8 @@ export function useTokenListCellsProducer(
       {
         kind: 'risky',
         eventName: EAppEventBusNames.TokenListRiskyFrame,
-        // risky version is independent + may be -1 for an owner with no risky
-        // set; floor 0 drops the unknown-owner / no-risky PULL.
+        // Risky version is independent. Empty no-risky owners are cleared by the
+        // owner reset above; floor 0 drops unknown-owner -1 PULLs.
         gate: { floorVersion: 0 },
         getOwnerKey: (p) => (p as IRiskyPush).ownerKey,
         getVersion: (p) => (p as IRiskyPush).riskyVersion,

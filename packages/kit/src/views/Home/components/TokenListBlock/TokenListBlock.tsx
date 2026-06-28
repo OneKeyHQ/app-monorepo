@@ -169,6 +169,14 @@ type IAllNetworkTokenListResp = IFetchAccountTokensResp & {
   ownerNetworkId?: string;
 };
 
+type IAggregateTokenListMapWithCommonToken = Record<
+  string,
+  {
+    commonToken: IAccountToken;
+    tokens: IAccountToken[];
+  }
+>;
+
 type IActiveAccountTokenListRequestContext = {
   accountId: string;
   indexedAccountId: string;
@@ -1280,7 +1288,52 @@ function TokenListBlock({
         });
       perf.markEnd('getAccountLocalTokens');
 
-      const { tokenList, smallBalanceTokenList, riskyTokenList } = localTokens;
+      let { tokenList, smallBalanceTokenList } = localTokens;
+      const { riskyTokenList } = localTokens;
+      let aggregateTokenListMap: IAggregateTokenListMapWithCommonToken = {};
+      let aggregateTokenMap: Record<string, ITokenFiat> = {};
+      const aggregateTokenConfigMapRawData =
+        aggregateTokenRawData.current?.aggregateTokenConfigMap;
+
+      if (aggregateTokenConfigMapRawData) {
+        const networkName =
+          tokenList[0]?.networkName ??
+          smallBalanceTokenList[0]?.networkName ??
+          riskyTokenList[0]?.networkName ??
+          '';
+        const pickAggregateToken = (token: IAccountToken) => {
+          const data = buildAggregateTokenListData({
+            networkId,
+            accountId,
+            token,
+            tokenMap: localTokens.tokenListMap,
+            aggregateTokenListMap,
+            aggregateTokenMap,
+            aggregateTokenConfigMapRawData,
+            networkName,
+          });
+
+          if (data.isAggregateToken) {
+            aggregateTokenListMap = data.aggregateTokenListMap;
+            aggregateTokenMap = data.aggregateTokenMap;
+            return null;
+          }
+
+          return token;
+        };
+
+        tokenList = tokenList
+          .map(pickAggregateToken)
+          .filter((token): token is IAccountToken => Boolean(token));
+        smallBalanceTokenList = smallBalanceTokenList
+          .map(pickAggregateToken)
+          .filter((token): token is IAccountToken => Boolean(token));
+
+        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+          (item) => item.commonToken,
+        );
+        tokenList = [...tokenList, ...aggregateTokenList];
+      }
 
       perf.done();
       if (
@@ -1297,6 +1350,8 @@ function TokenListBlock({
         tokenList,
         smallBalanceTokenList,
         riskyTokenList,
+        aggregateTokenListMap,
+        aggregateTokenMap,
         accountId,
         networkId,
       };
@@ -1319,6 +1374,8 @@ function TokenListBlock({
           [key: string]: ITokenFiat;
         };
         tokenListValue: string;
+        aggregateTokenListMap?: IFetchAccountTokensResp['aggregateTokenListMap'];
+        aggregateTokenMap?: IFetchAccountTokensResp['aggregateTokenMap'];
         networkId: string;
         accountId: string;
         hasCache: boolean;
@@ -1505,6 +1562,9 @@ function TokenListBlock({
     }
     const shouldSyncTokenFilterToOverview =
       allNetworksResult[0].syncTokenFilterToOverview;
+    const isStaleOwnerRequest = () =>
+      activeOwnerRef.current.accountId !== account?.id ||
+      activeOwnerRef.current.networkId !== network?.id;
 
     // Build the authoritative snapshot THROUGH the LWW materialized view (facade,
     // design §2): ∩ enabledKeys so failed-but-still-enabled networks keep their
@@ -1512,6 +1572,9 @@ function TokenListBlock({
     // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
     // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
     const snapshot = await buildAuthoritativeSnapshot();
+    if (isStaleOwnerRequest()) {
+      return;
+    }
 
     const assetStatusAggregationComplete =
       isWalletAssetStatusAggregationComplete({
@@ -1530,6 +1593,9 @@ function TokenListBlock({
         await backgroundApiProxy.serviceAccount.getAllHdHwQrWallets({
           includingAccounts: true,
         });
+      if (isStaleOwnerRequest()) {
+        return;
+      }
       const eligibleAccountIds = Array.from(
         new Set(
           eligibleWallets.flatMap((eligibleWallet) =>
@@ -1549,6 +1615,9 @@ function TokenListBlock({
               })),
             },
           );
+        if (isStaleOwnerRequest()) {
+          return;
+        }
         const currentAccountValueId =
           indexedAccount?.id ?? account?.indexedAccountId;
         const currentAccountValue =
@@ -1626,6 +1695,10 @@ function TokenListBlock({
           }
         }
       }
+    }
+
+    if (isStaleOwnerRequest()) {
+      return;
     }
 
     if (shouldSyncTokenFilterToOverview) {

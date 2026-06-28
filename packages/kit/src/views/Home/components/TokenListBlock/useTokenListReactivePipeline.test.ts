@@ -137,7 +137,44 @@ describe('useTokenListReactivePipeline', () => {
     });
     await act(async () => {
       await result.current.seedAndFlushCache({
-        data: [makeCacheItem()],
+        data: [
+          makeCacheItem({
+            tokenList: [
+              {
+                $key: 'agg-usdt',
+                name: 'USDT',
+                symbol: 'USDT',
+                decimals: 6,
+                address: 'agg-usdt',
+                isNative: false,
+                isAggregateToken: true,
+              },
+            ] as ICacheSeedItem['tokenList'],
+            aggregateTokenListMap: {
+              'agg-usdt': {
+                tokens: [
+                  {
+                    $key: 'evm--1_usdt',
+                    name: 'USDT',
+                    symbol: 'USDT',
+                    decimals: 6,
+                    address: '0xusdt',
+                    isNative: false,
+                    networkId: OWNER.networkId,
+                  },
+                ] as ICacheSeedItem['tokenList'],
+              },
+            },
+            aggregateTokenMap: {
+              'agg-usdt': {
+                balance: '2',
+                balanceParsed: '2',
+                fiatValue: '20',
+                price: 1,
+              },
+            },
+          }),
+        ],
         accountId: OWNER.accountId,
         networkId: OWNER.networkId,
         generation: 1,
@@ -148,10 +185,24 @@ describe('useTokenListReactivePipeline', () => {
       source: string;
       ownerKey: string;
       orderedTokens: { $key: string }[];
+      aggregateTokensMap: Record<
+        string,
+        Record<string, { fiatValue?: string }>
+      >;
+      ownedAggregateTokenListMap: Record<
+        string,
+        { tokens: { $key: string }[] }
+      >;
     };
     expect(arg.source).toBe('cacheSeed');
     expect(arg.ownerKey).toBe('acc1__evm--1');
-    expect(arg.orderedTokens.map((t) => t.$key)).toContain('a1');
+    expect(arg.orderedTokens.map((t) => t.$key)).toContain('agg-usdt');
+    expect(
+      arg.aggregateTokensMap['agg-usdt']?.[OWNER.networkId]?.fiatValue,
+    ).toBe('20');
+    expect(arg.ownedAggregateTokenListMap['agg-usdt']?.tokens[0]?.$key).toBe(
+      'evm--1_usdt',
+    );
   });
 
   it('buildAuthoritativeSnapshot + commit → authoritative ingest', async () => {

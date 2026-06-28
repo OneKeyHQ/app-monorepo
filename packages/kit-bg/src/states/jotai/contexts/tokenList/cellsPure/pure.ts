@@ -102,8 +102,8 @@ export function sumAggregateEntry(
 
 /**
  * Fiat-value equality used by the cell write path: only balance / fiatValue /
- * price / currency changes count as "different" (spec §11.1). Two undefineds
- * are equal; undefined↔value is different.
+ * price / price24h / currency changes count as "different" (spec §11.1).
+ * Two undefineds are equal; undefined↔value is different.
  */
 export function fiatEqual(a?: ITokenFiat, b?: ITokenFiat): boolean {
   if (a === b) {
@@ -116,6 +116,7 @@ export function fiatEqual(a?: ITokenFiat, b?: ITokenFiat): boolean {
     a.balance === b.balance &&
     a.fiatValue === b.fiatValue &&
     a.price === b.price &&
+    a.price24h === b.price24h &&
     a.currency === b.currency
   );
 }
