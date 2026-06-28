@@ -13,6 +13,7 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketPerpsInfo,
   IMarketTokenDetail,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
@@ -648,6 +649,11 @@ export const {
   atom: swapProTokenMarketDetailInfoAtom,
   use: useSwapProTokenMarketDetailInfoAtom,
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
+
+export const {
+  atom: swapProTokenMarketDetailPerpsInfoAtom,
+  use: useSwapProTokenMarketDetailPerpsInfoAtom,
+} = contextAtom<IMarketPerpsInfo | undefined>(undefined);
 
 export const {
   atom: swapProTokenTransactionPriceAtom,
