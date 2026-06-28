@@ -106,6 +106,7 @@ import {
   swapProTokenDetailWebsocketAtom,
   swapProTokenMarketDetailInfoAtom,
   swapProTokenMarketDetailInfoLoadingAtom,
+  swapProTokenMarketDetailPerpsInfoAtom,
   swapProTradeTypeAtom,
   swapProUseSelectBuyTokenAtom,
   swapQuoteActionLockAtom,
@@ -2922,6 +2923,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           networkId,
         };
         set(swapProTokenMarketDetailInfoAtom(), finalTokenData);
+        set(
+          swapProTokenMarketDetailPerpsInfoAtom(),
+          responseData.data.perpsInfo,
+        );
         set(swapProTokenDetailWebsocketAtom(), websocketConfig);
         if (
           currentSelectToken &&
