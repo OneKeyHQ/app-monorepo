@@ -58,6 +58,7 @@ public class MainApplication extends Application implements ReactApplication {
         @SuppressWarnings("UnnecessaryLocalVariable")
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
+        packages.add(new OneKeyNetworkThrottlePackage());
         return packages;
       }
 
@@ -256,6 +257,7 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     appLaunchMs = System.currentTimeMillis();
+    OneKeyNetworkThrottle.install(this);
     OneKeyLog.info("StartupTiming", "android.app.on_create.start: +0ms from launch (anchor)");
 
     // Log zygote→onCreate delay (API 24+, minSdk=24). This is the window

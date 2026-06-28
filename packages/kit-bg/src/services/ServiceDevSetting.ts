@@ -5,7 +5,12 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import nativeNetworkThrottle, {
+  NATIVE_SLOW_4G_LATENCY_MS,
+  setNetworkThrottleRuntimeConfig,
+} from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import {
@@ -63,12 +68,27 @@ class ServiceDevSetting extends ServiceBase {
       settings: isOpen ? prev.settings : {},
     }));
     if (!isOpen) {
-      await globalThis.desktopApiProxy?.dev
-        ?.setNetworkThrottle?.({
+      if (platformEnv.isDesktop) {
+        await globalThis.desktopApiProxy?.dev
+          ?.setNetworkThrottle?.({
+            enabled: false,
+            profile: 'slow4g',
+          })
+          ?.catch(() => undefined);
+        setNetworkThrottleRuntimeConfig({
           enabled: false,
           profile: 'slow4g',
-        })
-        ?.catch(() => undefined);
+          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        });
+      }
+      if (platformEnv.isNative) {
+        await nativeNetworkThrottle
+          .setNetworkThrottle({
+            enabled: false,
+            profile: 'slow4g',
+          })
+          .catch(() => undefined);
+      }
     }
     void this.saveDevModeToSyncStorage();
     void this.syncCryptoSettings();
@@ -83,6 +103,21 @@ class ServiceDevSetting extends ServiceBase {
         [name]: value,
       },
     }));
+    if (platformEnv.isNative && name === 'nativeNetworkThrottleEnabled') {
+      await nativeNetworkThrottle
+        .setNetworkThrottle({
+          enabled: Boolean(value),
+          profile: 'slow4g',
+        })
+        .catch(() => undefined);
+    }
+    if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
+      setNetworkThrottleRuntimeConfig({
+        enabled: Boolean(value),
+        profile: 'slow4g',
+        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+      });
+    }
     void this.saveDevModeToSyncStorage();
     void this.syncCryptoSettings();
   }

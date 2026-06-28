@@ -46,6 +46,7 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import BootRecovery from '@onekeyhq/shared/src/modules/BootRecovery';
+import nativeNetworkThrottle from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -772,6 +773,9 @@ export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
+  const nativeNetworkThrottleEnabled =
+    devSettings.enabled &&
+    (devSettings.settings?.nativeNetworkThrottleEnabled ?? false);
 
   const [, setOnboardingConnectWalletLoading] =
     useOnboardingConnectWalletLoadingAtom();
@@ -779,6 +783,18 @@ export function Bootstrap() {
   useEffect(() => {
     setOnboardingConnectWalletLoading(false);
   }, [setOnboardingConnectWalletLoading]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    void nativeNetworkThrottle
+      .setNetworkThrottle({
+        enabled: nativeNetworkThrottleEnabled,
+        profile: 'slow4g',
+      })
+      .catch(() => undefined);
+  }, [nativeNetworkThrottleEnabled]);
 
   useEffect(() => {
     if (

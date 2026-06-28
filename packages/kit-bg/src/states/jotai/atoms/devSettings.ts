@@ -114,6 +114,8 @@ export interface IDevSettings {
   useFastPbkdf2NativeBackend?: boolean;
   // Enable Electron session-level Slow 4G throttling on desktop.
   desktopNetworkThrottleEnabled?: boolean;
+  // Enable native Slow 4G latency throttling on iOS and Android.
+  nativeNetworkThrottleEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -153,6 +155,7 @@ export const {
       mockTradingViewKLineEmptyIntervals: ['1m'],
       showMarketHomeWsDebug: false,
       desktopNetworkThrottleEnabled: false,
+      nativeNetworkThrottleEnabled: false,
       allowLocalhostUrlInDAppBrowser: false,
       // Linux Desktop use Bridge，avoiding WebUSB permission problem
       usbCommunicationMode: platformEnv.isDesktopLinux ? 'bridge' : 'webusb',
