@@ -4,6 +4,8 @@ import {
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketListToken,
   filterStockPayTokenCandidates,
+  isCurrentStockMarketDetail,
+  isStockMarketDetailMatchedTokenParams,
   resolveStockChannelToken,
 } from './swapStockChannelUtils';
 
@@ -149,5 +151,144 @@ describe('swapStockChannelUtils', () => {
       price: '100',
       currency: 'usd',
     });
+  });
+
+  it('falls back to market detail address when route token address is empty', () => {
+    expect(
+      buildStockSwapTokenFromMarketDetail({
+        tokenAddress: '',
+        tokenDetail: {
+          address: '0xaapl',
+          networkId: 'evm--56',
+          symbol: 'AAPL',
+          name: 'Apple',
+          decimals: 18,
+          logoUrl: '',
+          stock: {
+            subtitle: 'Stock',
+            sourceLogoUri: '',
+            underlyingAssetTicker: 'AAPL',
+          },
+        },
+      }),
+    ).toMatchObject({
+      contractAddress: '0xaapl',
+      symbol: 'AAPL',
+    });
+  });
+
+  it('does not treat a stale non-stock market detail as the current stock detail', () => {
+    expect(
+      isCurrentStockMarketDetail({
+        currentStockToken: {
+          networkId: 'evm--56',
+          contractAddress: '0xaapl',
+          isNative: false,
+        },
+        networkId: 'btc--0',
+        tokenAddress: '',
+        isNative: true,
+        tokenDetail: {
+          networkId: 'btc--0',
+          address: '',
+          isNative: true,
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('requires the active stock market detail to match the selected stock token', () => {
+    expect(
+      isCurrentStockMarketDetail({
+        currentStockToken: {
+          networkId: 'evm--56',
+          contractAddress: '0xaapl',
+          isNative: false,
+        },
+        networkId: 'evm--56',
+        tokenAddress: '0xother',
+        isNative: false,
+        tokenDetail: {
+          networkId: 'evm--56',
+          address: '0xother',
+          isNative: false,
+          stock: { underlyingAssetTicker: 'OTHER' },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('accepts the active stock market detail with case-insensitive address match', () => {
+    expect(
+      isCurrentStockMarketDetail({
+        currentStockToken: {
+          networkId: 'evm--56',
+          contractAddress: '0xAaPl',
+          isNative: false,
+        },
+        networkId: 'evm--56',
+        tokenAddress: '0xaapl',
+        isNative: false,
+        tokenDetail: {
+          networkId: 'evm--56',
+          address: '0xAAPL',
+          isNative: false,
+          stock: { underlyingAssetTicker: 'AAPL' },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('falls back to token detail address when route token address is empty', () => {
+    expect(
+      isCurrentStockMarketDetail({
+        currentStockToken: {
+          networkId: 'evm--56',
+          contractAddress: '0xaapl',
+          isNative: false,
+        },
+        networkId: 'evm--56',
+        tokenAddress: '',
+        isNative: false,
+        tokenDetail: {
+          networkId: 'evm--56',
+          address: '0xaapl',
+          isNative: false,
+          stock: { underlyingAssetTicker: 'AAPL' },
+        },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not derive a stock token from stale detail after route switches to a native market token', () => {
+    expect(
+      isStockMarketDetailMatchedTokenParams({
+        networkId: 'btc--0',
+        tokenAddress: '',
+        isNative: true,
+        tokenDetail: {
+          networkId: 'evm--56',
+          address: '0xaapl',
+          isNative: false,
+          stock: { underlyingAssetTicker: 'AAPL' },
+        },
+      }),
+    ).toBe(false);
+  });
+
+  it('allows route token address fallback when stock detail identity otherwise matches', () => {
+    expect(
+      isStockMarketDetailMatchedTokenParams({
+        networkId: 'evm--56',
+        tokenAddress: '',
+        isNative: false,
+        tokenDetail: {
+          networkId: 'evm--56',
+          address: '0xaapl',
+          isNative: false,
+          stock: { underlyingAssetTicker: 'AAPL' },
+        },
+      }),
+    ).toBe(true);
   });
 });

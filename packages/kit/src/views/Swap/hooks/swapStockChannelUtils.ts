@@ -39,6 +39,13 @@ export enum ESwapStockTradeSide {
 
 const STOCK_DEFAULT_PAY_SYMBOLS = new Set(['USDC', 'USDT']);
 
+type IStockMarketDetailIdentity = {
+  address?: string;
+  isNative?: boolean;
+  networkId?: string;
+  stock?: unknown;
+};
+
 function buildUsdPriceFields(price?: number | string) {
   if (price === undefined || price === null || price === '') {
     return {};
@@ -124,7 +131,7 @@ export function buildStockSwapTokenFromMarketDetail({
   isNative?: boolean;
 }): ISwapToken | undefined {
   const resolvedNetworkId = tokenDetail?.networkId ?? networkId;
-  const resolvedTokenAddress = tokenAddress ?? tokenDetail?.address;
+  const resolvedTokenAddress = tokenAddress || tokenDetail?.address;
   if (!tokenDetail || !resolvedNetworkId || !resolvedTokenAddress) {
     return undefined;
   }
@@ -135,10 +142,86 @@ export function buildStockSwapTokenFromMarketDetail({
     symbol: tokenDetail.symbol,
     name: tokenDetail.name,
     logoURI: tokenDetail.logoUrl,
-    isNative: !!(isNative ?? tokenDetail.isNative),
+    isNative: !!(tokenDetail.isNative ?? isNative),
     ...buildUsdPriceFields(tokenDetail.price),
     isStock: Boolean(tokenDetail.stock),
   };
+}
+
+function normalizeAddress(address?: string) {
+  return address?.toLowerCase() ?? '';
+}
+
+export function isCurrentStockMarketDetail({
+  currentStockToken,
+  isNative,
+  networkId,
+  tokenAddress,
+  tokenDetail,
+}: {
+  currentStockToken?: Partial<ISwapTokenBase>;
+  isNative?: boolean;
+  networkId?: string;
+  tokenAddress?: string;
+  tokenDetail?: IStockMarketDetailIdentity;
+}) {
+  if (!tokenDetail?.stock || !currentStockToken?.networkId) {
+    return false;
+  }
+
+  const detailNetworkId = tokenDetail.networkId ?? networkId;
+  if (!detailNetworkId) {
+    return false;
+  }
+
+  return (
+    detailNetworkId === currentStockToken.networkId &&
+    normalizeAddress(tokenAddress || tokenDetail.address) ===
+      normalizeAddress(currentStockToken.contractAddress) &&
+    Boolean(isNative ?? tokenDetail.isNative) ===
+      Boolean(currentStockToken.isNative)
+  );
+}
+
+export function isStockMarketDetailMatchedTokenParams({
+  isNative,
+  networkId,
+  tokenAddress,
+  tokenDetail,
+}: {
+  isNative?: boolean;
+  networkId?: string;
+  tokenAddress?: string;
+  tokenDetail?: IStockMarketDetailIdentity;
+}) {
+  if (!tokenDetail?.stock) {
+    return false;
+  }
+
+  const detailNetworkId = tokenDetail.networkId ?? networkId;
+  if (!detailNetworkId) {
+    return false;
+  }
+
+  if (networkId && detailNetworkId !== networkId) {
+    return false;
+  }
+
+  if (
+    tokenAddress &&
+    normalizeAddress(tokenAddress) !== normalizeAddress(tokenDetail.address)
+  ) {
+    return false;
+  }
+
+  if (
+    isNative !== undefined &&
+    Boolean(isNative) !== Boolean(tokenDetail.isNative)
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 export function resolveStockChannelToken({

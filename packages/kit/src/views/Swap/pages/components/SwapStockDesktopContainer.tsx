@@ -53,12 +53,10 @@ import {
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
-import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   formatCurrencyStatValue,
   formatMarketCapValue,
@@ -85,7 +83,10 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
@@ -171,7 +172,7 @@ interface ISwapStockDesktopContainerProps {
   };
 }
 
-type IStockMarketTokenDetail = ReturnType<typeof useTokenDetail>['tokenDetail'];
+type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
 type IStockMarketDataRow = {
   label: string;
   value: string;
@@ -432,14 +433,14 @@ function StockMarketDataGridContent({
 
 function StockMarketDataGrid() {
   const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
+  const stockChannel = useSwapStockTradeContext();
   const rows = useMemo(
     () =>
       buildStockMarketDataRows({
         intl,
-        tokenDetail,
+        tokenDetail: stockChannel.activeStockTokenDetail,
       }),
-    [intl, tokenDetail],
+    [intl, stockChannel.activeStockTokenDetail],
   );
 
   return (
@@ -1203,30 +1204,34 @@ function StockMarketHeaderSkeleton() {
 
 function StockMarketTokenHeader({
   storeName,
+  stockChannel,
 }: {
   storeName: EJotaiContextStoreNames;
+  stockChannel: IUseSwapStockChannelReturn;
 }) {
-  const { tokenDetail, networkId } = useTokenDetail();
-  const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
+  const activeStockTokenDetail = stockChannel.activeStockTokenDetail;
+  const stockTokenNetworkId =
+    activeStockTokenDetail?.networkId ??
+    stockChannel.currentStockToken?.networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
     networkId: stockTokenNetworkId,
   });
-  const stock = tokenDetail?.stock;
+  const stock = activeStockTokenDetail?.stock;
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
     defaultNetworkId: stockTokenNetworkId,
     storeName,
   });
 
-  if (!tokenDetail) {
+  if (!activeStockTokenDetail) {
     return <StockMarketHeaderSkeleton />;
   }
 
   const tokenIcon = (
     <Token
       size="md"
-      tokenImageUri={tokenDetail.logoUrl}
-      tokenImageUris={tokenDetail.logoUrls}
+      tokenImageUri={activeStockTokenDetail.logoUrl}
+      tokenImageUris={activeStockTokenDetail.logoUrls}
       networkImageUri={effectiveNetworkLogoUri}
       showNetworkIconBorder={false}
       bg="$transparent"
@@ -1243,7 +1248,7 @@ function StockMarketTokenHeader({
         maxWidth={132}
         flexShrink={1}
       >
-        {tokenDetail.symbol}
+        {activeStockTokenDetail.symbol}
       </SizableText>
       <Icon
         name="ChevronDownSmallOutline"
@@ -1320,14 +1325,18 @@ function StockMarketTokenHeader({
           color="$text"
           numberOfLines={1}
           textAlign="right"
-          price={tokenDetail.price ?? tokenDetail.priceConverted ?? ''}
-          tokenName={tokenDetail.name}
-          tokenSymbol={tokenDetail.symbol}
-          lastUpdated={String(tokenDetail.lastUpdated ?? '')}
+          price={
+            activeStockTokenDetail.price ??
+            activeStockTokenDetail.priceConverted ??
+            ''
+          }
+          tokenName={activeStockTokenDetail.name}
+          tokenSymbol={activeStockTokenDetail.symbol}
+          lastUpdated={String(activeStockTokenDetail.lastUpdated ?? '')}
           currency="$"
         />
         <PriceChangePercentage size="$bodySm">
-          {tokenDetail.priceChange24hPercent}
+          {activeStockTokenDetail.priceChange24hPercent}
         </PriceChangePercentage>
       </YStack>
     </XStack>
@@ -1759,19 +1768,28 @@ function StockMobilePositionsSection({
 
 function StockMarketContextPanel({
   storeName,
+  stockChannel,
 }: {
   storeName: EJotaiContextStoreNames;
+  stockChannel: IUseSwapStockChannelReturn;
 }) {
-  const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
+  const activeStockTokenDetail = stockChannel.activeStockTokenDetail;
+  const activeStockNetworkId =
+    activeStockTokenDetail?.networkId ??
+    stockChannel.currentStockToken?.networkId;
+  const activeStockTokenAddress =
+    activeStockTokenDetail?.address ??
+    stockChannel.currentStockToken?.contractAddress ??
+    '';
   const coinGeckoId = useStockChartCoinGeckoId({
-    networkId,
-    tokenAddress,
-    tokenDetail,
+    networkId: activeStockTokenDetail ? activeStockNetworkId : undefined,
+    tokenAddress: activeStockTokenDetail ? activeStockTokenAddress : undefined,
+    tokenDetail: activeStockTokenDetail,
   });
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
-  const chartReady = !!networkId && !!tokenDetail?.symbol;
+  const chartReady = !!activeStockNetworkId && !!activeStockTokenDetail?.symbol;
 
   return (
     <YStack
@@ -1795,15 +1813,18 @@ function StockMarketContextPanel({
         shadowRadius: 24,
       }}
     >
-      <StockMarketTokenHeader storeName={storeName} />
+      <StockMarketTokenHeader
+        storeName={storeName}
+        stockChannel={stockChannel}
+      />
 
       <Stack mt="$6">
         {chartReady ? (
           <StockPriceChart
             coinGeckoId={coinGeckoId}
-            tokenAddress={tokenAddress ?? ''}
-            networkId={networkId ?? ''}
-            isNative={isNative}
+            tokenAddress={activeStockTokenAddress}
+            networkId={activeStockNetworkId ?? ''}
+            isNative={!!stockChannel.currentStockToken?.isNative}
             range={range}
             onRangeChange={setRange}
           />
@@ -2025,7 +2046,10 @@ function SwapStockDesktopContent({
               </YStack>
             </YStack>
             <YStack p="$5" flexBasis="50%" minWidth={0}>
-              <StockMarketContextPanel storeName={storeName} />
+              <StockMarketContextPanel
+                storeName={storeName}
+                stockChannel={stockChannel}
+              />
             </YStack>
           </XStack>
         </YStack>
@@ -2037,13 +2061,8 @@ function SwapStockDesktopContent({
 export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
-  const { tokenDetail } = useTokenDetail();
-
   return (
-    <SwapStockTradeProvider
-      marketPresetToken={props.marketPresetToken}
-      disableNativePayToken={isOndoStockSource(tokenDetail?.stock?.source)}
-    >
+    <SwapStockTradeProvider marketPresetToken={props.marketPresetToken}>
       <SwapStockDesktopContent {...props} />
     </SwapStockTradeProvider>
   );
@@ -2093,7 +2112,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        <StockMarketTokenHeader storeName={props.storeName} />
+        <StockMarketTokenHeader
+          storeName={props.storeName}
+          stockChannel={stockChannel}
+        />
         <StockTradeTicket
           onSelectToken={props.onSelectToken}
           fetchLoading={props.fetchLoading}
@@ -2130,13 +2152,8 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
-  const { tokenDetail } = useTokenDetail();
-
   return (
-    <SwapStockTradeProvider
-      marketPresetToken={props.marketPresetToken}
-      disableNativePayToken={isOndoStockSource(tokenDetail?.stock?.source)}
-    >
+    <SwapStockTradeProvider marketPresetToken={props.marketPresetToken}>
       <SwapStockMobileContent {...props} />
     </SwapStockTradeProvider>
   );

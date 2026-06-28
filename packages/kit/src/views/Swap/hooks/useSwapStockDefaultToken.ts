@@ -4,11 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
-import type {
-  IMarketPresetTokenContext,
-  ISwapToken,
-  ISwapTokenBase,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildStockSwapTokenFromMarketListToken,
@@ -16,19 +12,17 @@ import {
 } from './swapStockChannelUtils';
 
 export function useSwapStockDefaultToken({
-  marketPresetToken,
   marketPresetTokenKey,
+  marketPresetTokenLoading,
   marketStockToken,
-  requestMarketActiveToken,
   selectStockSwapToken,
   selectedStockTokenKey,
   spotCategories,
   tokenDetailHasStock,
 }: {
-  marketPresetToken?: IMarketPresetTokenContext;
   marketPresetTokenKey: string;
+  marketPresetTokenLoading?: boolean;
   marketStockToken?: ISwapToken;
-  requestMarketActiveToken: (token?: Partial<ISwapTokenBase>) => void;
   selectStockSwapToken: (token: ISwapToken) => void;
   selectedStockTokenKey: string;
   spotCategories: {
@@ -47,24 +41,10 @@ export function useSwapStockDefaultToken({
     return stockCategory?.type;
   }, [spotCategories]);
 
-  useEffect(() => {
-    if (
-      selectedStockTokenKey ||
-      !marketPresetTokenKey ||
-      !marketPresetToken?.networkId
-    ) {
-      return;
-    }
-    requestMarketActiveToken(marketPresetToken);
-  }, [
-    marketPresetToken,
-    marketPresetTokenKey,
-    requestMarketActiveToken,
-    selectedStockTokenKey,
-  ]);
-
   const shouldLoadDefaultStockToken =
-    !selectedStockTokenKey && !marketPresetTokenKey && !marketStockToken;
+    !selectedStockTokenKey &&
+    !marketStockToken &&
+    !(marketPresetTokenKey && marketPresetTokenLoading);
   const defaultStockTokenScope = `${
     shouldLoadDefaultStockToken ? '1' : '0'
   }:${stockCategoryType ?? ''}`;
@@ -120,11 +100,6 @@ export function useSwapStockDefaultToken({
     ) {
       return;
     }
-    requestMarketActiveToken({
-      contractAddress: defaultStockToken.address,
-      networkId: defaultStockNetworkId,
-      isNative: defaultStockToken.isNative,
-    });
     const nextSwapToken =
       buildStockSwapTokenFromMarketListToken(defaultStockToken);
     if (nextSwapToken) {
@@ -133,7 +108,6 @@ export function useSwapStockDefaultToken({
   }, [
     defaultStockToken,
     defaultStockTokenKey,
-    requestMarketActiveToken,
     selectStockSwapToken,
     shouldLoadDefaultStockToken,
   ]);
