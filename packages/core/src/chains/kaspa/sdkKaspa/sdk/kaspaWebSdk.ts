@@ -14,7 +14,7 @@ import { EOpcodes } from '../types';
 import type { IEncodedTxKaspa } from '../../types';
 import type { IKaspaTransaction } from '../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
-import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
+import type { ITransactionInput } from '@onekeyfe/kaspa-wasm';
 
 const getKaspaApi = async () => {
   const Loader = await import('@onekeyfe/kaspa-wasm');
@@ -256,11 +256,11 @@ const getKaspaApi = async () => {
         })),
         outputs: revealTx.transaction.outputs.map((output) => ({
           satoshis: output.value.toString(),
-          script:
-            typeof output.scriptPublicKey === 'string'
-              ? output.scriptPublicKey
-              : (output.scriptPublicKey as IScriptPublicKey).script,
-          scriptVersion: 0,
+          // Streaming protocol describes outputs by address; the reveal tx returns
+          // funds to the change address, so the device rebuilds the script from it
+          // (mirrors BTC PAYTOADDRESS outputs). Must match createKRC20RevealTx's
+          // `changeAddress`, otherwise the device-side sighash won't match.
+          address: encodedTx.changeAddress ?? accountAddress,
         })),
         lockTime: revealTx.transaction.lockTime.toString(),
         sigHashType: SignatureType.SIGHASH_ALL,

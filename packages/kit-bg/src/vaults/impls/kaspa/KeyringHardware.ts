@@ -7,6 +7,7 @@ import {
   MAX_ORPHAN_TX_MASS,
   SignatureType,
   SigningMethodType,
+  addressFromPublicKeyBuffer,
   publicKeyFromX,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
@@ -214,8 +215,14 @@ export class KeyringHardware extends KeyringHardwareBase {
       })),
       outputs: txn.outputs.map((output) => ({
         satoshis: output.satoshis.toString(),
-        script: bufferUtils.bytesToHex(output.script.toBuffer()),
-        scriptVersion: 0,
+        // Streaming protocol describes outputs by address; the device rebuilds the
+        // script itself (mirrors BTC PAYTOADDRESS outputs). Derive the cashaddr from
+        // the P2PK output script's public key, the same encoding used for receiving.
+        address: addressFromPublicKeyBuffer(
+          // @ts-expect-error kaspa-core-lib Script exposes getPublicKey() for P2PK
+          output.script.getPublicKey(),
+          chainId,
+        ),
       })),
       lockTime: txn.nLockTime.toString(),
       sigHashType: SignatureType.SIGHASH_ALL,
