@@ -675,7 +675,7 @@ export const WithdrawSection = ({
       return { allowanceParsed };
     },
     [accountId, borrowActionApproveTarget, networkId],
-    { watchLoading: true },
+    { watchLoading: true, undefinedResultIfReRun: true },
   );
 
   const onBorrowConfirm = useCallback(
@@ -945,8 +945,9 @@ export const WithdrawSection = ({
           onWalletConfirm={onBorrowConfirm}
           approveTarget={borrowActionApproveTarget}
           currentAllowance={
-            borrowActionAllowanceResult?.allowanceParsed ??
-            protocolInfo?.approve?.allowance
+            borrowActionApproveTarget
+              ? borrowActionAllowanceResult?.allowanceParsed
+              : protocolInfo?.approve?.allowance
           }
           onRepayWithCollateralConfirm={onBorrowRepayWithCollateralConfirm}
           tokenInfo={tokenInfo}
@@ -996,8 +997,9 @@ export const WithdrawSection = ({
           onConfirm={onBorrowConfirm}
           approveTarget={borrowActionApproveTarget}
           currentAllowance={
-            borrowActionAllowanceResult?.allowanceParsed ??
-            protocolInfo?.approve?.allowance
+            borrowActionApproveTarget
+              ? borrowActionAllowanceResult?.allowanceParsed
+              : protocolInfo?.approve?.allowance
           }
           tokenInfo={tokenInfo}
           isDisabled={isDisabled}
