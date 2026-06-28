@@ -40,6 +40,7 @@ import {
   useSearchKeyAtom,
 } from '../../states/jotai/contexts/tokenList';
 import { useTokenListContextData } from '../../states/jotai/contexts/tokenList/atoms';
+import { useHomeTokenListOwnerKey } from '../../states/jotai/contexts/tokenList/cells';
 import {
   aggCell,
   cell,
@@ -94,12 +95,14 @@ function TokenListFooter(props: IProps) {
   const store = useTokenListContextData().store!;
 
   const [listStructure] = useListStructureAtom();
+  const currentOwnerKey = useHomeTokenListOwnerKey();
 
   // Risky tokens ride the dedicated BG risky frame (design §R0/§R1): the home
   // structure/valuation frames are risk-blind, so the footer reads the FULL
   // idempotent snapshot ({ riskyTokens, riskyMap }) landed by the receive shell.
-  const [{ riskyTokens, riskyMap: riskyTokenListMap }] =
-    useRiskyListFrameAtom();
+  const [
+    { riskyTokens, riskyMap: riskyTokenListMap, ownerKey: riskyOwnerKey },
+  ] = useRiskyListFrameAtom();
 
   const [searchKey] = useSearchKeyAtom();
 
@@ -179,6 +182,10 @@ function TokenListFooter(props: IProps) {
   ]);
 
   const filteredRiskyTokens = useMemo(() => {
+    if (riskyOwnerKey !== currentOwnerKey) {
+      return [];
+    }
+
     if (hideZeroBalanceTokens) {
       return riskyTokens.filter((token) => {
         // Risky tokens are NOT in the home cells structure/cells (the producer
@@ -196,7 +203,13 @@ function TokenListFooter(props: IProps) {
       });
     }
     return riskyTokens;
-  }, [riskyTokens, hideZeroBalanceTokens, riskyTokenListMap]);
+  }, [
+    riskyOwnerKey,
+    currentOwnerKey,
+    riskyTokens,
+    hideZeroBalanceTokens,
+    riskyTokenListMap,
+  ]);
 
   const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || !wallet || smallBalanceTokens.length === 0)
