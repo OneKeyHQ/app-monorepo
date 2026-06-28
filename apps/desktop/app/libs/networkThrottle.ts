@@ -33,6 +33,14 @@ type IDesktopNetworkThrottleWebContentsEntry = {
   contents: WebContents;
   config: IDesktopStoreNetworkThrottle;
   throwOnFailure?: boolean;
+  suppressFailureLog?: boolean;
+};
+
+type IDesktopNetworkThrottleWebContentsReapplyEntry = {
+  label: string;
+  contents: WebContents;
+  reason: string;
+  attempt?: number;
 };
 
 type IApplyDesktopNetworkThrottleOptions = {
@@ -62,6 +70,12 @@ const appliedStateBySession = new WeakMap<Session, string>();
 const appliedStateByWebContentsDebugger = new WeakMap<WebContents, string>();
 const webContentsDebuggersAttachedByNetworkThrottle =
   new WeakSet<WebContents>();
+const webContentsDebuggersDetachingByNetworkThrottle =
+  new WeakSet<WebContents>();
+const webContentsDebuggerReapplyTimers = new WeakMap<
+  WebContents,
+  ReturnType<typeof setTimeout>
+>();
 
 let runtimeNetworkThrottleConfig: IDesktopStoreNetworkThrottle | undefined;
 
@@ -176,6 +190,75 @@ function shouldApplyDebuggerNetworkThrottle(contents: WebContents): boolean {
   return true;
 }
 
+function clearDesktopNetworkThrottleDebuggerReapply(
+  contents: WebContents,
+): void {
+  const timer = webContentsDebuggerReapplyTimers.get(contents);
+  if (timer) {
+    clearTimeout(timer);
+    webContentsDebuggerReapplyTimers.delete(contents);
+  }
+}
+
+function scheduleDesktopNetworkThrottleDebuggerReapply({
+  contents,
+  label,
+  reason,
+  attempt = 0,
+}: IDesktopNetworkThrottleWebContentsReapplyEntry): void {
+  if (!shouldApplyDebuggerNetworkThrottle(contents)) {
+    return;
+  }
+
+  const config = getRuntimeNetworkThrottleConfig();
+  if (!config.enabled) {
+    return;
+  }
+
+  clearDesktopNetworkThrottleDebuggerReapply(contents);
+
+  const targetLabel = `${label}:${contents.id}:${contents.getType()}`;
+  const retryDelay = contents.isDevToolsOpened()
+    ? 1000
+    : Math.min(250 * (attempt + 1), 2000);
+  const timer = setTimeout(() => {
+    webContentsDebuggerReapplyTimers.delete(contents);
+    if (!shouldApplyDebuggerNetworkThrottle(contents)) {
+      return;
+    }
+
+    const nextConfig = getRuntimeNetworkThrottleConfig();
+    if (!nextConfig.enabled) {
+      return;
+    }
+
+    void applyDesktopNetworkThrottleToWebContentsDebugger({
+      contents,
+      label,
+      config: nextConfig,
+      throwOnFailure: true,
+      suppressFailureLog: true,
+    }).catch((error) => {
+      if (attempt === 0 || (attempt + 1) % 10 === 0) {
+        logger.warn(
+          `[desktop-network-throttle] failed to reapply debugger after detach webContents=${targetLabel} reason=${reason} attempt=${
+            attempt + 1
+          }`,
+          error,
+        );
+      }
+      scheduleDesktopNetworkThrottleDebuggerReapply({
+        contents,
+        label,
+        reason,
+        attempt: attempt + 1,
+      });
+    });
+  }, retryDelay);
+
+  webContentsDebuggerReapplyTimers.set(contents, timer);
+}
+
 function applyDesktopNetworkThrottleToSession(
   targetSession: Session,
   label: string,
@@ -222,6 +305,7 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
   label,
   config,
   throwOnFailure,
+  suppressFailureLog,
 }: IDesktopNetworkThrottleWebContentsEntry): Promise<void> {
   if (!shouldApplyDebuggerNetworkThrottle(contents)) {
     return;
@@ -243,11 +327,23 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       targetDebugger.attach('1.3');
       webContentsDebuggersAttachedByNetworkThrottle.add(contents);
       targetDebugger.once('detach', (_event, reason) => {
+        const detachedByNetworkThrottle =
+          webContentsDebuggersDetachingByNetworkThrottle.has(contents);
+        webContentsDebuggersDetachingByNetworkThrottle.delete(contents);
+        clearDesktopNetworkThrottleDebuggerReapply(contents);
         appliedStateByWebContentsDebugger.delete(contents);
         webContentsDebuggersAttachedByNetworkThrottle.delete(contents);
+        const detachedReason = String(reason);
         logger.info(
-          `[desktop-network-throttle] debugger detached webContents=${targetLabel} reason=${reason}`,
+          `[desktop-network-throttle] debugger detached webContents=${targetLabel} reason=${detachedReason}`,
         );
+        if (!detachedByNetworkThrottle && detachedReason !== 'target closed') {
+          scheduleDesktopNetworkThrottleDebuggerReapply({
+            contents,
+            label,
+            reason: detachedReason,
+          });
+        }
       });
     }
 
@@ -256,6 +352,7 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       'Network.emulateNetworkConditions',
       getDebuggerNetworkConditions(config),
     );
+    clearDesktopNetworkThrottleDebuggerReapply(contents);
     appliedStateByWebContentsDebugger.set(contents, stateKey);
     if (config.enabled || previousStateKey) {
       logger.info(getWebContentsAppliedLogMessage(config, targetLabel));
@@ -266,13 +363,21 @@ async function applyDesktopNetworkThrottleToWebContentsDebugger({
       webContentsDebuggersAttachedByNetworkThrottle.has(contents) &&
       targetDebugger.isAttached()
     ) {
-      targetDebugger.detach();
+      webContentsDebuggersDetachingByNetworkThrottle.add(contents);
+      try {
+        targetDebugger.detach();
+      } catch (error) {
+        webContentsDebuggersDetachingByNetworkThrottle.delete(contents);
+        throw error;
+      }
     }
   } catch (error) {
-    logger.warn(
-      `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
-      error,
-    );
+    if (!suppressFailureLog) {
+      logger.warn(
+        `[desktop-network-throttle] failed to apply debugger ${stateKey} to ${targetLabel}`,
+        error,
+      );
+    }
     if (throwOnFailure) {
       throw error;
     }

@@ -493,16 +493,17 @@ const BaseDevSettingsSection = () => {
   const handleDesktopNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
       try {
-        await globalThis.desktopApiProxy.dev.setNetworkThrottle({
+        const config = await globalThis.desktopApiProxy.dev.setNetworkThrottle({
           enabled,
           profile: 'slow4g',
         });
+        const actualEnabled = !!config.enabled;
         await backgroundApiProxy.serviceDevSetting.updateDevSetting(
           'desktopNetworkThrottleEnabled',
-          enabled,
+          actualEnabled,
         );
         Toast.success({
-          title: enabled
+          title: actualEnabled
             ? 'Desktop Slow 4G enabled'
             : 'Desktop network throttle disabled',
         });

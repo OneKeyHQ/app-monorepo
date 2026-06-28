@@ -47,6 +47,7 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
 };
 
 let syncNativeNetworkThrottlePromise: Promise<void> | undefined;
+let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
 
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
@@ -100,17 +101,47 @@ async function syncNativeNetworkThrottleFromDevSettings() {
     return;
   }
 
-  const devModeEnabled = devSettingSyncStorage.getBoolean(
-    EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
-  );
-  const nativeNetworkThrottleEnabled = devSettingSyncStorage.getBoolean(
-    EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-  );
+  const enabled = await getPersistedNativeNetworkThrottleEnabled();
+  if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
+    return;
+  }
+
   await nativeNetworkThrottle.setNetworkThrottle({
-    enabled: Boolean(devModeEnabled && nativeNetworkThrottleEnabled),
+    enabled,
     profile: 'slow4g',
     latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
   });
+  lastSyncedNativeNetworkThrottleEnabled = enabled;
+}
+
+function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
+  const devModeEnabled = devSettingSyncStorage.getBoolean(
+    EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+  );
+  if (!devModeEnabled) {
+    return false;
+  }
+
+  return devSettingSyncStorage.getBoolean(
+    EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+  );
+}
+
+async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
+  let enabled = readPersistedNativeNetworkThrottleEnabled();
+  if (enabled !== undefined) {
+    return enabled;
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 1500) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    enabled = readPersistedNativeNetworkThrottleEnabled();
+    if (enabled !== undefined) {
+      return enabled;
+    }
+  }
+  return false;
 }
 
 async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
@@ -120,10 +151,11 @@ async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
 
   syncNativeNetworkThrottlePromise ??=
     syncNativeNetworkThrottleFromDevSettings();
-  await syncNativeNetworkThrottlePromise.catch((error) => {
+  try {
+    await syncNativeNetworkThrottlePromise;
+  } finally {
     syncNativeNetworkThrottlePromise = undefined;
-    throw error;
-  });
+  }
 }
 
 async function getNetworkThrottleTimingConfig(): Promise<INativeNetworkThrottleConfig> {
@@ -136,7 +168,6 @@ async function getNetworkThrottleTimingConfig(): Promise<INativeNetworkThrottleC
   }
 
   if (platformEnv.isNative) {
-    await ensureNativeNetworkThrottleSyncedBeforeRequest();
     return nativeNetworkThrottle.getNetworkThrottle();
   }
 
@@ -219,6 +250,8 @@ function logNetworkThrottleRequestTiming({
 }
 
 axios.interceptors.request.use(async (config) => {
+  await ensureNativeNetworkThrottleSyncedBeforeRequest().catch(() => undefined);
+
   if (config.timeout === undefined) {
     config.timeout = 30_000;
   }
