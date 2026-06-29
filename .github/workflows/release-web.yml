@@ -200,6 +200,67 @@ jobs:
         run: |
           yarn app:web:build
 
+      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
+      # sourcemaps are uploaded here via sentry-cli and then deleted from the
+      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
+      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      - name: Upload Web Sourcemaps to Sentry
+        id: upload_web_sourcemaps
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: web
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN — skipping sourcemap upload."
+            # Signal the cleanup step that no upload happened, so it KEEPS the
+            # .map files in the artifact as an offline symbolication fallback.
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
+          npx sentry-cli releases new "$RELEASE" || true
+          # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
+          # built .js files in place (prepends a _sentryDebugIds IIFE + appends
+          # //# debugId), which would invalidate the sha384 Subresource
+          # Integrity hashes rspack already baked into index.html at build time.
+          # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
+          # the browser would hard-block every script -> blank app. Use
+          # release-based upload (no source-file mutation) so SRI stays valid.
+          # Derive the artifact url-prefix from PUBLIC_URL so it matches how the
+          # assets are ACTUALLY served. With no debug-ids, Sentry associates maps
+          # purely by release + path: it strips the host from the event abs_path
+          # and prepends `~`, so the uploaded prefix MUST carry the same path
+          # segment. PUBLIC_URL is `https://<host>/[<commit>-<build>/]`; keep its
+          # path (with trailing slash) after `~`. A bare `~/` (no path) was the
+          # old value and stays correct when PUBLIC_URL has no path segment.
+          # Without this the maps upload as `~/static/js/*.js` while events report
+          # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
+          URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          npx sentry-cli releases finalize "$RELEASE" || true
+          # Upload succeeded (set -e would have aborted before here otherwise):
+          # authorize the cleanup step to strip the now-redundant .map files.
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Cleanup Web Sourcemaps and License Files
+        if: always()
+        run: |
+          # LICENSE banner files are never shipped, regardless of sourcemaps.
+          find ./apps/web/web-build -name '*.LICENSE.txt' -type f -delete
+          # Only strip .map files once they were actually uploaded to Sentry.
+          # If the upload was skipped (no SENTRY_AUTH_TOKEN) or failed, KEEP the
+          # maps in the artifact so the release stays symbolicable offline,
+          # instead of shipping maps that are neither uploaded nor retained
+          # (-> minified-only stacks for that release).
+          if [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
+            find ./apps/web/web-build \
+              \( -name '*.js.map' -o -name '*.css.map' \) \
+              -type f -delete
+          else
+            echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
+          fi
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -342,6 +403,67 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn app:web:build
+
+      # rspack (unlike the old webpack build) has no in-build Sentry plugin, so
+      # sourcemaps are uploaded here via sentry-cli and then deleted from the
+      # shipped artifact. Mirrors the webpack sentryWebpackPlugin behaviour
+      # (upload + filesToDeleteAfterUpload). Guarded: skips upload if no token.
+      - name: Upload Web Sourcemaps to Sentry
+        id: upload_web_sourcemaps
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_TOKEN }}
+          SENTRY_ORG: onekey-bb
+          SENTRY_PROJECT: web
+        run: |
+          if [ -z "$SENTRY_AUTH_TOKEN" ]; then
+            echo "No SENTRY_AUTH_TOKEN — skipping sourcemap upload."
+            # Signal the cleanup step that no upload happened, so it KEEPS the
+            # .map files in the artifact as an offline symbolication fallback.
+            echo "uploaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RELEASE="${{ env.BUILD_APP_VERSION }} (${{ env.BUILD_NUMBER }})"
+          npx sentry-cli releases new "$RELEASE" || true
+          # IMPORTANT: do NOT run `sourcemaps inject` here. inject rewrites the
+          # built .js files in place (prepends a _sentryDebugIds IIFE + appends
+          # //# debugId), which would invalidate the sha384 Subresource
+          # Integrity hashes rspack already baked into index.html at build time.
+          # Served cross-origin (app-assets.onekey.so) with crossorigin=anonymous
+          # the browser would hard-block every script -> blank app. Use
+          # release-based upload (no source-file mutation) so SRI stays valid.
+          # Derive the artifact url-prefix from PUBLIC_URL so it matches how the
+          # assets are ACTUALLY served. With no debug-ids, Sentry associates maps
+          # purely by release + path: it strips the host from the event abs_path
+          # and prepends `~`, so the uploaded prefix MUST carry the same path
+          # segment. PUBLIC_URL is `https://<host>/[<commit>-<build>/]`; keep its
+          # path (with trailing slash) after `~`. A bare `~/` (no path) was the
+          # old value and stays correct when PUBLIC_URL has no path segment.
+          # Without this the maps upload as `~/static/js/*.js` while events report
+          # `~/<commit>-<build>/static/js/*.js` -> orphaned maps, minified stacks.
+          URL_PREFIX="~$(printf '%s' "$PUBLIC_URL" | sed -E 's#^https?://[^/]+##')"
+          npx sentry-cli sourcemaps upload --release "$RELEASE" --url-prefix "$URL_PREFIX" ./apps/web/web-build
+          npx sentry-cli releases finalize "$RELEASE" || true
+          # Upload succeeded (set -e would have aborted before here otherwise):
+          # authorize the cleanup step to strip the now-redundant .map files.
+          echo "uploaded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Cleanup Web Sourcemaps and License Files
+        if: always()
+        run: |
+          # LICENSE banner files are never shipped, regardless of sourcemaps.
+          find ./apps/web/web-build -name '*.LICENSE.txt' -type f -delete
+          # Only strip .map files once they were actually uploaded to Sentry.
+          # If the upload was skipped (no SENTRY_AUTH_TOKEN) or failed, KEEP the
+          # maps in the artifact so the release stays symbolicable offline,
+          # instead of shipping maps that are neither uploaded nor retained
+          # (-> minified-only stacks for that release).
+          if [ "${{ steps.upload_web_sourcemaps.outputs.uploaded }}" = "true" ]; then
+            find ./apps/web/web-build \
+              \( -name '*.js.map' -o -name '*.css.map' \) \
+              -type f -delete
+          else
+            echo "Sourcemap upload skipped/failed — keeping .map files in artifact as fallback."
+          fi
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

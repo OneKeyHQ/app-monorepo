@@ -1566,16 +1566,6 @@ const BaseDevSettingsSection = () => {
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
 
-                      <SectionFieldItem
-                        icon="ChartColumnarOutline"
-                        name="showUnavailableDeFiActionButtons"
-                        title="Show unavailable DeFi action buttons"
-                        subtitle="Use supported-protocols to show hidden actions, and let watch-only accounts open action UI"
-                        searchKeywords="DeFi Earn Portfolio supported-protocols actions disabled buttons"
-                      >
-                        <Switch size={ESwitchSize.small} />
-                      </SectionFieldItem>
-
                       <SearchFilterItem keywords="Discovery Search Factors Browser Search QA Export Analysis 联想 因素 分析">
                         <DiscoverySearchDebugTool />
                       </SearchFilterItem>

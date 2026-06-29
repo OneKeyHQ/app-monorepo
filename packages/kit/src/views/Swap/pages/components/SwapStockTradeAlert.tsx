@@ -7,8 +7,16 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteEventErrorAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  StockMarketStatusAlert,
+  getStockMarketClosedDescription,
+  resolveStockMarketStatusCase,
+} from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
+import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchQuoteResult,
@@ -25,7 +33,6 @@ import { getStockTradeAlertAnalyticsPayload } from '../../utils/swapStockAnalyti
 import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 
 import SwapAlertContainer from './SwapAlertContainer';
-import { getStockMarketClosedDescription } from './SwapStockTradeAlert.utils';
 
 type IStockTradeAlerts = {
   states: ISwapAlertState[];
@@ -109,6 +116,14 @@ function BasicSwapStockTradeAlert({
 }: ISwapStockTradeAlertProps) {
   const intl = useIntl();
   const [quoteEventError] = useSwapQuoteEventErrorAtom();
+  // The same underlying may have a Perps (contract) equivalent we can hand off
+  // to while the stock market is closed — `perpsInfo.hlTicker` from the token
+  // detail tells us, and drives the "with Perps" cases (1 & 4).
+  const { perpsInfo } = useTokenDetail();
+  const hlTicker = perpsInfo?.hlTicker;
+  const hasPerps = Boolean(hlTicker);
+  // Attribute the perps handoff to the Trade tab for analytics.
+  const { navigateToPerps } = usePerpsNavigation(EPerpPageEnterSource.Trade);
   const stockAlertShownKeysRef = useRef(new Set<string>());
   const stockQuoteAlert = useStockQuoteAlert({ quoteResult, stockChannel });
   const notAvailableInRegionMessage = intl.formatMessage({
@@ -264,19 +279,22 @@ function BasicSwapStockTradeAlert({
   ]);
 
   if (isStockMarketClosed) {
-    const description =
-      getStockMarketClosedDescription(stockChannel.stockMarketStatus?.reason) ??
-      intl.formatMessage({ id: ETranslations.trade_stock_wait_for_reopen });
-
+    // Backend returns a localized countdown string (the first line of
+    // stock.description); its presence means "we know the next open time".
+    const closedTimeText = getStockMarketClosedDescription(
+      stockChannel.stockMarketStatus?.reason,
+    );
+    const statusCase = resolveStockMarketStatusCase({
+      isOpen: false,
+      hasOpenTime: Boolean(closedTimeText),
+      hasPerps,
+    });
     return (
-      <Alert
+      <StockMarketStatusAlert
         testID={SwapTestIDs.stockTradeStatusAlert}
-        type="warning"
-        icon="InfoCircleOutline"
-        title={intl.formatMessage({
-          id: ETranslations.trade_stock_market_closed,
-        })}
-        description={description}
+        statusCase={statusCase}
+        timeText={closedTimeText}
+        onTradePerps={hlTicker ? () => navigateToPerps(hlTicker) : undefined}
       />
     );
   }

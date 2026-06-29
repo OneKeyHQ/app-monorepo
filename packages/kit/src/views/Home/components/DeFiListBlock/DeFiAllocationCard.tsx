@@ -47,7 +47,7 @@ function DeFiAllocationCard({
   // The stacked bar is its own bare block above the grid; bar segments
   // and tile cards both read directly on the page bg.
   return (
-    <YStack userSelect="none" gap="$5">
+    <YStack userSelect="none" gap="$6">
       <DeFiPortfolioStackedBar slices={stats.slices} isLoading={isLoading} />
       <DeFiOverviewGrid
         cols={cols}

@@ -7,11 +7,11 @@ import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jota
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface ISwapProCurrentSymbolEnableProps {
-  isFocusSwapPro?: boolean;
+  isStock?: boolean;
 }
 
 const SwapProCurrentSymbolEnable = ({
-  isFocusSwapPro = true,
+  isStock,
 }: ISwapProCurrentSymbolEnableProps) => {
   const [swapProEnableCurrentSymbol, setSwapProEnableCurrentSymbol] =
     useSwapProEnableCurrentSymbolAtom();
@@ -19,6 +19,11 @@ const SwapProCurrentSymbolEnable = ({
   const toggleSwapProEnableCurrentSymbol = useCallback(() => {
     setSwapProEnableCurrentSymbol((prev) => !prev);
   }, [setSwapProEnableCurrentSymbol]);
+  // Swap & Bridge and Pro share the same "Current tokens" label; only the Stock
+  // tab uses its own "Current stock".
+  const labelId = isStock
+    ? ETranslations.stocks_current_stock
+    : ETranslations.swap_current_token;
   return (
     <XStack
       gap="$2"
@@ -33,13 +38,7 @@ const SwapProCurrentSymbolEnable = ({
         onChange={toggleSwapProEnableCurrentSymbol}
         shouldStopPropagation
       />
-      <SizableText>
-        {intl.formatMessage({
-          id: isFocusSwapPro
-            ? ETranslations.dexmarket_pro_current_symbol
-            : ETranslations.swap_current_token,
-        })}
-      </SizableText>
+      <SizableText>{intl.formatMessage({ id: labelId })}</SizableText>
     </XStack>
   );
 };

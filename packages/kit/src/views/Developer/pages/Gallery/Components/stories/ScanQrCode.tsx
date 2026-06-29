@@ -3,10 +3,7 @@ import { useCallback, useState } from 'react';
 import { Button, Stack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { ScanQrCode } from '@onekeyhq/kit/src/views/ScanQrCode/components';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
@@ -40,8 +37,11 @@ const ScanQRCodeGallery = () => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  const {
+    tokens: allTokens,
+    keys: allTokensKeys,
+    map,
+  } = useHomeTokenListSnapshot();
   const openScanQrCodeModal = useCallback(
     async (values: {
       autoExecuteParsedAction: boolean;
@@ -54,8 +54,8 @@ const ScanQRCodeGallery = () => {
           ...values,
           account,
           tokens: {
-            data: allTokens.tokens,
-            keys: allTokens.keys,
+            data: allTokens,
+            keys: allTokensKeys,
             map,
           },
         });
@@ -64,7 +64,7 @@ const ScanQRCodeGallery = () => {
         console.log('用户取消扫描');
       }
     },
-    [scanQrCode, account, allTokens, map],
+    [scanQrCode, account, allTokens, allTokensKeys, map],
   );
   return (
     <Layout
