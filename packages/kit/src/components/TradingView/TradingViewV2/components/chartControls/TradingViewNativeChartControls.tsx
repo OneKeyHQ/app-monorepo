@@ -65,6 +65,7 @@ interface ITradingViewNativeChartControlsProps {
   intervalControlMode?: ITradingViewNativeIntervalControlMode;
   priceMarketCapControlMode?: ITradingViewNativePriceMarketCapControlMode;
   layoutMode?: ITradingViewNativeControlsLayoutMode;
+  chartTimezone: string;
   isFullscreen?: boolean;
   onIntervalChange: (interval: string) => void;
   onIndicatorSelect: (indicatorName: string, desiredActive: boolean) => void;
@@ -92,6 +93,7 @@ export const TradingViewNativeChartControls = memo(
     intervalControlMode = 'dialog',
     priceMarketCapControlMode = 'settings',
     layoutMode = 'mobile',
+    chartTimezone,
     isFullscreen = false,
     onIntervalChange,
     onIndicatorSelect,
@@ -318,7 +320,10 @@ export const TradingViewNativeChartControls = memo(
 
     const calendarControl =
       hasCalendarControl && onCalendarPanelSubmit ? (
-        <CalendarPanelPopover onSubmit={onCalendarPanelSubmit} />
+        <CalendarPanelPopover
+          chartTimezone={chartTimezone}
+          onSubmit={onCalendarPanelSubmit}
+        />
       ) : null;
 
     const settingsControl = settingsEnabled ? (

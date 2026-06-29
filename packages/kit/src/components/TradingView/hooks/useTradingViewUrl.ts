@@ -48,8 +48,12 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
     localTradingViewUrl,
   ]);
 
+  const timezone = useMemo(
+    () => getTradingViewTimezone(calendars),
+    [calendars],
+  );
+
   const finalUrl = useMemo(() => {
-    const timezone = getTradingViewTimezone(calendars);
     const locale = systemLocale;
 
     const url = new URL(baseUrl);
@@ -84,14 +88,15 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   }, [
     additionalParams,
     baseUrl,
-    calendars,
     disabledFeatures,
     systemLocale,
     theme,
+    timezone,
   ]);
 
   return {
     baseUrl,
     finalUrl,
+    timezone,
   };
 }

@@ -13,6 +13,11 @@ import {
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../utils/NativeChartControlsShared';
 
+import {
+  buildChartTimestamp,
+  normalizeRangeEndSelection,
+} from './CalendarPanelUtils';
+
 type ICalendarPanel = 'goToDate' | 'timeRange';
 
 export type ICalendarPanelSubmitPayload =
@@ -78,20 +83,6 @@ function formatTime(totalMinutes: number) {
     2,
     '0',
   )}`;
-}
-
-function buildTimestamp(date: Date, totalMinutes: number) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return Math.floor(
-    new Date(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
-      hours,
-      minutes,
-    ).getTime() / 1000,
-  );
 }
 
 function buildCalendarDays(monthDate: Date) {
@@ -352,8 +343,10 @@ function CalendarGrid({
 }
 
 export function CalendarPanelPopover({
+  chartTimezone,
   onSubmit,
 }: {
+  chartTimezone: string;
   onSubmit: (payload: ICalendarPanelSubmitPayload) => void;
 }) {
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -410,22 +403,39 @@ export function CalendarPanelPopover({
         return;
       }
 
-      setRangeEndDate(nextDate);
+      const nextRange = normalizeRangeEndSelection({
+        rangeStartDate,
+        nextDate,
+      });
+      setRangeStartDate(nextRange.rangeStartDate);
+      setRangeEndDate(nextRange.rangeEndDate);
       setActiveRangeField('from');
     },
-    [activePanel, activeRangeField, rangeEndDate],
+    [activePanel, activeRangeField, rangeEndDate, rangeStartDate],
   );
 
   const submit = useCallback((): ICalendarPanelSubmitPayload => {
     if (activePanel === 'goToDate') {
       return {
         panel: 'goToDate',
-        timestamp: buildTimestamp(goToDate, goToTime),
+        timestamp: buildChartTimestamp({
+          date: goToDate,
+          totalMinutes: goToTime,
+          timeZone: chartTimezone,
+        }),
       };
     }
 
-    const from = buildTimestamp(rangeStartDate, rangeStartTime);
-    const to = buildTimestamp(rangeEndDate, rangeEndTime);
+    const from = buildChartTimestamp({
+      date: rangeStartDate,
+      totalMinutes: rangeStartTime,
+      timeZone: chartTimezone,
+    });
+    const to = buildChartTimestamp({
+      date: rangeEndDate,
+      totalMinutes: rangeEndTime,
+      timeZone: chartTimezone,
+    });
     const normalizedFrom = Math.min(from, to);
     const normalizedTo = Math.max(from, to);
     return {
@@ -438,6 +448,7 @@ export function CalendarPanelPopover({
     };
   }, [
     activePanel,
+    chartTimezone,
     goToDate,
     goToTime,
     rangeEndDate,

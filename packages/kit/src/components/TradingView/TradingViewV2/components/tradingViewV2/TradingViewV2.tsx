@@ -417,10 +417,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useHyperLiquid,
   ]);
 
-  const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    additionalParams,
-    disabledFeatures,
-  });
+  const { finalUrl: tradingViewUrlWithParams, timezone: tradingViewTimezone } =
+    useTradingViewUrl({
+      additionalParams,
+      disabledFeatures,
+    });
   const tradingViewWebViewStyleProps = useMemo(
     () => ({
       containerStyle: { backgroundColor: tradingViewBackgroundColor },
@@ -653,6 +654,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           intervalControlMode={nativeIntervalControlMode}
           priceMarketCapControlMode={nativePriceMarketCapControlMode}
           layoutMode={nativeControlsLayoutMode}
+          chartTimezone={tradingViewTimezone}
           isFullscreen={isNativeChartFullscreen}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
