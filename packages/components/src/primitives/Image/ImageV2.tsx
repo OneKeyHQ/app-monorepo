@@ -1,15 +1,17 @@
 import type { ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
 import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
+import { buildOptimizedImageSource } from './optimization';
 import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
@@ -24,6 +26,9 @@ const fullSizeStyle = {
   width: '100%' as const,
   height: '100%' as const,
 };
+
+const SHOULD_OPTIMIZE_RELATIVE_URL =
+  platformEnv.isWeb || platformEnv.isWebEmbed;
 
 export function ImageV2({
   style: defaultStyle,
@@ -68,12 +73,58 @@ export function ImageV2({
     onLoadEnd,
     onDisplay,
     onLoadStart,
+    resizeWidth,
     ...imageProps
   } = restProps;
   const [hasError, setHasError] = useState(false);
-  const resolvedSource = useMemo(() => {
-    return resolveSource((source as ImageSource) || src);
+  const rawSource = useMemo(() => {
+    return (source as ImageSource) || src;
   }, [source, src]);
+  const rawResolvedSource = useMemo(() => {
+    return resolveSource(rawSource);
+  }, [rawSource]);
+  const optimizedSourceResult = useMemo(
+    () =>
+      buildOptimizedImageSource({
+        source: rawSource,
+        resolvedSource: rawResolvedSource,
+        resizeWidth,
+        width: [style.width, sizeProps?.width, props.width, props.w],
+        height: [style.height, sizeProps?.height, props.height, props.h],
+        allowRelativeUrl: SHOULD_OPTIMIZE_RELATIVE_URL,
+      }),
+    [
+      props.h,
+      props.height,
+      props.w,
+      props.width,
+      rawResolvedSource,
+      rawSource,
+      resizeWidth,
+      sizeProps?.height,
+      sizeProps?.width,
+      style.height,
+      style.width,
+    ],
+  );
+  const [useRawSourceFallback, setUseRawSourceFallback] = useState(false);
+  const resolvedSource = useMemo(() => {
+    return useRawSourceFallback
+      ? optimizedSourceResult.rawSource
+      : optimizedSourceResult.source;
+  }, [
+    optimizedSourceResult.rawSource,
+    optimizedSourceResult.source,
+    useRawSourceFallback,
+  ]);
+
+  useEffect(() => {
+    setUseRawSourceFallback(false);
+  }, [
+    optimizedSourceResult.optimized,
+    optimizedSourceResult.optimizedUri,
+    optimizedSourceResult.rawUri,
+  ]);
 
   useResetError(resolvedSource, hasError, setHasError);
 
@@ -104,10 +155,14 @@ export function ImageV2({
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
+      if (optimizedSourceResult.optimized && !useRawSourceFallback) {
+        setUseRawSourceFallback(true);
+        return;
+      }
       setHasError(true);
       onError?.(event);
     },
-    [onError],
+    [onError, optimizedSourceResult.optimized, useRawSourceFallback],
   );
 
   const ImageComponent = useMemo(() => {

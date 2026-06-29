@@ -32,5 +32,7 @@ export type {
   IImageProps,
   IImageSkeletonProps,
   IImageLoadingProps,
+  IPreloadImageSource,
+  IPreloadImageOptions,
 } from './type';
 export type { IImageWithFallbackSourcesProps } from './ImageWithFallbackSources';

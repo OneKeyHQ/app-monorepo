@@ -1,3 +1,5 @@
+import { PixelRatio } from 'react-native';
+
 import {
   primeCachedImagePaths,
   primeCachedImageRefs,
@@ -10,6 +12,7 @@ import {
   getHyperliquidTokenImageUrl,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 type IColdStartSnapshot = Record<string, unknown>;
 
@@ -24,6 +27,8 @@ type IImagePreloadOptions = {
   decodeTimeoutMs?: number;
   primeTimeoutMs?: number;
   preload?: boolean;
+  pixelRatio?: number;
+  resizeWidth?: number;
 };
 
 type ITokenSelectorImageItem = {
@@ -44,6 +49,7 @@ const PERPS_OPEN_ORDER_LIMIT = 16;
 const PERPS_ALIAS_LOGO_LIMIT = 24;
 const PERPS_TOKEN_SELECTOR_LOGO_LIMIT = 72;
 const PERPS_TOKEN_SELECTOR_CRITICAL_LOGO_LIMIT = 24;
+const COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH = 32;
 const PERPS_TOKEN_SELECTOR_PRIORITY_COINS = [
   'BTC',
   'ETH',
@@ -86,6 +92,28 @@ function addImageUri(uris: Set<string>, uri?: unknown) {
   if (typeof uri === 'string' && REMOTE_IMAGE_URI_RE.test(uri)) {
     uris.add(uri);
   }
+}
+
+function buildPrewarmImageUri({
+  uri,
+  pixelRatio,
+  resizeWidth,
+}: {
+  uri: string;
+  pixelRatio?: number;
+  resizeWidth?: number;
+}) {
+  if (!resizeWidth) {
+    return uri;
+  }
+  return buildTosImageResizeUrl({
+    uri,
+    pixelRatio:
+      pixelRatio ??
+      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
+      1,
+    resizeWidth,
+  }).uri;
 }
 
 function addTokenLikeImageUris(uris: Set<string>, token?: unknown) {
@@ -346,9 +374,14 @@ export async function prewarmImageUris(
     decodeTimeoutMs,
     primeTimeoutMs,
     preload = true,
+    pixelRatio,
+    resizeWidth = COLD_START_IMAGE_PRELOAD_RESIZE_WIDTH,
   }: IImagePreloadOptions = {},
 ) {
-  const uris = [...new Set(imageUris)].slice(0, limit);
+  const uris = [...new Set(imageUris)]
+    .slice(0, limit)
+    .map((uri) => buildPrewarmImageUri({ uri, pixelRatio, resizeWidth }))
+    .filter((uri): uri is string => Boolean(uri));
   if (!uris.length) {
     return 0;
   }

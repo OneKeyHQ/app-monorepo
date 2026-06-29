@@ -113,6 +113,7 @@ function MobileTabListItem({
                   h="100%"
                   borderBottomLeftRadius={10}
                   borderBottomRightRadius={10}
+                  resizeWidth={240}
                   source={{ uri: tab?.thumbnail }}
                 />
               </Stack>

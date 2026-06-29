@@ -50,6 +50,8 @@ import type {
   IEarnText,
 } from '@onekeyhq/shared/types/staking';
 
+const PROTOCOL_INTRO_IMAGE_PRELOAD_RESIZE_WIDTH = 64;
+
 function toEarnText(text?: IEarnProtocolIntroText): IEarnText | undefined {
   if (!text) {
     return undefined;
@@ -1511,9 +1513,12 @@ function ProtocolIntroSectionComponent({
     if (!imageUrls.length) {
       return;
     }
-    void Image.preloadImages(imageUrls.map((uri) => ({ uri }))).catch(
-      () => undefined,
-    );
+    void Image.preloadImages(
+      imageUrls.map((uri) => ({
+        resizeWidth: PROTOCOL_INTRO_IMAGE_PRELOAD_RESIZE_WIDTH,
+        uri,
+      })),
+    ).catch(() => undefined);
   }, [imageUrls]);
 
   const selectedIndex =

@@ -49,11 +49,27 @@ export type IUseImageComponent = (
   imageSource?: ImageSourcePropType,
 ) => typeof Image;
 
+export type IPreloadImageOptions = {
+  resizeWidth?: number;
+  width?: number;
+  height?: number;
+  pixelRatio?: number;
+  optimize?: boolean;
+};
+
+export type IPreloadImageSource = {
+  uri?: string;
+} & IPreloadImageOptions;
+
 export type IPreloadImagesFunc = (
-  sources: { uri?: string }[],
+  sources: IPreloadImageSource[],
+  options?: IPreloadImageOptions,
 ) => Promise<boolean>;
 
-export type IPreloadImageFunc = (source: { uri?: string }) => Promise<boolean>;
+export type IPreloadImageFunc = (
+  source: IPreloadImageSource,
+  options?: IPreloadImageOptions,
+) => Promise<boolean>;
 
 export type IImageV2Props = Omit<
   ImageProps,
@@ -74,6 +90,8 @@ export type IImageV2Props = Omit<
     skeleton?: React.ReactNode;
     fallback?: React.ReactNode;
     src?: string;
+    /** Display width hint in layout units. DPR is applied internally. */
+    resizeWidth?: number;
     /** Retry times when image loading fails, default is 5 */
     retryTimes?: number;
     onError?: (event: ImageErrorEventData) => void;

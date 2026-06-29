@@ -128,6 +128,7 @@ function VideoContainer() {
             width="100%"
             height="100%"
             resizeMode="cover"
+            resizeWidth={480}
             source={posterSource}
           />
         ) : null}

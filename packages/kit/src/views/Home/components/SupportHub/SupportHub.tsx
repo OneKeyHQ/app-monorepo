@@ -119,6 +119,7 @@ function SupportHubBannerItem({
           right="0"
           source={item.image}
           resizeMode="cover"
+          resizeWidth={320}
           zIndex={0}
           opacity={themeVariant === 'dark' ? 0.9 : 1}
         />

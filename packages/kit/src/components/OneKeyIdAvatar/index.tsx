@@ -47,6 +47,7 @@ function BasicOneKeyIdAvatar({
       <Image
         width="100%"
         height="100%"
+        resizeWidth={40}
         source={source}
         fallback={<OneKeyIdFallbackAvatar size={size} />}
       />

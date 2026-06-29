@@ -1,4 +1,8 @@
 import { Image } from 'expo-image';
+import { PixelRatio } from 'react-native';
+
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { buildTosImageResizeUrl } from '@onekeyhq/shared/src/utils/tosImageResizeUtils';
 
 import {
   getMissingCachedImageUris,
@@ -7,11 +11,48 @@ import {
 } from './cache';
 import { DEFAULT_CACHE_POLICY } from './cachePolicy';
 
-import type { IPreloadImageFunc, IPreloadImagesFunc } from './type';
+import type {
+  IPreloadImageFunc,
+  IPreloadImageOptions,
+  IPreloadImageSource,
+  IPreloadImagesFunc,
+} from './type';
 
-export const preloadImages: IPreloadImagesFunc = async (sources) => {
+const SHOULD_OPTIMIZE_RELATIVE_URL =
+  platformEnv.isWeb || platformEnv.isWebEmbed;
+
+function getPreloadUri(
+  source: IPreloadImageSource,
+  options?: IPreloadImageOptions,
+) {
+  const { uri } = source;
+  if (!uri) {
+    return undefined;
+  }
+
+  if ((source.optimize ?? options?.optimize) === false) {
+    return uri;
+  }
+
+  const result = buildTosImageResizeUrl({
+    uri,
+    resizeWidth: source.resizeWidth ?? options?.resizeWidth,
+    displayWidth: source.width ?? options?.width,
+    displayHeight: source.height ?? options?.height,
+    pixelRatio:
+      source.pixelRatio ??
+      options?.pixelRatio ??
+      (PixelRatio as { get?: () => number } | undefined)?.get?.() ??
+      1,
+    allowRelativeUrl: SHOULD_OPTIMIZE_RELATIVE_URL,
+  });
+
+  return result.uri ?? uri;
+}
+
+export const preloadImages: IPreloadImagesFunc = async (sources, options) => {
   const uris = sources
-    .map((source) => source.uri)
+    .map((source) => getPreloadUri(source, options))
     .filter((uri): uri is string => Boolean(uri));
   if (!uris.length) {
     return true;
@@ -30,8 +71,8 @@ export const preloadImages: IPreloadImagesFunc = async (sources) => {
   return success;
 };
 
-export const preloadImage: IPreloadImageFunc = (source) =>
-  preloadImages([source]);
+export const preloadImage: IPreloadImageFunc = (source, options) =>
+  preloadImages([source], options);
 
 export const loadImage = (source: { uri?: string }) => {
   if (!source.uri) {
