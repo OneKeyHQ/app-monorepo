@@ -13,6 +13,7 @@ import {
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  IMarketPerpsInfo,
   IMarketTokenDetail,
   IMarketTokenDetailWebsocket,
 } from '@onekeyhq/shared/types/marketV2';
@@ -63,8 +64,20 @@ const {
   contextAtom,
   contextAtomComputed,
   contextAtomMethod,
+  useContextData,
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
+
+export function useSwapColdStartScopeKey() {
+  const { store } = useContextData();
+  return (
+    store as
+      | {
+          __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__?: string;
+        }
+      | undefined
+  )?.__ONEKEY_JOTAI_COLD_START_SCOPE_KEY__;
+}
 
 export type ISwapQuoteEventErrorState = {
   message: string;
@@ -185,6 +198,15 @@ export const {
     }
   | undefined
 >(undefined);
+
+export const {
+  atom: swapStockSelectedTokenAtom,
+  use: useSwapStockSelectedTokenAtom,
+} = contextAtom<ISwapToken | undefined>(undefined, {
+  coldStartCache: true,
+  coldStartCacheKey:
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
+});
 
 export const {
   atom: swapSelectedTokensColdStartContextAtom,
@@ -648,6 +670,11 @@ export const {
   atom: swapProTokenMarketDetailInfoAtom,
   use: useSwapProTokenMarketDetailInfoAtom,
 } = contextAtom<IMarketTokenDetail | undefined>(undefined);
+
+export const {
+  atom: swapProTokenMarketDetailPerpsInfoAtom,
+  use: useSwapProTokenMarketDetailPerpsInfoAtom,
+} = contextAtom<IMarketPerpsInfo | undefined>(undefined);
 
 export const {
   atom: swapProTokenTransactionPriceAtom,

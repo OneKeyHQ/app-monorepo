@@ -148,22 +148,21 @@ function collectWalletTokenImageUris({
   uris: Set<string>;
   snapshot: IColdStartSnapshot;
 }) {
+  // TokenList cells §7: the cold-start persisted token-list role moved from the
+  // OLD `renderedTokenListCacheAtom` (byOwner[].tokens) to the slim bundle
+  // (`tokenListSlimColdCache`, single-owner). Prewarm logos from the slim
+  // bundle's `compactMeta` values instead of the retired byOwner shape.
   for (const value of getSnapshotValuesByColdStartKey({
     snapshot,
     coldStartCacheKey:
-      CONTEXT_ATOM_COLD_START_CACHE_KEYS.renderedTokenListCacheAtom,
+      CONTEXT_ATOM_COLD_START_CACHE_KEYS.tokenListSlimColdCacheAtom,
   })) {
-    if (isRecord(value) && isRecord(value.byOwner)) {
-      const entries = Object.values(value.byOwner)
+    if (isRecord(value) && isRecord(value.compactMeta)) {
+      const metas = Object.values(value.compactMeta)
         .filter(isRecord)
-        .toSorted((a, b) => getUpdatedAt(b) - getUpdatedAt(a))
-        .slice(0, WALLET_TOKEN_OWNER_LIMIT);
-
-      for (const entry of entries) {
-        const tokens = Array.isArray(entry.tokens) ? entry.tokens : [];
-        for (const token of tokens.slice(0, WALLET_TOKEN_LIMIT_PER_OWNER)) {
-          addTokenLikeImageUris(uris, token);
-        }
+        .slice(0, WALLET_TOKEN_OWNER_LIMIT * WALLET_TOKEN_LIMIT_PER_OWNER);
+      for (const tokenMeta of metas) {
+        addTokenLikeImageUris(uris, tokenMeta);
       }
     }
   }

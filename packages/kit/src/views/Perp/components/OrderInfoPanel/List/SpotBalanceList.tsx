@@ -5,12 +5,21 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
-import { DashText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Badge,
+  DashText,
+  Icon,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
+  usePerpsComputedAccountValueAtom,
   useSpotAssetCtxsMapAtom,
   useSpotBalancesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -22,7 +31,9 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import { useSpotMetaMaps } from '../../../hooks/useSpotMetaMaps';
+import { PerpTestIDs } from '../../../testIDs';
 import { isHyperLiquidUnifiedAccountMode } from '../../../utils';
 import { BalanceRow } from '../Components/BalanceRow';
 import { PerpHoldingsEmptyState } from '../Components/PerpHoldingsEmptyState';
@@ -50,6 +61,21 @@ export interface IBalanceDisplayItem {
   needsSuffix: boolean;
 }
 
+const ZERO_USDC_BALANCE: IBalanceDisplayItem = {
+  coin: 'USDC',
+  rawCoin: 'USDC',
+  type: 'spot',
+  total: '0',
+  available: '0',
+  usdcValue: '0',
+  logoURI: getHyperliquidTokenImageUrl('USDC'),
+  isAssetClickable: false,
+  needsSuffix: false,
+  usdcValueNum: 0,
+};
+
+const ZERO_USDC_BALANCES = [ZERO_USDC_BALANCE];
+
 interface ISpotBalanceListProps {
   isMobile?: boolean;
   useTabsList?: boolean;
@@ -73,11 +99,13 @@ function SpotBalanceList({
 }: ISpotBalanceListProps) {
   const intl = useIntl();
   const [{ balances, isLoaded }] = useSpotBalancesAtom();
+  const [computedValue] = usePerpsComputedAccountValueAtom();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [abstractionMode] = usePerpsAbstractionModeAtom();
   const [priceMap] = useSpotAssetCtxsMapAtom();
   const actions = useHyperliquidActions();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const { spotUniverses, universeByBaseName, tokenContractMap } =
     useSpotMetaMaps();
   const [currentListPage, setCurrentListPage] = useState(1);
@@ -247,6 +275,13 @@ function SpotBalanceList({
     () => allBalances.filter((b) => !new BigNumber(b.total).isZero()),
     [allBalances],
   );
+  const displayBalances =
+    isMobile &&
+    currentUser?.accountAddress &&
+    isLoaded &&
+    filteredBalances.length === 0
+      ? ZERO_USDC_BALANCES
+      : filteredBalances;
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -330,14 +365,86 @@ function SpotBalanceList({
   );
 
   const mobileHeaderComponent = useMemo(() => {
-    if (!isMobile || filteredBalances.length === 0) {
+    if (!isMobile) {
       return ListHeaderComponent ?? null;
     }
+
+    const accountValue = computedValue.isLoading
+      ? '--'
+      : (computedValue.accountValue ?? '0');
+    const availableValue = computedValue.isLoading
+      ? '--'
+      : (computedValue.withdrawable ?? '0');
 
     return (
       <>
         {ListHeaderComponent}
-        <XStack alignItems="center" gap="$3" px="$4" pt="$3" pb="$2.5">
+        <XStack
+          alignItems="center"
+          justifyContent="space-between"
+          gap="$4"
+          px="$4"
+          pt="$4"
+          pb="$2"
+        >
+          <YStack flex={1} minWidth={0} gap="$1">
+            <SizableText
+              size="$bodyXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+            >
+              {intl.formatMessage({ id: ETranslations.perp_portfolio_value })}
+            </SizableText>
+            <NumberSizeableText
+              size="$heading2xl"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+              numberOfLines={1}
+            >
+              {accountValue}
+            </NumberSizeableText>
+            <XStack gap="$1" alignItems="center">
+              <SizableText size="$bodyXs" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_portfolio_available,
+                })}
+              </SizableText>
+              <NumberSizeableText
+                size="$bodyXs"
+                color="$textSubdued"
+                formatter="value"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+              >
+                {availableValue}
+              </NumberSizeableText>
+            </XStack>
+          </YStack>
+          <Badge
+            testID={PerpTestIDs.HoldingsEmptyDepositButton}
+            borderRadius="$full"
+            size="medium"
+            variant="primary"
+            alignItems="center"
+            justifyContent="center"
+            flexDirection="row"
+            gap="$2"
+            px="$3"
+            h={28}
+            bg="$brand8"
+            onPress={
+              currentUser?.accountAddress
+                ? () => void showDepositWithdrawModal('deposit')
+                : undefined
+            }
+          >
+            <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
+            <SizableText size="$bodySmMedium" color="$textOnColor">
+              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+            </SizableText>
+          </Badge>
+        </XStack>
+        <XStack alignItems="center" gap="$3" px="$4" pt="$1.5" pb="$2">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$1">
             <SizableText
               size="$bodyXs"
@@ -395,7 +502,16 @@ function SpotBalanceList({
         </XStack>
       </>
     );
-  }, [ListHeaderComponent, filteredBalances.length, intl, isMobile]);
+  }, [
+    ListHeaderComponent,
+    computedValue.accountValue,
+    computedValue.isLoading,
+    computedValue.withdrawable,
+    currentUser?.accountAddress,
+    intl,
+    isMobile,
+    showDepositWithdrawModal,
+  ]);
 
   return (
     <CommonTableListView
@@ -416,17 +532,23 @@ function SpotBalanceList({
       enablePagination={!isMobile}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={filteredBalances}
+      data={displayBalances}
       isMobile={isMobile}
       renderRow={renderBalanceRow}
-      listLoading={currentUser?.accountAddress ? !isLoaded : false}
+      listLoading={
+        !isMobile && currentUser?.accountAddress
+          ? !isLoaded || computedValue.isLoading
+          : false
+      }
       emptyMessage={intl.formatMessage({
         id: ETranslations.global_no_data,
       })}
       emptySubMessage={intl.formatMessage({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
-      ListEmptyComponent={<PerpHoldingsEmptyState isMobile={isMobile} />}
+      ListEmptyComponent={
+        isMobile ? <></> : <PerpHoldingsEmptyState isMobile={isMobile} />
+      }
       ListHeaderComponent={mobileHeaderComponent}
     />
   );

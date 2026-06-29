@@ -14,9 +14,7 @@ import { Button, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { BorrowNavigation } from '@onekeyhq/kit/src/views/Borrow/borrowUtils';
 import { EManagePositionType } from '@onekeyhq/kit/src/views/Staking/pages/ManagePosition/hooks/useManagePage';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import defiActionUtils from '@onekeyhq/shared/src/utils/defiActionUtils';
 import {
   EDeFiPositionAction,
@@ -51,6 +49,13 @@ type IProtocolPositionActionButtonProps = {
   // false on the rest to avoid repeating them under every row.
   showResolvedActions?: boolean;
   visualVariant?: 'solid' | 'info';
+  // Render the actions as full-width buttons stacked below the position
+  // (unified/simple layout) instead of inline chips. Two actions split the row.
+  block?: boolean;
+  // Floor width (px) for each inline action button so per-asset rows align
+  // Withdraw/Repay/Claim into one column. A minimum, not a cap — a longer
+  // localized label still grows rather than truncating.
+  actionMinWidth?: number;
   containerProps?: Omit<ComponentProps<typeof XStack>, 'children'>;
   onSuccess?: (
     params: IProtocolPositionActionSuccessParams,
@@ -65,11 +70,6 @@ type IBorrowManageParams = {
   logoURI?: string;
   providerLogoURI?: string;
 };
-
-type IRenderedDeFiPositionAction = IResolvedDeFiPositionAction & {
-  disabled?: boolean;
-};
-
 function normalizeMatchValue(value?: string) {
   return (
     value
@@ -318,6 +318,24 @@ function getVisibleDeFiPositionActions<
   );
 }
 
+// Scope each action to the caller's asset so a per-asset row renders a button
+// acting on just that token. Unscoped callers (manageAsset undefined) keep the
+// full position-level action list unchanged.
+function scopeActionsToManageAsset<T extends IResolvedDeFiPositionAction>(
+  actions: T[],
+  manageAsset: IDeFiAsset | undefined,
+): T[] {
+  if (!manageAsset) return actions;
+  return actions.reduce<T[]>((acc, action) => {
+    const scoped = defiActionUtils.scopeResolvedActionToAsset({
+      action,
+      tokenAddress: manageAsset.address,
+    });
+    if (scoped) acc.push(scoped);
+    return acc;
+  }, []);
+}
+
 function getManageActionTypeAction(type: EManagePositionType) {
   if (type === EManagePositionType.Repay) {
     return EDeFiPositionAction.Repay;
@@ -370,20 +388,49 @@ const SOLID_BUTTON_PROPS = {
   variant: 'primary',
 } as const;
 
-function getActionButtonFrameProps(isInfo: boolean) {
+// Full-width action(s) stacked below a position (the unified/simple layout):
+// one button fills the row, two (e.g. Withdraw + Claim) split it evenly via
+// flex. Same info-blue outline as the inline buttons, sized up.
+const BLOCK_OUTLINE_BUTTON_PROPS = {
+  variant: 'link',
+  childrenAsText: false,
+  flex: 1,
+  py: '$3',
+  borderRadius: '$3',
+  borderWidth: '$px',
+  borderColor: '$borderInfoSubdued',
+  bg: '$transparent',
+  hoverStyle: { bg: '$bgInfoSubdued', borderColor: '$borderInfo' },
+  pressStyle: { bg: '$bgInfo', borderColor: '$borderInfo' },
+} as const;
+
+function getActionButtonFrameProps({
+  isInfo,
+  isBlock,
+}: {
+  isInfo: boolean;
+  isBlock: boolean;
+}) {
+  if (isBlock) return BLOCK_OUTLINE_BUTTON_PROPS;
   return isInfo ? INFO_OUTLINE_BUTTON_PROPS : SOLID_BUTTON_PROPS;
 }
 
 function renderActionButtonLabel({
   isInfo,
+  isBlock,
   label,
 }: {
   isInfo: boolean;
+  isBlock: boolean;
   label: string;
 }) {
-  if (!isInfo) return label;
+  if (!isInfo && !isBlock) return label;
   return (
-    <SizableText size="$bodySmMedium" color="$textInfo">
+    <SizableText
+      size={isBlock ? '$bodyMdMedium' : '$bodySmMedium'}
+      color="$textInfo"
+      numberOfLines={1}
+    >
       {label}
     </SizableText>
   );
@@ -400,12 +447,13 @@ const ProtocolPositionActionButton = memo(
     manageAsset,
     showResolvedActions = true,
     visualVariant = 'solid',
+    block = false,
+    actionMinWidth,
     containerProps,
     onSuccess,
   }: IProtocolPositionActionButtonProps) => {
     const intl = useIntl();
     const navigation = useAppNavigation();
-    const [devSettings] = useDevSettingsPersistAtom();
     const submitProtocolPositionAction = useProtocolPositionActionSubmit({
       accountId: accountId ?? '',
       networkId: protocol.networkId,
@@ -415,21 +463,7 @@ const ProtocolPositionActionButton = memo(
     const [submittingActionKey, setSubmittingActionKey] = useState<
       string | undefined
     >(undefined);
-    const isUrlAccount =
-      !!accountId && accountUtils.isUrlAccountFn({ accountId });
-    const isWatchingAccount =
-      !!accountId && accountUtils.isWatchingAccount({ accountId });
-    const isActionAccount = !!accountId && !isUrlAccount && !isWatchingAccount;
-    const shouldShowUnavailableDeFiActionButtons = Boolean(
-      devSettings.enabled &&
-      devSettings.settings?.showUnavailableDeFiActionButtons,
-    );
-    // Dev-only mode: watch-only accounts can render and click the action UI,
-    // while the background build-transaction guard still blocks submission.
-    const shouldAllowWatchingAccountActionButtons =
-      shouldShowUnavailableDeFiActionButtons && isWatchingAccount;
-    const shouldResolveActionButtons =
-      isActionAccount || shouldAllowWatchingAccountActionButtons;
+    const shouldResolveActionButtons = !!accountId;
     const actions = useMemo(
       () =>
         shouldResolveActionButtons
@@ -441,29 +475,6 @@ const ProtocolPositionActionButton = memo(
           : [],
       [position, protocol, shouldResolveActionButtons, supportedActions],
     );
-    const unavailableActions = useMemo<IRenderedDeFiPositionAction[]>(
-      () =>
-        shouldResolveActionButtons && shouldShowUnavailableDeFiActionButtons
-          ? defiActionUtils
-              .resolveDeFiPositionActionDebugCandidates({
-                protocol,
-                position,
-                supportedActions,
-              })
-              .map((action) => ({
-                ...action,
-                disabled: !shouldAllowWatchingAccountActionButtons,
-              }))
-          : [],
-      [
-        position,
-        protocol,
-        shouldAllowWatchingAccountActionButtons,
-        shouldResolveActionButtons,
-        shouldShowUnavailableDeFiActionButtons,
-        supportedActions,
-      ],
-    );
     const hasAaveDebt = useMemo(
       () => isAaveProtocol(protocol.protocol) && hasDebt(position),
       [position, protocol.protocol],
@@ -473,9 +484,8 @@ const ProtocolPositionActionButton = memo(
       [manageAsset, position, protocol],
     );
     const fallbackBlockingActions = useMemo(
-      () =>
-        shouldResolveActionButtons ? [...actions, ...unavailableActions] : [],
-      [actions, shouldResolveActionButtons, unavailableActions],
+      () => (shouldResolveActionButtons ? actions : []),
+      [actions, shouldResolveActionButtons],
     );
     const visibleActions = useMemo(
       () =>
@@ -485,44 +495,62 @@ const ProtocolPositionActionButton = memo(
         }),
       [actions, placement],
     );
-    const visibleUnavailableActions = useMemo(
-      () =>
-        getVisibleDeFiPositionActions({
-          actions: unavailableActions,
-          placement,
-        }),
-      [placement, unavailableActions],
+    // Per-asset rows (manageAsset set) narrow each action to the row's own
+    // token, so every supplied/borrowed row gets its own button.
+    const scopedVisibleActions = useMemo(
+      () => scopeActionsToManageAsset(visibleActions, manageAsset),
+      [manageAsset, visibleActions],
     );
     const deFiManageActions = useMemo(
       () =>
         new Set(
-          getVisibleDeFiPositionActions({
-            actions: fallbackBlockingActions,
-            placement,
-          }).map((action) => action.action),
+          scopeActionsToManageAsset(
+            getVisibleDeFiPositionActions({
+              actions: fallbackBlockingActions,
+              placement,
+            }),
+            manageAsset,
+          ).map((action) => action.action),
         ),
-      [fallbackBlockingActions, placement],
+      [fallbackBlockingActions, manageAsset, placement],
     );
+    // Aave positions with debt have a dedicated manage page
+    // (BorrowManagePosition) that surfaces health factor / liquidation risk, so
+    // Withdraw (collateral) and Repay route there instead of the generic action
+    // dialog. This inverts the usual precedence, where a resolved action would
+    // otherwise suppress the manage button. Falls back to the dialog when the
+    // borrow params can't be resolved, so no row loses its button.
+    const preferManageForAave = hasAaveDebt && Boolean(borrowManageParams);
     const manageActionTypes = getManageActionTypesForPlacement(
       placement,
     ).filter(
       (manageType) =>
+        preferManageForAave ||
         !deFiManageActions.has(getManageActionTypeAction(manageType)),
     );
     const shouldShowManage =
       hasAaveDebt &&
       manageActionTypes.length > 0 &&
       Boolean(borrowManageParams);
-    // Position-level resolved actions render once per position; a per-asset
-    // caller suppresses them on every row but the first.
-    const renderedActions: IRenderedDeFiPositionAction[] = showResolvedActions
-      ? [...visibleActions, ...visibleUnavailableActions]
-      : [];
+    // A per-asset caller (manageAsset set) shows each row's own scoped action;
+    // an unscoped caller keeps the position-level actions on the first row only.
+    let renderedActions: IResolvedDeFiPositionAction[] = [];
+    if (manageAsset) {
+      renderedActions = scopedVisibleActions;
+    } else if (showResolvedActions) {
+      renderedActions = visibleActions;
+    }
+    // Aave Withdraw/Repay are owned by the manage button above, so drop the
+    // generic resolved actions to avoid rendering two buttons for one action.
+    if (preferManageForAave) {
+      renderedActions = renderedActions.filter(
+        (action) =>
+          action.action !== EDeFiPositionAction.Withdraw &&
+          action.action !== EDeFiPositionAction.Repay,
+      );
+    }
     const handleActionPress = useCallback(
-      async (action: IRenderedDeFiPositionAction) => {
-        if (action.disabled) {
-          return;
-        }
+      async (action: IResolvedDeFiPositionAction) => {
         if (!accountId) {
           return;
         }
@@ -598,36 +626,50 @@ const ProtocolPositionActionButton = memo(
     }
 
     const isInfo = visualVariant === 'info';
-    const actionButtonFrameProps = getActionButtonFrameProps(isInfo);
+    const isBlock = block;
+    const actionButtonFrameProps = getActionButtonFrameProps({
+      isInfo,
+      isBlock,
+    });
+    const buttonSize = isBlock ? 'medium' : 'small';
+    // A shared floor width turns ragged content-width chips into an aligned
+    // column; skipped in block mode, where buttons already flex to fill.
+    const fixedActionWidthProps =
+      actionMinWidth && !isBlock ? { minWidth: actionMinWidth } : undefined;
+    let containerGap = '$1.5';
+    if (isBlock) {
+      containerGap = '$2.5';
+    } else if (isInfo) {
+      containerGap = '$1';
+    }
 
     return (
       <XStack
-        gap={isInfo ? '$1' : '$1.5'}
-        alignItems="center"
-        justifyContent={isInfo ? 'flex-start' : 'flex-end'}
-        flexShrink={1}
-        flexWrap="wrap"
-        minWidth={0}
+        gap={containerGap}
+        alignItems={isBlock ? 'stretch' : 'center'}
+        justifyContent={isInfo || isBlock ? 'flex-start' : 'flex-end'}
+        width={isBlock ? '100%' : undefined}
+        flexShrink={isBlock ? undefined : 1}
+        flexWrap={isBlock ? 'nowrap' : 'wrap'}
+        minWidth={isBlock ? undefined : 0}
         {...containerProps}
       >
         {renderedActions.map((action) => {
           const actionKey = getResolvedActionKey(action);
-          const isActionDisabled =
-            action.disabled || Boolean(submittingActionKey);
           return (
             <Button
               key={actionKey}
               testID={`defi-position-action-${action.action}`}
-              size="small"
+              size={buttonSize}
               {...actionButtonFrameProps}
-              disabled={isActionDisabled}
-              loading={Boolean(
-                !action.disabled && submittingActionKey === actionKey,
-              )}
+              {...fixedActionWidthProps}
+              disabled={Boolean(submittingActionKey)}
+              loading={submittingActionKey === actionKey}
               onPress={() => void handleActionPress(action)}
             >
               {renderActionButtonLabel({
                 isInfo,
+                isBlock,
                 label: getActionLabel({ action: action.action, intl }),
               })}
             </Button>
@@ -638,13 +680,15 @@ const ProtocolPositionActionButton = memo(
               <Button
                 key={manageType}
                 testID={`defi-position-action-manage-${manageType}`}
-                size="small"
+                size={buttonSize}
                 {...actionButtonFrameProps}
+                {...fixedActionWidthProps}
                 disabled={Boolean(submittingActionKey)}
                 onPress={() => handleManagePress(manageType)}
               >
                 {renderActionButtonLabel({
                   isInfo,
+                  isBlock,
                   label: getManageActionLabel({ type: manageType, intl }),
                 })}
               </Button>

@@ -31,7 +31,7 @@ function DeFiOverviewDesktopGrid({
   isAllNetworks,
 }: IDeFiOverviewDesktopGridProps) {
   return (
-    <XStack width="100%" flexWrap="wrap" gap="$2">
+    <XStack width="100%" flexWrap="wrap" gap="$4" rowGap="$5">
       {cells.map((cell) => (
         <XStack key={cell.key} minWidth={0} flex={1}>
           {cell.kind === 'protocol' ? (

@@ -1,93 +1,183 @@
-/* eslint-disable new-cap */
+/* eslint-disable new-cap, global-require, @typescript-eslint/no-var-requires */
 import { buildCallRemoteApiMethod } from '@onekeyhq/kit-bg/src/apis/RemoteApiProxyBase';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
-import DesktopApiAppleAuth from '../DesktopApiAppleAuth';
-import DesktopApiAppUpdate from '../DesktopApiAppUpdate';
-import DesktopApiBluetooth from '../DesktopApiBluetooth';
-import DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
-import DesktopApiCloudKit from '../DesktopApiCloudKit';
-import DesktopApiDev from '../DesktopApiDev';
-import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
-import DesktopApiKeychain from '../DesktopApiKeychain';
-import DesktopApiNotification from '../DesktopApiNotification';
-import DesktopApiOAuthLocalServer from '../DesktopApiOAuthLocalServer';
-import DesktopApiSecurity from '../DesktopApiSecurity';
-import DesktopApiSniRequest from '../DesktopApiSniRequest';
-import DesktopApiStorage from '../DesktopApiStorage';
-import DesktopApiSystem from '../DesktopApiSystem';
-import DesktopApiWebview from '../DesktopApiWebview';
 
 import type {
   IDesktopApi,
   IDesktopApiKeys,
   IDesktopApiMessagePayload,
 } from '../base/types';
+import type DesktopApiAppleAuth from '../DesktopApiAppleAuth';
+import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
+import type DesktopApiBluetooth from '../DesktopApiBluetooth';
+import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
+import type DesktopApiCloudKit from '../DesktopApiCloudKit';
+import type DesktopApiDev from '../DesktopApiDev';
+import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
+import type DesktopApiKeychain from '../DesktopApiKeychain';
+import type DesktopApiNotification from '../DesktopApiNotification';
+import type DesktopApiOAuthLocalServer from '../DesktopApiOAuthLocalServer';
+import type DesktopApiSecurity from '../DesktopApiSecurity';
+import type DesktopApiSniRequest from '../DesktopApiSniRequest';
+import type DesktopApiStorage from '../DesktopApiStorage';
+import type DesktopApiSystem from '../DesktopApiSystem';
+import type DesktopApiWebview from '../DesktopApiWebview';
+
+type IDesktopApiModuleConstructor<T> = new (params: {
+  desktopApi: IDesktopApi;
+}) => T;
+type IDesktopApiModuleImport<T> = {
+  default: IDesktopApiModuleConstructor<T>;
+};
 
 class DesktopApi implements IDesktopApi {
-  inAppPurchase: DesktopApiInAppPurchase = new DesktopApiInAppPurchase({
-    desktopApi: this,
-  });
+  // Keep desktop API modules off the main-process bootstrap path while
+  // preserving the existing synchronous cross-module property access.
+  private moduleCache = new Map<
+    IDesktopApiKeys,
+    IDesktopApi[IDesktopApiKeys]
+  >();
 
-  system: DesktopApiSystem = new DesktopApiSystem({
-    desktopApi: this,
-  });
+  private getOrCreateModule<K extends IDesktopApiKeys>(
+    name: K,
+    create: () => IDesktopApi[K],
+  ): IDesktopApi[K] {
+    const existing = this.moduleCache.get(name);
+    if (existing) {
+      return existing as IDesktopApi[K];
+    }
+    const module = create();
+    this.moduleCache.set(name, module);
+    return module;
+  }
 
-  security: DesktopApiSecurity = new DesktopApiSecurity({
-    desktopApi: this,
-  });
+  private createModule<T>(moduleImport: IDesktopApiModuleImport<T>): T {
+    const Module = moduleImport.default;
+    return new Module({ desktopApi: this });
+  }
 
-  storage: DesktopApiStorage = new DesktopApiStorage({
-    desktopApi: this,
-  });
+  get inAppPurchase(): DesktopApiInAppPurchase {
+    return this.getOrCreateModule('inAppPurchase', () =>
+      this.createModule(
+        require('../DesktopApiInAppPurchase') as typeof import('../DesktopApiInAppPurchase'),
+      ),
+    );
+  }
 
-  webview: DesktopApiWebview = new DesktopApiWebview({
-    desktopApi: this,
-  });
+  get system(): DesktopApiSystem {
+    return this.getOrCreateModule('system', () =>
+      this.createModule(
+        require('../DesktopApiSystem') as typeof import('../DesktopApiSystem'),
+      ),
+    );
+  }
 
-  notification: DesktopApiNotification = new DesktopApiNotification({
-    desktopApi: this,
-  });
+  get security(): DesktopApiSecurity {
+    return this.getOrCreateModule('security', () =>
+      this.createModule(
+        require('../DesktopApiSecurity') as typeof import('../DesktopApiSecurity'),
+      ),
+    );
+  }
 
-  dev: DesktopApiDev = new DesktopApiDev({
-    desktopApi: this,
-  });
+  get storage(): DesktopApiStorage {
+    return this.getOrCreateModule('storage', () =>
+      this.createModule(
+        require('../DesktopApiStorage') as typeof import('../DesktopApiStorage'),
+      ),
+    );
+  }
 
-  bluetooth: DesktopApiBluetooth = new DesktopApiBluetooth({
-    desktopApi: this,
-  });
+  get webview(): DesktopApiWebview {
+    return this.getOrCreateModule('webview', () =>
+      this.createModule(
+        require('../DesktopApiWebview') as typeof import('../DesktopApiWebview'),
+      ),
+    );
+  }
 
-  appUpdate: DesktopApiAppUpdate = new DesktopApiAppUpdate({
-    desktopApi: this,
-  });
+  get notification(): DesktopApiNotification {
+    return this.getOrCreateModule('notification', () =>
+      this.createModule(
+        require('../DesktopApiNotification') as typeof import('../DesktopApiNotification'),
+      ),
+    );
+  }
 
-  bundleUpdate: DesktopApiBundleUpdate = new DesktopApiBundleUpdate({
-    desktopApi: this,
-  });
+  get dev(): DesktopApiDev {
+    return this.getOrCreateModule('dev', () =>
+      this.createModule(
+        require('../DesktopApiDev') as typeof import('../DesktopApiDev'),
+      ),
+    );
+  }
 
-  cloudKit: DesktopApiCloudKit = new DesktopApiCloudKit({
-    desktopApi: this,
-  });
+  get bluetooth(): DesktopApiBluetooth {
+    return this.getOrCreateModule('bluetooth', () =>
+      this.createModule(
+        require('../DesktopApiBluetooth') as typeof import('../DesktopApiBluetooth'),
+      ),
+    );
+  }
 
-  keychain: DesktopApiKeychain = new DesktopApiKeychain({
-    desktopApi: this,
-  });
+  get appUpdate(): DesktopApiAppUpdate {
+    return this.getOrCreateModule('appUpdate', () =>
+      this.createModule(
+        require('../DesktopApiAppUpdate') as typeof import('../DesktopApiAppUpdate'),
+      ),
+    );
+  }
 
-  sniRequest: DesktopApiSniRequest = new DesktopApiSniRequest({
-    desktopApi: this,
-  });
+  get bundleUpdate(): DesktopApiBundleUpdate {
+    return this.getOrCreateModule('bundleUpdate', () =>
+      this.createModule(
+        require('../DesktopApiBundleUpdate') as typeof import('../DesktopApiBundleUpdate'),
+      ),
+    );
+  }
 
-  oauthLocalServer: DesktopApiOAuthLocalServer = new DesktopApiOAuthLocalServer(
-    {
-      desktopApi: this,
-    },
-  );
+  get cloudKit(): DesktopApiCloudKit {
+    return this.getOrCreateModule('cloudKit', () =>
+      this.createModule(
+        require('../DesktopApiCloudKit') as typeof import('../DesktopApiCloudKit'),
+      ),
+    );
+  }
 
-  appleAuth: DesktopApiAppleAuth = new DesktopApiAppleAuth({
-    desktopApi: this,
-  });
+  get keychain(): DesktopApiKeychain {
+    return this.getOrCreateModule('keychain', () =>
+      this.createModule(
+        require('../DesktopApiKeychain') as typeof import('../DesktopApiKeychain'),
+      ),
+    );
+  }
+
+  get sniRequest(): DesktopApiSniRequest {
+    return this.getOrCreateModule('sniRequest', () =>
+      this.createModule(
+        require('../DesktopApiSniRequest') as typeof import('../DesktopApiSniRequest'),
+      ),
+    );
+  }
+
+  get oauthLocalServer(): DesktopApiOAuthLocalServer {
+    return this.getOrCreateModule('oauthLocalServer', () =>
+      this.createModule(
+        require('../DesktopApiOAuthLocalServer') as typeof import('../DesktopApiOAuthLocalServer'),
+      ),
+    );
+  }
+
+  get appleAuth(): DesktopApiAppleAuth {
+    return this.getOrCreateModule('appleAuth', () =>
+      this.createModule(
+        require('../DesktopApiAppleAuth') as typeof import('../DesktopApiAppleAuth'),
+      ),
+    );
+  }
 }
 
 const desktopApi = new DesktopApi();

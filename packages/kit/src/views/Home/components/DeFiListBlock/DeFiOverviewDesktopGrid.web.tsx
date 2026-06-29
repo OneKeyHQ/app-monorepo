@@ -35,7 +35,12 @@ function DeFiOverviewDesktopGrid({
   isAllNetworks,
 }: IDeFiOverviewDesktopGridProps) {
   return (
-    <XStack width="100%" gap="$2" style={buildOverviewGridStyle(cols)}>
+    <XStack
+      width="100%"
+      gap="$4"
+      rowGap="$5"
+      style={buildOverviewGridStyle(cols)}
+    >
       {cells.map((cell) => (
         <XStack
           key={cell.key}

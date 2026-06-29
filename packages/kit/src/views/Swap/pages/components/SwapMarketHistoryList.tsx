@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,15 +14,10 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NotificationEnableAlert } from '@onekeyhq/kit/src/components/NotificationEnableAlert';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useInAppNotificationAtom,
-  useNotificationsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -37,9 +33,10 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
+  SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
-  getSwapMarketPendingHistoryKey,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
 
@@ -54,6 +51,10 @@ interface ISwapMarketHistoryListProps {
   isPushModal?: boolean;
   filterToken?: ISwapToken[];
   protocol?: EProtocolOfExchange;
+  // Rendered on the right of the FIRST section header (the latest date / pending
+  // row), so a list-level action like Clear shares the date's row instead of
+  // taking a dedicated line above the list.
+  firstSectionRightAction?: ReactNode;
 }
 
 const SwapMarketHistoryList = ({
@@ -61,10 +62,10 @@ const SwapMarketHistoryList = ({
   filterToken,
   isPushModal,
   protocol,
+  firstSectionRightAction,
 }: ISwapMarketHistoryListProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
-  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ swapHistoryAlertDismissed }] = useNotificationsAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -76,21 +77,8 @@ const SwapMarketHistoryList = ({
     protocol === EProtocolOfExchange.STOCK
       ? EProtocolOfExchange.SWAP
       : protocol;
-  const marketPendingKey = useMemo(
-    () =>
-      getSwapMarketPendingHistoryKey(swapHistoryPendingList, effectiveProtocol),
-    [effectiveProtocol, swapHistoryPendingList],
-  );
-  const { result: swapTxHistoryList, isLoading } = usePromiseResult(
-    async () => {
-      const histories =
-        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-      return histories;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [marketPendingKey],
-    { watchLoading: true },
-  );
+  const { swapTxHistoryList, isLoading } =
+    useSwapMarketHistoryList(effectiveProtocol);
   const sectionData = useMemo(() => {
     let filterData = filterSwapMarketHistoryItems({
       items: swapTxHistoryList ?? [],
@@ -136,16 +124,12 @@ const SwapMarketHistoryList = ({
       );
     }
     const pendingData =
-      filterData?.filter(
-        (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
+      filterData?.filter((item) =>
+        SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       ) ?? [];
     const otherData =
       filterData?.filter(
-        (item) =>
-          item.status !== ESwapTxHistoryStatus.PENDING &&
-          item.status !== ESwapTxHistoryStatus.CANCELING,
+        (item) => !SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {
@@ -238,28 +222,46 @@ const SwapMarketHistoryList = ({
       renderItem={renderItem}
       sections={sectionData}
       py="$2"
-      renderSectionHeader={({ section: { title, status } }) => (
-        <XStack px="$6" py="$2" gap="$3" alignItems="center">
-          {status === ESwapTxHistoryStatus.PENDING ? (
-            <Stack
-              w="$2"
-              h="$2"
-              backgroundColor="$textInfo"
-              borderRadius="$full"
-            />
-          ) : null}
-          <Heading
-            size="$headingXs"
-            color={
-              status === ESwapTxHistoryStatus.PENDING
-                ? '$textInfo'
-                : '$textSubdued'
-            }
+      renderSectionHeader={({ section }) => {
+        const { title, status } = section;
+        // Section titles are unique (per-day dates + a single "Pending"), so
+        // match by title rather than object identity, which can change when
+        // sectionData is rebuilt.
+        const isFirstSection = sectionData[0]?.title === title;
+        return (
+          <XStack
+            px="$6"
+            py="$2"
+            gap="$3"
+            alignItems="center"
+            justifyContent="space-between"
           >
-            {title}
-          </Heading>
-        </XStack>
-      )}
+            <XStack gap="$3" alignItems="center" flex={1} minWidth={0}>
+              {status === ESwapTxHistoryStatus.PENDING ? (
+                <Stack
+                  w="$2"
+                  h="$2"
+                  backgroundColor="$textInfo"
+                  borderRadius="$full"
+                />
+              ) : null}
+              <Heading
+                size="$headingXs"
+                color={
+                  status === ESwapTxHistoryStatus.PENDING
+                    ? '$textInfo'
+                    : '$textSubdued'
+                }
+              >
+                {title}
+              </Heading>
+            </XStack>
+            {isFirstSection && firstSectionRightAction
+              ? firstSectionRightAction
+              : null}
+          </XStack>
+        );
+      }}
       estimatedItemSize="$10"
       ListHeaderComponent={
         sectionData.length > 0 && !showType ? (

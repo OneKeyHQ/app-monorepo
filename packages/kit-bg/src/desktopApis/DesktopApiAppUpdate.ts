@@ -134,9 +134,13 @@ class DesktopApiAppUpdate {
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
     if (!isStoreVersion) {
-      void app.whenReady().then(() => {
+      if (app.isReady()) {
         this.initAppAutoUpdateEvents();
-      });
+      } else {
+        void app.whenReady().then(() => {
+          this.initAppAutoUpdateEvents();
+        });
+      }
     }
     if (isDev) {
       Object.defineProperty(app, 'isPackaged', {

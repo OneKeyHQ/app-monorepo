@@ -18,11 +18,7 @@ import {
 } from '@onekeyhq/kit/src/components/TokenSelectorFilter/utils';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useIsDeFiEnabled } from '@onekeyhq/kit/src/hooks/useIsDeFiEnabled';
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
-  useTokenListActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useTokenListActions } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useTokenSelectorFilterPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
@@ -46,7 +42,11 @@ import {
   filterTokenSelectorTokensByDappTokenFilterParams,
   isTokenSelectorDappTokenFilterSupportedNetwork,
 } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
-import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkIsOnlyOneTokenHasBalance,
+  flattenAggregateTokensMap,
+  nestAggregateTokensMap,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
@@ -93,66 +93,67 @@ type ITokenSelectorHeaderRightProps = {
   isCustomNetwork?: IServerNetwork['isCustomNetwork'];
 };
 
-function TokenSelectorHeaderRightInner({
-  showDeFiTokenSwitch,
-  loading,
-  onLpTokenFilterChange,
-  onSwitchNetwork,
-  networkLogoURI,
-  networkName,
-  networkShortName,
-  isCustomNetwork,
-}: ITokenSelectorHeaderRightProps) {
-  const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
-  const showTokenSelectorFilter =
-    TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
-  const showLpTokensOnly = showTokenSelectorFilter
-    ? tokenSelectorFilter.sendTokenShowLpTokensOnly
-    : false;
-  const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
+const TokenSelectorHeaderRight = memo(
+  ({
+    showDeFiTokenSwitch,
+    loading,
+    onLpTokenFilterChange,
+    onSwitchNetwork,
+    networkLogoURI,
+    networkName,
+    networkShortName,
+    isCustomNetwork,
+  }: ITokenSelectorHeaderRightProps) => {
+    const [tokenSelectorFilter] = useTokenSelectorFilterPersistAtom();
+    const showTokenSelectorFilter =
+      TOKEN_SELECTOR_LP_TOKEN_FILTER_ENABLED && showDeFiTokenSwitch;
+    const showLpTokensOnly = showTokenSelectorFilter
+      ? tokenSelectorFilter.sendTokenShowLpTokensOnly
+      : false;
+    const shouldShowNetworkSwitch = !!onSwitchNetwork && !!networkName;
 
-  if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) {
-    return null;
-  }
+    if (!showTokenSelectorFilter && !shouldShowNetworkSwitch) {
+      return null;
+    }
 
-  return (
-    <XStack alignItems="center" gap="$2" mr="$-2">
-      {showTokenSelectorFilter ? (
-        <TokenSelectorLpTokenSwitch
-          value={showLpTokensOnly}
-          onChange={onLpTokenFilterChange}
-          loading={loading}
-        />
-      ) : null}
-      {shouldShowNetworkSwitch ? (
-        <XStack
-          alignItems="center"
-          gap="$1.5"
-          px="$2"
-          py="$1"
-          borderRadius="$full"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
-          onPress={onSwitchNetwork}
-          userSelect="none"
-        >
-          <NetworkAvatarBase
-            logoURI={networkLogoURI ?? ''}
-            size="$5"
-            isCustomNetwork={isCustomNetwork}
-            networkName={networkName}
+    return (
+      <XStack alignItems="center" gap="$2" mr="$-2">
+        {showTokenSelectorFilter ? (
+          <TokenSelectorLpTokenSwitch
+            value={showLpTokensOnly}
+            onChange={onLpTokenFilterChange}
+            loading={loading}
           />
-          <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
-            {networkShortName}
-          </SizableText>
-          <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
-        </XStack>
-      ) : null}
-    </XStack>
-  );
-}
-
-const TokenSelectorHeaderRight = memo(TokenSelectorHeaderRightInner);
+        ) : null}
+        {shouldShowNetworkSwitch ? (
+          <XStack
+            alignItems="center"
+            gap="$1.5"
+            px="$2"
+            py="$1"
+            borderRadius="$full"
+            hoverStyle={{ bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            onPress={onSwitchNetwork}
+            userSelect="none"
+          >
+            <NetworkAvatarBase
+              logoURI={networkLogoURI ?? ''}
+              size="$5"
+              isCustomNetwork={isCustomNetwork}
+              networkName={networkName}
+            />
+            <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth="$16">
+              {networkShortName}
+            </SizableText>
+            <Icon name="SwitchHorOutline" size="$4.5" color="$iconSubdued" />
+          </XStack>
+        ) : null}
+      </XStack>
+    );
+  },
+);
+TokenSelectorHeaderRight.displayName = 'TokenSelectorHeaderRight';
 
 function isSameSelectorTokenListRequestContext(
   a: ISelectorTokenListRequestContext,
@@ -185,8 +186,6 @@ function TokenSelector() {
   const navigation = useAppNavigation();
 
   const { createAddress } = useAccountSelectorCreateAddress();
-
-  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
 
   const {
     title,
@@ -263,7 +262,6 @@ function TokenSelector() {
       initialized: false,
     });
   const [isLpTokenSwitchLoading, setIsLpTokenSwitchLoading] = useState(false);
-  const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
   });
@@ -273,6 +271,37 @@ function TokenSelector() {
     filterContext: ITokenSelectorSearchFilterContext;
   }>({ tokens: [], searchKey: '', filterContext: 'all-token' });
   const latestSearchRequestContextRef = useRef('');
+
+  // PR-3 (tokenList cells full-delete): the selector self-fetches its displayed
+  // list + fiat map + owned-aggregate map and threads them as props into
+  // TokenListView, so the selector no longer reads the home
+  // `tokenListAtom`/`tokenListMapAtom`/`smallBalanceTokenListAtom`/
+  // `aggregateTokensListMapAtom`. The active-account branch keeps its own
+  // scoped fetch (`scopedActiveTokenList*`).
+  const [selectorTokenList, setSelectorTokenList] = useState<{
+    tokens: IAccountToken[];
+    smallBalanceTokens: IAccountToken[];
+  }>({ tokens: [], smallBalanceTokens: [] });
+  const [selectorTokenListMap, setSelectorTokenListMap] = useState<
+    Record<string, ITokenFiat>
+  >({});
+  const [selectorAggregateTokenListMap, setSelectorAggregateTokenListMap] =
+    useState<Record<string, { tokens: IAccountToken[] }>>({});
+  // PR-6: the flattened ($key -> summed ITokenFiat) aggregate fiat map for the
+  // selector's all-networks rows. The self-fetch response's `aggregateTokenMap`
+  // is FLAT per single-network request; we nest it by networkId and re-flatten
+  // with the SAME sum semantics the home `flattenAggregateTokensMapAtom` uses
+  // so the aggregate (all-networks) selector rows resolve real balance/value/
+  // price (the per-row `tokenSelectorTokenListMap` does NOT carry aggregate
+  // `$key` fiat). Threaded into TokenListView as `tokenSelectorAggregateTokenFiatMap`.
+  const [selectorAggregateTokenFiatMap, setSelectorAggregateTokenFiatMap] =
+    useState<Record<string, ITokenFiat>>({});
+  // PR-3: `false` until the self-fetch below resolves the first time. Threaded
+  // into TokenListView so the selector shows a skeleton (or its per-owner
+  // cached list) until the self-fetch lands instead of flashing EmptyToken —
+  // the home tokenList mirror keeps `tokenListState.initialized === true`, so
+  // TokenListView cannot infer "selector not yet fetched" on its own.
+  const [selectorInitialized, setSelectorInitialized] = useState(false);
 
   const tokenSelectorFilterParams = useMemo(
     () =>
@@ -356,7 +385,7 @@ function TokenSelector() {
         const allAggregateTokenList =
           allAggregateTokenMap?.[token.$key]?.tokens ?? [];
         const aggregateTokenList =
-          aggregateTokensListMap[token.$key]?.tokens ?? [];
+          selectorAggregateTokenListMap[token.$key]?.tokens ?? [];
         if (
           aggregateTokenList.length === 1 &&
           allAggregateTokenList.length === 0
@@ -367,7 +396,12 @@ function TokenSelector() {
 
         const { tokenHasBalance, tokenHasBalanceCount } =
           checkIsOnlyOneTokenHasBalance({
-            tokenMap: allTokenListMap,
+            // The selector self-fetches its per-row fiat map (`r.tokens.map` ∪
+            // `r.smallBalanceTokens.map`), which is keyed by the per-network
+            // sub-token `$key` — exactly what `checkIsOnlyOneTokenHasBalance`
+            // iterates (red-team C-F2: NOT the summed aggregate map). Replaces
+            // the deleted home `allTokenListMapAtom` read.
+            tokenMap: selectorTokenListMap,
             aggregateTokenList,
             allAggregateTokenList,
           });
@@ -389,6 +423,7 @@ function TokenSelector() {
               accountId,
               indexedAccountId,
               aggregateToken: token,
+              aggregateSubTokenList: aggregateTokenList,
               onSelect,
               allAggregateTokenList,
               enableNetworkAfterSelect,
@@ -533,8 +568,8 @@ function TokenSelector() {
       network?.id,
       closeAfterSelect,
       allAggregateTokenMap,
-      aggregateTokensListMap,
-      allTokenListMap,
+      selectorAggregateTokenListMap,
+      selectorTokenListMap,
       onSelect,
       navigation,
       aggregateTokenSelectorScreen,
@@ -967,6 +1002,80 @@ function TokenSelector() {
     useSelectorFilteredTokenList,
   ]);
 
+  // PR-3 selector self-fetch: on the NORMAL selector path (not the
+  // active-account / LP-dapp branch, which already self-fetches into
+  // `scopedActiveTokenList*`), fetch the displayable wallet token list + fiat
+  // map (same `token-selector` flag/path the active-account branch uses) and
+  // the scoped owned-aggregate map. These feed TokenListView via props so the
+  // selector no longer reads the home tokenList atoms.
+  usePromiseResult(async () => {
+    if (effectiveShowActiveAccountTokenList) {
+      // Active-account / LP-dapp branch uses `scopedActiveTokenList*`; the
+      // normal selector self-fetch is inactive here. Mark initialized so the
+      // skeleton gate (which is also guarded by `!showActiveAccountTokenList`)
+      // never holds on a stale value.
+      setSelectorInitialized(true);
+      return;
+    }
+    if (!accountId || !networkId) {
+      setSelectorTokenList({ tokens: [], smallBalanceTokens: [] });
+      setSelectorTokenListMap({});
+      setSelectorAggregateTokenListMap({});
+      setSelectorAggregateTokenFiatMap({});
+      setSelectorInitialized(true);
+      return;
+    }
+
+    // Reset to `false` while (re)fetching for a new owner so TokenListView
+    // shows a skeleton (or the per-owner cache) instead of the previous owner's
+    // list for a frame.
+    setSelectorInitialized(false);
+
+    const [r, aggregateTokenListMap] = await Promise.all([
+      backgroundApiProxy.serviceToken.fetchAccountTokens({
+        accountId,
+        networkId,
+        indexedAccountId,
+        flag: 'token-selector',
+        ...tokenSelectorFilterParams,
+      }),
+      backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+        accountId,
+        networkId,
+      }),
+    ]);
+
+    setSelectorTokenList({
+      tokens: r.tokens.data,
+      smallBalanceTokens: r.smallBalanceTokens.data,
+    });
+    setSelectorTokenListMap({
+      ...r.tokens.map,
+      ...r.smallBalanceTokens.map,
+    });
+    setSelectorAggregateTokenListMap(aggregateTokenListMap ?? {});
+    // The response `aggregateTokenMap` is FLAT ($key -> ITokenFiat) for this
+    // single-network request; nest it by networkId then flatten with the home
+    // sum semantics so aggregate rows resolve correct fiat in TokenListView.
+    setSelectorAggregateTokenFiatMap(
+      r.aggregateTokenMap
+        ? flattenAggregateTokensMap(
+            nestAggregateTokensMap({
+              aggregateTokenMap: r.aggregateTokenMap,
+              networkId,
+            }),
+          )
+        : {},
+    );
+    setSelectorInitialized(true);
+  }, [
+    accountId,
+    networkId,
+    indexedAccountId,
+    effectiveShowActiveAccountTokenList,
+    tokenSelectorFilterParams,
+  ]);
+
   useEffect(() => {
     if (searchAll && searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
       void searchTokensBySearchKey(searchKey);
@@ -1018,6 +1127,11 @@ function TokenSelector() {
           scopedActiveAccountTokenList={scopedActiveTokenList}
           scopedActiveAccountTokenListState={scopedActiveTokenListState}
           scopedActiveAccountTokenListMap={scopedActiveTokenListMap}
+          tokenSelectorTokenList={selectorTokenList}
+          tokenSelectorTokenListMap={selectorTokenListMap}
+          tokenSelectorAggregateTokenListMap={selectorAggregateTokenListMap}
+          tokenSelectorAggregateTokenFiatMap={selectorAggregateTokenFiatMap}
+          tokenSelectorInitialized={selectorInitialized}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isSelectorAllNetworks}
           withNetwork={isSelectorAllNetworks}

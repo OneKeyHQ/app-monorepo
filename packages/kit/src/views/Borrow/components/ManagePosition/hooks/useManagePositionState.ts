@@ -14,6 +14,8 @@ export function useManagePositionState(props: IManagePositionProps): {
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
+    | 'shouldApprove'
+    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   >;
@@ -110,6 +112,8 @@ export function useManagePositionState(props: IManagePositionProps): {
     IManagePositionState,
     | 'amountValue'
     | 'submitting'
+    | 'shouldApprove'
+    | 'approveLoading'
     | 'tokenSelectorMode'
     | 'tokenSelectorTriggerProps'
   > = useMemo(

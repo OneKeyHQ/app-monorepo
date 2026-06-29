@@ -8,6 +8,8 @@ import {
   buildLocalizedProtocolPositionItems,
   buildProtocolCategoryGroups,
   getProtocolPositionDisplayName,
+  getSectionActionPlacement,
+  isSectionedPosition,
 } from './defiPositionUtils';
 
 type IProtocolPosition = IDeFiProtocol['positions'][number];
@@ -141,6 +143,51 @@ describe('defiPositionUtils', () => {
       }),
     ).toBe('PT-USDe-30JUL2025');
   });
+
+  it('derives healthFactor as the lowest finite value across source positions', () => {
+    const protocol = {
+      protocol: 'aave',
+      networkId: 'evm--1',
+      owner: '0x1',
+      categories: [],
+      positions: [
+        {
+          groupId: 'hf-1',
+          category: 'lending',
+          poolName: 'Aave',
+          poolFullName: 'Aave',
+          value: '100',
+          assets: [],
+          debts: [],
+          rewards: [],
+          sourcePositions: [
+            { metrics: { healthFactor: 2.5 } },
+            { metrics: { healthFactor: 1.4 } },
+            { metrics: { healthFactor: null } },
+          ],
+        },
+        {
+          groupId: 'hf-2',
+          category: 'lending',
+          poolName: 'Comp',
+          poolFullName: 'Comp',
+          value: '50',
+          assets: [],
+          debts: [],
+          rewards: [],
+          sourcePositions: [{ metrics: { healthFactor: null } }],
+        },
+      ],
+    } as unknown as IDeFiProtocol;
+
+    const items = buildLocalizedProtocolPositionItems({
+      protocol,
+      translate: (id) => String(id),
+    });
+
+    expect(items[0].healthFactor).toBe(1.4);
+    expect(items[1].healthFactor).toBeNull();
+  });
 });
 
 describe('buildProtocolCategoryGroups', () => {
@@ -177,7 +224,7 @@ describe('buildProtocolCategoryGroups', () => {
     ).toBeDefined();
   });
 
-  it('merges non-lending positions sharing a poolName into one row', () => {
+  it('keeps distinct groupIds with the same poolName as separate rows', () => {
     const protocol = makeMultiPositionProtocol([
       makePosition({
         groupId: 'pendle-1',
@@ -198,12 +245,39 @@ describe('buildProtocolCategoryGroups', () => {
     const [group] = groups;
     expect(group.kind).toBe('unified');
     if (group.kind !== 'unified') return;
+    // No name-based aggregation: each groupId keeps its own row.
+    expect(group.rows).toHaveLength(2);
+    expect(group.rows.map((r) => r.groupId)).toEqual(['pendle-1', 'pendle-2']);
+    expect(group.rows[0].primaryAssets.map((a) => a.symbol)).toEqual(['sUSDe']);
+    expect(group.rows[1].primaryAssets.map((a) => a.symbol)).toEqual(['USDe']);
+  });
+
+  it('keeps entries that share a groupId as one row (never splits a groupId)', () => {
+    const protocol = makeMultiPositionProtocol([
+      makePosition({
+        groupId: 'same-group',
+        category: 'yield',
+        poolName: 'PT-USDe-30JUL2025',
+        assets: [makeAsset({ address: '0xa', symbol: 'sUSDe', value: 1500 })],
+      }),
+      makePosition({
+        groupId: 'same-group',
+        category: 'yield',
+        poolName: 'PT-USDe-30JUL2025',
+        assets: [makeAsset({ address: '0xb', symbol: 'USDe', value: 1000 })],
+      }),
+    ]);
+
+    const groups = buildProtocolCategoryGroups(protocol);
+    expect(groups).toHaveLength(1);
+    const [group] = groups;
+    expect(group.kind).toBe('unified');
+    if (group.kind !== 'unified') return;
     expect(group.rows).toHaveLength(1);
     expect(group.rows[0].primaryAssets.map((a) => a.symbol)).toEqual([
       'sUSDe',
       'USDe',
     ]);
-    expect(group.rows[0].rewardsExtraAssets).toHaveLength(0);
   });
 
   it('only fills rewardsExtraAssets when supplied + rewards both exist', () => {
@@ -444,7 +518,7 @@ describe('buildProtocolCategoryGroups', () => {
     expect(debt.positions[0].poolName).toBe('Pool B');
   });
 
-  it('does not merge non-lending positions whose poolName is a placeholder', () => {
+  it('renders a placeholder poolName as the symbol-join, never the literal placeholder', () => {
     const protocol = makeMultiPositionProtocol([
       makePosition({
         groupId: 'fx-1',
@@ -463,8 +537,8 @@ describe('buildProtocolCategoryGroups', () => {
     const [group] = buildProtocolCategoryGroups(protocol);
     expect(group.kind).toBe('unified');
     if (group.kind !== 'unified') return;
-    // Two distinct rows — without sanitization both would have collapsed
-    // into one row keyed by `name:x`.
+    // Two distinct rows — distinct groupIds are never merged now, regardless
+    // of poolName.
     expect(group.rows).toHaveLength(2);
     // And neither row prints "x" — they fall back to the symbol-join,
     // which here is just the single asset symbol.
@@ -536,5 +610,59 @@ describe('buildProtocolCategoryGroups', () => {
     if (group.kind !== 'sectioned') return;
     expect(group.positions).toHaveLength(2);
     expect(group.positions.map((p) => p.groupId)).toEqual(['lf-1', 'lf-2']);
+  });
+});
+
+describe('isSectionedPosition', () => {
+  function firstLocalizedPosition(position: IProtocolPosition) {
+    return buildLocalizedProtocolPositionItems({
+      protocol: makeMultiPositionProtocol([position]),
+      translate: (id) => id,
+    })[0];
+  }
+
+  it('treats lending positions as sectioned even without debt', () => {
+    const position = makePosition({
+      groupId: 'l',
+      category: 'lending',
+      poolName: 'Market',
+      assets: [makeAsset({ address: '0xs', symbol: 'ETH', value: 100 })],
+    });
+    expect(isSectionedPosition(firstLocalizedPosition(position))).toBe(true);
+  });
+
+  it('treats a clean non-lending position as not sectioned', () => {
+    const position = makePosition({
+      groupId: 'c',
+      category: 'leveraged_farming',
+      poolName: 'Pool A',
+      assets: [makeAsset({ address: '0xa', symbol: 'CAKE', value: 500 })],
+    });
+    expect(isSectionedPosition(firstLocalizedPosition(position))).toBe(false);
+  });
+
+  it('treats a debt-bearing non-lending position as sectioned', () => {
+    const position = makePosition({
+      groupId: 'd',
+      category: 'leveraged_farming',
+      poolName: 'Pool B',
+      assets: [makeAsset({ address: '0xb', symbol: 'ETH', value: 4000 })],
+      debts: [
+        {
+          ...makeAsset({ address: '0xd', symbol: 'USDC', value: 2000 }),
+          type: EDeFiAssetType.DEBT,
+        },
+      ],
+    });
+    expect(isSectionedPosition(firstLocalizedPosition(position))).toBe(true);
+  });
+});
+
+describe('getSectionActionPlacement', () => {
+  it('maps each section asset type to the action placement under it', () => {
+    expect(getSectionActionPlacement('supplied')).toBe('balance');
+    expect(getSectionActionPlacement('other')).toBe('balance');
+    expect(getSectionActionPlacement('borrowed')).toBe('debt');
+    expect(getSectionActionPlacement('rewards')).toBe('rewards');
   });
 });
