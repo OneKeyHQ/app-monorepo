@@ -801,6 +801,11 @@ export function LimitOrderForm({
           pressedSide === 'long'
             ? orderValueBN.gt(spotAvailableQuoteBN)
             : computedSizeBN.gt(spotAvailableBaseBN);
+      } else if (reduceOnly) {
+        // Reduce-only closes an existing position and consumes no new margin, so
+        // the available-margin check must not block it (HL bounds it to the
+        // position size); otherwise closing at zero free margin is impossible.
+        insufficientBalance = false;
       } else {
         const available = activeAssetData?.availableToTrade;
         const sideAvailableBN = new BigNumber(

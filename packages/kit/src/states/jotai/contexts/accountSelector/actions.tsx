@@ -2312,15 +2312,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             ([numKey, dbAccount]) => {
               const targetNum = Number(numKey);
               const current = mergedSelectedAccountsMap[targetNum];
+              // "Resolved" means a usable account identity: an others-wallet
+              // account, or an HD/HW wallet WITH an index. A wallet-only slot
+              // (no index) still auto-selects index 0, so treat it as fillable.
               const currentHasAccount = Boolean(
-                current?.walletId ||
-                current?.indexedAccountId ||
-                current?.othersWalletAccountId,
+                current?.othersWalletAccountId ||
+                (current?.walletId && current?.indexedAccountId),
               );
               const dbHasAccount = Boolean(
-                dbAccount?.walletId ||
-                dbAccount?.indexedAccountId ||
-                dbAccount?.othersWalletAccountId,
+                dbAccount?.othersWalletAccountId ||
+                (dbAccount?.walletId && dbAccount?.indexedAccountId),
               );
               if (!currentHasAccount && dbAccount && dbHasAccount) {
                 // Field-level merge: take only the account identity from DB and

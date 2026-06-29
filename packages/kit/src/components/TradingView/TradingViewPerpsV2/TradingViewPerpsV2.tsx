@@ -6,10 +6,7 @@ import { LottieView, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  useActiveTradeInstrumentAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -294,9 +291,6 @@ export function TradingViewPerpsV2(
   // Fetch szDecimals by the chart's own `symbol`: the global active-asset atoms
   // read null/stale under PerpsProviderMirror and can lag the chart symbol,
   // which truncated line quantities to a fallback (OK-56902, OK-56903).
-  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
-  const tradeMode = activeTradeInstrument.mode;
-  const szDecimalsKey = `${tradeMode}:${symbol}`;
   const [szDecimalsEntry, setSzDecimalsEntry] = useState<
     { key: string; value: number } | undefined
   >(undefined);
@@ -317,10 +311,9 @@ export function TradingViewPerpsV2(
         const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: symbol,
         });
-        next =
-          tradeMode === 'spot'
-            ? meta?.spotUniverse?.baseSzDecimals
-            : meta?.universe?.szDecimals;
+        // Derive spot/perp from the returned meta shape, not a separately
+        // tracked mode that can lag the symbol and read the wrong field.
+        next = meta?.spotUniverse?.baseSzDecimals ?? meta?.universe?.szDecimals;
       } catch {
         next = undefined;
       }
@@ -328,10 +321,10 @@ export function TradingViewPerpsV2(
         return;
       }
       if (typeof next === 'number') {
-        setSzDecimalsEntry({ key: `${tradeMode}:${symbol}`, value: next });
+        setSzDecimalsEntry({ key: symbol, value: next });
         return;
       }
-      if (attempt < MAX_ATTEMPTS) {
+      if (attempt + 1 < MAX_ATTEMPTS) {
         retryTimer = setTimeout(
           () => void run(attempt + 1),
           Math.min(250 * 2 ** attempt, 2000),
@@ -345,11 +338,11 @@ export function TradingViewPerpsV2(
         clearTimeout(retryTimer);
       }
     };
-  }, [symbol, tradeMode]);
-  // Use the fetched precision only if it's for the current symbol/mode, so a
-  // switch can't briefly format the new coin's lines with the old precision.
+  }, [symbol]);
+  // Use the fetched precision only if it's for the current symbol, so a switch
+  // can't briefly format the new coin's lines with the old precision.
   const szDecimals =
-    szDecimalsEntry?.key === szDecimalsKey ? szDecimalsEntry.value : undefined;
+    szDecimalsEntry?.key === symbol ? szDecimalsEntry.value : undefined;
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
