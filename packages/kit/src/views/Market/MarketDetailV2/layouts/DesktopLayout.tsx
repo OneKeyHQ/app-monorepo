@@ -26,6 +26,7 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
+  chartFullscreenHeaderFillHeight: 100,
   infoTabsHeight: 480,
 } as const;
 
@@ -213,6 +214,13 @@ export function DesktopLayout({
               isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
             }
           >
+            {isChartFullscreen ? (
+              <Stack
+                h={MARKET_DETAIL_LAYOUT.chartFullscreenHeaderFillHeight}
+                bg="$bgApp"
+                flexShrink={0}
+              />
+            ) : null}
             {marketTradingView}
           </Stack>
 
