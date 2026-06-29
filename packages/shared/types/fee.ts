@@ -185,7 +185,15 @@ export const GAS_ACCOUNT_SCENARIOS = [
   'earn',
   'dapp',
 ] as const;
-export type IGasAccountScenario = (typeof GAS_ACCOUNT_SCENARIOS)[number];
+// Frontend-only scenario codes that intentionally opt out of Gas Account.
+// These must not be sent to backend estimate-fee as scenario values.
+export const GAS_ACCOUNT_DISABLED_SCENARIOS = ['defi'] as const;
+export type IGasAccountApiScenario = (typeof GAS_ACCOUNT_SCENARIOS)[number];
+export type IGasAccountDisabledScenario =
+  (typeof GAS_ACCOUNT_DISABLED_SCENARIOS)[number];
+export type IGasAccountScenario =
+  | IGasAccountApiScenario
+  | IGasAccountDisabledScenario;
 
 export type IEstimateGasParams = {
   accountId: string;
@@ -195,7 +203,7 @@ export type IEstimateGasParams = {
   transfersInfo?: ITransferInfo[];
   lockedUserNonce?: number;
   gasAccountEnabled?: boolean;
-  scenario?: IGasAccountScenario;
+  scenario?: IGasAccountApiScenario;
 };
 
 export type IGasPayer = 'user' | 'megafuel' | 'gasAccount';

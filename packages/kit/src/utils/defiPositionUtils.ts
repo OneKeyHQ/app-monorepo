@@ -181,6 +181,10 @@ export type IProtocolPositionItem = {
   poolName?: string;
   poolFullName?: string;
   value: string;
+  // Most-conservative (lowest) health factor across the position's source
+  // positions, or null when none report one. Only lending/debt positions carry
+  // it; everything else stays null. Drives the Health Factor row.
+  healthFactor?: number | null;
   sections: IProtocolPositionSection[];
   sourcePositions?: IDeFiProtocol['positions'][number]['sourcePositions'];
 };
@@ -216,11 +220,9 @@ function normalizeDeFiCategory(value?: string) {
 }
 
 // Some upstreams (notably f(x) Protocol) stamp a placeholder like "x" into
-// poolName when the position has no real market label. Without filtering
-// we'd both render the literal "x" in the Position cell and let the
-// unified-row bucketer merge every placeholder-named position into a
-// single phantom row. `sanitizePoolName` returns undefined for these so
-// callers fall back to symbol-join for display and per-groupId bucketing.
+// poolName when the position has no real market label. `sanitizePoolName`
+// returns undefined for these so the Position cell falls back to the
+// symbol-join instead of rendering the literal "x".
 const POOL_NAME_PLACEHOLDERS: ReadonlySet<string> = new Set([
   'x',
   '-',
@@ -310,6 +312,23 @@ function buildPositionSections(position: IDeFiProtocol['positions'][number]) {
   }).filter((section) => section.assets.length > 0);
 }
 
+// Lending health factor is account-level, so a position's source positions
+// normally all report the same number; we still take the lowest finite value
+// defensively (lowest == closest to liquidation == the one worth surfacing).
+// Returns null when nothing reports a usable health factor.
+function getPositionHealthFactor(
+  sourcePositions: IDeFiProtocol['positions'][number]['sourcePositions'],
+): number | null {
+  let lowest: number | null = null;
+  for (const source of sourcePositions ?? []) {
+    const value = source.metrics?.healthFactor;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      lowest = lowest === null ? value : Math.min(lowest, value);
+    }
+  }
+  return lowest;
+}
+
 function buildProtocolPositionItems(protocol: IDeFiProtocol) {
   return protocol.positions.map<IProtocolPositionItem>((position) => {
     const categoryLabel = getPositionModuleLabel(position.category);
@@ -325,6 +344,7 @@ function buildProtocolPositionItems(protocol: IDeFiProtocol) {
       poolName: position.poolName,
       poolFullName: position.poolFullName,
       value: position.value,
+      healthFactor: getPositionHealthFactor(position.sourcePositions),
       sections,
       sourcePositions: position.sourcePositions,
     };
@@ -361,9 +381,9 @@ function buildLocalizedProtocolPositionItems({
 
 // ─── Category-grouped layout (desktop protocol list) ──────────────────────
 // Lending stays per-position because supplied/borrowed/rewards each get their
-// own row-section header; everything else collapses by category and merges
-// rows that share `poolName` so users see one logical position even when the
-// backend reports it as multiple groupIds.
+// own row-section header; everything else collapses by category into the
+// compact unified table — one row per groupId. Distinct groupIds are never
+// merged, even when they share a poolName.
 
 const LENDING_NORMALIZED_CATEGORY = 'lending';
 const DEPOSIT_NORMALIZED_CATEGORY = 'deposit';
@@ -457,10 +477,10 @@ function buildUnifiedRowsFromPositions(
   displayKind: IUnifiedPositionDisplayKind,
   positions: IProtocolPositionItem[],
 ): IProtocolUnifiedRow[] {
-  // Bucket by sanitized poolName (placeholder strings like "x" / "n/a" are
-  // treated as no-name so they don't collapse distinct positions into a
-  // single phantom row). Positions without a meaningful poolName bucket by
-  // groupId so they only ever merge with themselves.
+  // Bucket strictly by groupId. Distinct groupIds never merge — even when they
+  // share a poolName — so a pool the backend reports as several groupIds renders
+  // as several rows. Entries that share a groupId still merge, so a single
+  // position is never split across rows. poolName is display-only now.
   type IUnifiedRowBucket = {
     poolName?: string;
     suppliedAssets: IProtocolPositionSourceAsset[];
@@ -475,13 +495,10 @@ function buildUnifiedRowsFromPositions(
   const buckets = new Map<string, IUnifiedRowBucket>();
 
   for (const position of positions) {
-    // Falls back to poolFullName when the short name is a placeholder so
-    // the unified row still gets a real label (and a real bucket key)
-    // when the upstream only filled in the long name.
+    // poolName (falling back to poolFullName) is the display label only; the
+    // row is keyed by groupId so distinct groupIds stay distinct rows.
     const cleanPoolName = getProtocolPositionDisplayName(position);
-    const bucketKey = cleanPoolName
-      ? `name:${cleanPoolName}`
-      : `id:${position.groupId}`;
+    const bucketKey = `id:${position.groupId}`;
     let bucket = buckets.get(bucketKey);
     if (!bucket) {
       bucket = {
@@ -557,7 +574,7 @@ function buildUnifiedRowsFromPositions(
     }
 
     return {
-      rowKey: bucket.poolName ? `name:${bucket.poolName}` : `id:${key}`,
+      rowKey: key,
       groupId: bucket.firstGroupId,
       category: bucket.category,
       sourcePositions: bucket.sourcePositions,
@@ -574,6 +591,36 @@ function buildUnifiedRowsFromPositions(
 const DEBT_GROUP_KEY_SUFFIX = ':debt';
 
 function positionHasBorrowed(position: IProtocolPositionItem): boolean {
+  return position.sections.some(
+    (section) => section.assetType === 'borrowed' && section.assets.length > 0,
+  );
+}
+
+// The inline action for a section sits under the asset it acts on: Withdraw
+// with supplied balances, Repay with borrowed debt, Claim with rewards. Shared
+// by the desktop sectioned table and the mobile/detail per-asset rows so both
+// place the same button against the same asset.
+export function getSectionActionPlacement(
+  assetType: IProtocolPositionSectionAssetType,
+): 'balance' | 'rewards' | 'debt' | undefined {
+  if (assetType === 'rewards') return 'rewards';
+  if (assetType === 'supplied' || assetType === 'other') return 'balance';
+  if (assetType === 'borrowed') return 'debt';
+  return undefined;
+}
+
+// A position renders as "sectioned" (Supplied/Borrowed/Rewards blocks, each
+// asset getting its own action) when it's lending or carries debt; otherwise
+// it's a compact "unified" position with a single position-level action.
+// Mirrors the split in buildProtocolCategoryGroups so the detail page matches
+// the list.
+function isSectionedPosition(
+  position: ILocalizedProtocolPositionItem,
+): boolean {
+  const normalized = normalizeDeFiCategory(position.category) || 'other';
+  if (normalized === LENDING_NORMALIZED_CATEGORY) {
+    return true;
+  }
   return position.sections.some(
     (section) => section.assetType === 'borrowed' && section.assets.length > 0,
   );
@@ -760,4 +807,5 @@ export {
   collectDeFiImageUrls,
   getProtocolPositionDisplayName,
   getPositionModuleLabel,
+  isSectionedPosition,
 };
