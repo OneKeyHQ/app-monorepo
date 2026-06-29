@@ -75,6 +75,16 @@ jest.mock('@onekeyhq/shared/src/utils/timerUtils', () => ({
   },
 }));
 
+// The confirming sheet is UI (pulls Dialog / expo openUrl); the hook only needs
+// it as a side effect, so stub it for these logic tests.
+jest.mock(
+  '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult',
+  () => ({
+    __esModule: true,
+    showDeFiActionTxConfirmDialog: jest.fn().mockResolvedValue(undefined),
+  }),
+);
+
 import { act, renderHook } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
