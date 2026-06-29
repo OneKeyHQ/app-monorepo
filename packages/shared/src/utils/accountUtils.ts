@@ -25,6 +25,7 @@ import {
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
 } from '../consts/perp';
 import {
+  COINTYPE_ADA,
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
   COINTYPE_ETH,
@@ -700,15 +701,34 @@ function buildAccountLocalAssetsKey({
   return ((xpub || accountAddress) ?? '').toLowerCase();
 }
 
-// Mirrors the BTC vault's `getAccountXpub` precedence so address-keyed storage
-// reads/writes land at the same key. Nested-segwit (P2SH-P2WPKH) accounts hold
-// the spendable xpub in `xpubSegwit`; reading raw `.xpub` instead misses that
-// derive type's worth. Accepts any account-shaped object — callers pass
-// IDBAccount / INetworkAccount whose non-UTXO variants don't structurally
-// declare these fields.
+// Mirrors each vault's `getXpubFromAccount` precedence so address-keyed storage
+// reads/writes land at the same key. The write path resolves the storage owner
+// via `ServiceAccount.getAccountXpub` (vault-dispatched), so this sync helper —
+// used by the batch readers, the legacy migration and the orphan sweep — MUST
+// return the same owner per chain or values are written and read under
+// different keys (symptom: account selector shows "--" despite a real balance).
+//
+// - Nested-segwit BTC (P2SH-P2WPKH) holds the spendable xpub in `xpubSegwit`;
+//   reading raw `.xpub` instead misses that derive type's worth (see
+//   `BtcVault.getXpubFromAccount`).
+// - Cardano (coinType 1815) has no usable extended-pubkey owner: its account is
+//   identified by the stake address at `addresses['2/0']`, which
+//   `AdaVault.getXpubFromAccount` returns as the "xpub". Returning raw `.xpub`
+//   here landed reads on a key the write path never produced.
+//
+// Accepts any account-shaped object — callers pass IDBAccount / INetworkAccount
+// whose non-UTXO variants don't structurally declare these fields.
 function pickXpubFromDBAccount(account: unknown): string | undefined {
   if (!account || typeof account !== 'object') return undefined;
-  const a = account as { xpub?: string; xpubSegwit?: string };
+  const a = account as {
+    coinType?: string;
+    xpub?: string;
+    xpubSegwit?: string;
+    addresses?: Record<string, string>;
+  };
+  if (a.coinType === COINTYPE_ADA) {
+    return a.addresses?.['2/0'];
+  }
   return a.xpubSegwit || a.xpub;
 }
 

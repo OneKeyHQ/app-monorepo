@@ -782,6 +782,8 @@ export const {
     field: 'volume24h',
     direction: 'desc',
     activeTab: DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+    sortSource: 'default',
+    sortSourceTab: undefined,
   },
 });
 

@@ -7,6 +7,8 @@ import type { IDesktopApiPlatformInfo } from '@onekeyhq/shared/types/desktopApiP
 
 import { ipcMessageKeys } from '../config';
 
+import { getProcessStartAt } from './getProcessStartAt';
+
 // Exported for the contract test in desktopApiContract.test.ts so drift
 // between this builder and IDesktopApiPlatformInfo is caught at test time
 // in addition to compile time.
@@ -36,6 +38,7 @@ export const buildPlatformInfoForIpc = (): IDesktopApiPlatformInfo => {
     isMas: Boolean((process as { mas?: boolean }).mas),
     channel,
     deskChannel: process.env.DESK_CHANNEL || '',
+    processStartAt: getProcessStartAt(),
   };
 };
 

@@ -3,12 +3,18 @@ import {
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
   comparePerpTokenSelectorSortValues,
+  getNextPerpTokenSelectorActiveTabConfig,
+  getNextPerpTokenSelectorSortConfig,
+  getPerpTokenSelectorDynamicTabItems,
   getPerpTokenSelectorFallbackTabId,
   getPerpTokenSelectorPrimaryTabId,
+  getPerpTokenSelectorSortAssetCtxsByDex,
   isPerpTokenSelectorAllTab,
+  isPerpTokenSelectorDynamicTabUserSort,
   isPerpTokenSelectorFavoritesTab,
   isPerpTokenSelectorPerpsTab,
   isPerpTokenSelectorPrimaryTab,
+  isPerpTokenSelectorSortFieldActive,
   isPerpTokenSelectorSpotTab,
   shouldRefreshPerpTokenSelectorSortSnapshot,
   sortPerpTokenSelectorItemsByServerOrder,
@@ -225,6 +231,238 @@ describe('tokenSelectorTabs', () => {
         getTokenName: (item) => item.name,
       }).map((item) => item.id),
     ).toEqual(['sol', 'btc', 'eth', 'unknown']);
+  });
+
+  it('keeps dynamic tab items in server token order instead of sorted-list order', () => {
+    const volumeSortedItems = [
+      { tokenName: 'BTC', volume24h: 100 },
+      { tokenName: 'ETH', volume24h: 80 },
+      { tokenName: 'MU', volume24h: 60 },
+      { tokenName: 'SOL', volume24h: 40 },
+    ];
+
+    expect(
+      getPerpTokenSelectorDynamicTabItems({
+        items: volumeSortedItems,
+        tokens: ['SOL', 'BTC', 'MU'],
+      }).map((item) => item.tokenName),
+    ).toEqual(['SOL', 'BTC', 'MU']);
+  });
+
+  it('uses sorted-list order for dynamic tab items after a header sort', () => {
+    const volumeSortedItems = [
+      { tokenName: 'BTC', volume24h: 100 },
+      { tokenName: 'ETH', volume24h: 80 },
+      { tokenName: 'MU', volume24h: 60 },
+      { tokenName: 'SOL', volume24h: 40 },
+    ];
+
+    expect(
+      getPerpTokenSelectorDynamicTabItems({
+        items: volumeSortedItems,
+        tokens: ['SOL', 'BTC', 'MU'],
+        useSortedItemsOrder: true,
+      }).map((item) => item.tokenName),
+    ).toEqual(['BTC', 'MU', 'SOL']);
+  });
+
+  it('keeps dynamic tab user sort aligned with the sorted volume order', () => {
+    const defaultHotTokens = ['ZRO', 'AAVE', 'JUP', 'BTC'];
+    const volumeDescItems = [
+      { tokenName: 'BTC', volume24h: 3_690_000_000 },
+      { tokenName: 'AAVE', volume24h: 52_520_000 },
+      { tokenName: 'JUP', volume24h: 11_850_000 },
+      { tokenName: 'ZRO', volume24h: 5_950_000 },
+    ];
+
+    const result = getPerpTokenSelectorDynamicTabItems({
+      items: volumeDescItems,
+      tokens: defaultHotTokens,
+      useSortedItemsOrder: true,
+    });
+
+    expect(result.map((item) => item.tokenName)).toEqual([
+      'BTC',
+      'AAVE',
+      'JUP',
+      'ZRO',
+    ]);
+    expect(result.map((item) => item.volume24h)).toEqual(
+      result.map((item) => item.volume24h).toSorted((a, b) => b - a),
+    );
+  });
+
+  it('does not treat the default dynamic tab order as an active header sort', () => {
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'hot',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'default',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'hot',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'user',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'hot',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+      }),
+    ).toBe(true);
+    expect(
+      isPerpTokenSelectorSortFieldActive({
+        activeTab: 'perps',
+        field: 'volume24h',
+        sortField: 'volume24h',
+        sortSource: 'default',
+      }),
+    ).toBe(true);
+  });
+
+  it('scopes dynamic tab user sorting to the clicked tab', () => {
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+      }),
+    ).toBe(false);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'hot',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+      }),
+    ).toBe(true);
+    expect(
+      isPerpTokenSelectorDynamicTabUserSort({
+        activeTab: 'perps',
+        sortSource: 'user',
+        sortSourceTab: 'perps',
+      }),
+    ).toBe(false);
+  });
+
+  it('resets user sort source when switching tabs', () => {
+    expect(
+      getNextPerpTokenSelectorActiveTabConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'asc',
+          activeTab: 'perps',
+          sortSource: 'user',
+          sortSourceTab: 'perps',
+        },
+        tab: 'hot',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'asc',
+      activeTab: 'hot',
+      sortSource: 'default',
+      sortSourceTab: undefined,
+    });
+  });
+
+  it('starts user sorting from descending on a dynamic tab default order', () => {
+    expect(
+      getNextPerpTokenSelectorSortConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'desc',
+          activeTab: 'hot',
+          sortSource: 'default',
+        },
+        field: 'volume24h',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'desc',
+      activeTab: 'hot',
+      sortSource: 'user',
+      sortSourceTab: 'hot',
+    });
+  });
+
+  it('toggles and resets user sorting on dynamic tabs', () => {
+    expect(
+      getNextPerpTokenSelectorSortConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'desc',
+          activeTab: 'hot',
+          sortSource: 'user',
+          sortSourceTab: 'hot',
+        },
+        field: 'volume24h',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'asc',
+      activeTab: 'hot',
+      sortSource: 'user',
+      sortSourceTab: 'hot',
+    });
+    expect(
+      getNextPerpTokenSelectorSortConfig({
+        prev: {
+          field: 'volume24h',
+          direction: 'asc',
+          activeTab: 'hot',
+          sortSource: 'user',
+          sortSourceTab: 'hot',
+        },
+        field: 'volume24h',
+      }),
+    ).toEqual({
+      field: 'volume24h',
+      direction: 'desc',
+      activeTab: 'hot',
+      sortSource: 'default',
+      sortSourceTab: undefined,
+    });
+  });
+
+  it('refreshes the sort snapshot when only sort source changes', () => {
+    expect(
+      shouldRefreshPerpTokenSelectorSortSnapshot({
+        lastSort: {
+          field: 'volume24h',
+          direction: 'desc',
+          sortSource: 'default',
+        },
+        field: 'volume24h',
+        direction: 'desc',
+        sortSource: 'user',
+        sortSourceTab: 'hot',
+        snapshotEmpty: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('always uses snapshot asset ctxs for the full perp list sort', () => {
+    const snapshotAssetCtxsByDex = [[{ volume: '8' }]];
+
+    expect(
+      getPerpTokenSelectorSortAssetCtxsByDex({
+        snapshotAssetCtxsByDex,
+      }),
+    ).toBe(snapshotAssetCtxsByDex);
   });
 
   it('only refreshes sort snapshots on sort changes or first data arrival', () => {

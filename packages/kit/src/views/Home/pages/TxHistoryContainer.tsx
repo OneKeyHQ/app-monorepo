@@ -46,7 +46,7 @@ import {
   ProviderJotaiContextHistoryList,
   useHistoryListActions,
 } from '../../../states/jotai/contexts/historyList';
-import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { maybeOpenPrivateSendHistoryDetail } from '../../Swap/utils/privateSendHistory';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
@@ -82,7 +82,10 @@ function TxHistoryListContainer(
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
 
-  const [allTokenListMap] = useAllTokenListMapAtom();
+  // Full home fiat map (PULLed from the BG VM, refreshed on each home structure
+  // frame). Feeds ONLY the empty-history-state receive action (B2: not the
+  // history rows). Replaces the deleted `allTokenListMapAtom`.
+  const { map: allTokenListMap } = useHomeTokenListSnapshot();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 

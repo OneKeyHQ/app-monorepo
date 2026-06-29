@@ -18,6 +18,12 @@ export enum EAppSyncStorageKeys {
   onekey_jotai_context_atoms_snapshot = 'onekey_jotai_context_atoms_snapshot',
   onekey_account_selector_recent_selection = 'onekey_account_selector_recent_selection',
   onekey_swr_cache = 'onekey_swr_cache',
+  // TokenList cells one-time cold-start cleanup version flag (spec §7). A
+  // monotonically-increasing integer compared against
+  // TOKEN_COLD_START_CLEANUP_VERSION so the OLD `::ctx:renderedTokenListCacheAtom`
+  // disk fields are purged once per version (and re-purged after a
+  // downgrade→upgrade). Stored in the cold-start cache MMKV instance.
+  onekey_tokenlist_cold_start_cleanup_version = 'onekey_tokenlist_cold_start_cleanup_version',
 }
 
 // Dev setting keys stored in the separate 'onekey-app-dev-setting' MMKV instance,
