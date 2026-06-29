@@ -146,10 +146,9 @@ build({
     // parse them on every cold start. They are shipped as node_modules inside
     // the asar (see app/package.json dependencies) and required on demand.
     // @sentry/electron (~4.3MB) pulls the whole Sentry Node SDK + OpenTelemetry
-    // backend instrumentations; openpgp/systeminformation/iconv-lite are only
-    // needed for specific, non-boot-critical features.
+    // backend instrumentations; systeminformation/iconv-lite are only needed for
+    // specific, non-boot-critical features.
     '@sentry/electron',
-    'openpgp',
     'systeminformation',
     'iconv-lite',
     // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
