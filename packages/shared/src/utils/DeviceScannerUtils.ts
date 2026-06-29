@@ -1,3 +1,4 @@
+import { getVendorProfile } from '@onekeyhq/shared/src/hardware/vendorProfile';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
@@ -6,6 +7,8 @@ import type { SearchDevice, Success, Unsuccessful } from '@onekeyfe/hd-core';
 const MAX_SEARCH_TRY_COUNT = 15;
 const POLL_INTERVAL = 1000;
 const POLL_INTERVAL_RATE = 1.5;
+// Third-party (Trezor/Ledger) backoff cap; OneKey keeps its unbounded backoff.
+const MAX_POLL_INTERVAL = 8000;
 
 type ISearchResponse = Unsuccessful | Success<SearchDevice[]>;
 type IPollFn<T> = (time?: number, index?: number, rate?: number) => T;
@@ -54,6 +57,7 @@ export class DeviceScannerUtils {
     options?: IDeviceScanOptions,
   ) {
     const MaxTryCount = maxTryCount ?? MAX_SEARCH_TRY_COUNT;
+    const isThirdPartyVendor = getVendorProfile(vendor).isThirdParty;
     let shouldResetSession = options?.resetSession ?? false;
     const searchDevices = async () => {
       const currentSearchTask = this.currentSearchTask;
@@ -109,8 +113,11 @@ export class DeviceScannerUtils {
       }
 
       await searchDevices();
+      const nextTime = isThirdPartyVendor
+        ? Math.min(time * rate, MAX_POLL_INTERVAL)
+        : time * rate;
       return new Promise((resolve: (p: void) => void) =>
-        setTimeout(() => resolve(poll(time * rate, searchIndex, rate)), time),
+        setTimeout(() => resolve(poll(nextTime, searchIndex, rate)), time),
       );
     };
 
