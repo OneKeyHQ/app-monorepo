@@ -131,6 +131,7 @@ import {
   swapSpeedQuoteResultAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
@@ -623,6 +624,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       if (toToken) {
         set(swapSelectToTokenAtom(), toToken);
+      }
+      let stockSelectedToken: ISwapToken | undefined;
+      if (fromToken?.isStock) {
+        stockSelectedToken = fromToken;
+      } else if (toToken?.isStock) {
+        stockSelectedToken = toToken;
+      }
+      if (stockSelectedToken) {
+        set(swapStockSelectedTokenAtom(), stockSelectedToken);
       }
       if (fromToken && toToken) {
         set(swapStockExecutionTokensAtom(), {
@@ -2306,6 +2316,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId: accountIdKey,
         lpToken,
         currency,
+        protocol: swapTypeSwitchValue,
       });
       if (swapAllNetworkActionLock[tokenListCacheKey]) {
         return;

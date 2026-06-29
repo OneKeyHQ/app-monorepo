@@ -42,10 +42,12 @@ import {
   swapSelectedTokensColdStartContextAtom,
   swapStockExecutionTokenSyncIdAtom,
   swapStockExecutionTokensAtom,
+  swapStockSelectedTokenAtom,
   swapTypeSwitchAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapStockSelectedTokenAtom,
 } from './atoms';
 
 type IFetchSwapTokenDetailsParams = {
@@ -126,6 +128,7 @@ const stockTokenA: ISwapToken = {
   symbol: 'STOCKA',
   decimals: 18,
   isNative: false,
+  isStock: true,
 };
 const appleStockToken: ISwapToken = {
   networkId: 'evm--56',
@@ -133,6 +136,7 @@ const appleStockToken: ISwapToken = {
   symbol: 'AAPL',
   decimals: 18,
   isNative: false,
+  isStock: true,
 };
 const evmAccount: INetworkAccount = {
   id: 'hd-1--m/44/60/0/0/0',
@@ -292,10 +296,12 @@ describe('useSwapActions', () => {
         const actions = useSwapActions().current;
         const [fromToken] = useSwapSelectFromTokenAtom();
         const [toToken] = useSwapSelectToTokenAtom();
+        const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
 
         return {
           actions,
           fromToken,
+          stockSelectedToken,
           toToken,
         };
       },
@@ -330,6 +336,38 @@ describe('useSwapActions', () => {
       symbol: 'AAPL',
       contractAddress: '0xaapl',
     });
+    expect(result.current.stockSelectedToken).toMatchObject({
+      symbol: 'AAPL',
+      contractAddress: '0xaapl',
+    });
+  });
+
+  it('does not clear the Stock selected owner on a pay-token-only execution sync', async () => {
+    const { result } = renderHook(
+      () => {
+        const actions = useSwapActions().current;
+        const [stockSelectedToken] = useSwapStockSelectedTokenAtom();
+
+        return {
+          actions,
+          stockSelectedToken,
+        };
+      },
+      {
+        wrapper: createWrapper((storeInstance) => {
+          storeInstance.set(swapStockSelectedTokenAtom(), stockTokenA);
+        }),
+      },
+    );
+
+    await act(async () => {
+      await result.current.actions.selectStockExecutionTokens({
+        fromToken: usdcToken,
+        syncId: 1,
+      });
+    });
+
+    expect(result.current.stockSelectedToken).toBe(stockTokenA);
   });
 
   it('checks warnings for a current-event quote while providers are still fetching', async () => {
@@ -617,6 +655,7 @@ describe('useSwapActions', () => {
         fromToken: usdcToken,
         toToken: stockTokenA,
       });
+      storeInstance.set(swapStockSelectedTokenAtom(), stockTokenA);
       storeInstance.set(swapFromTokenAmountAtom(), {
         value: '1',
         isInput: true,
@@ -644,6 +683,7 @@ describe('useSwapActions', () => {
       fromToken: usdcToken,
       toToken: stockTokenA,
     });
+    expect(store.get(swapStockSelectedTokenAtom())).toBe(stockTokenA);
     expect(store.get(swapFromTokenAmountAtom())).toEqual({
       value: '1',
       isInput: true,
