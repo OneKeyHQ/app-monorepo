@@ -799,6 +799,8 @@ export { default as TouchId } from './TouchId';
 export { default as TouchId2 } from './TouchId2';
 export { default as Tpsl } from './Tpsl';
 export { default as Trade } from './Trade';
+export { default as TradingViewBars } from './TradingViewBars';
+export { default as TradingViewCandlesHlc } from './TradingViewCandlesHlc';
 export { default as TradingViewCandles } from './TradingViewCandles';
 export { default as TradingViewLine } from './TradingViewLine';
 export { default as TrailingStop } from './TrailingStop';
