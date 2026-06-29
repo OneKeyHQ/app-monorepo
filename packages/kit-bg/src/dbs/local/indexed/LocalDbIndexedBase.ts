@@ -8,17 +8,22 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  LocalDbOpenError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IndexedDBObjectStorePromised,
   IndexedDBTransactionPromised,
 } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
+import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
 import { INDEXED_DB_VERSION, storeNameSupportCreatedAt } from '../consts';
 import { LocalDbBase } from '../LocalDbBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -196,7 +201,28 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
           });
         },
       });
-      await indexed.open();
+      try {
+        await indexed.open();
+      } catch (error) {
+        // Any failure to open the local database is re-thrown as a generic
+        // LocalDbOpenError. A version downgrade (on-disk DB newer than this
+        // build) is only one possible cause — disk corruption, I/O errors,
+        // quota, etc. all land here too — so we deliberately do NOT inspect the
+        // error type/name to classify it (brittle and easy to misclassify). We
+        // keep the ORIGINAL error message (only falling back to a fixed English
+        // string when the underlying error carries none): record it via the
+        // structured logger (console.* is stripped in production; defaultLogger
+        // reaches the exportable logs the user can upload from the lock screen),
+        // publish it to the global atom so the lock screen can show it
+        // immediately on mount, and carry it on the thrown error so the raw
+        // reason is never masked. (OK-56874)
+        const rawMessage = (error as Error)?.message || 'DB open unknown error';
+        defaultLogger.app.error.log(
+          `[LocalDbIndexed] open failed: ${rawMessage}`,
+        );
+        void localDbOpenErrorAtom.set({ errorMessage: rawMessage });
+        throw new LocalDbOpenError({ message: rawMessage });
+      }
 
       buckets[bucketName] = indexed;
       if (process.env.NODE_ENV !== 'production') {
