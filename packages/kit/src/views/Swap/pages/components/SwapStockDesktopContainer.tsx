@@ -123,6 +123,7 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
+  normalizeSwapKLineWalletChartTimestamp,
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
@@ -1208,7 +1209,9 @@ function StockMarketTokenHeader({
 }: {
   storeName: EJotaiContextStoreNames;
 }) {
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail: marketTokenDetail, networkId } = useTokenDetail();
+  const stockChannel = useSwapStockTradeContext();
+  const tokenDetail = stockChannel.activeStockTokenDetail ?? marketTokenDetail;
   const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
@@ -1343,6 +1346,7 @@ function StockPriceChart({
   onRangeChange,
   pulseLastPoint,
   range,
+  realtimeChartPoint,
   tokenAddress,
 }: {
   coinGeckoId?: string;
@@ -1351,6 +1355,7 @@ function StockPriceChart({
   onRangeChange: (range: IStockChartRange) => void;
   pulseLastPoint?: boolean;
   range: IStockChartRange;
+  realtimeChartPoint?: IMarketTokenChart[number];
   tokenAddress?: string;
 }) {
   const intl = useIntl();
@@ -1439,10 +1444,51 @@ function StockPriceChart({
   const isChartStateForCurrentScope = chartState.scope === chartScope;
   const canReusePreviousRangeChartData =
     chartState.assetScope === chartAssetScope;
-  const chartData =
-    isChartStateForCurrentScope || canReusePreviousRangeChartData
-      ? chartState.data
-      : ([] as IMarketTokenChart);
+  const baseChartData = useMemo<IMarketTokenChart>(
+    () =>
+      isChartStateForCurrentScope || canReusePreviousRangeChartData
+        ? chartState.data
+        : [],
+    [
+      canReusePreviousRangeChartData,
+      chartState.data,
+      isChartStateForCurrentScope,
+    ],
+  );
+  const chartData = useMemo<IMarketTokenChart>(() => {
+    if (!realtimeChartPoint) {
+      return baseChartData;
+    }
+
+    const [timestamp, price] = realtimeChartPoint;
+    const normalizedTimestamp =
+      normalizeSwapKLineWalletChartTimestamp(timestamp);
+    const normalizedPrice = Number(price);
+    if (
+      !Number.isFinite(normalizedTimestamp) ||
+      !Number.isFinite(normalizedPrice)
+    ) {
+      return baseChartData;
+    }
+
+    const pointsByTimestamp = new Map<number, number>();
+    for (const [pointTimestamp, pointPrice] of baseChartData) {
+      const normalizedPointTimestamp =
+        normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
+      const normalizedPointPrice = Number(pointPrice);
+      if (
+        Number.isFinite(normalizedPointTimestamp) &&
+        Number.isFinite(normalizedPointPrice)
+      ) {
+        pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
+      }
+    }
+    pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
+
+    return Array.from(pointsByTimestamp.entries()).toSorted(
+      (a, b) => a[0] - b[0],
+    );
+  }, [baseChartData, realtimeChartPoint]);
   const shouldShowChartLoading =
     chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
@@ -1817,6 +1863,7 @@ function StockMarketContextPanel({
             range={range}
             onRangeChange={setRange}
             pulseLastPoint={isMarketOpen}
+            realtimeChartPoint={stockChannel.realtimeChartPoint}
           />
         ) : (
           <Skeleton w="100%" h={274} />

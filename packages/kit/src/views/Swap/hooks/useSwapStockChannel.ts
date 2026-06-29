@@ -45,6 +45,7 @@ import {
   resolveStockChannelToken,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
+import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
 
 export {
@@ -143,6 +144,12 @@ export function useSwapStockChannel({
     !!currentStockTokenKey &&
     activeMarketTokenKey === currentStockTokenKey &&
     !!tokenDetail?.stock;
+  const { realtimeChartPoint, realtimeTokenDetail: activeStockTokenDetail } =
+    useSwapStockMarketWebSocket({
+      currentStockToken,
+      enabled: !!currentStockTokenKey,
+      tokenDetail: isActiveMarketStockDetail ? tokenDetail : undefined,
+    });
 
   const requestMarketActiveToken = useCallback(
     (token?: Partial<ISwapTokenBase>) => {
@@ -285,17 +292,17 @@ export function useSwapStockChannel({
   const stockMarketStatus = useMemo<
     IFetchUSMarketStatusResult | undefined
   >(() => {
-    if (!isActiveMarketStockDetail || !tokenDetail?.stock) {
+    if (!activeStockTokenDetail?.stock) {
       return undefined;
     }
-    const isOpen = tokenDetail.stock.isOpen;
+    const isOpen = activeStockTokenDetail.stock.isOpen;
     return {
       open: isOpen === true,
       session: isOpen === true ? 'REGULAR' : 'CLOSED',
-      reason: tokenDetail.stock.description ?? null,
+      reason: activeStockTokenDetail.stock.description ?? null,
       unavailable: typeof isOpen === 'boolean' ? undefined : true,
     };
-  }, [isActiveMarketStockDetail, tokenDetail?.stock]);
+  }, [activeStockTokenDetail?.stock]);
   const stockMarketStatusOpen = stockMarketStatus?.open === true;
 
   const selectPayToken = useCallback(
@@ -450,19 +457,14 @@ export function useSwapStockChannel({
     if (!currentStockTokenKey) {
       return ESwapStockChannelAsyncStatus.Idle;
     }
-    if (!isActiveMarketStockDetail || !tokenDetail?.stock) {
+    if (!activeStockTokenDetail?.stock) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
     if (stockMarketStatus) {
       return ESwapStockChannelAsyncStatus.Ready;
     }
     return ESwapStockChannelAsyncStatus.Empty;
-  }, [
-    currentStockTokenKey,
-    isActiveMarketStockDetail,
-    stockMarketStatus,
-    tokenDetail?.stock,
-  ]);
+  }, [currentStockTokenKey, activeStockTokenDetail?.stock, stockMarketStatus]);
 
   const channelStage = useMemo(() => {
     if (stockTokenStatus === ESwapStockChannelAsyncStatus.Initializing) {
@@ -553,6 +555,8 @@ export function useSwapStockChannel({
       tradeSide,
       stockNetworkId,
       stockMarketStatus,
+      activeStockTokenDetail,
+      realtimeChartPoint,
       currentStockToken,
       payToken,
       fromToken,
@@ -579,12 +583,14 @@ export function useSwapStockChannel({
       payTokenStatus,
       payTokens,
       readyForQuote,
+      realtimeChartPoint,
       selectablePayTokens,
       selectPayToken,
       selectRecentTokenPair,
       selectStockToken,
       switchTradeSide,
       speedConfigReady,
+      activeStockTokenDetail,
       stockMarketStatus,
       stockNetworkId,
       stockTokenStatus,
