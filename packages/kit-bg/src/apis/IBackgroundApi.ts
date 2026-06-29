@@ -141,7 +141,10 @@ export interface IBackgroundApiBridge {
   bridgeReceiveHandler: IJsBridgeReceiveHandler;
 
   // **** dapp provider api
-  providers: Record<IInjectedProviderNames, ProviderApiBase>;
+  // Only $private is eagerly present; per-chain providers are loaded lazily via
+  // getProviderApi(scope) so their chain SDKs stay out of the startup bundle.
+  providers: Partial<Record<IInjectedProviderNames, ProviderApiBase>>;
+  getProviderApi(scope: IInjectedProviderNames): Promise<ProviderApiBase>;
   sendForProvider(providerName: IInjectedProviderNamesStrings): any;
   handleProviderMethods<T>(
     payload: IJsBridgeMessagePayload,
