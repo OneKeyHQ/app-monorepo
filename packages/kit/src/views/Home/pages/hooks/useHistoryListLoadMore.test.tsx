@@ -16,10 +16,19 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
 type IDeferred<T> = {
   promise: Promise<T>;
   resolve: (value: T) => void;
+};
+
+type IHistoryLoadMoreTestResponse = {
+  txs: IAccountHistoryTx[];
+  hasMoreOnChainHistory: boolean;
+  next?: string;
+  isIndexer?: boolean;
+  addressMap?: Record<string, unknown>;
 };
 
 function createDeferred<T>(): IDeferred<T> {
@@ -28,6 +37,10 @@ function createDeferred<T>(): IDeferred<T> {
     resolve = res;
   });
   return { promise, resolve };
+}
+
+function createMockTx(id: string): IAccountHistoryTx {
+  return { id } as IAccountHistoryTx;
 }
 
 const globalMockBag = globalThis as typeof globalThis & {
@@ -71,15 +84,9 @@ describe('useHistoryListLoadMore', () => {
     getFetchMock().mockReset();
   });
 
-  it('clears the loading spinner when a first-page refresh orphans an in-flight load-more', async () => {
+  it('keeps loaded rows stable when a first-page refresh lands during in-flight load-more', async () => {
     const fetchMock = getFetchMock();
-    const inflight = createDeferred<{
-      txs: { id: string }[];
-      hasMoreOnChainHistory: boolean;
-      next?: string;
-      isIndexer?: boolean;
-      addressMap?: Record<string, unknown>;
-    }>();
+    const inflight = createDeferred<IHistoryLoadMoreTestResponse>();
     fetchMock.mockReturnValueOnce(inflight.promise);
 
     const { result } = renderHook(() =>
@@ -93,6 +100,7 @@ describe('useHistoryListLoadMore', () => {
     // Arm pagination (first page says there is more to load).
     act(() => {
       result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-1'), createMockTx('tx-2')],
         next: 'cursor-1',
         hasMore: true,
         isIndexer: false,
@@ -107,49 +115,120 @@ describe('useHistoryListLoadMore', () => {
     await waitFor(() => expect(result.current.isLoadingMore).toBe(true));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    // A periodic first-page refresh lands WHILE the load-more is still in
-    // flight — this bumps the pagination generation, orphaning the load-more.
+    // A periodic first-page refresh lands while page 2 is still in flight.
+    // The new first page pushed tx-2 out of page 1, so tx-2 must be kept in
+    // appended rows instead of shrinking the list back to the first page.
     act(() => {
       result.current.onFirstPageResponse({
-        next: 'cursor-2',
+        txs: [createMockTx('tx-0'), createMockTx('tx-1')],
+        next: 'cursor-new-first-page',
         hasMore: true,
         isIndexer: false,
       });
     });
+    await waitFor(() =>
+      expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual(['tx-2']),
+    );
+    expect(result.current.isLoadingMore).toBe(true);
 
-    // The orphaned load-more now resolves; its generation no longer matches.
     await act(async () => {
       inflight.resolve({
-        txs: [{ id: 'tx-1' }],
+        txs: [createMockTx('tx-3')],
         hasMoreOnChainHistory: true,
-        next: 'cursor-1-next',
+        next: 'cursor-2',
         isIndexer: false,
         addressMap: {},
       });
       await inflight.promise;
     });
 
-    // The spinner must NOT be stuck on.
     await waitFor(() => expect(result.current.isLoadingMore).toBe(false));
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-2',
+      'tx-3',
+    ]);
+  });
 
-    // …and the in-flight lock must be released so pagination can recover: a
-    // fresh load-more should issue a new fetch rather than bail on the lock.
-    const recovery = createDeferred<{
-      txs: { id: string }[];
-      hasMoreOnChainHistory: boolean;
-    }>();
-    fetchMock.mockReturnValueOnce(recovery.promise);
+  it('preserves the loaded range and deep cursor after first-page polling refresh', async () => {
+    const fetchMock = getFetchMock();
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-3'), createMockTx('tx-4')],
+      hasMoreOnChainHistory: true,
+      next: 'cursor-2',
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    const { result } = renderHook(() =>
+      useHistoryListLoadMore({
+        enabled: true,
+        accountId: 'account-1',
+        networkId: 'evm--1',
+      }),
+    );
+
     act(() => {
-      void result.current.loadMore();
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-1'), createMockTx('tx-2')],
+        next: 'cursor-1',
+        hasMore: true,
+        isIndexer: false,
+      });
     });
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-    // Settle the recovery fetch so its soft-timeout timer is cleared and no
-    // real timer leaks past the test.
     await act(async () => {
-      recovery.resolve({ txs: [], hasMoreOnChainHistory: false });
-      await recovery.promise;
+      await result.current.loadMore();
     });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        page: 2,
+        cursor: 'cursor-1',
+      }),
+    );
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-3',
+      'tx-4',
+    ]);
+
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-0'), createMockTx('tx-1')],
+        next: 'cursor-new-first-page',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-2',
+      'tx-3',
+      'tx-4',
+    ]);
+
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-5')],
+      hasMoreOnChainHistory: false,
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 3,
+        cursor: 'cursor-2',
+      }),
+    );
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-2',
+      'tx-3',
+      'tx-4',
+      'tx-5',
+    ]);
   });
 
   it('clears the spinner via the soft timeout when the proxy round-trip hangs', async () => {
@@ -170,6 +249,7 @@ describe('useHistoryListLoadMore', () => {
 
       act(() => {
         result.current.onFirstPageResponse({
+          txs: [createMockTx('tx-1')],
           next: 'cursor-1',
           hasMore: true,
           isIndexer: false,
