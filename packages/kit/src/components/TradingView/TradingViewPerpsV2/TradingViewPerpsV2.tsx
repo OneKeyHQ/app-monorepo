@@ -6,7 +6,10 @@ import { LottieView, Stack, useTheme } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import TradingViewChartLoadingAnimation from '@onekeyhq/kit/assets/animations/swap_order_pending.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveTradeInstrumentAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { showSetTpslDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
 import { showLimitOrderDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm';
 import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -288,61 +291,15 @@ export function TradingViewPerpsV2(
   const intl = useIntl();
   const { restoreNonce } = useNetworkRestore();
 
-  // Fetch szDecimals by the chart's own `symbol`: the global active-asset atoms
-  // read null/stale under PerpsProviderMirror and can lag the chart symbol,
-  // which truncated line quantities to a fallback (OK-56902, OK-56903).
-  const [szDecimalsEntry, setSzDecimalsEntry] = useState<
-    { key: string; value: number } | undefined
-  >(undefined);
-  useEffect(() => {
-    if (!symbol) {
-      return undefined;
-    }
-    let cancelled = false;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    // Cold start: the trading universe / spot meta may not be in simpleDb yet,
-    // so getSymbolMeta throws "Asset id not found". Retry with backoff instead
-    // of latching szDecimals at the fallback for the whole mount cycle, which
-    // would persistently truncate line quantities.
-    const MAX_ATTEMPTS = 8;
-    const run = async (attempt: number) => {
-      let next: number | undefined;
-      try {
-        const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin: symbol,
-        });
-        // Derive spot/perp from the returned meta shape, not a separately
-        // tracked mode that can lag the symbol and read the wrong field.
-        next = meta?.spotUniverse?.baseSzDecimals ?? meta?.universe?.szDecimals;
-      } catch {
-        next = undefined;
-      }
-      if (cancelled) {
-        return;
-      }
-      if (typeof next === 'number') {
-        setSzDecimalsEntry({ key: symbol, value: next });
-        return;
-      }
-      if (attempt + 1 < MAX_ATTEMPTS) {
-        retryTimer = setTimeout(
-          () => void run(attempt + 1),
-          Math.min(250 * 2 ** attempt, 2000),
-        );
-      }
-    };
-    void run(0);
-    return () => {
-      cancelled = true;
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-    };
-  }, [symbol]);
-  // Use the fetched precision only if it's for the current symbol, so a switch
-  // can't briefly format the new coin's lines with the old precision.
+  // szDecimals comes from the active instrument's universe — the same scoped
+  // atom that drives `symbol`, so coin and precision update together (no chart-
+  // symbol divergence) and reactively once meta loads. getSymbolMeta(symbol)
+  // can't resolve spot, whose coin is a plain base name (OK-56902/56903).
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const szDecimals =
-    szDecimalsEntry?.key === symbol ? szDecimalsEntry.value : undefined;
+    activeTradeInstrument.mode === 'spot'
+      ? activeTradeInstrument.universe?.baseSzDecimals
+      : activeTradeInstrument.universe?.szDecimals;
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}${
       reloadOnSymbolChange ? `-${symbol}` : ''
