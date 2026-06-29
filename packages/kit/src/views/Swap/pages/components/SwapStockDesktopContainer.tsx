@@ -126,6 +126,7 @@ import {
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
+import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
@@ -1757,6 +1758,9 @@ function StockMobilePositionsSection({
           <SwapMarketHistoryList
             protocol={EProtocolOfExchange.STOCK}
             isPushModal
+            firstSectionRightAction={
+              <SwapHistoryClearButton scope="stock" triggerVariant="icon" />
+            }
           />
         </XStack>
       </YStack>

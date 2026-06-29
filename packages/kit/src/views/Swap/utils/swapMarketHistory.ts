@@ -21,6 +21,14 @@ export type ISwapRecentTokenPair = {
   toToken: ISwapToken;
 };
 
+// Protocols a Swap/Bridge-side "Clear history" must never touch: limit orders
+// and PrivateSend-like channels own their own surfaces. Single source of truth
+// for both the history modal and the shared clear control.
+export const SWAP_CLEAN_EXCLUDE_PROTOCOLS = [
+  EProtocolOfExchange.LIMIT,
+  EProtocolOfExchange.PRIVATE_SEND,
+];
+
 export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   return (
     item.protocol !== EProtocolOfExchange.LIMIT &&
