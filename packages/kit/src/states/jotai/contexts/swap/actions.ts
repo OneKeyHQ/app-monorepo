@@ -6,6 +6,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import { buildSwapDefaultSelectedTokensForNetwork } from '@onekeyhq/kit/src/views/Swap/utils/swapColdStartTokenCacheUtils';
+import { removeSwapNoConnectWalletAlerts } from '@onekeyhq/kit/src/views/Swap/utils/swapNoWalletWarningGuard';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import {
   isUSMarketStatusStockTokenSource,
@@ -1530,6 +1531,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       swapFromAddressInfo: ReturnType<typeof useSwapAddressInfo>,
       swapToAddressInfo: ReturnType<typeof useSwapAddressInfo>,
+      options?: {
+        allowNoConnectWallet?: boolean;
+      },
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
@@ -1615,11 +1619,28 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             states: alertsRes,
             quoteId: '',
           });
+        } else {
+          const alerts = get(swapAlertsAtom());
+          const nextAlerts = removeSwapNoConnectWalletAlerts(alerts.states);
+          if (nextAlerts.length !== alerts.states.length) {
+            set(swapAlertsAtom(), {
+              states: nextAlerts,
+              quoteId: alerts.quoteId,
+            });
+          }
         }
         return;
       }
       // check account
       if (!swapFromAddressInfo.accountInfo?.wallet) {
+        if (!options?.allowNoConnectWallet) {
+          const alerts = get(swapAlertsAtom());
+          set(swapAlertsAtom(), {
+            states: removeSwapNoConnectWalletAlerts(alerts.states),
+            quoteId: alerts.quoteId,
+          });
+          return;
+        }
         // Set noConnectWallet flag without showing alert message
         set(swapAlertsAtom(), {
           states: [...alertsRes, { noConnectWallet: true }],
