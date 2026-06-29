@@ -81,6 +81,30 @@ describe('stock metadata values', () => {
     expect(token.marketCap).toBe(3000);
     expect(token.turnover).toBe(4000);
   });
+
+  test('uses 24h price change for stock rows regardless of selected time range', () => {
+    const token = transformApiItemToToken(
+      {
+        address: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+        name: 'Stock Token',
+        symbol: 'STOCK',
+        decimals: 18,
+        priceChange1hPercent: '12.34',
+        priceChange24hPercent: '-0.62',
+        stock: {
+          subtitle: 'Stock Token Inc.',
+          sourceLogoUri: '',
+        },
+      },
+      {
+        chainId: 'evm--1',
+        networkLogoUri: '',
+        timeRange: '1h',
+      },
+    );
+
+    expect(token.change24h).toBe(-0.62);
+  });
 });
 
 describe('shouldShowStockSubtitleForTokens', () => {
