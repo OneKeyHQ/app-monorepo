@@ -428,6 +428,36 @@ function getTrezorActionAnimation(
   }
 }
 
+// THP pairing input — owns its text state so typing doesn't re-render the parent dialog.
+const TrezorThpPairingInput = memo(function TrezorThpPairingInput({
+  placeholder,
+  onChange,
+}: {
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [value, setValue] = useState('');
+  const handleChangeText = useCallback(
+    (next: string) => {
+      setValue(next);
+      onChange(next);
+    },
+    [onChange],
+  );
+  return (
+    <Input
+      testID="third-party-hw-trezor-thp-pairing-input"
+      value={value}
+      onChangeText={handleChangeText}
+      placeholder={placeholder}
+      autoCapitalize="none"
+      autoCorrect={false}
+      keyboardType="number-pad"
+      autoFocus
+    />
+  );
+});
+
 function DeviceActionToast({
   action,
   vendor,
@@ -584,21 +614,21 @@ function ThirdPartyHardwareUiStateContainerCmp() {
   const uiStateRef = useRef(uiState);
   uiStateRef.current = uiState;
 
-  // Trezor THP pairing tag — user types the code shown on the device. UI
-  // value; held in state so the Input is controlled. Ref mirror keeps
-  // handleConfirm (declared above the JSX) able to read the latest value
-  // without re-creating the callback on every keystroke.
-  const [thpTagInput, setThpTagInput] = useState('');
+  // THP pairing tag — text lives in TrezorThpPairingInput; here we keep only a
+  // ref (read by handleConfirm) and a hasValue boolean (confirm-disabled).
   const thpTagInputRef = useRef('');
-  thpTagInputRef.current = thpTagInput;
+  const [thpHasValue, setThpHasValue] = useState(false);
+  const handleThpTagChange = useCallback((value: string) => {
+    thpTagInputRef.current = value;
+    setThpHasValue(value.trim().length > 0);
+  }, []);
 
-  // Clear the input whenever a new request comes in (different connect
-  // attempt) or the request closes. Only fires when action changes —
-  // typing in the same dialog doesn't reset.
+  // Clear when the action changes (new request / dialog closed).
   const currentAction = uiState?.action;
   useEffect(() => {
     if (currentAction !== EThirdPartyHardwareUiAction.requestTrezorThpPairing) {
-      setThpTagInput('');
+      thpTagInputRef.current = '';
+      setThpHasValue(false);
     }
   }, [currentAction]);
 
@@ -959,17 +989,11 @@ function ThirdPartyHardwareUiStateContainerCmp() {
           {message}
         </SizableText>
         {isThpPairing ? (
-          <Input
-            testID="third-party-hw-trezor-thp-pairing-input"
-            value={thpTagInput}
-            onChangeText={setThpTagInput}
+          <TrezorThpPairingInput
             placeholder={intl.formatMessage({
               id: ETranslations.trezor_thp_pairing_code__desc,
             })}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="number-pad"
-            autoFocus
+            onChange={handleThpTagChange}
           />
         ) : null}
       </YStack>
@@ -983,7 +1007,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
     isTrezorPassphrase,
     isThpPairing,
     sendTrezorPassphraseResponse,
-    thpTagInput,
+    handleThpTagChange,
   ]);
 
   const dialogTitle = useMemo(() => {
@@ -1042,9 +1066,7 @@ function ThirdPartyHardwareUiStateContainerCmp() {
             showFooter={showFooter}
             onConfirm={handleConfirm}
             confirmButtonProps={
-              isThpPairing
-                ? { disabled: thpTagInput.trim().length === 0 }
-                : undefined
+              isThpPairing ? { disabled: !thpHasValue } : undefined
             }
             onCancel={handleUserCancel}
             onClose={handleDialogClose}
