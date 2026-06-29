@@ -17,6 +17,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 type IDeferred<T> = {
   promise: Promise<T>;
@@ -41,6 +42,14 @@ function createDeferred<T>(): IDeferred<T> {
 
 function createMockTx(id: string): IAccountHistoryTx {
   return { id } as IAccountHistoryTx;
+}
+
+function createLocalPendingTx(id: string): IAccountHistoryTx {
+  return {
+    id,
+    isLocalCreated: true,
+    decodedTx: { status: EDecodedTxStatus.Pending },
+  } as IAccountHistoryTx;
 }
 
 const globalMockBag = globalThis as typeof globalThis & {
@@ -229,6 +238,141 @@ describe('useHistoryListLoadMore', () => {
       'tx-4',
       'tx-5',
     ]);
+  });
+
+  it('hard-resets to page 1 when a first-page refresh no longer overlaps the loaded range', async () => {
+    const fetchMock = getFetchMock();
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-3'), createMockTx('tx-4')],
+      hasMoreOnChainHistory: true,
+      next: 'cursor-2',
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    const { result } = renderHook(() =>
+      useHistoryListLoadMore({
+        enabled: true,
+        accountId: 'account-1',
+        networkId: 'evm--1',
+      }),
+    );
+
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-1'), createMockTx('tx-2')],
+        next: 'cursor-1',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-3',
+      'tx-4',
+    ]);
+
+    // A burst larger than one page makes the refreshed first page fully
+    // disjoint from the previous one. The displaced-rows bridge can't cover the
+    // unknown gap between the new first page and the loaded range, so the hook
+    // must fall back to a hard reset (back to page 1) and re-seed the cursor
+    // from this response rather than render a hole in the middle of history.
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [createMockTx('tx-100'), createMockTx('tx-101')],
+        next: 'cursor-fresh',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+    expect(result.current.appendedTxs).toEqual([]);
+
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-102')],
+      hasMoreOnChainHistory: false,
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 2,
+        cursor: 'cursor-fresh',
+      }),
+    );
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual(['tx-102']);
+  });
+
+  it('drops a replaced local pending tx instead of stranding it in appended rows', async () => {
+    const fetchMock = getFetchMock();
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-3'), createMockTx('tx-4')],
+      hasMoreOnChainHistory: true,
+      next: 'cursor-2',
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    const { result } = renderHook(() =>
+      useHistoryListLoadMore({
+        enabled: true,
+        accountId: 'account-1',
+        networkId: 'evm--1',
+      }),
+    );
+
+    // First page leads with a local pending tx the user just broadcast.
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [
+          createLocalPendingTx('pending-1'),
+          createMockTx('tx-1'),
+          createMockTx('tx-2'),
+        ],
+        next: 'cursor-1',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-3',
+      'tx-4',
+    ]);
+
+    // The pending tx is replaced (speed-up / cancel) under a new id, so it
+    // disappears from the refreshed first page. appendedTxs holds on-chain
+    // pages, so the stale local pending must be dropped — not carried forward
+    // as a displaced row that renders forever alongside its replacement.
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [
+          createLocalPendingTx('pending-2'),
+          createMockTx('tx-1'),
+          createMockTx('tx-2'),
+        ],
+        next: 'cursor-new-first-page',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-3',
+      'tx-4',
+    ]);
+    expect(result.current.appendedTxs.some((tx) => tx.id === 'pending-1')).toBe(
+      false,
+    );
   });
 
   it('clears the spinner via the soft timeout when the proxy round-trip hangs', async () => {

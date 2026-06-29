@@ -9,6 +9,7 @@ import { isHistoryCursorAdvanced } from '@onekeyhq/shared/src/utils/historyUtils
 import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 const NATIVE_LOAD_MORE_HARD_LIMIT = 30;
 
@@ -40,6 +41,19 @@ function normalizeCursor(input: unknown): string | undefined {
 
 function getTxIdSet(txs: IAccountHistoryTx[]): Set<string> {
   return new Set(txs.map((tx) => tx.id));
+}
+
+// A local pending tx (just-broadcast, not yet on chain) that drops out of a
+// refreshed first page was replaced (RBF / speed-up / cancel) or confirmed
+// under a new id. `appendedTxs` holds on-chain pages, where a local pending
+// never legitimately belongs, so such a row must NOT be carried forward as a
+// displaced entry — otherwise the stale pending lingers forever beside its
+// replacement. A still-valid pending keeps its id on the refreshed first page,
+// stays in the overlap, and is filtered as an ordinary first-page row instead.
+// Written with optional chaining so it is safe on partially-shaped txs.
+function isLocalPendingTx(tx: IAccountHistoryTx): boolean {
+  const status = tx.displayStatus ?? tx.decodedTx?.status;
+  return !!tx.isLocalCreated && status === EDecodedTxStatus.Pending;
 }
 
 type IFirstPageResponseMeta = {
@@ -156,17 +170,31 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
 
       const nextFirstPageTxs = meta.txs;
       const nextFirstPageIds = getTxIdSet(nextFirstPageTxs);
+      // The displaced-rows bridge only stays gap-free while the refreshed first
+      // page still overlaps the previous one (i.e. fewer than HISTORY_PAGE_SIZE
+      // new txs arrived since the last first page). When the two first pages are
+      // fully disjoint, an unknown number of txs sit between the new first page
+      // and the loaded range, so preserving would render a hole in the middle
+      // of history with no cursor that can ever backfill it. In that rare case
+      // fall back to a hard reset: a one-time scroll-to-top is strictly safer
+      // than silently dropping a contiguous slice of history.
+      const overlapsPreviousFirstPage = firstPageTxsRef.current.some((tx) =>
+        nextFirstPageIds.has(tx.id),
+      );
       const shouldPreserveLoadedRange =
-        appendedTxsRef.current.length > 0 || inFlightRef.current;
+        (appendedTxsRef.current.length > 0 || inFlightRef.current) &&
+        overlapsPreviousFirstPage;
 
       if (shouldPreserveLoadedRange) {
         // Polling refreshes only the first page. Keep the already-visible
         // loaded range stable by moving rows displaced from the previous first
         // page into appendedTxs instead of shrinking the list back to page 1.
+        // Drop local pending rows that fell out of the new first page (see
+        // isLocalPendingTx) so a replaced/confirmed pending can't linger.
         const nextAppendedTxs = unionBy(
           [...firstPageTxsRef.current, ...appendedTxsRef.current],
           (tx) => tx.id,
-        ).filter((tx) => !nextFirstPageIds.has(tx.id));
+        ).filter((tx) => !nextFirstPageIds.has(tx.id) && !isLocalPendingTx(tx));
 
         appendedTxsRef.current = nextAppendedTxs;
         appendedIdsRef.current = getTxIdSet(nextAppendedTxs);
