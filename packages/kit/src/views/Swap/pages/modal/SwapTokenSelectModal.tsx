@@ -100,6 +100,7 @@ import {
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  shouldUseSwapStockSearchBaseTokens,
 } from './SwapTokenSelectModal.utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -394,10 +395,12 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
-  const shouldUseStockSearchBaseTokens =
-    isSwapStockSelectTarget &&
-    !!requestedSearchKeyword &&
-    currentTokens.length === 0;
+  const shouldUseStockSearchBaseTokens = shouldUseSwapStockSearchBaseTokens({
+    currentTokensLength: currentTokens.length,
+    fetchLoading,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  });
   const {
     fetchLoading: stockSearchBaseFetchLoading,
     currentTokens: stockSearchBaseTokens,

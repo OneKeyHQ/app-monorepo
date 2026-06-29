@@ -84,6 +84,25 @@ export function isSwapStockMetadataPending({
   );
 }
 
+export function shouldUseSwapStockSearchBaseTokens({
+  currentTokensLength,
+  fetchLoading,
+  isSwapStockSelectTarget,
+  requestedSearchKeyword,
+}: {
+  currentTokensLength: number;
+  fetchLoading: boolean;
+  isSwapStockSelectTarget: boolean;
+  requestedSearchKeyword?: string;
+}) {
+  return Boolean(
+    isSwapStockSelectTarget &&
+    requestedSearchKeyword &&
+    !fetchLoading &&
+    currentTokensLength === 0,
+  );
+}
+
 export function isSwapNetworkBridgeOnly(
   network?: Pick<ISwapNetwork, 'supportCrossChainSwap' | 'supportSingleSwap'>,
 ) {

@@ -2,6 +2,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   ESwapStockTradeSide,
+  buildStockChannelEntryKey,
   buildStockSwapTokenFromMarketDetail,
   buildStockSwapTokenFromMarketListToken,
   buildStockSwapTokenFromTokenIdentity,
@@ -44,6 +45,27 @@ const appleStockToken: ISwapToken = {
 };
 
 describe('swapStockChannelUtils', () => {
+  it('builds a distinct entry key for route and market preset identities', () => {
+    expect(
+      buildStockChannelEntryKey({
+        routeStockTokenKey: 'evm--56:0xaapl:token',
+        marketPresetTokenKey: '',
+      }),
+    ).toBe('evm--56:0xaapl:token__');
+    expect(
+      buildStockChannelEntryKey({
+        routeStockTokenKey: 'evm--56:0xmsft:token',
+        marketPresetTokenKey: '',
+      }),
+    ).toBe('evm--56:0xmsft:token__');
+    expect(
+      buildStockChannelEntryKey({
+        routeStockTokenKey: '',
+        marketPresetTokenKey: 'evm--56:0xaapl:token',
+      }),
+    ).toBe('__evm--56:0xaapl:token');
+  });
+
   it('does not resolve an ordinary swap pair token as the stock token', () => {
     expect(
       resolveStockChannelToken({

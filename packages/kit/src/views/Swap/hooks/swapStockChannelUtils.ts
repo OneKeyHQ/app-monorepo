@@ -70,6 +70,16 @@ export function getMarketPresetTokenKey(token?: IMarketPresetTokenContext) {
   return getTokenIdentityKey(token);
 }
 
+export function buildStockChannelEntryKey({
+  marketPresetTokenKey,
+  routeStockTokenKey,
+}: {
+  marketPresetTokenKey?: string;
+  routeStockTokenKey?: string;
+}) {
+  return `${routeStockTokenKey ?? ''}__${marketPresetTokenKey ?? ''}`;
+}
+
 export function getMarketListTokenKey(token?: IMarketTokenListItem) {
   const networkId = token?.networkId ?? token?.chainId ?? '';
   if (!networkId || !token) {

@@ -11,6 +11,7 @@ import {
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  shouldUseSwapStockSearchBaseTokens,
 } from './SwapTokenSelectModal.utils';
 
 const fromToken = {
@@ -125,6 +126,35 @@ describe('SwapTokenSelectModal.utils', () => {
         stockMetadataTokenKey: 'evm--56:0x123',
         stockMetadataLoading: false,
         resolvedStockMetadataTokenKey: 'evm--56:0x123',
+      }),
+    ).toBe(false);
+  });
+
+  it('waits for the main Stock search before enabling base-token fallback', () => {
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 0,
+        fetchLoading: true,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 0,
+        fetchLoading: false,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 1,
+        fetchLoading: false,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
       }),
     ).toBe(false);
   });

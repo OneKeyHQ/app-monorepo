@@ -1825,7 +1825,7 @@ function StockMarketContextPanel({
   );
   const chartReady = Boolean(
     chartHasTokenIdentity &&
-      (activeStockTokenDetail?.symbol || displayStockToken?.symbol),
+    (activeStockTokenDetail?.symbol || displayStockToken?.symbol),
   );
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
   const chartContent =
