@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect } from '@react-navigation/native';
@@ -130,9 +130,17 @@ function MarketDetailV2(
   const { navigation } = props;
   const media = useMedia();
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
+  const isDesktopChartLayout = media.gtLg && !platformEnv.isNative;
+  const effectiveIsChartFullscreen = isDesktopChartLayout && isChartFullscreen;
   const handleChartFullscreenChange = useCallback((isFullscreen: boolean) => {
     setIsChartFullscreen(isFullscreen);
   }, []);
+
+  useEffect(() => {
+    if (!isDesktopChartLayout && isChartFullscreen) {
+      setIsChartFullscreen(false);
+    }
+  }, [isChartFullscreen, isDesktopChartLayout]);
 
   useLayoutEffect(() => {
     if (!platformEnv.isNativeIOS) {
@@ -150,7 +158,7 @@ function MarketDetailV2(
   useFocusEffect(
     useCallback(() => {
       const shouldHideTabBar =
-        isChartFullscreen ||
+        effectiveIsChartFullscreen ||
         platformEnv.isNative ||
         (!platformEnv.isExtension && media.md);
 
@@ -163,7 +171,7 @@ function MarketDetailV2(
       return () => {
         appEventBus.emit(EAppEventBusNames.HideTabBar, false);
       };
-    }, [isChartFullscreen, media.md]),
+    }, [effectiveIsChartFullscreen, media.md]),
   );
 
   return (
@@ -179,7 +187,7 @@ function MarketDetailV2(
       >
         <MarketDetail
           {...props}
-          isChartFullscreen={isChartFullscreen}
+          isChartFullscreen={effectiveIsChartFullscreen}
           onChartFullscreenChange={handleChartFullscreenChange}
         />
       </MarketWatchListProviderMirrorV2>
