@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { sortSwapQuotes } from '@onekeyhq/shared/src/utils/swapQuoteSortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -597,12 +598,16 @@ export function useSwapActionState() {
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)
       ) {
-        infoRes.label = intl.formatMessage(
-          {
-            id: ETranslations.swap_page_toast_insufficient_balance_title,
-          },
-          { token: fromToken.symbol },
-        );
+        infoRes.label = networkUtils.isBTCNetwork(fromToken.networkId)
+          ? intl.formatMessage({
+              id: ETranslations.send_toast_btc_fork_insufficient_fund,
+            })
+          : intl.formatMessage(
+              {
+                id: ETranslations.swap_page_toast_insufficient_balance_title,
+              },
+              { token: fromToken.symbol },
+            );
         infoRes.disable = true;
       }
 
