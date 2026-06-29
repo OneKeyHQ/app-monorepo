@@ -50,7 +50,7 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
   };
 };
 
-let syncNativeNetworkThrottlePromise: Promise<void> | undefined;
+let syncNativeNetworkThrottlePromise: Promise<boolean> | undefined;
 let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
 let nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
 let nativeNetworkThrottleSyncedBeforeRequest = false;
@@ -102,14 +102,16 @@ function normalizeDesktopNetworkThrottleTimingConfig(config: {
   };
 }
 
-async function syncNativeNetworkThrottleFromDevSettings() {
+async function syncNativeNetworkThrottleFromDevSettings(): Promise<boolean> {
   if (!platformEnv.isNative) {
-    return;
+    return true;
   }
 
   const enabled = await getPersistedNativeNetworkThrottleEnabled();
+  const isStableStorageState =
+    !nativeNetworkThrottleSyncStorageHydrationTimedOut;
   if (lastSyncedNativeNetworkThrottleEnabled === enabled) {
-    return;
+    return isStableStorageState;
   }
 
   await nativeNetworkThrottle.setNetworkThrottle({
@@ -118,6 +120,7 @@ async function syncNativeNetworkThrottleFromDevSettings() {
     latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
   });
   lastSyncedNativeNetworkThrottleEnabled = enabled;
+  return isStableStorageState;
 }
 
 function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
@@ -174,8 +177,8 @@ async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
   syncNativeNetworkThrottlePromise ??=
     syncNativeNetworkThrottleFromDevSettings();
   try {
-    await syncNativeNetworkThrottlePromise;
-    nativeNetworkThrottleSyncedBeforeRequest = true;
+    nativeNetworkThrottleSyncedBeforeRequest =
+      await syncNativeNetworkThrottlePromise;
   } finally {
     syncNativeNetworkThrottlePromise = undefined;
   }

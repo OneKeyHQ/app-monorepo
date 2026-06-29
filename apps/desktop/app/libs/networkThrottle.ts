@@ -2,6 +2,8 @@ import { type Session, type WebContents, session, webContents } from 'electron';
 import logger from 'electron-log/main';
 
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
+import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type {
   IDesktopStoreNetworkThrottle,
   IDesktopStoreNetworkThrottleProfile,
@@ -94,6 +96,23 @@ function normalizeDesktopNetworkThrottleConfig(
   };
 }
 
+function isDeveloperModeEnabledForNetworkThrottle(): boolean {
+  return (
+    devSettingSyncStorage.getBoolean(
+      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+    ) === true
+  );
+}
+
+function applyDeveloperModeGateToNetworkThrottleConfig(
+  config: IDesktopStoreNetworkThrottle,
+): IDesktopStoreNetworkThrottle {
+  if (!config.enabled || isDeveloperModeEnabledForNetworkThrottle()) {
+    return config;
+  }
+  return DEFAULT_NETWORK_THROTTLE_CONFIG;
+}
+
 function getDesktopNetworkThrottleEnvConfig():
   | IDesktopStoreNetworkThrottle
   | undefined {
@@ -126,9 +145,10 @@ function getRuntimeNetworkThrottleConfig(): IDesktopStoreNetworkThrottle {
     return normalizeDesktopNetworkThrottleConfig(envConfig);
   }
 
-  runtimeNetworkThrottleConfig ??= normalizeDesktopNetworkThrottleConfig(
-    store.getNetworkThrottle(),
-  );
+  runtimeNetworkThrottleConfig ??=
+    applyDeveloperModeGateToNetworkThrottleConfig(
+      normalizeDesktopNetworkThrottleConfig(store.getNetworkThrottle()),
+    );
   return runtimeNetworkThrottleConfig;
 }
 
@@ -531,7 +551,9 @@ export function getDesktopNetworkThrottleConfig(): IDesktopStoreNetworkThrottle 
 export async function setDesktopNetworkThrottleConfig(
   config: IDesktopStoreNetworkThrottle,
 ): Promise<IDesktopStoreNetworkThrottle> {
-  const normalizedConfig = normalizeDesktopNetworkThrottleConfig(config);
+  const normalizedConfig = applyDeveloperModeGateToNetworkThrottleConfig(
+    normalizeDesktopNetworkThrottleConfig(config),
+  );
   const envConfig = getDesktopNetworkThrottleEnvConfig();
   if (envConfig) {
     const envOverrideConfig = normalizeDesktopNetworkThrottleConfig(envConfig);

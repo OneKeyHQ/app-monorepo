@@ -538,9 +538,18 @@ const BaseDevSettingsSection = () => {
     Dialog.show({
       title: '关闭开发者模式',
       onConfirm: async () => {
-        await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
-        if (platformEnv.isDesktop) {
-          void globalThis?.desktopApiProxy?.dev?.changeDevTools(false);
+        try {
+          await backgroundApiProxy.serviceDevSetting.switchDevMode(false);
+        } catch {
+          Toast.error({
+            title: 'Failed to disable developer mode',
+          });
+        } finally {
+          if (platformEnv.isDesktop) {
+            await globalThis?.desktopApiProxy?.dev
+              ?.changeDevTools(false)
+              .catch(() => undefined);
+          }
         }
       },
     });
