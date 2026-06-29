@@ -85,6 +85,10 @@ export enum EAppEventBusNames {
   SwapQuoteEvent = 'SwapQuoteEvent',
   ShowSystemDiskFullWarning = 'ShowSystemDiskFullWarning',
   SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
+  // Fired after the swap history store is mutated in a way the pending-status
+  // refresh key cannot detect (e.g. clearing finished orders), so list views
+  // re-fetch instead of showing stale rows.
+  RefreshSwapHistoryList = 'RefreshSwapHistoryList',
   SwapApprovingSuccess = 'SwapApprovingSuccess',
   SwapSpeedApprovingReset = 'SwapSpeedApprovingReset',
   SwapSpeedBalanceUpdate = 'SwapSpeedBalanceUpdate',
