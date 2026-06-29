@@ -26,7 +26,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IVideoRef } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -471,7 +470,6 @@ export function PrimeFeatureIntroContent({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   const {
     isReady: isAuthReady,
     isLoggedIn,
@@ -875,10 +873,10 @@ export function PrimeFeatureIntroContent({
   }
   const contentMaxWidth = usePageFooter || !gtMd ? undefined : 640;
   const shouldSquareBottomContentCorners = useDialogFooter && !gtMd;
-  const dialogFooterBottomPadding =
-    useDialogFooter && !gtMd && safeAreaBottom
-      ? safeAreaBottom + DIALOG_FOOTER_BOTTOM_PADDING
-      : DIALOG_FOOTER_BOTTOM_PADDING;
+  // The Dialog frame applies the bottom safe-area inset itself, so the footer
+  // only needs its design padding — adding safeAreaBottom here too would
+  // double-stack the inset on notched iOS.
+  const dialogFooterBottomPadding = DIALOG_FOOTER_BOTTOM_PADDING;
   const shouldShowFooterAction = ctaKind !== 'none';
   const isFooterActionDisabled =
     shouldUseComingSoonCta ||
