@@ -6,7 +6,7 @@ import { memoizee } from '../../utils/cacheUtils';
 import { getRequestHeaders } from '../Interceptor';
 import requestHelper from '../requestHelper';
 
-import { isSniSupported, sniRequest } from './sniRequest';
+import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type {
   AxiosAdapter,
@@ -33,6 +33,31 @@ const debugError = (...args: any[]) => {
   // Always log errors, even in production
   console.error(...args);
 };
+
+function isSniFailClosedError(error: unknown): boolean {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code)
+      : '';
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    [
+      'SNI_INVALID_CONFIG',
+      'SNI_SECURITY_POLICY_FAILED',
+      'SNI_TLS_FAILED',
+      'SNI_CERT_FAILED',
+      'SNI_RESPONSE_FAILED',
+      'SNI_RESOURCE_LIMIT',
+      'SNI_CANCELLED',
+    ].includes(code) ||
+    /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
+      message,
+    ) ||
+    /certificate|tls|ssl|unsafe header|forbidden ip|invalid config|response body too large/i.test(
+      message,
+    )
+  );
+}
 
 /**
  * Request failure callback parameters
@@ -269,6 +294,42 @@ function axiosHeadersToPlainObject(
   return {};
 }
 
+function appendParamsToPath(
+  path: string,
+  params: InternalAxiosRequestConfig['params'],
+): string {
+  if (!params) {
+    return path;
+  }
+
+  const filteredParams: Record<string, string> = {};
+  Object.entries(params as Record<string, any>).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      filteredParams[key] = String(value);
+    }
+  });
+
+  const searchParams = new URLSearchParams(filteredParams);
+  const queryString = searchParams.toString();
+  if (!queryString) {
+    return path;
+  }
+  return `${path}${path.includes('?') ? '&' : '?'}${queryString}`;
+}
+
+function buildRelativeSniPath(
+  baseURL: string,
+  url: string,
+  params: InternalAxiosRequestConfig['params'],
+): string {
+  const baseUrlObj = new URL(baseURL);
+  const basePath = baseUrlObj.pathname.endsWith('/')
+    ? baseUrlObj.pathname.slice(0, -1)
+    : baseUrlObj.pathname;
+  const relativePath = url.startsWith('/') ? url : `/${url}`;
+  return appendParamsToPath(basePath + relativePath, params);
+}
+
 /**
  * IP Table Axios Adapter
  * Intercepts axios requests and performs direct IP connection with SNI when applicable
@@ -445,6 +506,53 @@ export function createIpTableAdapter(
     // Extract root domain for config lookup
     const rootDomain = extractRootDomain(hostname);
 
+    let targetUrl: string;
+    try {
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        targetUrl = new URL(url).toString();
+      } else if (config.baseURL) {
+        const baseUrlObj = new URL(config.baseURL);
+        const path = buildRelativeSniPath(config.baseURL, url, config.params);
+        targetUrl = `${baseUrlObj.origin}${path}`;
+      } else {
+        return callOriginalAdapter({
+          config,
+          isFallback: false,
+          hostname,
+          rootDomain,
+        });
+      }
+    } catch (_error) {
+      debugLog('[IpTableAdapter] Target URL build failed, using fallback');
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname,
+        rootDomain,
+      });
+    }
+
+    let proxyActive: boolean | null;
+    try {
+      proxyActive = await isProxyActiveForUrl(targetUrl);
+    } catch (error) {
+      debugWarn('[IpTableAdapter] Proxy preflight failed, using fallback:', error);
+      proxyActive = null;
+    }
+    if (proxyActive !== false) {
+      debugLog(
+        `[IpTableAdapter] Proxy preflight ${
+          proxyActive ? 'active' : 'unsupported'
+        } for ${targetUrl}, using fallback`,
+      );
+      return callOriginalAdapter({
+        config,
+        isFallback: false,
+        hostname,
+        rootDomain,
+      });
+    }
+
     // Get selected IP for this hostname (async call)
     const selectedIp = await getSelectedIpForHost(hostname);
 
@@ -470,30 +578,11 @@ export function createIpTableAdapter(
     if (config.baseURL && !url.startsWith('http')) {
       // Combine baseURL and relative path
       const baseUrlObj = new URL(config.baseURL);
-      const basePath = baseUrlObj.pathname.endsWith('/')
-        ? baseUrlObj.pathname.slice(0, -1)
-        : baseUrlObj.pathname;
-      const relativePath = url.startsWith('/') ? url : `/${url}`;
-      fullPath = basePath + relativePath;
-
-      // Append query string if exists
-      if (config.params) {
-        // Filter out undefined and null values to match axios default behavior
-        const filteredParams: Record<string, string> = {};
-        Object.entries(config.params as Record<string, any>).forEach(
-          ([key, value]) => {
-            if (value !== undefined && value !== null) {
-              filteredParams[key] = String(value);
-            }
-          },
-        );
-
-        const searchParams = new URLSearchParams(filteredParams);
-        const queryString = searchParams.toString();
-        if (queryString) {
-          fullPath += `?${queryString}`;
-        }
-      }
+      fullPath = buildRelativeSniPath(
+        baseUrlObj.toString(),
+        url,
+        config.params,
+      );
     } else if (url.startsWith('http')) {
       // Extract path from full URL
       const urlObj = new URL(url);
@@ -582,13 +671,14 @@ export function createIpTableAdapter(
 
       // Parse response body
       let responseData: any = null;
-      if (sniResponse.body) {
+      const responseBody = sniResponse.body ?? sniResponse.data;
+      if (responseBody) {
         try {
           // Check if body is already an object or a string
-          if (typeof sniResponse.body === 'string') {
-            responseData = JSON.parse(sniResponse.body);
+          if (typeof responseBody === 'string') {
+            responseData = JSON.parse(responseBody);
           } else {
-            responseData = sniResponse.body;
+            responseData = responseBody;
           }
         } catch (parseError) {
           debugWarn(
@@ -600,7 +690,7 @@ export function createIpTableAdapter(
               parseError instanceof Error ? parseError.message : 'Unknown error'
             }`,
           });
-          responseData = sniResponse.body;
+          responseData = responseBody;
         }
       }
 
@@ -608,13 +698,18 @@ export function createIpTableAdapter(
 
       return {
         data: responseData,
-        status: sniResponse.statusCode,
-        statusText: '', // SNI response doesn't provide statusText
+        status: sniResponse.statusCode ?? sniResponse.status ?? 0,
+        statusText: sniResponse.statusText ?? '',
         headers: sniResponse.headers,
         config,
         request: {},
       };
     } catch (error) {
+      if (isSniFailClosedError(error)) {
+        debugError('[IpTableAdapter] SNI fail-closed error:', error);
+        throw error;
+      }
+
       // Report IP failure if callback is registered
       if (reportRequestFailureCallback) {
         reportRequestFailureCallback({

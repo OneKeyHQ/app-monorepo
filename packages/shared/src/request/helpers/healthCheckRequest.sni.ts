@@ -9,7 +9,7 @@
 import { OneKeyLocalError } from '../../errors';
 
 import { getSelectedIpForHost } from './ipTableAdapter';
-import { isSniSupported, sniRequest } from './sniRequest';
+import { isProxyActiveForUrl, isSniSupported, sniRequest } from './sniRequest';
 
 import type {
   IHealthCheckConfig,
@@ -55,6 +55,31 @@ function extractHostname(url: string): string | null {
   }
 }
 
+function isSniFailClosedError(error: unknown): boolean {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code)
+      : '';
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    [
+      'SNI_INVALID_CONFIG',
+      'SNI_SECURITY_POLICY_FAILED',
+      'SNI_TLS_FAILED',
+      'SNI_CERT_FAILED',
+      'SNI_RESPONSE_FAILED',
+      'SNI_RESOURCE_LIMIT',
+      'SNI_CANCELLED',
+    ].includes(code) ||
+    /SNI_(INVALID_CONFIG|SECURITY_POLICY_FAILED|TLS_FAILED|CERT_FAILED|RESPONSE_FAILED|RESOURCE_LIMIT|CANCELLED)/.test(
+      message,
+    ) ||
+    /certificate|tls|ssl|unsafe header|forbidden ip|invalid config|response body too large/i.test(
+      message,
+    )
+  );
+}
+
 /**
  * Perform health check request with IP Table support
  * Falls back to native fetch if SNI is not supported or IP Table is disabled
@@ -75,6 +100,16 @@ export async function healthCheckRequest(
   // Check if SNI is supported on this platform
   const sniSupported = isSniSupported();
   if (!sniSupported) {
+    return fallbackToFetch(config);
+  }
+
+  let proxyActive: boolean | null;
+  try {
+    proxyActive = await isProxyActiveForUrl(url);
+  } catch {
+    proxyActive = null;
+  }
+  if (proxyActive !== false) {
     return fallbackToFetch(config);
   }
 
@@ -116,6 +151,10 @@ export async function healthCheckRequest(
       ok: sniResponse.statusCode >= 200 && sniResponse.statusCode < 300,
     };
   } catch (error) {
+    if (isSniFailClosedError(error)) {
+      throw error;
+    }
+
     console.warn(
       '[HealthCheck] SNI request failed, falling back to fetch:',
       error,
