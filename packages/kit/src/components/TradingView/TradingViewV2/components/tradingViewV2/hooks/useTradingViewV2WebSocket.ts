@@ -1,6 +1,7 @@
 import { type RefObject, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IWebViewRef } from '@onekeyhq/kit/src/components/WebView/types';
 import { useMarketWSSubscriptionRecovery } from '@onekeyhq/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery';
 import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -10,8 +11,6 @@ import {
 import type { IMarketTokenKLineResponse } from '@onekeyhq/shared/types/marketV2';
 
 import { sendVolumeVisibilityUpdate } from '../messageHandlers/volumeVisibilityHandler';
-
-import type { IWebViewRef } from '../../../WebView/types';
 
 interface IUseTradingViewV2WebSocketProps {
   networkId: string;

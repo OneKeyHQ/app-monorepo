@@ -30,6 +30,14 @@ const MARKET_DETAIL_LAYOUT = {
 } as const;
 
 const SCROLL_CONTAINER_STYLE = { overflowY: 'auto' } as const;
+const MARKET_CHART_FULLSCREEN_STYLE = {
+  position: 'fixed',
+  left: 0,
+  top: 0,
+  right: 0,
+  bottom: 0,
+} as const;
+const MARKET_CHART_FULLSCREEN_Z_INDEX = 100_000;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
 
 interface IIframeWheelEventMessage {
@@ -45,9 +53,15 @@ const ALLOWED_TRADING_VIEW_ORIGINS = new Set([
 
 // Listen for wheel events forwarded from TradingView iframe via postMessage.
 // TradingView side needs: window.parent.postMessage({ type: 'wheelEvent', deltaY }, '*')
-function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
+function useIframeWheelPassthrough({
+  disabled,
+  scrollRef,
+}: {
+  disabled: boolean;
+  scrollRef: RefObject<HTMLElement | null>;
+}) {
   useEffect(() => {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNative || disabled) {
       return;
     }
     const handleMessage = (e: MessageEvent) => {
@@ -66,12 +80,16 @@ function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
     return () => {
       globalThis.removeEventListener('message', handleMessage);
     };
-  }, [scrollRef]);
+  }, [disabled, scrollRef]);
 }
 
 export function DesktopLayout({
+  isChartFullscreen,
+  onChartFullscreenChange,
   showFavoriteButton = true,
 }: {
+  isChartFullscreen: boolean;
+  onChartFullscreenChange: (isFullscreen: boolean) => void;
   showFavoriteButton?: boolean;
 }) {
   const {
@@ -115,10 +133,59 @@ export function DesktopLayout({
   );
 
   const scrollContainerRef = useRef<HTMLElement>(null);
-  useIframeWheelPassthrough(scrollContainerRef);
-  const handleTradingViewTouchScroll = useCallback((deltaY: number) => {
-    scrollContainerRef.current?.scrollBy({ top: deltaY });
-  }, []);
+  useIframeWheelPassthrough({
+    disabled: isChartFullscreen,
+    scrollRef: scrollContainerRef,
+  });
+  const handleChartFullscreenChange = useCallback(
+    (isFullscreen: boolean) => {
+      onChartFullscreenChange(isFullscreen);
+    },
+    [onChartFullscreenChange],
+  );
+  const handleTradingViewTouchScroll = useCallback(
+    (deltaY: number) => {
+      if (isChartFullscreen) {
+        return;
+      }
+      scrollContainerRef.current?.scrollBy({ top: deltaY });
+    },
+    [isChartFullscreen],
+  );
+
+  const marketTradingView = useMemo(() => {
+    if (!networkId || !tokenDetail?.symbol) {
+      return null;
+    }
+
+    return (
+      <MarketTradingView
+        tokenAddress={tokenAddress}
+        networkId={networkId}
+        tokenSymbol={tokenDetail.symbol}
+        isNative={isNative}
+        dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+        onTouchScroll={handleTradingViewTouchScroll}
+        nativeChartTypeControlMode="select"
+        nativeIndicatorControlMode="popover"
+        nativeIntervalControlMode="popover"
+        nativePriceMarketCapControlMode="select"
+        nativeControlsLayoutMode="desktop"
+        isNativeChartFullscreen={isChartFullscreen}
+        showNativeIndicatorQuickBar={false}
+        onNativeChartFullscreenChange={handleChartFullscreenChange}
+      />
+    );
+  }, [
+    handleChartFullscreenChange,
+    handleTradingViewTouchScroll,
+    isChartFullscreen,
+    isNative,
+    networkId,
+    tokenAddress,
+    tokenDetail?.symbol,
+    websocketConfig?.kline,
+  ]);
 
   return (
     <Stack
@@ -135,17 +202,18 @@ export function DesktopLayout({
         >
           <TokenDetailHeader showFavoriteButton={showFavoriteButton} />
 
-          <Stack h={MARKET_DETAIL_LAYOUT.chartHeight} overflow="hidden">
-            {networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
-                isNative={isNative}
-                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-                onTouchScroll={handleTradingViewTouchScroll}
-              />
-            ) : null}
+          <Stack
+            h={isChartFullscreen ? undefined : MARKET_DETAIL_LAYOUT.chartHeight}
+            overflow="hidden"
+            bg="$bgApp"
+            zIndex={
+              isChartFullscreen ? MARKET_CHART_FULLSCREEN_Z_INDEX : undefined
+            }
+            style={
+              isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
+            }
+          >
+            {marketTradingView}
           </Stack>
 
           <Stack
