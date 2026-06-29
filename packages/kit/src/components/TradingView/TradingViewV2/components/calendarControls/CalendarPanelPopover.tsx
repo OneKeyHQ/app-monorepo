@@ -410,14 +410,10 @@ export function CalendarPanelPopover({
         return;
       }
 
-      if (compareDay(nextDate, rangeStartDate) < 0) {
-        setRangeStartDate(nextDate);
-      } else {
-        setRangeEndDate(nextDate);
-      }
+      setRangeEndDate(nextDate);
       setActiveRangeField('from');
     },
-    [activePanel, activeRangeField, rangeEndDate, rangeStartDate],
+    [activePanel, activeRangeField, rangeEndDate],
   );
 
   const submit = useCallback((): ICalendarPanelSubmitPayload => {
