@@ -2322,8 +2322,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 dbAccount?.indexedAccountId ||
                 dbAccount?.othersWalletAccountId,
               );
-              if (!currentHasAccount && dbHasAccount) {
-                mergedSelectedAccountsMap[targetNum] = dbAccount;
+              if (!currentHasAccount && dbAccount && dbHasAccount) {
+                // Field-level merge: take only the account identity from DB and
+                // keep the slot's already-restored scene context (networkId/
+                // deriveType), else filling the account would also revert those
+                // to stale DB values and re-propagate them via home<->swap sync.
+                mergedSelectedAccountsMap[targetNum] =
+                  accountSelectorUtils.buildMergedSelectedAccount({
+                    data: current,
+                    mergedByData: dbAccount,
+                  });
               }
             },
           );

@@ -305,23 +305,45 @@ export function TradingViewPerpsV2(
       return undefined;
     }
     let cancelled = false;
-    void backgroundApiProxy.serviceHyperliquid
-      .getSymbolMeta({ coin: symbol })
-      .then((meta) => {
-        if (cancelled || !meta) {
-          return;
-        }
-        const next =
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    // Cold start: the trading universe / spot meta may not be in simpleDb yet,
+    // so getSymbolMeta throws "Asset id not found". Retry with backoff instead
+    // of latching szDecimals at the fallback for the whole mount cycle, which
+    // would persistently truncate line quantities.
+    const MAX_ATTEMPTS = 8;
+    const run = async (attempt: number) => {
+      let next: number | undefined;
+      try {
+        const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: symbol,
+        });
+        next =
           tradeMode === 'spot'
-            ? meta.spotUniverse?.baseSzDecimals
-            : meta.universe?.szDecimals;
-        if (typeof next === 'number') {
-          setSzDecimalsEntry({ key: `${tradeMode}:${symbol}`, value: next });
-        }
-      })
-      .catch(() => undefined);
+            ? meta?.spotUniverse?.baseSzDecimals
+            : meta?.universe?.szDecimals;
+      } catch {
+        next = undefined;
+      }
+      if (cancelled) {
+        return;
+      }
+      if (typeof next === 'number') {
+        setSzDecimalsEntry({ key: `${tradeMode}:${symbol}`, value: next });
+        return;
+      }
+      if (attempt < MAX_ATTEMPTS) {
+        retryTimer = setTimeout(
+          () => void run(attempt + 1),
+          Math.min(250 * 2 ** attempt, 2000),
+        );
+      }
+    };
+    void run(0);
     return () => {
       cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
     };
   }, [symbol, tradeMode]);
   // Use the fetched precision only if it's for the current symbol/mode, so a
