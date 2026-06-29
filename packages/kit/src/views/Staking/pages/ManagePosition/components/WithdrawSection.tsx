@@ -46,6 +46,26 @@ import {
 
 import type { IManagePageV2ReceiveInputConfig } from '../../../components/ManagePageV2ReceiveInput';
 
+function normalizeBorrowAssetAddress(address?: string) {
+  return (address ?? '').toLowerCase();
+}
+
+function isWrappedNativeDebtToken({
+  debtReserveAddress,
+  debtTokenAddress,
+  debtTokenSymbol,
+  repayTokenSymbol,
+}: {
+  debtReserveAddress: string;
+  debtTokenAddress: string;
+  debtTokenSymbol: string;
+  repayTokenSymbol: string;
+}) {
+  if (debtReserveAddress || debtTokenAddress) return false;
+  if (!debtTokenSymbol || !repayTokenSymbol) return false;
+  return repayTokenSymbol === `W${debtTokenSymbol}`;
+}
+
 export const WithdrawSection = ({
   accountId,
   networkId,
@@ -838,6 +858,57 @@ export const WithdrawSection = ({
       { watchLoading: true },
     );
 
+  const effectiveRepayAllBalance = useMemo(() => {
+    if (borrowAction !== 'repay') {
+      return undefined;
+    }
+    const selectedDebtBalance =
+      selectedAsset?.borrowed?.amount ?? selectedAsset?.borrowed?.title?.text;
+    if (selectedDebtBalance) {
+      return selectedDebtBalance;
+    }
+    if (protocolInfo?.debtBalance) {
+      return protocolInfo.debtBalance;
+    }
+
+    const reserveAddress = normalizeBorrowAssetAddress(effectiveReserveAddress);
+    const tokenAddress = normalizeBorrowAssetAddress(token?.address);
+    const repayTokenSymbol = effectiveTokenSymbol.toUpperCase();
+    const borrowedAsset = freshBorrowReserves?.borrowed?.assets.find((item) => {
+      const debtReserveAddress = normalizeBorrowAssetAddress(
+        item.reserveAddress,
+      );
+      const debtTokenAddress = normalizeBorrowAssetAddress(item.token.address);
+      if (
+        (reserveAddress &&
+          (debtReserveAddress === reserveAddress ||
+            debtTokenAddress === reserveAddress)) ||
+        (tokenAddress &&
+          (debtReserveAddress === tokenAddress ||
+            debtTokenAddress === tokenAddress))
+      ) {
+        return true;
+      }
+
+      return isWrappedNativeDebtToken({
+        debtReserveAddress,
+        debtTokenAddress,
+        debtTokenSymbol: item.token.symbol.toUpperCase(),
+        repayTokenSymbol,
+      });
+    });
+    return borrowedAsset?.borrowedAmount.amount;
+  }, [
+    borrowAction,
+    effectiveReserveAddress,
+    effectiveTokenSymbol,
+    freshBorrowReserves?.borrowed?.assets,
+    protocolInfo?.debtBalance,
+    selectedAsset?.borrowed?.amount,
+    selectedAsset?.borrowed?.title?.text,
+    token?.address,
+  ]);
+
   const collateralAssets = useMemo(() => {
     const suppliedAssets = freshBorrowReserves?.supplied?.assets ?? [];
     return suppliedAssets
@@ -981,6 +1052,7 @@ export const WithdrawSection = ({
           decimals={effectiveDecimals}
           balance={effectiveBalance}
           maxBalance={effectiveMaxBalance}
+          repayAllBalance={effectiveRepayAllBalance ?? '0'}
           tokenSymbol={effectiveTokenSymbol}
           tokenImageUri={effectiveTokenImageUri}
           onWalletConfirm={onBorrowConfirm}
