@@ -234,10 +234,23 @@ export function useSwapStockChannel() {
       stockToken?: ISwapToken;
       payToken?: ISwapToken;
     } = {}) => {
+      // The stock channel token is authoritatively the stock side of the trade.
+      // Stock metadata (token.stock) loads asynchronously and may be missing at
+      // selection time, which left isStock unset and made the history list label
+      // the trade as "Swap" instead of Buy/Sell. Flag it here so the recorded
+      // execution tokens carry isStock end-to-end.
+      const flaggedStockToken =
+        stockToken && !stockToken.isStock
+          ? { ...stockToken, isStock: true }
+          : stockToken;
       const nextFromToken =
-        nextTradeSide === ESwapStockTradeSide.Buy ? nextPayToken : stockToken;
+        nextTradeSide === ESwapStockTradeSide.Buy
+          ? nextPayToken
+          : flaggedStockToken;
       const nextToToken =
-        nextTradeSide === ESwapStockTradeSide.Buy ? stockToken : nextPayToken;
+        nextTradeSide === ESwapStockTradeSide.Buy
+          ? flaggedStockToken
+          : nextPayToken;
 
       await selectStockExecutionTokens({
         fromToken: nextFromToken,
