@@ -357,6 +357,7 @@ export function CalendarPanelPopover({
   onSubmit: (payload: ICalendarPanelSubmitPayload) => void;
 }) {
   const today = useMemo(() => startOfDay(new Date()), []);
+  const [isOpen, setIsOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<ICalendarPanel>('goToDate');
   const [monthDate, setMonthDate] = useState(() => startOfDay(new Date()));
   const [goToDate, setGoToDate] = useState(today);
@@ -367,6 +368,29 @@ export function CalendarPanelPopover({
   const [rangeEndTime, setRangeEndTime] = useState(0);
   const [activeRangeField, setActiveRangeField] = useState<'from' | 'to'>(
     'from',
+  );
+
+  const resetPanelState = useCallback(() => {
+    const nextToday = startOfDay(new Date());
+    setActivePanel('goToDate');
+    setMonthDate(nextToday);
+    setGoToDate(nextToday);
+    setGoToTime(0);
+    setRangeStartDate(nextToday);
+    setRangeEndDate(nextToday);
+    setRangeStartTime(0);
+    setRangeEndTime(0);
+    setActiveRangeField('from');
+  }, []);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        resetPanelState();
+      }
+      setIsOpen(open);
+    },
+    [resetPanelState],
   );
 
   const handleDatePress = useCallback(
@@ -545,6 +569,8 @@ export function CalendarPanelPopover({
   return (
     <Popover
       title="Calendar"
+      open={isOpen}
+      onOpenChange={handleOpenChange}
       showHeader={false}
       usingSheet={false}
       placement="bottom-end"

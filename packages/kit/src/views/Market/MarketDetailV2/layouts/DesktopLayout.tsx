@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { RefObject } from 'react';
 
-import { Divider, Stack, XStack, YStack } from '@onekeyhq/components';
+import {
+  Divider,
+  Stack,
+  XStack,
+  YStack,
+  useOverlayZIndex,
+} from '@onekeyhq/components';
 import {
   TRADING_VIEW_LOCALHOST_ORIGIN,
   TRADING_VIEW_URL,
@@ -38,7 +44,6 @@ const MARKET_CHART_FULLSCREEN_STYLE = {
   right: 0,
   bottom: 0,
 } as const;
-const MARKET_CHART_FULLSCREEN_Z_INDEX = 100_000;
 const IFRAME_WHEEL_EVENT_TYPE = 'wheelEvent' as const;
 
 interface IIframeWheelEventMessage {
@@ -103,6 +108,7 @@ export function DesktopLayout({
   } = useTokenDetail();
 
   const { accountAddress, xpub } = useNetworkAccount(networkId);
+  const chartFullscreenZIndex = useOverlayZIndex(isChartFullscreen);
 
   const { portfolioData, isRefreshing } = usePortfolioData({
     tokenAddress,
@@ -207,9 +213,7 @@ export function DesktopLayout({
             h={isChartFullscreen ? undefined : MARKET_DETAIL_LAYOUT.chartHeight}
             overflow="hidden"
             bg="$bgApp"
-            zIndex={
-              isChartFullscreen ? MARKET_CHART_FULLSCREEN_Z_INDEX : undefined
-            }
+            zIndex={isChartFullscreen ? chartFullscreenZIndex : undefined}
             style={
               isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
             }
