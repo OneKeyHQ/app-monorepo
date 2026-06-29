@@ -80,10 +80,10 @@ export function formatChartTypeOptionLabel(
 export function getChartTypeIconName(chartType?: ITradingViewChartTypeOption) {
   const normalizedLabel = chartType?.label.trim().toLowerCase() ?? '';
   if (normalizedLabel.includes('hlc')) {
-    return 'TradingViewBarsOutline';
+    return 'TradingViewCandlesHlcOutline';
   }
   if (normalizedLabel.includes('bar')) {
-    return 'TradingViewCandlesHlcOutline';
+    return 'TradingViewBarsOutline';
   }
   if (normalizedLabel.includes('line')) {
     return 'TradingViewLineOutline';

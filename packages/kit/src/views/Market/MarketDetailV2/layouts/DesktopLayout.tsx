@@ -26,7 +26,7 @@ import { useTokenDetail } from '../hooks/useTokenDetail';
 
 const MARKET_DETAIL_LAYOUT = {
   chartHeight: 550,
-  chartFullscreenHeaderFillHeight: 100,
+  chartFullscreenHeaderFillHeight: 48,
   infoTabsHeight: 480,
 } as const;
 

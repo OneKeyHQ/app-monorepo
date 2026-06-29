@@ -40,10 +40,10 @@ describe('NativeChartControlsShared', () => {
       'TradingViewCandlesOutline',
     );
     expect(getChartTypeIconName({ label: 'Bars', value: 0 })).toBe(
-      'TradingViewCandlesHlcOutline',
+      'TradingViewBarsOutline',
     );
     expect(getChartTypeIconName({ label: 'Candles HLC', value: 21 })).toBe(
-      'TradingViewBarsOutline',
+      'TradingViewCandlesHlcOutline',
     );
     expect(getChartTypeIconName({ label: 'Line', value: 2 })).toBe(
       'TradingViewLineOutline',
