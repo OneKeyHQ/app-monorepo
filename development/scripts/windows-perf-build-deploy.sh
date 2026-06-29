@@ -174,17 +174,60 @@ port_answers() {
   curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$CDP_PORT/json/version"
 }
 
+read_tunnel_pid() {
+  [ -f "$TUNNEL_PID_FILE" ] || return 1
+  local tpid
+  tpid="$(tr -d '[:space:]' < "$TUNNEL_PID_FILE" 2>/dev/null)" || return 1
+  [[ "$tpid" =~ ^[0-9]+$ ]] || return 1
+  echo "$tpid"
+}
+
+# Validate that a pid still points at the exact SSH tunnel shape this script
+# opens. This intentionally does not require CDP to answer: `stop` must be able
+# to close the tunnel even if the remote app/debug endpoint is already down.
+is_our_tunnel_pid() {
+  local tpid="$1"
+  [ -n "$tpid" ] || return 1
+  kill -0 "$tpid" 2>/dev/null || return 1
+
+  local cmd
+  cmd="$(ps -p "$tpid" -o command= 2>/dev/null || true)"
+  [ -n "$cmd" ] || return 1
+  echo "$cmd" | grep -Eq '(^|/)ssh([[:space:]]|$)' || return 1
+  echo "$cmd" | grep -Eq '(^|[[:space:]])-N([[:space:]]|$)' || return 1
+  echo "$cmd" | grep -Fq -- "-L $CDP_PORT:127.0.0.1:$CDP_PORT" || return 1
+}
+
+close_tunnel_from_pid_file() {
+  local tpid
+  if ! tpid="$(read_tunnel_pid)"; then
+    echo "   Removing stale tunnel pid file (missing/invalid pid)."
+    rm -f "$TUNNEL_PID_FILE"
+    return
+  fi
+
+  if is_our_tunnel_pid "$tpid"; then
+    if kill "$tpid" 2>/dev/null; then
+      echo "$(timestamp) 🔌 Closed tunnel (pid $tpid)"
+    else
+      echo "   Tunnel pid $tpid matched, but it was already gone."
+    fi
+  else
+    echo "   Removing stale tunnel pid file (pid $tpid is not this SSH tunnel)."
+  fi
+  rm -f "$TUNNEL_PID_FILE"
+}
+
 # True (0) only if the port answers AND it is the SSH tunnel THIS script opened —
 # a live pid in $TUNNEL_PID_FILE whose command line forwards our exact port. A bare
 # "port answers" is NOT enough: a local desktop dev / Chrome / other CDP service on
 # the same port satisfies it too, and capture/cdp/trace would then silently profile
 # that LOCAL target as if it were the Windows release.
 is_our_tunnel() {
+  local tpid
+  tpid="$(read_tunnel_pid)" || return 1
+  is_our_tunnel_pid "$tpid" || return 1
   port_answers || return 1
-  local tpid=""
-  [ -f "$TUNNEL_PID_FILE" ] && tpid="$(cat "$TUNNEL_PID_FILE" 2>/dev/null)"
-  [ -n "$tpid" ] && kill -0 "$tpid" 2>/dev/null && \
-    ps -p "$tpid" -o command= 2>/dev/null | grep -q "$CDP_PORT:127.0.0.1:$CDP_PORT"
 }
 
 # Guard for commands that consume the tunnel (capture/cdp): refuse to attach to
@@ -219,6 +262,9 @@ cmd_tunnel() {
     echo "   Fix: free port $CDP_PORT (or set CDP_PORT to a different value), then retry."
     exit 1
   fi
+  if [ -f "$TUNNEL_PID_FILE" ]; then
+    close_tunnel_from_pid_file
+  fi
 
   echo "$(timestamp) 🔌 Opening CDP tunnel localhost:$CDP_PORT -> $WIN_HOST 127.0.0.1:$CDP_PORT ..."
   ssh -p "$WIN_SSH_PORT" -N -L "$CDP_PORT:127.0.0.1:$CDP_PORT" "$WIN_USER@$WIN_HOST" &
@@ -233,6 +279,7 @@ cmd_tunnel() {
     sleep 1
   done
   echo "❌ Tunnel opened but CDP did not respond within 30s. Is the app running on Windows?"
+  close_tunnel_from_pid_file
   exit 1
 }
 
@@ -344,12 +391,7 @@ cmd_cdp() {
 # --- stop: tear down tunnel + remote app ---
 cmd_stop() {
   if [ -f "$TUNNEL_PID_FILE" ]; then
-    local PID
-    PID=$(cat "$TUNNEL_PID_FILE")
-    if kill "$PID" 2>/dev/null; then
-      echo "$(timestamp) 🔌 Closed tunnel (pid $PID)"
-    fi
-    rm -f "$TUNNEL_PID_FILE"
+    close_tunnel_from_pid_file
   else
     echo "   No tunnel pid file; nothing to close."
   fi
