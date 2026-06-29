@@ -1,10 +1,11 @@
 import { createContext, useContext } from 'react';
 import type { PropsWithChildren } from 'react';
 
-import { useAutoRefreshTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useAutoRefreshTokenDetail';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IMarketPresetTokenContext } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IMarketPresetTokenContext,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import {
   type IUseSwapStockChannelReturn,
@@ -15,57 +16,45 @@ const SwapStockTradeContext = createContext<
   IUseSwapStockChannelReturn | undefined
 >(undefined);
 
-function StockTokenDetailAutoRefreshContent({
-  isNative,
-  networkId,
-  tokenAddress,
-}: {
-  isNative: boolean;
-  networkId: string;
-  tokenAddress: string;
-}) {
-  useAutoRefreshTokenDetail({
-    tokenAddress,
-    networkId,
-    isNative,
-  });
-
-  return null;
-}
-
-function StockTokenDetailAutoRefresh() {
-  const { tokenAddress, networkId, isNative } = useTokenDetail();
-  if (!networkId || (!tokenAddress && !isNative)) {
-    return null;
-  }
-
-  return (
-    <StockTokenDetailAutoRefreshContent
-      tokenAddress={tokenAddress ?? ''}
-      networkId={networkId}
-      isNative={!!isNative}
-    />
-  );
-}
-
 export function SwapStockTradeProvider({
   children,
-  disableNativePayToken,
   marketPresetToken,
+  routeStockToken,
 }: PropsWithChildren<{
   marketPresetToken?: IMarketPresetTokenContext;
-  disableNativePayToken?: boolean;
+  routeStockToken?: ISwapToken;
 }>) {
   const stockChannel = useSwapStockChannel({
     marketPresetToken,
-    disableNativePayToken,
+    routeStockToken,
   });
 
   return (
     <SwapStockTradeContext.Provider value={stockChannel}>
-      <StockTokenDetailAutoRefresh />
       {children}
     </SwapStockTradeContext.Provider>
+  );
+}
+
+export function SwapStockTradeProviderBoundary({
+  children,
+  marketPresetToken,
+  routeStockToken,
+}: PropsWithChildren<{
+  marketPresetToken?: IMarketPresetTokenContext;
+  routeStockToken?: ISwapToken;
+}>) {
+  const context = useContext(SwapStockTradeContext);
+  if (context) {
+    return <>{children}</>;
+  }
+  return (
+    <SwapStockTradeProvider
+      marketPresetToken={marketPresetToken}
+      routeStockToken={routeStockToken}
+    >
+      {children}
+    </SwapStockTradeProvider>
   );
 }
 
@@ -77,4 +66,8 @@ export function useSwapStockTradeContext() {
     );
   }
   return context;
+}
+
+export function useOptionalSwapStockTradeContext() {
+  return useContext(SwapStockTradeContext);
 }

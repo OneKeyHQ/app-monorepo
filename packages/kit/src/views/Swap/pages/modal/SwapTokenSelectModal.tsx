@@ -98,7 +98,9 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
+  isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  shouldUseSwapStockSearchBaseTokens,
 } from './SwapTokenSelectModal.utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -153,6 +155,7 @@ const SwapTokenSelectPage = ({
   const requestedSearchKeyword = searchKeyword
     ? searchKeywordDebounce
     : searchKeyword;
+  const isSearchKeywordSettling = searchKeyword !== requestedSearchKeyword;
   const [rawSwapNetworks] = useSwapNetworksAtom();
   const [swapNetworksIncludeAllNetworkBase] =
     useSwapNetworksIncludeAllNetworkAtom();
@@ -392,10 +395,34 @@ const SwapTokenSelectPage = ({
     searchAnalyticsOverride,
     swapNetworksIncludeAllNetwork,
   );
+  const shouldUseStockSearchBaseTokens = shouldUseSwapStockSearchBaseTokens({
+    currentTokensLength: currentTokens.length,
+    fetchLoading,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+  });
+  const {
+    fetchLoading: stockSearchBaseFetchLoading,
+    currentTokens: stockSearchBaseTokens,
+  } = useSwapTokenList(
+    type,
+    currentSelectNetwork?.networkId,
+    '',
+    swapTypeSwitch,
+    requestLpToken,
+    searchAnalyticsOverride,
+    swapNetworksIncludeAllNetwork,
+    {
+      enabled: shouldUseStockSearchBaseTokens,
+    },
+  );
   const stockMetadataRequestSnapshot = useMemo<IStockMetadataRequest>(() => {
     if (!isSwapStockSelectTarget) {
       return { tokenAddressEntries: [], tokenKey: '' };
     }
+    const metadataSourceTokens = shouldUseStockSearchBaseTokens
+      ? stockSearchBaseTokens
+      : currentTokens;
     const tokenAddressMap = new Map<
       string,
       {
@@ -404,7 +431,7 @@ const SwapTokenSelectPage = ({
         isNative: boolean;
       }
     >();
-    for (const item of currentTokens) {
+    for (const item of metadataSourceTokens) {
       const rawItem = getRawSwapToken(item);
       const key = buildSwapStockMetadataKey({
         contractAddress: rawItem.contractAddress,
@@ -423,7 +450,12 @@ const SwapTokenSelectPage = ({
       tokenAddressEntries,
       tokenKey: tokenAddressEntries.map(([key]) => key).join(','),
     };
-  }, [currentTokens, isSwapStockSelectTarget]);
+  }, [
+    currentTokens,
+    isSwapStockSelectTarget,
+    shouldUseStockSearchBaseTokens,
+    stockSearchBaseTokens,
+  ]);
   const stockMetadataRequestRef = useRef<IStockMetadataRequest>(
     stockMetadataRequestSnapshot,
   );
@@ -492,10 +524,52 @@ const SwapTokenSelectPage = ({
     stockMetadataLoading,
     stockMetadataTokenKey,
   });
+  const stockSearchFallbackTokens = useMemo(() => {
+    if (
+      !isSwapStockSelectTarget ||
+      !requestedSearchKeyword ||
+      currentTokens.length > 0 ||
+      stockMetadataPending
+    ) {
+      return EMPTY_SWAP_TOKEN_LIST;
+    }
+
+    return stockSearchBaseTokens.filter((item) => {
+      const rawItem = getRawSwapToken(item);
+      const stock =
+        rawItem.contractAddress && rawItem.networkId
+          ? stockMetadataMap?.[
+              buildSwapStockMetadataKey({
+                contractAddress: rawItem.contractAddress,
+                networkId: rawItem.networkId,
+              })
+            ]
+          : undefined;
+      return isSwapStockTokenSearchMatch({
+        keyword: requestedSearchKeyword,
+        stock,
+      });
+    });
+  }, [
+    currentTokens.length,
+    isSwapStockSelectTarget,
+    requestedSearchKeyword,
+    stockSearchBaseTokens,
+    stockMetadataMap,
+    stockMetadataPending,
+  ]);
+  const tokensForDisplay =
+    stockSearchFallbackTokens.length > 0
+      ? stockSearchFallbackTokens
+      : currentTokens;
   const displayTokens = stockMetadataPending
     ? EMPTY_SWAP_TOKEN_LIST
-    : currentTokens;
-  const tokenListLoading = fetchLoading || stockMetadataPending;
+    : tokensForDisplay;
+  const tokenListLoading =
+    fetchLoading ||
+    (shouldUseStockSearchBaseTokens && stockSearchBaseFetchLoading) ||
+    stockMetadataPending ||
+    isSearchKeywordSettling;
   const alertIndex = useMemo(
     () =>
       displayTokens.findIndex((item) => {

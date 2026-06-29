@@ -10,7 +10,9 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
+  isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  shouldUseSwapStockSearchBaseTokens,
 } from './SwapTokenSelectModal.utils';
 
 const fromToken = {
@@ -129,6 +131,35 @@ describe('SwapTokenSelectModal.utils', () => {
     ).toBe(false);
   });
 
+  it('waits for the main Stock search before enabling base-token fallback', () => {
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 0,
+        fetchLoading: true,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 0,
+        fetchLoading: false,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldUseSwapStockSearchBaseTokens({
+        currentTokensLength: 1,
+        fetchLoading: false,
+        isSwapStockSelectTarget: true,
+        requestedSearchKeyword: 'apple',
+      }),
+    ).toBe(false);
+  });
+
   it('does not insert unsupported default networks into Stock selector', () => {
     const stockNetworksBase = [
       buildSwapNetwork({ isAllNetworks: true, networkId: 'onekeyall--0' }),
@@ -185,5 +216,37 @@ describe('SwapTokenSelectModal.utils', () => {
         tokenName: 'Robinhood (Ondo Tokenized)',
       }),
     ).toBe('Robinhood');
+  });
+
+  it('only matches Stock search fallback rows with Stock metadata', () => {
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: 'usdc',
+      }),
+    ).toBe(false);
+
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: 'aapl',
+        stock: {
+          title: 'Apple',
+          subtitle: 'Apple Inc.',
+          underlyingAssetName: 'Apple Inc.',
+          underlyingAssetTicker: 'AAPL',
+        },
+      }),
+    ).toBe(true);
+
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: '0x1234',
+        stock: {
+          title: 'Apple',
+          subtitle: 'Apple Inc.',
+          underlyingAssetName: 'Apple Inc.',
+          underlyingAssetTicker: 'AAPL',
+        },
+      }),
+    ).toBe(false);
   });
 });

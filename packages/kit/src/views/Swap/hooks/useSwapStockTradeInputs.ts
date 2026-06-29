@@ -30,6 +30,7 @@ import type {
 
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
+import { findTokenFromCandidates } from './swapStockChannelUtils';
 import {
   STOCK_PRICE_SOURCE_CURRENCY,
   getStockTokenFiatValue,
@@ -433,26 +434,27 @@ export function useSwapStockAmountInputState({
     selectablePayTokens,
     payTokenOptionsLoading,
     disableNativePayToken,
-    marketStatusStatus,
     selectPayToken,
-    speedConfigReady,
+    payTokenStatus,
     stockTokenStatus,
     tradeSide,
   } = stockChannel;
   const isBuySide = tradeSide === ESwapStockTradeSide.Buy;
+  const activeSelectablePayToken = useMemo(() => {
+    return findTokenFromCandidates({
+      candidates: selectablePayTokens,
+      token: payToken,
+    });
+  }, [payToken, selectablePayTokens]);
   const inputToken = isBuySide ? payToken : currentStockToken;
   const stockIdentityReady =
-    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
-    marketStatusStatus === ESwapStockChannelAsyncStatus.Ready;
+    stockTokenStatus === ESwapStockChannelAsyncStatus.Ready;
   const payTokenReady =
     !isBuySide ||
     Boolean(
       stockIdentityReady &&
-      speedConfigReady &&
-      payToken &&
-      selectablePayTokens.some((token) =>
-        equalTokenNoCaseSensitive({ token1: token, token2: payToken }),
-      ),
+      payTokenStatus === ESwapStockChannelAsyncStatus.Ready &&
+      activeSelectablePayToken,
     );
   const inputTokenReady = isBuySide
     ? payTokenReady

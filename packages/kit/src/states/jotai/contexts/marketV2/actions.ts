@@ -35,6 +35,7 @@ import {
   tokenDetailLoadingAtom,
   tokenDetailWebsocketAtom,
 } from './atoms';
+import { buildRealtimePriceChange24hPercent } from './realtimePriceUtils';
 
 export const homeResettingFlags: Record<string, number> = {};
 
@@ -149,12 +150,20 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       const chartPriceUpdatedAt = Date.now();
       const lastUpdated =
         payload.lastUpdated ?? tokenDetail.lastUpdated ?? chartPriceUpdatedAt;
+      const priceChange24hPercent = buildRealtimePriceChange24hPercent({
+        currentPrice: tokenDetail.price,
+        currentPriceChange24hPercent: tokenDetail.priceChange24hPercent,
+        realtimePrice: payload.price,
+      });
 
       if (tokenDetail.price === payload.price) {
         set(tokenDetailAtom(), {
           ...tokenDetail,
           lastUpdated,
           chartPriceUpdatedAt,
+          ...(priceChange24hPercent !== undefined
+            ? { priceChange24hPercent }
+            : {}),
         });
         return;
       }
@@ -164,6 +173,9 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         price: payload.price,
         lastUpdated,
         chartPriceUpdatedAt,
+        ...(priceChange24hPercent !== undefined
+          ? { priceChange24hPercent }
+          : {}),
       });
     },
   );
@@ -319,6 +331,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
           ? {
               ...tokenData,
               price: currentTokenDetail.price,
+              priceChange24hPercent: currentTokenDetail.priceChange24hPercent,
               lastUpdated: currentTokenDetail.lastUpdated,
               chartPriceUpdatedAt,
             }
