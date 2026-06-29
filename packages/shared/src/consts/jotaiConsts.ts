@@ -9,6 +9,10 @@ export const CONTEXT_ATOM_COLD_START_CACHE_KEYS = {
   accountSelectorStorageReadyAtom: 'ctx:accountSelectorStorageReadyAtom',
   activeAccountsAtom: 'ctx:activeAccountsAtom',
   renderedTokenListCacheAtom: 'ctx:renderedTokenListCacheAtom',
+  // TokenList cells slim cold-start bundle (spec §2, §7). Physically distinct
+  // from `renderedTokenListCacheAtom` so the new slim format and the old
+  // rendered-list format never ping-pong into the same MMKV/IDB slot.
+  tokenListSlimColdCacheAtom: 'ctx:tokenListSlimColdCache',
   perpsActiveTradeInstrumentAtom: 'ctx:perpsActiveTradeInstrumentAtom',
   perpsTokenSearchAliasesAtom: 'ctx:perpsTokenSearchAliasesAtom',
   perpsMaxBuilderFeeAtom: 'ctx:perpsMaxBuilderFeeAtom',

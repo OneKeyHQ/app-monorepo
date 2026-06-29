@@ -22,6 +22,7 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useHomeTokenListOwnerKey } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
@@ -50,6 +51,7 @@ function TokenManagerModal() {
     deriveType,
   } = route.params;
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
+  const tokenListOwnerKey = useHomeTokenListOwnerKey();
 
   const {
     sectionTokens,
@@ -61,6 +63,7 @@ function TokenManagerModal() {
     networkId,
     accountId,
     indexedAccountId,
+    tokenListOwnerKey,
   });
   const {
     searchValue,

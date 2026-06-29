@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import {
   buildOverviewOwnerKey,
@@ -12,14 +11,7 @@ import {
   useLastConfirmedOverviewBalanceAtom,
 } from '../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useFlattenAggregateTokensMapAtom,
-  useSmallBalanceTokenListAtom,
-  useSmallBalanceTokenListMapAtom,
-  useTokenListAtom,
-  useTokenListMapAtom,
-} from '../states/jotai/contexts/tokenList';
+import { useListStructureAtom } from '../states/jotai/contexts/tokenList';
 
 export type IHomeBalanceState = 'unknown' | 'zero' | 'positive';
 
@@ -44,7 +36,8 @@ appEventBus.on(EAppEventBusNames.WalletRemove, () => fundedOwners.clear());
 appEventBus.on(EAppEventBusNames.AccountRemove, () => fundedOwners.clear());
 
 // Three sources:
-//   1. Held tokens (risk-filtered token list) — a "funded" override, latched
+//   1. Held tokens (TokenList cells structure `fundedIds`, the STRICT
+//      positive-balance / risk-filtered set) — a "funded" override, latched
 //      per owner for the session. Fiat worth is a partial sum: tokens without
 //      price data contribute nothing (custom networks hardcode fiatValue '0',
 //      long-tail tokens may have no price feed), so worth === 0 does NOT mean
@@ -67,12 +60,7 @@ export function useHomeBalanceState(): IHomeBalanceState {
   } = useActiveAccount({ num: 0 });
   const [{ byOwner }] = useLastConfirmedOverviewBalanceAtom();
   const [accountWorth] = useAccountWorthAtom();
-  const [tokenList] = useTokenListAtom();
-  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
-  const [tokenListMap] = useTokenListMapAtom();
-  const [smallBalanceTokenListMap] = useSmallBalanceTokenListMapAtom();
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  const [allTokenList] = useAllTokenListAtom();
+  const [listStructure] = useListStructureAtom();
 
   const ownerKey = buildOverviewOwnerKey(account?.id, network?.id);
   const cached = ownerKey ? byOwner[ownerKey] : undefined;
@@ -103,49 +91,45 @@ export function useHomeBalanceState(): IHomeBalanceState {
   ]);
 
   // Any held token (balance > 0) counts as funded, regardless of valuation.
-  // Scans the `tokenList` + `smallBalanceTokenList` buckets (which exclude
-  // risk tokens — unlike `allTokenList`, which merges the risk bucket back
-  // in, so a spam airdrop alone would read as funded) with the same
-  // balance-resolution rule as TokenListView's zero-balance filter: per-token
-  // map first, aggregate (All Networks) map as fallback. Guarded by
-  // `allTokenList`'s owner stamp: the token list atoms live in a singleton
-  // store and briefly carry the previous owner's data after an account
-  // switch, and an unguarded scan would report the old account's holdings
-  // for a freshly-switched empty one.
+  // Reads the TokenList cells structure's `fundedIds` — the STRICT positive-
+  // balance set (balance > 0 only, risk tokens excluded, aggregate-aware, with
+  // NO keepDefault entries). This replaces the previous multi-atom live scan
+  // (tokenList + smallBalanceTokenList + their maps + flatten-aggregate map).
+  //
+  // `fundedIds`, NOT `nonZeroIds`: nonZeroIds is the hideZero VIEW filter and
+  // retains zero-balance default/custom tokens, so a fresh default-token
+  // account would falsely read as funded and hide the Add-money state.
+  //
+  // Owner guard: the cells structure lives in a singleton store and briefly
+  // carries the previous owner's data after an account switch. The structure's
+  // `ownerKey` is keyed by the per-owner cache account id — the concrete
+  // `account.id` normally, but the `indexedAccount.id` under
+  // merge-derive-assets mode (see getTokenListOwnerCacheAccountId). Accept a
+  // match against either candidate so merge-mode accounts are not silently
+  // gated out; a stale previous owner's key matches neither (it carries a
+  // different account/network) so the guard still holds.
+  //
+  // Cold-start / owner-mismatch window: `generation < 0` (no structure frame
+  // applied yet) or an ownerKey mismatch yields `false` here; the final
+  // composition below still resolves to `unknown` (loading) via byOwner cache
+  // + liveIsPositive precedence, so a real account never flashes Add-money.
   const hasHoldingsNow = useMemo<boolean>(() => {
     if (!account?.id || !network?.id) return false;
-    if (
-      allTokenList.accountId !== account.id ||
-      allTokenList.networkId !== network.id
-    ) {
-      return false;
-    }
-    const holdsPositiveBalance = (
-      token: IAccountToken,
-      map: Record<string, ITokenFiat>,
-    ) => {
-      const balance =
-        map[token.$key]?.balance ?? aggregateTokensMap[token.$key]?.balance;
-      return !!balance && balance !== '0' && new BigNumber(balance).gt(0);
-    };
-    return (
-      tokenList.tokens.some((token) =>
-        holdsPositiveBalance(token, tokenListMap),
-      ) ||
-      smallBalanceTokenList.smallBalanceTokens.some((token) =>
-        holdsPositiveBalance(token, smallBalanceTokenListMap),
-      )
-    );
+    if (listStructure.generation < 0) return false;
+    const structureOwnerMatches =
+      listStructure.ownerKey === ownerKey ||
+      (!!indexedAccount?.id &&
+        listStructure.ownerKey === `${indexedAccount.id}__${network.id}`);
+    if (!structureOwnerMatches) return false;
+    return listStructure.fundedIds.length > 0;
   }, [
     account?.id,
     network?.id,
-    allTokenList.accountId,
-    allTokenList.networkId,
-    tokenList.tokens,
-    smallBalanceTokenList.smallBalanceTokens,
-    tokenListMap,
-    smallBalanceTokenListMap,
-    aggregateTokensMap,
+    indexedAccount?.id,
+    ownerKey,
+    listStructure.generation,
+    listStructure.ownerKey,
+    listStructure.fundedIds,
   ]);
 
   // Session latch: once an owner is seen holding tokens, keep reporting

@@ -3,13 +3,9 @@ import { memo } from 'react';
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import { displayFiatValueOrUnavailable } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import {
-  useFlattenAggregateTokensMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
 import { Currency } from '../Currency';
 
-import { useTokenListViewContext } from './TokenListViewContext';
+import { useTokenValueSlice } from './useTokenFiatField';
 
 type IProps = {
   $key: string;
@@ -18,23 +14,22 @@ type IProps = {
 
 function TokenValueView(props: IProps) {
   const { $key, ...rest } = props;
-  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
-  const [globalTokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
-  const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
+  // 方案B: subscribe to the value slice only ({ fiatValue, balanceParsed,
+  // currency }); `has` distinguishes "no fiat" (old `!token`) from a present
+  // token. Seam handled inside the hook.
+  const { has, fiatValue, balanceParsed, currency } = useTokenValueSlice($key);
 
-  if (!token) {
+  if (!has) {
     return <SizableText {...rest}>-</SizableText>;
   }
 
   return (
     <Currency
       formatter="value"
-      sourceCurrency={token.currency}
+      sourceCurrency={currency}
       {...(rest as React.ComponentProps<typeof Currency>)}
     >
-      {displayFiatValueOrUnavailable(token.fiatValue, token.balanceParsed)}
+      {displayFiatValueOrUnavailable(fiatValue, balanceParsed)}
     </Currency>
   );
 }
