@@ -179,7 +179,8 @@ const TWAP_MIN_DURATION_MINUTES = 5;
 const TWAP_MAX_DURATION_MINUTES = 1440;
 const TWAP_ESTIMATED_SLICE_INTERVAL_MINUTES = 0.5;
 const TWAP_MIN_SLICE_NOTIONAL_HINT = 10;
-const ORDER_TYPE_HELP_CENTER_URL = 'https://help.onekey.so/articles/15442238';
+export const ORDER_TYPE_HELP_CENTER_URL =
+  'https://help.onekey.so/articles/15442238';
 const TWAP_DURATION_PRESET_OPTIONS = [
   { label: '1h', minutes: 60 },
   { label: '6h', minutes: 360 },
@@ -401,7 +402,7 @@ function OrderTypeInfoContent({
   );
 }
 
-function OrderTypeInfoButton({
+export function OrderTypeInfoButton({
   description,
   helpUrl,
   isMobile,

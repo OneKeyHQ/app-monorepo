@@ -13,6 +13,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -184,7 +185,7 @@ export function useSwapStockPayTokens({
     ? (payTokenPreferenceByScope[stockPayTokenPreferenceScope] ?? '')
     : '';
   const speedSwapConfigScope = stockNetworkId;
-  const { result: speedSwapConfigState, isLoading: payTokenOptionsLoading } =
+  const { result: speedSwapConfigState, isLoading: speedSwapConfigLoading } =
     usePromiseResult(
       async () => {
         if (!stockNetworkId) {
@@ -209,6 +210,9 @@ export function useSwapStockPayTokens({
           config: defaultSpeedSwapConfig,
         },
         watchLoading: true,
+        swrKey: speedSwapConfigScope
+          ? swrKeys.swapStockSpeedConfig({ networkId: speedSwapConfigScope })
+          : undefined,
       },
     );
   const speedConfigReady = speedSwapConfigState.scope === speedSwapConfigScope;
@@ -376,6 +380,11 @@ export function useSwapStockPayTokens({
       },
       watchLoading: shouldLoadPayTokenDetails,
       revalidateOnFocus: true,
+      swrKey: shouldLoadPayTokenDetails
+        ? swrKeys.swapStockPayTokenDetails({
+            scope: payTokenDetailsScope,
+          })
+        : undefined,
     },
   );
   const payTokenDetailsReady =
@@ -527,14 +536,18 @@ export function useSwapStockPayTokens({
   ]);
 
   const payTokenStatus = useMemo(() => {
+    const speedSwapConfigBlockingLoading =
+      speedSwapConfigLoading && !speedConfigReady;
+    const payTokenDetailsBlockingLoading =
+      payTokenDetailsLoading && !payTokenDetailsReady;
     if (!stockNetworkId) {
       return ESwapStockChannelAsyncStatus.Idle;
     }
     if (
-      payTokenOptionsLoading ||
+      speedSwapConfigBlockingLoading ||
       !speedConfigReady ||
       (shouldLoadPayTokenDetails &&
-        (!payTokenDetailsReady || payTokenDetailsLoading))
+        (!payTokenDetailsReady || payTokenDetailsBlockingLoading))
     ) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
@@ -547,18 +560,22 @@ export function useSwapStockPayTokens({
     return ESwapStockChannelAsyncStatus.Ready;
   }, [
     activeSelectablePayToken,
-    payTokenOptionsLoading,
-    payTokenDetailsLoading,
     payTokenDetailsReady,
+    payTokenDetailsLoading,
     selectablePayTokens.length,
     shouldLoadPayTokenDetails,
     speedConfigReady,
+    speedSwapConfigLoading,
     stockNetworkId,
   ]);
+  const speedSwapConfigBlockingLoading =
+    speedSwapConfigLoading && !speedConfigReady;
+  const payTokenDetailsBlockingLoading =
+    payTokenDetailsLoading && !payTokenDetailsReady;
   const stockPayTokenOptionsLoading =
-    payTokenOptionsLoading ||
+    speedSwapConfigBlockingLoading ||
     (shouldLoadPayTokenDetails &&
-      (!payTokenDetailsReady || payTokenDetailsLoading));
+      (!payTokenDetailsReady || payTokenDetailsBlockingLoading));
 
   return {
     payTokenStatus,

@@ -571,6 +571,28 @@ function scheduleColdStartSave(name: string) {
   }, 2000);
 }
 
+function patchGlobalColdStartSnapshot({
+  scopedKey,
+  value,
+}: {
+  scopedKey: string;
+  value: unknown;
+}) {
+  const globalSnapshot = globalThis as {
+    __ONEKEY_CTX_ATOM_SNAPSHOT__?: Record<string, unknown>;
+  };
+  const snapshot = globalSnapshot.__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  if (value === undefined) {
+    if (snapshot) {
+      delete snapshot[scopedKey];
+    }
+    return;
+  }
+  const nextSnapshot = snapshot ?? {};
+  nextSnapshot[scopedKey] = value;
+  globalSnapshot.__ONEKEY_CTX_ATOM_SNAPSHOT__ = nextSnapshot;
+}
+
 async function flushWebColdStartCacheNowIfNeeded() {
   if (!platformEnv.isWeb && !platformEnv.isDesktop) {
     return;
@@ -609,6 +631,7 @@ export async function writeContextAtomColdStartCacheValues({
     lastScopedKey = scopedKey;
     coldStartValuesMap.set(scopedKey, value);
     coldStartDirtyKeys.add(scopedKey);
+    patchGlobalColdStartSnapshot({ scopedKey, value });
     coldStartLog(`writeNow: ${scopedKey}`);
   }
 
@@ -954,6 +977,10 @@ export function contextAtomBase<Value>({
         }
         if (coldStartValuesMap.get(scopedCacheKey) !== currentValue) {
           coldStartValuesMap.set(scopedCacheKey, currentValue);
+          patchGlobalColdStartSnapshot({
+            scopedKey: scopedCacheKey,
+            value: currentValue,
+          });
           coldStartLog(`changed: ${scopedCacheKey}`);
           scheduleColdStartSave(scopedCacheKey);
         }
