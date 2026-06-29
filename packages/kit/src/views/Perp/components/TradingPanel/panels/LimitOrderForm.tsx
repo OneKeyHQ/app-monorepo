@@ -310,6 +310,20 @@ export function LimitOrderForm({
       : new BigNumber(0);
   }, [spotBalances, spotUniverse?.quoteName]);
 
+  // Full base holding (does NOT subtract `hold`): the position row must show what
+  // the user owns, otherwise open sell orders shrink it into "available to sell".
+  const spotHoldingBaseBN = useMemo(() => {
+    if (!spotUniverse?.baseName) {
+      return new BigNumber(0);
+    }
+    const balance = spotBalances.find(
+      (item) => item.coin === spotUniverse.baseName,
+    );
+    return balance
+      ? BigNumber.max(new BigNumber(balance.total), 0)
+      : new BigNumber(0);
+  }, [spotBalances, spotUniverse?.baseName]);
+
   // [buyMax, sellMax] in base-token units: buy is bounded by quote balance / price,
   // sell by the base-token balance.
   const computeSpotMaxTradeSzs = useCallback(
@@ -403,10 +417,10 @@ export function LimitOrderForm({
     const baseName = spotUniverse?.baseName
       ? getSpotTokenDisplayName(spotUniverse.baseName)
       : '';
-    return `${numberFormat(spotAvailableBaseBN.toFixed(), {
+    return `${numberFormat(spotHoldingBaseBN.toFixed(), {
       formatter: 'balance',
     })} ${baseName}`;
-  }, [isSpot, spotAvailableBaseBN, spotUniverse?.baseName]);
+  }, [isSpot, spotHoldingBaseBN, spotUniverse?.baseName]);
   const sideStats = useMemo(() => {
     const buildStats = (targetSide: ITradeSide) => {
       if (isSpot) {
