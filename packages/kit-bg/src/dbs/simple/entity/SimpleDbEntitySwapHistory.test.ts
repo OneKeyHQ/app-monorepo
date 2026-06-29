@@ -114,6 +114,15 @@ const stockLimit = createHistoryItem({
   fromToken: usdc,
   toToken: stockToken,
 });
+// Canceling rows are grouped under "Pending" in the list, so a pending clear
+// must remove them too.
+const stockCanceling = createHistoryItem({
+  id: 'stock-canceling',
+  protocol: EProtocolOfExchange.STOCK,
+  status: ESwapTxHistoryStatus.CANCELING,
+  fromToken: stockToken,
+  toToken: usdc,
+});
 
 async function runDelete(
   histories: ISwapTxHistory[],
@@ -168,5 +177,14 @@ describe('SimpleDbEntitySwapHistory.deleteSwapHistoryItem onlyStock', () => {
       },
     );
     expect(kept).toEqual([stockPrivateSend, stockLimit, swapSuccess]);
+  });
+
+  it('pending clear with [PENDING, CANCELING] also removes canceling stock', async () => {
+    const kept = await runDelete(
+      [stockPending, stockCanceling, stockSuccess, swapSuccess],
+      [ESwapTxHistoryStatus.PENDING, ESwapTxHistoryStatus.CANCELING],
+      { onlyStock: true },
+    );
+    expect(kept).toEqual([stockSuccess, swapSuccess]);
   });
 });

@@ -35,6 +35,7 @@ import {
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
+  SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
@@ -123,16 +124,12 @@ const SwapMarketHistoryList = ({
       );
     }
     const pendingData =
-      filterData?.filter(
-        (item) =>
-          item.status === ESwapTxHistoryStatus.PENDING ||
-          item.status === ESwapTxHistoryStatus.CANCELING,
+      filterData?.filter((item) =>
+        SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       ) ?? [];
     const otherData =
       filterData?.filter(
-        (item) =>
-          item.status !== ESwapTxHistoryStatus.PENDING &&
-          item.status !== ESwapTxHistoryStatus.CANCELING,
+        (item) => !SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       ) ?? [];
     const groupByDay = otherData.reduce<Record<string, ISwapTxHistory[]>>(
       (acc, item) => {

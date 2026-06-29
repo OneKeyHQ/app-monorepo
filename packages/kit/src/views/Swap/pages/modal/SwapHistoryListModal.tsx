@@ -41,6 +41,7 @@ import {
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
   SWAP_CLEAN_EXCLUDE_PROTOCOLS,
+  SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   getSwapHistoryListTitleId,
   getSwapMarketPendingHistoryList,
@@ -378,8 +379,8 @@ const SwapHistoryListModal = ({
   const onDeletePendingHistory = useCallback(() => {
     // dialog
     if (
-      !swapMarketTxHistoryList.some(
-        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      !swapMarketTxHistoryList.some((item) =>
+        SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       )
     )
       return;
@@ -393,7 +394,7 @@ const SwapHistoryListModal = ({
       }),
       onConfirm: () => {
         void backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
-          [ESwapTxHistoryStatus.PENDING],
+          SWAP_HISTORY_PENDING_STATUSES,
           {
             excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS,
             excludeStock: true,

@@ -29,7 +29,11 @@ export function useSwapMarketHistoryList(protocol?: EProtocolOfExchange) {
   );
   useEffect(() => {
     const handleRefresh = () => {
-      void run();
+      // Force the refetch past usePromiseResult's focus gate: a clear/delete
+      // from a detail modal fires this while the list underneath is blurred,
+      // and a plain run() would be dropped on blur with no refocus retry,
+      // leaving the deleted finished row (and savings/guards) stale.
+      void run({ alwaysSetState: true });
     };
     appEventBus.on(EAppEventBusNames.RefreshSwapHistoryList, handleRefresh);
     return () => {

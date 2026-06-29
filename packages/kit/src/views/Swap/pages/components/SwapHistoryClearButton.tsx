@@ -9,12 +9,12 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EProtocolOfExchange,
   ESwapCleanHistorySource,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapMarketHistoryList } from '../../hooks/useSwapMarketHistoryList';
 import {
   SWAP_CLEAN_EXCLUDE_PROTOCOLS,
+  SWAP_HISTORY_PENDING_STATUSES,
   filterSwapMarketHistoryItems,
   isStockSwapHistoryItem,
 } from '../../utils/swapMarketHistory';
@@ -64,8 +64,8 @@ function SwapHistoryClearButton({
   const hasHistory = scopedHistoryList.length > 0;
   const hasPending = useMemo(
     () =>
-      scopedHistoryList.some(
-        (item) => item.status === ESwapTxHistoryStatus.PENDING,
+      scopedHistoryList.some((item) =>
+        SWAP_HISTORY_PENDING_STATUSES.includes(item.status),
       ),
     [scopedHistoryList],
   );
@@ -92,7 +92,7 @@ function SwapHistoryClearButton({
           : undefined,
         onConfirm: async () => {
           await backgroundApiProxy.serviceSwap.cleanSwapHistoryItems(
-            isPending ? [ESwapTxHistoryStatus.PENDING] : undefined,
+            isPending ? SWAP_HISTORY_PENDING_STATUSES : undefined,
             getCleanOptions(scope),
           );
           if (!isPending) {
