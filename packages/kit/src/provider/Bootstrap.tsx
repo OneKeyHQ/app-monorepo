@@ -68,6 +68,8 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
+import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -788,13 +790,21 @@ export function Bootstrap() {
     if (!platformEnv.isNative) {
       return;
     }
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+      !!devSettings.enabled,
+    );
+    devSettingSyncStorage.set(
+      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+      nativeNetworkThrottleEnabled,
+    );
     void nativeNetworkThrottle
       .setNetworkThrottle({
         enabled: nativeNetworkThrottleEnabled,
         profile: 'slow4g',
       })
       .catch(() => undefined);
-  }, [nativeNetworkThrottleEnabled]);
+  }, [devSettings.enabled, nativeNetworkThrottleEnabled]);
 
   useEffect(() => {
     if (

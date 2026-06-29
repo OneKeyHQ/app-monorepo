@@ -67,23 +67,26 @@ class ServiceDevSetting extends ServiceBase {
     );
   }
 
-  private async clearNetworkThrottleBeforeDisableDevMode() {
+  private async clearNetworkThrottleAfterDisableDevMode() {
     if (platformEnv.isDesktop) {
       const config =
         await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
           enabled: false,
           profile: 'slow4g',
         });
-      if (!config || config.enabled) {
-        throw new OneKeyLocalError(
-          'Failed to disable desktop network throttle',
-        );
+      if (config) {
+        setNetworkThrottleRuntimeConfig({
+          enabled: Boolean(config.enabled),
+          profile: 'slow4g',
+          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        });
+      } else {
+        setNetworkThrottleRuntimeConfig({
+          enabled: false,
+          profile: 'slow4g',
+          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        });
       }
-      setNetworkThrottleRuntimeConfig({
-        enabled: false,
-        profile: 'slow4g',
-        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-      });
     }
     if (platformEnv.isNative) {
       const config = await nativeNetworkThrottle.setNetworkThrottle({
@@ -98,19 +101,37 @@ class ServiceDevSetting extends ServiceBase {
 
   @backgroundMethod()
   public async switchDevMode(isOpen: boolean) {
-    if (!isOpen) {
-      await this.clearNetworkThrottleBeforeDisableDevMode();
+    if (isOpen) {
+      await devSettingsPersistAtom.set((prev) => ({
+        enabled: true,
+        settings: prev.settings,
+      }));
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
+      return;
     }
-    await devSettingsPersistAtom.set((prev) => ({
-      enabled: isOpen,
-      settings: isOpen ? prev.settings : {},
+
+    const previousDevSettings = await devSettingsPersistAtom.get();
+    await devSettingsPersistAtom.set(() => ({
+      enabled: false,
+      settings: {},
     }));
     await this.saveDevModeToSyncStorage();
     await this.syncCryptoSettings();
+
+    try {
+      await this.clearNetworkThrottleAfterDisableDevMode();
+    } catch (error) {
+      await devSettingsPersistAtom.set(() => previousDevSettings);
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
+      throw error;
+    }
   }
 
   @backgroundMethod()
   public async updateDevSetting(name: IDevSettingsKeys, value: any) {
+    const previousDevSettings = await devSettingsPersistAtom.get();
     await devSettingsPersistAtom.set((prev) => ({
       enabled: true,
       settings: {
@@ -118,23 +139,34 @@ class ServiceDevSetting extends ServiceBase {
         [name]: value,
       },
     }));
-    if (platformEnv.isNative && name === 'nativeNetworkThrottleEnabled') {
-      await nativeNetworkThrottle
-        .setNetworkThrottle({
-          enabled: Boolean(value),
-          profile: 'slow4g',
-        })
-        .catch(() => undefined);
-    }
-    if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
-      setNetworkThrottleRuntimeConfig({
-        enabled: Boolean(value),
-        profile: 'slow4g',
-        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-      });
-    }
     await this.saveDevModeToSyncStorage();
     await this.syncCryptoSettings();
+
+    try {
+      if (platformEnv.isNative && name === 'nativeNetworkThrottleEnabled') {
+        const config = await nativeNetworkThrottle.setNetworkThrottle({
+          enabled: Boolean(value),
+          profile: 'slow4g',
+        });
+        if (config.enabled !== Boolean(value)) {
+          throw new OneKeyLocalError(
+            'Failed to update native network throttle',
+          );
+        }
+      }
+      if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
+        setNetworkThrottleRuntimeConfig({
+          enabled: Boolean(value),
+          profile: 'slow4g',
+          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+        });
+      }
+    } catch (error) {
+      await devSettingsPersistAtom.set(() => previousDevSettings);
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
+      throw error;
+    }
   }
 
   @backgroundMethod()

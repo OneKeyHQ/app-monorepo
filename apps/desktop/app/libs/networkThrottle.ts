@@ -465,7 +465,6 @@ export async function applyDesktopNetworkThrottleToKnownSessions(
         label: 'webContents',
         contents,
         config,
-        throwOnFailure: options?.throwOnFailure,
       }),
     );
 

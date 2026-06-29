@@ -66,9 +66,7 @@ import {
   isSpanning,
 } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
-import nativeNetworkThrottle, {
-  NATIVE_SLOW_4G_LATENCY_MS,
-} from '@onekeyhq/shared/src/modules/NetworkThrottle';
+import { NATIVE_SLOW_4G_LATENCY_MS } from '@onekeyhq/shared/src/modules/NetworkThrottle';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -519,11 +517,6 @@ const BaseDevSettingsSection = () => {
   const handleNativeNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
       try {
-        await nativeNetworkThrottle.setNetworkThrottle({
-          enabled,
-          profile: 'slow4g',
-          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-        });
         await backgroundApiProxy.serviceDevSetting.updateDevSetting(
           'nativeNetworkThrottleEnabled',
           enabled,

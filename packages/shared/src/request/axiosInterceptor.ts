@@ -21,8 +21,12 @@ import nativeNetworkThrottle, {
   getNetworkThrottleRuntimeConfig,
 } from '../modules/NetworkThrottle';
 import platformEnv from '../platformEnv';
+import appStorage from '../storage/appStorage';
 import { devSettingSyncStorage } from '../storage/instance/devSettingSyncStorageInstance';
-import { EDevSettingSyncStorageKeys } from '../storage/syncStorageKeys';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from '../storage/syncStorageKeys';
 import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
@@ -48,6 +52,7 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
 
 let syncNativeNetworkThrottlePromise: Promise<void> | undefined;
 let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
+let nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
 
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
@@ -119,15 +124,27 @@ function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
     EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
   );
   if (devModeEnabled === false) {
+    nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
     return false;
   }
-  if (devModeEnabled !== true) {
+  if (devModeEnabled === true) {
+    nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
+    return devSettingSyncStorage.getBoolean(
+      EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
+    );
+  }
+
+  const appDevModeEnabled = appStorage.syncStorage.getBoolean(
+    EAppSyncStorageKeys.onekey_developer_mode_enabled,
+  );
+  if (
+    appDevModeEnabled === true &&
+    !nativeNetworkThrottleSyncStorageHydrationTimedOut
+  ) {
     return undefined;
   }
 
-  return devSettingSyncStorage.getBoolean(
-    EDevSettingSyncStorageKeys.onekey_native_network_throttle_enabled,
-  );
+  return false;
 }
 
 async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
@@ -144,6 +161,7 @@ async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
       return enabled;
     }
   }
+  nativeNetworkThrottleSyncStorageHydrationTimedOut = true;
   return false;
 }
 
