@@ -14,6 +14,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ECustomTokenStatus,
   type IAccountToken,
@@ -21,9 +22,10 @@ import {
 } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useHomeTokenListOwnerKey } from '../../../states/jotai/contexts/tokenList/cells';
-import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { TokenManagerList } from '../components/TokenManager/TokenManagerList';
 import { useAccountInfoForManageToken } from '../hooks/useAddToken';
 import { useTokenManagement } from '../hooks/useTokenManagement';
@@ -291,10 +293,27 @@ function TokenManagerModal() {
 }
 
 function TokenManagerModalContainer() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAssetListParamList,
+        EModalAssetListRoutes.TokenManagerModal
+      >
+    >();
+  const { accountId } = route.params;
+
   return (
-    <HomeTokenListProviderMirror>
-      <TokenManagerModal />
-    </HomeTokenListProviderMirror>
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HomeTokenListProviderMirrorWrapper accountId={accountId}>
+        <TokenManagerModal />
+      </HomeTokenListProviderMirrorWrapper>
+    </AccountSelectorProviderMirror>
   );
 }
 

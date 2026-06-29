@@ -7,11 +7,13 @@ import { createStore } from 'jotai';
 
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
+import { settingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '@onekeyhq/kit-bg/src/states/jotai/jotaiStorage';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
   IFetchQuoteResult,
   IFetchQuotesParams,
+  ISwapNetwork,
   ISwapQuoteEvent,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
@@ -138,6 +140,11 @@ const appleStockToken: ISwapToken = {
   isNative: false,
   isStock: true,
 };
+const evmSwapNetwork: ISwapNetwork = {
+  networkId: 'evm--1',
+  name: 'Ethereum',
+  symbol: 'ETH',
+};
 const evmAccount: INetworkAccount = {
   id: 'hd-1--m/44/60/0/0/0',
   name: 'Account 1',
@@ -232,6 +239,13 @@ describe('useSwapActions', () => {
     mockCloseApproving.mockResolvedValue(undefined);
     mockCancelFetchQuoteEvents.mockResolvedValue(undefined);
     mockFetchQuotesEvents.mockResolvedValue(undefined);
+    jest.spyOn(settingsAtom, 'get').mockResolvedValue({
+      swapEnableRecipientAddress: false,
+      swapIncognitoMode: false,
+      swapSlippagePercentageCustomValue: 0,
+      swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
+      swapToAnotherAccountSwitchOn: false,
+    });
   });
 
   it('pins selected token detail price fetches to USD for rate-difference math', async () => {
@@ -429,6 +443,7 @@ describe('useSwapActions', () => {
       await result.current.actions.checkSwapWarning(
         fromAddressInfo,
         fromAddressInfo,
+        { allowNoConnectWallet: true },
       );
     });
 
@@ -796,5 +811,47 @@ describe('useSwapActions', () => {
         fromAmount: '1',
       }),
     );
+  });
+
+  it('does not keep noConnectWallet warning when native wallet readiness is not proven', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    store.set(swapNetworks(), [evmSwapNetwork]);
+    store.set(swapAlertsAtom(), {
+      states: [{ message: 'keep me' }, { noConnectWallet: true }],
+      quoteId: 'old-quote',
+    });
+
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.checkSwapWarning(fromAddressInfo, fromAddressInfo, {
+        allowNoConnectWallet: false,
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      { message: 'keep me' },
+    ]);
+  });
+
+  it('keeps noConnectWallet warning when the caller proves a real no-wallet state', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    store.set(swapNetworks(), [evmSwapNetwork]);
+
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+
+    await act(async () => {
+      await result.current.checkSwapWarning(fromAddressInfo, fromAddressInfo, {
+        allowNoConnectWallet: true,
+      });
+    });
+
+    expect(store.get(swapAlertsAtom()).states).toEqual([
+      { noConnectWallet: true },
+    ]);
   });
 });
