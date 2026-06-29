@@ -31,12 +31,12 @@ import {
 type ISwapHistoryClearScope = 'swap' | 'stock';
 
 function getCleanOptions(scope: ISwapHistoryClearScope) {
+  // Both scopes exclude limit / private-send: those live in their own surfaces
+  // and are filtered out of the list/guards here (filterSwapMarketHistoryItems),
+  // so clearing must not physically delete rows the user can't see on this panel.
   return scope === 'stock'
-    ? { onlyStock: true }
-    : {
-        excludeStock: true,
-        excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS,
-      };
+    ? { onlyStock: true, excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS }
+    : { excludeStock: true, excludeProtocols: SWAP_CLEAN_EXCLUDE_PROTOCOLS };
 }
 
 function SwapHistoryClearButton({

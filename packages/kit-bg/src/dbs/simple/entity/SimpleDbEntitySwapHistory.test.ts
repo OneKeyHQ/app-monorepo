@@ -97,6 +97,23 @@ const swapSuccess = createHistoryItem({
   fromToken: usdc,
   toToken: createToken('ETH'),
 });
+// A stock token traded through a non-market channel: isStock is true, but the
+// row lives in the limit / private-send surfaces and is hidden from the stock
+// Order History list, so a stock "Clear" must not delete it.
+const stockPrivateSend = createHistoryItem({
+  id: 'stock-private-send',
+  protocol: EProtocolOfExchange.PRIVATE_SEND,
+  status: ESwapTxHistoryStatus.SUCCESS,
+  fromToken: stockToken,
+  toToken: usdc,
+});
+const stockLimit = createHistoryItem({
+  id: 'stock-limit',
+  protocol: EProtocolOfExchange.LIMIT,
+  status: ESwapTxHistoryStatus.SUCCESS,
+  fromToken: usdc,
+  toToken: stockToken,
+});
 
 async function runDelete(
   histories: ISwapTxHistory[],
@@ -133,5 +150,23 @@ describe('SimpleDbEntitySwapHistory.deleteSwapHistoryItem onlyStock', () => {
   it('excludeStock stays the mirror: clears swap, keeps every stock trade', async () => {
     const kept = await runDelete(all, undefined, { excludeStock: true });
     expect(kept).toEqual([stockPending, stockSuccess]);
+  });
+
+  it('onlyStock + excludeProtocols keeps stock-token limit/private-send rows', async () => {
+    // Mirrors the stock Order History guards: only the visible market-stock set
+    // is cleared; stock-token limit / private-send rows (hidden on that panel)
+    // survive instead of being silently deleted.
+    const kept = await runDelete(
+      [stockSuccess, stockPrivateSend, stockLimit, swapSuccess],
+      undefined,
+      {
+        onlyStock: true,
+        excludeProtocols: [
+          EProtocolOfExchange.LIMIT,
+          EProtocolOfExchange.PRIVATE_SEND,
+        ],
+      },
+    );
+    expect(kept).toEqual([stockPrivateSend, stockLimit, swapSuccess]);
   });
 });
