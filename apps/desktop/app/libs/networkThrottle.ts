@@ -76,6 +76,12 @@ const webContentsDebuggerReapplyTimers = new WeakMap<
   WebContents,
   ReturnType<typeof setTimeout>
 >();
+const webContentsDebuggerReapplyOnDevToolsClosed = new WeakMap<
+  WebContents,
+  () => void
+>();
+
+const MAX_DEBUGGER_REAPPLY_ATTEMPTS = 10;
 
 let runtimeNetworkThrottleConfig: IDesktopStoreNetworkThrottle | undefined;
 
@@ -198,6 +204,12 @@ function clearDesktopNetworkThrottleDebuggerReapply(
     clearTimeout(timer);
     webContentsDebuggerReapplyTimers.delete(contents);
   }
+  const onDevToolsClosed =
+    webContentsDebuggerReapplyOnDevToolsClosed.get(contents);
+  if (onDevToolsClosed) {
+    contents.off('devtools-closed', onDevToolsClosed);
+    webContentsDebuggerReapplyOnDevToolsClosed.delete(contents);
+  }
 }
 
 function scheduleDesktopNetworkThrottleDebuggerReapply({
@@ -218,9 +230,31 @@ function scheduleDesktopNetworkThrottleDebuggerReapply({
   clearDesktopNetworkThrottleDebuggerReapply(contents);
 
   const targetLabel = `${label}:${contents.id}:${contents.getType()}`;
-  const retryDelay = contents.isDevToolsOpened()
-    ? 1000
-    : Math.min(250 * (attempt + 1), 2000);
+  if (contents.isDevToolsOpened()) {
+    const onDevToolsClosed = () => {
+      webContentsDebuggerReapplyOnDevToolsClosed.delete(contents);
+      scheduleDesktopNetworkThrottleDebuggerReapply({
+        contents,
+        label,
+        reason,
+      });
+    };
+    webContentsDebuggerReapplyOnDevToolsClosed.set(contents, onDevToolsClosed);
+    contents.once('devtools-closed', onDevToolsClosed);
+    logger.info(
+      `[desktop-network-throttle] waiting for DevTools to close before debugger reapply webContents=${targetLabel} reason=${reason}`,
+    );
+    return;
+  }
+
+  if (attempt >= MAX_DEBUGGER_REAPPLY_ATTEMPTS) {
+    logger.warn(
+      `[desktop-network-throttle] stopped debugger reapply after max attempts webContents=${targetLabel} reason=${reason} attempts=${attempt}`,
+    );
+    return;
+  }
+
+  const retryDelay = Math.min(250 * (attempt + 1), 2000);
   const timer = setTimeout(() => {
     webContentsDebuggerReapplyTimers.delete(contents);
     if (!shouldApplyDebuggerNetworkThrottle(contents)) {

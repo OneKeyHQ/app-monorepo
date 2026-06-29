@@ -28,6 +28,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type {
+  IDevSettings,
   IDevSettingsKeys,
   IDevSettingsPersistAtom,
   IFirmwareUpdateDevSettings,
@@ -130,20 +131,47 @@ class ServiceDevSetting extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateDevSetting(name: IDevSettingsKeys, value: any) {
+  public async updateDevSetting(
+    name: IDevSettingsKeys,
+    value: IDevSettings[IDevSettingsKeys],
+  ): Promise<IDevSettings[IDevSettingsKeys] | boolean> {
     const previousDevSettings = await devSettingsPersistAtom.get();
-    await devSettingsPersistAtom.set((prev) => ({
-      enabled: true,
-      settings: {
-        ...prev.settings,
-        [name]: value,
-      },
-    }));
-    await this.saveDevModeToSyncStorage();
-    await this.syncCryptoSettings();
+    const updatePersistedDevSetting = async (
+      nextValue: IDevSettings[IDevSettingsKeys],
+    ) => {
+      await devSettingsPersistAtom.set((prev) => ({
+        enabled: true,
+        settings: {
+          ...prev.settings,
+          [name]: nextValue,
+        },
+      }));
+      await this.saveDevModeToSyncStorage();
+      await this.syncCryptoSettings();
+    };
+
+    if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
+      const config =
+        await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
+          enabled: Boolean(value),
+          profile: 'slow4g',
+        });
+      if (!config) {
+        throw new OneKeyLocalError('Failed to update desktop network throttle');
+      }
+      const actualEnabled = Boolean(config.enabled);
+      await updatePersistedDevSetting(actualEnabled);
+      setNetworkThrottleRuntimeConfig({
+        enabled: actualEnabled,
+        profile: 'slow4g',
+        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+      });
+      return actualEnabled;
+    }
 
     try {
       if (platformEnv.isNative && name === 'nativeNetworkThrottleEnabled') {
+        await updatePersistedDevSetting(Boolean(value));
         const config = await nativeNetworkThrottle.setNetworkThrottle({
           enabled: Boolean(value),
           profile: 'slow4g',
@@ -153,13 +181,7 @@ class ServiceDevSetting extends ServiceBase {
             'Failed to update native network throttle',
           );
         }
-      }
-      if (platformEnv.isDesktop && name === 'desktopNetworkThrottleEnabled') {
-        setNetworkThrottleRuntimeConfig({
-          enabled: Boolean(value),
-          profile: 'slow4g',
-          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-        });
+        return config.enabled;
       }
     } catch (error) {
       await devSettingsPersistAtom.set(() => previousDevSettings);
@@ -167,6 +189,9 @@ class ServiceDevSetting extends ServiceBase {
       await this.syncCryptoSettings();
       throw error;
     }
+
+    await updatePersistedDevSetting(value);
+    return value;
   }
 
   @backgroundMethod()

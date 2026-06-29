@@ -491,14 +491,11 @@ const BaseDevSettingsSection = () => {
   const handleDesktopNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
       try {
-        const config = await globalThis.desktopApiProxy.dev.setNetworkThrottle({
-          enabled,
-          profile: 'slow4g',
-        });
-        const actualEnabled = !!config.enabled;
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'desktopNetworkThrottleEnabled',
-          actualEnabled,
+        const actualEnabled = Boolean(
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'desktopNetworkThrottleEnabled',
+            enabled,
+          ),
         );
         Toast.success({
           title: actualEnabled
@@ -517,12 +514,14 @@ const BaseDevSettingsSection = () => {
   const handleNativeNetworkThrottleChange = useCallback(
     async (enabled: boolean) => {
       try {
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'nativeNetworkThrottleEnabled',
-          enabled,
+        const actualEnabled = Boolean(
+          await backgroundApiProxy.serviceDevSetting.updateDevSetting(
+            'nativeNetworkThrottleEnabled',
+            enabled,
+          ),
         );
         Toast.success({
-          title: enabled
+          title: actualEnabled
             ? 'Native Slow 4G latency enabled'
             : 'Native network throttle disabled',
         });

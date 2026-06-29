@@ -53,6 +53,7 @@ type IAxiosNetworkTimingConfig = AxiosRequestConfig & {
 let syncNativeNetworkThrottlePromise: Promise<void> | undefined;
 let lastSyncedNativeNetworkThrottleEnabled: boolean | undefined;
 let nativeNetworkThrottleSyncStorageHydrationTimedOut = false;
+let nativeNetworkThrottleSyncedBeforeRequest = false;
 
 const refreshNetInfo = debounce(() => {
   appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
@@ -166,7 +167,7 @@ async function getPersistedNativeNetworkThrottleEnabled(): Promise<boolean> {
 }
 
 async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
-  if (!platformEnv.isNative) {
+  if (!platformEnv.isNative || nativeNetworkThrottleSyncedBeforeRequest) {
     return;
   }
 
@@ -174,6 +175,7 @@ async function ensureNativeNetworkThrottleSyncedBeforeRequest() {
     syncNativeNetworkThrottleFromDevSettings();
   try {
     await syncNativeNetworkThrottlePromise;
+    nativeNetworkThrottleSyncedBeforeRequest = true;
   } finally {
     syncNativeNetworkThrottlePromise = undefined;
   }
