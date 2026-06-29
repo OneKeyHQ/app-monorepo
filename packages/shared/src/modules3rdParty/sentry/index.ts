@@ -29,6 +29,17 @@ export const initSentry = () => {
   }
   Sentry.init({
     dsn: process.env.SENTRY_DSN_WEB || '',
+    // Associate runtime events with the sourcemaps uploaded by CI. The web
+    // rspack build has no in-build Sentry plugin, so release-web.yml uploads
+    // maps via `sentry-cli sourcemaps upload --release "$RELEASE"` (no
+    // `inject`, to keep the build-time SRI hashes valid). With no injected
+    // debug-ids, mapping a stack trace back to source relies entirely on the
+    // release name matching — so it MUST equal the CI `$RELEASE`
+    // ("$BUILD_APP_VERSION ($BUILD_NUMBER)").
+    // Both derive from the same source: process.env.VERSION is `.env.version`'s
+    // VERSION (= BUILD_APP_VERSION) and BUILD_NUMBER is the CI build number —
+    // identical to the release the webpack sentry plugin used (webpack.prod.config.js).
+    release: `${process.env.VERSION ?? ''} (${process.env.BUILD_NUMBER ?? ''})`,
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
         appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);

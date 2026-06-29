@@ -3,11 +3,7 @@
 import { ExpirationPlugin } from 'workbox-expiration';
 import { precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import {
-  CacheFirst,
-  NetworkFirst,
-  StaleWhileRevalidate,
-} from 'workbox-strategies';
+import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 
 // Skip waiting immediately on install so existing users with old SW get
 // the fix without needing to confirm the update prompt or close all tabs.
@@ -50,16 +46,25 @@ registerRoute(
   }),
 );
 
-// JS/CSS chunks -> StaleWhileRevalidate
+// JS/CSS chunks -> CacheFirst.
+// These assets are immutable: they are served from app-assets.onekey.so under a
+// per-build path + contenthash filename, so a given URL's bytes never change
+// (new content -> new URL). StaleWhileRevalidate would re-fetch every cached
+// chunk in the background on each load — and because the asset host sends NO
+// `Cache-Control: immutable`, that revalidation costs a real network round-trip
+// for content that cannot have changed. CacheFirst serves from cache without
+// revalidating. It is safe here: the asset host returns a genuine 404 (not an
+// HTML fallback) for missing files, and CacheFirst caches only 200 responses, so
+// a missing chunk is never pinned. Old build URLs fall out via expiration.
 registerRoute(
   ({ request }) =>
     request.destination === 'script' || request.destination === 'style',
-  new StaleWhileRevalidate({
+  new CacheFirst({
     cacheName: 'static-resources',
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 200,
-        maxAgeSeconds: 7 * 24 * 60 * 60,
+        maxEntries: 300,
+        maxAgeSeconds: 30 * 24 * 60 * 60,
       }),
     ],
   }),
