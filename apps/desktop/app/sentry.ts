@@ -41,19 +41,16 @@ export const initSentry = () => {
     },
     integrations: (defaultIntegrations) => [
       // Drop only the native minidump integration (native crashes are covered
-      // by the Electron crashReporter / our own native pipeline) and replace
-      // the default renderer ANR integration explicitly below. The rest of
+      // by the Electron crashReporter / our own native pipeline). The rest of
       // @sentry/electron's default set is kept. Note: @sentry/node's backend
       // OpenTelemetry auto-instrumentations (express/mongo/redis/…) are NOT in
       // this default set — electron-main's getDefaultIntegrations() hardcodes a
       // fixed electron+node subset and never calls getAutoPerformanceIntegrations()
       // — so there is nothing extra to strip here.
       ...defaultIntegrations.filter(
-        (i) =>
-          !i.name.toLowerCase().includes('minidump') &&
-          i.name !== 'RendererEventLoopBlock',
+        (i) => !i.name.toLowerCase().includes('minidump'),
       ),
-      Sentry.rendererEventLoopBlockIntegration(),
+      Sentry.anrIntegration({ captureStackTrace: true }),
       Sentry.childProcessIntegration({
         breadcrumbs: [
           'clean-exit',
