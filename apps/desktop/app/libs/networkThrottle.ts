@@ -3,7 +3,11 @@ import logger from 'electron-log/main';
 
 import { DESKTOP_WEBVIEW_OVERLAY_PARTITION } from '@onekeyhq/shared/src/consts/desktopWebviewPartitions';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
-import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
+import { syncStorage } from '@onekeyhq/shared/src/storage/instance/syncStorageInstance';
+import {
+  EAppSyncStorageKeys,
+  EDevSettingSyncStorageKeys,
+} from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import type {
   IDesktopStoreNetworkThrottle,
   IDesktopStoreNetworkThrottleProfile,
@@ -97,9 +101,15 @@ function normalizeDesktopNetworkThrottleConfig(
 }
 
 function isDeveloperModeEnabledForNetworkThrottle(): boolean {
+  const devSettingEnabled = devSettingSyncStorage.getBoolean(
+    EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+  );
+  if (devSettingEnabled !== undefined) {
+    return devSettingEnabled;
+  }
   return (
-    devSettingSyncStorage.getBoolean(
-      EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
+    syncStorage.getBoolean(
+      EAppSyncStorageKeys.onekey_developer_mode_enabled,
     ) === true
   );
 }
