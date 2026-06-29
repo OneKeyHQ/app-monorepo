@@ -4,12 +4,15 @@ import {
   backgroundClass,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import {
   currencyPersistAtom,
@@ -54,7 +57,8 @@ export type IPortfolioSyncLastResult = {
   serverSubmit?: {
     bytesLength: number;
     contentHash: string;
-    todoEndpoint: true;
+    serverPackageBase64Length: number;
+    serverPackageBytesLength: number;
   };
   status: IPortfolioSyncStatus;
   tokenCount?: number;
@@ -299,8 +303,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     artifacts,
   }: {
     artifacts: IPortfolioSyncArtifacts;
-  }): Promise<IPortfolioServerSubmitResult> {
-    const { contentHash, portfolioJsonBytes } = artifacts;
+  }): Promise<{
+    serverPackageBytes: ArrayBuffer;
+    serverSubmit: IPortfolioServerSubmitResult;
+  }> {
+    const { contentHash, portfolio, portfolioJsonBytes } = artifacts;
 
     debugPortfolioSyncLog('server-submit-ready', {
       bytesLength: portfolioJsonBytes.byteLength,
@@ -309,15 +316,40 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       totalTokenCount: artifacts.portfolio.tokenCount,
     });
 
-    // TODO: POST `portfolioJsonBytes` as portfolio.json to the Pro 2
-    // portfolio-pack API once the server endpoint is finalized. The server,
-    // not the App, must validate, normalize, pack the archive/PP payload, and
-    // recompute iconName from its token icon allowlist before signing it for
-    // production.
-    return {
+    // The App only submits portfolio.json. The server validates, normalizes,
+    // recomputes iconName from its own token icon allowlist, packs and signs
+    // the production portfolio package, and returns it as base64.
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{
+      data: { packageBase64: string };
+    }>('/wallet/v1/hardware/portfolio/pack', portfolio);
+
+    const packageBase64 = resp.data?.data?.packageBase64;
+    if (!packageBase64) {
+      throw new OneKeyLocalError(
+        'Portfolio pack response missing packageBase64',
+      );
+    }
+    const serverPackageBuffer = bufferUtils.toBuffer(packageBase64, 'base64');
+    // Copy into a standalone ArrayBuffer (Buffer.buffer is a shared pool slice).
+    const serverPackageBytes = new ArrayBuffer(serverPackageBuffer.byteLength);
+    new Uint8Array(serverPackageBytes).set(serverPackageBuffer);
+
+    debugPortfolioSyncLog('server-submit-packed', {
       bytesLength: portfolioJsonBytes.byteLength,
       contentHash,
-      todoEndpoint: true,
+      serverPackageBase64Length: packageBase64.length,
+      serverPackageBytesLength: serverPackageBytes.byteLength,
+    });
+
+    return {
+      serverPackageBytes,
+      serverSubmit: {
+        bytesLength: portfolioJsonBytes.byteLength,
+        contentHash,
+        serverPackageBase64Length: packageBase64.length,
+        serverPackageBytesLength: serverPackageBytes.byteLength,
+      },
     };
   }
 
@@ -447,16 +479,20 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         }
       }
 
-      const serverSubmit = await this.submitPortfolioJsonToServer({
-        artifacts,
-      });
+      const { serverPackageBytes, serverSubmit } =
+        await this.submitPortfolioJsonToServer({
+          artifacts,
+        });
 
       if (isHardwareWallet && deviceConnectId) {
+        // Upload the server-packed/signed package. The mock upload still uses a
+        // silent hardware context and does not transfer bytes yet; it will be
+        // swapped for the real SDK transport once that endpoint is finalized.
         const mockUpload =
           await this.backgroundApi.serviceHardware.uploadPortfolioPackageMock({
             connectId: deviceConnectId,
             contentHash: artifacts.contentHash,
-            packageBytes: artifacts.mockArchiveBytes,
+            packageBytes: serverPackageBytes,
           });
         this.setLastResult({
           ...this.buildResultBase({
