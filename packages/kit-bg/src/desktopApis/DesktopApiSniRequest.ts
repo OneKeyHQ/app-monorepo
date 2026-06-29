@@ -114,6 +114,79 @@ function getErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
+function shortHashForLog(value: string | undefined | null): string {
+  if (!value) return 'none';
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+function safeLogValue(value: unknown): string {
+  if (value == null) return 'none';
+  return String(value).replace(/[\r\n\s]+/g, '_');
+}
+
+function formatNativeLogEvent(
+  event: string,
+  fields: Record<string, unknown>,
+): string {
+  return Object.entries({ event, ...fields })
+    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .join(' ');
+}
+
+function writeNativeLog(
+  level: 'info' | 'warn' | 'error',
+  event: string,
+  fields: Record<string, unknown>,
+): void {
+  const message = `[DesktopApiSniRequest] ${formatNativeLogEvent(
+    event,
+    fields,
+  )}`;
+  if (level === 'error') {
+    logger.error(message);
+  } else if (level === 'warn') {
+    logger.warn(message);
+  } else {
+    logger.info(message);
+  }
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getIpFamily(ip: string): string {
+  return ip.includes(':') ? 'ipv6' : 'ipv4';
+}
+
+function getProxyRuleType(
+  proxyRules: string,
+): 'direct' | 'proxy' | 'mixed' | 'unknown' {
+  const rules = proxyRules
+    .split(';')
+    .map((rule) => rule.trim())
+    .filter(Boolean)
+    .map((rule) => rule.toUpperCase());
+  if (rules.length === 0) return 'unknown';
+  const directCount = rules.filter((rule) => rule === 'DIRECT').length;
+  if (directCount === rules.length) return 'direct';
+  if (directCount === 0) return 'proxy';
+  return 'mixed';
+}
+
+function getHostnameForLog(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'unknown';
+  }
+}
+
 function invalidConfig(message: string): never {
   throw new SniRequestError('SNI_INVALID_CONFIG', message, true);
 }
@@ -470,9 +543,31 @@ export class SniRequestLimiter {
 
   private activeRequestsByPair = new Map<string, number>();
 
+  snapshot(hostname?: string, ip?: string): {
+    activeRequests: number;
+    activeRequestsForPair: number;
+  } {
+    const key = hostname && ip ? `${hostname.toLowerCase()}|${ip}` : undefined;
+    return {
+      activeRequests: this.activeRequests,
+      activeRequestsForPair: key
+        ? this.activeRequestsByPair.get(key) ?? 0
+        : 0,
+    };
+  }
+
   acquire(hostname: string, ip: string): () => void {
     const key = `${hostname.toLowerCase()}|${ip}`;
     if (this.activeRequests >= this.maxActiveRequests) {
+      writeNativeLog('warn', 'desktop_sni_resource_limit', {
+        hostname: hostname.toLowerCase(),
+        ipHash: shortHashForLog(ip),
+        ipFamily: getIpFamily(ip),
+        activeRequests: this.activeRequests,
+        activeRequestsForPair: this.activeRequestsByPair.get(key) ?? 0,
+        limit: this.maxActiveRequests,
+        reason: 'max_active_requests',
+      });
       throw new SniRequestError(
         'SNI_RESOURCE_LIMIT',
         'Too many active SNI requests',
@@ -481,6 +576,15 @@ export class SniRequestLimiter {
     }
     const pairCount = this.activeRequestsByPair.get(key) ?? 0;
     if (pairCount >= this.maxActiveRequestsPerPair) {
+      writeNativeLog('warn', 'desktop_sni_resource_limit', {
+        hostname: hostname.toLowerCase(),
+        ipHash: shortHashForLog(ip),
+        ipFamily: getIpFamily(ip),
+        activeRequests: this.activeRequests,
+        activeRequestsForPair: pairCount,
+        limit: this.maxActiveRequestsPerPair,
+        reason: 'max_active_requests_per_pair',
+      });
       throw new SniRequestError(
         'SNI_RESOURCE_LIMIT',
         'Too many active SNI requests for destination',
@@ -556,12 +660,55 @@ class DesktopApiSniRequest {
   }
 
   async isProxyActiveForUrl(url: string): Promise<boolean> {
-    const proxyRules = await session.defaultSession.resolveProxy(url);
-    return isProxyRouteActive(proxyRules);
+    const startedAt = Date.now();
+    const hostname = getHostnameForLog(url);
+    try {
+      const proxyRules = await session.defaultSession.resolveProxy(url);
+      const proxyActive = isProxyRouteActive(proxyRules);
+      writeNativeLog('info', 'desktop_sni_proxy_preflight', {
+        hostname,
+        proxyActive,
+        proxyRuleType: getProxyRuleType(proxyRules),
+        durationMs: Date.now() - startedAt,
+      });
+      return proxyActive;
+    } catch (error) {
+      writeNativeLog('error', 'desktop_sni_proxy_preflight', {
+        hostname,
+        proxyActive: 'unknown',
+        proxyRuleType: 'unknown',
+        durationMs: Date.now() - startedAt,
+        errorCode: getErrorCode(error) ?? 'none',
+        errorMessage: getErrorMessage(error),
+      });
+      throw error;
+    }
   }
 
   async request(config: ISniRequestConfig): Promise<ISniResponse> {
-    const normalizedConfig = validateSniRequestConfig(config);
+    const startedAt = Date.now();
+    let normalizedConfig: NormalizedSniRequestConfig;
+    try {
+      normalizedConfig = validateSniRequestConfig(config);
+    } catch (error) {
+      writeNativeLog('error', 'desktop_sni_request_failed', {
+        code: getErrorCode(error) ?? 'SNI_INVALID_CONFIG',
+        failClosed: isSniFailClosedError(error),
+        hostname: config.hostname ?? 'unknown',
+        ipHash: shortHashForLog(config.ip),
+        ipFamily: config.ip ? getIpFamily(config.ip) : 'unknown',
+        method: config.method ?? 'GET',
+        timeout: config.timeout ?? 'unknown',
+        pathBytes: config.path ? byteSize(config.path) : 0,
+        bodyBytes: config.body ? byteSize(config.body) : 0,
+        headerCount: Object.keys(config.headers ?? {}).length,
+        activeRequests: this.requestLimiter.snapshot().activeRequests,
+        activeRequestsForPair: 0,
+        durationMs: Date.now() - startedAt,
+        errorMessage: getErrorMessage(error),
+      });
+      return Promise.reject(error);
+    }
     let releaseRequestSlot: (() => void) | undefined;
     try {
       releaseRequestSlot = this.requestLimiter.acquire(
@@ -569,6 +716,26 @@ class DesktopApiSniRequest {
         normalizedConfig.ip,
       );
     } catch (error) {
+      const stats = this.requestLimiter.snapshot(
+        normalizedConfig.hostname,
+        normalizedConfig.ip,
+      );
+      writeNativeLog('error', 'desktop_sni_request_failed', {
+        code: getErrorCode(error) ?? 'SNI_RESOURCE_LIMIT',
+        failClosed: isSniFailClosedError(error),
+        hostname: normalizedConfig.hostname,
+        ipHash: shortHashForLog(normalizedConfig.ip),
+        ipFamily: getIpFamily(normalizedConfig.ip),
+        method: normalizedConfig.method,
+        timeout: normalizedConfig.timeout,
+        pathBytes: byteSize(normalizedConfig.path),
+        bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+        headerCount: Object.keys(normalizedConfig.headers).length,
+        activeRequests: stats.activeRequests,
+        activeRequestsForPair: stats.activeRequestsForPair,
+        durationMs: Date.now() - startedAt,
+        errorMessage: getErrorMessage(error),
+      });
       return Promise.reject(error);
     }
 
@@ -592,6 +759,26 @@ class DesktopApiSniRequest {
           activeRequest,
           activeAgentState,
         );
+        const stats = this.requestLimiter.snapshot(
+          normalizedConfig.hostname,
+          normalizedConfig.ip,
+        );
+        writeNativeLog('error', 'desktop_sni_request_failed', {
+          code: getErrorCode(error) ?? 'SNI_REQUEST_FAILED',
+          failClosed: isSniFailClosedError(error),
+          hostname: normalizedConfig.hostname,
+          ipHash: shortHashForLog(normalizedConfig.ip),
+          ipFamily: getIpFamily(normalizedConfig.ip),
+          method: normalizedConfig.method,
+          timeout: normalizedConfig.timeout,
+          pathBytes: byteSize(normalizedConfig.path),
+          bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+          headerCount: Object.keys(normalizedConfig.headers).length,
+          activeRequests: stats.activeRequests,
+          activeRequestsForPair: stats.activeRequestsForPair,
+          durationMs: Date.now() - startedAt,
+          errorMessage: error.message,
+        });
         reject(error);
       };
 
@@ -605,6 +792,17 @@ class DesktopApiSniRequest {
           activeRequest,
           activeAgentState,
         );
+        writeNativeLog('info', 'desktop_sni_request_result', {
+          result: 'response',
+          status: response.statusCode,
+          hostname: normalizedConfig.hostname,
+          ipHash: shortHashForLog(normalizedConfig.ip),
+          ipFamily: getIpFamily(normalizedConfig.ip),
+          method: normalizedConfig.method,
+          timeout: normalizedConfig.timeout,
+          responseBytes: response.body ? byteSize(response.body) : 0,
+          durationMs: Date.now() - startedAt,
+        });
         resolve(response);
       };
 
@@ -665,11 +863,6 @@ class DesktopApiSniRequest {
           });
 
           response.on('error', (error: Error) => {
-            logger.error('[DesktopApiSniRequest] Response stream error', {
-              hostname: normalizedConfig.hostname,
-              ip: normalizedConfig.ip,
-              error: error.message,
-            });
             settleReject(
               error instanceof SniRequestError
                 ? error
@@ -685,20 +878,41 @@ class DesktopApiSniRequest {
         this.allActiveRequests.add(request);
         activeAgentState.activeRequests.add(request);
         this.requestAgentStates.set(request, activeAgentState);
+        const stats = this.requestLimiter.snapshot(
+          normalizedConfig.hostname,
+          normalizedConfig.ip,
+        );
+        writeNativeLog('info', 'desktop_sni_request_start', {
+          requestIdHash: shortHashForLog(normalizedConfig.requestId),
+          hostname: normalizedConfig.hostname,
+          ipHash: shortHashForLog(normalizedConfig.ip),
+          ipFamily: getIpFamily(normalizedConfig.ip),
+          method: normalizedConfig.method,
+          timeout: normalizedConfig.timeout,
+          pathBytes: byteSize(normalizedConfig.path),
+          bodyBytes: normalizedConfig.body ? byteSize(normalizedConfig.body) : 0,
+          headerCount: Object.keys(normalizedConfig.headers).length,
+          activeRequests: stats.activeRequests,
+          activeRequestsForPair: stats.activeRequestsForPair,
+        });
 
         if (normalizedConfig.requestId) {
           const previous = this.activeRequests.get(normalizedConfig.requestId);
-          previous?.destroy(new SniRequestError('SNI_CANCELLED', 'Request cancelled', true));
+          if (previous) {
+            writeNativeLog('warn', 'desktop_sni_lifecycle', {
+              action: 'duplicate_request_id',
+              requestIdHash: shortHashForLog(normalizedConfig.requestId),
+              success: true,
+              activeCount: this.allActiveRequests.size,
+            });
+            previous.destroy(
+              new SniRequestError('SNI_CANCELLED', 'Request cancelled', true),
+            );
+          }
           this.activeRequests.set(normalizedConfig.requestId, request);
         }
 
         request.on('error', (error: Error) => {
-          logger.error('[DesktopApiSniRequest] Request failed', {
-            hostname: normalizedConfig.hostname,
-            ip: normalizedConfig.ip,
-            error: error.message,
-            stack: error.stack,
-          });
           settleReject(classifyTransportError(error));
         });
 
@@ -717,12 +931,6 @@ class DesktopApiSniRequest {
 
         request.end();
       } catch (error) {
-        logger.error('[DesktopApiSniRequest] Failed to create request', {
-          hostname: normalizedConfig.hostname,
-          ip: normalizedConfig.ip,
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-        });
         settleReject(error instanceof Error ? error : new Error(String(error)));
       }
     });
@@ -730,9 +938,23 @@ class DesktopApiSniRequest {
 
   async cancelRequest(requestId: string): Promise<{ success: boolean }> {
     const request = this.activeRequests.get(requestId);
-    if (!request) return { success: false };
+    if (!request) {
+      writeNativeLog('warn', 'desktop_sni_lifecycle', {
+        action: 'cancel_request',
+        requestIdHash: shortHashForLog(requestId),
+        success: false,
+        activeCount: this.allActiveRequests.size,
+      });
+      return { success: false };
+    }
     this.removeActiveRequest(requestId, request, undefined);
     request.destroy(new SniRequestError('SNI_CANCELLED', 'Request cancelled', true));
+    writeNativeLog('info', 'desktop_sni_lifecycle', {
+      action: 'cancel_request',
+      requestIdHash: shortHashForLog(requestId),
+      success: true,
+      activeCount: this.allActiveRequests.size,
+    });
     return { success: true };
   }
 
@@ -743,6 +965,11 @@ class DesktopApiSniRequest {
     for (const request of requests) {
       request.destroy(new SniRequestError('SNI_CANCELLED', 'Request cancelled', true));
     }
+    writeNativeLog('info', 'desktop_sni_lifecycle', {
+      action: 'cancel_all_requests',
+      success: true,
+      activeCount: requests.length,
+    });
     return { success: true };
   }
 
@@ -756,6 +983,11 @@ class DesktopApiSniRequest {
       previousAgentState.destroyed = true;
       previousAgentState.agent.destroy();
     }
+    writeNativeLog('info', 'desktop_sni_lifecycle', {
+      action: 'clear_dns_cache',
+      success: true,
+      activeCount: previousAgentState.activeRequests.size,
+    });
     return { success: true };
   }
 

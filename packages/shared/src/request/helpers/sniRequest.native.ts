@@ -1,5 +1,7 @@
 import * as nativeSniConnect from '@onekeyfe/react-native-sni-connect';
 
+import { defaultLogger } from '../../logger/logger';
+
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
 /**
@@ -58,16 +60,63 @@ export async function isProxyActiveForUrl(
   ).isProxyActiveForUrl;
 
   if (typeof preflight !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'native',
+      capability: 'preflight',
+      available: false,
+      decision: 'fallback',
+      hostname: getHostnameForLog(url),
+    });
     return null;
   }
 
   try {
     return await preflight(url);
   } catch (error) {
-    console.warn('[SNI Native] Proxy preflight failed:', {
-      url,
-      error: error instanceof Error ? error.message : String(error),
+    logAdapterCapability('warn', {
+      adapter: 'native',
+      capability: 'preflight',
+      available: true,
+      decision: 'fallback',
+      hostname: getHostnameForLog(url),
+      errorMessage: getErrorMessage(error),
     });
     return null;
+  }
+}
+
+function safeLogValue(value: unknown): string {
+  if (value == null) return 'none';
+  return String(value).replace(/[\r\n\s]+/g, '_');
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getHostnameForLog(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function logAdapterCapability(
+  level: 'info' | 'warn' | 'error',
+  fields: Record<string, unknown>,
+): void {
+  const info = `[SNI Native] ${Object.entries({
+    event: 'sni_adapter_capability',
+    ...fields,
+  })
+    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .join(' ')}`;
+  if (level === 'error') {
+    defaultLogger.ipTable.request.error({ info });
+  } else if (level === 'warn') {
+    defaultLogger.ipTable.request.warn({ info });
+  } else {
+    defaultLogger.ipTable.request.info({ info });
   }
 }

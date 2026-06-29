@@ -1,5 +1,7 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { defaultLogger } from '../../logger/logger';
+
 import type { ISniRequestConfig, ISniResponse } from '../types/ipTable';
 
 /**
@@ -19,6 +21,14 @@ export async function sniRequest(
     const desktopApiProxy = globalThis.desktopApiProxy;
 
     if (!desktopApiProxy?.sniRequest) {
+      logAdapterCapability('warn', {
+        adapter: 'desktop',
+        capability: 'request',
+        available: false,
+        decision: 'null',
+        hostname: config.hostname,
+        ipHash: hashForLog(config.ip),
+      });
       return null;
     }
 
@@ -31,11 +41,14 @@ export async function sniRequest(
     if (isSniFailClosedError(error)) {
       throw error;
     }
-    // Log error and return null to trigger fallback to default adapter
-    console.error('[SNI Desktop] Request failed:', {
+    logAdapterCapability('error', {
+      adapter: 'desktop',
+      capability: 'request',
+      available: true,
+      decision: 'null',
       hostname: config.hostname,
-      ip: config.ip,
-      error: error instanceof Error ? error.message : String(error),
+      ipHash: hashForLog(config.ip),
+      errorMessage: getErrorMessage(error),
     });
 
     return null;
@@ -70,17 +83,74 @@ export async function isProxyActiveForUrl(
   const desktopApiProxy = globalThis.desktopApiProxy;
   const preflight = desktopApiProxy?.sniRequest?.isProxyActiveForUrl;
   if (typeof preflight !== 'function') {
+    logAdapterCapability('warn', {
+      adapter: 'desktop',
+      capability: 'preflight',
+      available: false,
+      decision: 'fallback',
+      hostname: getHostnameForLog(url),
+    });
     return null;
   }
 
   try {
     return await preflight.call(desktopApiProxy.sniRequest, url);
   } catch (error) {
-    console.warn('[SNI Desktop] Proxy preflight failed:', {
-      url,
-      error: error instanceof Error ? error.message : String(error),
+    logAdapterCapability('warn', {
+      adapter: 'desktop',
+      capability: 'preflight',
+      available: true,
+      decision: 'fallback',
+      hostname: getHostnameForLog(url),
+      errorMessage: getErrorMessage(error),
     });
     return null;
+  }
+}
+
+function hashForLog(value: string | null | undefined): string {
+  if (!value) return 'none';
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
+}
+
+function safeLogValue(value: unknown): string {
+  if (value == null) return 'none';
+  return String(value).replace(/[\r\n\s]+/g, '_');
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getHostnameForLog(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return 'unknown';
+  }
+}
+
+function logAdapterCapability(
+  level: 'info' | 'warn' | 'error',
+  fields: Record<string, unknown>,
+): void {
+  const info = `[SNI Desktop] ${Object.entries({
+    event: 'sni_adapter_capability',
+    ...fields,
+  })
+    .map(([key, value]) => `${key}=${safeLogValue(value)}`)
+    .join(' ')}`;
+  if (level === 'error') {
+    defaultLogger.ipTable.request.error({ info });
+  } else if (level === 'warn') {
+    defaultLogger.ipTable.request.warn({ info });
+  } else {
+    defaultLogger.ipTable.request.info({ info });
   }
 }
 
