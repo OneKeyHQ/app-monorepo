@@ -214,7 +214,7 @@ export function DesktopLayout({
               isChartFullscreen ? MARKET_CHART_FULLSCREEN_STYLE : undefined
             }
           >
-            {isChartFullscreen ? (
+            {isChartFullscreen && platformEnv.isDesktop ? (
               <Stack
                 h={MARKET_DETAIL_LAYOUT.chartFullscreenHeaderFillHeight}
                 bg="$bgApp"
