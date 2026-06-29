@@ -15,20 +15,20 @@ import {
   ESwapTabSwitchType,
   type ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
 
 import { useTokenListViewContext } from './TokenListViewContext';
 
 import type { XStackProps } from 'tamagui';
+
+// Stable module-level empty default so the non-home fallback does not hand a
+// fresh `{}` to the sort effect's deps every render.
+const EMPTY_FIAT_MAP: Record<string, ITokenFiat> = {};
 
 type IProps = {
   token: IAccountToken;
@@ -38,10 +38,12 @@ function TokenActionsView(props: IProps) {
   const { token, ...rest } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
-  const [globalTokenListMap] = useTokenListMapAtom();
-  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
-  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
+  const { tokenListMap: contextTokenListMap, ownedAggregateTokenListMap } =
+    useTokenListViewContext();
+  // PR-6/PR-7: the legacy `tokenListMapAtom` / `aggregateTokensListMapAtom` are
+  // deleted; the wrapper threads the visible map + the owned aggregate sub-token
+  // list-map through context instead.
+  const tokenListMap = contextTokenListMap ?? EMPTY_FIAT_MAP;
 
   const [activeToken, setActiveToken] = useState<IAccountToken>(token);
 
@@ -60,7 +62,7 @@ function TokenActionsView(props: IProps) {
         return;
       }
 
-      const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+      const aggregateTokens = ownedAggregateTokenListMap?.[token.$key]?.tokens;
       if (!aggregateTokens?.length) {
         if (!isStale) {
           setActiveToken(token);
@@ -111,7 +113,7 @@ function TokenActionsView(props: IProps) {
     return () => {
       isStale = true;
     };
-  }, [token, aggregateTokenListMapAtom, tokenListMap]);
+  }, [token, ownedAggregateTokenListMap, tokenListMap]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const navigation = useAppNavigation();

@@ -1,10 +1,7 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import {
   EModalFiatCryptoRoutes,
   EModalRoutes,
@@ -91,8 +88,10 @@ export function useFiatCrypto({
     networkId,
   );
 
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
+  // Callback snapshot of the home raw list + full fiat map (red-team R-#4):
+  // captured in the `handleFiatCrypto` closure, refreshed on each home structure
+  // frame. Replaces the deleted `allTokenListAtom` / `allTokenListMapAtom`.
+  const { tokens: allTokens, map } = useHomeTokenListSnapshot();
   const navigation = useAppNavigation();
   const handleFiatCrypto = useCallback(
     (params: { sameModal?: boolean } | undefined) => {
@@ -100,7 +99,7 @@ export function useFiatCrypto({
       const routeParams = {
         networkId,
         accountId,
-        tokens: allTokens.tokens,
+        tokens: allTokens,
         map,
         defaultTab: fiatCryptoType,
       };
