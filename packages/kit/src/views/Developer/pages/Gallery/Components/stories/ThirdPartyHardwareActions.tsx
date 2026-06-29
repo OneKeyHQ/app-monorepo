@@ -96,11 +96,7 @@ const TOASTS: IActionItem[] = [
   { label: 'Connecting', action: EThirdPartyHardwareUiAction.connecting },
   { label: 'Processing', action: EThirdPartyHardwareUiAction.processing },
   {
-    label: 'Unlock (Trezor)',
-    action: EThirdPartyHardwareUiAction.requestTrezorUnlock,
-  },
-  {
-    label: 'Unlock (Ledger)',
+    label: 'Unlock device',
     action: EThirdPartyHardwareUiAction.unlockDevice,
   },
 ];

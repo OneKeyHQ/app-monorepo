@@ -170,15 +170,8 @@ export enum EThirdPartyHardwareUiAction {
   connecting = 'ui-event-ledger-connecting',
   processing = 'ui-event-ledger-processing',
   done = 'ui-event-ledger-done',
-  // Toast only; DMK keeps polling until the device is unlocked.
+  // Toast only — "device locked". Shared by Ledger (DMK polling) and Trezor THP.
   unlockDevice = 'ui-event-ledger-unlock-device',
-  // Trezor THP: device is locked and waiting for PIN entry on its own
-  // screen during handshake. SDK has already kicked off tryToUnlock=1 and
-  // the THP read blocks until the user types their PIN — we just need a
-  // toast. Different name from `unlockDevice` (which is Ledger DMK polling)
-  // because the trigger is a `REQUEST_BUTTON` with code=ButtonRequest_PinEntry
-  // and there's no SDK-side polling, just a blocking read.
-  requestTrezorUnlock = 'ui-event-trezor-unlock',
   error = 'ui-event-ledger-error',
 }
 
@@ -191,7 +184,6 @@ const TOAST_ACTIONS = new Set<string>([
   EThirdPartyHardwareUiAction.processing,
   EThirdPartyHardwareUiAction.done,
   EThirdPartyHardwareUiAction.unlockDevice,
-  EThirdPartyHardwareUiAction.requestTrezorUnlock,
 ]);
 
 /** Is this a non-interactive notification that should show as a Toast (not Dialog)? */

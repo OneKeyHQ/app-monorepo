@@ -370,7 +370,6 @@ function getToastLabel(
         id: ETranslations.hardware_third_party_app_not_open,
       });
     case EThirdPartyHardwareUiAction.unlockDevice:
-    case EThirdPartyHardwareUiAction.requestTrezorUnlock:
       return intl.formatMessage({
         id: ETranslations.hardware_third_party_device_locked,
       });
@@ -411,6 +410,24 @@ function getLedgerActionAnimation(
   }
 }
 
+function getTrezorActionAnimation(
+  action: string | undefined,
+  themeVariant: 'light' | 'dark',
+): ILottieViewProps['source'] | null {
+  switch (action) {
+    case EThirdPartyHardwareUiAction.confirmOnDevice:
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/animations/confirm-on-trezor-dark.json') as ILottieViewProps['source'])
+        : (require('@onekeyhq/kit/assets/animations/confirm-on-trezor-light.json') as ILottieViewProps['source']);
+    case EThirdPartyHardwareUiAction.unlockDevice:
+      return themeVariant === 'dark'
+        ? (require('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-dark.json') as ILottieViewProps['source'])
+        : (require('@onekeyhq/kit/assets/animations/enter-pin-on-trezor-light.json') as ILottieViewProps['source']);
+    default:
+      return null;
+  }
+}
+
 function DeviceActionToast({
   action,
   vendor,
@@ -436,8 +453,13 @@ function DeviceActionToast({
   const label = getToastLabel(action, vendor, intl);
 
   const animationSource = useMemo(() => {
-    if (vendor !== EHardwareVendor.ledger) return null;
-    return getLedgerActionAnimation(action, themeVariant);
+    if (vendor === EHardwareVendor.ledger) {
+      return getLedgerActionAnimation(action, themeVariant);
+    }
+    if (vendor === EHardwareVendor.trezor) {
+      return getTrezorActionAnimation(action, themeVariant);
+    }
+    return null;
   }, [action, vendor, themeVariant]);
 
   return (

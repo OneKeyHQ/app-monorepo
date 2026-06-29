@@ -345,12 +345,10 @@ export class TrezorAdapter
       defaultLogger.hardware.sdkLog.log(
         `[3rdPartyHW][Trezor] REQUEST_BUTTON code=${code}`,
       );
-      // PIN entry — full PIN typed on device touchscreen. Needs a distinct
-      // "your device is locked, unlock on its screen" toast, not a generic
-      // "confirm on device" prompt.
+      // PIN entry on device touchscreen — reuse the shared `unlockDevice` action.
       if (code === 'ButtonRequest_PinEntry') {
         void thirdPartyHardwareUiStateAtom.set({
-          action: EThirdPartyHardwareUiAction.requestTrezorUnlock,
+          action: EThirdPartyHardwareUiAction.unlockDevice,
           vendor: EHardwareVendor.trezor,
         });
         return;
