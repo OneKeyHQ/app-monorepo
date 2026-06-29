@@ -53,6 +53,31 @@ function getDesktopMainEsbuildResolveOptions() {
       '@stoprocent/bluetooth-hci-socket',
       'bufferutil',
       'utf-8-validate',
+      // Perf: keep these heavy, non-critical deps OUT of app.js so V8 does not
+      // parse them on every cold start. They are shipped as node_modules inside
+      // the asar (see app/package.json dependencies) and required on demand.
+      // @sentry/electron (~4.3MB) pulls the whole Sentry Node SDK + OpenTelemetry
+      // backend instrumentations; systeminformation/iconv-lite are only needed for
+      // specific, non-boot-critical features.
+      '@sentry/electron',
+      'systeminformation',
+      'iconv-lite',
+      // Tier 1: post-boot only (auto-update + archive extraction) — pulled via the
+      // kit-bg desktopApi surface; keep their subtrees (builder-util-runtime, the
+      // XML stack, js-yaml) out of app.js parse.
+      'electron-updater',
+      'adm-zip',
+      // Tier 2: large lookup-table deps reached transitively via node-fetch /
+      // whatwg-url (tr46 IDNA table) and the local HTTP server (mime-db, validator).
+      // FOOTGUN: these three are *transitive* — no app code imports them directly.
+      // esbuild leaves a bare `require('<name>')` and only ONE copy ships in the
+      // asar, so the shipped version is whatever is pinned in app/package.json, NOT
+      // what yarn.lock resolves for the real consumers. When bumping node-fetch /
+      // whatwg-url / the http stack, re-check that these pins still match the
+      // resolved transitive versions, or the asar will ship a mismatched copy.
+      'tr46',
+      'mime-db',
+      'validator',
       ...Object.keys(pkg.dependencies),
     ],
     tsconfig: path.join(electronSource, 'tsconfig.json'),

@@ -21,6 +21,22 @@ export type ISwapRecentTokenPair = {
   toToken: ISwapToken;
 };
 
+// Protocols a Swap/Bridge-side "Clear history" must never touch: limit orders
+// and PrivateSend-like channels own their own surfaces. Single source of truth
+// for both the history modal and the shared clear control.
+export const SWAP_CLEAN_EXCLUDE_PROTOCOLS = [
+  EProtocolOfExchange.LIMIT,
+  EProtocolOfExchange.PRIVATE_SEND,
+];
+
+// What the history list groups under "Pending" — both in-flight and canceling
+// orders. Single source of truth so the list, the clear guards, and the clear
+// status array agree (clearing "pending" must cover what the list shows there).
+export const SWAP_HISTORY_PENDING_STATUSES = [
+  ESwapTxHistoryStatus.PENDING,
+  ESwapTxHistoryStatus.CANCELING,
+];
+
 export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
   return (
     item.protocol !== EProtocolOfExchange.LIMIT &&

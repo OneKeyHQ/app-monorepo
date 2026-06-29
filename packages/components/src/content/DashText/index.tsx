@@ -31,6 +31,12 @@ export interface IDashTextProps extends ISizableTextProps {
   tooltipPlacement?: ITooltipProps['placement'];
   /** Opt into tighter tooltip trigger hit testing when needed. */
   tooltipTriggerAsChild?: ITooltipProps['triggerAsChild'];
+  /**
+   * Keep the desktop tooltip open while the pointer stays over the trigger or
+   * the tooltip content, instead of relying on the default flicker-prone
+   * open/close behavior.
+   */
+  tooltipHovering?: boolean;
 }
 
 function DashTextCore({
@@ -154,6 +160,7 @@ export function DashText({
   tooltipDisplayMode = 'auto',
   tooltipPlacement = 'top',
   tooltipTriggerAsChild = 'except-style',
+  tooltipHovering,
   ...rest
 }: IDashTextProps) {
   const { gtMd } = useMedia();
@@ -165,6 +172,17 @@ export function DashText({
   const trigger = useMemo(
     () => (tooltip ? <DashTextCore {...rest} cursor="help" /> : null),
     [rest, tooltip],
+  );
+
+  // Hovering mode needs a real (non-asChild) trigger element so the Tooltip's
+  // onHoverIn/out handlers receive pointer events; wrap the dashed text.
+  const hoverTrigger = useMemo(
+    () => (
+      <XStack cursor="help">
+        <DashTextCore {...rest} />
+      </XStack>
+    ),
+    [rest],
   );
 
   const popoverContent = useMemo(
@@ -186,9 +204,14 @@ export function DashText({
     return (
       <Tooltip
         placement={tooltipPlacement as ITooltipProps['placement']}
-        triggerAsChild={tooltipTriggerAsChild}
+        // In hovering mode the open state is driven by explicit onHoverIn/out
+        // handlers, which never fire when the trigger is cloned via asChild.
+        // Wrap the trigger in a Stack and let Tooltip render its own trigger
+        // element (no asChild) so the pointer events reach it.
+        triggerAsChild={tooltipHovering ? undefined : tooltipTriggerAsChild}
+        hovering={tooltipHovering}
         renderContent={tooltip}
-        renderTrigger={trigger}
+        renderTrigger={tooltipHovering ? hoverTrigger : trigger}
       />
     );
   }

@@ -1,13 +1,20 @@
-import * as Sentry from '@sentry/electron/main';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
 
+// Perf: `@sentry/electron` is marked external (see scripts/build.js) so its ~5MB
+// (Sentry Node SDK + OpenTelemetry backend instrumentations) is NOT parsed as part
+// of app.js on cold start. It is require()'d lazily here, and initSentry() itself
+// is deferred (see app.ts) so the load happens off the synchronous module-init path.
+type ISentryMain = typeof import('@sentry/electron/main');
+
 export const initSentry = () => {
   if (isDev) {
     return;
   }
+  // eslint-disable-next-line global-require, @typescript-eslint/no-var-requires
+  const Sentry: ISentryMain = require('@sentry/electron/main');
   let dsn = process.env.SENTRY_DSN_DESKTOP;
   if (process.mas) {
     dsn = process.env.SENTRY_DSN_MAS;
@@ -33,6 +40,13 @@ export const initSentry = () => {
       maxQueueSize: 60,
     },
     integrations: (defaultIntegrations) => [
+      // Drop only the native minidump integration (native crashes are covered
+      // by the Electron crashReporter / our own native pipeline). The rest of
+      // @sentry/electron's default set is kept. Note: @sentry/node's backend
+      // OpenTelemetry auto-instrumentations (express/mongo/redis/…) are NOT in
+      // this default set — electron-main's getDefaultIntegrations() hardcodes a
+      // fixed electron+node subset and never calls getAutoPerformanceIntegrations()
+      // — so there is nothing extra to strip here.
       ...defaultIntegrations.filter(
         (i) => !i.name.toLowerCase().includes('minidump'),
       ),
@@ -88,5 +102,3 @@ export const initSentry = () => {
   Sentry.setTag('arch', process.arch);
   Sentry.setTag('electron_version', process.versions.electron);
 };
-
-export { Sentry };

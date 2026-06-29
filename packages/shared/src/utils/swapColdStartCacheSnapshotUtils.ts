@@ -266,6 +266,7 @@ function deleteSwapSelectedTokensColdStartSnapshot(
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectFromTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectToTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapSelectedTokensColdStartContextAtom,
+    CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapStockSelectedTokenAtom,
     CONTEXT_ATOM_COLD_START_CACHE_KEYS.swapTypeSwitchAtom,
   ].forEach((coldStartCacheKey) => {
     delete snapshot[

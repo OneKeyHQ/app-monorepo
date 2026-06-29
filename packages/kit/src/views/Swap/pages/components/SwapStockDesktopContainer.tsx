@@ -53,12 +53,10 @@ import {
   StockSourceLogo,
 } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
-import { isOndoStockSource } from '@onekeyhq/kit/src/views/Market/components/utils/stockSource';
 import { TokenList } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TokenInputSection/TokenList';
 import { TradeTypeSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/components/TradeTypeSelector';
 import { ESwapDirection } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useTradeType';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   formatCurrencyStatValue,
   formatMarketCapValue,
@@ -85,14 +83,16 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketBasicConfigNetwork } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketBasicConfigNetwork,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/marketV2';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapLimitOrderStatus,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
-  type IMarketPresetTokenContext,
   type ISwapAlertState,
   type ISwapNetwork,
   type ISwapToken,
@@ -123,9 +123,11 @@ import { getStockQuoteTradeControl } from '../../utils/swapStockTradeControl';
 import {
   getSwapKLineWalletChartDays,
   normalizeSwapKLineWalletChartData,
+  normalizeSwapKLineWalletChartTimestamp,
 } from '../modal/swapKLineChartUtils';
 
 import SwapActionsState from './SwapActionsState';
+import SwapHistoryClearButton from './SwapHistoryClearButton';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapMarketHistoryList from './SwapMarketHistoryList';
@@ -150,7 +152,6 @@ import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controlle
 
 interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
-  marketPresetToken?: IMarketPresetTokenContext;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -171,7 +172,7 @@ interface ISwapStockDesktopContainerProps {
   };
 }
 
-type IStockMarketTokenDetail = ReturnType<typeof useTokenDetail>['tokenDetail'];
+type IStockMarketTokenDetail = IMarketTokenDetail | undefined;
 type IStockMarketDataRow = {
   label: string;
   value: string;
@@ -391,6 +392,19 @@ function buildStockMarketDataRows({
   ];
 }
 
+function useCurrentStockMarketDetail() {
+  const stockChannel = useSwapStockTradeContext();
+  const currentStockToken = stockChannel.currentStockToken;
+
+  return {
+    stockChannel,
+    tokenDetail: stockChannel.activeStockTokenDetail,
+    tokenAddress: currentStockToken?.contractAddress,
+    networkId: currentStockToken?.networkId,
+    isNative: currentStockToken?.isNative,
+  };
+}
+
 function StockMarketDataGridContent({
   compact,
   rows,
@@ -430,9 +444,12 @@ function StockMarketDataGridContent({
   );
 }
 
-function StockMarketDataGrid() {
+function StockMarketDataGrid({
+  tokenDetail,
+}: {
+  tokenDetail?: IStockMarketTokenDetail;
+}) {
   const intl = useIntl();
-  const { tokenDetail } = useTokenDetail();
   const rows = useMemo(
     () =>
       buildStockMarketDataRows({
@@ -1130,7 +1147,7 @@ function StockTradeTicket({
   compact,
 }: Omit<
   ISwapStockDesktopContainerProps,
-  'headerContent' | 'marketPresetToken' | 'supportNetworksList'
+  'headerContent' | 'supportNetworksList'
 > & {
   stockChannel: IUseSwapStockChannelReturn;
   tradeSide: ESwapStockTradeSide;
@@ -1208,7 +1225,7 @@ function StockMarketTokenHeader({
 }: {
   storeName: EJotaiContextStoreNames;
 }) {
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId } = useCurrentStockMarketDetail();
   const stockTokenNetworkId = tokenDetail?.networkId ?? networkId;
   const effectiveNetworkLogoUri = useNetworkLogoUri({
     logoUri: undefined,
@@ -1343,6 +1360,7 @@ function StockPriceChart({
   onRangeChange,
   pulseLastPoint,
   range,
+  realtimeChartPoint,
   tokenAddress,
 }: {
   coinGeckoId?: string;
@@ -1351,6 +1369,7 @@ function StockPriceChart({
   onRangeChange: (range: IStockChartRange) => void;
   pulseLastPoint?: boolean;
   range: IStockChartRange;
+  realtimeChartPoint?: IMarketTokenChart[number];
   tokenAddress?: string;
 }) {
   const intl = useIntl();
@@ -1439,10 +1458,51 @@ function StockPriceChart({
   const isChartStateForCurrentScope = chartState.scope === chartScope;
   const canReusePreviousRangeChartData =
     chartState.assetScope === chartAssetScope;
-  const chartData =
-    isChartStateForCurrentScope || canReusePreviousRangeChartData
-      ? chartState.data
-      : ([] as IMarketTokenChart);
+  const baseChartData = useMemo<IMarketTokenChart>(
+    () =>
+      isChartStateForCurrentScope || canReusePreviousRangeChartData
+        ? chartState.data
+        : [],
+    [
+      canReusePreviousRangeChartData,
+      chartState.data,
+      isChartStateForCurrentScope,
+    ],
+  );
+  const chartData = useMemo<IMarketTokenChart>(() => {
+    if (!realtimeChartPoint) {
+      return baseChartData;
+    }
+
+    const [timestamp, price] = realtimeChartPoint;
+    const normalizedTimestamp =
+      normalizeSwapKLineWalletChartTimestamp(timestamp);
+    const normalizedPrice = Number(price);
+    if (
+      !Number.isFinite(normalizedTimestamp) ||
+      !Number.isFinite(normalizedPrice)
+    ) {
+      return baseChartData;
+    }
+
+    const pointsByTimestamp = new Map<number, number>();
+    for (const [pointTimestamp, pointPrice] of baseChartData) {
+      const normalizedPointTimestamp =
+        normalizeSwapKLineWalletChartTimestamp(pointTimestamp);
+      const normalizedPointPrice = Number(pointPrice);
+      if (
+        Number.isFinite(normalizedPointTimestamp) &&
+        Number.isFinite(normalizedPointPrice)
+      ) {
+        pointsByTimestamp.set(normalizedPointTimestamp, normalizedPointPrice);
+      }
+    }
+    pointsByTimestamp.set(normalizedTimestamp, normalizedPrice);
+
+    return Array.from(pointsByTimestamp.entries()).toSorted(
+      (a, b) => a[0] - b[0],
+    );
+  }, [baseChartData, realtimeChartPoint]);
   const shouldShowChartLoading =
     chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
@@ -1655,6 +1715,7 @@ function StockMobilePositionsSection({
   const [, setSwapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapFromToken] = useSwapSelectFromTokenAtom();
   const [swapToToken] = useSwapSelectToTokenAtom();
+  const { selectStockSwapToken } = stockChannel;
   const { cachedPositionTokenList, hasCachedPositionTokenList } =
     useSwapProSupportNetworksTokenList(supportNetworksList);
   const handleOpenStockTokenSelector = useOpenStockTokenSelector({
@@ -1671,10 +1732,14 @@ function StockMobilePositionsSection({
   }, [swapFromToken, swapProEnableCurrentSymbol, swapToToken]);
   const handlePositionPress = useCallback(
     (token: ISwapToken) => {
+      if (token.isStock) {
+        selectStockSwapToken(token, { resetAmounts: true });
+        return;
+      }
       void setSwapTypeSwitch(ESwapTabSwitchType.SWAP);
       onTokenPress?.(token);
     },
-    [onTokenPress, setSwapTypeSwitch],
+    [onTokenPress, selectStockSwapToken, setSwapTypeSwitch],
   );
 
   const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
@@ -1757,6 +1822,9 @@ function StockMobilePositionsSection({
           <SwapMarketHistoryList
             protocol={EProtocolOfExchange.STOCK}
             isPushModal
+            firstSectionRightAction={
+              <SwapHistoryClearButton scope="stock" triggerVariant="icon" />
+            }
           />
         </XStack>
       </YStack>
@@ -1769,8 +1837,8 @@ function StockMarketContextPanel({
 }: {
   storeName: EJotaiContextStoreNames;
 }) {
-  const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
-  const stockChannel = useSwapStockTradeContext();
+  const { stockChannel, tokenDetail, tokenAddress, networkId, isNative } =
+    useCurrentStockMarketDetail();
   const coinGeckoId = useStockChartCoinGeckoId({
     networkId,
     tokenAddress,
@@ -1779,7 +1847,8 @@ function StockMarketContextPanel({
   const [range, setRange] = useState<IStockChartRange>(
     STOCK_CHART_DEFAULT_RANGE,
   );
-  const chartReady = !!networkId && !!tokenDetail?.symbol;
+  const chartReady =
+    !!networkId && !!tokenDetail?.stock && !!tokenDetail?.symbol;
   // Only pulse the chart tail while the market is open (live updating).
   const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
 
@@ -1817,6 +1886,7 @@ function StockMarketContextPanel({
             range={range}
             onRangeChange={setRange}
             pulseLastPoint={isMarketOpen}
+            realtimeChartPoint={stockChannel.realtimeChartPoint}
           />
         ) : (
           <Skeleton w="100%" h={274} />
@@ -1824,7 +1894,7 @@ function StockMarketContextPanel({
       </Stack>
 
       <Divider mt="$2.5" mb="$3" />
-      <StockMarketDataGrid />
+      <StockMarketDataGrid tokenDetail={tokenDetail} />
     </YStack>
   );
 }
@@ -2048,13 +2118,8 @@ function SwapStockDesktopContent({
 export function SwapStockDesktopContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
-  const { tokenDetail } = useTokenDetail();
-
   return (
-    <SwapStockTradeProvider
-      marketPresetToken={props.marketPresetToken}
-      disableNativePayToken={isOndoStockSource(tokenDetail?.stock?.source)}
-    >
+    <SwapStockTradeProvider>
       <SwapStockDesktopContent {...props} />
     </SwapStockTradeProvider>
   );
@@ -2147,13 +2212,8 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
 export function SwapStockMobileContainer(
   props: ISwapStockDesktopContainerProps,
 ) {
-  const { tokenDetail } = useTokenDetail();
-
   return (
-    <SwapStockTradeProvider
-      marketPresetToken={props.marketPresetToken}
-      disableNativePayToken={isOndoStockSource(tokenDetail?.stock?.source)}
-    >
+    <SwapStockTradeProvider>
       <SwapStockMobileContent {...props} />
     </SwapStockTradeProvider>
   );
