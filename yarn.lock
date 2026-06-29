@@ -10103,7 +10103,6 @@ __metadata:
     "@ton/ton": "npm:^15.3.1"
     "@types/bchaddrjs": "npm:^0.4.2"
     "@types/bs58": "npm:^4.0.3"
-    "@types/jsrsasign": "npm:^10.5.11"
     "@zondax/izari-filecoin": "npm:1.2.1"
     algosdk: "npm:^2.6.0"
     base32-decode: "npm:^1.0.0"
@@ -10122,7 +10121,6 @@ __metadata:
     eth-sig-util: "npm:^3.0.1"
     ethereumjs-util: "npm:7.1.5"
     js-conflux-sdk: "npm:^2.1.12"
-    jsrsasign: "npm:^10.8.6"
     near-api-js: "npm:^2.1.4"
     ripple-keypairs: "npm:^1.3.1"
     tonweb-mnemonic: "npm:^1.0.1"
@@ -19432,13 +19430,6 @@ __metadata:
   version: 0.0.29
   resolution: "@types/json5@npm:0.0.29"
   checksum: 10/4e5aed58cabb2bbf6f725da13421aa50a49abb6bc17bfab6c31b8774b073fa7b50d557c61f961a09a85f6056151190f8ac95f13f5b48136ba5841f7d4484ec56
-  languageName: node
-  linkType: hard
-
-"@types/jsrsasign@npm:^10.5.11":
-  version: 10.5.12
-  resolution: "@types/jsrsasign@npm:10.5.12"
-  checksum: 10/2c9b3fa1aaecae054fd7fc835202b85cb6d21efe520a49fd1d9e48f39db18ffbf6e154d975a4e449b2a2dab5ce6868b0cdcd822d6be635155504e95de34aebf4
   languageName: node
   linkType: hard
 
@@ -35749,13 +35740,6 @@ __metadata:
   version: 1.4.1
   resolution: "jsonschema@npm:1.4.1"
   checksum: 10/d7a188da7a3100a2caa362b80e98666d46607b7a7153aac405b8e758132961911c6df02d444d4700691330874e21a62639f550e856b21ddd28423690751ca9c6
-  languageName: node
-  linkType: hard
-
-"jsrsasign@npm:^10.8.6":
-  version: 10.9.0
-  resolution: "jsrsasign@npm:10.9.0"
-  checksum: 10/a2eaf2680b8bb26100514014155b06151bfcf5f073190fdc228c9b5faf6284424e7c8e1eaba4968f820b57cddfd2e8a3f514aeec31fd57ceff39f1f10adf6afd
   languageName: node
   linkType: hard
 
