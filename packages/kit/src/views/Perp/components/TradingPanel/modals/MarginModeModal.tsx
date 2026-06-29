@@ -3,14 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { useInPageDialog } from '@onekeyhq/components';
-import {
-  Button,
-  Checkbox,
-  Dialog,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
@@ -83,48 +76,56 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
       <YStack
         p="$4"
         borderRadius="$3"
-        bg="$bgSubdued"
+        borderWidth="$px"
+        borderColor={
+          selectedMode === 'cross' ? '$borderActive' : '$borderSubdued'
+        }
         onPress={() => setSelectedMode('cross')}
         cursor="default"
+        hoverStyle={{
+          borderColor:
+            selectedMode === 'cross' ? '$borderActive' : '$borderStrong',
+        }}
+        pressStyle={{ borderColor: '$borderActive' }}
       >
-        <XStack alignItems="center" gap="$3">
-          <Checkbox
-            value={selectedMode === 'cross'}
-            testID="perp-button-text-checkbox"
-          />
+        <YStack gap="$1">
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_cross })}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_cross_mode_desc,
-          })}
-        </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_cross_mode_desc,
+            })}
+          </SizableText>
+        </YStack>
       </YStack>
 
       {/* Isolated Mode Option */}
       <YStack
         p="$4"
         borderRadius="$3"
-        bg="$bgSubdued"
+        borderWidth="$px"
+        borderColor={
+          selectedMode === 'isolated' ? '$borderActive' : '$borderSubdued'
+        }
         onPress={() => setSelectedMode('isolated')}
         cursor="default"
+        hoverStyle={{
+          borderColor:
+            selectedMode === 'isolated' ? '$borderActive' : '$borderStrong',
+        }}
+        pressStyle={{ borderColor: '$borderActive' }}
       >
-        <XStack alignItems="center" gap="$3">
-          <Checkbox
-            value={selectedMode === 'isolated'}
-            testID="perp-checkbox"
-          />
+        <YStack gap="$1">
           <SizableText size="$headingMd" fontWeight="600">
             {intl.formatMessage({ id: ETranslations.perp_trade_isolated })}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_isolate_mode_desc,
-          })}
-        </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_isolate_mode_desc,
+            })}
+          </SizableText>
+        </YStack>
       </YStack>
 
       <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>

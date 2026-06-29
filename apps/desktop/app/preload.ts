@@ -77,6 +77,7 @@ const platformInfo = ipcRenderer.sendSync(ipcMessageKeys.GET_PLATFORM_INFO) as {
   isMas: boolean;
   channel?: string;
   deskChannel: string;
+  processStartAt: number;
 };
 
 const isDev = ipcRenderer.sendSync(ipcMessageKeys.IS_DEV);
@@ -108,6 +109,7 @@ const desktopApi = {
   deskChannel: platformInfo.deskChannel,
   systemVersion: platformInfo.systemVersion,
   isMas: platformInfo.isMas,
+  processStartAt: platformInfo.processStartAt,
   isDev,
   channel: platformInfo.channel,
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),

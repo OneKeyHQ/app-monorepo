@@ -28,13 +28,20 @@ import {
   normalizeTradingViewKLineInterval,
   useTradingViewMessageHandler,
 } from './messageHandlers';
-import { TradingViewNativeChartControls } from './TradingViewNativeChartControls';
+import {
+  TradingViewNativeChartControls,
+  TradingViewNativeIndicatorQuickBar,
+  useNativeIndicatorActiveValues,
+} from './TradingViewNativeChartControls';
 
 import type { ITradingViewV2KLineDataFallback } from './hooks/useTradingViewV2';
 import type { IMarksTimeRange } from './messageHandlers';
 import type {
   ICustomReceiveHandlerData,
   ITradingViewIntervalConfigData,
+  ITradingViewKLineDataReadyData,
+  ITradingViewKLineLoadErrorData,
+  ITradingViewKLinePeriodChangeData,
   ITradingViewNativeChartControlsConfigData,
   ITradingViewPriceMarketCapMode,
   ITradingViewPriceScaleMode,
@@ -92,6 +99,9 @@ interface IBaseTradingViewV2Props {
   onPriceUpdate?: (data: ITradingViewPriceUpdateData) => void;
   enableNativeChartControls?: boolean;
   enableNativeIntervalSelector?: boolean;
+  onKLineDataReady?: (data: ITradingViewKLineDataReadyData) => void;
+  onKLineLoadError?: (data: ITradingViewKLineLoadErrorData) => void;
+  onKLinePeriodChange?: (data: ITradingViewKLinePeriodChangeData) => void;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -107,6 +117,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     useState<ITradingViewIntervalConfigData | null>(null);
   const [nativeChartControlsConfig, setNativeChartControlsConfig] =
     useState<ITradingViewNativeChartControlsConfigData | null>(null);
+  const nativeIndicatorState = useNativeIndicatorActiveValues(
+    nativeChartControlsConfig?.indicators,
+  );
   const theme = useThemeVariant();
   const themeColors = useTheme();
   const tradingViewBackgroundColor = themeColors.bgApp.val;
@@ -138,6 +151,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onPriceUpdate,
     enableNativeChartControls: enableNativeChartControlsProp,
     enableNativeIntervalSelector: enableNativeIntervalSelectorProp = false,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
     onLoadStart,
     ...stackStyle
   } = props;
@@ -200,21 +216,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   );
   const handleNativeIndicatorSelect = useCallback(
     (indicatorName: string, desiredActive: boolean) => {
-      setNativeChartControlsConfig((prev) =>
-        prev
-          ? {
-              ...prev,
-              indicators: prev.indicators.map((indicator) =>
-                indicator.value === indicatorName
-                  ? {
-                      ...indicator,
-                      active: desiredActive,
-                    }
-                  : indicator,
-              ),
-            }
-          : prev,
-      );
       webRef.current?.sendMessageViaInjectedScript({
         type: TRADINGVIEW_INDICATOR_SELECT_MESSAGE,
         payload: {
@@ -316,6 +317,9 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     onNativeChartControlsConfigChange: enableNativeChartControls
       ? handleNativeChartControlsConfigChange
       : undefined,
+    onKLineDataReady,
+    onKLineLoadError,
+    onKLinePeriodChange,
   });
 
   const { isHyperLiquidSource, symbol: hyperLiquidSymbol } =
@@ -592,6 +596,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
         <TradingViewNativeChartControls
           intervalConfig={intervalConfig}
           nativeChartControlsConfig={nativeChartControlsConfig}
+          nativeIndicatorState={nativeIndicatorState}
           onIntervalChange={handleNativeIntervalChange}
           onIndicatorSelect={handleNativeIndicatorSelect}
           onChartTypeChange={handleNativeChartTypeChange}
@@ -637,6 +642,14 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
           />
         ) : null}
       </Stack>
+
+      {enableNativeChartControls ? (
+        <TradingViewNativeIndicatorQuickBar
+          nativeChartControlsConfig={nativeChartControlsConfig}
+          nativeIndicatorState={nativeIndicatorState}
+          onIndicatorSelect={handleNativeIndicatorSelect}
+        />
+      ) : null}
     </Stack>
   );
 };

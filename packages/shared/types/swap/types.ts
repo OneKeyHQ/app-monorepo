@@ -995,6 +995,10 @@ export interface ISwapTxHistory {
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
+  currencyId?: string;
+  // Timestamp at which this item was archived ("read") by the Swap history
+  // preview module. Presence = read; absence = unread. Value is never compared.
+  previewReadAt?: number;
   accountInfo: {
     sender: {
       accountId?: string;

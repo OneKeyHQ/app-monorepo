@@ -50,6 +50,7 @@ import {
   appendBorrowRepaySetupState,
   buildBorrowRepayPositionKey,
   getBorrowRepayProgressStep,
+  getEffectiveBorrowRepayNeedsSetupLut,
   hasPositiveDebtBalance,
   isCollateralRepayEnabled,
 } from './borrowRepayPosition.utils';
@@ -84,6 +85,10 @@ export type IRepayWithCollateralConfirmParams = {
   routeKey?: string;
   collateralAmount?: string;
   collateralAsset: IRepayCollateralAsset;
+  // Required: the repay tx's LUT-setup decision is driven entirely by this
+  // value (the form's effectiveNeedsSetupLut). Keeping it required prevents a
+  // future caller from silently omitting it and skipping required setup.
+  needsSetupLut: boolean;
   onSetupReadyForRepay?: () => void;
 };
 
@@ -100,6 +105,10 @@ type IBorrowRepayPositionProps = Omit<
   defaultCollateralReserveAddress?: string;
   debtBalance?: string;
   needsSetupLut?: boolean;
+  repayWithCollateralSetupReadyProgressKey?: string;
+  onRepayWithCollateralSetupReadyProgressKeyChange?: (
+    progressKey: string,
+  ) => void;
 };
 
 type IRepayMode = 'wallet' | 'collateral';
@@ -261,8 +270,18 @@ function RepayWithCollateralForm({
   collateralLoading,
   defaultCollateralReserveAddress,
   needsSetupLut,
+  setupReadyProgressKey,
+  onSetupReadyProgressKeyChange,
   onRepayWithCollateralConfirm,
-}: Omit<IBorrowRepayPositionProps, 'onWalletConfirm'>) {
+}: Omit<
+  IBorrowRepayPositionProps,
+  | 'onWalletConfirm'
+  | 'repayWithCollateralSetupReadyProgressKey'
+  | 'onRepayWithCollateralSetupReadyProgressKeyChange'
+> & {
+  setupReadyProgressKey: string;
+  onSetupReadyProgressKeyChange: (progressKey: string) => void;
+}) {
   // For collateral repay, use debt balance (how much user owes)
   // Fall back to wallet maxBalance (which is also debt) for backward compatibility
   const balance = debtBalance ?? _walletMaxBalance ?? _walletBalance;
@@ -287,7 +306,6 @@ function RepayWithCollateralForm({
   const [selectedCollateral, setSelectedCollateral] = useState<
     IRepayCollateralAsset | undefined
   >();
-  const [setupReadyProgressKey, setSetupReadyProgressKey] = useState('');
   const [slippage, setSlippage] = useState<ISwapSlippageSegmentItem>({
     key: ESwapSlippageSegmentKey.AUTO,
     value: swapSlippageAutoValue,
@@ -408,13 +426,23 @@ function RepayWithCollateralForm({
     slippageBps,
   ]);
 
+  const effectiveNeedsSetupLut = useMemo(
+    () =>
+      getEffectiveBorrowRepayNeedsSetupLut({
+        progressKey: repayProgressKey,
+        needsSetupLut,
+        setupReadyProgressKey,
+      }),
+    [needsSetupLut, repayProgressKey, setupReadyProgressKey],
+  );
+
   const repayRequestKey = useMemo(
     () =>
       appendBorrowRepaySetupState({
         requestKey: repayProgressKey,
-        needsSetupLut,
+        needsSetupLut: effectiveNeedsSetupLut,
       }),
-    [needsSetupLut, repayProgressKey],
+    [effectiveNeedsSetupLut, repayProgressKey],
   );
 
   const checkAmountRequestKey = useMemo(() => {
@@ -426,12 +454,12 @@ function RepayWithCollateralForm({
     });
     return appendBorrowRepaySetupState({
       requestKey,
-      needsSetupLut,
+      needsSetupLut: effectiveNeedsSetupLut,
     });
   }, [
+    effectiveNeedsSetupLut,
     hasDebtPosition,
     isRepayAll,
-    needsSetupLut,
     normalizedAmount,
     selectedCollateral?.reserveAddress,
   ]);
@@ -440,10 +468,10 @@ function RepayWithCollateralForm({
     () =>
       getBorrowRepayProgressStep({
         progressKey: repayProgressKey,
-        needsSetupLut,
+        needsSetupLut: effectiveNeedsSetupLut,
         setupReadyProgressKey,
       }),
-    [needsSetupLut, repayProgressKey, setupReadyProgressKey],
+    [effectiveNeedsSetupLut, repayProgressKey, setupReadyProgressKey],
   );
 
   const displaySlippageText = useMemo(() => {
@@ -863,14 +891,15 @@ function RepayWithCollateralForm({
         routeKey: quote?.routeKey,
         collateralAmount: quote?.swapIn,
         collateralAsset: selectedCollateral,
+        needsSetupLut: effectiveNeedsSetupLut,
         onSetupReadyForRepay: repayProgressKey
           ? () => {
-              setSetupReadyProgressKey(repayProgressKey);
+              onSetupReadyProgressKeyChange(repayProgressKey);
             }
           : undefined,
       });
       if (submittedSuccessfully) {
-        setSetupReadyProgressKey('');
+        onSetupReadyProgressKeyChange('');
         setAmountValue('');
       }
     } finally {
@@ -1042,7 +1071,7 @@ function RepayWithCollateralForm({
             />
           ) : null}
 
-          {needsSetupLut ? (
+          {effectiveNeedsSetupLut ? (
             <Alert
               icon="InfoCircleOutline"
               type="info"
@@ -1271,11 +1300,30 @@ export function BorrowRepayPosition({
   collateralLoading,
   defaultCollateralReserveAddress,
   needsSetupLut,
+  repayWithCollateralSetupReadyProgressKey,
+  onRepayWithCollateralSetupReadyProgressKeyChange,
   debtBalance,
   ...props
 }: IBorrowRepayPositionProps) {
   const intl = useIntl();
   const [mode, setMode] = useState<IRepayMode>('wallet');
+  const [
+    internalRepayWithCollateralSetupReadyProgressKey,
+    setInternalRepayWithCollateralSetupReadyProgressKey,
+  ] = useState('');
+  const setupReadyProgressKey =
+    repayWithCollateralSetupReadyProgressKey ??
+    internalRepayWithCollateralSetupReadyProgressKey;
+  const handleSetupReadyProgressKeyChange = useCallback(
+    (progressKey: string) => {
+      if (onRepayWithCollateralSetupReadyProgressKeyChange) {
+        onRepayWithCollateralSetupReadyProgressKeyChange(progressKey);
+        return;
+      }
+      setInternalRepayWithCollateralSetupReadyProgressKey(progressKey);
+    },
+    [onRepayWithCollateralSetupReadyProgressKeyChange],
+  );
   const modeOptions = [
     {
       label: intl.formatMessage({
@@ -1346,6 +1394,8 @@ export function BorrowRepayPosition({
           collateralLoading={collateralLoading}
           defaultCollateralReserveAddress={defaultCollateralReserveAddress}
           needsSetupLut={needsSetupLut}
+          setupReadyProgressKey={setupReadyProgressKey}
+          onSetupReadyProgressKeyChange={handleSetupReadyProgressKeyChange}
           debtBalance={debtBalance}
         />
       )}

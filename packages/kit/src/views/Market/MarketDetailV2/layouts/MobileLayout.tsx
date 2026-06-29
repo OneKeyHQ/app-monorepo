@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/TradingViewNativeChartControls';
 import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -329,6 +330,9 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             panActiveOffsetY={[-4, 4]}
             panFailOffsetX={chartAreaPanFailOffsetX}
             excludeRightEdgeRatio={chartAreaExcludeRightEdgeRatio}
+            excludeBottomEdgeHeight={
+              TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
+            }
             scrollScale={1}
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}

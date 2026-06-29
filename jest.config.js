@@ -69,9 +69,30 @@ module.exports = async () => {
     },
     // TODO unify with transpile modules
     transformIgnorePatterns: [
-      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth|@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/)',
     ],
     transform: {
+      'node_modules/(@mysten/(sui|bcs|utils)|@noble/hashes|@scure/(base|bip32|bip39))/.+\\.m?js$':
+        [
+          '@swc/jest',
+          {
+            jsc: {
+              target: 'es2022',
+              parser: {
+                syntax: 'typescript',
+                tsx: true,
+                decorators: true,
+              },
+              transform: {
+                legacyDecorator: true,
+                decoratorMetadata: true,
+                react: {
+                  runtime: 'automatic',
+                },
+              },
+            },
+          },
+        ],
       '^.+\\.[jt]sx?$': [
         '@swc/jest',
         {
@@ -105,6 +126,7 @@ module.exports = async () => {
     modulePathIgnorePatterns: [
       '<rootDir>/.claude/worktrees/',
       '<rootDir>/.worktree/',
+      '<rootDir>/.worktrees/',
       '<rootDir>/ignore/',
     ],
     testPathIgnorePatterns: [
@@ -115,6 +137,7 @@ module.exports = async () => {
       '-smoke\\.test\\.ts$',
       '<rootDir>/\\.claude/worktrees/',
       '<rootDir>/\\.worktree/',
+      '<rootDir>/\\.worktrees/',
       '<rootDir>/ignore/',
       'packages/core/src/chains/ada',
       'packages/core/src/chains/algo',

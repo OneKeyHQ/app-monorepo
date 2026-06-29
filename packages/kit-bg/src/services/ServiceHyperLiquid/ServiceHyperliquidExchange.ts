@@ -1308,9 +1308,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       r: params.reduceOnly ?? false,
       t: params.orderType ?? { limit: { tif: 'Gtc' } },
     };
-    const [formattedOrder = order] = await this._formatOrdersForHyperLiquid([
-      order,
-    ]);
+    const [formattedOrder = order] = await this._formatOrdersForHyperLiquid(
+      [order],
+      { allowZeroSize: params.allowZeroSize },
+    );
 
     const client = await this.getExchangeClientForTrading();
     const requestPayload = { oid: params.oid, order: formattedOrder };
@@ -1555,6 +1556,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     isBuy: boolean;
     size: string;
     reduceOnly: boolean;
+    // When set, the dragged price is the trigger price of a TP/SL order; modify
+    // in place keeping its trigger nature instead of degrading it to a limit.
+    trigger?: { isMarket: boolean; tpsl: 'tp' | 'sl' };
+    slippage?: number;
   }): Promise<IModifyResponse> {
     const symbolMeta =
       await this.backgroundApi.serviceHyperliquid.getSymbolMeta({
@@ -1573,6 +1578,34 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           params.newPrice,
           symbolMeta.universe?.szDecimals,
         );
+
+    if (params.trigger) {
+      const executionPrice = params.trigger.isMarket
+        ? this._calculateSlippagePrice({
+            markPrice: params.newPrice,
+            isBuy: params.isBuy,
+            slippage: params.slippage ?? this.slippage,
+            szDecimals: symbolMeta.universe?.szDecimals,
+          })
+        : formattedPrice;
+      return this.modifyOrder({
+        oid: params.oid,
+        assetId: symbolMeta.assetId,
+        isBuy: params.isBuy,
+        sz: params.size,
+        price: executionPrice,
+        reduceOnly: params.reduceOnly,
+        orderType: {
+          trigger: {
+            isMarket: params.trigger.isMarket,
+            triggerPx: formattedPrice,
+            tpsl: params.trigger.tpsl,
+          },
+        },
+        // Position TP/SL rests with sz "0"; keep it so HL preserves isPositionTpsl.
+        allowZeroSize: new BigNumber(params.size).isZero(),
+      });
+    }
 
     return this.modifyOrder({
       oid: params.oid,

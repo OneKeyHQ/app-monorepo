@@ -562,12 +562,15 @@ export const {
       accountUtils.isHdAccount({ accountId }) ||
       accountUtils.isImportedAccount({ accountId });
     const isHardwareAccount = accountUtils.isHwAccount({ accountId });
+    const shouldUseOrderPanelEnableTradingDialog =
+      isHardwareAccount || !isSoftwareAccount;
 
     return {
       isSoftwareAccount,
       isHardwareAccount,
       canAutoEnableInOrderPanel: isSoftwareAccount,
-      requiresEnableTradingDialogInOrderPanel: isHardwareAccount,
+      requiresEnableTradingDialogInOrderPanel:
+        shouldUseOrderPanelEnableTradingDialog,
       requiresExplicitEnableTrading: !isSoftwareAccount,
     };
   },
@@ -779,6 +782,8 @@ export const {
     field: 'volume24h',
     direction: 'desc',
     activeTab: DEFAULT_PERP_TOKEN_ACTIVE_TAB,
+    sortSource: 'default',
+    sortSourceTab: undefined,
   },
 });
 

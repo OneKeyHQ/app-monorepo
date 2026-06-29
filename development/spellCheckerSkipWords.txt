@@ -1512,3 +1512,21 @@ UBTC
 undefineds
 unparseable
 unsub
+
+# iOS 26 Liquid Glass header vocabulary
+bareify
+subview
+headerless
+
+# OCDS desktop concurrent download conformance tests
+OCDS
+byteranges
+singlestream
+selfsigned
+pems
+Reqs
+unparseable
+unsalvageable
+
+# @mysten/sui 2.x package name
+mysten

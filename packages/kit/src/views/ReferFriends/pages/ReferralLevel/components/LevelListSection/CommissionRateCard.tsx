@@ -2,6 +2,10 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import {
+  formatCommissionRateText,
+  formatInviteeDiscountText,
+} from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IInviteLevelCommissionRate } from '@onekeyhq/shared/src/referralCode/type';
 
@@ -31,7 +35,10 @@ export function CommissionRateCard({
         </SizableText>
 
         <SizableText size="$bodyMdMedium" color="$text">
-          {rate.rebate}% / {rate.discount}%
+          {formatCommissionRateText({
+            rebate: rate.rebate,
+            discount: rate.discount,
+          })}
         </SizableText>
       </XStack>
     );
@@ -83,7 +90,7 @@ export function CommissionRateCard({
         </SizableText>
 
         <SizableText size="$bodyMdMedium" color="$text">
-          {rate.discount}%
+          {formatInviteeDiscountText(rate.discount)}
         </SizableText>
       </XStack>
     </YStack>

@@ -17,6 +17,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFetchUSMarketStatusResult,
   IMarketPresetTokenContext,
@@ -57,6 +58,22 @@ let stockExecutionTokenSyncSerial = 0;
 function nextStockExecutionTokenSyncId() {
   stockExecutionTokenSyncSerial += 1;
   return stockExecutionTokenSyncSerial;
+}
+
+function buildStockExecutionTokens({
+  payToken,
+  stockToken,
+  tradeSide,
+}: {
+  payToken?: ISwapToken;
+  stockToken?: ISwapToken;
+  tradeSide: ESwapStockTradeSide;
+}) {
+  const fromToken =
+    tradeSide === ESwapStockTradeSide.Buy ? payToken : stockToken;
+  const toToken = tradeSide === ESwapStockTradeSide.Buy ? stockToken : payToken;
+
+  return { fromToken, toToken };
 }
 
 export function useSwapStockChannel({
@@ -369,6 +386,48 @@ export function useSwapStockChannel({
     ],
   );
 
+  const selectRecentTokenPair = useCallback(
+    async ({
+      fromToken: pairFromToken,
+      toToken: pairToToken,
+    }: {
+      fromToken: ISwapToken;
+      toToken: ISwapToken;
+    }) => {
+      const isFromTokenPayToken =
+        filterStockPayTokenCandidates([pairFromToken]).length > 0;
+      const isToTokenPayToken =
+        filterStockPayTokenCandidates([pairToToken]).length > 0;
+      const shouldUseSellSide =
+        Boolean(pairFromToken.isStock) ||
+        (!isFromTokenPayToken && isToTokenPayToken);
+      const nextTradeSide = shouldUseSellSide
+        ? ESwapStockTradeSide.Sell
+        : ESwapStockTradeSide.Buy;
+      const nextStockToken = shouldUseSellSide ? pairFromToken : pairToToken;
+      const nextPayToken = shouldUseSellSide ? pairToToken : pairFromToken;
+
+      resetStockTradeAmounts();
+      setTradeSide(nextTradeSide);
+      setStockTokenState(nextStockToken);
+      stockTokenSnapshotRef.current = nextStockToken;
+      manualStockPayTokenKeyRef.current = getTokenIdentityKey(nextPayToken);
+      setPayTokenState(nextPayToken);
+      payTokenSnapshotRef.current = nextPayToken;
+      requestMarketActiveToken(nextStockToken);
+      await syncStockExecutionTokens({
+        nextTradeSide,
+        stockToken: nextStockToken,
+        payToken: nextPayToken,
+      });
+    },
+    [
+      requestMarketActiveToken,
+      resetStockTradeAmounts,
+      syncStockExecutionTokens,
+    ],
+  );
+
   const stockTokenStatus = useMemo(() => {
     if (currentStockToken) {
       return ESwapStockChannelAsyncStatus.Ready;
@@ -441,6 +500,49 @@ export function useSwapStockChannel({
     !!payToken &&
     !!currentStockToken;
 
+  useEffect(() => {
+    if (!readyForQuote) {
+      return;
+    }
+
+    const {
+      fromToken: stockExecutionFromToken,
+      toToken: stockExecutionToToken,
+    } = buildStockExecutionTokens({
+      payToken,
+      stockToken: currentStockToken,
+      tradeSide,
+    });
+    const executionPairSynced = Boolean(
+      stockExecutionFromToken &&
+      stockExecutionToToken &&
+      equalTokenNoCaseSensitive({
+        token1: fromToken,
+        token2: stockExecutionFromToken,
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: toToken,
+        token2: stockExecutionToToken,
+      }),
+    );
+    if (executionPairSynced) {
+      return;
+    }
+
+    void syncStockExecutionTokens({
+      payToken,
+      stockToken: currentStockToken,
+    });
+  }, [
+    currentStockToken,
+    payToken,
+    readyForQuote,
+    syncStockExecutionTokens,
+    tradeSide,
+    fromToken,
+    toToken,
+  ]);
+
   return useMemo(
     () => ({
       stockTokenStatus,
@@ -464,6 +566,7 @@ export function useSwapStockChannel({
       selectStockToken,
       selectPayToken,
       switchTradeSide,
+      selectRecentTokenPair,
     }),
     [
       channelStage,
@@ -478,6 +581,7 @@ export function useSwapStockChannel({
       readyForQuote,
       selectablePayTokens,
       selectPayToken,
+      selectRecentTokenPair,
       selectStockToken,
       switchTradeSide,
       speedConfigReady,

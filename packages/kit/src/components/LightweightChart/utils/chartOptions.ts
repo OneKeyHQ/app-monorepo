@@ -34,6 +34,9 @@ export function createChartOptions(
       },
       horzLine: {
         visible: false,
+        // Hide the price tag the crosshair draws on the price axis on hover; it
+        // duplicates the custom hover tooltip (mirrors vertLine labelVisible).
+        labelVisible: false,
       },
     },
     timeScale: {

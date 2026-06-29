@@ -25,6 +25,7 @@ import {
 import EventSource from '@onekeyhq/shared/src/eventSource';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -39,6 +40,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
@@ -399,6 +401,77 @@ function getSwapHistoryStateOrderId({
     !isPrivateSendFallbackOrderId(orderId)
     ? orderId
     : undefined;
+}
+
+function getPrivateSendAnalyticsFinalStatus(status: ESwapTxHistoryStatus) {
+  if (
+    status === ESwapTxHistoryStatus.SUCCESS ||
+    status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+  ) {
+    return 'done';
+  }
+  return isSwapTxHistoryStatusTerminal(status) ? 'failed' : undefined;
+}
+
+function getPrivateSendHistoryDurationSeconds(swapTxHistory: ISwapTxHistory) {
+  const createdAt = swapTxHistory.date.created;
+  if (!Number.isFinite(createdAt)) {
+    return undefined;
+  }
+  return Math.max(0, Math.floor((Date.now() - createdAt) / 1000));
+}
+
+function getPrivateSendFinalFailedReason(swapTxHistory: ISwapTxHistory) {
+  const reason = swapTxHistory.extraStatus ?? swapTxHistory.stateDetail;
+  if (reason === undefined || reason === null) {
+    return undefined;
+  }
+  return String(reason);
+}
+
+function trackPrivateSendOrderFinalStatusIfNeeded({
+  isPrivateSendHistory,
+  previousSwapTxHistory,
+  currentSwapTxHistory,
+}: {
+  isPrivateSendHistory: boolean;
+  previousSwapTxHistory: ISwapTxHistory;
+  currentSwapTxHistory: ISwapTxHistory;
+}) {
+  if (
+    !isPrivateSendHistory ||
+    isSwapTxHistoryStatusTerminal(previousSwapTxHistory.status)
+  ) {
+    return;
+  }
+  const finalStatus = getPrivateSendAnalyticsFinalStatus(
+    currentSwapTxHistory.status,
+  );
+  if (!finalStatus) {
+    return;
+  }
+  defaultLogger.transaction.send.sendPrivateOrderFinalStatus({
+    orderId:
+      currentSwapTxHistory.swapInfo.orderId ??
+      currentSwapTxHistory.txInfo.orderId,
+    finalStatus,
+    failedReason:
+      finalStatus === 'failed'
+        ? getPrivateSendFinalFailedReason(currentSwapTxHistory)
+        : undefined,
+    provider: currentSwapTxHistory.swapInfo.provider.provider,
+    network:
+      currentSwapTxHistory.baseInfo.fromToken.networkId ??
+      currentSwapTxHistory.baseInfo.fromNetwork?.networkId,
+    tokenSymbol: currentSwapTxHistory.baseInfo.fromToken.symbol,
+    receivedTokenSymbol: currentSwapTxHistory.baseInfo.toToken.symbol,
+    sendAmount: currentSwapTxHistory.baseInfo.fromAmount,
+    receivedAmount:
+      finalStatus === 'done'
+        ? currentSwapTxHistory.baseInfo.toAmount
+        : undefined,
+    duration: getPrivateSendHistoryDurationSeconds(currentSwapTxHistory),
+  });
 }
 
 @backgroundClass()
@@ -1752,6 +1825,31 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markAllSwapHistoryPreviewRead() {
+    await this.backgroundApi.simpleDb.swapHistory.markUnreadTerminalPreviewRead(
+      Date.now(),
+    );
+    // Re-derive the pending atom so subscribed UIs re-read the persisted list
+    // (newly-read terminal items drop out of the preview).
+    await this.syncSwapHistoryPendingList();
+  }
+
+  @backgroundMethod()
+  async seedSwapHistoryPreviewReadIfNeeded() {
+    const seeded =
+      await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+        Date.now(),
+      );
+    if (seeded) {
+      // Re-derive the pending atom (same invalidation as
+      // markAllSwapHistoryPreviewRead) so a foreground that already read the
+      // pre-seed history re-reads it and drops the now-read legacy terminal
+      // items from the preview, instead of keeping them for the whole session.
+      await this.syncSwapHistoryPendingList();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter((history) =>
@@ -1967,6 +2065,9 @@ export default class ServiceSwap extends ServiceBase {
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
+      // isStock flag, so clearing it must not delete stock orders).
+      excludeStock?: boolean;
     },
   ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
@@ -1986,6 +2087,9 @@ export default class ServiceSwap extends ServiceBase {
         ) {
           return false;
         }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return false;
+        }
         return statuses ? statuses.includes(item.status) : true;
       })
       .map((item) =>
@@ -2002,6 +2106,9 @@ export default class ServiceSwap extends ServiceBase {
             excludeProtocols: options?.excludeProtocols,
           })
         ) {
+          return true;
+        }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
           return true;
         }
         return statuses ? !statuses.includes(item.status) : false;
@@ -2242,6 +2349,11 @@ export default class ServiceSwap extends ServiceBase {
           shouldShowToast,
         });
         const finalStatus = currentSwapTxHistory.status;
+        trackPrivateSendOrderFinalStatusIfNeeded({
+          isPrivateSendHistory,
+          previousSwapTxHistory,
+          currentSwapTxHistory,
+        });
         if (
           finalStatus === ESwapTxHistoryStatus.FAILED ||
           finalStatus === ESwapTxHistoryStatus.CANCELED

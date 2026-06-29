@@ -1,5 +1,6 @@
 import type {
   IDeFiProtocol,
+  IDeFiSupportedProtocolAction,
   IProtocolSummary,
 } from '@onekeyhq/shared/types/defi';
 
@@ -46,3 +47,12 @@ export const { atom: deFiListStateAtom, use: useDeFiListStateAtom } =
 
 export const { atom: deFiListSlicedAtom, use: useDeFiListSlicedAtom } =
   contextAtom<boolean>(true);
+
+export const {
+  atom: deFiListSupportedActionsAtom,
+  use: useDeFiListSupportedActionsAtom,
+} = contextAtom<{
+  supportedActions: IDeFiSupportedProtocolAction[];
+}>({
+  supportedActions: [],
+});

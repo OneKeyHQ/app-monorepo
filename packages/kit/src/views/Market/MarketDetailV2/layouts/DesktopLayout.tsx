@@ -69,7 +69,11 @@ function useIframeWheelPassthrough(scrollRef: RefObject<HTMLElement | null>) {
   }, [scrollRef]);
 }
 
-export function DesktopLayout() {
+export function DesktopLayout({
+  showFavoriteButton = true,
+}: {
+  showFavoriteButton?: boolean;
+}) {
   const {
     tokenAddress,
     networkId,
@@ -129,7 +133,7 @@ export function DesktopLayout() {
           borderRightWidth="$px"
           borderRightColor="$borderSubdued"
         >
-          <TokenDetailHeader />
+          <TokenDetailHeader showFavoriteButton={showFavoriteButton} />
 
           <Stack h={MARKET_DETAIL_LAYOUT.chartHeight} overflow="hidden">
             {networkId && tokenDetail?.symbol ? (
