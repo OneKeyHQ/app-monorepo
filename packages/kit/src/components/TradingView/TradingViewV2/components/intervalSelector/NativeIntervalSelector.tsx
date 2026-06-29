@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -82,6 +82,8 @@ export const TradingViewNativeIntervalSelector = memo(
     onIntervalChange,
   }: ITradingViewNativeIntervalSelectorProps) => {
     const intl = useIntl();
+    const [intervalsPopoverSessionKey, setIntervalsPopoverSessionKey] =
+      useState(0);
     const {
       activeInterval,
       closeIntervalsDialog,
@@ -104,6 +106,16 @@ export const TradingViewNativeIntervalSelector = memo(
       intervalConfig,
       intervalControlMode,
     });
+
+    const handleIntervalsPopoverOpenChange = useCallback(
+      (open: boolean) => {
+        if (open) {
+          setIntervalsPopoverSessionKey((key) => key + 1);
+        }
+        setIsIntervalsPopoverOpen(open);
+      },
+      [setIsIntervalsPopoverOpen],
+    );
 
     const showIntervalsDialog = useCallback(() => {
       closeIntervalsDialog();
@@ -148,6 +160,7 @@ export const TradingViewNativeIntervalSelector = memo(
 
     const intervalsPanelContent = (
       <IntervalsDialogContent
+        key={intervalsPopoverSessionKey}
         options={options}
         editableOptions={dialogOptions}
         activeInterval={activeInterval}
@@ -181,7 +194,7 @@ export const TradingViewNativeIntervalSelector = memo(
             usingSheet={false}
             placement="bottom-start"
             open={isIntervalsPopoverOpen}
-            onOpenChange={setIsIntervalsPopoverOpen}
+            onOpenChange={handleIntervalsPopoverOpenChange}
             floatingPanelProps={{
               width: 360,
             }}
