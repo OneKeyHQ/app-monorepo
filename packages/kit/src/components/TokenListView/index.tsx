@@ -390,6 +390,7 @@ function TokenListViewCmp(props: IProps) {
     accountId,
     networkId,
     indexedAccountId,
+    mergeDeriveAddressData,
     enabled: tokenManagementEnabled && !isHomeProjectionPath,
   });
 

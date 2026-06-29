@@ -42,6 +42,10 @@ export interface IHomeTokenListSnapshot {
   tokens: IAccountToken[];
   keys: string;
   map: Record<string, ITokenFiat>;
+  /** Owner/generation cache key for guarding stale usePromiseResult values. */
+  cacheKey: string;
+  /** Request ownerKey used for this pull. */
+  ownerKey: string;
   /** SETTLED owner identity from the BG VM (lags on purpose, design C-F1). */
   accountId: string | undefined;
   networkId: string | undefined;
@@ -51,6 +55,8 @@ const EMPTY_SNAPSHOT: IHomeTokenListSnapshot = {
   tokens: [],
   keys: '',
   map: {},
+  cacheKey: '',
+  ownerKey: '',
   accountId: undefined,
   networkId: undefined,
 };
@@ -80,6 +86,8 @@ function fetchHomeTokenListSnapshot(
         tokens: raw.tokens,
         keys: raw.keys,
         map,
+        cacheKey,
+        ownerKey,
         accountId: raw.accountId,
         networkId: raw.networkId,
       }))
@@ -116,6 +124,7 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
   // Reactive trigger consumed as a dep below: bumps only on a structure frame
   // (not price ticks), so the snapshot re-pulls when the home list changes.
   const structureGeneration = listStructure.generation;
+  const expectedCacheKey = ownerKey ? `${ownerKey}@${structureGeneration}` : '';
 
   const { result } = usePromiseResult(
     async (): Promise<IHomeTokenListSnapshot> => {
@@ -135,5 +144,8 @@ export function useHomeTokenListSnapshot(num = 0): IHomeTokenListSnapshot {
     },
   );
 
-  return useMemo(() => result ?? EMPTY_SNAPSHOT, [result]);
+  return useMemo(
+    () => (result?.cacheKey === expectedCacheKey ? result : EMPTY_SNAPSHOT),
+    [expectedCacheKey, result],
+  );
 }

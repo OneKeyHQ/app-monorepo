@@ -19,8 +19,8 @@
  *     originals had (`account?.id` / `network?.id`), so it is stable within an
  *     owner and changes only on owner switch (matching the original re-fire).
  *   - P1-e: the `flushProgressiveViewRef` indirection is preserved verbatim.
- *   - P1-f: the flush captures the owner once (closure values) and re-checks
- *     after the await — NOT re-resolved live.
+ *   - P1-f: the flush captures the owner once and re-checks a live owner
+ *     generation + ownerKey after awaits before writing to the BG VM.
  *   - P1-g: `reset()` clears WITHOUT bumping epoch; `commitAuthoritativeIngest`
  *     clears AND bumps epoch.
  *
@@ -126,6 +126,12 @@ export interface ITokenListReactivePipeline {
   commitAuthoritativeIngest: (snapshot: IMergedAllNetworkSnapshot) => void;
 }
 
+type IIngestOwnerToken = {
+  ownerAccountId: string | undefined;
+  ownerNetworkId: string | undefined;
+  ownerKey: string;
+};
+
 export function useTokenListReactivePipeline(
   params: ITokenListReactivePipelineParams,
 ): ITokenListReactivePipeline {
@@ -152,6 +158,18 @@ export function useTokenListReactivePipeline(
   >(undefined);
   // H1 epoch guard (P1-g): bumped only by the authoritative commit.
   const progressivePaintEpochRef = useRef(0);
+  const ownerIdentityRef = useRef<{
+    ownerAccountId: string | undefined;
+    ownerNetworkId: string | undefined;
+  }>({ ownerAccountId, ownerNetworkId });
+  const ownerGenerationRef = useRef(0);
+  if (
+    ownerIdentityRef.current.ownerAccountId !== ownerAccountId ||
+    ownerIdentityRef.current.ownerNetworkId !== ownerNetworkId
+  ) {
+    ownerIdentityRef.current = { ownerAccountId, ownerNetworkId };
+    ownerGenerationRef.current += 1;
+  }
 
   const reset = useCallback(() => {
     if (progressiveFlushTimerRef.current !== null) {
@@ -200,9 +218,13 @@ export function useTokenListReactivePipeline(
   );
 
   const ingestMergedSnapshot = useCallback(
-    (snapshot: IMergedAllNetworkSnapshot, source: string) => {
+    (
+      snapshot: IMergedAllNetworkSnapshot,
+      source: string,
+      ownerToken?: IIngestOwnerToken,
+    ) => {
       void backgroundApiProxy.serviceTokenViewModel.ingestRound({
-        ownerKey: cellsIngestInputsRef.current.ownerKey,
+        ownerKey: ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey,
         orderedTokens: snapshot.orderedTokens,
         smallBalanceTokens: snapshot.smallBalanceTokens,
         tokenListMap: snapshot.mergeTokenListMap,
@@ -216,8 +238,8 @@ export function useTokenListReactivePipeline(
         customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
         riskyTokens: snapshot.riskyTokens,
         riskyMap: snapshot.riskyTokenListMap,
-        accountId: ownerAccountId,
-        networkId: ownerNetworkId,
+        accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
+        networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
         rawKeys: `${snapshot.tokenKeys}_${snapshot.smallBalanceKeys}_${snapshot.riskyKeys}`,
         source,
       });
@@ -232,6 +254,12 @@ export function useTokenListReactivePipeline(
         progressiveFlushTimerRef.current = null;
       }
       const epochAtFlushStart = progressivePaintEpochRef.current;
+      const ownerGenerationAtFlushStart = ownerGenerationRef.current;
+      const ownerTokenAtFlushStart: IIngestOwnerToken = {
+        ownerAccountId,
+        ownerNetworkId,
+        ownerKey: cellsIngestInputsRef.current.ownerKey,
+      };
       const rounds = progressiveViewRef.current.materialize(
         enabledKeysRef.current,
       );
@@ -251,6 +279,13 @@ export function useTokenListReactivePipeline(
       ) {
         return;
       }
+      if (
+        ownerGenerationRef.current !== ownerGenerationAtFlushStart ||
+        cellsIngestInputsRef.current.ownerKey !==
+          ownerTokenAtFlushStart.ownerKey
+      ) {
+        return;
+      }
       if (progressivePaintEpochRef.current !== epochAtFlushStart) {
         return;
       }
@@ -260,12 +295,13 @@ export function useTokenListReactivePipeline(
         accountId: ownerAccountId,
         createAtNetwork: ownerCreateAtNetwork,
       });
-      ingestMergedSnapshot(snapshot, source);
+      ingestMergedSnapshot(snapshot, source, ownerTokenAtFlushStart);
     },
     [
       ownerAccountId,
       ownerCreateAtNetwork,
       ownerNetworkId,
+      cellsIngestInputsRef,
       enabled,
       ingestMergedSnapshot,
       resolveRoundsWithMergeFlag,

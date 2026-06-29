@@ -907,6 +907,7 @@ function TokenListBlock({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     indexedAccountId: indexedAccount?.id,
+    mergeDeriveAddressData: !!mergeDeriveAddressData,
     enabled: !deferCellsTokenManagement || tokenListState.initialized,
   });
   const cellsNonZeroInputs = useMemo(

@@ -40,17 +40,21 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 // The unit-under-test import must come AFTER jest.mock (hoisting); the type
 // import is colocated so import/order's value-before-type rule is satisfied.
 /* eslint-disable import/first, import/order */
-import { useTokenListReactivePipeline } from './useTokenListReactivePipeline';
+import {
+  PROGRESSIVE_PAINT_THROTTLE_MS,
+  useTokenListReactivePipeline,
+} from './useTokenListReactivePipeline';
 
-import type { ICacheSeedItem } from './useTokenListReactivePipeline';
+import type {
+  ICacheSeedItem,
+  ICellsIngestInputs,
+  ILiveRound,
+} from './useTokenListReactivePipeline';
 /* eslint-enable import/first, import/order */
 
 const OWNER = { accountId: 'acc1', networkId: 'evm--1' };
 
-function makeInputsRef(): MutableRefObject<{
-  ownerKey: string;
-  nonZeroInputs: Record<string, never>;
-}> {
+function makeInputsRef(): MutableRefObject<ICellsIngestInputs> {
   return {
     current: { ownerKey: 'acc1__evm--1', nonZeroInputs: {} },
   };
@@ -81,15 +85,67 @@ function makeCacheItem(over: Partial<ICacheSeedItem> = {}): ICacheSeedItem {
 
 function render(enabled = true) {
   const cellsIngestInputsRef = makeInputsRef();
-  return renderHook(() =>
-    useTokenListReactivePipeline({
-      ownerAccountId: OWNER.accountId,
-      ownerNetworkId: OWNER.networkId,
-      ownerCreateAtNetwork: undefined,
-      cellsIngestInputsRef,
-      enabled,
-    }),
-  );
+  return {
+    cellsIngestInputsRef,
+    ...renderHook(
+      ({
+        ownerAccountId,
+        ownerNetworkId,
+        enabled: isEnabled,
+      }: {
+        ownerAccountId: string | undefined;
+        ownerNetworkId: string | undefined;
+        enabled: boolean;
+      }) =>
+        useTokenListReactivePipeline({
+          ownerAccountId,
+          ownerNetworkId,
+          ownerCreateAtNetwork: undefined,
+          cellsIngestInputsRef,
+          enabled: isEnabled,
+        }),
+      {
+        initialProps: {
+          ownerAccountId: OWNER.accountId,
+          ownerNetworkId: OWNER.networkId,
+          enabled,
+        },
+      },
+    ),
+  };
+}
+
+function makeLiveRound(over: Partial<ILiveRound> = {}): ILiveRound {
+  return {
+    accountId: OWNER.accountId,
+    networkId: OWNER.networkId,
+    ownerAccountId: OWNER.accountId,
+    ownerNetworkId: OWNER.networkId,
+    tokens: {
+      data: [
+        {
+          $key: 'live-a1',
+          name: 'Live A1',
+          symbol: 'LA1',
+          decimals: 18,
+          address: '0xlivea1',
+          isNative: false,
+        },
+      ],
+      keys: 'live-a1',
+      map: {
+        'live-a1': {
+          balance: '1',
+          balanceParsed: '1',
+          fiatValue: '10',
+          price: 1,
+        },
+      },
+    },
+    smallBalanceTokens: { data: [], keys: '', map: {} },
+    riskTokens: { data: [], keys: '', map: {} },
+    ...over,
+  };
 }
 
 describe('useTokenListReactivePipeline', () => {
@@ -262,6 +318,56 @@ describe('useTokenListReactivePipeline', () => {
       // now let the throttled flush fire — it must abort (epoch superseded)
       await act(async () => {
         await jest.advanceTimersByTimeAsync(400);
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('drops an in-flight progressive flush after owner switch before BG ingest', async () => {
+    jest.useFakeTimers();
+    try {
+      let resolveVaultSettings:
+        | ((value: { mergeDeriveAssetsEnabled: boolean }) => void)
+        | undefined;
+      mockGetVaultSettings.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveVaultSettings = resolve;
+          }),
+      );
+
+      const { result, rerender, cellsIngestInputsRef } = render(true);
+      act(() => {
+        result.current.setEnabledKeys([OWNER]);
+        result.current.ingestLiveRound(makeLiveRound(), 1);
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+        await Promise.resolve();
+      });
+      expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        cellsIngestInputsRef.current = {
+          ownerKey: 'acc2__evm--1',
+          nonZeroInputs: {},
+        };
+      });
+      rerender({
+        ownerAccountId: 'acc2',
+        ownerNetworkId: OWNER.networkId,
+        enabled: true,
+      });
+      act(() => {
+        result.current.reset();
+      });
+
+      await act(async () => {
+        resolveVaultSettings?.({ mergeDeriveAssetsEnabled: false });
+        await Promise.resolve();
       });
       expect(mockIngestRound).not.toHaveBeenCalled();
     } finally {

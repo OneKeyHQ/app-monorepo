@@ -4,8 +4,8 @@ import { flatten, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { buildOverviewOwnerKey } from '@onekeyhq/kit/src/states/jotai/contexts/accountOverview/atoms';
 import { useListStructureAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
@@ -25,11 +25,15 @@ export function useTokenManagement({
   networkId,
   accountId,
   indexedAccountId,
+  mergeDeriveAddressData,
+  tokenListOwnerKey,
   enabled = true,
 }: {
   networkId: string;
   accountId: string;
   indexedAccountId?: string;
+  mergeDeriveAddressData?: boolean;
+  tokenListOwnerKey?: string;
   enabled?: boolean;
 }) {
   const intl = useIntl();
@@ -41,7 +45,14 @@ export function useTokenManagement({
   // (newly-discovered tokens would never appear). The displayed `tokenList.tokens`
   // is replaced by the PULL result.
   const [listStructure] = useListStructureAtom();
-  const ownerKey = buildOverviewOwnerKey(accountId, networkId);
+  const ownerAccountId = getTokenListOwnerCacheAccountId({
+    accountId,
+    indexedAccountId,
+    mergeDeriveAddressData,
+  });
+  const ownerKey =
+    tokenListOwnerKey ||
+    (ownerAccountId && networkId ? `${ownerAccountId}__${networkId}` : '');
   // Reactive trigger consumed as a dep below (R-#3b); re-runs the PULL when the
   // home list structure changes. The value itself is not needed in the body.
   const structureGeneration = listStructure.generation;
