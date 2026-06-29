@@ -243,11 +243,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const headerRouteDefaultSwapType = useSwapHeaderRouteDefaultSwapType(
     swapInitParams?.swapTabSwitchType,
   );
-  const stockMarketPresetTokenContext =
-    swapInitParams?.swapTabSwitchType === ESwapTabSwitchType.STOCK ||
-    routeStockToken
-      ? marketPresetTokenContext
-      : undefined;
+  const stockMarketPresetTokenContext = marketPresetTokenContext;
   const {
     isLoading,
     speedConfig,

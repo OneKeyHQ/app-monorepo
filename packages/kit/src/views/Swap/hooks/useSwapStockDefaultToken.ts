@@ -12,6 +12,7 @@ import {
 } from './swapStockChannelUtils';
 
 const DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT = 50;
+const DEFAULT_STOCK_TOKEN_MAX_PAGES = 5;
 
 export function useSwapStockDefaultToken({
   marketPresetTokenKey,
@@ -57,18 +58,41 @@ export function useSwapStockDefaultToken({
           token: undefined as IMarketTokenListItem | undefined,
         };
       }
-      const response =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
-          networkId: '',
-          type: stockCategoryType,
-          sortBy: 'v24hUSD',
-          sortType: 'desc',
-          page: 1,
-          limit: DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT,
-        });
+      let nextPage = 1;
+      let loadedCount = 0;
+
+      while (nextPage <= DEFAULT_STOCK_TOKEN_MAX_PAGES) {
+        const response =
+          await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+            networkId: '',
+            type: stockCategoryType,
+            sortBy: 'v24hUSD',
+            sortType: 'desc',
+            page: nextPage,
+            limit: DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT,
+          });
+        const token = response.list.find((item) => !!item.stock);
+        if (token) {
+          return {
+            scope: defaultStockTokenScope,
+            token,
+          };
+        }
+        loadedCount += response.list.length;
+        const hasKnownTotal =
+          Number.isFinite(response.total) && response.total > 0;
+        if (
+          response.list.length < DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT ||
+          (hasKnownTotal && loadedCount >= response.total)
+        ) {
+          break;
+        }
+        nextPage += 1;
+      }
+
       return {
         scope: defaultStockTokenScope,
-        token: response.list.find((item) => !!item.stock),
+        token: undefined,
       };
     },
     [defaultStockTokenScope, shouldLoadDefaultStockToken, stockCategoryType],

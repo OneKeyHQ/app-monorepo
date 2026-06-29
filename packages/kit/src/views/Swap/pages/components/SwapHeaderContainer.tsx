@@ -152,7 +152,7 @@ const SwapHeaderContainer = ({
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [defaultSwapType]);
 
   const updateSelectedAccountNetworkAction = useCallback(
     async (targetNetworkId: string) => {

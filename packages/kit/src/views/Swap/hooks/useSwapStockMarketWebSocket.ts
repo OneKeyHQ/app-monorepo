@@ -28,6 +28,13 @@ type IMarketWSDataUpdatePayload = {
   data: unknown;
 };
 
+type IStockMarketWsSubscription = {
+  networkId: string;
+  tokenAddress: string;
+  chartType: string;
+  currency: string;
+};
+
 export type ISwapStockRealtimePrice = {
   tokenKey: string;
   price: string;
@@ -77,6 +84,20 @@ function getStockWsTokenKey({
 
 function getPositivePrice(value: number) {
   return Number.isFinite(value) && value > 0 ? String(value) : undefined;
+}
+
+async function unsubscribeStockMarketWebSocket({
+  chartType,
+  currency,
+  networkId,
+  tokenAddress,
+}: IStockMarketWsSubscription): Promise<void> {
+  await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
+    networkId,
+    tokenAddress,
+    chartType,
+    currency,
+  });
 }
 
 export function buildRealtimeStockTokenDetail({
@@ -148,15 +169,27 @@ export function useSwapStockMarketWebSocket({
       return;
     }
 
+    let isCancelled = false;
+    let didSubscribe = false;
+    const subscription: IStockMarketWsSubscription = {
+      networkId,
+      tokenAddress,
+      chartType: wsChartType,
+      currency: SWAP_STOCK_MARKET_WS_CURRENCY,
+    };
+
     async function initWebSocket(): Promise<void> {
       try {
         await backgroundApiProxy.serviceMarketWS.connect();
-        await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
-          networkId,
-          tokenAddress,
-          chartType: wsChartType,
-          currency: SWAP_STOCK_MARKET_WS_CURRENCY,
-        });
+        if (isCancelled) {
+          return;
+        }
+        await backgroundApiProxy.serviceMarketWS.subscribeOHLCV(subscription);
+        didSubscribe = true;
+        if (isCancelled) {
+          didSubscribe = false;
+          await unsubscribeStockMarketWebSocket(subscription);
+        }
       } catch (error) {
         defaultLogger.networkDoctor.log.error({
           info: `Failed to subscribe stock market websocket: ${getErrorMessage(
@@ -169,20 +202,17 @@ export function useSwapStockMarketWebSocket({
     void initWebSocket();
 
     return () => {
-      void backgroundApiProxy.serviceMarketWS
-        .unsubscribeOHLCV({
-          networkId,
-          tokenAddress,
-          chartType: wsChartType,
-          currency: SWAP_STOCK_MARKET_WS_CURRENCY,
-        })
-        .catch((error) => {
-          defaultLogger.networkDoctor.log.error({
-            info: `Failed to unsubscribe stock market websocket: ${getErrorMessage(
-              error,
-            )}`,
-          });
+      isCancelled = true;
+      if (!didSubscribe) {
+        return;
+      }
+      void unsubscribeStockMarketWebSocket(subscription).catch((error) => {
+        defaultLogger.networkDoctor.log.error({
+          info: `Failed to unsubscribe stock market websocket: ${getErrorMessage(
+            error,
+          )}`,
         });
+      });
     };
   }, [networkId, subscriptionEnabled, tokenAddress, wsChartType]);
 
