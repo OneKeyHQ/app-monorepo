@@ -80,9 +80,12 @@ export function ActionButton({
     num: 0,
     showConnectWalletModalInDappMode: true,
   });
+  const paymentTokenNetworkId =
+    tradeType === ESwapDirection.BUY ? paymentToken?.networkId : undefined;
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
-    networkId,
+    paymentTokenNetworkId,
+    currencyInfo.id,
   );
   const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
@@ -100,7 +103,17 @@ export function ActionButton({
     }
 
     if (tradeType === ESwapDirection.BUY) {
-      const buyPrice = paymentTokenPrice ?? new BigNumber(token?.price || '0');
+      const fallbackCurrency = paymentToken?.currency ?? token?.currency;
+      const canUseFallbackPrice =
+        !fallbackCurrency || fallbackCurrency === currencyInfo.id;
+      const buyPrice =
+        paymentTokenPrice ??
+        (canUseFallbackPrice
+          ? new BigNumber(paymentToken?.price || token?.price || '0')
+          : undefined);
+      if (!buyPrice) {
+        return undefined;
+      }
       if (!buyPrice.isFinite() || buyPrice.isNaN() || !buyPrice.gt(0)) {
         return undefined;
       }
@@ -115,7 +128,11 @@ export function ActionButton({
     return amountBN.multipliedBy(sellPrice).toNumber();
   }, [
     tradeType,
+    currencyInfo.id,
+    paymentToken?.currency,
+    paymentToken?.price,
     paymentTokenPrice,
+    token?.currency,
     token?.price,
     amount,
     isValidAmount,
