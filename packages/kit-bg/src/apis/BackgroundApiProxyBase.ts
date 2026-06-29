@@ -617,4 +617,11 @@ export class BackgroundApiProxyBase
   ): Promise<IJsonRpcResponse<any>> {
     throw new OneKeyLocalError('handleProviderMethods in Proxy is mocked');
   }
+
+  getProviderApi(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    scope: IInjectedProviderNames,
+  ): Promise<ProviderApiBase> {
+    throw new OneKeyLocalError('getProviderApi in Proxy is mocked');
+  }
 }
