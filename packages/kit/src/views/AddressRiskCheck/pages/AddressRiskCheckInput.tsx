@@ -4,10 +4,12 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Icon,
   Page,
   ScrollView,
+  Select,
   SizableText,
   Spinner,
   Stack,
@@ -18,6 +20,7 @@ import {
 import { useClipboard } from '@onekeyhq/components/src/hooks/useClipboard';
 import HeaderIconButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderIconButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { queryAddressWithFallback } from '@onekeyhq/kit/src/components/AddressInput/utils';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
@@ -27,12 +30,14 @@ import {
   EModalAddressRiskCheckRoutes,
   type IModalAddressRiskCheckParamList,
 } from '@onekeyhq/shared/src/routes/addressRiskCheck';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAddressRiskCheckRecentItem } from '@onekeyhq/shared/types/addressRiskCheck';
 
 import useConfigurableChainSelector from '../../ChainSelector/hooks/useChainSelector';
 import { RecentCheckItem } from '../components/RecentCheckItem';
 import { useCheckAddressRisk } from '../hooks/useCheckAddressRisk';
 import { useRecentChecks } from '../hooks/useRecentChecks';
+import { getAddressRiskCheckInputState } from '../utils/addressRiskCheckInputUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -57,6 +62,9 @@ function AddressRiskCheckInput() {
     { id: string; name: string } | undefined
   >();
   const [address, setAddress] = useState('');
+  const [selectedResolvedAddress, setSelectedResolvedAddress] = useState<
+    string | undefined
+  >();
 
   const networkId = selectedNetwork?.id;
   const trimmedAddress = address.trim();
@@ -77,54 +85,53 @@ function AddressRiskCheckInput() {
     [supportedNetworks],
   );
 
-  // Identifies the {network, address} combination the latest validation refers
-  // to. Recomputed synchronously from current state, so it flips the instant
-  // the user switches network — unlike the async re-validation below.
-  const validationKey =
+  const queryKey =
     networkId && debouncedAddress ? `${networkId}:${debouncedAddress}` : '';
 
-  // Real-time, debounced address validation against the selected network. The
-  // result carries the key it was validated against so a stale verdict (e.g.
-  // right after switching networks without editing the address) can be
-  // detected and ignored.
-  const { result: validation, isLoading: isValidating } = usePromiseResult(
-    async () => {
-      if (!networkId || !debouncedAddress) {
-        return { key: '', status: 'idle' as const };
-      }
-      const status = await backgroundApiProxy.serviceValidator.validateAddress({
-        networkId,
-        address: debouncedAddress,
-      });
-      return { key: `${networkId}:${debouncedAddress}`, status };
-    },
-    [networkId, debouncedAddress],
-    { initResult: { key: '', status: 'idle' as const }, watchLoading: true },
-  );
+  const { result: addressQuery, isLoading: isQueryingAddress } =
+    usePromiseResult(
+      async () => {
+        if (!networkId || !debouncedAddress) {
+          return { key: '', result: undefined };
+        }
+        const result = await queryAddressWithFallback({
+          networkId,
+          address: debouncedAddress,
+          enableNameResolve: true,
+        });
+        return { key: `${networkId}:${debouncedAddress}`, result };
+      },
+      [networkId, debouncedAddress],
+      { initResult: { key: '', result: undefined }, watchLoading: true },
+    );
 
-  // Pending while the debounce hasn't caught up with the latest input.
   const isPendingValidation = trimmedAddress !== debouncedAddress;
-  // `usePromiseResult` keeps the previous result while re-running, and schedules
-  // its re-run asynchronously in an effect — so when only the network changes
-  // (address unchanged), `isValidating` can still be false for one render frame
-  // while `validation` still holds the previous network's verdict. Treat the
-  // status as `idle` until its key matches the current {network, address}, so
-  // `canCheck` never trusts a verdict computed for a different network.
-  const validateStatus =
-    validation.key === validationKey ? validation.status : 'idle';
-  // Only surface the error once validation has settled, so it doesn't flash a
-  // stale "invalid" while the user is still editing.
+  const currentAddressQuery =
+    addressQuery.key === queryKey ? addressQuery.result : undefined;
+  const addressState = useMemo(
+    () =>
+      getAddressRiskCheckInputState({
+        rawAddress: trimmedAddress,
+        query: currentAddressQuery,
+        selectedResolvedAddress,
+      }),
+    [currentAddressQuery, selectedResolvedAddress, trimmedAddress],
+  );
   const isAddressInvalid =
     Boolean(trimmedAddress) &&
     !isPendingValidation &&
-    !isValidating &&
-    validateStatus === 'invalid';
+    !isQueryingAddress &&
+    addressState.isInvalid;
   const canCheck =
     Boolean(networkId) &&
     Boolean(trimmedAddress) &&
     !isPendingValidation &&
-    !isValidating &&
-    (validateStatus === 'valid' || validateStatus === 'unknown');
+    !isQueryingAddress &&
+    Boolean(addressState.checkAddress);
+
+  useEffect(() => {
+    setSelectedResolvedAddress(undefined);
+  }, [queryKey]);
 
   // Pre-select the active network once, if it is supported.
   const didPreselectRef = useRef(false);
@@ -201,10 +208,16 @@ function AddressRiskCheckInput() {
     }
     void checkRisk({
       networkId,
-      address: trimmedAddress,
+      address: addressState.checkAddress ?? trimmedAddress,
       entryPoint: 'inputManual',
     });
-  }, [networkId, canCheck, trimmedAddress, checkRisk]);
+  }, [
+    networkId,
+    canCheck,
+    addressState.checkAddress,
+    trimmedAddress,
+    checkRisk,
+  ]);
 
   const headerRight = useCallback(
     () => (
@@ -319,6 +332,57 @@ function AddressRiskCheckInput() {
                     id: ETranslations.form_address_error_invalid,
                   })}
                 </SizableText>
+              ) : null}
+              {!isAddressInvalid &&
+              !isPendingValidation &&
+              !isQueryingAddress &&
+              addressState.resolvedOptions.length ? (
+                <XStack gap="$2" ai="center" flexWrap="wrap">
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.address_risk_check_resolved_address__title,
+                    })}
+                  </SizableText>
+                  {addressState.resolvedOptions.length > 1 ? (
+                    <Select
+                      testID="address-risk-check-resolved-address-select"
+                      title={intl.formatMessage({
+                        id: ETranslations.send_ens_choose_address_title,
+                      })}
+                      placeholder={intl.formatMessage({
+                        id: ETranslations.send_ens_choose_address_title,
+                      })}
+                      renderTrigger={({ label, placeholder }) => (
+                        <Badge badgeSize="sm" userSelect="none">
+                          <Badge.Text>{label || placeholder}</Badge.Text>
+                          <Icon
+                            name="ChevronDownSmallOutline"
+                            color="$iconSubdued"
+                            size="$4"
+                          />
+                        </Badge>
+                      )}
+                      items={addressState.resolvedOptions.map((option) => ({
+                        label: accountUtils.shortenAddress({ address: option }),
+                        value: option,
+                        description: option,
+                      }))}
+                      value={selectedResolvedAddress}
+                      onChange={(value) => setSelectedResolvedAddress(value)}
+                      floatingPanelProps={{
+                        width: '$80',
+                      }}
+                    />
+                  ) : (
+                    <Badge badgeSize="sm">
+                      <Badge.Text>
+                        {accountUtils.shortenAddress({
+                          address: addressState.resolvedOptions[0] ?? '',
+                        })}
+                      </Badge.Text>
+                    </Badge>
+                  )}
+                </XStack>
               ) : null}
             </YStack>
           </YStack>
