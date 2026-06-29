@@ -1,7 +1,3 @@
-import {
-  reactNativeTracingIntegration,
-  reactNavigationIntegration,
-} from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -26,10 +22,6 @@ const checkPrivateKey = (text: string): boolean => {
 };
 
 const lazyLoadWordSet = memoizee(() => new Set(wordLists));
-
-export const navigationIntegration = reactNavigationIntegration({
-  enableTimeToInitialDisplay: true,
-});
 
 // Minimum consecutive mnemonic words to trigger redaction (12-word mnemonic could partially leak)
 const MIN_MNEMONIC_SEQUENCE_LENGTH = 3;
@@ -216,8 +208,14 @@ export const buildBasicOptions = ({
   ({
     enabled: true,
     maxBreadcrumbs: 100,
-    tracesSampleRate: 0.1,
-    profilesSampleRate: 0.1,
+    // Performance tracing/profiling disabled: in the long-lived renderer the
+    // browser/idle-span tracing leaks unboundedly (heap snapshots show ~300K
+    // retained SentryNonRecordingSpan pinning React fibers; renderer RSS climbs
+    // ~240MB/h with no plateau). Error reporting + breadcrumbs are unaffected.
+    // The tracing integrations are also removed from buildIntegrations below;
+    // zeroing the sample rate alone does NOT stop span creation.
+    tracesSampleRate: 0,
+    profilesSampleRate: 0,
     beforeSend: (event) => {
       if (Array.isArray(event.exception?.values)) {
         for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -265,10 +263,9 @@ export const buildSentryOptions = (Sentry: typeof import('@sentry/react')) => ({
 });
 
 export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
-  navigationIntegration,
-  reactNativeTracingIntegration(),
-  Sentry.browserProfilingIntegration(),
-  Sentry.browserTracingIntegration(),
+  // Performance-tracing integrations intentionally removed — they create a span
+  // per navigation/interaction that leaks in the long-lived renderer (see the
+  // tracesSampleRate note above). Only error reporting + breadcrumbs remain.
   Sentry.breadcrumbsIntegration({
     console: false,
     dom: true,
