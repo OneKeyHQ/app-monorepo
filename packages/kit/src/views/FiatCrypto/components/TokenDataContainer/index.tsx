@@ -1,12 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 
-import {
-  useSmallBalanceTokenListAtom,
-  useSmallBalanceTokenListMapAtom,
-  useTokenListAtom,
-  useTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
@@ -96,38 +92,42 @@ export function TokenDataContainer({
   initialTokens: IAccountToken[];
   initialMap: Record<string, ITokenFiat>;
 }>) {
-  const [tokenList] = useTokenListAtom();
-  const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
-  const [tokenListMap] = useTokenListMapAtom();
-  const [smallBalanceTokenListMap] = useSmallBalanceTokenListMapAtom();
+  // Read the owner's persisted local tokens directly instead of subscribing to
+  // the home token-list context atoms. The home producer splits its cache into
+  // regular / small-balance arrays plus two fiat maps; the persisted
+  // local-tokens response already carries the same data — `tokenList` +
+  // `smallBalanceTokenList` cover the displayed tokens, and `tokenListMap` is a
+  // single `$key -> ITokenFiat` map spanning all of them. We merge that with
+  // the route-param initial data the container receives.
+  const { result: localTokens } = usePromiseResult(async () => {
+    if (!accountId || !networkId) {
+      return undefined;
+    }
+    return backgroundApiProxy.serviceToken.getAccountLocalTokens({
+      accountId,
+      networkId,
+    });
+  }, [accountId, networkId]);
 
-  const context = useMemo<ITokenDataContextTypes>(
-    () => ({
+  const context = useMemo<ITokenDataContextTypes>(() => {
+    const localRegularTokens = localTokens?.tokenList ?? [];
+    const localSmallBalanceTokens = localTokens?.smallBalanceTokenList ?? [];
+    const localTokenListMap = localTokens?.tokenListMap ?? {};
+    return {
       tokensMap: buildAccountTokenMap({
         tokens: initialTokens.concat([
-          ...tokenList.tokens,
-          ...smallBalanceTokenList.smallBalanceTokens,
+          ...localRegularTokens,
+          ...localSmallBalanceTokens,
         ]),
       }),
       fiatMap: {
         ...initialMap,
-        ...tokenListMap,
-        ...smallBalanceTokenListMap,
+        ...localTokenListMap,
       },
       networkId,
       accountId,
-    }),
-    [
-      initialTokens,
-      tokenList.tokens,
-      smallBalanceTokenList.smallBalanceTokens,
-      initialMap,
-      tokenListMap,
-      smallBalanceTokenListMap,
-      networkId,
-      accountId,
-    ],
-  );
+    };
+  }, [initialTokens, localTokens, initialMap, networkId, accountId]);
 
   return (
     <TokenDataContext.Provider value={context}>

@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+
+import { useFocusEffect } from '@react-navigation/core';
 
 import { Page } from '@onekeyhq/components';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -10,9 +12,11 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabletHomeContainer } from '../../../components/TabletHomeContainer';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useAppRoute } from '../../../hooks/useAppRoute';
+import { getRootRoutersLength } from '../../../hooks/useRouteIsFocused';
 
 import SwapMainLandWithPageType from './components/SwapMainLand';
 
@@ -36,6 +40,24 @@ const SwapPageContainer = () => {
     if (!swapTabSwitchType) return undefined;
     return { swapTabSwitchType };
   }, [tabParam]);
+
+  // "Visit = read": archive every unread finished item in the history preview
+  // when the user LEAVES the Swap surface (e.g. switches bottom tabs) — but NOT
+  // when a modal (detail / "view more") is pushed on top, and not when switching
+  // the in-page Swap/Stock/Limit tab. A pushed modal grows the root navigation
+  // stack while a tab switch does not, so we skip the archive whenever the stack
+  // is deeper at blur time than it was at focus time (i.e. a modal caused it).
+  useFocusEffect(
+    useCallback(() => {
+      const rootRoutersLengthOnFocus = getRootRoutersLength();
+      return () => {
+        if (getRootRoutersLength() > rootRoutersLengthOnFocus) {
+          return;
+        }
+        void backgroundApiProxy.serviceSwap.markAllSwapHistoryPreviewRead();
+      };
+    }, []),
+  );
 
   return (
     <Page fullPage>
