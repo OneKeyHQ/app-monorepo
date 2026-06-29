@@ -399,6 +399,7 @@ focusable
 Formatjs
 formatter
 frontend
+frontmost
 fs
 fucntion
 func

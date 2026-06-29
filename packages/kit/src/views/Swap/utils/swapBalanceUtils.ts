@@ -1,6 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
   IQuoteResultFeeOtherFeeInfo,
@@ -75,6 +78,7 @@ async function getSwapTokenBalanceContractAddress(token: ISwapToken) {
 
 type ISwapGasInfoEntry = {
   gasInfo?: ISwapGasInfo;
+  txSize?: number;
 };
 
 type ISwapNativeBalanceRequirementParams = {
@@ -91,6 +95,152 @@ export type ISwapNativeBalanceRequirement = {
   reserveAmount: string;
   includesFromAmount: boolean;
 };
+
+type IEncodedTxWithOutputs = {
+  outputs?: {
+    address?: string;
+    value?: string | number;
+    script?: string;
+    payload?: {
+      opReturn?: string;
+    };
+  }[];
+};
+
+type IEncodedTxWithTxSize = {
+  txSize?: number;
+};
+
+export type ISwapBtcOutputValidationErrorType =
+  | 'payment_output_missing'
+  | 'payment_output_less_than_order_amount'
+  | 'op_return_missing';
+
+export type ISwapBtcOutputValidationError = {
+  type: ISwapBtcOutputValidationErrorType;
+  expectedAmount?: string;
+  actualAmount?: string;
+  expectedAmountBase?: string;
+  actualAmountBase?: string;
+  expectedOpReturn?: string;
+};
+
+function getEncodedTxOutputs(encodedTx?: IEncodedTx) {
+  if (!encodedTx || typeof encodedTx !== 'object') {
+    return undefined;
+  }
+
+  const { outputs } = encodedTx as IEncodedTxWithOutputs;
+  if (!Array.isArray(outputs)) {
+    return undefined;
+  }
+
+  return outputs;
+}
+
+export function getSwapEncodedTxSize(encodedTx?: IEncodedTx) {
+  if (!encodedTx || typeof encodedTx !== 'object') {
+    return undefined;
+  }
+
+  const { txSize } = encodedTx as IEncodedTxWithTxSize;
+  if (typeof txSize !== 'number' || !Number.isFinite(txSize) || txSize <= 0) {
+    return undefined;
+  }
+
+  return txSize;
+}
+
+export function validateSwapBtcOutputs({
+  networkId,
+  encodedTx,
+  transferInfo,
+}: {
+  networkId?: string;
+  encodedTx?: IEncodedTx;
+  transferInfo?: ITransferInfo;
+}): ISwapBtcOutputValidationError | undefined {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return undefined;
+  }
+
+  const outputs = getEncodedTxOutputs(encodedTx);
+  const tokenDecimals = transferInfo?.tokenInfo?.decimals;
+  if (!outputs || !transferInfo?.to || tokenDecimals === undefined) {
+    return undefined;
+  }
+
+  const expectedAmountBN = new BigNumber(transferInfo.amount ?? '');
+  if (
+    expectedAmountBN.isNaN() ||
+    !expectedAmountBN.isFinite() ||
+    expectedAmountBN.lte(0)
+  ) {
+    return undefined;
+  }
+
+  const expectedAmountBaseBN = expectedAmountBN
+    .shiftedBy(tokenDecimals)
+    .decimalPlaces(0, BigNumber.ROUND_DOWN);
+  if (expectedAmountBaseBN.lte(0)) {
+    return undefined;
+  }
+
+  let hasPaymentOutput = false;
+  const actualAmountBaseBN = outputs.reduce((acc, output) => {
+    if (output.address !== transferInfo.to) {
+      return acc;
+    }
+
+    hasPaymentOutput = true;
+    const outputValueBN = new BigNumber(output.value ?? '');
+    if (
+      outputValueBN.isNaN() ||
+      !outputValueBN.isFinite() ||
+      outputValueBN.lte(0)
+    ) {
+      return acc;
+    }
+
+    return acc.plus(outputValueBN);
+  }, new BigNumber(0));
+
+  if (!hasPaymentOutput) {
+    return {
+      type: 'payment_output_missing',
+      expectedAmount: expectedAmountBN.toFixed(),
+      actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
+      expectedAmountBase: expectedAmountBaseBN.toFixed(),
+      actualAmountBase: actualAmountBaseBN.toFixed(),
+    };
+  }
+
+  if (actualAmountBaseBN.lt(expectedAmountBaseBN)) {
+    return {
+      type: 'payment_output_less_than_order_amount',
+      expectedAmount: expectedAmountBN.toFixed(),
+      actualAmount: actualAmountBaseBN.shiftedBy(-tokenDecimals).toFixed(),
+      expectedAmountBase: expectedAmountBaseBN.toFixed(),
+      actualAmountBase: actualAmountBaseBN.toFixed(),
+    };
+  }
+
+  if (
+    transferInfo.opReturn &&
+    !outputs.some(
+      (output) =>
+        output.payload?.opReturn === transferInfo.opReturn ||
+        output.script === transferInfo.opReturn,
+    )
+  ) {
+    return {
+      type: 'op_return_missing',
+      expectedOpReturn: transferInfo.opReturn,
+    };
+  }
+
+  return undefined;
+}
 
 function buildNativeTokenFromGasInfo({
   gasInfo,
@@ -148,6 +298,7 @@ export function getSwapRequiredNativeBalanceAmount({
     const { totalNative } = calculateFeeForSend({
       feeInfo: item.gasInfo as IFeeInfoUnit,
       nativeTokenPrice: item.gasInfo.common.nativeTokenPrice ?? 0,
+      txSize: item.txSize,
     });
     const totalNativeBN = new BigNumber(totalNative);
 

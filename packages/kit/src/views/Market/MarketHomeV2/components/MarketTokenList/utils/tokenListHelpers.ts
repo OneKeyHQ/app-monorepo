@@ -164,11 +164,12 @@ export function transformApiItemToToken(
     ? getNetworkLogoUri(item.networkId)
     : networkLogoUri;
 
-  const priceChange = safeNumber(
-    getMetricValueByTimeRange(item, timeRange, 'priceChange', 'Percent') as
-      | string
-      | undefined,
-  );
+  const priceChangeValue = item.stock
+    ? item.priceChange24hPercent
+    : (getMetricValueByTimeRange(item, timeRange, 'priceChange', 'Percent') as
+        | string
+        | undefined);
+  const priceChange = safeNumber(priceChangeValue);
   const transactions = safeNumber(
     getMetricValueByTimeRange(item, timeRange, 'trade', 'Count') as
       | string

@@ -46,6 +46,7 @@ type IUsePaymentTokenPriceResult = {
 type IUsePaymentTokenPriceMock = (
   paymentToken?: ISwapTokenBase & { price?: string },
   networkId?: string,
+  currencyId?: string,
 ) => IUsePaymentTokenPriceResult;
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
@@ -86,6 +87,10 @@ let mockInAppNotificationAtomState: {
     status?: string;
   };
 } = {};
+let mockCurrencyInfo = {
+  id: 'usd',
+  symbol: '$',
+};
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -149,11 +154,13 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   ],
   useSettingsPersistAtom: () => [
     {
-      currencyInfo: {
-        id: 'usd',
-        symbol: '$',
-      },
+      currencyInfo: mockCurrencyInfo,
       isFirstTimeSwap: false,
+    },
+  ],
+  useCurrencyPersistAtom: () => [
+    {
+      currencyMap: {},
     },
   ],
 }));
@@ -176,8 +183,9 @@ jest.mock('./usePaymentTokenPrice', () => ({
   usePaymentTokenPrice: (
     paymentToken?: ISwapTokenBase & { price?: string },
     networkId?: string,
+    currencyId?: string,
   ): IUsePaymentTokenPriceResult =>
-    mockUsePaymentTokenPrice(paymentToken, networkId),
+    mockUsePaymentTokenPrice(paymentToken, networkId, currencyId),
 }));
 
 function createDeferred<T>() {
@@ -255,8 +263,14 @@ const solToken: ISwapTokenBase = {
   isNative: false,
 };
 
-function getTokenKey(token?: ISwapTokenBase, networkId?: string) {
-  return `${networkId ?? token?.networkId ?? ''}:${token?.contractAddress ?? ''}`;
+function getTokenKey(
+  token?: ISwapTokenBase,
+  networkId?: string,
+  currencyId = 'usd',
+) {
+  return `${networkId ?? token?.networkId ?? ''}:${
+    token?.contractAddress ?? ''
+  }:${currencyId}`;
 }
 
 function createHookProps({
@@ -267,8 +281,14 @@ function createHookProps({
   tradeToken?: ISwapTokenBase;
 } = {}) {
   return {
-    marketToken,
-    tradeToken,
+    marketToken: {
+      ...marketToken,
+      currency: marketToken.currency ?? 'usd',
+    },
+    tradeToken: {
+      ...tradeToken,
+      currency: tradeToken.currency ?? 'usd',
+    },
     tradeType: ESwapDirection.BUY,
     fromTokenAmount: '0',
     provider: 'onekey',
@@ -294,6 +314,7 @@ describe('useSpeedSwapActions', () => {
       (
         paymentToken?: ISwapTokenBase & { price?: string },
         networkId?: string,
+        currencyId?: string,
       ) => {
         const priceValue = paymentToken?.price;
         let price: BigNumber | undefined;
@@ -306,12 +327,16 @@ describe('useSpeedSwapActions', () => {
         }
         return {
           price,
-          tokenKey: getTokenKey(paymentToken, networkId),
+          tokenKey: getTokenKey(paymentToken, networkId, currencyId),
           isLoading: false,
           refetch: jest.fn(),
         };
       },
     );
+    mockCurrencyInfo = {
+      id: 'usd',
+      symbol: '$',
+    };
     mockFetchSwapNativeTokenConfig.mockResolvedValue({
       networkId: 'evm--1',
       reserveGas: '0.01',
@@ -773,6 +798,143 @@ describe('useSpeedSwapActions', () => {
     });
 
     expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+
+  it('ignores live payment token prices from a stale currency scope', async () => {
+    mockCurrencyInfo = {
+      id: 'cny',
+      symbol: 'CNY',
+    };
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(2),
+      tokenKey: getTokenKey(usdcToken, undefined, 'usd'),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...tonMarketToken,
+            price: '5',
+            currency: 'cny',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '10',
+            currency: 'cny',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(mockUsePaymentTokenPrice).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contractAddress: usdcToken.contractAddress,
+        }),
+        usdcToken.networkId,
+        'cny',
+      );
+      expect(result.current.priceRate?.rate).toBeCloseTo(2);
+    });
+
+    expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  });
+
+  it('falls back to same-currency fetched prices when inline price currencies differ', async () => {
+    mockCurrencyInfo = {
+      id: 'cny',
+      symbol: 'CNY',
+    };
+    mockNetAccountPromiseResult = {
+      result: undefined,
+      run: mockNetAccountRun,
+    };
+    mockUsePaymentTokenPrice.mockReturnValue({
+      price: new BigNumber(10),
+      tokenKey: getTokenKey(usdcToken, undefined, 'cny'),
+      isLoading: false,
+      refetch: jest.fn(),
+    });
+    mockFetchSwapTokenDetails.mockImplementation(
+      ({
+        accountId,
+        networkId,
+        contractAddress,
+      }: IFetchSwapTokenDetailsParams) => {
+        if (accountId) {
+          return Promise.resolve([]);
+        }
+
+        const requestKey = `${networkId ?? ''}:${contractAddress ?? ''}`;
+        switch (requestKey) {
+          case `${usdcToken.networkId}:${usdcToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: usdcToken.networkId,
+                contractAddress: usdcToken.contractAddress,
+                symbol: usdcToken.symbol,
+                decimals: usdcToken.decimals,
+                price: '2',
+              }),
+            );
+          case `${tonMarketToken.networkId}:${tonMarketToken.contractAddress}`:
+            return Promise.resolve(
+              createTokenDetail({
+                networkId: tonMarketToken.networkId,
+                contractAddress: tonMarketToken.contractAddress,
+                symbol: tonMarketToken.symbol,
+                decimals: tonMarketToken.decimals,
+                price: '4',
+              }),
+            );
+          default:
+            return Promise.resolve([]);
+        }
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useSpeedSwapActions(
+        createHookProps({
+          marketToken: {
+            ...tonMarketToken,
+            price: '5',
+            currency: 'usd',
+          },
+          tradeToken: {
+            ...usdcToken,
+            price: '10',
+            currency: 'cny',
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(result.current.priceRate?.rate).toBeCloseTo(0.5);
+    });
+
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: usdcToken.networkId,
+        contractAddress: usdcToken.contractAddress,
+        currency: 'usd',
+      }),
+    );
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        networkId: tonMarketToken.networkId,
+        contractAddress: tonMarketToken.contractAddress,
+        currency: 'usd',
+      }),
+    );
   });
 });
 
