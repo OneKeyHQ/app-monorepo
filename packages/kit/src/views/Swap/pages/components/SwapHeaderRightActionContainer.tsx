@@ -43,7 +43,6 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import {
   EJotaiContextStoreNames,
   filterSwapHistoryPendingList,
@@ -505,14 +504,20 @@ const StockKLineHeaderButton = ({
   buttonSize: 'small' | 'medium';
 }) => {
   const navigation = useAppNavigation();
-  const {
-    isNative,
-    networkId: networkIdFromHook,
-    tokenAddress: tokenAddressFromHook,
-    tokenDetail,
-  } = useTokenDetail();
-  const networkId = networkIdFromHook ?? tokenDetail?.networkId ?? '';
-  const tokenAddress = tokenAddressFromHook ?? tokenDetail?.address ?? '';
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
+  const stockToken = useMemo(() => {
+    if (fromToken?.isStock) {
+      return fromToken;
+    }
+    if (toToken?.isStock) {
+      return toToken;
+    }
+    return undefined;
+  }, [fromToken, toToken]);
+  const isNative = stockToken?.isNative;
+  const networkId = stockToken?.networkId ?? '';
+  const tokenAddress = stockToken?.contractAddress ?? '';
   const network = useMemo(
     () =>
       networkUtils.getNetworkShortCode({
@@ -521,10 +526,7 @@ const StockKLineHeaderButton = ({
     [networkId],
   );
   const disabled =
-    !tokenDetail?.stock ||
-    !tokenDetail?.symbol ||
-    !networkId ||
-    (!tokenAddress && !isNative);
+    !stockToken?.symbol || !networkId || (!tokenAddress && !isNative);
 
   const onOpenStockMarketDetail = useCallback(() => {
     if (disabled) {

@@ -1,5 +1,5 @@
 PODS:
-  - AesCrypto (3.0.68):
+  - AesCrypto (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -37,7 +37,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
-  - AsyncStorage (3.0.68):
+  - AsyncStorage (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -65,7 +65,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - AutoSizeInput (3.0.68):
+  - AutoSizeInput (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -95,7 +95,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - BackgroundThread (3.0.68):
+  - BackgroundThread (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -157,7 +157,7 @@ PODS:
     - ExpoModulesCore
     - SPAlert (~> 4.2)
     - SPIndicator (~> 1.6)
-  - ChartWebview (3.0.68):
+  - ChartWebview (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -188,7 +188,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - CloudFs (3.0.68):
+  - CloudFs (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -216,7 +216,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - CloudKitModule (3.0.68):
+  - CloudKitModule (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -250,7 +250,7 @@ PODS:
   - CocoaLumberjack/Core (3.9.0)
   - CocoaLumberjack/Swift (3.9.0):
     - CocoaLumberjack/Core
-  - DnsLookup (3.0.68):
+  - DnsLookup (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -474,7 +474,7 @@ PODS:
   - JPushRN (3.2.1):
     - React
   - JuiceboxSdk (0.3.2)
-  - KeychainModule (3.0.68):
+  - KeychainModule (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -551,7 +551,7 @@ PODS:
     - MMKVCore (~> 2.2.4)
   - MMKVCore (2.2.4)
   - MultiplatformBleAdapter (0.2.0)
-  - NetworkInfo (3.0.68):
+  - NetworkInfo (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -640,7 +640,7 @@ PODS:
     - SocketRocket
     - Yoga
   - OpenSSL-Universal (3.6.2000)
-  - Pbkdf2 (3.0.68):
+  - Pbkdf2 (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -668,7 +668,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - PerpDepthBar (3.0.68):
+  - PerpDepthBar (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -698,7 +698,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - Ping (3.0.68):
+  - Ping (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -2673,7 +2673,7 @@ PODS:
     - Yoga
   - react-native-netinfo (11.4.1):
     - React-Core
-  - react-native-pager-view (3.0.68):
+  - react-native-pager-view (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -2903,7 +2903,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-tab-view (3.0.68):
+  - react-native-tab-view (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -2921,7 +2921,7 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-tab-view/common (= 3.0.68)
+    - react-native-tab-view/common (= 3.0.70)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -2932,7 +2932,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - react-native-tab-view/common (3.0.68):
+  - react-native-tab-view/common (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3609,7 +3609,7 @@ PODS:
     - React-perflogger (= 0.81.5)
     - React-utils (= 0.81.5)
     - SocketRocket
-  - ReactNativeAppUpdate (3.0.68):
+  - ReactNativeAppUpdate (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3640,7 +3640,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeBundleCrypto (3.0.68):
+  - ReactNativeBundleCrypto (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3671,7 +3671,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeBundleUpdate (3.0.68):
+  - ReactNativeBundleUpdate (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3734,7 +3734,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeCheckBiometricAuthChanged (3.0.68):
+  - ReactNativeCheckBiometricAuthChanged (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3765,7 +3765,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeDeviceUtils (3.0.68):
+  - ReactNativeDeviceUtils (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3824,7 +3824,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ReactNativeGetRandomValues (3.0.68):
+  - ReactNativeGetRandomValues (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3855,7 +3855,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeLiteCard (3.0.68):
+  - ReactNativeLiteCard (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3884,7 +3884,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeNativeLogger (3.0.68):
+  - ReactNativeNativeLogger (3.0.70):
     - boost
     - CocoaLumberjack/Swift (~> 3.8)
     - DoubleConversion
@@ -3917,7 +3917,7 @@ PODS:
     - Yoga
   - ReactNativePasskeys (0.3.3):
     - ExpoModulesCore
-  - ReactNativePerfMemory (3.0.68):
+  - ReactNativePerfMemory (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3948,7 +3948,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativePerfStats (3.0.68):
+  - ReactNativePerfStats (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -3979,7 +3979,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeRangeDownloader (3.0.68):
+  - ReactNativeRangeDownloader (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4010,7 +4010,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeSplashScreen (3.0.68):
+  - ReactNativeSplashScreen (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4041,7 +4041,7 @@ PODS:
     - ReactNativeNativeLogger
     - SocketRocket
     - Yoga
-  - ReactNativeZipArchive (3.0.68):
+  - ReactNativeZipArchive (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4584,7 +4584,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - ScrollGuard (3.0.68):
+  - ScrollGuard (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4622,7 +4622,7 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
-  - SegmentSlider (3.0.68):
+  - SegmentSlider (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4653,7 +4653,7 @@ PODS:
     - SocketRocket
     - Yoga
   - Sentry/HybridSDK (8.56.2)
-  - Skeleton (3.0.68):
+  - Skeleton (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4683,7 +4683,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - SniConnect (1.1.0):
+  - SniConnect (3.0.70):
     - boost
     - DoubleConversion
     - EMASCurl (= 1.5.5)
@@ -4717,7 +4717,7 @@ PODS:
   - SocketRocket (0.7.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
-  - SplitBundleLoader (3.0.68):
+  - SplitBundleLoader (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -4747,7 +4747,7 @@ PODS:
     - SocketRocket
     - Yoga
   - SSZipArchive (2.5.5)
-  - TcpSocket (3.0.68):
+  - TcpSocket (3.0.70):
     - boost
     - DoubleConversion
     - fast_float
@@ -5363,20 +5363,20 @@ CHECKOUT OPTIONS:
     :git: https://github.com/OneKeyHQ/app-modules.git
 
 SPEC CHECKSUMS:
-  AesCrypto: 7cda96128d422b29e70d465d59df02bc401353c3
+  AesCrypto: 64bf8192ba3cfc1725f06e9f8ac967450885c049
   AppAuth: 1c1a8afa7e12f2ec3a294d9882dfa5ab7d3cb063
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
-  AsyncStorage: d30dc3668406e28fa4f53f9b1c72c762d69f167b
-  AutoSizeInput: e838418dc215a2c32b4c1ac14f9dbc852ac12b9f
-  BackgroundThread: b30869d3ec7c4ec47376bb8a9421872645de4f7a
+  AsyncStorage: a919986f9d8981badc9f6e101da0a2be11d544f3
+  AutoSizeInput: 24046e3db97865157ecbcf198d3bf338dc542385
+  BackgroundThread: 7008854441621db8c2f0739851043f61681aba23
   BleUtils: 100aa150e12ea28847766790f44f673628827abb
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   Burnt: e3a3397e26172fca31a59bb27421475a58068836
-  ChartWebview: cf27421fbe8a060ce99c1ed56907cac3b87ebd6b
-  CloudFs: 00c27709e0957378cb033a328a2ec2967c890426
-  CloudKitModule: 5916c184efb892c783329fd4ab588e1fb43e1211
+  ChartWebview: 0e4afb129dc3aefb5fe038a132928c350202eafd
+  CloudFs: 43f178924a3239ab6c170340ff695de86e7a9483
+  CloudKitModule: 943b02287167186cfa68d324e3a4092cd922d58a
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
-  DnsLookup: 03b43735233e1cd7f41a7c26b1a3ffb6a18573cc
+  DnsLookup: 812ef7f085082b78fd7f3ec6ad030b99e927cbe8
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EMASCurl: d75387e1ce9dec1a75cd25cb33c7a7e7bf21997f
   EXApplication: 296622817d459f46b6c5fe8691f4aac44d2b79e7
@@ -5425,20 +5425,20 @@ SPEC CHECKSUMS:
   JCoreRN: d985de509185b381c177fde4bb6bfc686089fdbd
   JPushRN: 807bc962b2f25860e5c0caa5fcb7b4910572b890
   JuiceboxSdk: b2222491ce92b263694c217ea202a54b66c5ec5f
-  KeychainModule: 70e2163cb445031a027369beb3b690f2493660cb
+  KeychainModule: 6d9cf6cdd6ec3fd104354d0afe5729b0aec85aa6
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: 86fa7488b1476563f41071244aa73d5b738faf19
   MMKV: 1a8e7dbce7f9cad02c52e1b1091d07bd843aefaf
   MMKVCore: f2dd4c9befea04277a55e84e7812f930537993df
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
-  NetworkInfo: 0e192d1e71c292919d8176afef2c46f32e493d95
+  NetworkInfo: ca293b41d5e4ec9455318b4784edbe32f8d3fe81
   NitroMmkv: ce1df9b9f0e06dfbde2455d863047e0411fceb6e
   NitroModules: 11bba9d065af151eae51e38a6425e04c3b223ff3
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
-  Pbkdf2: 8c8162fe154f194b97b593a9375c025c12bc2576
-  PerpDepthBar: 635a72973cb0709a37bdfe2914efd97791096860
-  Ping: b43b08ca15aa6ccd019939cd17956fcac49a15a9
+  Pbkdf2: 6e8f2f467901f4c06668c4f76375bb68e36d14ca
+  PerpDepthBar: 86eba8c8d0be962794a8c7a94332b3946843bbfd
+  Ping: 5d2f0010a909d7b9073fffa544b4194d29f13210
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: f1650b33e9a1dd04d5e8a40dfe757f39e63f935c
   QuickCrypto: fbb50daf9313753153af0e4f67a9f14ec1a26979
@@ -5482,12 +5482,12 @@ SPEC CHECKSUMS:
   react-native-document-picker: dc2d83366e47e89e7c51e8a41eab99c1d54e941c
   react-native-keyboard-controller: dbf568b5d029cdc5b26667a7c2323b160c25dc00
   react-native-netinfo: cec9c4e86083cb5b6aba0e0711f563e2fbbff187
-  react-native-pager-view: d15ef77fcff7a97fde3d62163a75c284bbaf00ac
+  react-native-pager-view: 88a0d395570ba01f09c3315cc30b17f9273ef01b
   react-native-quick-base64: e5eea0a73474108a7b80e33ce2c004a414649da2
   react-native-safe-area-context: c00143b4823773bba23f2f19f85663ae89ceb460
   react-native-skia: fc73e9bdc46ebb420a98c9c2be29fee80f565e79
   react-native-slider: 663776e5683e257de8df8091abc2d93ff6ec67db
-  react-native-tab-view: 1c614f7158ba15256eb1d06b7850438cbfbd7d76
+  react-native-tab-view: e0865007ad62d200bb17a57a4ed1f03728a34c90
   react-native-video: 7b821291837d8ba7b9d7574bfeb0cd651e910141
   react-native-view-shot: 6c008e58f4720de58370848201c5d4a082c6d4ca
   react-native-webview: 4cbb7f05f2c50671a7dcff4012d3e85faad271e4
@@ -5522,22 +5522,22 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 1bcd3527ac0390a1c898c114f81ff954be35ed79
   ReactCodegen: 0c47bcad3576258ef1a91e2ec1fd43afae72e85f
   ReactCommon: 5f0e5c09a64a2717215dd84380e1a747810406f2
-  ReactNativeAppUpdate: c80052c5c06ee0932ca6fcbe298f55f33572123f
-  ReactNativeBundleCrypto: 6788c8a44a1b27661b3431ebc2e76a65244e6dee
-  ReactNativeBundleUpdate: e20a9a4a774e4a9035c9d304f64fd78b2ab3bbad
+  ReactNativeAppUpdate: b1e31df72801ff148e5abacf54a234a39d19b4b6
+  ReactNativeBundleCrypto: b1e254496d53286be6859a858b3fb762c3d2cf39
+  ReactNativeBundleUpdate: ee0c14f08b5ec6ac816ba8138f4929b0e26ebc3a
   ReactNativeCameraKit: 84894fc476300e5d3b9f4e34f55ff75050ec5050
-  ReactNativeCheckBiometricAuthChanged: 24d817aeb98898f5c898cac6461e55e67e26949a
-  ReactNativeDeviceUtils: 56d9e48388f07df84c7d6f0545dadb6bca8c870d
+  ReactNativeCheckBiometricAuthChanged: a3c46e53d78329f095a98b75d1f77aee32794e3a
+  ReactNativeDeviceUtils: a399f53eded4e74a8ecc1a2b4f562a3810cc8146
   ReactNativeFs: fa4d6c721fedd16abb5a7eb5c591303f147677b5
-  ReactNativeGetRandomValues: fe34a4a570625976f99414f3b2448deea839c316
-  ReactNativeLiteCard: f42798ccb1d0fe21d2a36c46f03628c333a1716f
-  ReactNativeNativeLogger: 4840470e6d3dda83210088610733daaa0a3a4ead
+  ReactNativeGetRandomValues: 221febb4f03a667a7fe28fdf49d9d46dfc0b0fef
+  ReactNativeLiteCard: cd4b8f856af22f5d096fd67a4ac03cc80584f8cd
+  ReactNativeNativeLogger: 39f1da27cd1a3188e8f6b10351bc40d542e03ba8
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
-  ReactNativePerfMemory: 228f2f77918b9c891f20285ebde69d8f3d21b643
-  ReactNativePerfStats: 425c37de36a447ef51d9b3d160e39cda147a489b
-  ReactNativeRangeDownloader: 0719fac32ce4ac8001507494f3a5e3709363342f
-  ReactNativeSplashScreen: a11ddbc7227731bbda9536fe2554658633c649e3
-  ReactNativeZipArchive: 91f9619b5b4b56e66833cab53cf40bccac5ebf4b
+  ReactNativePerfMemory: 2e1df6f54241042d9a464a0ddb2d8c89058dd03e
+  ReactNativePerfStats: 40c6cb08c042e1b0cd8b25090ac9e2846418f682
+  ReactNativeRangeDownloader: 4767dbb6afe4a694a2b69477527b5d0ecec539b1
+  ReactNativeSplashScreen: 1b3a535a07aad8d70944b2399bd8e8339ff9c865
+  ReactNativeZipArchive: 7294892787039454da412e9ad79c5a849844d1f9
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 7e1d0768fb287c9983173c9b28e39ccbeeb828a9
   RNGestureHandler: e37bdb684df1ac17c7e1d8f71a3311b2793c186b
@@ -5552,20 +5552,20 @@ SPEC CHECKSUMS:
   RNSentry: a20c5194cc6d7902683276f399a6eb5206fb9f05
   RNSVG: d260beec1775108e1bd065a0ed666ff2c5565158
   RNWorklets: 8068c8af4b241eb2c19221310729e4c440bee023
-  ScrollGuard: 78b788643a8c4cde25270785dae4ce6626ddb561
+  ScrollGuard: 76d019cf4a4e326d623fefec421cf3c31a0a26cc
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  SegmentSlider: 8a46e1fee2790e26b9755146b3acf8088a42fd71
+  SegmentSlider: 00bd43fb49732e720d1bbaadf7ef10d1d7072d7f
   Sentry: b53951377b78e21a734f5dc8318e333dbfc682d7
-  Skeleton: 8bac3ea35207d3b3fb29518e87ae095cd1546f88
-  SniConnect: 32f9f7b9075dd431f5f62b13a7d64b0b45c7d647
+  Skeleton: 8c802ca18cc5b8b136f18129bbbb100c7c83e342
+  SniConnect: ab3415ce896e53c4d6ed4b917bbcf5dbeb87becc
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
-  SplitBundleLoader: c1c5ef924f1e79e047a17ab1d9cd5f0dce4dcc18
+  SplitBundleLoader: d3d0c15932d91eede3d3ee184b3dff4d14bfb71f
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
-  TcpSocket: 47439f8c7dab2660c6efe312da1197b3fd16b0b2
+  TcpSocket: c638c359d1e0a002b75603396ddc9a34bfd6bc94
   TOCropViewController: f7863f38e4c5f45a5db9b52c4a2cc759a61ab550
   Yoga: 728df40394d49f3f471688747cf558158b3a3bd1
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5

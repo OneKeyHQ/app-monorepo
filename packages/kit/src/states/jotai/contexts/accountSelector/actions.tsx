@@ -2303,6 +2303,46 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             updateMeta,
           })
         ) {
+          // Keep the cold-start selection but fill EMPTY nums from the
+          // (home-merged) DB; else a sibling scene (e.g. swap on the Perps
+          // route) leaves num0 empty, auto-selects index 0, and clobbers home's
+          // restored num0 via the home<->swap sync. Non-empty slots untouched.
+          const mergedSelectedAccountsMap = cloneDeep(selectedAccountsMap);
+          Object.entries(selectedAccountsMapInDB ?? {}).forEach(
+            ([numKey, dbAccount]) => {
+              const targetNum = Number(numKey);
+              const current = mergedSelectedAccountsMap[targetNum];
+              // "Resolved" means a usable account identity: an others-wallet
+              // account, or an HD/HW wallet WITH an index. A wallet-only slot
+              // (no index) still auto-selects index 0, so treat it as fillable.
+              const currentHasAccount = Boolean(
+                current?.othersWalletAccountId ||
+                (current?.walletId && current?.indexedAccountId),
+              );
+              const dbHasAccount = Boolean(
+                dbAccount?.othersWalletAccountId ||
+                (dbAccount?.walletId && dbAccount?.indexedAccountId),
+              );
+              if (!currentHasAccount && dbAccount && dbHasAccount) {
+                // Field-level merge: take only the account identity from DB and
+                // keep the slot's already-restored scene context (networkId/
+                // deriveType), else filling the account would also revert those
+                // to stale DB values and re-propagate them via home<->swap sync.
+                mergedSelectedAccountsMap[targetNum] =
+                  accountSelectorUtils.buildMergedSelectedAccount({
+                    data: current,
+                    mergedByData: dbAccount,
+                  });
+              }
+            },
+          );
+          if (!isEqual(mergedSelectedAccountsMap, selectedAccountsMap)) {
+            this.setSelectedAccountsAtom(
+              set,
+              () => mergedSelectedAccountsMap,
+              'initFromStorageFillEmptyNumsFromDB',
+            );
+          }
           set(accountSelectorStorageReadyAtom(), () => true);
           set(accountSelectorStorageInitDoneAtom(), () => true);
           return;

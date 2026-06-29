@@ -1,5 +1,5 @@
 diff --git a/node_modules/electron-updater/out/AppUpdater.d.ts b/node_modules/electron-updater/out/AppUpdater.d.ts
-index 5979c30..13f8f25 100644
+index 449df36..d592976 100644
 --- a/node_modules/electron-updater/out/AppUpdater.d.ts
 +++ b/node_modules/electron-updater/out/AppUpdater.d.ts
 @@ -15,6 +15,7 @@ export type AppUpdaterEvents = {
@@ -14,115 +14,109 @@ index 5979c30..13f8f25 100644
      private getOrCreateDownloadHelper;
      protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
      protected differentialDownloadInstaller(fileInfo: ResolvedUpdateFileInfo, downloadUpdateOptions: DownloadUpdateOptions, installerPath: string, provider: Provider<any>, oldInstallerFileName: string): Promise<boolean>;
-+    public isExistInstallerPath(): boolean;
-+    public updateInstallerPath(installerPath: string): Promise<void>;
++    isExistInstallerPath(): boolean;
++    updateInstallerPath(installerPath: string): Promise<void>;
  }
  export interface DownloadUpdateOptions {
      readonly updateInfoAndProvider: UpdateInfoAndProvider;
 diff --git a/node_modules/electron-updater/out/AppUpdater.js b/node_modules/electron-updater/out/AppUpdater.js
-index 7358a8f..412ecf4 100644
+index d6d5deb..b0a8a8c 100644
 --- a/node_modules/electron-updater/out/AppUpdater.js
 +++ b/node_modules/electron-updater/out/AppUpdater.js
-@@ -558,6 +558,7 @@ class AppUpdater extends events_1.EventEmitter {
+@@ -558,6 +558,8 @@ class AppUpdater extends events_1.EventEmitter {
      }
      async executeDownload(taskOptions) {
          const fileInfo = taskOptions.fileInfo;
++        // OneKey patch: expose the resolved update file metadata before download starts.
 +        this.emit("update-download-fileInfo", fileInfo);
          const downloadOptions = {
              headers: taskOptions.downloadUpdateOptions.requestHeaders,
              cancellationToken: taskOptions.downloadUpdateOptions.cancellationToken,
 diff --git a/node_modules/electron-updater/out/BaseUpdater.d.ts b/node_modules/electron-updater/out/BaseUpdater.d.ts
-index e5dd61f..1797c9f 100644
+index 00bbd5f..2359e0e 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.d.ts
 +++ b/node_modules/electron-updater/out/BaseUpdater.d.ts
-@@ -19,6 +19,8 @@ export declare abstract class BaseUpdater extends AppUpdater {
-      *   - node 10: Emit the error(Need to listen with on)
-      */
-     protected spawnLog(cmd: string, args?: string[], env?: any, stdio?: StdioOptions): Promise<boolean>;
+@@ -9,6 +9,8 @@ export declare abstract class BaseUpdater extends AppUpdater {
+     quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
+     protected executeDownload(taskOptions: DownloadExecutorTask): Promise<Array<string>>;
+     protected get installerPath(): string | null;
 +    isExistInstallerPath(): boolean;
-+    updateInstallerPath(installerPath: string): void;
- }
- export interface InstallOptions {
-     readonly isSilent: boolean;
++    updateInstallerPath(installerPath: string): Promise<void>;
+     protected abstract doInstall(options: InstallOptions): boolean;
+     install(isSilent?: boolean, isForceRunAfter?: boolean): boolean;
+     protected addQuitHandler(): void;
 diff --git a/node_modules/electron-updater/out/BaseUpdater.js b/node_modules/electron-updater/out/BaseUpdater.js
-index 00f99bd..c66c20c 100644
+index f7c2965..7a8beef 100644
 --- a/node_modules/electron-updater/out/BaseUpdater.js
 +++ b/node_modules/electron-updater/out/BaseUpdater.js
-@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
+@@ -2,6 +2,7 @@
+ Object.defineProperty(exports, "__esModule", { value: true });
  exports.BaseUpdater = void 0;
  const child_process_1 = require("child_process");
- const AppUpdater_1 = require("./AppUpdater");
 +const fs_extra_1 = require("fs-extra");
-+const path = require("path");
+ const path = require("path");
+ const AppUpdater_1 = require("./AppUpdater");
  class BaseUpdater extends AppUpdater_1.AppUpdater {
-     constructor(options, app) {
-         super(options, app);
-@@ -37,6 +39,35 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
+@@ -38,6 +39,30 @@ class BaseUpdater extends AppUpdater_1.AppUpdater {
      get installerPath() {
          return this.downloadedUpdateHelper == null ? null : this.downloadedUpdateHelper.file;
      }
-+
-+    // return true if installer path is available
++    // OneKey patch: expose whether a cached installer path is currently available.
 +    isExistInstallerPath() {
-+        const installerPath = this.installerPath;
-+        return installerPath
++        return Boolean(this.installerPath);
 +    }
-+
-+    // update installer path if not set
++    // OneKey patch: restore a downloaded installer path from our persisted update state.
 +    async updateInstallerPath(installerPath) {
 +        if (!this.downloadedUpdateHelper) {
-+          this.downloadedUpdateHelper = await this.getOrCreateDownloadHelper();
++            this.downloadedUpdateHelper = await this.getOrCreateDownloadHelper();
 +        }
 +        const cacheDir = this.downloadedUpdateHelper?.cacheDirForPendingUpdate;
 +        const updateInfoFilePath = path.join(cacheDir, "update-info.json");
 +        const doesUpdateInfoFileExist = await (0, fs_extra_1.pathExists)(updateInfoFilePath);
-+         if (!doesUpdateInfoFileExist) {
++        if (!doesUpdateInfoFileExist) {
 +            return;
 +        }
 +        try {
-+          const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
-+          this.downloadedUpdateHelper.updateFile(installerPath);
-+          this.downloadedUpdateHelper.updateDownloadedFileInfo(cachedInfo.downloadedFileInfo);
++            const cachedInfo = await (0, fs_extra_1.readJson)(updateInfoFilePath);
++            this.downloadedUpdateHelper.updateFile(installerPath);
++            this.downloadedUpdateHelper.updateDownloadedFileInfo(cachedInfo.downloadedFileInfo);
 +        }
 +        catch (error) {
 +            this._logger.info(error);
-+            return null;
 +        }
 +    }
-+
      // must be sync (because quit even handler is not async)
      install(isSilent = false, isForceRunAfter = false) {
          if (this.quitAndInstallCalled) {
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
-index 26ea883..eeb032b 100644
+index 26ea883..64ed1bc 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.d.ts
-@@ -25,6 +25,8 @@ export declare class DownloadedUpdateHelper {
-      */
-     private getValidCachedUpdateFile;
-     private getUpdateInfoFile;
-+    public updateFile(file: string): void;
-+    public updateDownloadedFileInfo(info: ResolvedUpdateFileInfo): void;
- }
- interface CachedUpdateInfo {
-     fileName: string;
+@@ -14,6 +14,8 @@ export declare class DownloadedUpdateHelper {
+     get file(): string | null;
+     get packageFile(): string | null;
+     get cacheDirForPendingUpdate(): string;
++    updateFile(file: string): void;
++    updateDownloadedFileInfo(info: ResolvedUpdateFileInfo): void;
+     validateDownloadedPath(updateFile: string, updateInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo, logger: Logger): Promise<string | null>;
+     setDownloadedFile(downloadedFile: string, packageFile: string | null, versionInfo: UpdateInfo, fileInfo: ResolvedUpdateFileInfo, updateFileName: string, isSaveCache: boolean): Promise<void>;
+     clear(): Promise<void>;
 diff --git a/node_modules/electron-updater/out/DownloadedUpdateHelper.js b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-index e6c33ea..ba20aeb 100644
+index e6c33ea..7fbe978 100644
 --- a/node_modules/electron-updater/out/DownloadedUpdateHelper.js
 +++ b/node_modules/electron-updater/out/DownloadedUpdateHelper.js
-@@ -50,6 +50,15 @@ class DownloadedUpdateHelper {
-         this._file = cachedUpdateFile;
-         return cachedUpdateFile;
+@@ -30,6 +30,14 @@ class DownloadedUpdateHelper {
+     get cacheDirForPendingUpdate() {
+         return path.join(this.cacheDir, "pending");
      }
-+
-+    async updateFile(filePath) {
-+        this._file = filePath;
++    // OneKey patch: allow the app to rehydrate the cached installer path.
++    updateFile(file) {
++        this._file = file;
 +    }
-+
-+    async updateDownloadedFileInfo(downloadedFileInfo) {
++    // OneKey patch: allow the app to rehydrate downloaded update metadata.
++    updateDownloadedFileInfo(downloadedFileInfo) {
 +        this._downloadedFileInfo = downloadedFileInfo;
 +    }
-+
-     async setDownloadedFile(downloadedFile, packageFile, versionInfo, fileInfo, updateFileName, isSaveCache) {
-         this._file = downloadedFile;
-         this._packageFile = packageFile;
+     async validateDownloadedPath(updateFile, updateInfo, fileInfo, logger) {
+         if (this.versionInfo != null && this.file === updateFile && this.fileInfo != null) {
+             // update has already been downloaded from this running instance
