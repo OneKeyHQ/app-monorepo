@@ -342,6 +342,7 @@ function TxHistoryListContainer(
           data: r.addressMap ?? {},
         });
         onFirstPageResponse({
+          txs: r.txs,
           next: r.next,
           hasMore: aggregatedHasMoreOnChainHistory,
           isIndexer: r.isIndexer,
