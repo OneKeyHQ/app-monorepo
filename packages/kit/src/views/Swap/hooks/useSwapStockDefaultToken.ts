@@ -11,6 +11,8 @@ import {
   getMarketListTokenKey,
 } from './swapStockChannelUtils';
 
+const DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT = 50;
+
 export function useSwapStockDefaultToken({
   marketPresetTokenKey,
   marketStockToken,
@@ -62,11 +64,11 @@ export function useSwapStockDefaultToken({
           sortBy: 'v24hUSD',
           sortType: 'desc',
           page: 1,
-          limit: 1,
+          limit: DEFAULT_STOCK_TOKEN_CANDIDATE_LIMIT,
         });
       return {
         scope: defaultStockTokenScope,
-        token: response.list.find((item) => !!item.stock) ?? response.list[0],
+        token: response.list.find((item) => !!item.stock),
       };
     },
     [defaultStockTokenScope, shouldLoadDefaultStockToken, stockCategoryType],
@@ -98,7 +100,7 @@ export function useSwapStockDefaultToken({
     }
     const nextSwapToken =
       buildStockSwapTokenFromMarketListToken(defaultStockToken);
-    if (nextSwapToken) {
+    if (nextSwapToken?.isStock) {
       selectStockSwapToken(nextSwapToken);
     }
   }, [

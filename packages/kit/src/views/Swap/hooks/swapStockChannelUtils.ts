@@ -109,7 +109,7 @@ export function buildStockSwapTokenFromMarketListToken(
   token: IMarketTokenListItem,
 ): ISwapToken | undefined {
   const networkId = token.networkId ?? token.chainId;
-  if (!networkId) {
+  if (!networkId || !token.stock) {
     return undefined;
   }
   return {

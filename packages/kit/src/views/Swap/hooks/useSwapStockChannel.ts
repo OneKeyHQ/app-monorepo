@@ -155,24 +155,31 @@ export function useSwapStockChannel({
   const scopedPayTokenState = isLocalStateEntryCurrent
     ? payTokenState
     : undefined;
+  const stockExecutionSelectionToken = stockExecutionSelection?.stockToken;
 
   const stockDetailRequestToken = useMemo(
     () =>
       scopedStockTokenState ??
       (routeStockTokenKey ? routeStockToken : undefined) ??
       resolvedMarketPresetToken ??
-      stockExecutionSelection?.stockToken,
+      stockExecutionSelectionToken,
     [
       resolvedMarketPresetToken,
       routeStockToken,
       routeStockTokenKey,
       scopedStockTokenState,
-      stockExecutionSelection?.stockToken,
+      stockExecutionSelectionToken,
     ],
   );
   const stockDetailRequestTokenKey = getTokenIdentityKey(
     stockDetailRequestToken,
   );
+  const isMarketPresetStockDetailRequest =
+    !!marketPresetTokenKey &&
+    stockDetailRequestTokenKey === marketPresetTokenKey &&
+    !scopedStockTokenState &&
+    !routeStockTokenKey &&
+    !stockExecutionSelectionToken;
   const { result: stockDetailState } = usePromiseResult(
     async (): Promise<IStockTokenDetailState> => {
       if (!stockDetailRequestToken?.networkId || !stockDetailRequestTokenKey) {
@@ -248,18 +255,33 @@ export function useSwapStockChannel({
       stockDetailRequestToken?.networkId,
     ],
   );
+  const shouldUseStockIdentityFallback = Boolean(
+    scopedStockTokenState || routeStockTokenKey || stockExecutionSelectionToken,
+  );
   const fallbackStockToken = useMemo(() => {
-    if (!stockDetailRequestTokenKey) {
+    if (!stockDetailRequestTokenKey || !shouldUseStockIdentityFallback) {
+      return undefined;
+    }
+    if (
+      stockDetailRequestToken &&
+      'isStock' in stockDetailRequestToken &&
+      stockDetailRequestToken.isStock === false
+    ) {
       return undefined;
     }
     const snapshotStockToken = stockTokenSnapshotRef.current;
     if (
+      snapshotStockToken?.isStock &&
       getTokenIdentityKey(snapshotStockToken) === stockDetailRequestTokenKey
     ) {
       return snapshotStockToken;
     }
     return buildStockSwapTokenFromTokenIdentity(stockDetailRequestToken);
-  }, [stockDetailRequestToken, stockDetailRequestTokenKey]);
+  }, [
+    shouldUseStockIdentityFallback,
+    stockDetailRequestToken,
+    stockDetailRequestTokenKey,
+  ]);
   const selectedStockToken = resolveStockChannelToken({
     fallbackStockToken,
     stockTokenState: scopedStockTokenState,
@@ -291,6 +313,13 @@ export function useSwapStockChannel({
   const activeStockPerpsInfo = activeStockTokenDetail
     ? stockDetailState.perpsInfo
     : undefined;
+  const isMarketPresetStockDetailPending =
+    isMarketPresetStockDetailRequest &&
+    stockDetailState.tokenKey !== stockDetailRequestTokenKey;
+  const effectiveMarketPresetTokenKey =
+    fetchedStockToken || isMarketPresetStockDetailPending
+      ? marketPresetTokenKey
+      : '';
   const disableNativePayToken = isOndoStockSource(
     activeStockTokenDetail?.stock?.source,
   );
@@ -424,7 +453,7 @@ export function useSwapStockChannel({
     shouldLoadDefaultStockToken,
     stockCategoryType,
   } = useSwapStockDefaultToken({
-    marketPresetTokenKey,
+    marketPresetTokenKey: effectiveMarketPresetTokenKey,
     marketStockToken: fetchedStockToken,
     selectStockSwapToken,
     selectedStockTokenKey,
@@ -588,6 +617,9 @@ export function useSwapStockChannel({
     if (shouldLoadDefaultStockToken && defaultStockTokenLoading) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
+    if (isMarketPresetStockDetailPending) {
+      return ESwapStockChannelAsyncStatus.Initializing;
+    }
     if (!stockCategoryType) {
       return ESwapStockChannelAsyncStatus.Initializing;
     }
@@ -595,6 +627,7 @@ export function useSwapStockChannel({
   }, [
     currentStockToken,
     defaultStockTokenLoading,
+    isMarketPresetStockDetailPending,
     shouldLoadDefaultStockToken,
     stockCategoryType,
   ]);

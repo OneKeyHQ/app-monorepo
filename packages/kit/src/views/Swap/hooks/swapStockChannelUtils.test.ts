@@ -254,18 +254,13 @@ describe('swapStockChannelUtils', () => {
 
     expect(
       buildStockSwapTokenFromMarketListToken({
-        address: '0xaapl',
-        networkId: 'evm--56',
-        symbol: 'AAPL',
-        name: 'Apple',
-        decimals: 18,
-        stock: {
-          subtitle: 'Stock',
-          sourceLogoUri: '',
-          underlyingAssetTicker: 'AAPL',
-        },
-      })?.isStock,
-    ).toBe(true);
+        address: '0xbtc',
+        networkId: 'btc--0',
+        symbol: 'BTC',
+        name: 'Bitcoin',
+        decimals: 8,
+      }),
+    ).toBeUndefined();
 
     expect(
       buildStockSwapTokenFromMarketDetail({
