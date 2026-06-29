@@ -16,6 +16,12 @@ channel must explain how it uses this spine. A surface such as Send, Market,
 Earn, or Buy may prefill or launch the flow; it should not become the long-term
 owner of order state unless the contract explicitly says so.
 
+Display readiness and execution readiness are separate ledgers. A channel may
+show a first frame from a trusted route/import/current identity while quote,
+market-status, review, submit, and status transitions wait for fresher channel
+data. Do not use one broad loading gate for both display and execution unless
+every visible module depends on the same prerequisite.
+
 ## Four State Ledgers
 
 Every non-standard channel needs these ledgers in writing.

@@ -109,6 +109,11 @@ Market detail flows have separate data boundaries:
 
 Do not fix a chart fallback issue by changing quote state, and do not fix a quote issue by changing chart data ownership.
 
+When Market detail, Swap Pro, and Stock reuse the same chart/control surface,
+choose one shared control owner or define explicit per-surface scope keys. The
+same rule applies to fiat-value display: token, quote currency, price source,
+and conversion readiness are part of the display identity.
+
 ## Extension Decision Tree
 
 Use this when a new channel appears:

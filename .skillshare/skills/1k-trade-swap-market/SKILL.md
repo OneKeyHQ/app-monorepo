@@ -39,6 +39,16 @@ For broad Swap or Trade bugs, analyze in this order before changing code:
 This order applies to Swap page work and to Home Token, Send, Market, Earn, or
 Buy entries that launch or prefill Swap.
 
+Before designing a new state path, search the repo for the closest working
+flow and validate its assumptions. Reuse the existing hook, adapter, selector,
+or channel shape when the contract matches; do not create a parallel Swap,
+Stock, selector, or loading architecture to solve a one-flow bug.
+
+For cold-start and Stock-like channels, keep first-frame display identity
+separate from quote, market-status, and submit readiness. A route/import/current
+token can seed visible header or chart state while execution stays gated on the
+fresh detail and channel readiness needed for trading.
+
 ## Protocol Channel Model
 
 Before adding or reviewing any provider channel, define this contract:
@@ -68,7 +78,8 @@ PrivateSend-like channels and future stock-trading channels should be evaluated 
    history/status.
 8. Validate with [validation.md](references/validation.md), including a readiness drill when the change is a new channel.
 9. For cold start, token selector flicker, default-token bring-in, tab stability,
-   or Wallet handoff regressions, run
+   Wallet handoff regressions, or Home token-list quick actions that open the
+   Swap/Stock modal, run
    [swap-cold-start-frame-checklist.md](references/swap-cold-start-frame-checklist.md).
 
 ## Reference Map

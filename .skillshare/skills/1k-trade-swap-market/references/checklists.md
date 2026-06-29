@@ -9,15 +9,21 @@ Run this before shipping or approving Trade/Swap/Market work:
 1. State owner is named: server config, quote payload, build payload, atom, simpleDb, local component state, or provider adapter.
 2. Async identity is guarded: request id, event id, provider key, token key, account, amount mode, and stale response handling.
 3. Account/network/token/route identity is separated: source, target, All Networks, derive type, native/wrapped token, receiver, entry source, and behavior-changing route params such as `isNative`, `showFavoriteButton`, and `disableTrade`.
-4. Provider contract fields are interpreted: fees, rate, ETA, min/max, limits, quote context, order id, txid, and status.
-5. Review data is frozen: confirm does not keep reading mutable page state after the user enters review.
-6. Approval/setup is explicit: allowance, permit, wrap, setup tx, and business tx are not merged invisibly.
-7. Pending history is created after send success with the correct identity before status polling is trusted.
-8. Channel state is declared: history display, listener source, local writeback, replay/enrichment, and repair rules.
-9. Market/K-line data is isolated from quote/build state.
-10. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
-11. Adjacent Wallet/Receive/Home Token ownership is not assumed to match Swap/Market selector ownership.
-12. Import hierarchy is preserved.
+4. Entry identity changes override or reset stale local selection deliberately; route/import/preset identity must not be trapped behind old provider-local state.
+5. Concurrent requests have request-key or ref-count loading ownership; one shared boolean is not enough when search and fallback requests can overlap.
+6. Wallet connection readiness is separated from account/address readiness; fast submit uses the same resolved account tuple as quote/build.
+7. Manual full-balance input and Max buttons reserve native gas, provider fees, UTXO dust, and execution-time fee obligations before submit.
+8. Provider contract fields are interpreted: fees, rate, ETA, min/max, limits, quote context, order id, txid, and status.
+9. Error display has one owner: local validation, quote/build server error, channel alert, inline disabled copy, or toast; do not render the same failure twice.
+10. User local overrides are scoped and durable: unchecked fields, selected tokens, pay tokens, filters, chart controls, and settings persist by route/account/tab/channel until the source identity changes or the user resets them.
+11. Review data is frozen: confirm does not keep reading mutable page state after the user enters review.
+12. Approval/setup is explicit: allowance, permit, wrap, setup tx, and business tx are not merged invisibly.
+13. Pending history is created after send success with the correct identity before status polling is trusted.
+14. Channel state is declared: history display, listener source, local writeback, replay/enrichment, and repair rules.
+15. Market/K-line data is isolated from quote/build state.
+16. Platform ownership is checked: desktop, web, extension, native mobile, tablet, modal, and bottom-sheet differences.
+17. Adjacent Wallet/Receive/Home Token ownership is not assumed to match Swap/Market selector ownership.
+18. Import hierarchy is preserved.
 
 ## New Channel Readiness Checklist
 
@@ -59,6 +65,9 @@ Complete this drill before wiring a stock-like protocol:
 - What happens when the market is closed, partially filled, canceled, or expired?
 - Which owner gates market-open state: stock channel state from token/detail data, quote error metadata, or a server order-status response?
 - Who owns cold-start token restoration: shared Swap cache, Stock provider, or a route preset?
+- Which state is tab-local and which state is shared with ordinary Swap? Stock
+  should not clear or inherit ordinary Swap token state unless the contract says
+  so.
 - Which fields are commission, spread, settlement fee, or network gas?
 - If the quote returns an order/sign payload instead of a normal tx, which path builds the order and prevents fallthrough to ordinary send?
 - If quote/build omits slippage, which user-selected or provider default value is the explicit fallback?
@@ -67,6 +76,11 @@ Complete this drill before wiring a stock-like protocol:
 - Are Market and Stock pending counts, filters, and list keys separated so one channel cannot badge or render the other channel's rows?
 - Can token selectors, quote result rows, and history rows handle non-token identity without leaking token assumptions?
 - Can local history survive app restart and then reconcile against broker/provider order status?
+- Can first-frame display seed from route/import/current identity while quote,
+  market-status, submit, and order creation stay gated by fresh channel
+  readiness?
+- If keyword search and base-list fallback can run together, which request owns
+  loading, empty, analytics, and final list replacement?
 
 ## Bridge/Limit Shared-Spine Drill
 
@@ -83,6 +97,10 @@ Complete this drill before wiring a stock-like protocol:
 - Token detail enrichment, chart data, fallback chart data, and speed-swap execution payload are separate.
 - Chart fallback cannot mutate quote state.
 - Token selector live overrides cannot create a stale quote.
+- Fiat display is keyed by token, currency, price source, and conversion state;
+  stale or unconverted values should not flash as valid numbers.
+- Shared Market, Swap Pro, and Stock K-line controls use one owner or explicit
+  scope keys. Do not duplicate control state that should stay in sync.
 - WebView bridge events are scoped to the active chart/token.
 - Desktop and native layout constraints are validated separately.
 
@@ -94,5 +112,11 @@ Complete this drill before wiring a stock-like protocol:
 - For Home Token, Send, Market, Earn, or Buy entries into Swap, review both
   handoff params and the resulting Swap state transition before judging the
   target hook.
+- For Wallet Home token-list quick actions, verify the row action source,
+  imported token payload, modal route, visible tab, and internal execution type.
+  Do not treat the Home toolbar Swap action as coverage for token-row actions.
+- For Stock/order entry changes, validate route/preset identity, provider-local
+  selection, trade side, amount, pay-token state, and token selector loading as
+  one state machine before suggesting a hook-only fix.
 - Propose the smallest App-side change that preserves the canonical flow.
 - Before patching a Stock/order review flag, check whether the behavior is already owned by a channel state, service adapter, backend DTO, generated workflow, or pending/history filter.

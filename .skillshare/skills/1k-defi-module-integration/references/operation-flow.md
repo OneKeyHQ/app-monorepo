@@ -29,6 +29,22 @@ Do not merge setup and business actions into one opaque function. Name the seque
 
 If a step is provider-managed, still represent it in App state as loading, unavailable, pending, failed, success, or unknown.
 
+For multi-step operations, keep the visible state machine explicit:
+
+- display data ready or partially ready
+- operation form ready
+- setup action required, loading, failed, or complete
+- business action build/sign/send loading, failed, submitted, or unknown
+- pending/history created
+- visible owner refreshed or intentionally stale
+
+Do not use one page-level loading state to hide modules whose own scoped data is
+already renderable.
+
+Action availability is part of the operation contract. Scope it to the visible
+position, reserve, provider, and action instead of deriving all buttons from one
+page-level capability flag.
+
 ## ABI-Backed Operations
 
 For ABI-backed protocols, verify:
@@ -36,11 +52,16 @@ For ABI-backed protocols, verify:
 - contract address source and network binding
 - function name and typed params
 - token amount unit conversion
+- request amount serialization; never let small decimal values become
+  JavaScript exponent notation when the backend expects a decimal string
 - allowance/permit/wrap requirement
 - account derive type and address format
 - simulation or validation result when available
 - transaction label and pending tag
 - post-send refresh target
+
+Manual amount input, percentage shortcuts, and max actions must converge into
+the same decimal parser and disabled-state validator before quote/build.
 
 Avoid encoding raw ABI details in UI components. Put ABI-specific data into an adapter or service boundary that returns App operation state.
 
@@ -84,3 +105,7 @@ Each operation must handle:
 - final status unknown
 
 These states should be visible at the operation boundary, not discovered only after signing.
+
+When the backend returns a semantic operation error, choose one display owner:
+service auto-toast, caller toast, inline operation error, or disabled state.
+Do not show a local fallback error and the server error for the same failure.

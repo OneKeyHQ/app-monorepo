@@ -51,6 +51,11 @@ Name the owner for each data class:
 
 Do not let operation modals mutate portfolio caches directly unless the cache owner exposes that refresh path.
 
+A mutation is not complete when it only emits a broad account or portfolio
+event. Name the visible owner that must update, the scoped key it listens to,
+and how account, route, or modal switches prevent stale success data from
+painting the next surface.
+
 Earn recommendations, available assets, and portfolio investments are separate
 owners. Before changing Earn home fetch or refresh behavior, decide which owner
 is changing. Do not treat an available-assets `refreshTrigger` as a
@@ -70,6 +75,11 @@ Guard refresh and request identity by:
 - focused route or visible content state
 
 If the user changes account or route while data is loading, stale responses must not update the new surface.
+
+Page initialization, module loading, operation loading, and refresh loading are
+different states. Use a page-level blocker only for prerequisites shared by all
+visible modules; otherwise keep each module's last valid scoped data or its own
+loading/empty/error state.
 
 Earn tab content can stay mounted while hidden. For recommended assets and
 available assets, propagate explicit `isActive` or visible-content state from

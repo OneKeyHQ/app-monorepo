@@ -65,6 +65,11 @@ If the note cannot be filled, the channel contract is not ready.
 Use these recipes based on failure type:
 
 - Quote mismatch: change amount/network/token/provider rapidly and verify stale responses cannot become selected.
+- Wallet-connect race: connect a wallet and immediately submit; verify the UI,
+  quote, build, and submit path read the same resolved account/address state.
+- Full-balance spend: manually enter the visible full balance and use Max;
+  verify gas, provider fees, UTXO dust, and execution-time fee params are still
+  reserved before submit.
 - Review drift: enter review, mutate outer page state, and verify confirm still displays the frozen quote/build data.
 - Fee/ETA bug: compare quote payload, build payload, review display, and history detail.
 - Pending/status bug: send or simulate send success, then verify pending row identity and status polling key.

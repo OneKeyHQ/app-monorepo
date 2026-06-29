@@ -19,6 +19,16 @@ Most requirements are not "add a protocol" only. They are route, data, operation
 
 For DeFi portfolio one-click actions such as withdraw, claim, claimWithdrawal, or removeLiquidity, read [portfolio-actions-guide.md](references/portfolio-actions-guide.md) before changing action visibility, build-transaction payloads, or post-action refresh.
 
+Before adding a new modal, hook, helper, or fallback, find the closest existing
+Earn, Borrow, Staking, or DeFi Portfolio implementation and validate the reuse
+boundary. Reuse the existing operation stack when the contract matches; keep a
+local adapter when only one protocol differs.
+
+For operation pages, model page readiness, operation readiness, setup/business
+tx readiness, pending, and refresh as separate states. A broad page loading
+state should not block independent position rows, action buttons, health/risk
+rows, or history modules that can render from their own scoped data.
+
 ## Scenario Router
 
 Classify the change first:
