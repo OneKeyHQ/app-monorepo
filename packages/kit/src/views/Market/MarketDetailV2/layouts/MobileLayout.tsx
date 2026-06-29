@@ -20,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2/TradingViewNativeChartControls';
-import { useMobileTabTouchScrollBridge } from '@onekeyhq/kit/src/hooks/useMobileTabTouchScrollBridge';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -66,31 +65,14 @@ function MobileTradingViewTouchBridge({
   onIndicatorsDialogOpenChange: (isOpen: boolean) => void;
   onInteractionOverlayOpenChange: (isOpen: boolean) => void;
 }) {
-  const indicatorsDialogOpenRef = useRef(false);
-  const interactionOverlayOpenRef = useRef(false);
-  const handleTouchScroll = useMobileTabTouchScrollBridge();
-  const handleTouchScrollWhenEnabled = useCallback(
-    (deltaY: number) => {
-      if (
-        indicatorsDialogOpenRef.current ||
-        interactionOverlayOpenRef.current
-      ) {
-        return;
-      }
-      handleTouchScroll(deltaY);
-    },
-    [handleTouchScroll],
-  );
   const handleIndicatorsDialogOpenChange = useCallback(
     (isOpen: boolean) => {
-      indicatorsDialogOpenRef.current = isOpen;
       onIndicatorsDialogOpenChange(isOpen);
     },
     [onIndicatorsDialogOpenChange],
   );
   const handleInteractionOverlayOpenChange = useCallback(
     (isOpen: boolean) => {
-      interactionOverlayOpenRef.current = isOpen;
       onInteractionOverlayOpenChange(isOpen);
     },
     [onInteractionOverlayOpenChange],
@@ -98,8 +80,6 @@ function MobileTradingViewTouchBridge({
 
   useEffect(() => {
     return () => {
-      indicatorsDialogOpenRef.current = false;
-      interactionOverlayOpenRef.current = false;
       onIndicatorsDialogOpenChange(false);
       onInteractionOverlayOpenChange(false);
     };
@@ -112,7 +92,6 @@ function MobileTradingViewTouchBridge({
       tokenSymbol={tokenSymbol}
       dataSource={dataSource}
       pageWidth={pageWidth}
-      onTouchScroll={handleTouchScrollWhenEnabled}
       onIndicatorsDialogOpenChange={handleIndicatorsDialogOpenChange}
       onInteractionOverlayOpenChange={handleInteractionOverlayOpenChange}
     />
@@ -333,7 +312,7 @@ export function MobileLayout({ disableTrade }: { disableTrade?: boolean }) {
             excludeBottomEdgeHeight={
               TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT
             }
-            scrollScale={1}
+            disableMomentum
             onHorizontalSwipe={chartAreaHorizontalSwipeHandler}
             horizontalSwipeThreshold={24}
             horizontalSwipeVelocityThreshold={900}
