@@ -74,6 +74,7 @@ export interface ISniRequestConfig {
   method: string;
   body: string | null;
   timeout: number;
+  port?: number;
 }
 
 /**
