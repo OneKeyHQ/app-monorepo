@@ -85,12 +85,16 @@ const SwapHistoryListModal = ({
   const { swapTxHistoryList } = useSwapMarketHistoryList(
     EProtocolOfExchange.SWAP,
   );
+  // Non-stock Swap & Bridge history only: the SWAP bucket also carries stock
+  // orders, but the visible Swap & Bridge list hides them and the clear uses
+  // excludeStock. Drive savings and the clear guards off the same scoped set so
+  // an all-stock state doesn't show savings or pop a clear that deletes nothing.
   const swapMarketTxHistoryList = useMemo(
     () =>
       filterSwapMarketHistoryItems({
         items: swapTxHistoryList ?? [],
         protocol: EProtocolOfExchange.SWAP,
-      }),
+      }).filter((item) => !isStockSwapHistoryItem(item)),
     [swapTxHistoryList],
   );
 
