@@ -37,6 +37,34 @@ export function getSwapStockTokenDisplayName({
   );
 }
 
+export function isSwapStockTokenSearchMatch({
+  keyword,
+  stock,
+  token,
+}: {
+  keyword?: string;
+  stock?: Pick<
+    IMarketStockInfo,
+    'subtitle' | 'title' | 'underlyingAssetName' | 'underlyingAssetTicker'
+  >;
+  token: Pick<ISwapToken, 'contractAddress' | 'name' | 'symbol'>;
+}) {
+  const normalizedKeyword = keyword?.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return true;
+  }
+
+  return [
+    token.symbol,
+    token.name,
+    token.contractAddress,
+    stock?.title,
+    stock?.subtitle,
+    stock?.underlyingAssetName,
+    stock?.underlyingAssetTicker,
+  ].some((value) => value?.toLowerCase().includes(normalizedKeyword));
+}
+
 export function isSwapStockMetadataPending({
   isSwapStockSelectTarget,
   resolvedStockMetadataTokenKey,

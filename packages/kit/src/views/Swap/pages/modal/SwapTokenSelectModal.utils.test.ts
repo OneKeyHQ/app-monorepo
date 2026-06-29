@@ -10,6 +10,7 @@ import {
   buildSwapTokenSelectorDisableNetworks,
   getSwapStockTokenDisplayName,
   isSwapStockMetadataPending,
+  isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
 } from './SwapTokenSelectModal.utils';
 
@@ -185,5 +186,48 @@ describe('SwapTokenSelectModal.utils', () => {
         tokenName: 'Robinhood (Ondo Tokenized)',
       }),
     ).toBe('Robinhood');
+  });
+
+  it('matches stock selector search by token and stock metadata fields', () => {
+    const token = {
+      contractAddress: '0x390a684ef9cade28a7ad0dfa61ab1eb3842618c4',
+      name: 'Apple (Ondo Tokenized)',
+      symbol: 'AAPLon',
+    } as ISwapToken;
+    const stock = {
+      subtitle: '苹果',
+      title: 'Apple Inc.',
+      underlyingAssetName: 'Apple',
+      underlyingAssetTicker: 'AAPL',
+    };
+
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: 'apple',
+        stock,
+        token,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: 'aapl',
+        stock,
+        token,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: '苹果',
+        stock,
+        token,
+      }),
+    ).toBe(true);
+    expect(
+      isSwapStockTokenSearchMatch({
+        keyword: 'tesla',
+        stock,
+        token,
+      }),
+    ).toBe(false);
   });
 });

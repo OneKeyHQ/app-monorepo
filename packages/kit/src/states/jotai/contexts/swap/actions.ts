@@ -2306,6 +2306,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId: accountIdKey,
         lpToken,
         currency,
+        protocol: swapTypeSwitchValue,
       });
       if (swapAllNetworkActionLock[tokenListCacheKey]) {
         return;
