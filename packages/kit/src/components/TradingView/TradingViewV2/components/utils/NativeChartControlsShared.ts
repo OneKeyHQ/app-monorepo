@@ -65,21 +65,31 @@ export function formatChartTypeOptionLabel(
   intl: IntlShape,
   chartType: ITradingViewChartTypeOption,
 ) {
-  const normalizedLabel = chartType.label.trim().toLowerCase();
-  if (normalizedLabel.includes('candle')) {
+  const label = chartType.label.trim();
+  const normalizedLabel = label.toLowerCase();
+  if (normalizedLabel === 'candle' || normalizedLabel === 'candles') {
     return intl.formatMessage({ id: ETranslations.market_candle });
   }
-  if (normalizedLabel.includes('line')) {
+  if (normalizedLabel === 'line') {
     return intl.formatMessage({ id: ETranslations.market_line });
   }
 
-  return chartType.label;
+  return label;
 }
 
 export function getChartTypeIconName(chartType?: ITradingViewChartTypeOption) {
   const normalizedLabel = chartType?.label.trim().toLowerCase() ?? '';
+  if (normalizedLabel.includes('hlc')) {
+    return 'TradingViewBarsOutline';
+  }
+  if (normalizedLabel.includes('bar')) {
+    return 'TradingViewCandlesHlcOutline';
+  }
   if (normalizedLabel.includes('line')) {
     return 'TradingViewLineOutline';
+  }
+  if (normalizedLabel.includes('area')) {
+    return 'ChartTrending2Outline';
   }
 
   return 'TradingViewCandlesOutline';

@@ -56,7 +56,7 @@ export function ChartTypeSelect({
       }}
       placement="bottom-end"
       floatingPanelProps={{
-        width: '$40',
+        width: '$56',
       }}
       renderTrigger={({ onPress, disabled }) => (
         <IconButton
