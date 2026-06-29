@@ -99,4 +99,5 @@ export type { ISyncStorage };
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { createWebColdStartStorage } =
   require('./webColdStartStorage') as typeof import('./webColdStartStorage');
+
 export const coldStartCacheStorage = createWebColdStartStorage();

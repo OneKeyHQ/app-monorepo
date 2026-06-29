@@ -9,7 +9,14 @@ import type {
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  EHardwareUiStateAction,
+  IJotaiContextStoreData,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IStructureSnapshot,
+  IValuationFrame,
+} from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { EThirdPartyDevicePermissionDeniedReason } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
@@ -271,11 +278,34 @@ export interface IAppEventBusPayload {
     scheduledAt: number;
   };
   [EAppEventBusNames.GasAccountSubmitRetryCleared]: undefined;
-  [EAppEventBusNames.TokenListUpdate]: {
-    tokens: IAccountToken[];
-    keys: string;
-    map: Record<string, ITokenFiat>;
-    merge?: boolean;
+  // TokenList cells Phase-2 BG frame transport (D2=A). The structure event
+  // carries the FULL idempotent structure snapshot for an owner (generation is
+  // monotonic); the valuation event carries the FULL current fiat map for an
+  // owner (idempotent, self-healing via the apply-layer fiatEqual guard). Both
+  // carry their owner key + a monotonic version so the UI shell can drop a
+  // stale PULL result and detect a generation/version gap.
+  [EAppEventBusNames.TokenListStructureFrame]: {
+    ownerKey: string;
+    structureVersion: number;
+    structure: IStructureSnapshot;
+  };
+  [EAppEventBusNames.TokenListValuationFrame]: {
+    ownerKey: string;
+    valuationVersion: number;
+    valuation: IValuationFrame;
+  };
+  // TokenList cells Phase-2 risky frame (design 2026-06-16 §R0). FULL idempotent
+  // risky snapshot for an owner: the risky token list + its `$key -> ITokenFiat`
+  // map. `riskyVersion` is monotonic and INDEPENDENT of the structure/valuation
+  // versions; the UI shell version-guards + drops stale PULLs against it. Carries
+  // the owner's `storeData` so the receive shell can identity-check it (never
+  // diffed — always the whole current risky set).
+  [EAppEventBusNames.TokenListRiskyFrame]: {
+    ownerKey: string;
+    riskyVersion: number;
+    riskyTokens: IAccountToken[];
+    riskyMap: Record<string, ITokenFiat>;
+    storeData: IJotaiContextStoreData;
   };
   [EAppEventBusNames.RefreshTokenList]:
     | undefined
