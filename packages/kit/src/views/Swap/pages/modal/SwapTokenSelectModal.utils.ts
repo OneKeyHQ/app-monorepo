@@ -37,6 +37,24 @@ export function getSwapStockTokenDisplayName({
   );
 }
 
+export function normalizeSwapStockSelectableToken({
+  stock,
+  token,
+}: {
+  stock?: IMarketStockInfo;
+  token: ISwapToken;
+}): ISwapToken & { stock?: IMarketStockInfo } {
+  if (!stock) {
+    return token;
+  }
+
+  return {
+    ...token,
+    stock,
+    isStock: true,
+  };
+}
+
 export function isSwapStockTokenSearchMatch({
   keyword,
   stock,

@@ -4,38 +4,25 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { isMarketStockCategory } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/utils';
 import type { IMarketTokenListItem } from '@onekeyhq/shared/types/marketV2';
-import type {
-  IMarketPresetTokenContext,
-  ISwapToken,
-  ISwapTokenBase,
-} from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import {
   buildStockSwapTokenFromMarketListToken,
   getMarketListTokenKey,
+  shouldLoadDefaultStockToken,
 } from './swapStockChannelUtils';
 
 export function useSwapStockDefaultToken({
-  marketPresetToken,
-  marketPresetTokenKey,
-  marketStockToken,
-  requestMarketActiveToken,
   selectStockSwapToken,
   selectedStockTokenKey,
   spotCategories,
-  tokenDetailHasStock,
 }: {
-  marketPresetToken?: IMarketPresetTokenContext;
-  marketPresetTokenKey: string;
-  marketStockToken?: ISwapToken;
-  requestMarketActiveToken: (token?: Partial<ISwapTokenBase>) => void;
   selectStockSwapToken: (token: ISwapToken) => void;
   selectedStockTokenKey: string;
   spotCategories: {
     type: string;
     name: string;
   }[];
-  tokenDetailHasStock: boolean;
 }) {
   const stockCategoryType = useMemo(() => {
     const stockCategory = spotCategories.find((category) =>
@@ -47,33 +34,18 @@ export function useSwapStockDefaultToken({
     return stockCategory?.type;
   }, [spotCategories]);
 
-  useEffect(() => {
-    if (
-      selectedStockTokenKey ||
-      !marketPresetTokenKey ||
-      !marketPresetToken?.networkId
-    ) {
-      return;
-    }
-    requestMarketActiveToken(marketPresetToken);
-  }, [
-    marketPresetToken,
-    marketPresetTokenKey,
-    requestMarketActiveToken,
+  const shouldLoadDefaultStockTokenValue = shouldLoadDefaultStockToken({
     selectedStockTokenKey,
-  ]);
-
-  const shouldLoadDefaultStockToken =
-    !selectedStockTokenKey && !marketPresetTokenKey && !marketStockToken;
+  });
   const defaultStockTokenScope = `${
-    shouldLoadDefaultStockToken ? '1' : '0'
+    shouldLoadDefaultStockTokenValue ? '1' : '0'
   }:${stockCategoryType ?? ''}`;
   const {
     result: defaultStockTokenState,
     isLoading: defaultStockTokenLoading,
   } = usePromiseResult(
     async () => {
-      if (!shouldLoadDefaultStockToken || !stockCategoryType) {
+      if (!shouldLoadDefaultStockTokenValue || !stockCategoryType) {
         return {
           scope: defaultStockTokenScope,
           token: undefined as IMarketTokenListItem | undefined,
@@ -93,13 +65,17 @@ export function useSwapStockDefaultToken({
         token: response.list.find((item) => !!item.stock) ?? response.list[0],
       };
     },
-    [defaultStockTokenScope, shouldLoadDefaultStockToken, stockCategoryType],
+    [
+      defaultStockTokenScope,
+      shouldLoadDefaultStockTokenValue,
+      stockCategoryType,
+    ],
     {
       initResult: {
         scope: '',
         token: undefined as IMarketTokenListItem | undefined,
       },
-      watchLoading: shouldLoadDefaultStockToken,
+      watchLoading: shouldLoadDefaultStockTokenValue,
     },
   );
 
@@ -113,18 +89,13 @@ export function useSwapStockDefaultToken({
     const defaultStockNetworkId =
       defaultStockToken?.networkId ?? defaultStockToken?.chainId;
     if (
-      !shouldLoadDefaultStockToken ||
+      !shouldLoadDefaultStockTokenValue ||
       !defaultStockToken ||
       !defaultStockTokenKey ||
       !defaultStockNetworkId
     ) {
       return;
     }
-    requestMarketActiveToken({
-      contractAddress: defaultStockToken.address,
-      networkId: defaultStockNetworkId,
-      isNative: defaultStockToken.isNative,
-    });
     const nextSwapToken =
       buildStockSwapTokenFromMarketListToken(defaultStockToken);
     if (nextSwapToken) {
@@ -133,26 +104,13 @@ export function useSwapStockDefaultToken({
   }, [
     defaultStockToken,
     defaultStockTokenKey,
-    requestMarketActiveToken,
     selectStockSwapToken,
-    shouldLoadDefaultStockToken,
-  ]);
-
-  useEffect(() => {
-    if (selectedStockTokenKey || !marketStockToken || !tokenDetailHasStock) {
-      return;
-    }
-    selectStockSwapToken(marketStockToken);
-  }, [
-    marketStockToken,
-    selectStockSwapToken,
-    selectedStockTokenKey,
-    tokenDetailHasStock,
+    shouldLoadDefaultStockTokenValue,
   ]);
 
   return {
     defaultStockTokenLoading: !!defaultStockTokenLoading,
-    shouldLoadDefaultStockToken,
+    shouldLoadDefaultStockToken: shouldLoadDefaultStockTokenValue,
     stockCategoryType,
   };
 }

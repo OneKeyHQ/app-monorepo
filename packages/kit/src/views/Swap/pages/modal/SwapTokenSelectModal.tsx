@@ -100,6 +100,7 @@ import {
   isSwapStockMetadataPending,
   isSwapStockTokenSearchMatch,
   isSwapTokenSelectorFromNetworkBridgeOnly,
+  normalizeSwapStockSelectableToken,
 } from './SwapTokenSelectModal.utils';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -739,9 +740,11 @@ const SwapTokenSelectPage = ({
               })
             ])
           : undefined;
-      const displayItem: ISwapTokenWithStock = stock
-        ? { ...rawItem, stock }
-        : rawItem;
+      const displayItem: ISwapTokenWithStock =
+        normalizeSwapStockSelectableToken({
+          stock,
+          token: rawItem,
+        });
       const balanceBN = new BigNumber(rawItem.balanceParsed ?? 0);
       const fiatValueBN = new BigNumber(rawItem.fiatValue ?? 0);
       const contractAddressDisplay = md

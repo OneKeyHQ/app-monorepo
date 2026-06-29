@@ -13,7 +13,9 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockSelectedTokenAtom,
   swapTypeSwitchAtom,
+  useSwapStockSelectedTokenAtom,
 } from '../../../states/jotai/contexts/swap';
 import { jotaiContextStore } from '../../../states/jotai/utils/jotaiContextStore';
 import { JotaiContextStoreMirrorTracker } from '../../../states/jotai/utils/JotaiContextStoreMirrorTracker';
@@ -23,6 +25,11 @@ import {
   hydrateSwapDefaultTokensFromGlobalHomeSnapshot,
   useSwapContextStoreInitData,
 } from './SwapRootProvider';
+
+function SwapProviderMirrorColdStartCacheSync() {
+  useSwapStockSelectedTokenAtom();
+  return null;
+}
 
 export const SwapProviderMirror = memo(
   (
@@ -42,12 +49,20 @@ export const SwapProviderMirror = memo(
     const hasInitializedSelectedTokensRef = useRef(false);
     if (!hasInitializedSelectedTokensRef.current) {
       if (initialSelectedTokensOnInit) {
+        let initialStockSelectedToken: ISwapToken | undefined;
+        if (initialSelectedTokensOnInit.fromToken?.isStock) {
+          initialStockSelectedToken = initialSelectedTokensOnInit.fromToken;
+        } else if (initialSelectedTokensOnInit.toToken?.isStock) {
+          initialStockSelectedToken = initialSelectedTokensOnInit.toToken;
+        }
+
         hasInitializedSelectedTokensRef.current = true;
         store.set(
           swapSelectFromTokenAtom(),
           initialSelectedTokensOnInit.fromToken,
         );
         store.set(swapSelectToTokenAtom(), initialSelectedTokensOnInit.toToken);
+        store.set(swapStockSelectedTokenAtom(), initialStockSelectedToken);
         store.set(swapSelectedTokensColdStartContextAtom(), undefined);
         store.set(swapInitialSelectedTokensSyncedAtom(), true);
         store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
@@ -66,6 +81,7 @@ export const SwapProviderMirror = memo(
       <>
         <JotaiContextStoreMirrorTracker {...data} />
         <ProviderJotaiContextSwap store={store}>
+          <SwapProviderMirrorColdStartCacheSync />
           {children}
         </ProviderJotaiContextSwap>
       </>
