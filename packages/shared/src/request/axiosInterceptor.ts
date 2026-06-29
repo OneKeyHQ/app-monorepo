@@ -118,8 +118,11 @@ function readPersistedNativeNetworkThrottleEnabled(): boolean | undefined {
   const devModeEnabled = devSettingSyncStorage.getBoolean(
     EDevSettingSyncStorageKeys.onekey_developer_mode_enabled,
   );
-  if (!devModeEnabled) {
+  if (devModeEnabled === false) {
     return false;
+  }
+  if (devModeEnabled !== true) {
+    return undefined;
   }
 
   return devSettingSyncStorage.getBoolean(

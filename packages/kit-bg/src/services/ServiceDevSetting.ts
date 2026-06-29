@@ -5,6 +5,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import nativeNetworkThrottle, {
   NATIVE_SLOW_4G_LATENCY_MS,
   setNetworkThrottleRuntimeConfig,
@@ -66,37 +67,46 @@ class ServiceDevSetting extends ServiceBase {
     );
   }
 
+  private async clearNetworkThrottleBeforeDisableDevMode() {
+    if (platformEnv.isDesktop) {
+      const config =
+        await globalThis.desktopApiProxy?.dev?.setNetworkThrottle?.({
+          enabled: false,
+          profile: 'slow4g',
+        });
+      if (!config || config.enabled) {
+        throw new OneKeyLocalError(
+          'Failed to disable desktop network throttle',
+        );
+      }
+      setNetworkThrottleRuntimeConfig({
+        enabled: false,
+        profile: 'slow4g',
+        latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
+      });
+    }
+    if (platformEnv.isNative) {
+      const config = await nativeNetworkThrottle.setNetworkThrottle({
+        enabled: false,
+        profile: 'slow4g',
+      });
+      if (config.enabled) {
+        throw new OneKeyLocalError('Failed to disable native network throttle');
+      }
+    }
+  }
+
   @backgroundMethod()
   public async switchDevMode(isOpen: boolean) {
+    if (!isOpen) {
+      await this.clearNetworkThrottleBeforeDisableDevMode();
+    }
     await devSettingsPersistAtom.set((prev) => ({
       enabled: isOpen,
       settings: isOpen ? prev.settings : {},
     }));
-    if (!isOpen) {
-      if (platformEnv.isDesktop) {
-        await globalThis.desktopApiProxy?.dev
-          ?.setNetworkThrottle?.({
-            enabled: false,
-            profile: 'slow4g',
-          })
-          ?.catch(() => undefined);
-        setNetworkThrottleRuntimeConfig({
-          enabled: false,
-          profile: 'slow4g',
-          latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
-        });
-      }
-      if (platformEnv.isNative) {
-        await nativeNetworkThrottle
-          .setNetworkThrottle({
-            enabled: false,
-            profile: 'slow4g',
-          })
-          .catch(() => undefined);
-      }
-    }
-    void this.saveDevModeToSyncStorage();
-    void this.syncCryptoSettings();
+    await this.saveDevModeToSyncStorage();
+    await this.syncCryptoSettings();
   }
 
   @backgroundMethod()
@@ -123,8 +133,8 @@ class ServiceDevSetting extends ServiceBase {
         latencyMs: NATIVE_SLOW_4G_LATENCY_MS,
       });
     }
-    void this.saveDevModeToSyncStorage();
-    void this.syncCryptoSettings();
+    await this.saveDevModeToSyncStorage();
+    await this.syncCryptoSettings();
   }
 
   @backgroundMethod()
