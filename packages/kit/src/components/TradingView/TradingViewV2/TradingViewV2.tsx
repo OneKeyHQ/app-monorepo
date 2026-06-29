@@ -413,6 +413,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
       !forceEmptyKLineData,
     chartType: activeKLineResolution,
     symbol: chartSymbol,
+    onPriceUpdate,
   });
 
   // Load marks on page enter and refresh when swap transaction succeeds

@@ -37,6 +37,33 @@ export function getSwapStockTokenDisplayName({
   );
 }
 
+export function isSwapStockTokenSearchMatch({
+  keyword,
+  stock,
+}: {
+  keyword?: string;
+  stock?: Pick<
+    IMarketStockInfo,
+    'subtitle' | 'title' | 'underlyingAssetName' | 'underlyingAssetTicker'
+  >;
+}) {
+  if (!stock) {
+    return false;
+  }
+
+  const normalizedKeyword = keyword?.trim().toLowerCase();
+  if (!normalizedKeyword) {
+    return true;
+  }
+
+  return [
+    stock?.title,
+    stock?.subtitle,
+    stock?.underlyingAssetName,
+    stock?.underlyingAssetTicker,
+  ].some((value) => value?.toLowerCase().includes(normalizedKeyword));
+}
+
 export function isSwapStockMetadataPending({
   isSwapStockSelectTarget,
   resolvedStockMetadataTokenKey,
@@ -53,6 +80,25 @@ export function isSwapStockMetadataPending({
     stockMetadataTokenKey &&
     (stockMetadataLoading ||
       resolvedStockMetadataTokenKey !== stockMetadataTokenKey),
+  );
+}
+
+export function shouldUseSwapStockSearchBaseTokens({
+  currentTokensLength,
+  fetchLoading,
+  isSwapStockSelectTarget,
+  requestedSearchKeyword,
+}: {
+  currentTokensLength: number;
+  fetchLoading: boolean;
+  isSwapStockSelectTarget: boolean;
+  requestedSearchKeyword?: string;
+}) {
+  return Boolean(
+    isSwapStockSelectTarget &&
+    requestedSearchKeyword &&
+    !fetchLoading &&
+    currentTokensLength === 0,
   );
 }
 

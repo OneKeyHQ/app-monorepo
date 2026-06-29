@@ -13,7 +13,6 @@ import {
   resolveStockMarketStatusCase,
 } from '@onekeyhq/kit/src/views/Market/components/StockMarketStatusAlert';
 import { usePerpsNavigation } from '@onekeyhq/kit/src/views/Market/hooks/usePerpsNavigation';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useTokenDetail';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EPerpPageEnterSource } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
@@ -119,8 +118,7 @@ function BasicSwapStockTradeAlert({
   // The same underlying may have a Perps (contract) equivalent we can hand off
   // to while the stock market is closed — `perpsInfo.hlTicker` from the token
   // detail tells us, and drives the "with Perps" cases (1 & 4).
-  const { perpsInfo } = useTokenDetail();
-  const hlTicker = perpsInfo?.hlTicker;
+  const hlTicker = stockChannel.activeStockPerpsInfo?.hlTicker;
   const hasPerps = Boolean(hlTicker);
   // Attribute the perps handoff to the Trade tab for analytics.
   const { navigateToPerps } = usePerpsNavigation(EPerpPageEnterSource.Trade);
