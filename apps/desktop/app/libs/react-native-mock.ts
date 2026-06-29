@@ -18,21 +18,34 @@ export const InteractionManager = {};
 
 export const NativeEventEmitter = {};
 
+// cspell:ignore Flathub bubblewrap
 const getChannel = (): string | undefined => {
   let channel: string | undefined;
   try {
     if (process.platform !== 'linux') return channel;
-    // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
-    // (set in release-desktop-all.yml and baked in by esbuild `define`).
-    // We deliberately do not use the runtime `APPIMAGE` env for detection —
-    // it can be empty when a wrapper launcher strips it, giving a false
-    // negative for what is in fact an AppImage build.
-    if (process.env.DESK_CHANNEL === 'appImage') {
+    // Flatpak MUST be detected first, and via RUNTIME signals: the Flathub
+    // package re-extracts our prebuilt AppImage, so the build-time
+    // `DESK_CHANNEL=appImage` define is baked in and would otherwise win and
+    // mis-tag the flatpak as an AppImage. `FLATPAK_ID` is exported by the
+    // flatpak launcher and `container=flatpak` is set by bubblewrap; neither
+    // is an esbuild `define`, so both reflect the real runtime environment.
+    // (`FLATPAK` itself is a build-time define and only set for a dedicated
+    // flatpak build, kept here as an extra signal.)
+    if (
+      process.env.FLATPAK ||
+      process.env.FLATPAK_ID ||
+      process.env.container === 'flatpak'
+    ) {
+      channel = 'flatpak';
+    } else if (process.env.DESK_CHANNEL === 'appImage') {
+      // AppImage is detected via the build-time `DESK_CHANNEL=appImage` flag
+      // (set in release-desktop-all.yml and baked in by esbuild `define`).
+      // We deliberately do not use the runtime `APPIMAGE` env for detection —
+      // it can be empty when a wrapper launcher strips it, giving a false
+      // negative for what is in fact an AppImage build.
       channel = 'appImage';
     } else if (process.env.SNAP) {
       channel = 'snap';
-    } else if (process.env.FLATPAK) {
-      channel = 'flatpak';
     }
   } catch (_e) {
     // ignore

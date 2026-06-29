@@ -1,6 +1,6 @@
 # OneKey: The Original Hardware Wallet
 # https://onekey.so/
-# Put this file into /usr/lib/udev/rules.d
+# Put this file into /etc/udev/rules.d
 
 # note - hidraw* lines are not necessary for onekey-bridge, as we don't use hidraw
 # however, it is still necessary for Chrome support of u2f

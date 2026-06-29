@@ -26,13 +26,21 @@ import type { IDesktopApi } from './instance/IDesktopApi';
 
 const execFileAsync = promisify(execFile);
 
-// cspell:ignore hidraw udev udevadm pkexec
+// cspell:ignore hidraw udev udevadm pkexec Flathub bubblewrap
 const ONEKEY_LINUX_UDEV_RULES_PATH = '/etc/udev/rules.d/99-onekey.rules';
 const ONEKEY_LINUX_UDEV_RULES_STATIC_PATH = path.join(
   'udev',
   '99-onekey.rules',
 );
 
+// Runtime sandbox detection. This module runs in the Electron MAIN process,
+// where `platformEnv` derives `desktopChannel` from a module-load-time snapshot
+// of `globalThis.desktopApi` and is subject to init-order races. So we read the
+// env directly here. The predicate is intentionally identical to the flatpak
+// branch in `getChannel()` (apps/desktop/app/libs/react-native-mock.ts) and
+// `buildPlatformInfoForIpc()` — keep the three in sync. `FLATPAK_ID` /
+// `container` are real runtime signals (not esbuild `define`s), which is what
+// makes them reliable inside the Flathub build that re-extracts our AppImage.
 const isFlatpakRuntime = () =>
   Boolean(
     process.env.FLATPAK ||
@@ -60,6 +68,10 @@ export type IInstallOneKeyUdevRulesResult = {
   supported: boolean;
   installed: boolean;
   alreadyInstalled?: boolean;
+  // Sandboxed builds (flatpak/snap) cannot reach the host PolicyKit to install
+  // udev rules. When true, the UI should guide the user to install the host
+  // udev rules manually (see ServiceHardware.ensureLinuxUdevRules).
+  needsManualInstall?: boolean;
   skippedReason?:
     | 'not-linux'
     | 'snap'
@@ -348,6 +360,7 @@ class DesktopApiSystem {
       return {
         supported: false,
         installed: false,
+        needsManualInstall: true,
         skippedReason: 'snap',
         message: 'Snap USB interface authorization is handled by snapd.',
       };
@@ -357,9 +370,10 @@ class DesktopApiSystem {
       return {
         supported: false,
         installed: false,
+        needsManualInstall: true,
         skippedReason: 'flatpak',
         message:
-          'Flatpak requires host udev rules to be authorized manually by the user.',
+          'Flatpak cannot install host udev rules; the user must install them manually.',
       };
     }
 
@@ -439,10 +453,14 @@ fi
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // pkexec exit codes are a stable contract: 126 = user dismissed the
+      // authentication dialog, 127 = authorization failed (e.g. not allowed).
+      // Prefer the numeric exit code over fragile message-string matching.
+      const exitCode = (error as { code?: number | string }).code;
       return {
         supported: true,
         installed: false,
-        skippedReason: message.includes('dismissed') ? 'cancelled' : 'failed',
+        skippedReason: exitCode === 126 ? 'cancelled' : 'failed',
         message,
       };
     }

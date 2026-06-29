@@ -83,6 +83,13 @@ import { destroyTrayWindow, getTrayWindow } from './tray/trayWindow';
 
 import type { IpcMainLike } from '@onekeyfe/hwk-trezor-connector-electron-ble/main';
 
+// cspell:ignore pkexec
+// Main-process (sender) side of the DESKTOP_API_CALL IPC boundary: normalize
+// errors/results so Electron's structured clone never throws "An object could
+// not be cloned" (notably for execFile/pkexec errors on Linux/flatpak). The
+// `.message` is preserved verbatim so the renderer-side counterpart,
+// `unwrapElectronIpcError` (packages/shared/src/errors/utils/electronIpcError.ts),
+// can still recover any `{ message, code, data }` payload encoded in it.
 function makeIpcSafeError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
     const safeError = new Error(error.message || fallbackMessage);

@@ -368,6 +368,7 @@ export interface IAppEventBusPayload {
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
   [EAppEventBusNames.ShowSystemDiskFullWarning]: undefined;
+  [EAppEventBusNames.ShowLinuxBundleUdevGuide]: undefined;
   [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
     status: ESwapTxHistoryStatus;
     crossChainStatus?: ESwapCrossChainStatus;

@@ -781,28 +781,43 @@ class ServiceHardware extends ServiceBase {
       connectId: undefined,
     });
     const response = await hardwareSDK?.searchDevices();
-    defaultLogger.hardware.sdkLog.log('searchDevices response: ', response);
+    defaultLogger.hardware.sdkLog.log(
+      'searchDevices response: ',
+      JSON.stringify(response),
+    );
 
-    // SDK wraps LIBUSB_ERROR_ACCESS in { success: false }; retry once after
-    // installing udev rules so the user doesn't have to restart the app.
+    // SDK wraps LIBUSB_ERROR_ACCESS in { success: false } when the OS denies
+    // USB access because the OneKey udev rules are missing on the Linux host.
     if (
       response?.success === false &&
-      String(response.payload?.error ?? '').includes('LIBUSB_ERROR_ACCESS') &&
-      (await this.ensureLinuxUdevRules())
+      String(response.payload?.error ?? '').includes('LIBUSB_ERROR_ACCESS')
     ) {
-      const retryResponse = await hardwareSDK?.searchDevices();
-      defaultLogger.hardware.sdkLog.log(
-        'searchDevices response after udev rules: ',
-        retryResponse,
-      );
-      return retryResponse;
+      // Normal Linux desktop (AppImage/.deb): install the rules via PolicyKit
+      // and retry once, so the user doesn't have to restart the app.
+      if (await this.ensureLinuxUdevRules()) {
+        const retryResponse = await hardwareSDK?.searchDevices();
+        defaultLogger.hardware.sdkLog.log(
+          'searchDevices response after udev rules: ',
+          JSON.stringify(retryResponse),
+        );
+        return retryResponse;
+      }
+      // Sandboxed builds (flatpak/snap) cannot install host udev rules from
+      // inside the sandbox; guide the user to install them manually instead.
+      this.notifyLinuxUdevManualInstallIfNeeded();
     }
     return response;
   }
 
   @backgroundMethod()
   async ensureLinuxUdevRules() {
-    if (!platformEnv.isDesktopLinux || platformEnv.isDesktopLinuxSnap) {
+    if (!platformEnv.isDesktopLinux) {
+      return false;
+    }
+    // Sandboxed builds cannot reach the host PolicyKit/udev to auto-install the
+    // rules; the missing-rules case is surfaced to the user via
+    // notifyLinuxUdevManualInstallIfNeeded() instead.
+    if (platformEnv.isDesktopLinuxSnap || platformEnv.isDesktopLinuxFlatpak) {
       return false;
     }
 
@@ -850,6 +865,26 @@ class ServiceHardware extends ServiceBase {
       );
     }
     return false;
+  }
+
+  // Emit at most once per session so repeated device scans don't spam the
+  // guide dialog.
+  private linuxUdevGuideShown = false;
+
+  private notifyLinuxUdevManualInstallIfNeeded() {
+    if (this.linuxUdevGuideShown) {
+      return;
+    }
+    // Only sandboxed builds need the manual-install guide; normal Linux desktop
+    // installs the rules automatically via PolicyKit.
+    if (!platformEnv.isDesktopLinuxFlatpak && !platformEnv.isDesktopLinuxSnap) {
+      return;
+    }
+    this.linuxUdevGuideShown = true;
+    defaultLogger.hardware.sdkLog.log(
+      '[LinuxWebUSB] host udev rules missing in sandbox; showing manual install guide',
+    );
+    appEventBus.emit(EAppEventBusNames.ShowLinuxBundleUdevGuide, undefined);
   }
 
   @backgroundMethod()
