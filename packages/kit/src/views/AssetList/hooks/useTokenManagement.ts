@@ -4,8 +4,9 @@ import { flatten, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { getTokenListOwnerCacheAccountId } from '@onekeyhq/kit/src/components/TokenListView/utils';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAllTokenListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useListStructureAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -24,16 +25,37 @@ export function useTokenManagement({
   networkId,
   accountId,
   indexedAccountId,
+  mergeDeriveAddressData,
+  tokenListOwnerKey,
   enabled = true,
 }: {
   networkId: string;
   accountId: string;
   indexedAccountId?: string;
+  mergeDeriveAddressData?: boolean;
+  tokenListOwnerKey?: string;
   enabled?: boolean;
 }) {
   const intl = useIntl();
   const isAllNetwork = networkId === getNetworkIdsMap().onekeyall;
-  const [tokenList] = useAllTokenListAtom();
+  // R-#3b: keep a REACTIVE trigger (the home structure generation, which bumps
+  // only when the list membership/structure changes — a cheap pushed signal) as
+  // a `usePromiseResult` dep, then PULL the merged raw list inside the body. A
+  // naive "one-shot PULL + dropped dep" would freeze this Token Manager modal
+  // (newly-discovered tokens would never appear). The displayed `tokenList.tokens`
+  // is replaced by the PULL result.
+  const [listStructure] = useListStructureAtom();
+  const ownerAccountId = getTokenListOwnerCacheAccountId({
+    accountId,
+    indexedAccountId,
+    mergeDeriveAddressData,
+  });
+  const ownerKey =
+    tokenListOwnerKey ||
+    (ownerAccountId && networkId ? `${ownerAccountId}__${networkId}` : '');
+  // Reactive trigger consumed as a dep below (R-#3b); re-runs the PULL when the
+  // home list structure changes. The value itself is not needed in the body.
+  const structureGeneration = listStructure.generation;
 
   const {
     result,
@@ -41,6 +63,8 @@ export function useTokenManagement({
     isLoading: isLoadingLocalData,
   } = usePromiseResult(
     async () => {
+      // Reference the trigger so the dep is "used".
+      void structureGeneration;
       if (!enabled) {
         return {
           sectionTokens: [],
@@ -118,10 +142,19 @@ export function useTokenManagement({
       // pattern shows up as 808 mergeTokenMetadataWithCustomData calls in
       // the OK-perp/swap freeze trace. See ServiceToken
       // .mergeTokenMetadataWithCustomDataBatch for the contract.
+      // PULL the merged-with-risky raw list from the BG VM (replaces the deleted
+      // `allTokenListAtom` read). PULL-only; the reactive `listStructure`
+      // generation dep below re-runs this when the home list changes.
+      const rawTokenList = ownerKey
+        ? await backgroundApiProxy.serviceTokenViewModel.getRawTokenList({
+            ownerKey,
+          })
+        : { tokens: [] };
+
       const allTokens =
         await backgroundApiProxy.serviceToken.mergeTokenMetadataWithCustomDataBatch(
           {
-            tokens: [...tokenList.tokens, ...customTokens],
+            tokens: [...rawTokenList.tokens, ...customTokens],
             customTokens,
             networkId,
           },
@@ -206,7 +239,9 @@ export function useTokenManagement({
       enabled,
       isAllNetwork,
       indexedAccountId,
-      tokenList.tokens,
+      // Reactive trigger (R-#3b): re-pull when the home list structure changes.
+      structureGeneration,
+      ownerKey,
       intl,
       accountId,
       networkId,

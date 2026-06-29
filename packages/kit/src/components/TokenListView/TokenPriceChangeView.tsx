@@ -8,12 +8,7 @@ import {
   isValidNumberValue,
 } from '@onekeyhq/shared/src/utils/tokenValueUtils';
 
-import {
-  useFlattenAggregateTokensMapAtom,
-  useTokenListMapAtom,
-} from '../../states/jotai/contexts/tokenList';
-
-import { useTokenListViewContext } from './TokenListViewContext';
+import { useTokenPrice24h } from './useTokenFiatField';
 
 type IProps = {
   $key: string;
@@ -21,13 +16,10 @@ type IProps = {
 
 function TokenPriceChangeView(props: IProps) {
   const { $key, ...rest } = props;
-  const { tokenListMap: contextTokenListMap } = useTokenListViewContext();
-  const [globalTokenListMap] = useTokenListMapAtom();
-  const [aggregateTokensMap] = useFlattenAggregateTokensMapAtom();
-  const tokenListMap = contextTokenListMap ?? globalTokenListMap;
-  const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
+  // 方案B: subscribe to `price24h` only. Seam handled inside the hook.
+  const price24h = useTokenPrice24h($key);
 
-  if (!isValidNumberValue(token?.price24h)) {
+  if (!isValidNumberValue(price24h)) {
     return (
       <NumberSizeableText
         formatter="priceChange"
@@ -39,9 +31,8 @@ function TokenPriceChangeView(props: IProps) {
     );
   }
 
-  const priceChange = token.price24h;
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
-    priceChange,
+    priceChange: price24h,
   });
 
   return (
@@ -51,7 +42,7 @@ function TokenPriceChangeView(props: IProps) {
       color={changeColor}
       {...rest}
     >
-      {priceChange}
+      {price24h}
     </NumberSizeableText>
   );
 }

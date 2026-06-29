@@ -16,12 +16,12 @@ import type { IOverviewCols } from './overviewColsResolver';
 
 /**
  * Approximates the rendered DeFiOverviewTile height: 36 px logo +
- * py="$3.5" (= 14 px each side) + a 2-line text stack (name + value
+ * py="$2.5" (= 10 px each side) + a 2-line text stack (name + value
  * with a $1 gap). Kept ~2 px under the natural height so it never
  * looks taller than reality on load — undershoot is invisible,
  * overshoot causes layout reflow.
  */
-const SKELETON_TILE_HEIGHT = 68;
+const SKELETON_TILE_HEIGHT = 60;
 /**
  * Skeleton tile count is a hedge, not a prediction: we don't know how
  * many protocols are coming until the fetch lands. We render up to
@@ -106,7 +106,13 @@ function DeFiOverviewGrid({
       unknown
     >;
     return (
-      <XStack width="100%" flexWrap="wrap" gap="$2" $gtMd={gridStyle}>
+      <XStack
+        width="100%"
+        flexWrap="wrap"
+        gap="$4"
+        rowGap="$5"
+        $gtMd={gridStyle}
+      >
         {Array.from({ length: skeletonCount }).map((_, i) => (
           <XStack
             // eslint-disable-next-line react/no-array-index-key

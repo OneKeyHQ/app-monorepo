@@ -330,6 +330,21 @@ class ServiceUniversalSearch extends ServiceBase {
     tokenListCacheMap?: Record<string, ITokenFiat>;
     aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }) {
+    // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
+    // home `aggregateTokensListMapAtom` into the search params. When the caller
+    // omits `aggregateTokenListCacheMap` the BG self-derives the scoped owned
+    // sub-token list map for the searched owner so aggregate sub-token
+    // (contract-address) matching in `getFilteredTokenBySearchKey`
+    // (tokenUtils.ts:248-260,271-273) is preserved. Scoped to `{accountId,
+    // networkId}` — the same owner key the home write uses
+    // (TokenListBlock.tsx:2019) — and derived at most once per call.
+    const resolvedAggregateTokenListMap =
+      aggregateTokenListCacheMap ??
+      (await this.backgroundApi.serviceToken.getLocalAggregateTokenListMap({
+        accountId,
+        networkId,
+      }));
+
     if (tokenListCache && tokenListCacheMap) {
       return {
         tokens: sortTokensByFiatValue({
@@ -337,7 +352,7 @@ class ServiceUniversalSearch extends ServiceBase {
             tokens: tokenListCache,
             searchKey: input,
             allowEmptyWhenBelowMinLength: true,
-            aggregateTokenListMap: aggregateTokenListCacheMap,
+            aggregateTokenListMap: resolvedAggregateTokenListMap,
           }),
           map: tokenListCacheMap,
         }),
@@ -412,7 +427,7 @@ class ServiceUniversalSearch extends ServiceBase {
           tokens: getFilteredTokenBySearchKey({
             tokens,
             searchKey: input,
-            aggregateTokenListMap: aggregateTokenListCacheMap,
+            aggregateTokenListMap: resolvedAggregateTokenListMap,
           }),
           map: tokenMap,
         }),
@@ -472,7 +487,7 @@ class ServiceUniversalSearch extends ServiceBase {
         tokens: getFilteredTokenBySearchKey({
           tokens,
           searchKey: input,
-          aggregateTokenListMap: aggregateTokenListCacheMap,
+          aggregateTokenListMap: resolvedAggregateTokenListMap,
         }),
         map: tokenMap,
       }),

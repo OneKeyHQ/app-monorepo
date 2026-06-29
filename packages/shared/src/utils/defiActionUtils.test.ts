@@ -135,7 +135,9 @@ describe('defiActionUtils.resolveDeFiPositionActionDebugCandidates', () => {
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
       category: 'liquidity',
-      groupId: '0x1111111111111111111111111111111111111111#123',
+      // No tokenId in the groupId: removeLiquidity can't build a tx, so it
+      // resolves to empty assets (a debug candidate) rather than a live button.
+      groupId: 'uniswap-v3-position',
       name: 'Uniswap Position',
       assets: [makeAsset({ symbol: 'UNI-LP', address: '0xlp' })],
     });
@@ -435,7 +437,7 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
     expect(actions).toHaveLength(0);
   });
 
-  it('hides Uniswap removeLiquidity when min-receive metadata is missing', () => {
+  it('resolves Uniswap removeLiquidity even when min-receive metadata is missing (enforced server-side)', () => {
     const sourcePosition = makeSourcePosition({
       protocol: 'uniswap-v3',
       protocolName: 'Uniswap V3',
@@ -478,7 +480,12 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
       supportedActions,
     });
 
-    expect(actions).toHaveLength(0);
+    // Min-receive is no longer gated client-side; the action resolves on tokenId
+    // alone and the build service enforces slippage.
+    expect(actions).toHaveLength(1);
+    expect(actions[0].assets[0].extraParams).toEqual(
+      expect.objectContaining({ tokenId: '123' }),
+    );
   });
 
   it('resolves Uniswap V3 removeLiquidity when tokenId and min-receive metadata are available', () => {
@@ -1156,5 +1163,108 @@ describe('defiActionUtils.resolveDeFiPositionActions', () => {
 
     expect(actions).toHaveLength(1);
     expect(actions[0].assets[0].extraParams?.poolAddress).toBe('0xgauge');
+  });
+});
+
+describe('defiActionUtils.scopeResolvedActionToAsset', () => {
+  const action = {
+    action: EDeFiPositionAction.Withdraw,
+    protocolId: 'aave_v3',
+    networkId: 'evm--1',
+    positionCategory: 'lending',
+    assets: [
+      {
+        asset: makeAsset({ address: '0xAAA', symbol: 'USDC' }),
+        amount: '1',
+        symbol: 'USDC',
+        tokenAddress: '0xAAA',
+      },
+      {
+        // No tokenAddress: must fall back to asset.address.
+        asset: makeAsset({ address: '0xBBB', symbol: 'WETH' }),
+        amount: '2',
+        symbol: 'WETH',
+      },
+    ],
+  };
+
+  it('narrows the action to the matching token (case-insensitive)', () => {
+    const scoped = defiActionUtils.scopeResolvedActionToAsset({
+      action,
+      tokenAddress: '0xaaa',
+    });
+    expect(scoped?.assets).toHaveLength(1);
+    expect(scoped?.assets[0].symbol).toBe('USDC');
+
+    const fallback = defiActionUtils.scopeResolvedActionToAsset({
+      action,
+      tokenAddress: '0xbbb',
+    });
+    expect(fallback?.assets).toHaveLength(1);
+    expect(fallback?.assets[0].symbol).toBe('WETH');
+  });
+
+  it('returns undefined when no asset matches or address is empty', () => {
+    expect(
+      defiActionUtils.scopeResolvedActionToAsset({
+        action,
+        tokenAddress: '0xCCC',
+      }),
+    ).toBeUndefined();
+    expect(
+      defiActionUtils.scopeResolvedActionToAsset({
+        action,
+        tokenAddress: undefined,
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('defiActionUtils.resolveDeFiActionTxAmount', () => {
+  it('sends the exact amount for a manual partial entry', () => {
+    expect(
+      defiActionUtils.resolveDeFiActionTxAmount({
+        percentageAction: true,
+        amount: ' 12.5 ',
+      }),
+    ).toEqual({ amount: '12.5' });
+  });
+
+  it('sends bps=10000 for a full (Max) close, ignoring the typed amount', () => {
+    expect(
+      defiActionUtils.resolveDeFiActionTxAmount({
+        percentageAction: true,
+        amount: '12.5',
+        isMaxAmount: true,
+      }),
+    ).toEqual({ bps: '10000' });
+  });
+
+  it('sends bps from the slider percent when no amount is entered', () => {
+    expect(
+      defiActionUtils.resolveDeFiActionTxAmount({
+        percentageAction: true,
+        percent: 50,
+      }),
+    ).toEqual({ bps: '5000' });
+  });
+
+  it('treats a non-positive amount as not-a-manual-amount (falls back to bps)', () => {
+    expect(
+      defiActionUtils.resolveDeFiActionTxAmount({
+        percentageAction: true,
+        amount: '0',
+        percent: 25,
+      }),
+    ).toEqual({ bps: '2500' });
+  });
+
+  it('sends neither for non-percentage actions', () => {
+    expect(
+      defiActionUtils.resolveDeFiActionTxAmount({
+        percentageAction: false,
+        amount: '12.5',
+      }),
+    ).toEqual({});
   });
 });

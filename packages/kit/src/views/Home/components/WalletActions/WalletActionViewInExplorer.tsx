@@ -7,7 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList/cells';
 import { shouldWarnBotWalletInteract } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
 import { showBotWalletDeactivatedWarningDialog } from '@onekeyhq/kit/src/utils/botWalletWarningDialog';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -28,7 +28,7 @@ export function WalletActionViewInExplorer({
 
   const intl = useIntl();
 
-  const [map] = useAllTokenListMapAtom();
+  const { map } = useHomeTokenListSnapshot();
 
   const viewExplorerDisabled = useMemo(() => {
     if (!network?.isCustomNetwork) {
