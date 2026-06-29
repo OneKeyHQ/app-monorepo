@@ -90,7 +90,6 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapLimitOrderStatus,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type IMarketPresetTokenContext,
@@ -193,6 +192,27 @@ type IStockChartHoverData = {
   x: number;
   y: number;
 };
+
+function mergeStockRealtimeChartPoint({
+  chartData,
+  realtimeChartPoint,
+}: {
+  chartData: IMarketTokenChart;
+  realtimeChartPoint?: IMarketTokenChart[number];
+}) {
+  if (!realtimeChartPoint) {
+    return chartData;
+  }
+
+  const [, price] = realtimeChartPoint;
+  if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
+    return chartData;
+  }
+
+  return normalizeSwapKLineWalletChartData({
+    chartData: [...chartData, realtimeChartPoint],
+  });
+}
 
 function useOpenStockTokenSelector({
   defaultNetworkId,
@@ -1378,6 +1398,7 @@ function StockPriceChart({
   onRangeChange,
   pulseLastPoint,
   range,
+  realtimeChartPoint,
   tokenAddress,
 }: {
   coinGeckoId?: string;
@@ -1386,6 +1407,7 @@ function StockPriceChart({
   onRangeChange: (range: IStockChartRange) => void;
   pulseLastPoint?: boolean;
   range: IStockChartRange;
+  realtimeChartPoint?: IMarketTokenChart[number];
   tokenAddress?: string;
 }) {
   const intl = useIntl();
@@ -1474,10 +1496,14 @@ function StockPriceChart({
   const isChartStateForCurrentScope = chartState.scope === chartScope;
   const canReusePreviousRangeChartData =
     chartState.assetScope === chartAssetScope;
-  const chartData =
+  const baseChartData =
     isChartStateForCurrentScope || canReusePreviousRangeChartData
       ? chartState.data
       : ([] as IMarketTokenChart);
+  const chartData = mergeStockRealtimeChartPoint({
+    chartData: baseChartData,
+    realtimeChartPoint,
+  });
   const shouldShowChartLoading =
     chartData.length === 0 && (isLoading || !isChartStateForCurrentScope);
   const priceFormatter = useCallback(
@@ -1843,6 +1869,7 @@ function StockMarketContextPanel({
         range={range}
         onRangeChange={setRange}
         pulseLastPoint={isMarketOpen}
+        realtimeChartPoint={stockChannel.realtimeChartPoint}
       />
     ) : (
       <Skeleton w="100%" h={274} />
@@ -1931,29 +1958,18 @@ function SwapStockDesktopContent({
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
-  const swapMarketPendingHistoryCount = useMemo(
+  const stockPendingHistoryCount = useMemo(
     () =>
       getSwapMarketPendingHistoryCount(
         swapHistoryPendingList,
-        EProtocolOfExchange.SWAP,
+        EProtocolOfExchange.STOCK,
       ),
     [swapHistoryPendingList],
   );
-  const limitPendingHistoryCount = useMemo(
-    () =>
-      swapLimitOrders.filter(
-        (item) =>
-          item.status === ESwapLimitOrderStatus.OPEN ||
-          item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
-      ).length,
-    [swapLimitOrders],
-  );
-  const historyBadgeCount =
-    swapMarketPendingHistoryCount + limitPendingHistoryCount;
+  const historyBadgeCount = stockPendingHistoryCount;
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {

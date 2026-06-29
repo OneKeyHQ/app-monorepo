@@ -674,8 +674,11 @@ const SwapHeaderRightActionContainer = ({
       ),
     [swapLimitOrders],
   );
+  const shouldIncludeLimitOpenBadge =
+    historyProtocolType !== EProtocolOfExchange.STOCK;
   const historyBadgeCount =
-    swapPendingStatusList.length + limitOpenStatusList.length;
+    swapPendingStatusList.length +
+    (shouldIncludeLimitOpenBadge ? limitOpenStatusList.length : 0);
   const focusSwapPro =
     platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT;
   const showSwapProSlippageSetting =

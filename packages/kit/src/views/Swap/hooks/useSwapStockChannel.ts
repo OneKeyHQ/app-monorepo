@@ -54,6 +54,7 @@ import {
   resolveStockExecutionTokenSelection,
 } from './swapStockChannelUtils';
 import { useSwapStockDefaultToken } from './useSwapStockDefaultToken';
+import { useSwapStockMarketWebSocket } from './useSwapStockMarketWebSocket';
 import { useSwapStockPayTokens } from './useSwapStockPayTokens';
 
 export {
@@ -269,7 +270,7 @@ export function useSwapStockChannel({
   const currentStockTokenKey = getTokenIdentityKey(currentStockToken);
   const payToken = scopedPayTokenState ?? stockExecutionSelection?.payToken;
   const stockNetworkId = currentStockToken?.networkId ?? '';
-  const activeStockTokenDetail =
+  const baseActiveStockTokenDetail =
     fetchedStockTokenDetail &&
     isCurrentStockMarketDetail({
       currentStockToken,
@@ -280,6 +281,13 @@ export function useSwapStockChannel({
     })
       ? fetchedStockTokenDetail
       : undefined;
+  const { realtimeChartPoint, realtimeTokenDetail } =
+    useSwapStockMarketWebSocket({
+      currentStockToken,
+      enabled: !!currentStockTokenKey,
+      tokenDetail: baseActiveStockTokenDetail,
+    });
+  const activeStockTokenDetail = realtimeTokenDetail;
   const activeStockPerpsInfo = activeStockTokenDetail
     ? stockDetailState.perpsInfo
     : undefined;
@@ -695,6 +703,7 @@ export function useSwapStockChannel({
       stockMarketStatus,
       activeStockPerpsInfo,
       activeStockTokenDetail,
+      realtimeChartPoint,
       currentStockToken,
       payToken,
       fromToken,
@@ -731,6 +740,7 @@ export function useSwapStockChannel({
       stockMarketStatus,
       activeStockPerpsInfo,
       activeStockTokenDetail,
+      realtimeChartPoint,
       stockNetworkId,
       stockTokenStatus,
       toToken,

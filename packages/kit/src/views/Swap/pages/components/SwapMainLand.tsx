@@ -112,6 +112,7 @@ import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetS
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
+import { useSwapHeaderRouteDefaultSwapType } from '../../hooks/useSwapHeaderRouteDefaultSwapType';
 import {
   useSwapProAccount,
   useSwapProErrorAlert,
@@ -239,6 +240,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const incomingMarketPresetToken =
     swapInitParams?.marketPresetToken ?? swapProJumpToken.marketPresetToken;
   const routeStockToken = resolveRouteStockToken(swapInitParams);
+  const headerRouteDefaultSwapType = useSwapHeaderRouteDefaultSwapType(
+    swapInitParams?.swapTabSwitchType,
+  );
   const stockMarketPresetTokenContext =
     swapInitParams?.swapTabSwitchType === ESwapTabSwitchType.STOCK ||
     routeStockToken
@@ -1239,7 +1243,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           headerContent={
             <SwapHeaderContainer
               pageType={pageType}
-              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              defaultSwapType={headerRouteDefaultSwapType}
               showSwapPro={platformEnv.isNative}
               hideRightActions
               enterFrom={swapInitParams?.swapSource}
@@ -1297,7 +1301,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             gtLg && pageType !== EPageType.modal ? (
               <SwapHeaderContainer
                 pageType={pageType}
-                defaultSwapType={swapInitParams?.swapTabSwitchType}
+                defaultSwapType={headerRouteDefaultSwapType}
                 showSwapPro={platformEnv.isNative}
                 hideRightActions
                 enterFrom={swapInitParams?.swapSource}
@@ -1356,7 +1360,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     stockMarketPresetTokenContext,
     routeStockToken,
     isWrapped,
-    swapInitParams?.swapTabSwitchType,
+    headerRouteDefaultSwapType,
     swapInitParams?.swapSource,
     gtLg,
   ]);
@@ -1428,7 +1432,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           !platformEnv.isNative ? null : (
             <SwapHeaderContainer
               pageType={pageType}
-              defaultSwapType={swapInitParams?.swapTabSwitchType}
+              defaultSwapType={headerRouteDefaultSwapType}
               showSwapPro={platformEnv.isNative}
               hideRightActions={showDesktopProviderPanel}
               enterFrom={swapInitParams?.swapSource}
