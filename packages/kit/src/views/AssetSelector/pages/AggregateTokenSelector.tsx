@@ -44,11 +44,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
   useProcessingTokenStateAtom,
   useTokenListActions,
 } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateSubTokenFiat,
+  useAggregateSubTokenFiatMap,
+} from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { AssetSelectorTestIDs } from '../testIDs';
 
@@ -60,6 +62,7 @@ const listedNetworkMap = getListedNetworkMap();
 
 function AggregateTokenListItem({
   token,
+  aggKey,
   network,
   onPress,
   allNetworksState,
@@ -68,6 +71,7 @@ function AggregateTokenListItem({
   hideBalanceAndValue,
 }: {
   token: IAccountToken;
+  aggKey: string;
   network?: IServerNetwork;
   onPress: ({
     token,
@@ -95,8 +99,10 @@ function AggregateTokenListItem({
     processingTokenKey !== null && processingTokenKey !== token.$key;
   const intl = useIntl();
 
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
-  const tokenInfo = allTokenListMapAtom[token.$key];
+  // Reactive per-row fiat from the home per-network sub-cell (red-team C-F3:
+  // read the live cell so a price tick updates the row while the modal is open,
+  // NOT a one-shot PULL that would freeze). The modal is a home store mirror.
+  const tokenInfo = useAggregateSubTokenFiat(aggKey, token.networkId);
   const {
     activeAccount: { wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -277,6 +283,7 @@ function AggregateTokenSelector() {
   const {
     title,
     aggregateToken,
+    aggregateSubTokenList,
     searchPlaceholder,
     onSelect,
     closeAfterSelect,
@@ -290,16 +297,25 @@ function AggregateTokenSelector() {
   const intl = useIntl();
 
   const [searchKey, setSearchKey] = useState('');
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
   const [processingTokenState] = useProcessingTokenStateAtom();
   const { updateProcessingTokenState } = useTokenListActions().current;
 
-  const [aggregateTokensListMapAtom] = useAggregateTokensListMapAtom();
-
+  // PR-3 (tokenList cells full-delete): the owned sub-tokens are passed in as a
+  // route param by TokenSelector (the only navigator into this screen) instead
+  // of reading `aggregateTokensListMapAtom`. Falls back to `[]` for any future
+  // direct entry / restore where the param is absent — matching the old
+  // empty-atom miss behavior. `allAggregateTokenList` (also a route param) is
+  // still merged in below, so the cross-network rows still render.
   const aggregateTokens = useMemo(() => {
-    return aggregateTokensListMapAtom[aggregateToken.$key]?.tokens ?? [];
-  }, [aggregateTokensListMapAtom, aggregateToken.$key]);
+    return aggregateSubTokenList ?? [];
+  }, [aggregateSubTokenList]);
+  const aggregateSubTokenFiatMap = useAggregateSubTokenFiatMap({
+    aggKey: aggregateToken.$key,
+    aggregateTokenList: aggregateTokens,
+    useCellSeam: true,
+    contextTokenListMap: undefined,
+  });
 
   // Resolve the networks behind the aggregate tokens. getNetworksByIds reads the
   // full dynamic network list (preset + server-fetched) with delisted (TRASH)
@@ -425,13 +441,13 @@ function AggregateTokenSelector() {
   const sortedAggregateTokens = useMemo(() => {
     let tokens = sortTokensCommon({
       tokens: aggregateTokens,
-      tokenListMap: allTokenListMapAtom,
+      tokenListMap: aggregateSubTokenFiatMap,
     });
 
     if (hideZeroBalanceTokens) {
       tokens = tokens.filter((token) => {
         return new BigNumber(
-          allTokenListMapAtom[token.$key]?.fiatValue ?? -1,
+          aggregateSubTokenFiatMap[token.$key]?.fiatValue ?? -1,
         ).gt(0);
       });
     }
@@ -465,7 +481,7 @@ function AggregateTokenSelector() {
     return result;
   }, [
     aggregateTokens,
-    allTokenListMapAtom,
+    aggregateSubTokenFiatMap,
     allAggregateTokenList,
     hideZeroBalanceTokens,
     exchangeFilter,
@@ -505,6 +521,7 @@ function AggregateTokenSelector() {
       <AggregateTokenListItem
         key={token.$key}
         token={token}
+        aggKey={aggregateToken.$key}
         network={networkMap.get(token.networkId ?? '')}
         onPress={handleOnPressToken}
         allNetworksState={allNetworksState}
@@ -515,6 +532,7 @@ function AggregateTokenSelector() {
     ));
   }, [
     filteredAggregateTokens,
+    aggregateToken.$key,
     networkMap,
     handleOnPressToken,
     searchKey,

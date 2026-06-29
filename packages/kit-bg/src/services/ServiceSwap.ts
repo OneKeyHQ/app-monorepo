@@ -40,6 +40,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import {
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
   isSwapHistoryProtocolExcluded,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
@@ -1824,6 +1825,31 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
+  async markAllSwapHistoryPreviewRead() {
+    await this.backgroundApi.simpleDb.swapHistory.markUnreadTerminalPreviewRead(
+      Date.now(),
+    );
+    // Re-derive the pending atom so subscribed UIs re-read the persisted list
+    // (newly-read terminal items drop out of the preview).
+    await this.syncSwapHistoryPendingList();
+  }
+
+  @backgroundMethod()
+  async seedSwapHistoryPreviewReadIfNeeded() {
+    const seeded =
+      await this.backgroundApi.simpleDb.swapHistory.seedPreviewReadIfNeeded(
+        Date.now(),
+      );
+    if (seeded) {
+      // Re-derive the pending atom (same invalidation as
+      // markAllSwapHistoryPreviewRead) so a foreground that already read the
+      // pre-seed history re-reads it and drops the now-read legacy terminal
+      // items from the preview, instead of keeping them for the whole session.
+      await this.syncSwapHistoryPendingList();
+    }
+  }
+
+  @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
     const histories = await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = histories.filter((history) =>
@@ -2039,6 +2065,9 @@ export default class ServiceSwap extends ServiceBase {
     statuses?: ESwapTxHistoryStatus[],
     options?: {
       excludeProtocols?: EProtocolOfExchange[];
+      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
+      // isStock flag, so clearing it must not delete stock orders).
+      excludeStock?: boolean;
     },
   ) {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
@@ -2058,6 +2087,9 @@ export default class ServiceSwap extends ServiceBase {
         ) {
           return false;
         }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+          return false;
+        }
         return statuses ? statuses.includes(item.status) : true;
       })
       .map((item) =>
@@ -2074,6 +2106,9 @@ export default class ServiceSwap extends ServiceBase {
             excludeProtocols: options?.excludeProtocols,
           })
         ) {
+          return true;
+        }
+        if (options?.excludeStock && isStockSwapHistoryItem(item)) {
           return true;
         }
         return statuses ? !statuses.includes(item.status) : false;

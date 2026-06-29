@@ -1,7 +1,11 @@
 import orderBy from 'lodash/orderBy';
 
 import { filterSwapHistoryPendingList } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isPrivateSendSwapHistoryItem } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  isPrivateSendSwapHistoryItem,
+  isStockSwapHistoryItem,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { maxRecentTokenPairs } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapToken,
@@ -22,6 +26,24 @@ export function isSwapMarketHistoryItem(item: ISwapTxHistory) {
     item.protocol !== EProtocolOfExchange.LIMIT &&
     !isPrivateSendSwapHistoryItem(item)
   );
+}
+
+// Re-exported from shared so the history clear logic (kit-bg) reuses the exact
+// same stock detection as the list display.
+export { isStockSwapHistoryItem };
+
+// Maps a swap-history type to its modal title translation id. Shared by the
+// history modal header and its lazy-load fallback so the two never drift.
+export function getSwapHistoryListTitleId(
+  type?: EProtocolOfExchange,
+): ETranslations {
+  if (type === EProtocolOfExchange.STOCK) {
+    return ETranslations.perps_token_selector_stocks;
+  }
+  if (type === EProtocolOfExchange.LIMIT) {
+    return ETranslations.swap_page_limit_dialog_title;
+  }
+  return ETranslations.swap_history_title;
 }
 
 function matchSwapMarketHistoryProtocol({
@@ -55,7 +77,7 @@ export function filterSwapMarketHistoryItems({
   );
 }
 
-function getSwapMarketPendingHistoryList(
+export function getSwapMarketPendingHistoryList(
   swapHistoryPendingList: (ISwapTxHistory | null | undefined)[],
   protocol?: EProtocolOfExchange,
 ) {

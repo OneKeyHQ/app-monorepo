@@ -258,12 +258,6 @@ function getPoolAddressFromGroupId(groupId?: string) {
   return normalizeEvmAddress(poolAddress);
 }
 
-function hasRemoveLiquidityMinOut(params?: IDeFiActionExtraParams) {
-  return (
-    isPositiveAmount(params?.amount0Min) && isPositiveAmount(params?.amount1Min)
-  );
-}
-
 function mergeExtraParams(
   ...params: (IDeFiActionExtraParams | undefined)[]
 ): IDeFiActionExtraParams | undefined {
@@ -644,10 +638,6 @@ function buildResolvedAsset({
     const tokenId = getTokenId(sourcePosition, asset);
     if (!tokenId) return undefined;
 
-    if (!hasRemoveLiquidityMinOut(extraParams)) {
-      return undefined;
-    }
-
     const { currency0, currency1 } = getRemoveLiquidityCurrencies({
       protocolId,
       sourcePosition,
@@ -803,10 +793,62 @@ function resolveDeFiPositionActionDebugCandidates({
   }, []);
 }
 
+// Narrow a resolved position action down to a single token (matched by token
+// address, case-insensitive). Returns undefined when the action doesn't touch
+// that token. Lets a per-asset caller give every supplied/borrowed row its own
+// button instead of one position-level button with a multi-select dialog.
+function scopeResolvedActionToAsset<T extends IResolvedDeFiPositionAction>({
+  action,
+  tokenAddress,
+}: {
+  action: T;
+  tokenAddress: string | undefined;
+}): T | undefined {
+  const target = tokenAddress?.trim().toLowerCase();
+  if (!target) return undefined;
+  const assets = action.assets.filter((item) => {
+    const address = (item.tokenAddress ?? item.asset.address)
+      ?.trim()
+      .toLowerCase();
+    return address === target;
+  });
+  if (assets.length === 0) return undefined;
+  return { ...action, assets };
+}
+
+// Resolve the amount/bps a build-transaction call should send for a
+// percentage-capable action. Manual partial entry sends the exact token amount
+// (human-decimal, matching IDeFiAsset.amount); a full close (Max) or the slider
+// sends bps — Max forces 100% so a balance that accrues between render and
+// submit can't leave dust. Non-percentage actions (claim) send neither.
+export function resolveDeFiActionTxAmount({
+  percentageAction,
+  percent,
+  amount,
+  isMaxAmount,
+}: {
+  percentageAction: boolean;
+  percent?: number;
+  amount?: string;
+  isMaxAmount?: boolean;
+}): { amount?: string; bps?: string } {
+  if (!percentageAction) return {};
+  const trimmedAmount = amount?.trim();
+  const amountBN = trimmedAmount ? new BigNumber(trimmedAmount) : undefined;
+  if (!isMaxAmount && amountBN?.isFinite() && amountBN.gt(0)) {
+    return { amount: trimmedAmount };
+  }
+  return {
+    bps: buildDeFiActionBps(isMaxAmount ? DEFI_ACTION_MAX_PERCENT : percent),
+  };
+}
+
 export default {
   buildDeFiActionBps,
+  resolveDeFiActionTxAmount,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
+  scopeResolvedActionToAsset,
 };
 
 export {
@@ -817,4 +859,5 @@ export {
   normalizeDeFiActionPercent,
   resolveDeFiPositionActionDebugCandidates,
   resolveDeFiPositionActions,
+  scopeResolvedActionToAsset,
 };

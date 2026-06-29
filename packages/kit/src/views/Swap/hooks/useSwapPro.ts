@@ -31,6 +31,7 @@ import type {
 import {
   swapProPositionsListMaxCount,
   swapProPositionsListMinValue,
+  swapProStockPositionsListMinValue,
   wrappedTokens,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -1474,21 +1475,28 @@ export function useSwapProSupportNetworksTokenList(
 export function useSwapProPositionsListFilter(
   filterToken?: ISwapToken[],
   sourceTokenList?: ISwapToken[],
+  isStockPositions?: boolean,
 ) {
   const [swapProSupportNetworksTokenList] =
     useSwapProSupportNetworksTokenListAtom();
   const positionsTokenList = sourceTokenList ?? swapProSupportNetworksTokenList;
   const filterDefaultTokenList = useMemo(() => {
+    // Stock positions use a lower $0.1 floor (vs $1) and skip the max-count cap,
+    // so small stock holdings still show and aren't pushed out of the top N.
+    const minValue = isStockPositions
+      ? swapProStockPositionsListMinValue
+      : swapProPositionsListMinValue;
     const filterMinValueTokenList = positionsTokenList.filter((token) => {
-      return new BigNumber(token.fiatValue || '0').gt(
-        swapProPositionsListMinValue,
-      );
+      return new BigNumber(token.fiatValue || '0').gt(minValue);
     });
-    if (filterMinValueTokenList.length <= swapProPositionsListMaxCount) {
+    if (
+      isStockPositions ||
+      filterMinValueTokenList.length <= swapProPositionsListMaxCount
+    ) {
       return filterMinValueTokenList;
     }
     return filterMinValueTokenList.slice(0, swapProPositionsListMaxCount);
-  }, [positionsTokenList]);
+  }, [positionsTokenList, isStockPositions]);
 
   const finallyTokenList = useMemo(
     () =>

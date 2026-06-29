@@ -203,18 +203,18 @@ const ProtocolUnifiedTable = memo(
           gap={PROTOCOL_TABLE_COLUMN_GAP}
         >
           <Stack width={POSITION_COLUMN_WIDTH} flexShrink={0} minWidth={0}>
-            <SizableText size="$headingXs" color="$textSubdued">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
               {labels.position}
             </SizableText>
           </Stack>
           <Stack flex={balanceFlex} flexBasis={0} minWidth={0}>
-            <SizableText size="$headingXs" color="$textSubdued">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
               {labels.balance}
             </SizableText>
           </Stack>
           {showRewardsColumn ? (
             <Stack flex={REWARDS_FLEX} flexBasis={0} minWidth={0}>
-              <SizableText size="$headingXs" color="$textSubdued">
+              <SizableText size="$bodySmMedium" color="$textSubdued">
                 {labels.rewards}
               </SizableText>
             </Stack>
@@ -225,7 +225,7 @@ const ProtocolUnifiedTable = memo(
             minWidth={0}
             alignItems="flex-end"
           >
-            <SizableText size="$headingXs" color="$textSubdued">
+            <SizableText size="$bodySmMedium" color="$textSubdued">
               {labels.value}
             </SizableText>
           </Stack>

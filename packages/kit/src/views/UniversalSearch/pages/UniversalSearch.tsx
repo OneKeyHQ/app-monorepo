@@ -47,11 +47,7 @@ import { ListItem } from '../../../components/ListItem';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '../../../states/jotai/contexts/tokenList';
+import { useHomeTokenListSnapshot } from '../../../states/jotai/contexts/tokenList/cells';
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 import { MarketWatchListProviderMirror } from '../../Market/MarketWatchListProviderMirror';
 import { MarketWatchListProviderMirrorV2 } from '../../Market/MarketWatchListProviderMirrorV2';
@@ -171,9 +167,13 @@ export function UniversalSearch({
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [allTokenList] = useAllTokenListAtom();
-  const [allTokenListMap] = useAllTokenListMapAtom();
-  const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
+  // Home raw list + full fiat map snapshot (PULLed from the BG VM, refreshed on
+  // each home structure frame). Keeps the search cache hint alive (do
+  // NOT drop the cache) — `getRawTokenList()` also returns the SETTLED owner
+  // identity so the `shouldUseTokensCacheData` owner match still holds. Replaces
+  // the deleted `allTokenListAtom` / `allTokenListMapAtom`.
+  const allTokenList = useHomeTokenListSnapshot();
+  const allTokenListMap = allTokenList.map;
 
   const { result: allAggregateTokenInfo } = usePromiseResult(
     async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
@@ -341,14 +341,12 @@ export function UniversalSearch({
     return (
       allTokenList &&
       allTokenListMap &&
-      aggregateTokenListMap &&
       allTokenList.accountId === activeAccount?.account?.id &&
       allTokenList.networkId === activeAccount?.network?.id
     );
   }, [
     allTokenList,
     allTokenListMap,
-    aggregateTokenListMap,
     activeAccount?.account?.id,
     activeAccount?.network?.id,
   ]);
@@ -604,9 +602,13 @@ export function UniversalSearch({
         tokenListCacheMap: shouldUseTokensCacheData
           ? allTokenListMap
           : undefined,
-        aggregateTokenListCacheMap: shouldUseTokensCacheData
-          ? aggregateTokenListMap
-          : undefined,
+        // PR-3 D2=B1 (tokenList cells full-delete): the UI no longer threads the
+        // home `aggregateTokensListMapAtom`. The BG
+        // `universalSearchOfAccountAssets` SELF-DERIVES the scoped owned
+        // sub-token list map for the searched owner (via
+        // `serviceToken.getLocalAggregateTokenListMap`) when this is absent, so
+        // aggregate sub-token (contract-address) matching is preserved.
+        aggregateTokenListCacheMap: undefined,
       };
       try {
         // Skip the primary round entirely when the active scope excludes all

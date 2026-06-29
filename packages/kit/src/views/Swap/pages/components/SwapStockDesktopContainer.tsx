@@ -128,6 +128,8 @@ import {
 import SwapActionsState from './SwapActionsState';
 import SwapInputActions from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
+import SwapMarketHistoryList from './SwapMarketHistoryList';
+import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapProCurrentSymbolEnable from './SwapProCurrentSymbolEnable';
 import SwapProPositionsList from './SwapProPositionsList';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -568,7 +570,6 @@ function StockEstimatedReceive({
       minWidth={0}
       px="$1"
       py="$0.5"
-      mr="$-1"
       borderRadius="$2"
       {...(canSelectReceiveToken
         ? {
@@ -676,7 +677,12 @@ function StockEstimatedReceive({
         ) : (
           <>
             {receiveTokenContent}
-            <XStack alignItems="center" justifyContent="flex-end" gap="$1">
+            <XStack
+              alignItems="center"
+              justifyContent="flex-end"
+              gap="$1"
+              pr="$1"
+            >
               <NumberSizeableText
                 size="$bodyMd"
                 color="$textSubdued"
@@ -793,10 +799,6 @@ function StockActionGate({
         return intl.formatMessage({
           id: ETranslations.swap_page_alert_no_provider_supports_trade,
         });
-      case ESwapStockChannelStage.MarketClosed:
-        return intl.formatMessage({
-          id: ETranslations.dexmarket_stock_status_closed_error,
-        });
       default:
         return intl.formatMessage({
           id: ETranslations.swap_page_button_enter_amount,
@@ -843,9 +845,11 @@ function StockActionGate({
     );
   }
 
-  const disabledButtonProps = getStockDisabledActionButtonProps(
-    stockChannel.tradeSide,
-  );
+  const isMarketClosed =
+    stockChannel.channelStage === ESwapStockChannelStage.MarketClosed;
+  const disabledButtonProps = isMarketClosed
+    ? undefined
+    : getStockDisabledActionButtonProps(stockChannel.tradeSide);
 
   return renderActionButton(
     <Button
@@ -1337,6 +1341,7 @@ function StockPriceChart({
   isNative,
   networkId,
   onRangeChange,
+  pulseLastPoint,
   range,
   tokenAddress,
 }: {
@@ -1344,6 +1349,7 @@ function StockPriceChart({
   isNative?: boolean;
   networkId?: string;
   onRangeChange: (range: IStockChartRange) => void;
+  pulseLastPoint?: boolean;
   range: IStockChartRange;
   tokenAddress?: string;
 }) {
@@ -1581,6 +1587,9 @@ function StockPriceChart({
           seriesType="dotted-area"
           showPriceScale
           showLastPointMarker={false}
+          // Pulse the chart tail only while the market is open (live updating);
+          // it stops when the market is closed.
+          pulseLastPoint={pulseLastPoint}
           showTimeScale
           priceScaleMargins={STOCK_CHART_PRICE_SCALE_MARGINS}
           priceScaleEntireTextOnly
@@ -1610,14 +1619,15 @@ function StockPriceChart({
           options={rangeOptions}
           onChange={handleRangeChange}
           slotBackgroundColor="$transparent"
-          activeBackgroundColor="$transparent"
+          activeBackgroundColor="$bgActive"
           activeTextColor="$text"
           inactiveTextColor="$textSubdued"
           segmentControlItemStyleProps={{
             h: '$5',
             minWidth: '$5',
             py: '$0',
-            px: '$0',
+            px: '$2',
+            borderRadius: '$full',
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -1667,6 +1677,10 @@ function StockMobilePositionsSection({
     [onTokenPress, setSwapTypeSwitch],
   );
 
+  const [activeStockTab, setActiveStockTab] = useState<'position' | 'history'>(
+    'position',
+  );
+
   return (
     <YStack mt="$2">
       <XStack
@@ -1680,28 +1694,71 @@ function StockMobilePositionsSection({
           <XStack
             py="$2"
             borderBottomWidth="$0.5"
-            borderBottomColor="$borderActive"
+            borderBottomColor={
+              activeStockTab === 'position' ? '$borderActive' : 'transparent'
+            }
             mb={-2}
+            cursor="pointer"
+            onPress={() => setActiveStockTab('position')}
           >
-            <SizableText size="$bodyMdMedium" pr="$0.5">
+            <SizableText
+              size="$bodyMdMedium"
+              color={activeStockTab === 'position' ? '$text' : '$textSubdued'}
+              pr="$0.5"
+            >
               {intl.formatMessage({
-                id: ETranslations.dexmarket_details_myposition,
+                id: ETranslations.perp_position_title,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack
+            py="$2"
+            borderBottomWidth="$0.5"
+            borderBottomColor={
+              activeStockTab === 'history' ? '$borderActive' : 'transparent'
+            }
+            mb={-2}
+            cursor="pointer"
+            onPress={() => setActiveStockTab('history')}
+          >
+            <SizableText
+              size="$bodyMdMedium"
+              color={activeStockTab === 'history' ? '$text' : '$textSubdued'}
+              pr="$0.5"
+            >
+              {intl.formatMessage({
+                id: ETranslations.Limit_order_history,
               })}
             </SizableText>
           </XStack>
         </XStack>
       </XStack>
-      <YStack>
-        <SwapProCurrentSymbolEnable isFocusSwapPro={false} />
+      <YStack display={activeStockTab === 'position' ? 'flex' : 'none'}>
+        <YStack>
+          <SwapProCurrentSymbolEnable isStock />
+        </YStack>
+        <YStack minHeight={180}>
+          <SwapProPositionsList
+            onTokenPress={handlePositionPress}
+            onSearchClick={handleOpenStockTokenSelector}
+            filterToken={filterToken}
+            cachedTokenList={cachedPositionTokenList}
+            hasCachedTokenList={hasCachedPositionTokenList}
+            stockOnly
+            hideSearch
+          />
+        </YStack>
       </YStack>
-      <YStack minHeight={180}>
-        <SwapProPositionsList
-          onTokenPress={handlePositionPress}
-          onSearchClick={handleOpenStockTokenSelector}
-          filterToken={filterToken}
-          cachedTokenList={cachedPositionTokenList}
-          hasCachedTokenList={hasCachedPositionTokenList}
-        />
+      <YStack
+        display={activeStockTab === 'history' ? 'flex' : 'none'}
+        minHeight={180}
+      >
+        <XStack mx="$-6">
+          <SwapMarketHistoryList
+            protocol={EProtocolOfExchange.STOCK}
+            isPushModal
+          />
+        </XStack>
       </YStack>
     </YStack>
   );
@@ -1713,6 +1770,7 @@ function StockMarketContextPanel({
   storeName: EJotaiContextStoreNames;
 }) {
   const { tokenDetail, tokenAddress, networkId, isNative } = useTokenDetail();
+  const stockChannel = useSwapStockTradeContext();
   const coinGeckoId = useStockChartCoinGeckoId({
     networkId,
     tokenAddress,
@@ -1722,6 +1780,8 @@ function StockMarketContextPanel({
     STOCK_CHART_DEFAULT_RANGE,
   );
   const chartReady = !!networkId && !!tokenDetail?.symbol;
+  // Only pulse the chart tail while the market is open (live updating).
+  const isMarketOpen = stockChannel.stockMarketStatus?.open === true;
 
   return (
     <YStack
@@ -1756,6 +1816,7 @@ function StockMarketContextPanel({
             isNative={isNative}
             range={range}
             onRangeChange={setRange}
+            pulseLastPoint={isMarketOpen}
           />
         ) : (
           <Skeleton w="100%" h={274} />
@@ -1857,7 +1918,7 @@ function SwapStockDesktopContent({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
       params: {
-        type: EProtocolOfExchange.SWAP,
+        type: EProtocolOfExchange.STOCK,
         storeName,
       },
     });
@@ -1969,6 +2030,9 @@ function SwapStockDesktopContent({
                   recentTokenPairs={stockRecentTokenPairs}
                   onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
                 />
+                <SwapPendingHistoryListComponent
+                  protocol={EProtocolOfExchange.STOCK}
+                />
               </YStack>
             </YStack>
             <YStack p="$5" flexBasis="50%" minWidth={0}>
@@ -2004,6 +2068,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const stockChannel = useSwapStockTradeContext();
   const stockRecentTokenPairs = useSwapStockRecentTokenPairs();
+  // The desktop trade modal reuses this mobile content; positions/order-history
+  // don't belong in that compact modal, so hide them there (native/web tabs keep
+  // them).
+  const isDesktopModalPage = useIsOverlayPage() && !platformEnv.isNative;
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -2062,13 +2130,15 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
           compact
         />
-        <YStack mt="$2">
-          <StockMobilePositionsSection
-            onTokenPress={props.onTokenPress}
-            supportNetworksList={props.supportNetworksList}
-            storeName={props.storeName}
-          />
-        </YStack>
+        {isDesktopModalPage ? null : (
+          <YStack mt="$2">
+            <StockMobilePositionsSection
+              onTokenPress={props.onTokenPress}
+              supportNetworksList={props.supportNetworksList}
+              storeName={props.storeName}
+            />
+          </YStack>
+        )}
       </YStack>
     </Keyboard.AwareScrollView>
   );

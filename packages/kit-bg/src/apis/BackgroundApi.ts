@@ -204,6 +204,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get serviceTokenViewModel() {
+    const ServiceTokenViewModel =
+      require('../services/ServiceTokenViewModel') as typeof import('../services/ServiceTokenViewModel');
+    const value = new ServiceTokenViewModel.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceTokenViewModel', { value });
+    return value;
+  }
+
   get serviceNFT() {
     const ServiceNFT =
       require('../services/ServiceNFT') as typeof import('../services/ServiceNFT');

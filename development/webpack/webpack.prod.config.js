@@ -97,9 +97,13 @@ module.exports = ({ platform, basePath }) => {
                 reuseExistingChunk: true,
               },
               lodashVendor: {
+                // 'initial' (not 'all'): only group lodash reachable from the
+                // initial graph. With 'all', lodash methods used solely by async
+                // route/SDK chunks were merged into this named chunk and dragged
+                // onto first paint (vendor-lodash measured ~92% unused on Home).
                 test: /[\\/]node_modules[\\/]lodash/,
                 name: 'vendor-lodash',
-                chunks: 'all',
+                chunks: 'initial',
                 priority: 30,
                 reuseExistingChunk: true,
               },
