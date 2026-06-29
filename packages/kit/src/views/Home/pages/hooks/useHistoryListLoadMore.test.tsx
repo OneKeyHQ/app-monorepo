@@ -375,6 +375,84 @@ describe('useHistoryListLoadMore', () => {
     );
   });
 
+  it('hard-resets when a sticky local pending is the only overlap during an on-chain burst', async () => {
+    const fetchMock = getFetchMock();
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-3'), createMockTx('tx-4')],
+      hasMoreOnChainHistory: true,
+      next: 'cursor-2',
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    const { result } = renderHook(() =>
+      useHistoryListLoadMore({
+        enabled: true,
+        accountId: 'account-1',
+        networkId: 'evm--1',
+      }),
+    );
+
+    // First page leads with a long-lived local pending pinned to the top.
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [
+          createLocalPendingTx('pending-sticky'),
+          createMockTx('tx-1'),
+          createMockTx('tx-2'),
+        ],
+        next: 'cursor-1',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual([
+      'tx-3',
+      'tx-4',
+    ]);
+
+    // A burst larger than one page makes the refreshed first page disjoint from
+    // the previous one on every on-chain row; only the sticky pending is shared.
+    // The pending must NOT count as overlap — otherwise the bridge would keep
+    // the loaded range and render a hole between the new first page and tx-3.
+    // The hook must fall back to a hard reset and re-seed the cursor instead.
+    act(() => {
+      result.current.onFirstPageResponse({
+        txs: [
+          createLocalPendingTx('pending-sticky'),
+          createMockTx('tx-100'),
+          createMockTx('tx-101'),
+        ],
+        next: 'cursor-fresh',
+        hasMore: true,
+        isIndexer: false,
+      });
+    });
+    expect(result.current.appendedTxs).toEqual([]);
+
+    fetchMock.mockResolvedValueOnce({
+      txs: [createMockTx('tx-102')],
+      hasMoreOnChainHistory: false,
+      isIndexer: false,
+      addressMap: {},
+    } satisfies IHistoryLoadMoreTestResponse);
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 2,
+        cursor: 'cursor-fresh',
+      }),
+    );
+    expect(result.current.appendedTxs.map((tx) => tx.id)).toEqual(['tx-102']);
+  });
+
   it('clears the spinner via the soft timeout when the proxy round-trip hangs', async () => {
     jest.useFakeTimers();
     try {

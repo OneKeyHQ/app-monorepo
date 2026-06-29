@@ -178,8 +178,14 @@ export function useHistoryListLoadMore(params: IUseHistoryListLoadMoreParams) {
       // of history with no cursor that can ever backfill it. In that rare case
       // fall back to a hard reset: a one-time scroll-to-top is strictly safer
       // than silently dropping a contiguous slice of history.
-      const overlapsPreviousFirstPage = firstPageTxsRef.current.some((tx) =>
-        nextFirstPageIds.has(tx.id),
+      // Anchor overlap on a non-sticky row only. A long-lived local pending
+      // (still unconfirmed across refreshes) sits on top of every first page,
+      // so counting it as "overlap" would mask a fully-disjoint on-chain range
+      // (HISTORY_PAGE_SIZE+ new txs since the last refresh) and let the bridge
+      // render a hole in the middle of history — the exact case the disjoint
+      // hard-reset below is meant to catch.
+      const overlapsPreviousFirstPage = firstPageTxsRef.current.some(
+        (tx) => !isLocalPendingTx(tx) && nextFirstPageIds.has(tx.id),
       );
       const shouldPreserveLoadedRange =
         (appendedTxsRef.current.length > 0 || inFlightRef.current) &&
