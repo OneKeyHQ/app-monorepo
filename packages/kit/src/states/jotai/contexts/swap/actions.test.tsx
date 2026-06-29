@@ -443,6 +443,7 @@ describe('useSwapActions', () => {
       await result.current.actions.checkSwapWarning(
         fromAddressInfo,
         fromAddressInfo,
+        { allowNoConnectWallet: true },
       );
     });
 
