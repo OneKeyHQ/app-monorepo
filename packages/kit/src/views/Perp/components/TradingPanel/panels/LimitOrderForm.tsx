@@ -1386,7 +1386,8 @@ export function showLimitOrderDialog({
     id: ETranslations.perp_trade_limit,
   })} · ${displayName}`;
   const dialogInstance = Dialog.show({
-    title: titleText,
+    // Custom Dialog.Header below is the only header; suppress the default to avoid a duplicate.
+    showHeader: false,
     renderContent: (
       <>
         <Dialog.Header>

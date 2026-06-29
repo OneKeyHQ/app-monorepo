@@ -193,19 +193,19 @@ export function useChartLines({
       ) {
         return [];
       }
-      // Spot orders carry `coin` in HL's `@index` form, while the chart symbol
-      // is the pair name — strict `coin === symbol` dropped every spot order
-      // line (OK-56900). Match against all canonical forms of the active spot
-      // instrument: its coin, its pair name, and the `@index` from assetId.
-      const aliases = new Set<string>();
-      if (activeTradeInstrument.coin) {
-        aliases.add(activeTradeInstrument.coin);
-      }
-      if (activeTradeInstrument.universe?.name) {
-        aliases.add(activeTradeInstrument.universe.name);
-      }
-      if (typeof activeTradeInstrument.assetId === 'number') {
-        aliases.add(`@${activeTradeInstrument.assetId - SPOT_ASSET_ID_OFFSET}`);
+      // Match against the chart `symbol`; only trust activeTradeInstrument's
+      // `@index`/pair aliases while it still points at this chart's symbol, so a
+      // drifted panel asset can't draw another pair's lines here (OK-56900).
+      const aliases = new Set<string>([symbol]);
+      if (activeTradeInstrument.coin === symbol) {
+        if (activeTradeInstrument.universe?.name) {
+          aliases.add(activeTradeInstrument.universe.name);
+        }
+        if (typeof activeTradeInstrument.assetId === 'number') {
+          aliases.add(
+            `@${activeTradeInstrument.assetId - SPOT_ASSET_ID_OFFSET}`,
+          );
+        }
       }
       return spotOpenOrders.filter((order) => aliases.has(order.coin));
     }
@@ -220,6 +220,7 @@ export function useChartLines({
     perpsOpenOrders,
     spotOpenOrders,
     spotOrdersAccountAddress,
+    symbol,
   ]);
 
   // Build current lines (returns empty if showChartLines is disabled)
